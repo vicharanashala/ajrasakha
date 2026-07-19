@@ -721,17 +721,22 @@ export class AnswerService extends BaseService implements IAnswerService {
           let message = `Your review has been modified. Check the question details for the updated changes`;
           let title = 'Your answer has been modified.';
           let entityId = questionId.toString();
-          const authorId = answerToModify.authorId.toString();
+          // The answer being modified may not carry an authorId (e.g. system/LLM
+          // generated answers). The notification is best-effort — skip it when there's
+          // no author to notify rather than aborting the whole modify submission.
+          const authorId = answerToModify?.authorId?.toString();
           const type: INotificationType = 'review_modified';
 
-          await this.notificationService.saveTheNotifications(
-            message,
-            title,
-            entityId,
-            authorId,
-            type,
-            session,
-          );
+          if (authorId) {
+            await this.notificationService.saveTheNotifications(
+              message,
+              title,
+              entityId,
+              authorId,
+              type,
+              session,
+            );
+          }
         }
         // Allocate next user in the history from queue if necessary
 
@@ -1938,7 +1943,7 @@ answer: ${updates.answer}`;
           {
             text,
             embedding: questionEmbedding,
-            status: 'closed',
+            status: 'duplicate_closed',
             closedAt: new Date(),
           },
           session,
@@ -1995,7 +2000,7 @@ answer: ${updates.answer}`;
         {
           text,
           embedding: questionEmbedding,
-          status: question?.tag === 'static_dynamic'?'dynamic_closed':'closed',
+          status: isDuplicateApproval ? 'duplicate_closed' : (question?.tag === 'static_dynamic' ? 'dynamic_closed' : 'closed'),
           closedAt: new Date(),
         },
         session,
@@ -2032,7 +2037,7 @@ answer: ${updates.answer}`;
       //  WEBHOOK HANDLERS
       const webhookPayload = {
         question_id: questionId,
-        status: question?.tag === 'static_dynamic'?'dynamic_closed':'closed',
+        status: isDuplicateApproval ? 'duplicate_closed' : (question?.tag === 'static_dynamic' ? 'dynamic_closed' : 'closed'),
         answer: updates.answer ?? '',
         author:
           `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||

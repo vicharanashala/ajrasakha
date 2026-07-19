@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { appConfig } from '../../../config/app.js';
 import { WebSocket } from 'ws';
 import plivo from 'plivo';
+import { ObjectId } from 'mongodb';
 import { PLIVO_TYPES } from '../types.js';
 import type { ICallDetailsRepository } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
@@ -36,6 +37,7 @@ export class PlivoService {
   private detectedLanguages: Map<string, string> = new Map(); // Store detected languages
   private activeStreams: Map<string, SarvamStreamSession> = new Map();
   private plivoClient: plivo.Client;
+  private callAgentMapping: Map<string, string> = new Map(); // Maps callUuid -> agentUserId
 
   constructor(
     @inject(PLIVO_TYPES.CallDetailsRepository)
@@ -64,7 +66,7 @@ export class PlivoService {
     callId: string,
     onTranscript: (result: { track: 'inbound' | 'outbound'; originalText: string; translatedText: string; detectedLanguage: string }) => void
   ): void {
-    // console.log(`🔌 [PLIVO-SERVICE] Initializing Sarvam WebSocket streams for call ${callId}`);
+    console.log(`🔌 [PLIVO-SERVICE] Initializing Sarvam WebSocket streams for call ${callId}`);
     this.initializeTrackStream(callId, 'inbound', onTranscript);
     this.initializeTrackStream(callId, 'outbound', onTranscript);
   }
@@ -118,7 +120,7 @@ export class PlivoService {
 
     // Set up transcribeWs listeners
     transcribeWs.on('open', () => {
-      // console.log(`📡 [PLIVO-SERVICE] Transcribe WS opened for call ${callId} (${track})`);
+      console.log(`📡 [PLIVO-SERVICE] Transcribe WS opened for call ${callId} (${track})`);
       transcribeWsSession.isOpen = true;
       this.flushQueue(transcribeWsSession);
     });
@@ -164,7 +166,7 @@ export class PlivoService {
 
     // Set up translateWs listeners
     translateWs.on('open', () => {
-      // console.log(`📡 [PLIVO-SERVICE] Translate WS opened for call ${callId} (${track})`);
+      console.log(`📡 [PLIVO-SERVICE] Translate WS opened for call ${callId} (${track})`);
       translateWsSession.isOpen = true;
       this.flushQueue(translateWsSession);
     });
@@ -284,7 +286,7 @@ export class PlivoService {
    */
   async finalizeTrackStream(callId: string, track: 'inbound' | 'outbound'): Promise<{ originalText: string; translatedText: string }> {
     const key = `${callId}_${track}`;
-    // console.log(`🔌 [PLIVO-SERVICE] Finalizing stream for call ${callId} (${track})`);
+    console.log(`🔌 [PLIVO-SERVICE] Finalizing stream for call ${callId} (${track})`);
     const session = this.activeStreams.get(key);
     if (!session) return { originalText: '', translatedText: '' };
 
@@ -418,13 +420,30 @@ export class PlivoService {
         this.activeStreams.delete(key);
       }
     }
+    // Clear agent mapping for this call
+    this.callAgentMapping.delete(callId);
+  }
+
+  /**
+   * Set the agent userid for a specific call
+   */
+  setCallAgent(callUuid: string, agentUserId: string): void {
+    this.callAgentMapping.set(callUuid, agentUserId);
+    console.log(`✅ [PLIVO-SERVICE] Set agent ${agentUserId} for call ${callUuid}`);
+  }
+
+  /**
+   * Get the agent userid for a specific call
+   */
+  getCallAgent(callUuid: string): string | undefined {
+    return this.callAgentMapping.get(callUuid);
   }
 
   /**
    * Save complete call details into the database
    */
   async saveCallDetails(callUuid: string): Promise<void> {
-    // console.log('saved call details', callUuid);
+    console.log(`📝 [PLIVO-SERVICE] Saving call details for ${callUuid}`);
     try {
       // 1. Fetch from Plivo API
       let plivoCall: any = null;
@@ -442,6 +461,7 @@ export class PlivoService {
       const agentTranscript = this.getTranscript(callUuid, 'outbound');
       const agentTranslation = this.getTranslation(callUuid, 'outbound');
       const agentLanguage = this.getDetectedLanguage(callUuid, 'outbound');
+      const agentUserId = this.getCallAgent(callUuid);
 
       const callDetails = {
         callUuid,
@@ -459,12 +479,20 @@ export class PlivoService {
           transcript: agentTranscript,
           translation: agentTranslation,
           detectedLanguage: agentLanguage,
+          userid: agentUserId ? new ObjectId(agentUserId) : undefined,
         }
       };
 
       // 3. Save to repository
-      await this.callDetailsRepository.create(callDetails);
-      console.log(`✅ [PLIVO-SERVICE] Saved call details for ${callUuid} to database.`);
+      // 3. Save to repository (update if it already exists, otherwise create)
+      const existingCall = await this.callDetailsRepository.getByCallUuid(callUuid);
+      if (existingCall) {
+        await this.callDetailsRepository.updateCallDetails(callUuid, callDetails);
+        console.log(`✅ [PLIVO-SERVICE] Updated existing call details for ${callUuid} in database.`);
+      } else {
+        await this.callDetailsRepository.create(callDetails);
+        console.log(`✅ [PLIVO-SERVICE] Saved new call details for ${callUuid} to database.`);
+      }
     } catch (err) {
       console.error(`❌ [PLIVO-SERVICE] Error saving call details for ${callUuid}:`, err);
     }

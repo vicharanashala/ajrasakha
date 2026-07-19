@@ -228,6 +228,30 @@ export class ChatbotService {
   //   );
   // }
 
+  async getTopQuestionInstances(
+    questionId: string,
+    filters: {
+      source?: string;
+      userType?: string;
+      startTime?: string;
+      endTime?: string;
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.source) params.append("source", filters.source);
+    if (filters.userType) params.append("userType", filters.userType);
+    if (filters.startTime) params.append("startTime", filters.startTime);
+    if (filters.endTime) params.append("endTime", filters.endTime);
+    if (filters.page) params.append("page", filters.page.toString());
+    if (filters.limit) params.append("limit", filters.limit.toString());
+
+    return apiFetch<any>(
+      `${this._baseUrl}/top-questions/${questionId}?${params.toString()}`
+    );
+  }
+
   async getQuestionByFilters({
     category,
     district,
@@ -243,11 +267,12 @@ export class ChatbotService {
     limit,
     source,
     userType,
-    stringStartDate,
-    stringEndDate,
+    startDate,
+    endDate,
     search,
     isPassed,
-    tag
+    tag,
+    userId,
   }: {
     category?: string;
     district?: string;
@@ -263,11 +288,12 @@ export class ChatbotService {
     limit: number;
     source: string;
     userType?: string;
-    stringStartDate?: string;
-    stringEndDate?: string;
+    startDate?: string;
+    endDate?: string;
     search?: string;
     isPassed?: boolean;
     tag?: string;
+    userId?: string;
   }) {
     const params = new URLSearchParams();
     if (category) params.append("category", category);
@@ -284,8 +310,8 @@ export class ChatbotService {
     params.append("limit", limit.toString());
     params.append("source", source);
     if (userType) params.append("userType", userType);
-    if (stringStartDate) params.append("startDate", stringStartDate);
-    if (stringEndDate) params.append("endDate", stringEndDate);
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
     if (search?.trim()) {
       params.append("search", search.trim());
     }
@@ -294,6 +320,9 @@ export class ChatbotService {
     }
     if(tag){
       params.append("tag", tag)
+    }
+    if (userId) {
+      params.append("userId", userId);
     }
     return apiFetch<any>(
       `${this._baseUrl}/filtered-questions?${params.toString()}`,
@@ -319,6 +348,7 @@ export class ChatbotService {
     userType: string,
     startDate?: string,
     endDate?: string,
+    userId?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
     params.append("source", source);
@@ -328,6 +358,9 @@ export class ChatbotService {
     }
     if (endDate) {
       params.append("endDate", endDate);
+    }
+    if (userId) {
+      params.append("userId", userId);
     }
     return apiFetch<any>(
       `${this._baseUrl}/closed-notified-data?${params.toString()}`,
@@ -384,6 +417,8 @@ export class ChatbotService {
     // stringStartDate,
     // stringEndDate,
     // search,
+    startDate,
+    endDate
   }: {
     // category?: string;
     // district?: string;
@@ -402,6 +437,8 @@ export class ChatbotService {
     // stringStartDate?: string;
     // stringEndDate?: string;
     // search?: string;
+    startDate?: string
+    endDate?: string;
   }) {
     const params = new URLSearchParams();
     // if (category) params.append("category", category);
@@ -423,6 +460,8 @@ export class ChatbotService {
     // if (search?.trim()) {
     //   params.append("search", search.trim());
     // }
+    if (startDate) params.append("startDate", startDate);
+    if(endDate) params.append("endDate", endDate);
     return apiFetch<any>(
       `${this._baseUrl}/state-user-data?${params.toString()}`,
     );
@@ -508,6 +547,8 @@ export class ChatbotService {
     district,
     state,
     search,
+    startDate,
+    endDate
   }:{
     page: number,
     limit: number,
@@ -516,6 +557,8 @@ export class ChatbotService {
     district?: string,
     state?: string,
     search?: string,
+    startDate?: string,
+    endDate?: string,
   }){
     const params = new URLSearchParams();
     params.append('page', page.toString());
@@ -525,6 +568,8 @@ export class ChatbotService {
     if(district) params.append('district', district);
     if(state) params.append('state', state);
     if(search) params.append('search', search);
+    if(startDate) params.append('startDate', startDate);
+    if(endDate) params.append('endDate', endDate);
     return apiFetch<any>(`${this._baseUrl}/active-users-details?${params.toString()}`)
   }
 
@@ -565,6 +610,9 @@ export class ChatbotService {
     isPassed?: boolean,
     tag?: string,
     notificationType?: string,
+    userId?: string,
+    page?: number,
+    limit?: number,
   ): Promise<any> {
     const params = new URLSearchParams();
     if (startDate) {
@@ -591,9 +639,154 @@ export class ChatbotService {
     if (notificationType) {
       params.append("notificationType", String(notificationType));
     }
+    if (userId) {
+      params.append("userId", userId);
+    }
+    if (page) {
+      params.append("page", String(page));
+    }
+    if (limit) {
+      params.append("limit", String(limit));
+    }
 
     return apiFetch<any>(
       `${this._baseUrl}/lifecycle-summary?${params.toString()}`
     );
   }
+
+  async getFeedbackUsers({
+    page,
+    limit,
+    search,
+    sortBy,
+    sortOrder,
+    rating,
+    tag,
+    source,
+    userType,
+  }: {
+    page: number;
+    limit: number;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    rating?: string;
+    tag?: string;
+    source?: string;
+    userType?: string;
+  }): Promise<any> {
+    const params = new URLSearchParams();
+    params.append("page", page.toString());
+    params.append("limit", limit.toString());
+    if (search) params.append("search", search);
+    if (sortBy) params.append("sortBy", sortBy);
+    if (sortOrder) params.append("sortOrder", sortOrder);
+    if (rating) {
+      const apiRating = rating === 'positive' ? 'thumbsUp' : rating === 'negative' ? 'thumbsDown' : rating;
+      params.append("rating", apiRating);
+    }
+    if (tag) params.append("tag", tag);
+    if (source) params.append("source", source);
+    if (userType) params.append("userType", userType);
+
+    return apiFetch<any>(
+      `${this._baseUrl}/feedback-users?${params.toString()}`
+    );
+  }
+
+    async getFeedbackByLocation({
+    source,
+    page,
+    limit,
+    sortBy,
+    sortOrder,
+    userType,
+    rating,
+    state,
+    district,
+    search,
+    startDate,
+    endDate,
+  }: {
+    source?: string;
+    page: number;
+    limit: number;
+    sortBy?: string;
+    sortOrder?: string;
+    userType?: string;
+    rating?: string;
+    state?: string,
+    district?: string,
+    search?: string;
+    startDate?: string,
+    endDate?: string,
+  }): Promise<any> {
+    const params = new URLSearchParams();
+    if (source) params.append("source", source);
+    params.append("page", page.toString());
+    params.append("limit", limit.toString());
+    if (sortBy) params.append("sortBy", sortBy);
+    if (sortOrder) params.append("sortOrder", sortOrder);
+    if (userType) params.append("userType", userType);
+    if (rating) {
+      const apiRating = rating === 'positive' ? 'thumbsUp' : rating === 'negative' ? 'thumbsDown' : rating;
+      params.append("rating", apiRating);
+    }
+    if(state) params.append('state', state);
+    if(district) params.append('district', district);
+    if (search) params.append("search", search);
+
+    if(startDate) params.append("startDate", startDate);
+    if(endDate) params.append("endDate", endDate)
+
+    return apiFetch<any>(
+      `${this._baseUrl}/feedback-by-location?${params.toString()}`
+    );
+  }
+
+  async getClosedInLastTwoHoursByLocation({source, userType, state, district, startDate, endDate}:{source?: string, userType?: string, state?: string, district?: string, startDate?: string, endDate?: string}){
+    const params = new URLSearchParams();
+    if(source) params.append("source", source);
+    if(userType) params.append("userType", userType);
+    if(state) params.append("state", state);
+    if(district) params.append("district", district);
+    if(startDate) params.append("startDate", startDate);
+    if(endDate) params.append("endDate", endDate)
+    return apiFetch<any>(`${this._baseUrl}/closed-question-by-location?${params.toString()}`)
+  }
+
+    async getActiveUsersDetailsByQuestions ({
+    page,
+    limit,
+    source,
+    userType,
+    district,
+    state,
+    search,
+    startDate,
+    endDate
+  }:{
+    page: number,
+    limit: number,
+    source:string,
+    userType: string,
+    district?: string,
+    state?: string,
+    search?: string,
+    startDate?: string,
+    endDate?: string,
+  }){
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    params.append('source', source)
+    params.append('userType', userType)
+    if(district) params.append('district', district);
+    if(state) params.append('state', state);
+    if(search) params.append('search', search);
+    if(startDate) params.append('startDate', startDate);
+    if(endDate) params.append('endDate', endDate);
+    return apiFetch<any>(`${this._baseUrl}/active-user-by-questions?${params.toString()}`)
+  }
+
 }

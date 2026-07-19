@@ -22,6 +22,7 @@ import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
+  IUserHistory,
   NotificationRetentionType,
   UserRole,
 } from '#root/shared/interfaces/models.js';
@@ -49,6 +50,7 @@ import {
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserEntryResponse,
+  UserHistoryResponse,
 } from '../../core/classes/validators/UserResponseValidators.js';
 
 @OpenAPI({
@@ -1035,7 +1037,7 @@ export class UserController {
   ): Promise<IUser> {
     const { userId, isCallAgent, isCallAgentActive } = body;
     try {
-      const res = await this.userService.setCallAgentStatus(userId, isCallAgent, isCallAgentActive, currentUser.role);
+      const res = await this.userService.setCallAgentStatus(userId, isCallAgent, isCallAgentActive, currentUser);
       return res;
     } catch (err) {
       throw err;
@@ -1069,8 +1071,77 @@ export class UserController {
     @Param('id') userId: string,
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
-    return await this.userService.toggleCallAgentActive(userId, currentUser.role);
+    return await this.userService.toggleCallAgentActive(userId, currentUser);
   }
+
+  @OpenAPI({
+    summary: 'Toggle call agent online/offline status',
+    description: 'Sets a call agent as online or offline. Online agents are assigned an agent number and can receive calls. Offline agents release their agent number. Call agents can control their own status.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'Call agent status updated successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - User is not a call agent',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Post('/call-agents/toggle-status')
+  @HttpCode(200)
+  @Authorized(['call_agent'])
+  async toggleAgentStatus(
+    @Body() body: { online: boolean },
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    const userId = currentUser._id.toString();
+    if (body.online) {
+      return await this.userService.setAgentOnline(userId);
+    } else {
+      return await this.userService.setAgentOffline(userId);
+    }
+  }
+
+  @OpenAPI({
+    summary: 'Update call agent heartbeat',
+    description: 'Updates the last active timestamp of a call agent to prevent them from being marked offline.',
+  })
+  @Post('/call-agents/heartbeat')
+  @HttpCode(200)
+  @Authorized(['call_agent'])
+  async updateHeartbeat(
+    @CurrentUser() currentUser: IUser,
+  ): Promise<{ success: boolean }> {
+    const userId = currentUser._id.toString();
+    await this.userService.updateAgentHeartbeat(userId);
+    return { success: true };
+  }
+
+
+  @OpenAPI({
+    summary: 'Mark call agent as available',
+    description: 'Marks a call agent as available (not busy) if they are active and currently busy.',
+  })
+  @Post('/call-agents/available')
+  @HttpCode(200)
+  @Authorized(['call_agent'])
+  async markAvailable(
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    const userId = currentUser._id.toString();
+    const user = await this.userService.getUserById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+    if (user.isCallAgentActive && user.isBusy) {
+      return await this.userService.markAgentAsAvailable(userId);
+    }
+    return user;
+  }
+
 
   @OpenAPI({
     summary: 'Request account verification',
@@ -1092,5 +1163,30 @@ export class UserController {
     const { identifier } = body;
     await this.userService.requestVerification(identifier);
     return { message: 'Verification request sent to administrators.' };
+  }
+
+  //get user history
+   @OpenAPI({
+    summary: 'Get user history by userId',
+    description: 'Retrieves the user history for the specified user ID.',
+  })
+  @ResponseSchema(UserHistoryResponse, {
+    statusCode: 200,
+    description: 'User history retrieved successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - User not found',
+  })
+  @Get('/user-history')
+  @HttpCode(200)
+  @Authorized()
+  async getUserHistoryById(@QueryParams() query: { userId: string; startDateTime?: string; endDateTime?: string;}): Promise<IUserHistory> {
+    
+    return await this.userService.getUserHistoryById(query);
   }
 }

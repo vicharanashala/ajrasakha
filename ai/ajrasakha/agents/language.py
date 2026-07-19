@@ -222,11 +222,42 @@ def resolve_planner_language_pair(
     return vocal, script
 
 
-def _llm_detect_language(text: str) -> str:
-    """Analyze the text and return the underlying spoken language name (e.g. Hindi, English, Punjabi)."""
+def _llm_detect_language(text: str, script_context: str = "Latin") -> str:
+    """Analyze the text and return the underlying spoken language name (e.g. Hindi, English, Punjabi).
+    
+    Args:
+        text: The farmer's query text
+        script_context: The detected script from Unicode ranges (e.g. "Telugu", "Odia", "Latin")
+                       This is used to inform the LLM about the script context to avoid
+                       incorrectly inferring language from state/place names.
+    """
     t = (text or "").strip()
     if not t:
         return "English"
+    
+    # For native scripts that map 1:1 to a language, use that as hint
+    # This prevents the LLM from incorrectly inferring from state names
+    if script_context in _SCRIPT_TO_OFFICIAL_LANGUAGE:
+        script_lang = _SCRIPT_TO_OFFICIAL_LANGUAGE[script_context]
+        # For scripts that have a clear 1:1 mapping, prefer the script's language
+        # unless there's strong evidence of a different spoken language
+        script_hint = f"\n\nSCRIPT CONTEXT (IMPORTANT): The text is written in {script_context} script. "
+        script_hint += f"This typically indicates the spoken language is {script_lang}. "
+        script_hint += "Do NOT let state/district names (like Odisha, Tamil Nadu) mislead you into "
+        script_hint += "detecting a different language — the SCRIPT determines the vocal language."
+    elif script_context == "Devanagari":
+        script_hint = "\n\nSCRIPT CONTEXT: The text is in Devanagari script, which is shared by "
+        script_hint += "Hindi, Marathi, Nepali, Sanskrit, and other languages. "
+        script_hint += "Use Hindi markers (postpositions: me/ke liye/se/ko/par, "
+        script_hint += "verbs: hai/hain/karna, pronouns: mera/aap/hum) to distinguish from Hindi."
+    elif script_context == "Bengali-Assamese":
+        script_hint = "\n\nSCRIPT CONTEXT: The text is in Bengali-Assamese script, "
+        script_hint += "used by Bengali and Assamese languages."
+    elif script_context == "Latin":
+        script_hint = ""
+    else:
+        script_hint = ""
+    
     try:
         from ajrasakha.agents.config import ChatAnthropic
         from ajrasakha.agents.config import SANITIZER_MODEL
@@ -248,8 +279,9 @@ def _llm_detect_language(text: str) -> str:
             "- If the text uses standard English words, English prepositions (in, for, to, with, over, next), "
             "English verb forms (is, are, can, should, will, watch), and English grammar → classify as ENGLISH\n"
             "- If the text contains ANY of the Hindi markers above → classify as the underlying Indian language\n"
-            "- NEVER classify as Hindi just because the text mentions Indian place names (Villupuram, Tamil Nadu), "
-            "crop names (paddy, wheat), or state names — UNLESS the crop name itself is in Hindi (gehu, chawal, kanak)\n\n"
+            "- NEVER classify as Hindi just because the text mentions Indian place names (Villupuram, Tamil Nadu, Odisha), "
+            "crop names (paddy, wheat), or state names — UNLESS the crop name itself is in Hindi (gehu, chawal, kanak)\n"
+            "- NEVER classify as the language of the state mentioned (e.g. don't say Odia just because Odisha is mentioned)\n\n"
             "CROP NAME RULE (apply ONLY if text is exactly a crop name, nothing else):\n"
             "- English crop names: paddy, wheat, rice, maize, cotton, sugarcane, soybean, groundnut, potato, onion, tomato → English\n"
             "- Hindi crop names: gehu, chawal, makka, ganne, aloo, pyaz, tamatar, kanak → Hindi\n"
@@ -258,6 +290,7 @@ def _llm_detect_language(text: str) -> str:
             "- If text is only a state/district name in Latin script (Uttar Pradesh, Tamil Nadu, Villupuram, etc.) → English\n"
             "- If text is only a state/district name in Devanagari script (उत्तर प्रदेश, महाराष्ट्र, etc.) → Hindi\n"
             "- If text is only a state/district name in other native scripts → the corresponding language\n\n"
+            f"{script_hint}\n\n"
             f"Return language from this EXACT list only:\n{', '.join(OFFICIAL_LANGUAGES)}.\n\n"
             "Return ONLY the language name. Do not include any other text, reasoning, or punctuation.\n\n"
             f"Text: {t}\n"
@@ -278,11 +311,39 @@ def _llm_detect_language(text: str) -> str:
         return "English"
 
 
-async def _allm_detect_language(text: str) -> str:
-    """Analyze the text and return the underlying spoken language name asynchronously."""
+async def _allm_detect_language(text: str, script_context: str = "Latin") -> str:
+    """Analyze the text and return the underlying spoken language name asynchronously.
+    
+    Args:
+        text: The farmer's query text
+        script_context: The detected script from Unicode ranges (e.g. "Telugu", "Odia", "Latin")
+                       This is used to inform the LLM about the script context to avoid
+                       incorrectly inferring language from state/place names.
+    """
     t = (text or "").strip()
     if not t:
         return "English"
+    
+    # For native scripts that map 1:1 to a language, use that as hint
+    if script_context in _SCRIPT_TO_OFFICIAL_LANGUAGE:
+        script_lang = _SCRIPT_TO_OFFICIAL_LANGUAGE[script_context]
+        script_hint = f"\n\nSCRIPT CONTEXT (IMPORTANT): The text is written in {script_context} script. "
+        script_hint += f"This typically indicates the spoken language is {script_lang}. "
+        script_hint += "Do NOT let state/district names (like Odisha, Tamil Nadu) mislead you into "
+        script_hint += "detecting a different language — the SCRIPT determines the vocal language."
+    elif script_context == "Devanagari":
+        script_hint = "\n\nSCRIPT CONTEXT: The text is in Devanagari script, which is shared by "
+        script_hint += "Hindi, Marathi, Nepali, Sanskrit, and other languages. "
+        script_hint += "Use Hindi markers (postpositions: me/ke liye/se/ko/par, "
+        script_hint += "verbs: hai/hain/karna, pronouns: mera/aap/hum) to distinguish from Hindi."
+    elif script_context == "Bengali-Assamese":
+        script_hint = "\n\nSCRIPT CONTEXT: The text is in Bengali-Assamese script, "
+        script_hint += "used by Bengali and Assamese languages."
+    elif script_context == "Latin":
+        script_hint = ""
+    else:
+        script_hint = ""
+    
     try:
         from ajrasakha.agents.config import ChatAnthropic
         from ajrasakha.agents.config import SANITIZER_MODEL
@@ -304,8 +365,9 @@ async def _allm_detect_language(text: str) -> str:
             "- If the text uses standard English words, English prepositions (in, for, to, with, over, next), "
             "English verb forms (is, are, can, should, will, watch), and English grammar → classify as ENGLISH\n"
             "- If the text contains ANY of the Hindi markers above → classify as the underlying Indian language\n"
-            "- NEVER classify as Hindi just because the text mentions Indian place names (Villupuram, Tamil Nadu), "
-            "crop names (paddy, wheat), or state names — UNLESS the crop name itself is in Hindi (gehu, chawal, kanak)\n\n"
+            "- NEVER classify as Hindi just because the text mentions Indian place names (Villupuram, Tamil Nadu, Odisha), "
+            "crop names (paddy, wheat), or state names — UNLESS the crop name itself is in Hindi (gehu, chawal, kanak)\n"
+            "- NEVER classify as the language of the state mentioned (e.g. don't say Odia just because Odisha is mentioned)\n\n"
             "CROP NAME RULE (apply ONLY if text is exactly a crop name, nothing else):\n"
             "- English crop names: paddy, wheat, rice, maize, cotton, sugarcane, soybean, groundnut, potato, onion, tomato → English\n"
             "- Hindi crop names: gehu, chawal, makka, ganne, aloo, pyaz, tamatar, kanak → Hindi\n"
@@ -314,6 +376,7 @@ async def _allm_detect_language(text: str) -> str:
             "- If text is only a state/district name in Latin script (Uttar Pradesh, Tamil Nadu, Villupuram, etc.) → English\n"
             "- If text is only a state/district name in Devanagari script (उत्तर प्रदेश, महाराष्ट्र, etc.) → Hindi\n"
             "- If text is only a state/district name in other native scripts → the corresponding language\n\n"
+            f"{script_hint}\n\n"
             f"Return language from this EXACT list only:\n{', '.join(OFFICIAL_LANGUAGES)}.\n\n"
             "Return ONLY the language name. Do not include any other text, reasoning, or punctuation.\n\n"
             f"Text: {t}\n"
@@ -341,7 +404,7 @@ async def adetect_farmer_language(text: str) -> str:
         return "English"
         
     script = detect_script(t)
-    lang = await _allm_detect_language(t)
+    lang = await _allm_detect_language(t, script)
     
     if script == "Latin":
         if lang == "English":
@@ -368,7 +431,7 @@ def detect_farmer_language(text: str) -> str:
         return "English"
         
     script = detect_script(t)
-    lang = _llm_detect_language(t)
+    lang = _llm_detect_language(t, script)
     
     if script == "Latin":
         if lang == "English":

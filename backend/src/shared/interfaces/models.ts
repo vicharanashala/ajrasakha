@@ -1,7 +1,7 @@
-import {ObjectId} from 'mongodb';
+import { ObjectId } from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester'| 'district_coordinator' | 'block_coordinator' | 'village_volunteer' | 'call_agent';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending' | 'dynamic_closed' | 'dynamic';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester' | 'district_coordinator' | 'block_coordinator' | 'village_volunteer' | 'call_agent';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending' | 'dynamic_closed' | 'dynamic' | 'duplicate_closed';
 export type Tags = 'dynamic' | 'static_dynamic'
 export interface IPreference {
   state: string;
@@ -46,6 +46,11 @@ export interface IUser {
   university?: string;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
+  lastAgentActiveAt?: Date;
+  Call_centre_manager?: boolean;
+  agent?: string; // "not_available" or "agent_1", "agent_2", etc.
+  isBusy?: boolean; // true if agent is currently in a call
+  currentCallUuid?: string | null; // UUID of the current call being handled
   /** Questions currently assigned to this moderator for review, each stored with its
    *  denormalised status ({ questionId, status }). The cron assigns one question to a
    *  free moderator; manual allocation appends to this array, so a moderator can hold
@@ -54,6 +59,33 @@ export interface IUser {
    *  at least one entry in a blocking status (in-review / duplicate); entries that are
    *  re-routed (handed to an expert) stay for history but do not block new work. */
   assignedQuestionIds?: IAssignedQuestion[] | null;
+}
+
+export interface IUserRoleHistory {
+  _id?: string | ObjectId;
+  userId: string | ObjectId;
+  role: UserRole;
+  from: Date;
+  to?: Date | null;
+  isVerified?: boolean;
+  status?: UserStatus;
+  isBlocked?: boolean;
+  special_task_force?: boolean;
+  special_task_force_moderator?: boolean;
+}
+
+export interface IUserHistory {
+  roleHistory: IUserRoleHistory[];
+  userDetails?: {
+    name?: string;
+    email: string;
+    firstName: string;
+    lastName?: string;
+    role?: UserRole;
+    status?: UserStatus;
+    isBlocked?: boolean;
+    special_task_force?: boolean;
+  };
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -92,7 +124,7 @@ export interface IQuestion {
     season: string;
     domain: string[];
     normalised_crop?: string;
-    tools_used?:string[];
+    tools_used?: string[];
   };
   isAutoAllocate: boolean;
   source: QuestionSource;
@@ -293,8 +325,8 @@ export interface IRequestResponse {
 }
 
 export type RequestDetails =
-  | {requestType: 'question_flag'; details: IQuestion | null}
-  | {requestType: 'others'; details: Record<string, any> | null};
+  | { requestType: 'question_flag'; details: IQuestion | null }
+  | { requestType: 'others'; details: Record<string, any> | null };
 
 export type IRequest = RequestDetails & {
   _id?: string | ObjectId;

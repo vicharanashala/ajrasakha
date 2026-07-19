@@ -2,10 +2,7 @@ import { useEffect, useState } from "react";
 import { subDays } from "date-fns";
 import { ApprovalRateCard } from "./dashboard/approval-rate";
 import { ExpertsPerformance } from "./dashboard/experts-performance";
-import {
-  GoldenDatasetOverview,
-  type GoldenDataset,
-} from "./dashboard/golden-dataset";
+import { GoldenDatasetOverview } from "./dashboard/golden-dataset";
 import { ModeratorsOverview } from "./dashboard/overview";
 import { StatusCharts } from "./dashboard/question-status";
 import {
@@ -35,7 +32,6 @@ import { ReviewLevelComponent } from "./ReviewLevelComponent";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
-import { TopRightBadge } from "./NewBadge";
 import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
 import { Clock, CheckCircle } from "lucide-react";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
@@ -210,11 +206,20 @@ export const Dashboard = () => {
     startTime: undefined,
     endTime: undefined,
   });
+  const [overviewSelectedDate, setOverviewSelectedDate] = useState(
+    () => new Date().toISOString().split("T")[0] ?? ""
+  );
+  const [overviewStartTime, setOverviewStartTime] = useState("00:00");
+  const [overviewEndTime, setOverviewEndTime] = useState("23:59");
 
   const { data: user } = useGetCurrentUser();
 
   // Granular Hooks
-  const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview();
+  const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview({
+    selectedDate: overviewSelectedDate,
+    startTime: overviewStartTime,
+    endTime: overviewEndTime,
+  });
   const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
     viewType,
     selectedYear,
@@ -262,13 +267,15 @@ export const Dashboard = () => {
   const LoadingWrapper = ({
     loading,
     text,
+    className,
     children,
   }: {
     loading: boolean;
     text: string;
+    className?: string;
     children: React.ReactNode;
   }) => (
-    <div className={`relative overflow-hidden rounded-xl min-h-[300px] transition-all duration-300 ${loading ? "opacity-50 blur-sm pointer-events-none" : ""}`}>
+    <div className={`relative min-h-[300px] overflow-hidden rounded-xl transition-all duration-300 ${className ?? ""} ${loading ? "opacity-50 blur-sm pointer-events-none" : ""}`}>
       {loading && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-xl">
           <Spinner text={text} fullScreen={false} />
@@ -300,16 +307,28 @@ export const Dashboard = () => {
         </div>
 
         {/* Top Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-2 xl:items-stretch">
           <LoadingWrapper
             loading={isOverviewLoading}
             text="Fetching role overview..."
+            className="xl:h-full"
           >
-            <ModeratorsOverview data={overviewData?.userRoleOverview ?? []} />
+            <ModeratorsOverview
+              data={overviewData?.userRoleOverview ?? []}
+              stfExpertCount={overviewData?.stfExpertCount ?? 0}
+              stfModeratorCount={overviewData?.stfModeratorCount ?? 0}
+              selectedDate={overviewSelectedDate}
+              startTime={overviewStartTime}
+              endTime={overviewEndTime}
+              onSelectedDateChange={setOverviewSelectedDate}
+              onStartTimeChange={setOverviewStartTime}
+              onEndTimeChange={setOverviewEndTime}
+            />
           </LoadingWrapper>
           <LoadingWrapper
             loading={isOverviewLoading}
             text="Fetching approval stats..."
+            className="xl:h-full"
           >
             <ApprovalRateCard
               data={

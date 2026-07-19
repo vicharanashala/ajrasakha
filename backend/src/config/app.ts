@@ -51,6 +51,10 @@ export const appConfig = {
     authId: env('PLIVO_AUTH_ID') || 'dummy-plivo-auth-id',
     authToken: env('PLIVO_AUTH_TOKEN') || 'dummy-plivo-auth-token',
     plivo_number: env('PLIVO_NUMBER') || '+15551234567',
+    getAgentCredentials: (agentNumber: string) => {
+      const username = env(`PLIVO_ENDPOINT_USERNAME_${agentNumber.toUpperCase()}`);
+      return { username};
+    },
   },
   fast2sms: {
     apiKey: env('FAST2SMS_API_KEY'),

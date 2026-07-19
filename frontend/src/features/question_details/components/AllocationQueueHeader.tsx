@@ -162,7 +162,7 @@ export const AllocationQueueHeader = ({
             "Select Experts" only show to the moderator the question is assigned to
             (i.e. from "My Assignment"); hidden on every other tab. Non-duplicate
             questions are unaffected. */}
-        {currentUser.role !== "expert" && question.status!=='non_agri' && (!isDuplicate || question.isAssignedModerator) && (
+        {currentUser.role !== "expert" && question.status!=='non_agri' && question.isTesting!==true && (!isDuplicate || question.isAssignedModerator) && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             {/* Auto-Allocate Block */}
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">

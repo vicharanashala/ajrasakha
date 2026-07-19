@@ -23,6 +23,7 @@ import type {
   FarmerHeatMapFilters,
   FarmerHeatMapResponse,
   CoordinatorDuplicateQuestionHeatMapResponse,
+  PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {GrowthResponse} from '../types/chatbot.type.js';
 
@@ -71,6 +72,18 @@ export interface QueryAnalyticsResponse {
 }
 
 export interface IChatbotService {
+  getFeedbackUsers(
+    source?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    userType?: string,
+    rating?: string,
+    tag?: string,
+  ): Promise<PaginatedFeedbackMessages>;
+
   getDashboard(
     days: number,
     source?: string,
@@ -100,7 +113,19 @@ export interface IChatbotService {
     userType?: string,
     search?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
-  getQuestionFromDistrict(district: string, state?:string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string): Promise<any>;
+  getQuestionFromDistrict(
+    district: string,
+    state?: string,
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    knownDistricts?: string[],
+  ): Promise<any>;
   getTopCrops(source?: string, userType?: string): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
   getQuestionsByCrop(crop: string, crops?:string[], questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string): Promise<any>
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
@@ -124,7 +149,28 @@ export interface IChatbotService {
     },
   ): Promise<QueryAnalyticsResponse>;
   getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
-  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean): Promise<PaginatedUserDetails>;
+  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean, loginStatus?: 'all' | 'loggedIn' | 'loggedOut'): Promise<PaginatedUserDetails>;
+  getUsersByDemographic(
+    category: string,
+    value: string,
+    source?: string,
+    userType?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+  ): Promise<PaginatedUserDetails>;
+  getUsersByPlatform(
+    platform: string,
+    source?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    userType?: string,
+  ): Promise<PaginatedUserDetails>;
   getAvgSessionDurationV2(source?: string, userType?: string): Promise<number>;
   getWeeklyAvgSessionDurationV2(
     weeks?: number,
@@ -161,7 +207,7 @@ export interface IChatbotService {
     startTime?: string,
     endTime?: string,
   ): Promise<Array<{day: string; uniqueCount: number; duplicateCount: number}>>;
-  getUsersMetrics(source?: string, userType?: string): Promise<any>;
+  getUsersMetrics(source?: string, userType?: string, startDate?: Date, endDate?:Date): Promise<any>;
   getTopFaqs(
     source?: string,
     userType?: string,
@@ -173,6 +219,8 @@ export interface IChatbotService {
     selectedStateCode?: string,
     source?: string,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<DistrictAnalyticsEntry[]>;
   getWeatherConcernAnalytics(
     filters?: WeatherConcernAnalyticsFilters,
@@ -260,6 +308,12 @@ export interface IChatbotService {
     page?: number,
     limit?: number,
   ): Promise<any>;
+  getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page?: number,
+    limit?: number,
+  ): Promise<any>;
   notifyUser(
     userEmail: string,
     messageId: string,
@@ -271,6 +325,7 @@ export interface IChatbotService {
     userType?: string,
     startDate?: string,
     endDate?: string,
+    userId?: string,
   ): Promise<any>;
   getMonthlyChurnRate(source: string, userType: string): Promise<any>;
   getActiveUsersTrend(
@@ -290,6 +345,15 @@ export interface IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+  ): Promise<any>;
+  getTopQuestionInstances(
+    questionId: string,
+    source?: string,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+    page?: number,
+    limit?: number,
   ): Promise<any>;
   getRepeatQueryCount(
     source?: string,
@@ -323,7 +387,8 @@ export interface IChatbotService {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date): Promise<any>
+    endDate?: Date,
+    userId?: string): Promise<any>
 
   getQuestionsClosedWithinTwoHours(
     page?: number,
@@ -335,6 +400,7 @@ export interface IChatbotService {
     endDate?: Date,
     isPassed?: string,
     tag?: string,
+    userId?: string,
   ) : Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -346,6 +412,7 @@ export interface IChatbotService {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any>
 
     getQueriesByPeriod (
@@ -366,8 +433,10 @@ export interface IChatbotService {
     getAllStatesQuestionsAndUsersData(
       source: string,
       userType: string,
+      startDate?: Date,
+      endDate?: Date
     ): Promise<any>
-  getUserProfile(userId: string): Promise<any>
+  getUserProfile(userId: string, startDate?: string, endDate?: string): Promise<any>
   assignUsers(userId: string, targetIds: string[]): Promise<any>
   unAssignUsers(userId: string, targetIds: string[]): Promise<any>
 
@@ -390,6 +459,8 @@ export interface IChatbotService {
       source?: string,
       userType?: string,
       search?: string,
+      startDate?: Date,
+      enDate?: Date,
     ): Promise<any>;
 
     getActiveUsersDetails(
@@ -400,6 +471,8 @@ export interface IChatbotService {
       state?: string,
       district?: string,
       search?: string,
+      startDate?: Date,
+      endDate?: Date,
     ): Promise<any>
 
       getCoordinatorsDetails(
@@ -421,5 +494,44 @@ export interface IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      userId?: string,
+      page?: number,
+      limit?: number,
+    ): Promise<any>
+
+  getFeedbackByLocation(
+    source: string,
+    page: number,
+    limit: number,
+    sortBy: string,
+    sortOrder: string,
+    userType: string,
+    rating?: string,
+    state?: string,
+    district?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date
+  ) : Promise<any>
+
+    getClosedInLastTwoHoursByLocation(
+    source?: string,
+    userType?: string,
+    state?: string,
+    district?: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<any>
+
+    getActiveUsersDetailsByQuestions(
+      page: number,
+      limit: number,
+      source: string,
+      userType: string,
+      state?: string,
+      district?: string,
+      search?: string,
+      startDate?: Date,
+      endDate?: Date,
     ): Promise<any>
 }

@@ -37,6 +37,7 @@ export interface UserDetail {
   role?: string;
   userRole?: string;
   totalQuestions: number;
+  activeSessionCount?: number;
   farmerProfile?: FarmerProfile;
   createdAt?: string;
   isVerified?: boolean;
@@ -77,6 +78,7 @@ export function useUserDetails(
   missingDemographicField = '',
   verificationStatus: 'all' | 'verified' | 'unverified' = 'all',
   enabled = true,
+  loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
 ) {
   const startISO = startDate?.toISOString();
   // Extend endDate to end of day (23:59:59.999) so the selected day is fully included.
@@ -86,7 +88,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error, refetch } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, primaryCrops, secondaryCrops, village, state, district, block, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, roles, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, verificationStatus],
+    queryKey: ['user-details', startISO, endISO, startDate, endDate, page, limit, search, source, crop, primaryCrops, secondaryCrops, village, state, district, block, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, roles, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, verificationStatus, loginStatus],
     staleTime: 30 * 1000,
     enabled,
     queryFn: async () => {
@@ -117,6 +119,9 @@ export function useUserDetails(
       if (verificationStatus !== 'all') {
         params.set('isVerified', String(verificationStatus === 'verified'));
       }
+      if (loginStatus !== 'all') {
+        params.set('loginStatus', loginStatus);
+      }
 
       const result = await apiFetch<PaginatedUserDetailsResponse>(
         `${API_BASE_URL}/analytics/user-details?${params.toString()}`,
@@ -134,9 +139,14 @@ export function useUserDetails(
   };
 }
 
-export function useUserProfile(userId: string, enabled?: boolean) {
+export function useUserProfile(
+  userId: string,
+  enabled?: boolean,
+  engagementStartDate?: string,
+  engagementEndDate?: string,
+) {
   return useQuery<any, Error>({
-    queryKey: ['user-profile', userId],
+    queryKey: ['user-profile', userId, engagementStartDate, engagementEndDate],
     staleTime: 30 * 1000,
     enabled,
     queryFn: async () => {
@@ -144,6 +154,8 @@ export function useUserProfile(userId: string, enabled?: boolean) {
 
       const params = new URLSearchParams();
       params.set('userId', userId);
+      if (engagementStartDate) params.set('startDate', engagementStartDate);
+      if (engagementEndDate) params.set('endDate', engagementEndDate);
 
       const result = await apiFetch<any>(
         `${API_BASE_URL}/analytics/user-profile?${params.toString()}`

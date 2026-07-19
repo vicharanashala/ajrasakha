@@ -4,7 +4,7 @@ import {
   UserRoleOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
-import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource } from '#shared/interfaces/models.js';
+import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource, IUserHistory } from '#shared/interfaces/models.js';
 import { MongoClient, ClientSession, ObjectId } from 'mongodb';
 
 /**
@@ -239,7 +239,7 @@ export interface IUserRepository {
     action: string,
     session?: ClientSession,
   ): Promise<void>;
-  
+
   updateSTFStatus(
     userId: string,
     action: string,
@@ -261,7 +261,15 @@ export interface IUserRepository {
   /**
    * @param session
    */
-  getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]>;
+  getUserRoleCount(
+    startDateTime?: string,
+    endDateTime?: string,
+    session?: ClientSession,
+  ): Promise<{
+    userRoleOverview: UserRoleOverview[];
+    stfExpertCount: number;
+    stfModeratorCount: number;
+  }>;
 
   /**
    * @param session
@@ -301,6 +309,8 @@ export interface IUserRepository {
    */
   findCallAgents(session?: ClientSession): Promise<IUser[]>;
 
+  findActiveCallAgents(session?: ClientSession): Promise<IUser[]>;
+
   /**
    * Sets a user as a call agent
    * @param userId - The ID of the user to set as call agent
@@ -326,10 +336,30 @@ export interface IUserRepository {
     userId: string,
     session?: ClientSession,
   ): Promise<IUser>;
+
+  /**
+   * Atomically finds and marks an available agent as busy
+   * Uses findOneAndUpdate to prevent race conditions
+   * @param callUuid - The UUID of the call to assign
+   * @param session - The session for transaction
+   * @returns A promise that resolves to the updated agent if found, or null if no available agent
+   */
+  findAndMarkAvailableAgent(
+    callUuid: string,
+    session?: ClientSession,
+  ): Promise<IUser | null>;
   findAvailableModerators(): Promise<IUser[]>;
   findAvailableStfModerators(): Promise<IUser[]>;
   findAvailableStfModeratorsForSources(sources: QuestionSource[]): Promise<IUser[]>;
   addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource): Promise<void>;
   removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void>;
   removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
+
+   /**
+   * @param session
+   */
+  getUserHistory(
+    query: { userId: string; startDateTime?: string; endDateTime?: string },
+    session?: ClientSession,
+  ): Promise<IUserHistory>;
 }

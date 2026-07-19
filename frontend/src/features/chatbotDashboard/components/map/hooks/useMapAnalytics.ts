@@ -72,6 +72,34 @@ export function useMapAnalytics({
     );
   }, [allStatesData]);
 
+  const stateRankMap = useMemo(() => {
+  if (!allStatesData) return new Map<string, number>();
+
+  const sorted = [...allStatesData].sort((a, b) => {
+    switch (metric) {
+      case "users":
+        return b.totalUsers - a.totalUsers;
+
+      case "activeUsers":
+        return b.activeUsers - a.activeUsers;
+
+      default:
+        return b.totalQuestions - a.totalQuestions;
+    }
+  });
+
+  const map = new Map<string, number>();
+
+  sorted.forEach((state, index) => {
+    map.set(
+      state.state.toLowerCase(),
+      sorted.length - index,
+    );
+  });
+
+  return map;
+}, [allStatesData, metric]);
+
   const statesWithData = useMemo(() => {
     if (!statesGeo) return null;
 
@@ -99,17 +127,20 @@ export function useMapAnalytics({
             _name: stateName,
             _analytics: {
               questions: analytics?.totalQuestions ?? 0,
-              answers: analytics?.closedQuestions ?? 0,
+              // answers: analytics?.closedQuestions ?? 0,
+               feedback: analytics?.totalFeedbacks ?? 0,
               users: analytics?.totalUsers ?? 0,
               activeUsers: analytics?.activeUsers ?? 0,
               coordinators: analytics?.coordinators ?? 0,
-              closureHrs: analytics?.avgCloseTimeHours ?? 0,
+                rank: stateRankMap.get(
+    stateName.toLowerCase(),
+  ) ?? 0,
             },
           },
         };
       }),
     };
-  }, [statesGeo, analyticsMap]);
+  }, [statesGeo, analyticsMap, stateRankMap]);
 
   const districtMap = useMemo(() => {
     if (!districtAnalytics) return new Map();
@@ -118,6 +149,39 @@ export function useMapAnalytics({
       districtAnalytics.map((item) => [item.district.toLowerCase(), item]),
     );
   }, [districtAnalytics]);
+
+  const metricRankMap  = useMemo(() => {
+  if (!districtAnalytics) return new Map<string, number>();
+
+  const sorted = [...districtAnalytics]
+    .filter((d) => d.district.toLowerCase() !== "others")
+    .sort((a, b) => {
+      switch (metric) {
+        case "users":
+          return b.totalUsers - a.totalUsers;
+
+        case "activeUsers":
+          return b.activeUsers - a.activeUsers;
+
+        default:
+          return b.totalQuestions - a.totalQuestions;
+      }
+    });
+
+  const map = new Map<string, number>();
+  
+
+  sorted.forEach((district, index) => {
+    map.set(
+      district.district.toLowerCase(),
+      sorted.length - index,
+    );
+  });
+
+  
+
+  return map;
+}, [districtAnalytics, metric]);
 
   // Filter districts by selected state
 
@@ -150,6 +214,11 @@ export function useMapAnalytics({
 
         const analytics = districtMap.get(districtName.toLowerCase());
 
+        console.log({
+  district: districtName,
+  analytics,
+});
+
         return {
           type: f.type ?? "Feature",
           geometry: f.geometry,
@@ -157,14 +226,20 @@ export function useMapAnalytics({
             ...f.properties,
             _name: districtName,
             _parent: f.properties.NAME_1 as string,
-            _analytics: {
-              questions: analytics?.totalQuestions ?? 0,
-              answers: analytics?.closedQuestions ?? 0,
-              users: analytics?.totalUsers ?? 0,
-              activeUsers: analytics?.activeUsers ?? 0,
-              coordinators: analytics?.coordinators ?? 0,
-              closureHrs: analytics?.avgClosingMsTime ?? 0,
-            },
+          _analytics: {
+    questions: analytics?.totalQuestions ?? 0,
+    // answers: analytics?.closedQuestions ?? 0,
+      feedback: analytics?.totalFeedbacks ?? 0,
+    users: analytics?.totalUsers ?? 0,
+    activeUsers: analytics?.activeUsers ?? 0,
+    coordinators: analytics?.coordinators ?? 0,
+    // closureHrs: analytics?.avgClosingMsTime ?? 0,
+
+    rank:
+      districtName === "Others"
+        ? -1
+        : metricRankMap.get(districtName.toLowerCase()) ?? 0,
+},
           },
         };
       });
@@ -178,19 +253,17 @@ export function useMapAnalytics({
         properties: {
           _name: "Others",
           _parent: selectedState,
-          _analytics: {
-            questions: othersAnalytics.totalQuestions ?? 0,
+         _analytics: {
+    questions: othersAnalytics.totalQuestions ?? 0,
+    // answers: othersAnalytics.closedQuestions ?? 0,
+      feedback: othersAnalytics.totalFeedbacks ?? 0,
+    users: othersAnalytics.totalUsers ?? 0,
+    activeUsers: othersAnalytics.activeUsers ?? 0,
+    coordinators: othersAnalytics.coordinators ?? 0,
+    // closureHrs: 0,
 
-            answers: othersAnalytics.closedQuestions ?? 0,
-
-            users: othersAnalytics.totalUsers ?? 0,
-
-            activeUsers: othersAnalytics.activeUsers ?? 0,
-
-            coordinators: othersAnalytics.coordinators ?? 0,
-
-            closureHrs: 0,
-          },
+    rank: -1,
+},
         },
       });
     }
@@ -199,7 +272,13 @@ export function useMapAnalytics({
       type: "FeatureCollection",
       features,
     };
-  }, [districtsAll, selectedState, districtMap]);
+  }, [
+    districtsAll,
+    selectedState,
+    districtMap,
+    metricRankMap,
+    metric,
+]);
 
   // Active geo to render
   const activeGeo =
@@ -216,16 +295,19 @@ export function useMapAnalytics({
   // );
 
   // Min/max for color ramp
-  const [minV, maxV] = useMemo(() => {
-    if (!activeGeo) return [0, 1];
-    const geo = activeGeo as {
-      features: Array<{ properties: { _analytics: Analytics } }>;
-    };
-    // const arr = geo.features.map((f) => f.properties._analytics.questions);
 
-    const arr = geo.features.map((f) => {
-  const analytics =
-    f.properties._analytics;
+
+  const [minV, maxV] = useMemo(() => {
+  if (!activeGeo) return [0, 1];
+
+  const geo = activeGeo as {
+    features: Array<{ properties: { _analytics: Analytics & { rank?: number } } }>;
+  };
+
+  let arr: number[];
+
+arr = geo.features.map((f) => {
+  const analytics = f.properties._analytics;
 
   switch (metric) {
     case "users":
@@ -238,8 +320,12 @@ export function useMapAnalytics({
       return analytics.questions;
   }
 });
-    return [Math.min(...arr), Math.max(...arr)];
-  }, [activeGeo, metric]);
+
+  return [
+    Math.min(...arr),
+    Math.max(...arr),
+  ];
+}, [activeGeo, metric, level]);
 
   // Compute active analytics
   const activeAnalytics = useMemo(() => {
@@ -267,16 +353,17 @@ export function useMapAnalytics({
         const x = f.properties._analytics;
         return {
           questions: acc.questions + x.questions,
-          answers: acc.answers + x.answers,
+          // answers: acc.answers + x.answers,
+            feedback: acc.feedback + x.feedback,
           users: acc.users + x.users,
           activeUsers: acc.activeUsers + x.activeUsers,
           coordinators: acc.coordinators + x.coordinators,
-          closureHrs: acc.closureHrs + x.closureHrs,
+          // closureHrs: acc.closureHrs + x.closureHrs,
         };
       },
       {
         questions: 0,
-        answers: 0,
+        feedback: 0,
         users: 0,
         activeUsers: 0,
         coordinators: 0,
@@ -299,84 +386,33 @@ export function useMapAnalytics({
 const chatbotService = new ChatbotService();
 
 export const useAllStatesandUserData = ({
-  // category,
-  // district,
-  // state,
-  // crop,
-  // crops,
-  // status,
-  // closedWithInTwohours,
-  // notificationType,
-  // period,
-  // questionType,
-  // page,
-  // limit,
   source,
   userType,
-  // startDate,
-  // endDate,
-  // search = "",
+  startDate,
+  endDate,
   enabled = true,
 }: {
-  // category?: string;
-  // district?: string;
-  // state: string
-  // crop?: string
-  // crops?: string[]
-  // status?: string
-  // closedWithInTwohours?: boolean
-  // notificationType?: string
-  // period?: string
-  // questionType: QueryCategoryQuestionType;
-  // page: number;
-  // limit: number;
+
   source: string;
   userType: string;
-  // startDate?: Date;
-  // endDate?: Date;
-  // search?: string;
+  startDate?: string;
+  endDate?: string;
   enabled: boolean;
 }) => {
   return useQuery<any>({
     queryKey: [
       "get-user-and-map-data",
-      // category,
-      // district,
-      // state,
-      // crop,
-      // crops?.join(","),
-      // status,
-      // closedWithInTwohours,
-      // notificationType,
-      // period,
-      // questionType,
-      // page,
-      // limit,
       source,
       userType,
-      // stringStartDate,
-      // stringEndDate,
-      // search,
+      startDate,
+      endDate
     ],
     queryFn: () =>
       chatbotService.getAllStatesQuestionsAndUsersData({
-        // category: category ?? "",
-        // district: district ?? "",
-        // state: state ?? "",
-        // crop: crop ?? "",
-        // crops: crops ?? [],
-        // status: status,
-        // closedWithInTwohours: closedWithInTwohours,
-        // notificationType: notificationType ?? "",
-        // period: period,
-        // questionType,
-        // page,
-        // limit,
         source,
         userType,
-        // stringStartDate,
-        // stringEndDate,
-        // search
+        startDate,
+        endDate
       }),
     enabled: enabled && Boolean(true),
   });
@@ -421,7 +457,6 @@ export const useVillageUserCounts = ({
   // search?: string;
   enabled: boolean;
 }) => {
-  console.log("State of hook", state, "district of hook", district)
   return useQuery<any>({
     queryKey: [
       "get-user-and-map-data",

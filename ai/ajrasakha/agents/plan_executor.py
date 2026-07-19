@@ -145,7 +145,14 @@ def compute_actual_tools_used(messages: list[BaseMessage]) -> list[str]:
                 and "weather" not in tools
             ):
                 tools.append("weather")
-        elif name in {"market", "agmarknet", "enam", "market_agmarknet_server", "market_enam_server"}:
+        elif name in {
+            "daily_price",
+            "market",
+            "agmarknet",
+            "enam",
+            "market_agmarknet_server",
+            "market_enam_server",
+        }:
             if _is_useful_tool_response(msg) and "mandi" not in tools:
                 tools.append("mandi")
         elif name in {"soil", "soil_server", "soil_soil_server"}:
@@ -618,7 +625,10 @@ async def build_specialist_tool_calls_from_plan(
     lon: Optional[float] = None
     addr: Optional[str] = None
     needs_coords = bool(
-        plan.get("weather") or plan.get("knowledge_base") or plan.get("soil")
+        plan.get("weather")
+        or plan.get("knowledge_base")
+        or plan.get("soil")
+        or plan.get("mandi")
     )
     if needs_coords and state_name.strip().lower() not in _PLACEHOLDER_STATES:
         lat, lon, addr = await _coords_from_plan_entities(state_name, district)
@@ -700,14 +710,20 @@ async def build_specialist_tool_calls_from_plan(
         })
 
     if plan.get("mandi"):
+        # Prefer planner rephrased query so location follow-ups are not treated as the mandi question.
+        mandi_query = (
+            (plan.get("rephrased_query") or "").strip()
+            or (plan.get("original_query_en") or "").strip()
+            or user_query
+        )
         calls.append({
-            "name": "market",
+            "name": "daily_price",
             "args": {
-                "query": user_query,
-                "state": state_name if state_name != "Not specified" else "all",
-                "district": district if district != "Not specified" else "all",
+                "query": mandi_query,
+                "latitude": lat,
+                "longitude": lon,
                 "crop": crop if crop != "General" else "all",
-                "date": None,
+                "state": state_name if state_name != "Not specified" else None,
             },
             "id": _new_tool_call_id(),
             "type": "tool_call",
@@ -806,6 +822,42 @@ async def build_specialist_tool_calls_from_plan(
     )
 
     return calls, resolved
+
+
+async def build_tool_calls_from_plan(
+    plan: PlannerPlan,
+    user_query: str,
+    location: Optional[Location],
+    *,
+    location_tool_name: str,
+    reviewer_tool_name: str,
+    question_source: str | None = None,
+    thread_id: str | None = None,
+    user_id: str | None = None,
+    message_id: str | None = None,
+    extra_chemicals: Optional[list[str]] = None,
+    out_transient_location: Optional[dict[str, Any]] = None,
+) -> list[dict[str, Any]]:
+    """Compatibility helper: reviewer upload + specialist tools in one list (for tests)."""
+    reviewer_calls = build_reviewer_upload_calls(
+        plan,
+        user_query,
+        location,
+        location_tool_name=location_tool_name,
+        reviewer_tool_name=reviewer_tool_name,
+        question_source=question_source,
+        thread_id=thread_id,
+        user_id=user_id,
+        message_id=message_id,
+    )
+    specialist_calls, _ = await build_specialist_tool_calls_from_plan(
+        plan,
+        user_query,
+        location,
+        extra_chemicals=extra_chemicals,
+        out_transient_location=out_transient_location,
+    )
+    return reviewer_calls + specialist_calls
 
 
 async def build_reviewer_upload_with_tools_used(
@@ -1261,7 +1313,14 @@ def _gdb_has_usable_data(messages: list[BaseMessage]) -> bool:
     return gdb_has_usable_answers(data)
 
 
-_SPECIALIST_TOOL_NAMES = frozenset({"weather", "market", "soil", "schemes", "chemical_checker"})
+_SPECIALIST_TOOL_NAMES = frozenset({
+    "weather",
+    "daily_price",
+    "market",
+    "soil",
+    "schemes",
+    "chemical_checker",
+})
 
 
 def _turn_has_specialist_tool_message(messages: list[BaseMessage]) -> bool:

@@ -238,7 +238,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 Show Reference
               </Button>
             )}
-            {!isDuplicate && !question.referenceQuestionId && currentUser.role !== "expert" && currentUser.role !== "tester" && (
+            {!isDuplicate && !question.referenceQuestionId && currentUser.role !== "expert" && currentUser.role !== "tester" && question.status !== "closed" && (
               question.isDuplicateChecked ? (
                 <Badge className="bg-green-500/10 text-green-700 border-green-500/30 gap-1">
                   <CircleCheck className="h-3 w-3" />
@@ -338,6 +338,8 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
 
           {/* View Audit Button */}
           <div className="flex gap-2">
+          {(currentUser.role === "admin" || currentUser.role === "moderator" || 
+          currentUser.role === "gate_keeper" || currentUser.role === "auditor") && 
           <Button
             size="sm"
             variant="outline"
@@ -346,7 +348,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           >
             <History className="h-4 w-4" />
             View LifeCycle
-          </Button>
+          </Button>}
 
           {/* View Audit Button */}
           <Button
@@ -717,12 +719,13 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
         </AlertDialogContent>
       </AlertDialog>
 
-
+    {(currentUser.role === "admin" || currentUser.role === "moderator" || 
+    currentUser.role === "gate_keeper" || currentUser.role === "auditor") && 
       <QuestionLifecycleTable
         open={view === "lifecycle"}
         onClose={() => setView(undefined)}
         questionId={question._id!}
-      />
+      />}
 
       <AuditTrailModal
         open={auditModalOpen}

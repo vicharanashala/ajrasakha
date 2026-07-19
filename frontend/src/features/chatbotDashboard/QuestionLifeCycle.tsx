@@ -248,8 +248,8 @@ export function QuestionLifecycleTable({
         : `Lifecycle duration: ${formatDuration(totalClosureTime)}`,
       description:
         slaBreached && slowestStage
-          ? `Entered review queue in ${formatDuration(pushedToReviewTime)}, remained idle for ${formatDuration(totalIdleTime || totalClosureTime)}, and required ${formatDuration(activeReviewTime)} of active review effort. The longest stage was "${slowestStage.action}" (${formatDuration(slowestStage.duration)}) by ${slowestStage.user}.`
-          : `Entered review queue in ${formatDuration(pushedToReviewTime)}, remained idle for ${formatDuration(totalIdleTime || totalClosureTime)}, and required ${formatDuration(activeReviewTime)} of active review effort.`,
+          ? `Entered review queue in ${formatDuration(Math.max(0, pushedToReviewTime))}, remained idle for ${formatDuration(Math.max(0, totalIdleTime || totalClosureTime))}, and required ${formatDuration(Math.max(0, activeReviewTime))} of active review effort. The longest stage was "${slowestStage.action}" (${formatDuration(Math.max(0, slowestStage.duration))}) by ${slowestStage.user}.`
+          : `Entered review queue in ${formatDuration(Math.max(0, pushedToReviewTime))}, remained idle for ${formatDuration(Math.max(0, totalIdleTime || totalClosureTime))}, and required ${formatDuration(Math.max(0, activeReviewTime))} of active review effort.`,
     });
 
     // Fast reviewers
@@ -341,7 +341,7 @@ export function QuestionLifecycleTable({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="!max-w-[80vw] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="!max-w-[80vw] h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
@@ -407,15 +407,15 @@ export function QuestionLifecycleTable({
                                 className={`h-2 rounded ${
                                   isSystem
                                     ? "bg-yellow-500"
-                                    : getDurationColor(row.duration)
+                                    : getDurationColor(Math.max(0, row.duration))
                                 }`}
                                 style={{
-                                  width: `${percent}%`,
+                                  width: `${Math.max(0, percent)}%`,
                                 }}
                               />
                             </div>
 
-                            {formatDuration(row.duration)}
+                            {formatDuration(Math.max(0, row.duration))}
                           </div>
                         ) : (
                           "-"
@@ -430,7 +430,7 @@ export function QuestionLifecycleTable({
             </Table>
           )}
         </div>
-        <div className="space-y-4 mb-6 h-150px overflow-auto">
+        <div className="space-y-4 mb-6 max-h-[40vh] overflow-auto">
           {insights.map((insight, index) => {
             const Icon = iconMap[insight.type];
 
