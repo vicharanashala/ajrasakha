@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { Heatmap } from '../components/gap-detector/Heatmap'
+import { GapList } from '../components/gap-detector/GapList'
 
 export const Route = createFileRoute('/gap-detector')({
   component: GapDetectorDashboard,
@@ -58,6 +59,9 @@ function GapDetectorDashboard() {
 
           {/* Heatmap visualization */}
           {heatmapData && <Heatmap data={heatmapData.heatmap} />}
+
+          {/* Prioritized Gap List */}
+          {data?.top_gaps && <GapList topGaps={data.top_gaps} />}
         </div>
       )}
     </div>
