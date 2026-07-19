@@ -6,3 +6,4 @@ python-dotenv==1.2.2
 httpx==0.28.1
 apscheduler==3.10.4
 pytz==2024.1
+slowapi==0.1.9

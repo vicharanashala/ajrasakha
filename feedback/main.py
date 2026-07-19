@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from models import (
     FeedbackCreate, Feedback, DashboardResponse,
@@ -21,14 +21,22 @@ from digest_email import send_digest_email
 from datetime import datetime
 from bson import ObjectId
 from reviewer_integration import check_and_flag_if_needed, push_to_reviewer_queue
+from indexes import create_indexes
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import uuid
 import logging
+logging.basicConfig(level=logging.INFO)
 import pytz
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
 app = FastAPI(title="Farmer Feedback API", version="1.3")
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -236,7 +244,8 @@ async def get_all_pending():
 # --- Complete Feedback (farmer replies 1 or 2) ---
 
 @app.post("/feedback/complete")
-async def complete_feedback(data: FeedbackCompleteRequest):
+@limiter.limit("30/minute")
+async def complete_feedback(request: Request, data: FeedbackCompleteRequest):
     """
     Called when an inbound WhatsApp message from a farmer is just '1' or '2'
     and a pending feedback request exists for their phone number.
@@ -295,7 +304,8 @@ async def complete_feedback(data: FeedbackCompleteRequest):
 # --- Submit Feedback (direct, for Test Panel one-shot mode) ---
 
 @app.post("/feedback")
-async def submit_feedback(data: FeedbackCreate):
+@limiter.limit("30/minute")
+async def submit_feedback(request: Request, data: FeedbackCreate):
     domain, state = await _lookup_and_enrich(data.question_id, data.answer_id)
 
     feedback_doc = {
@@ -528,16 +538,36 @@ async def run_weekly_digest():
 
 @app.on_event("startup")
 async def startup_event():
+    # 1. Verify both DB connections on startup
+    try:
+        original_count = await questions_collection.count_documents({})
+        logger.info(f"✅ Original DB connected — {original_count} questions found")
+    except Exception as e:
+        logger.error(f"❌ Original DB connection failed: {e}")
+
+    try:
+        own_count = await feedback_collection.count_documents({})
+        logger.info(f"✅ Own DB connected — {own_count} feedback records")
+    except Exception as e:
+        logger.error(f"❌ Own DB connection failed: {e}")
+
+    # 2. Create indexes
+    try:
+        await create_indexes(feedback_collection, pending_feedback_collection)
+        logger.info("✅ Indexes ready")
+    except Exception as e:
+        logger.error(f"⚠️ Index creation failed: {e}")
+
+    # 3. Start scheduler
     IST = pytz.timezone("Asia/Kolkata")
     scheduler.add_job(
         run_weekly_digest,
-        CronTrigger(day_of_week="sat", hour=9, minute=0, timezone="Asia/Kolkata"),  # Saturday 18:20 UTC = Monday 9:50 IST
+        CronTrigger(day_of_week="mon", hour=9, minute=0, timezone=IST),
         id="weekly_digest",
         replace_existing=True
     )
     scheduler.start()
-    logger.info("Scheduler started — weekly digest runs every Monday 9:00 AM IST")
-
+    logger.info("✅ Scheduler started — weekly digest runs every Monday 9:00 AM IST")
 
 @app.on_event("shutdown")
 async def shutdown_event():
