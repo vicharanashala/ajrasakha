@@ -1,0 +1,28 @@
+# QA-local artifacts
+node_modules/
+playwright-report/
+test-results/
+.env
+.env.local
+.env.*.local
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Test output / reports
+multilingual_reports/
+*.html
+!playwright-report/index.html
+
+# Playwright trace artifacts (uploaded by CI on failure but cached locally
+# when running with --trace=on)
+trace.zip
+test-results/.zip
+test-results/**/trace.zip
