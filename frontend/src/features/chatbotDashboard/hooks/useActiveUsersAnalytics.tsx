@@ -122,45 +122,7 @@ export interface QueryCategoryQuestionsResponse {
   lifeCycleSummary: any;
 }
 
-// export const useQueryCategoryQuestions = ({
-//   category,
-//   questionType,
-//   page,
-//   limit,
-//   source,
-//   userType = "all",
-//   enabled = true,
-// }: {
-//   category?: string;
-//   questionType: QueryCategoryQuestionType;
-//   page: number;
-//   limit: number;
-//   source: string;
-//   userType?: string;
-//   enabled?: boolean;
-// }) => {
-//   return useQuery<QueryCategoryQuestionsResponse>({
-//     queryKey: [
-//       "query-category-questions",
-//       category,
-//       questionType,
-//       page,
-//       limit,
-//       source,
-//       userType,
-//     ],
-//     queryFn: () =>
-//       chatbotService.getQueryCategoryQuestions({
-//         category: category ?? "",
-//         questionType,
-//         page,
-//         limit,
-//         source,
-//         userType,
-//       }),
-//     enabled: enabled && Boolean(category),
-//   });
-// };
+
 
 export const useQuestionFilter = ({
   category,
@@ -199,17 +161,14 @@ export const useQuestionFilter = ({
   limit: number;
   source: string;
   userType?: string;
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: string;
+  endDate?: string;
   search?: string;
   enabled?: boolean;
   isPassed?: boolean;
   tag?: string
   userId?: string;
 }) => {
-  const stringStartDate = startDate?.toISOString();
-  const stringEndDate = endDate?.toISOString();
-  
   return useQuery<QueryCategoryQuestionsResponse>({
   queryKey: [
     "get-question-filter",
@@ -227,8 +186,8 @@ export const useQuestionFilter = ({
     limit,
     source,
     userType,
-    stringStartDate,
-    stringEndDate,
+    startDate,
+    endDate,
     search,
     isPassed,
     tag,
@@ -250,8 +209,8 @@ export const useQuestionFilter = ({
         limit,
         source,
         userType,
-        stringStartDate,
-        stringEndDate,
+        startDate,
+        endDate,
         search,
         isPassed,
         tag,
@@ -365,6 +324,8 @@ export const useActiveUserDetails = ({
   district,
   state,
   search,
+  startDate,
+  endDate,
   enabled = true
 }:{
   page: number,
@@ -374,6 +335,8 @@ export const useActiveUserDetails = ({
   district?: string,
   state?: string,
   search?: string
+  startDate?: string,
+  endDate?: string,
   enabled: boolean
 })=>{
   return useQuery<any>({
@@ -385,7 +348,9 @@ export const useActiveUserDetails = ({
       userType,
       district,
       state,
-      search
+      search,
+      startDate,
+      endDate,
     ],
     queryFn: ()=>{
       return chatbotService.getActiveUserDetails({
@@ -395,7 +360,9 @@ export const useActiveUserDetails = ({
         userType,
         district: district ?? '',
         state: state ?? '',
-        search: search ?? ''
+        search: search ?? '',
+        startDate,
+        endDate
       })
     },
     enabled,
@@ -538,3 +505,56 @@ export const useTopQuestionInstances = ({
     enabled: enabled && Boolean(questionId),
   });
 };
+
+export const useActiveUserDetailsByQuestion = ({
+  page,
+  limit,
+  source,
+  userType,
+  district,
+  state,
+  search,
+  startDate,
+  endDate,
+  enabled = true
+}:{
+  page: number,
+  limit: number,
+  source: string,
+  userType: string,
+  district?: string,
+  state?: string,
+  search?: string
+  startDate?: string,
+  endDate?: string,
+  enabled: boolean
+})=>{
+  return useQuery<any>({
+    queryKey: [
+      "get-active-user-details",
+      page,
+      limit,
+      source,
+      userType,
+      district,
+      state,
+      search,
+      startDate,
+      endDate,
+    ],
+    queryFn: ()=>{
+      return chatbotService.getActiveUsersDetailsByQuestions({
+        page,
+        limit,
+        source,
+        userType,
+        district: district ?? '',
+        state: state ?? '',
+        search: search ?? '',
+        startDate,
+        endDate
+      })
+    },
+    enabled,
+  })
+}
