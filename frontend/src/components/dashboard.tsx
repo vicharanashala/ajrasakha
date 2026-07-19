@@ -36,6 +36,7 @@ import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answere
 import { Clock, CheckCircle } from "lucide-react";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
+import { SLAEscalationPanel } from "./SLAEscalationPanel";
 import type { IUser } from "@/types";
 
 export type ViewType = "year" | "month" | "week" | "day";
@@ -341,6 +342,13 @@ export const Dashboard = () => {
             />
           </LoadingWrapper>
         </div>
+
+        {/* SLA Auto-Escalation Panel (admin only) */}
+        {user?.role === "admin" && (
+          <div className="mb-6">
+            <SLAEscalationPanel />
+          </div>
+        )}
 
         {/* Golden Dataset Row */}
         <div className="mb-6 ">

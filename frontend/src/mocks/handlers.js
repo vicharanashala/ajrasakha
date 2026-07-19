@@ -26,6 +26,17 @@ const next = (apiKey) => {
 };
 
 export const handlers = [
+  http.get(`${baseURL}/api/users/me`, ({ request }) => {
+    const url = new URL(request.url);
+    return HttpResponse.json({
+      _id: "local-admin",
+      email: "kondapoojitha305@gmail.com",
+      firstName: "Poojitha",
+      lastName: "Kondap",
+      role: "admin",
+      notifications: 0,
+    });
+  }),
   http.post(
     `${baseURL}/api/notifications/invite/courses/:courseId/versions/:versionId`,
     async () => {
