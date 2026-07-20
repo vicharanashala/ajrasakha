@@ -6,7 +6,10 @@ import json
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from ajrasakha.agents.ajrasakha import empty_gdb_reply_node
+from ajrasakha.agents.ajrasakha import (
+    empty_gdb_reply_node,
+    route_after_translate_answer,
+)
 from ajrasakha.agents.plan_executor import (
     route_after_execute,
     should_expert_queue_reply,
@@ -96,6 +99,23 @@ def test_route_after_execute_assemble_when_weather_has_content():
         ToolMessage(content="Rain expected tomorrow", tool_call_id="w1", name="weather")
     )
     assert route_after_execute(state) == "assemble_answer_body"
+
+
+def test_final_langgraph_and_expert_reviewed_answers_are_shortened():
+    assert route_after_translate_answer({"plan": {}}) == "answer_shortener"
+    assert (
+        route_after_translate_answer({"plan": {"skip_synthesize": True}})
+        == "answer_shortener"
+    )
+
+
+def test_expert_queue_reply_is_not_sent_to_answer_shortener():
+    assert (
+        route_after_translate_answer(
+            {"plan": {"translate_path": TRANSLATE_PATH_EMPTY_GDB}}
+        )
+        == "end"
+    )
 
 
 async def test_empty_gdb_reply_sets_translate_path():
