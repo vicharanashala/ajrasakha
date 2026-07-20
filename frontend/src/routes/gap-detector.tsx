@@ -32,14 +32,18 @@ function GapDetectorDashboard() {
   }, [])
 
   return (
-    <div className="p-8 w-full max-w-7xl mx-auto space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">GDB Coverage Gap Detector</h1>
+    <div className="min-h-screen bg-slate-50/50 dark:bg-background">
+      <div className="bg-gradient-to-r from-green-600 to-emerald-800 text-white pb-24 pt-12 px-8">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-4xl font-extrabold tracking-tight">GDB Coverage Gap Detector</h1>
+          <p className="mt-4 text-green-100 text-lg max-w-2xl">
+            Analyze disclaimer-triggered queries and surface coverage gaps across regions and crops. 
+            Identify what farmers are asking that we can't answer yet.
+          </p>
+        </div>
       </div>
-      <p className="text-muted-foreground">
-        Analyze disclaimer-triggered queries and surface coverage gaps across regions and crops.
-      </p>
       
+      <div className="w-full max-w-7xl mx-auto px-8 -mt-16 mb-20 space-y-8">
       {loading ? (
         <div className="animate-pulse flex space-x-4">
           <div className="h-10 bg-slate-200 rounded w-1/4"></div>
@@ -64,6 +68,7 @@ function GapDetectorDashboard() {
           {data?.top_gaps && <GapList topGaps={data.top_gaps} />}
         </div>
       )}
+      </div>
     </div>
   )
 }
