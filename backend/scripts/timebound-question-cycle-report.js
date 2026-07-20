@@ -117,6 +117,21 @@ const humanDuration = hours => {
   return [d && `${d}d`, h && `${h}h`, `${m}m`].filter(Boolean).join(' ');
 };
 
+/**
+ * How the question entered the system, before any handling:
+ *   • a referenceQuestionId means it was matched to an existing question → Duplicate
+ *   • tag 'static_dynamic' / 'dynamic' carry through as-is
+ *   • anything else is a fresh, unmatched question → Unique
+ * static_dynamic is tested first: it contains "dynamic", so a loose check would
+ * misclassify it.
+ */
+const initialStatus = q => {
+  if (q.referenceQuestionId) return 'Duplicate';
+  if (q.tag === 'static_dynamic') return 'Static Dynamic';
+  if (q.tag === 'dynamic') return 'Dynamic';
+  return 'Unique';
+};
+
 const idStr = v => (v ? v.toString() : '');
 
 const oid = v => {
@@ -320,6 +335,7 @@ try {
     return {
       'Question ID': key,
       Question: q.question ?? '',
+      'Initial Status': initialStatus(q),
       Status: q.status ?? '',
 
       'Answer Author': nameOf(authorEntry?.updatedBy),
