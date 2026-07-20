@@ -46,8 +46,9 @@ from ajrasakha.agents.prompts import (
     WARNING_TEXT,
     WHATSAPP_SYSTEM_PROMPT,
 )
-from ajrasakha.agents.state import AjraSakhaState, Location
+from ajrasakha.agents.state import AjraSakhaState, Location, TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.assemble_answer_body import assemble_answer_body_node
+from ajrasakha.agents.answer_shortener import answer_shortener_node
 from ajrasakha.agents.non_agriculture_reply import non_agriculture_reply_node
 from ajrasakha.agents.weather_unavailable_reply import weather_unavailable_reply_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
@@ -209,6 +210,20 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
 def route_after_tools_planner(state: AjraSakhaState) -> str:
     """After execute_plan: assemble body, translate, or empty GDB catalog path."""
     return route_after_execute(state)
+
+
+def route_after_translate_answer(state: AjraSakhaState) -> str:
+    """Shorten final answers, but leave expert-queue acknowledgements unchanged.
+
+    Both normal LangGraph syntheses and direct expert-reviewed answers pass through
+    ``translate_answer`` before they become farmer-facing. The empty-GDB route is
+    different: it is only a notice that an expert answer is pending, not an answer
+    that should receive a short/full representation.
+    """
+    plan = state.get("plan") or {}
+    if plan.get("translate_path") == TRANSLATE_PATH_EMPTY_GDB:
+        return "end"
+    return "answer_shortener"
 
 
 def _tool_message_text(message: ToolMessage) -> str:
@@ -400,6 +415,7 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
 def _build_graph():
     builder = StateGraph(AjraSakhaState)
     builder.add_node("empty_gdb_reply", with_thread_logging(empty_gdb_reply_node))
+    builder.add_node("answer_shortener", with_thread_logging(answer_shortener_node))
     # builder.add_node("sanitize_answer", sanitize_answer_node)  # disabled: 2-hour disclaimer post-process
 
     if use_planner_graph():
@@ -447,11 +463,16 @@ def _build_graph():
         )
         builder.add_edge("weather_unavailable_reply", END)
         builder.add_edge("assemble_answer_body", "translate_answer")
-        builder.add_edge("translate_answer", END)
+        builder.add_conditional_edges(
+            "translate_answer",
+            route_after_translate_answer,
+            {"answer_shortener": "answer_shortener", "end": END},
+        )
         builder.add_edge("empty_gdb_reply", "translate_answer")
         # builder.add_edge("translate_answer", "sanitize_answer")
     else:
         builder.add_edge("empty_gdb_reply", END)
+    builder.add_edge("answer_shortener", END)
     # builder.add_edge("sanitize_answer", END)
     return builder.compile()
 
