@@ -1,0 +1,38 @@
+{
+  "name": "ajrasakha-qa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end + multilingual QA suites for AjraSakha — farmer-facing AI.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "verify": "node scripts/verify.mjs",
+    "test:reviewer": "playwright test --project=reviewer --config=playwright.config.ts",
+    "test:reviewer:headed": "playwright test --project=reviewer --config=playwright.config.ts --headed",
+    "test:reviewer:mobile": "playwright test --project=reviewer-mobile --config=playwright.config.ts",
+    "test:reviewer:report": "playwright show-report --config=playwright.config.ts",
+    "test:webapp": "playwright test --project=webapp --config=playwright.config.ts",
+    "test:ace": "playwright test --project=desktop-chromium --config=playwright.config.ts",
+    "test:ace:headed": "playwright test --project=desktop-chromium --config=playwright.config.ts --headed",
+    "test:ace:mobile": "playwright test --project=mobile-chromium --config=playwright.config.ts",
+    "test:ace:all": "playwright test --project=desktop-chromium --project=mobile-chromium --config=playwright.config.ts",
+    "test:ace:report": "playwright show-report --config=playwright.config.ts",
+    "test": "playwright test --config=playwright.config.ts",
+    "lint": "eslint \"tests/**/*.ts\" \"scripts/**/*.mjs\"",
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run verify && npm run typecheck && npm run lint"
+  },
+  "dependencies": {
+    "@playwright/test": "1.49.1",
+    "dotenv": "16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.5",
+    "@typescript-eslint/eslint-plugin": "7.18.0",
+    "@typescript-eslint/parser": "7.18.0",
+    "eslint": "8.57.0",
+    "typescript": "5.4.3"
+  }
+}
