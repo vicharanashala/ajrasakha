@@ -627,8 +627,12 @@ export const ExpertDashboard = ({
           </Card>
         </div>
         {isViewerAdminOrModerator && userId && (
-          <div className="mb-6 mt-8">
-            <UserHistoryView userId={userId} />
+          <div className="mb-6 mt-8 p-6 rounded-xl border border-border bg-card/30 shadow-sm">
+            <div className="flex items-center gap-2 mb-6">
+              <History className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-bold text-foreground">User Activity History</h2>
+            </div>
+            <UserHistoryView userId={userId} isEmbedded />
           </div>
         )}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-10">

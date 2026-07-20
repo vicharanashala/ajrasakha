@@ -86,9 +86,15 @@ interface UserHistoryViewProps {
   userId: string;
   showBack?: boolean;
   onBack?: () => void;
+  isEmbedded?: boolean;
 }
 
-export function UserHistoryView({ userId, showBack = false, onBack }: UserHistoryViewProps) {
+export function UserHistoryView({
+  userId,
+  showBack = false,
+  onBack,
+  isEmbedded = false,
+}: UserHistoryViewProps) {
   const navigate = useNavigate();
   const [dateFilter, setDateFilter] = useState(() => getTodayFilterDefaults());
 
@@ -136,6 +142,7 @@ export function UserHistoryView({ userId, showBack = false, onBack }: UserHistor
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6 w-full">
+      {!isEmbedded && (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           {showBack && (
@@ -164,8 +171,9 @@ export function UserHistoryView({ userId, showBack = false, onBack }: UserHistor
           <span className="max-w-[260px] truncate">{selectedRangeLabel}</span>
         </div>
       </div>
+      )}
 
-      <Card className="border-border/70 shadow-sm">
+      <Card className="border-border/70 shadow-sm bg-card">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -245,7 +253,7 @@ export function UserHistoryView({ userId, showBack = false, onBack }: UserHistor
         </CardContent>
       </Card>
 
-      <Card className="border-border/70 shadow-sm">
+      <Card className="border-border/70 shadow-sm bg-card">
         <CardHeader className="pb-3">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div>
