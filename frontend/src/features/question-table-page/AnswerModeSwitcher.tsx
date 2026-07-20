@@ -51,6 +51,7 @@ export function AnswerModeSwitcher({
     answerMode,
     handleAnswerModeChange,
     currentUserIsTrainingUser = false,
+    currentUserIsAdmin = false,
     hasSearch = false,
     sourceCounts,
     totalSearchCount,
@@ -61,6 +62,7 @@ export function AnswerModeSwitcher({
     answerMode: Mode;
     handleAnswerModeChange: (mode: Mode) => void;
     currentUserIsTrainingUser?: boolean;
+    currentUserIsAdmin?: boolean;
     hasSearch?: boolean;
     sourceCounts?: { source: string; count: number }[];
     totalSearchCount?: number;
@@ -75,7 +77,9 @@ export function AnswerModeSwitcher({
     const [glider, setGlider] = useState({ left: 0, width: 0 });
     const visibleModes = currentUserIsTrainingUser
         ? MODES.filter((mode) => mode.id === "training")
-        : MODES;
+        : currentUserIsAdmin
+            ? MODES
+            : MODES.filter((mode) => mode.id !== "training");
 
     useEffect(() => {
         const activeBtn = groupRef.current?.querySelector<HTMLButtonElement>(

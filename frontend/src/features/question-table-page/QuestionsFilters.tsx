@@ -744,6 +744,7 @@ export const QuestionsFilters = ({
           handleAnswerModeChange(mode);
         }}
         currentUserIsTrainingUser={isTrainingUser}
+        currentUserIsAdmin={userRole === "admin"}
         hasSearch={!!search}
         sourceCounts={statusSummary?.sourceCounts}
         totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
