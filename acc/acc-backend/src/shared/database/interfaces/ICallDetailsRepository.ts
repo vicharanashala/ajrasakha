@@ -14,6 +14,7 @@ export interface QAMetadata {
   extracted_district: string;
   extracted_domain: string;
   extracted_season: string;
+  standardized_domains?: string[];
 }
 
 export interface QAItem {
@@ -86,4 +87,15 @@ export interface ICallDetailsRepository {
     endDate?: Date,
     session?: ClientSession
   ): Promise<ACCAnalytics>;
+  getQueriesByPeriod(
+    params: {
+      startDate?: Date;
+      endDate?: Date;
+      search?: string;
+      domain?: string;
+      limit?: number;
+      offset?: number;
+    },
+    session?: ClientSession
+  ): Promise<{ queries: CallDetails[]; total: number }>;
 }

@@ -23,6 +23,7 @@ import axios from 'axios';
 import { PLIVO_TYPES } from '../types.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import type { ICallDetailsRepository, AgentAnalytics, ACCAnalytics } from '#shared/database/interfaces/ICallDetailsRepository.js';
+import type { ICallFarmerRepository } from '#shared/database/interfaces/IFarmerRepository.js';
 import type { IUser } from '#shared/interfaces/models.js';
 import { PlivoService } from '../services/PlivoService.js';
 
@@ -39,7 +40,8 @@ export class PlivoController {
     @inject(PLIVO_TYPES.CallDetailsRepository) private callDetailsRepository: ICallDetailsRepository,
     @inject(GLOBAL_TYPES.UserRepository) private userRepository: any,
     @inject(PLIVO_TYPES.AgentAssignmentService) private agentAssignmentService: any,
-    @inject(PLIVO_TYPES.PlivoService) private plivoService: PlivoService
+    @inject(PLIVO_TYPES.PlivoService) private plivoService: PlivoService,
+    @inject(PLIVO_TYPES.CallFarmerRepository) private callFarmerRepository: ICallFarmerRepository
   ) { }
 
   @Post('/answer')
@@ -52,11 +54,14 @@ export class PlivoController {
       const streamUrl = appConfig.plivo.streamUrl;
       const myPlivoNumber = appConfig.plivo.plivo_number;
       const callUuid = req.body?.CallUUID || req.query?.CallUUID;
+      const callerNumber = req.body?.From || req.query?.From || 'unknown';
+      // console.log(`📞 [PLIVO-CONTROLLER] Incoming call: CallUUID=${callUuid}, From=${callerNumber}`);
 
       availableAgent = await this.agentAssignmentService.findAndMarkAvailableAgent(callUuid);
 
       let endpointUser: string;
       let fallbackMessage: string;
+      let welcomeMessage = 'Thank you for calling ACC, we will connect you with a specialist shortly. Please stay on the line.';
 
       if (availableAgent && availableAgent.agent) {
         const agentNumber = availableAgent.agent;
@@ -64,10 +69,12 @@ export class PlivoController {
         endpointUser = credentials.username;
 
         this.plivoService.setCallAgent(callUuid, availableAgent._id.toString());
+        // console.log(`✅ [PLIVO-CONTROLLER] Assigned agent ${agentNumber} (userId=${availableAgent._id}, endpoint=${endpointUser}) to call ${callUuid}`);
         fallbackMessage = 'The specialist is busy. Please stay on the line.';
       } else {
         endpointUser = '';
         fallbackMessage = 'All agents are busy. Please call back later.';
+        console.warn(`⚠️ [PLIVO-CONTROLLER] No available agents for call ${callUuid}. Caller: ${callerNumber}`);
       }
 
       let xml: string;
@@ -77,6 +84,7 @@ export class PlivoController {
                               <Stream contentType="audio/x-l16;rate=16000"
           noiseCancellation="true" audioTrack="both" noise_cancellation_level="85"
           >${streamUrl}</Stream>
+                              <Speak voice="MAN" language="en-US">${welcomeMessage}</Speak>
                               <Dial timeout="40" callerId="${myPlivoNumber}">
                                         <User>${endpointUser}</User>
                               </Dial>
@@ -366,6 +374,229 @@ export class PlivoController {
         throw error;
       }
       throw new InternalServerError('Failed to get ACC analytics');
+    }
+  }
+
+  @Get('/acc-queries')
+  @Authorized()
+  @OpenAPI({ summary: 'Get paginated list of queries asked with domains for a specified time period' })
+  async getQueries(
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string,
+    @QueryParam('search') search?: string,
+    @QueryParam('domain') domain?: string,
+    @QueryParam('limit') limitStr?: string,
+    @QueryParam('page') pageStr?: string,
+    @CurrentUser() user?: IUser
+  ): Promise<any> {
+    try {
+      if (user?.role !== 'admin' && user?.role !== 'moderator') {
+        throw new BadRequestError('Only admins/moderators can access ACC queries');
+      }
+
+      // console.log('📬 [ACC-BACKEND] GET /acc-queries parameters received:', {
+      //   startDate, endDate, search, domain, limitStr, pageStr, userRole: user?.role
+      // });
+
+      let start: Date | undefined;
+      let end: Date | undefined;
+
+      if (startDate) {
+        start = new Date(startDate);
+        if (isNaN(start.getTime())) throw new BadRequestError('Invalid startDate format');
+      }
+      if (endDate) {
+        end = new Date(endDate);
+        if (isNaN(end.getTime())) throw new BadRequestError('Invalid endDate format');
+      }
+
+      const limit = limitStr ? parseInt(limitStr, 10) : 10;
+      const page = pageStr ? parseInt(pageStr, 10) : 1;
+      const offset = (page - 1) * limit;
+
+      const { queries, total } = await this.callDetailsRepository.getQueriesByPeriod({
+        startDate: start,
+        endDate: end,
+        search,
+        domain,
+        limit,
+        offset
+      });
+
+      // console.log(`📊 [ACC-BACKEND] Found ${queries.length} calls from DB (total match count: ${total})`);
+
+      const phoneToFarmerNameCache = new Map<string, string>();
+      const enrichedQueries = [];
+
+      for (const call of queries) {
+        if (!call.QA_pairs) continue;
+        const phone = call.from || '';
+        let farmerName = '';
+
+        if (phone) {
+          if (phoneToFarmerNameCache.has(phone)) {
+            farmerName = phoneToFarmerNameCache.get(phone) || '';
+          } else {
+            try {
+              const farmer = await this.callFarmerRepository.findByPhoneNo(phone);
+              farmerName = farmer?.profile?.farmerName || '';
+              phoneToFarmerNameCache.set(phone, farmerName);
+            } catch (err) {
+              console.warn(`[PlivoController] Failed to look up farmer for phone ${phone}:`, err);
+            }
+          }
+        }
+
+        const metadata = call.QA_pairs.metadata;
+        const qnas = call.QA_pairs.QnA || [];
+        for (const qna of qnas) {
+          enrichedQueries.push({
+            id: qna.id,
+            callUuid: call.callUuid,
+            createdAt: call.createdAt,
+            phone,
+            farmerName,
+            crop: metadata.extracted_crop,
+            state: metadata.extracted_state,
+            district: metadata.extracted_district,
+            domain: metadata.standardized_domains || metadata.extracted_domain || [],
+            season: metadata.extracted_season,
+            question: qna.question,
+            answer: qna.answer,
+            agri_specialist: qna.agri_specialist,
+            authorName: qna.authorName || '',
+            sourceName: qna.sourceName || '',
+            sourceLink: qna.sourceLink || ''
+          });
+        }
+      }
+
+      // console.log(`✅ [ACC-BACKEND] Returning ${enrichedQueries.length} enriched QnA pairs to frontend`);
+      return { queries: enrichedQueries, total };
+    } catch (error: any) {
+      console.error('❌ [PLIVO-CONTROLLER] Error getting ACC queries:', error);
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError('Failed to get ACC queries');
+    }
+  }
+
+  @Get('/download-acc-queries')
+  @Authorized()
+  @OpenAPI({ summary: 'Download all queries asked with domains for a specified time period as a CSV' })
+  async downloadQueries(
+    @Res() res: Response,
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string,
+    @QueryParam('search') search?: string,
+    @QueryParam('domain') domain?: string,
+    @CurrentUser() user?: IUser
+  ): Promise<any> {
+    try {
+      if (user?.role !== 'admin' && user?.role !== 'moderator') {
+        throw new BadRequestError('Only admins/moderators can access ACC queries download');
+      }
+
+      let start: Date | undefined;
+      let end: Date | undefined;
+
+      if (startDate) {
+        start = new Date(startDate);
+        if (isNaN(start.getTime())) throw new BadRequestError('Invalid startDate format');
+      }
+      if (endDate) {
+        end = new Date(endDate);
+        if (isNaN(end.getTime())) throw new BadRequestError('Invalid endDate format');
+      }
+
+      const { queries } = await this.callDetailsRepository.getQueriesByPeriod({
+        startDate: start,
+        endDate: end,
+        search,
+        domain
+      });
+
+      const csvHeaders = [
+        'Call UUID',
+        'Call Date',
+        'Farmer Phone',
+        'Farmer Name',
+        'Crop',
+        'State',
+        'District',
+        'Domain',
+        'Season',
+        'Question Asked',
+        'Specialist/AI Answer',
+        'Reference Author',
+        'Source Name',
+        'Source Link'
+      ];
+
+      const escapeCSV = (val: any) => {
+        if (val === null || val === undefined) return '';
+        let str = String(val);
+        str = str.replace(/"/g, '""');
+        if (/[",\n\r]/.test(str)) {
+          str = `"${str}"`;
+        }
+        return str;
+      };
+
+      const csvRows = [csvHeaders.join(',')];
+      const phoneToFarmerNameCache = new Map<string, string>();
+
+      for (const call of queries) {
+        if (!call.QA_pairs) continue;
+        const phone = call.from || '';
+        let farmerName = '';
+
+        if (phone) {
+          if (phoneToFarmerNameCache.has(phone)) {
+            farmerName = phoneToFarmerNameCache.get(phone) || '';
+          } else {
+            try {
+              const farmer = await this.callFarmerRepository.findByPhoneNo(phone);
+              farmerName = farmer?.profile?.farmerName || '';
+              phoneToFarmerNameCache.set(phone, farmerName);
+            } catch (err) {
+              console.warn(`[PlivoController] CSV Lookup Failed for ${phone}:`, err);
+            }
+          }
+        }
+
+        const metadata = call.QA_pairs.metadata;
+        const qnas = call.QA_pairs.QnA || [];
+
+        for (const qna of qnas) {
+          const row = [
+            escapeCSV(call.callUuid),
+            escapeCSV(call.createdAt ? call.createdAt.toISOString() : ''),
+            escapeCSV(phone),
+            escapeCSV(farmerName),
+            escapeCSV(metadata.extracted_crop),
+            escapeCSV(metadata.extracted_state),
+            escapeCSV(metadata.extracted_district),
+            escapeCSV(Array.isArray(metadata.extracted_domain) ? metadata.extracted_domain.join('; ') : metadata.extracted_domain),
+            escapeCSV(metadata.extracted_season),
+            escapeCSV(qna.question),
+            escapeCSV(qna.answer),
+            escapeCSV(qna.authorName),
+            escapeCSV(qna.sourceName),
+            escapeCSV(qna.sourceLink)
+          ];
+          csvRows.push(row.join(','));
+        }
+      }
+
+      const csvString = csvRows.join('\n');
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=acc_queries_${Date.now()}.csv`);
+      res.status(200).send(csvString);
+      return res;
+    } catch (error: any) {
+      console.error('❌ [PLIVO-CONTROLLER] Error exporting ACC queries:', error);
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError('Failed to export ACC queries');
     }
   }
 }

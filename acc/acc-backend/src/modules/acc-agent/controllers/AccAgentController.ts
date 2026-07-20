@@ -79,6 +79,13 @@ export class AccAgentController {
         district: string;
         domain: string | string[];
         season: string;
+        farmerName?: string;
+        farmerPhone?: string;
+        farmerAge?: number;
+        farmerGender?: string;
+        farmerVillage?: string;
+        farmerBlock?: string;
+        farmerPrimaryCrop?: string;
       };
     }
   ): Promise<{ success: boolean }> {

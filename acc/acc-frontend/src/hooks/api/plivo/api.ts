@@ -261,7 +261,8 @@ export class PlivoService {
     if (params?.startDate) queryParams.append('startDate', params.startDate);
     if (params?.endDate) queryParams.append('endDate', params.endDate);
 
-    const url = `${this._baseUrl}/acc-analytics${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const rawUrl = `${this._baseUrl}/acc-analytics${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = rawUrl.includes('localhost:4000') ? rawUrl.replace('localhost:4000', 'localhost:4001') : rawUrl;
     try {
       const response = await apiFetch<ACCAnalytics>(url);
 
@@ -272,6 +273,34 @@ export class PlivoService {
       return response;
     } catch (error) {
       console.error(`PlivoService.getACCAnalytics: Error fetching analytics:`, error);
+      throw error;
+    }
+  }
+
+  async getQueries(params?: {
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+    domain?: string;
+    limit?: number;
+    page?: number;
+  }): Promise<{ queries: any[]; total: number }> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.domain) queryParams.append('domain', params.domain);
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.page) queryParams.append('page', params.page.toString());
+
+    const rawUrl = `${this._baseUrl}/acc-queries${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = rawUrl.includes('localhost:4000') ? rawUrl.replace('localhost:4000', 'localhost:4001') : rawUrl;
+    try {
+      const response = await apiFetch<{ queries: any[]; total: number }>(url);
+      return response || { queries: [], total: 0 };
+    } catch (error) {
+      console.error(`PlivoService.getQueries: Error fetching queries:`, error);
       throw error;
     }
   }

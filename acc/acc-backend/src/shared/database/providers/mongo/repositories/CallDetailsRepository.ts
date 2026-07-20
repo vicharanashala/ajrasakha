@@ -440,4 +440,101 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       throw new InternalServerError(`Failed to get ACC analytics: ${error}`);
     }
   }
+
+  async getQueriesByPeriod(
+    params: {
+      startDate?: Date;
+      endDate?: Date;
+      search?: string;
+      domain?: string;
+      limit?: number;
+      offset?: number;
+    },
+    session?: ClientSession
+  ): Promise<{ queries: CallDetails[]; total: number }> {
+    try {
+      await this.init();
+      const { startDate, endDate, search, domain, limit, offset } = params;
+
+      const dateFilter: any = {};
+      if (startDate || endDate) {
+        dateFilter.createdAt = {};
+        if (startDate) dateFilter.createdAt.$gte = startDate;
+        if (endDate) dateFilter.createdAt.$lte = endDate;
+      }
+
+      const matchCriteria: any = {
+        QA_pairs: { $exists: true, $ne: null },
+        ...dateFilter
+      };
+
+      // 1. Handle Domain filter if specified and not 'All'
+      if (domain && domain.trim() && domain !== 'All') {
+        matchCriteria.$and = matchCriteria.$and || [];
+        matchCriteria.$and.push({
+          $or: [
+            { 'QA_pairs.metadata.extracted_domain': domain },
+            { 'QA_pairs.metadata.standardized_domains': domain }
+          ]
+        });
+      }
+
+      // 2. Handle search (with farmer name lookup matching)
+      if (search && search.trim()) {
+        const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedSearch = escapeRegExp(search.trim());
+        const searchRegex = new RegExp(escapedSearch, 'i');
+        
+        let matchingPhoneNumbers: string[] = [];
+        try {
+          const farmersCollection = await this.db.getCollection('Farmers_info');
+          const matchingFarmers = await farmersCollection.find({
+            $or: [
+              { 'profile.farmerName': searchRegex },
+              { phoneNo: searchRegex }
+            ]
+          }).project({ phoneNo: 1 }).toArray();
+          matchingPhoneNumbers = matchingFarmers.map(f => f.phoneNo).filter(Boolean);
+        } catch (err) {
+          console.warn('[CallDetailsRepository] Failed to look up farmers for search:', err);
+        }
+
+        const orConditions: any[] = [
+          { callUuid: searchRegex },
+          { from: searchRegex },
+          { 'QA_pairs.metadata.extracted_crop': searchRegex },
+          { 'QA_pairs.metadata.extracted_domain': searchRegex },
+          { 'QA_pairs.QnA.question': searchRegex },
+          { 'QA_pairs.QnA.answer': searchRegex }
+        ];
+
+        if (matchingPhoneNumbers.length > 0) {
+          orConditions.push({ from: { $in: matchingPhoneNumbers } });
+        }
+
+        if (matchCriteria.$and) {
+          matchCriteria.$and.push({ $or: orConditions });
+        } else {
+          matchCriteria.$or = orConditions;
+        }
+      }
+
+      const total = await this.callDetailsCollection.countDocuments(matchCriteria, { session });
+
+      let cursor = this.callDetailsCollection.find(matchCriteria, { session }).sort({ createdAt: -1 });
+
+      if (offset !== undefined) {
+        cursor = cursor.skip(offset);
+      }
+      if (limit !== undefined) {
+        cursor = cursor.limit(limit);
+      }
+
+      const queries = await cursor.toArray();
+      return { queries, total };
+    } catch (error: any) {
+      console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.getQueriesByPeriod: Error retrieving queries:`, error.stack || error);
+      throw new InternalServerError(`Failed to get queries by period: ${error}`);
+    }
+  }
 }
