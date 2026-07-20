@@ -35,7 +35,7 @@ if (aiConfig.useTailnetProxy) installTailnetProxy();
 const app = express();
 
 
-app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
+app.get(`${appConfig.routePrefix}/health-test`, (_req, res) => {
   res.status(200).json({
     status: 'healthy',
     uptime: process.uptime(),
