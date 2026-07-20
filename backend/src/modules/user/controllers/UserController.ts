@@ -1189,4 +1189,17 @@ export class UserController {
     
     return await this.userService.getUserHistoryById(query);
   }
+
+  @OpenAPI({
+    summary: 'Get user working hours',
+    description: 'Calculates the total working hours for a user in a given time period.',
+  })
+  @Get('/working-hours')
+  @HttpCode(200)
+  @Authorized()
+  async getWorkingHours(
+    @QueryParams() query: { userId: string; startDateTime: string; endDateTime: string; }
+  ): Promise<{ workingHours: number }> {
+    return await this.userService.getWorkingHours(query);
+  }
 }

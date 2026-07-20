@@ -21,6 +21,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { UserHistoryView } from "@/components/UserHistoryView";
+import { useGetWorkingHours } from "@/hooks/api/user/useGetWorkingHours";
 import { useNavigate } from "@tanstack/react-router";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
@@ -87,6 +88,32 @@ export const ExpertDashboard = ({
   } else {
     userId = user?._id?.toString();
   }
+  const weekStart = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  }, []);
+
+  const weekEnd = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? 0 : 7);
+    const sunday = new Date(now.setDate(diff));
+    sunday.setHours(23, 59, 59, 999);
+    return sunday;
+  }, []);
+
+  const { data: weeklyWorkingHoursData, isLoading: isLoadingWeeklyHistory } = useGetWorkingHours(
+    userId,
+    weekStart.toISOString(),
+    weekEnd.toISOString(),
+  );
+
+  const weeklyWorkingHours = weeklyWorkingHoursData?.workingHours ?? 0;
+
   const { data: reviewLevel, isLoading: isLoadingReviewLevel } =
     useGetReviewLevel({
       userId,
@@ -582,7 +609,13 @@ export const ExpertDashboard = ({
                   <p className="text-xs text-muted-foreground mb-1">
                     Working Hours
                   </p>
-                  <p className="text-3xl font-bold text-foreground">{"N/A"}</p>
+                  <p className="text-3xl font-bold text-foreground">
+                    {isLoadingWeeklyHistory ? (
+                      <span className="text-sm font-normal text-muted-foreground">Loading...</span>
+                    ) : (
+                      `${weeklyWorkingHours} hrs`
+                    )}
+                  </p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Total Working Hours Per Week
                   </p>
