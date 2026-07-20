@@ -1544,6 +1544,114 @@
 }
 
 /* ── Saturated crops by state — animated cards, no progress bars ── */
+.ace-dash .sat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.ace-dash .sat-head-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ace-dash .sat-states-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green-deep);
+  background: var(--green-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+  letter-spacing: 0.02em;
+}
+.ace-dash .sat-nav-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  min-width: 34px;
+  text-align: center;
+}
+
+/* Carousel: arrows flank the row of cards inline */
+.ace-dash .sat-carousel {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+.ace-dash .sat-carousel .sat-grid {
+  flex: 1;
+  min-width: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.ace-dash .sat-arrow {
+  flex-shrink: 0;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--green-soft);
+  background: #fff;
+  color: var(--green-deep);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(18, 36, 29, 0.06);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.ace-dash .sat-arrow svg {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.2s ease;
+}
+/* Idle nudge so the arrows invite interaction */
+.ace-dash .sat-arrow:not(:disabled) svg {
+  animation: sat-arrow-bob 1.6s ease-in-out infinite;
+}
+.ace-dash .sat-arrow-left:not(:disabled) svg {
+  animation-name: sat-arrow-bob-left;
+}
+.ace-dash .sat-arrow:hover:not(:disabled) {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+  transform: scale(1.12);
+  box-shadow: 0 6px 16px rgba(34, 165, 90, 0.35);
+}
+.ace-dash .sat-arrow-right:hover:not(:disabled) svg {
+  animation: none;
+  transform: translateX(3px);
+}
+.ace-dash .sat-arrow-left:hover:not(:disabled) svg {
+  animation: none;
+  transform: translateX(-3px);
+}
+.ace-dash .sat-arrow:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.ace-dash .sat-arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+@keyframes sat-arrow-bob {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+}
+@keyframes sat-arrow-bob-left {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ace-dash .sat-arrow svg { animation: none !important; }
+}
+@media (max-width: 640px) {
+  .ace-dash .sat-carousel .sat-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .ace-dash .sat-loading {
   display: flex;
   align-items: center;

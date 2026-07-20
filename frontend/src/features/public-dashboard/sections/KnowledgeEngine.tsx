@@ -4,8 +4,11 @@ import { MiniCounter } from "../components/MiniMetric";
 import { SectionHead } from "../components/SectionHead";
 import { states } from "../data/dashboardData";
 import { useInView } from "../utils";
-import { Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { SaturatedCropState } from "@/hooks/services/publicStatsService";
+
+/** How many state cards are visible at once; the rest page in via the arrows. */
+const SAT_PAGE_SIZE = 4;
 
 interface KnowledgeEngineProps {
   /** Per state, the crops whose question count exceeds the admin's threshold. */
@@ -23,9 +26,16 @@ export const KnowledgeEngine = ({
   loading = false,
 }: KnowledgeEngineProps) => {
   const [kccW, setKccW] = useState(0);
+  const [satPage, setSatPage] = useState(0);
   const { ref: kccRef, inView: kccInView } = useInView(0.2);
   const { ref: maturityRef, inView: maturityInView } = useInView(0.2);
   const { ref: cropsRef, inView: cropsInView } = useInView(0.1);
+
+  const satPageCount = Math.ceil(saturatedCropsByState.length / SAT_PAGE_SIZE);
+  const satVisible = saturatedCropsByState.slice(
+    satPage * SAT_PAGE_SIZE,
+    satPage * SAT_PAGE_SIZE + SAT_PAGE_SIZE,
+  );
 
   useEffect(() => {
     if (!kccInView) return;
@@ -91,8 +101,23 @@ export const KnowledgeEngine = ({
         </div>
       </div>
 
-      <div className="eyebrow" style={{ marginBottom: 6 }}>
-        SATURATED CROPS BY STATE
+      <div className="sat-head">
+        <div className="sat-head-title">
+          <span className="eyebrow" style={{ marginBottom: 0 }}>
+            SATURATED CROPS BY STATE
+          </span>
+          {!loading && saturatedCropsByState.length > 0 && (
+            <span className="sat-states-badge">
+              {saturatedCropsByState.length} state
+              {saturatedCropsByState.length === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
+        {!loading && satPageCount > 1 && (
+          <span className="sat-nav-count mono">
+            {satPage + 1} / {satPageCount}
+          </span>
+        )}
       </div>
       <p className="sec-desc" style={{ marginBottom: 14 }}>
         Crops whose validated-question count exceeds
@@ -108,15 +133,43 @@ export const KnowledgeEngine = ({
       ) : saturatedCropsByState.length === 0 ? (
         <p className="sec-desc">No crops have crossed the saturation threshold yet.</p>
       ) : (
-        <div ref={cropsRef} className={`card-grid grid-4 sat-grid${cropsInView ? " in-view" : ""}`}>
-          {saturatedCropsByState.map((st, si) => (
-            <SaturatedStateCard
-              key={st.state}
-              state={st}
-              index={si}
-              animate={cropsInView}
-            />
-          ))}
+        <div className="sat-carousel">
+          {satPageCount > 1 && (
+            <button
+              type="button"
+              className="sat-arrow sat-arrow-left"
+              onClick={() => setSatPage((p) => Math.max(0, p - 1))}
+              disabled={satPage === 0}
+              aria-label="Previous states"
+            >
+              <ChevronLeft />
+            </button>
+          )}
+          <div
+            ref={cropsRef}
+            key={satPage}
+            className={`sat-grid${cropsInView ? " in-view" : ""}`}
+          >
+            {satVisible.map((st, si) => (
+              <SaturatedStateCard
+                key={st.state}
+                state={st}
+                index={si}
+                animate={cropsInView}
+              />
+            ))}
+          </div>
+          {satPageCount > 1 && (
+            <button
+              type="button"
+              className="sat-arrow sat-arrow-right"
+              onClick={() => setSatPage((p) => Math.min(satPageCount - 1, p + 1))}
+              disabled={satPage >= satPageCount - 1}
+              aria-label="Next states"
+            >
+              <ChevronRight />
+            </button>
+          )}
         </div>
       )}
     </section>
