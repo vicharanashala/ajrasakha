@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent } from "@/components/atoms/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import {
   ListTodo,
   Award,
@@ -11,7 +11,16 @@ import {
   CheckCircle,
   AlertCircle,
   History,
+  Briefcase,
+  CalendarClock,
+  CircleCheckBig,
+  CircleOff,
+  Filter,
+  ShieldAlert,
+  ShieldCheck,
+  UserRound,
 } from "lucide-react";
+import { UserHistoryView } from "@/components/UserHistoryView";
 import { useNavigate } from "@tanstack/react-router";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
@@ -148,6 +157,12 @@ export const ExpertDashboard = ({
     refetch: refetchSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId || null);
+
+  const loggedInUserRole = currentUserRole || viewerUser?.role;
+  const isViewerAdminOrModerator =
+    loggedInUserRole === "admin" ||
+    loggedInUserRole === "moderator" ||
+    loggedInUserRole === "tester";
 
   const formatReviewLevel = (rawLevel: string | number | undefined) => {
     if (rawLevel === undefined || rawLevel === null) return "N/A";
@@ -611,6 +626,11 @@ export const ExpertDashboard = ({
             </CardContent>
           </Card>
         </div>
+        {isViewerAdminOrModerator && userId && (
+          <div className="mb-6 mt-8">
+            <UserHistoryView userId={userId} />
+          </div>
+        )}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-10">
           <TabsList>
             <TabsTrigger value="review_level">Review Level</TabsTrigger>
