@@ -1080,7 +1080,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* WhatsApp History */}
-              {userRole !== "expert" && userRole !== 'tester' && (
+              {userRole !== "expert" && userRole !== 'tester' && !isTrainingUser && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative"
                   onClick={() => {
@@ -1162,7 +1162,7 @@ export const QuestionsFilters = ({
               )} */}
 
               {/* reallocate */}
-              {userRole !== "expert" && userRole !== "tester" && (
+              {userRole !== "expert" && userRole !== "tester" && !isTrainingUser && (
                 <button
                   className="relative w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1198,7 +1198,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* send outreach rport */}
-              {userRole !== "expert" && userRole !== "tester" && (
+              {userRole !== "expert" && userRole !== "tester" && !isTrainingUser && (
                 <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
               {/* preferences */}
@@ -1215,19 +1215,19 @@ export const QuestionsFilters = ({
               />
 
               {/* queue details — moderators & admins only */}
-              {(userRole === "admin" || userRole === "moderator") && (
+              {(userRole === "admin" || (userRole === "moderator" && !isTrainingUser)) && (
                 <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
 
               {/* gate keeper / auditor queue — moderators & admins only */}
-              {(userRole === "admin" || userRole === "moderator") && (
+              {(userRole === "admin" || (userRole === "moderator" && !isTrainingUser)) && (
                 <GateKeeperAuditorQueueModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
             </div>
           </section>
 
           {/* Section: Download Reports */}
-          {userRole !== "expert" && userRole !== 'tester' && (
+          {userRole !== "expert" && userRole !== 'tester' && !isTrainingUser && (
             <section>
               <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
                 Download Reports
@@ -1314,7 +1314,7 @@ export const QuestionsFilters = ({
               System
             </h3>
 
-            {userRole !== "expert" && (
+            {userRole !== "expert" && !isTrainingUser && (
               <button
                 onClick={handleClick}
                 className="relative w-full flex items-center justify-between p-4 mb-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
