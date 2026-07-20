@@ -102,6 +102,9 @@ import type { ICallDetailsRepository, QAPairs, QAMetadata } from '#root/shared/d
  */
 let isReallocatingTimeBound = false;
 
+/** Same guard as above, for the manual (AGRI_EXPERT/OUTREACH) single-allocation cron. */
+let isReallocatingManual = false;
+
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
   constructor(
@@ -1732,37 +1735,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     const { questionId, source, details, baseQuestion, logData } = params;
     try {
       if (source === 'AGRI_EXPERT') {
-        const users = await this.userRepo.findExpertsByPreference(
-          details as PreferenceDto,
+        // Manual single-allocation: AGRI_EXPERT questions are no longer bulk-allocated
+        // on creation. They are left unallocated (empty queue, no firstAllocationAt)
+        // and picked up one-at-a-time by the manual single-allocation cron
+        // (reallocateManualQuestions), mirroring the time-bound flow.
+        console.log(
+          `[ManualSingle] Question ${questionId} left for single-allocation cron (source=AGRI_EXPERT)`,
         );
-        const initialUsersToAllocate = users.slice(
-          0,
-          DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-        );
-        const queue: ObjectId[] = initialUsersToAllocate.map(
-          u => new ObjectId(u._id.toString()),
-        );
-
-        await this.questionSubmissionRepo.updateQueue(questionId, queue);
-
-        if (initialUsersToAllocate[0]) {
-          await Promise.all([
-            this.userRepo.updateReputationScore(
-              initialUsersToAllocate[0]._id.toString(),
-              true,
-            ),
-            this.notificationService.saveTheNotifications(
-              `A Question has been assigned for answering`,
-              'Answer Creation Assigned',
-              questionId,
-              initialUsersToAllocate[0]._id.toString(),
-              'answer_creation',
-            ),
-            this.questionRepo.updateQuestion(questionId, {
-              firstAllocationAt: new Date(),
-            }),
-          ]);
-        }
       } else {
         const isTimeBoundedQuestion =
           source === 'AJRASAKHA' || source === 'WHATSAPP';
@@ -2354,10 +2333,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
       return { data: [], status: false };
     }
-    const isTimeBound =
-      question.source === 'AJRASAKHA' || question.source === 'WHATSAPP';
-    if (isTimeBound) {
-      const reason = `Auto-allocation is disabled for time-bound questions (source: ${question.source})`;
+    // Single-allocation sources (time-bound AJRASAKHA/WHATSAPP and manual
+    // AGRI_EXPERT/OUTREACH) are managed by the single-allocation cron — bulk
+    // auto-allocation is disabled for them here.
+    const isSingleAllocation =
+      TIME_BOUND_SOURCES.includes(question.source) ||
+      MANUAL_SOURCES.includes(question.source);
+    if (isSingleAllocation) {
+      const reason = `Auto-allocation is disabled for single-allocation questions (source: ${question.source})`;
       console.log(
         `[autoAllocateExperts] ${reason} — questionId: ${questionId}`,
       );
@@ -6687,14 +6670,17 @@ export class QuestionService extends BaseService implements IQuestionService {
     try {
       const question = await this.questionRepo.getById(questionId);
       if (!question) return;
-      // Always call the repo — it clears previous openedAt on other questions,
-      // and only sets it on the current question if it's time-bound.
-      const isTimeBound =
-        question.source === 'WHATSAPP' || question.source === 'AJRASAKHA';
+      // Always call the repo — it clears previous openedAt on other questions, and
+      // sets it on the current question for any single-allocation source (time-bound
+      // OR manual AGRI_EXPERT/OUTREACH) so the reallocation crons don't reassign a
+      // question the expert is actively working on.
+      const isSingleAllocation =
+        TIME_BOUND_SOURCES.includes(question.source) ||
+        MANUAL_SOURCES.includes(question.source);
       await this.questionSubmissionRepo.markQuestionOpenedByExpert(
         questionId,
         userId,
-        isTimeBound,
+        isSingleAllocation,
       );
     } catch (error) {
       // Non-fatal — log and swallow so the UI is never blocked by this
@@ -7075,13 +7061,70 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
     isReallocatingTimeBound = true;
+    try {
+      return await this._runSingleAllocation({
+        label: 'TimeBound',
+        sources: TIME_BOUND_SOURCES,
+        requirePaeReviewNotDone: false,
+      });
+    } finally {
+      isReallocatingTimeBound = false;
+    }
+  }
+
+  /**
+   * Manual single-allocation queue for AGRI_EXPERT / OUTREACH questions.
+   * Mirrors the time-bound flow exactly (one expert at a time, STF-first for
+   * never-allocated, 45-min stuck reallocation, reviewer assignment) but:
+   *   - operates on MANUAL_SOURCES instead of time-bound sources,
+   *   - only considers questions not yet PAE-reviewed (pae_review false/missing),
+   *   - uses an independent per-expert "1 active manual" cap.
+   */
+  async reallocateManualQuestions(): Promise<{
+    message: string;
+    reallocated: number;
+    skipped: number;
+  }> {
+    if (isReallocatingManual) {
+      console.log(
+        '[ManualSingle] Previous run still in progress — skipping this tick to avoid double-allocation.',
+      );
+      return {
+        message: 'Reallocation already in progress',
+        reallocated: 0,
+        skipped: 0,
+      };
+    }
+    isReallocatingManual = true;
+    try {
+      return await this._runSingleAllocation({
+        label: 'ManualSingle',
+        sources: MANUAL_SOURCES,
+        requirePaeReviewNotDone: true,
+      });
+    } finally {
+      isReallocatingManual = false;
+    }
+  }
+
+  /**
+   * Core single-question allocation engine shared by the time-bound and manual
+   * crons. Fetches stuck / never-allocated / needs-reviewer submissions for the
+   * given source group and allocates one expert at a time (cap enforced per group).
+   */
+  private async _runSingleAllocation(cfg: {
+    label: string;
+    sources: QuestionSource[];
+    requirePaeReviewNotDone: boolean;
+  }): Promise<{ message: string; reallocated: number; skipped: number }> {
+    const { label, sources, requirePaeReviewNotDone } = cfg;
     console.log(
-      '[TimeBound] Starting reallocation + initial-allocation + reviewer-assignment check...',
+      `[${label}] Starting reallocation + initial-allocation + reviewer-assignment check...`,
     );
     try {
       // 1. Fetch all cases in parallel.
       // NOTE: opened-but-idle reallocation is intentionally DISABLED — once an expert
-      // opens a time-bound question (currentExpertOpenedAt is set) it stays with them
+      // opens a question (currentExpertOpenedAt is set) it stays with them
       // and is never reallocated. The "stuck" path already excludes opened questions
       // (its query requires currentExpertOpenedAt to be null), so by not fetching the
       // openedIdle work here an opened question is reallocated by neither path.
@@ -7090,9 +7133,18 @@ export class QuestionService extends BaseService implements IQuestionService {
         unallocatedSubmissions,
         answeredNeedingReviewer,
       ] = await Promise.all([
-        this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
-        this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
-        this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
+        this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
+          sources,
+          requirePaeReviewNotDone,
+        ),
+        this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
+          sources,
+          requirePaeReviewNotDone,
+        ),
+        this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
+          sources,
+          requirePaeReviewNotDone,
+        ),
       ]);
 
       const byCreatedAt = (a: any, b: any) =>
@@ -7107,10 +7159,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         stuckSubmissions.length +
         unallocatedSubmissions.length +
         answeredNeedingReviewer.length;
-      console.log('the total work coming====', totalWork);
+      //console.log('the total work coming====', totalWork);
       if (!totalWork) {
         return {
-          message: 'No time-bound questions need attention',
+          message: `[${label}] No questions need attention`,
           reallocated: 0,
           skipped: 0,
         };
@@ -7168,10 +7220,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
       };
 
-      // 3. Get current time-bound workload per expert (single DB call)
+      // 3. Get current active workload per expert for THIS source group (single DB
+      //    call). Passing `sources` keeps the manual cap independent from time-bound.
       const timeBoundCounts =
-        await this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert();
-      const MAX_TIME_BOUND = 1; // Each expert handles at most 1 active time-bound question
+        await this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(
+          sources,
+        );
+      const MAX_TIME_BOUND = 1; // Each expert handles at most 1 active question in this group
       // Track provisional additions during this run to respect cap within batch
       const provisionalCounts = new Map<string, number>(timeBoundCounts);
 
@@ -7185,7 +7240,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         queue: (s.queue ?? []).map((q: any) => q?.toString()),
         createdAt: s.question?.createdAt ?? s.createdAt,
       });
-      console.log(
+     /* console.log(
         '[TimeBound][diag] stuck:',
         JSON.stringify(stuckSubmissions.map(summarizeSub)),
       );
@@ -7196,7 +7251,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       console.log(
         '[TimeBound][diag] needsReviewer:',
         JSON.stringify(answeredNeedingReviewer.map(summarizeSub)),
-      );
+      );*/
 
       const expertDiag = allExperts.map((e: any) => {
         const id = e._id.toString();
@@ -7212,11 +7267,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           free: active < MAX_TIME_BOUND,
         };
       });
-      console.log(
+    /*  console.log(
         `[TimeBound][diag] experts=${allExperts.length}, free=${expertDiag.filter(x => x.free).length}, ` +
         `freeSTF=${expertDiag.filter(x => x.free && x.stf).length}, busyMapSize=${timeBoundCounts.size}`,
       );
-      console.log('[TimeBound][diag] experts:', JSON.stringify(expertDiag));
+      console.log('[TimeBound][diag] experts:', JSON.stringify(expertDiag));*/
 
       // ── Merge all lists into one priority queue ordered by question.createdAt ──
       type WorkType = 'stuck' | 'openedIdle' | 'unallocated' | 'needsReviewer';
@@ -7291,7 +7346,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         const questionId = submission.questionId?.toString();
         const question = submission.question;
         const sourceLabel =
-          question?.source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
+          ({
+            AJRASAKHA: 'Ajrasakha',
+            WHATSAPP: 'WhatsApp',
+            AGRI_EXPERT: 'Agri Expert',
+            OUTREACH: 'Outreach',
+          } as Record<string, string>)[question?.source] ??
+          question?.source ??
+          'Unknown';
         const history: any[] = submission.history || [];
         const queue: any[] = submission.queue || [];
 
@@ -7381,27 +7443,48 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
 
           try {
-            await Promise.all([
-              this.questionSubmissionRepo.updateQueue(questionId, [
-                new ObjectId(assignedExpert),
-              ]),
-              this.userRepo.updateReputationScore(assignedExpert, true),
-              this.questionRepo.updateQuestion(questionId, {
-                isAutoAllocate: true,
-                firstAllocationAt: new Date(),
-              }),
-              this.questionSubmissionRepo.setCurrentExpertAllocatedAt(
+            // Atomic allocation: run the DB writes in one transaction so a failure in
+            // any of them rolls back the rest (no half-allocated question). Ops on a
+            // single session must run sequentially (no Promise.all inside).
+            await this._withTransaction(async (session: ClientSession) => {
+              await this.questionSubmissionRepo.updateQueue(
+                questionId,
+                [new ObjectId(assignedExpert)],
+                session,
+              );
+              await this.userRepo.updateReputationScore(
+                assignedExpert,
+                true,
+                session,
+              );
+              await this.questionRepo.updateQuestion(
+                questionId,
+                { isAutoAllocate: true, firstAllocationAt: new Date() },
+                session,
+              );
+              await this.questionSubmissionRepo.setCurrentExpertAllocatedAt(
                 questionId,
                 new Date(),
-              ),
-              this.notificationService.saveTheNotifications(
-                `A time-bound question from ${sourceLabel} has been assigned to you`,
+                session,
+              );
+            });
+
+            // Notification is best-effort and lives OUTSIDE the transaction so it can
+            // never roll back a committed allocation.
+            await this.notificationService
+              .saveTheNotifications(
+                `A question from ${sourceLabel} has been assigned to you`,
                 'Answer Creation Assigned',
                 questionId,
                 assignedExpert,
                 'answer_creation',
-              ),
-            ]);
+              )
+              .catch((err: any) =>
+                console.error(
+                  `[TimeBound] Failed to notify expert ${assignedExpert} for ${questionId}:`,
+                  err?.message,
+                ),
+              );
             writeSystemAllocationAudit(
               questionId,
               (question as any)?.question,
@@ -7465,21 +7548,37 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
 
           try {
-            await Promise.all([
-              this.questionSubmissionRepo.assignTimeBoundReviewer(
+            // Atomic reviewer assignment (see initial-allocation note above): DB writes
+            // run sequentially in one transaction; the notification is best-effort and
+            // lives outside so it can't roll back a committed assignment.
+            await this._withTransaction(async (session: ClientSession) => {
+              await this.questionSubmissionRepo.assignTimeBoundReviewer(
                 questionId,
                 assignedReviewer,
                 new Date(),
-              ),
-              this.userRepo.updateReputationScore(assignedReviewer, true),
-              this.notificationService.saveTheNotifications(
-                `A time-bound question from ${sourceLabel} needs your review`,
+                session,
+              );
+              await this.userRepo.updateReputationScore(
+                assignedReviewer,
+                true,
+                session,
+              );
+            });
+
+            await this.notificationService
+              .saveTheNotifications(
+                `A question from ${sourceLabel} needs your review`,
                 'New Review Assigned',
                 questionId,
                 assignedReviewer,
                 'peer_review',
-              ),
-            ]);
+              )
+              .catch((err: any) =>
+                console.error(
+                  `[TimeBound] Failed to notify reviewer ${assignedReviewer} for ${questionId}:`,
+                  err?.message,
+                ),
+              );
             writeSystemAllocationAudit(
               questionId,
               (question as any)?.question,
@@ -7575,20 +7674,18 @@ export class QuestionService extends BaseService implements IQuestionService {
       const totalReallocated =
         flatAssignments.length + initialAllocated + reviewersAssigned;
       return {
-        message: `Time-bound: reallocated=${flatAssignments.length}, initially-allocated=${initialAllocated}, reviewers-assigned=${reviewersAssigned}`,
+        message: `[${label}] reallocated=${flatAssignments.length}, initially-allocated=${initialAllocated}, reviewers-assigned=${reviewersAssigned}`,
         reallocated: totalReallocated,
         skipped,
       };
     } catch (error: any) {
       console.error(
-        '[TimeBound] reallocateTimeBoundQuestions failed:',
+        `[${label}] single-allocation run failed:`,
         error?.message,
       );
       throw new InternalServerError(
-        `Failed to reallocate time-bound questions: ${error?.message}`,
+        `Failed to run ${label} allocation: ${error?.message}`,
       );
-    } finally {
-      isReallocatingTimeBound = false;
     }
   }
 
@@ -7724,17 +7821,40 @@ export class QuestionService extends BaseService implements IQuestionService {
     const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 50), 200);
     const skip = (safePage - 1) * safeLimit;
 
-    switch (section) {
+    // Manual expert sections (suffix "Manual") reuse the time-bound section logic but
+    // scoped to MANUAL_SOURCES (AGRI_EXPERT/OUTREACH) with the not-yet-PAE-reviewed
+    // filter, mirroring the manual single-allocation cron. Moderator ...Manual sections
+    // have their own dedicated cases and are NOT remapped here.
+    const EXPERT_SECTIONS = new Set([
+      'received', 'autoAllocateOff', 'autoAllocateOpen', 'autoAllocateDelayed',
+      'allocated', 'waiting', 'freeExperts', 'stuck', 'needsReviewer', 'openedIdle', 'totalWork',
+    ]);
+    let baseSection: string = section;
+    let expertSources: QuestionSource[] = TIME_BOUND_SOURCES;
+    let requirePaeNotDone = false;
+    if (section.endsWith('Manual')) {
+      const stripped = section.slice(0, -'Manual'.length);
+      if (EXPERT_SECTIONS.has(stripped)) {
+        baseSection = stripped;
+        expertSources = MANUAL_SOURCES;
+        requirePaeNotDone = true;
+      }
+    }
+
+    switch (baseSection as QueueSectionName) {
       case 'received':
       case 'autoAllocateOff':
       case 'autoAllocateOpen':
       case 'autoAllocateDelayed': {
+        // Use baseSection (suffix-stripped) so the ...Manual variants map to the same
+        // kind as their base section — otherwise 'autoAllocateDelayedManual' etc. fall
+        // through to 'autoOff' and wrongly include open questions.
         const kind =
-          section === 'received'
+          baseSection === 'received'
             ? 'received'
-            : section === 'autoAllocateOpen'
+            : baseSection === 'autoAllocateOpen'
               ? 'autoAllocateOpen'
-              : section === 'autoAllocateDelayed'
+              : baseSection === 'autoAllocateDelayed'
                 ? 'autoAllocateDelayed'
                 : 'autoOff';
         const { count, items } = await this.questionRepo.getQueueQuestionSection(
@@ -7743,6 +7863,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           safeLimit,
           startTime,
           endTime,
+          expertSources,
+          requirePaeNotDone,
         );
         return { count, items: items.map(r => this.rawToQueueItem(r)) };
       }
@@ -7754,6 +7876,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           safeLimit,
           startTime,
           endTime,
+          expertSources,
+          requirePaeNotDone,
         );
         const byQuestion = new Map<string, string | null>();
         const ids: string[] = [];
@@ -7788,7 +7912,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         // "Never-allocated". No date filter / no DB-side limit — paginate the
         // full list in memory so the count always matches the console.
         const subs =
-          (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions()) as any[];
+          (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
+            expertSources,
+            requirePaeNotDone,
+          )) as any[];
         const pageSubs = subs.slice(skip, skip + safeLimit);
         return {
           count: subs.length,
@@ -7799,7 +7926,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       case 'freeExperts': {
         const [allExperts, busyMap] = await Promise.all([
           this.userRepo.findExpertsByReputationScore({} as any),
-          this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(),
+          this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(
+            expertSources,
+          ),
         ]);
         // Free = experts with no active time-bound allocation. busyMap is the
         // authoritative "currently holding pending work" set the cron uses.
@@ -7826,7 +7955,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Same method (and therefore the same number) the cron logs as "Stuck".
         // No date filter so the count always matches the console.
         const stuckSubs =
-          (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation()) as any[];
+          (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
+            expertSources,
+            requirePaeNotDone,
+          )) as any[];
         const count = stuckSubs.length;
         const pageSubs = stuckSubs.slice(skip, skip + safeLimit);
         const byQuestion = new Map<string, string | null>();
@@ -7861,7 +7993,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Opened by the current expert > 45 min ago but still no answer. No date
         // filter, mirroring the other time-bound sections.
         const subs =
-          (await this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions()) as any[];
+          (await this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions(
+            expertSources,
+          )) as any[];
         const count = subs.length;
         const pageSubs = subs.slice(skip, skip + safeLimit);
         const byQuestion = new Map<string, string | null>();
@@ -7897,7 +8031,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         // "NeedReviewer": answered/reviewed questions still awaiting the next
         // reviewer. No date filter so the count always matches the console.
         const subs =
-          (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer()) as any[];
+          (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
+            expertSources,
+            requirePaeNotDone,
+          )) as any[];
         const count = subs.length;
         const pageSubs = subs.slice(skip, skip + safeLimit);
         // Show every expert who completed a step on the question, in turn order (each
@@ -7937,9 +8074,18 @@ export class QuestionService extends BaseService implements IQuestionService {
         // (same as the cron) so this includes ALL such questions. Each item is tagged
         // with its workType so the UI can show which bucket it came from.
         const [stuckSubs, unallocatedSubs, reviewerSubs] = await Promise.all([
-          this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
-          this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
-          this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
+          this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
+            expertSources,
+            requirePaeNotDone,
+          ),
+          this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
+            expertSources,
+            requirePaeNotDone,
+          ),
+          this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
+            expertSources,
+            requirePaeNotDone,
+          ),
         ]);
 
         type Tagged = {
@@ -8246,6 +8392,18 @@ export class QuestionService extends BaseService implements IQuestionService {
       auditorAllocated,
       availableAuditors,
       receivedStatusCounts,
+      // Manual expert-queue sections (AGRI_EXPERT/OUTREACH single-allocation)
+      receivedManual,
+      autoAllocateOffManual,
+      autoAllocateOpenManual,
+      autoAllocateDelayedManual,
+      allocatedManual,
+      waitingManual,
+      freeExpertsManual,
+      stuckManual,
+      needsReviewerManual,
+      openedIdleManual,
+      receivedStatusCountsManual,
     ] = await Promise.all([
       safe('received'),
       safe('autoAllocateOff'),
@@ -8282,6 +8440,25 @@ export class QuestionService extends BaseService implements IQuestionService {
             err?.message,
           );
           return [] as { status: string; count: number }[];
+        }),
+      safe('receivedManual'),
+      safe('autoAllocateOffManual'),
+      safe('autoAllocateOpenManual'),
+      safe('autoAllocateDelayedManual'),
+      safe('allocatedManual'),
+      safe('waitingManual'),
+      safe('freeExpertsManual'),
+      safe('stuckManual'),
+      safe('needsReviewerManual'),
+      safe('openedIdleManual'),
+      this.questionRepo
+        .getReceivedStatusCounts(startTime, endTime, MANUAL_SOURCES)
+        .catch((err: any) => {
+          console.error(
+            '[getQueueDetails] receivedStatusCountsManual failed:',
+            err?.message,
+          );
+          return [] as {status: string; count: number}[];
         }),
     ]);
 
@@ -8333,6 +8510,25 @@ export class QuestionService extends BaseService implements IQuestionService {
         auditorAllocated as QueueDetailsResponse['auditorAllocated'],
       availableAuditors:
         availableAuditors as QueueDetailsResponse['availableAuditors'],
+      // ── Manual expert-queue sections ──
+      receivedManual: receivedManual as QueueDetailsResponse['receivedManual'],
+      receivedStatusCountsManual:
+        receivedStatusCountsManual as QueueDetailsResponse['receivedStatusCountsManual'],
+      autoAllocateOffManual:
+        autoAllocateOffManual as QueueDetailsResponse['autoAllocateOffManual'],
+      autoAllocateOpenManual:
+        autoAllocateOpenManual as QueueDetailsResponse['autoAllocateOpenManual'],
+      autoAllocateDelayedManual:
+        autoAllocateDelayedManual as QueueDetailsResponse['autoAllocateDelayedManual'],
+      allocatedManual: allocatedManual as QueueDetailsResponse['allocatedManual'],
+      waitingManual: waitingManual as QueueDetailsResponse['waitingManual'],
+      freeExpertsManual:
+        freeExpertsManual as QueueDetailsResponse['freeExpertsManual'],
+      stuckManual: stuckManual as QueueDetailsResponse['stuckManual'],
+      needsReviewerManual:
+        needsReviewerManual as QueueDetailsResponse['needsReviewerManual'],
+      openedIdleManual:
+        openedIdleManual as QueueDetailsResponse['openedIdleManual'],
     };
   }
 }

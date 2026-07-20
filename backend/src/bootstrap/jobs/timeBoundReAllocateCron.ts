@@ -11,14 +11,18 @@ if(!appConfig.isDevelopment){
 cron.schedule(
   '0 */1 * * * *',
   async () => {
-    console.log('<<CRON>> [TimeBound] Running 2-min time-bound reallocation job...');
+    console.log('<<CRON>> [SingleAlloc] Running time-bound + manual single-allocation job...');
     try {
       const container = getContainer();
       const questionService = container.get<QuestionService>(CORE_TYPES.QuestionService);
-      const result = await questionService.reallocateTimeBoundQuestions();
-      console.log(`<<CRON>> [TimeBound] Done: reallocated=${result.reallocated}, skipped=${result.skipped}`);
+
+      const timeBound = await questionService.reallocateTimeBoundQuestions();
+      console.log(`<<CRON>> [TimeBound] Done: reallocated=${timeBound.reallocated}, skipped=${timeBound.skipped}`);
+
+      const manual = await questionService.reallocateManualQuestions();
+      console.log(`<<CRON>> [ManualSingle] Done: reallocated=${manual.reallocated}, skipped=${manual.skipped}`);
     } catch (error) {
-      console.error('<<CRON>> [TimeBound] Error in time-bound reallocation job:', error);
+      console.error('<<CRON>> [SingleAlloc] Error in single-allocation job:', error);
     }
   },
   { timezone: 'Asia/Kolkata' },

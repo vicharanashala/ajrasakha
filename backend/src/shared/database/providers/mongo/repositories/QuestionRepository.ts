@@ -7509,6 +7509,8 @@ export class QuestionRepository implements IQuestionRepository {
     limit: number,
     startTime?: Date,
     endTime?: Date,
+    sources: string[] = ['AJRASAKHA', 'WHATSAPP'],
+    requirePaeReviewNotDone: boolean = false,
   ): Promise<{count: number; items: RawQueueQuestionRow[]}> {
     await this.init();
 
@@ -7518,34 +7520,43 @@ export class QuestionRepository implements IQuestionRepository {
     if (endTime) createdAtFilter.$lte = endTime;
     const dateScope = startTime || endTime ? {createdAt: createdAtFilter} : {};
 
+    // Manual single-allocation: restrict to questions not yet PAE-reviewed
+    // (pae_review false or missing), mirroring the manual cron's fetch filter.
+    const paeScope = requirePaeReviewNotDone ? {pae_review: {$ne: true}} : {};
+
     const receivedMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
      // isAutoAllocate: true,
     //  status: {$in: ['open', 'delayed', 'duplicate']},
+      ...paeScope,
       ...dateScope,
     };
     const allocatedMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
       isAutoAllocate: {$eq: true},
      // firstAllocationAt: {$exists: true, $ne: null},
       status: {$in: ['open', 'delayed']},
+      ...paeScope,
       // ...dateScope,
     };
     const autoOffMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
       isAutoAllocate: {$eq: true},
       status: {$in: ['open', 'delayed']},
+      ...paeScope,
     //  ...dateScope,
     };
     const autoAllocateOpenMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
       isAutoAllocate: {$eq: true},
       status: 'open',
+      ...paeScope,
     };
     const autoAllocateDelayedMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
       isAutoAllocate: {$eq: true},
       status: 'delayed',
+      ...paeScope,
     };
 
     const lookupStages = [
@@ -7682,6 +7693,7 @@ export class QuestionRepository implements IQuestionRepository {
   async getReceivedStatusCounts(
     startTime?: Date,
     endTime?: Date,
+    sources: string[] = ['AJRASAKHA', 'WHATSAPP'],
   ): Promise<{status: string; count: number}[]> {
     await this.init();
 
@@ -7691,7 +7703,7 @@ export class QuestionRepository implements IQuestionRepository {
     const dateScope = startTime || endTime ? {createdAt: createdAtFilter} : {};
 
     const match = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
       ...dateScope,
     };
 
