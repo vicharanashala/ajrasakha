@@ -4,8 +4,10 @@ import { IncomingMessage, Server } from 'http';
 import { PLIVO_TYPES } from '../modules/plivo/types.js';
 import type { PlivoService } from '../modules/plivo/services/PlivoService.js';
 import { getContainer } from './loadModules.js';
-// import path from 'path';
-// import fs from 'fs';
+import { GLOBAL_TYPES } from '../types.js';
+import type { UserService } from '../modules/user/services/UserService.js';
+import path from 'path';
+import fs from 'fs';
 
 export const initWebSocket = (server: Server) => {
   const wss = new WebSocketServer({
@@ -13,11 +15,12 @@ export const initWebSocket = (server: Server) => {
     path: '/plivo-stream',
   });
   const plivoService = getContainer().get<PlivoService>(PLIVO_TYPES.PlivoService);
+  const userService = getContainer().get<UserService>(GLOBAL_TYPES.UserService);
 
-  // const logsDir = path.join(process.cwd(), 'call_logs');
-  // if (!fs.existsSync(logsDir)) {
-  //   fs.mkdirSync(logsDir, { recursive: true });
-  // }
+  const logsDir = path.join(process.cwd(), 'call_logs');
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
 
   wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
     console.log('🔌 Plivo stream connected');
@@ -26,7 +29,7 @@ export const initWebSocket = (server: Server) => {
     let callId = Date.now().toString();
     let isMediaStream = false;
     let isCallEnded = false;
-    // const logFilePath = path.join(logsDir, `call_${callId}.txt`);
+    const logFilePath = path.join(logsDir, `call_${callId}.txt`);
 
     // Audio buffer for batch processing
     const audioChunks: Buffer[] = [];
@@ -34,7 +37,7 @@ export const initWebSocket = (server: Server) => {
     const handleCallEnd = async () => {
       if (!isMediaStream || isCallEnded) return;
       isCallEnded = true;
-      // console.log(`📴 Handling call end for ${callId}`);
+      console.log(`📴 [WEBSOCKET] Handling call end for ${callId}`);
 
       // Process any remaining audio chunks first
       try {
@@ -102,8 +105,30 @@ export const initWebSocket = (server: Server) => {
         console.error('Final transcript failed:', finalError);
       }
 
-      await plivoService.saveCallDetails(callId.toString());
-      plivoService.clearTranscript(callId.toString());
+      const agentUserId = plivoService.getCallAgent(callId.toString());
+
+      try {
+        await plivoService.saveCallDetails(callId.toString());
+      } catch (saveError) {
+        console.error('[WEBSOCKET] Failed to save call details:', saveError);
+      }
+
+      try {
+        plivoService.clearTranscript(callId.toString());
+      } catch (clearError) {
+        console.error('[WEBSOCKET] Failed to clear transcript:', clearError);
+      }
+
+      if (agentUserId) {
+        try {
+          console.log(`♻️ [WEBSOCKET] Marking agent ${agentUserId} as available (call ended)`);
+          await userService.markAgentAsAvailable(agentUserId);
+        } catch (error) {
+          console.error(`[WEBSOCKET] Failed to mark agent ${agentUserId} as available:`, error);
+        }
+      } else {
+        console.log(`[WEBSOCKET] No agent mapped to call ${callId.toString()}`);
+      }
     };
 
     ws.on('message', async (data: Buffer) => {
@@ -115,16 +140,15 @@ export const initWebSocket = (server: Server) => {
           callId = msg.start.callId;
           console.log('📞 Call started:', msg.start);
 
-          // Write initial session metadata to text log
-          // fs.writeFileSync(
-          //   logFilePath,
-          //   `==================================================\n` +
-          //   `📞 CALL START LOG\n` +
-          //   `Timestamp: ${new Date().toISOString()}\n` +
-          //   `Call ID: ${callId}\n` +
-          //   `Details: ${JSON.stringify(msg.start, null, 2)}\n` +
-          //   `==================================================\n\n`
-          // );
+          fs.writeFileSync(
+            logFilePath,
+            `==================================================\n` +
+            `📞 CALL START LOG\n` +
+            `Timestamp: ${new Date().toISOString()}\n` +
+            `Call ID: ${callId}\n` +
+            `Details: ${JSON.stringify(msg.start, null, 2)}\n` +
+            `==================================================\n\n`
+          );
 
           // Initialize Sarvam WebSocket streams for this call
           plivoService.initializeStreams(callId, (result) => {
@@ -140,16 +164,20 @@ export const initWebSocket = (server: Server) => {
             };
 
             const label = result.track === 'inbound' ? 'Farmer' : 'Expert';
-            // console.log(`[BACKEND LOG] ${label}: ${result.originalText} [Translation: ${result.translatedText}]`);
+            console.log(`[BACKEND LOG] ${label}: ${result.originalText} [Translation: ${result.translatedText}]`);
 
             // Append live transcription to the text log
             const timestamp = new Date().toISOString();
-            // const logEntry =
-            //   `[${timestamp}] ${label}:\n` +
-            //   `  OriginalText:  ${result.originalText}\n` +
-            //   `  TranslatedText: ${result.translatedText}\n` +
-            //   `  DetectedLang:   ${result.detectedLanguage}\n\n`;
-            // fs.appendFileSync(logFilePath, logEntry);
+            const logEntry =
+              `[${timestamp}] ${label}:\n` +
+              `  OriginalText:  ${result.originalText}\n` +
+              `  TranslatedText: ${result.translatedText}\n` +
+              `  DetectedLang:   ${result.detectedLanguage}\n\n`;
+            try {
+              fs.appendFileSync(logFilePath, logEntry);
+            } catch (logErr) {
+              console.error(`[WEBSOCKET] Failed to write call log file:`, logErr);
+            }
 
             // console.log(`📤 [BACKEND] Full message being sent:`, JSON.stringify(transcriptMessage, null, 2));
 

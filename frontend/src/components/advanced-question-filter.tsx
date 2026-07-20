@@ -74,7 +74,7 @@ export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 import { TopRightBadge } from "./NewBadge";
 
-export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic";
+export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic" | "auditor_review" | "queue_duplicate";
 export type QuestionDateRangeFilter =
   | "all"
   | "today"
@@ -131,8 +131,12 @@ export type AdvanceFilterValues = {
   unallocatedQuestions?: boolean;
   pae_review?: boolean;
   is_non_agri?: boolean;
+  is_testing?: boolean;
   /** When set, filters to questions whose moderatorId matches this ID (dedicated tab). */
   moderatorId?: string;
+  /** Dedicated tab for gate keepers / auditors — filters by their assigned questions. */
+  gateKeeperId?: string;
+  auditorId?: string;
 };
 
 
@@ -374,6 +378,26 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
         </div>
       ),
     },
+    {
+      value: "auditor_review",
+      searchText: "Auditor Review",
+      children: (
+        <div className="flex items-center gap-2">
+          <BadgeCheck className="w-4 h-4 text-indigo-500" />
+          <span>Auditor Review</span>
+        </div>
+      ),
+    },
+    {
+      value: "queue_duplicate",
+      searchText: "Queue Duplicate",
+      children: (
+        <div className="flex items-center gap-2">
+          <Layers className="w-4 h-4 text-orange-400" />
+          <span>Queue Duplicate</span>
+        </div>
+      ),
+    },
   ];
 
   const reviewLevelOptions: SearchableFilterSelectOption[] = [
@@ -472,7 +496,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
                   </Label>
-                  <SearchableFilterSelect
+                    <SearchableFilterSelect
                     value={advanceFilter.status}
                     onValueChange={(v) => {
                       handleDialogChange("status", v);
@@ -961,6 +985,18 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   <span className="text-sm">Show un-allocated questions</span>
                 </label>
 
+                {/* show testing questions */}
+                <label className="flex items-center gap-3">
+                  <Checkbox
+                    checked={advanceFilter.is_testing ?? false}
+                    onCheckedChange={(checked) =>
+                      handleDialogChange("is_testing", checked === true)
+                    }
+                    className="h-3.5 w-3.5 border-primary"
+                  />
+                  <span className="text-sm">Show testing questions</span>
+                </label>
+
               </div>
             </div>
 
@@ -1004,6 +1040,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                               ? "Show holded questions"
                               : key === "unallocatedQuestions"
                                 ? "Show un-allocated questions"
+                                : key === "is_testing"
+                                ? "Show testing questions"
                                 : key === "states"
                                 ? "state"
                                 : key === "normalisedCrops"
@@ -1041,7 +1079,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                                       key === "duplicateQuestions" ||
                                       key === "closedInTwoHrs" ||
                                       key === "isOnHold" ||
-                                      key === "unallocatedQuestions"
+                                      key === "unallocatedQuestions" ||
+                                      key === "is_testing"
                                       ? false
                                       : "all",
                               )
@@ -1084,6 +1123,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   autoAllocateFilter: "all",
                   autoAllocateModeratorFilter: "all",
                   unallocatedQuestions: false,
+                  is_testing: false,
                 });
                 onReset();
               }}

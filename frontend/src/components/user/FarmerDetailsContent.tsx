@@ -72,15 +72,50 @@ function DetailSection({
   icon: LucideIcon;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <section className="rounded-md border bg-card/80 p-4 shadow-sm">
-      <div className="mb-4 flex items-center gap-2">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <h4 className="text-sm font-semibold uppercase text-muted-foreground">
-          {title}
-        </h4>
-      </div>
-      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{children}</dl>
+    <section className="overflow-hidden rounded-md border bg-card/80 shadow-sm">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-accent/50"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="truncate text-sm font-semibold uppercase text-muted-foreground">
+            {title}
+          </span>
+        </span>
+        <motion.span
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="shrink-0 text-muted-foreground"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </motion.span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key={`${title}-content`}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{
+              height: { duration: 0.24, ease: [0.4, 0, 0.2, 1] },
+              opacity: { duration: 0.18, ease: "easeInOut" },
+            }}
+            className="overflow-hidden"
+          >
+            <dl className="grid gap-3 border-t p-4 sm:grid-cols-2 xl:grid-cols-3">
+              {children}
+            </dl>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
@@ -124,6 +159,7 @@ export function FarmerDetailsContent({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const isUserVerified = user?.isVerified ?? true;
+  const activeSessionCount = user?.activeSessionCount ?? 0;
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [confirmPasswordChangeOpen, setConfirmPasswordChangeOpen] =
     useState(false);
@@ -190,9 +226,34 @@ export function FarmerDetailsContent({
         <CardContent className="pt-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold">
-                {user?.name || fp?.farmerName || "Unknown User"}
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold">
+                  {user?.name || fp?.farmerName || "Unknown User"}
+                </h2>
+                {activeSessionCount > 0 && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold leading-none text-emerald-700 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300"
+                    title={
+                      activeSessionCount === 1
+                        ? "Currently logged in"
+                        : `${activeSessionCount} active sessions`
+                    }
+                    aria-label={
+                      activeSessionCount === 1
+                        ? "Currently logged in"
+                        : `${activeSessionCount} active sessions`
+                    }
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span>Logged in</span>
+                    {activeSessionCount > 1 && (
+                      <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                        {activeSessionCount}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </div>
 
               <p className="text-muted-foreground">{user?.email}</p>
 

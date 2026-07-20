@@ -767,7 +767,7 @@ export function CoordinatorDuplicateQuestionHeatMap({
                                   stiffness: 400,
                                   damping: 20,
                                 }}
-                                className="flex h-9 min-w-[78px] items-center justify-center rounded-md px-2 text-[11px] font-bold tabular-nums shadow-sm disabled:cursor-default"
+                                className="flex h-9 min-w-[78px] cursor-pointer items-center justify-center rounded-md px-2 text-[11px] font-bold tabular-nums shadow-sm disabled:cursor-default"
                                 style={getCellStyle(cell.count, maxCount)}
                                 onClick={() => openCellDetails(row, cell)}
                                 disabled={cell.count === 0}

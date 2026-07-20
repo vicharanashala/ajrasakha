@@ -25,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { LazySectionSkeleton } from "./AnnamDashboard_dev";
 import { motion, AnimatePresence } from "framer-motion";
 import CountUp from "react-countup";
+import { FeedbackUsersModal } from "./FeedbackUsersModal";
 
 function FeedbackCard({
   title,
@@ -34,6 +35,8 @@ function FeedbackCard({
   positiveFeedbacksCount,
   negativeFeedbacksCount,
   totalFeedbacks = positiveFeedbacksCount + negativeFeedbacksCount,
+  source,
+  userType,
 }: {
   title: string;
   positiveFeedbacks: {
@@ -48,6 +51,8 @@ function FeedbackCard({
   positiveFeedbacksCount: number;
   negativeFeedbacksCount: number;
   totalFeedbacks?: number;
+  source?: string;
+  userType?: string;
 }) {
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -160,6 +165,8 @@ function FeedbackCard({
   const negativeSummary = summarizeTags(negativeFeedbacks, "negative");
   const queryClient = useQueryClient();
   const [dataRefreshing, setDataRefreshing] = useState(false);
+  const [selectedRating, setSelectedRating] = useState<"all" | "positive" | "negative" | null>(null);
+  
   const handleRefresh = async ()=>{
     setDataRefreshing(true);
     await queryClient.refetchQueries({ queryKey: ["user-metrices"] });
@@ -325,7 +332,7 @@ function FeedbackCard({
 
               {/* Stats row */}
               <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2.5">
+                <div onClick={() => setSelectedRating("positive")} className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors">
                   <span
                     className="w-2.5 h-2.5 rounded-full ring-4 ring-offset-0"
                     style={{
@@ -346,7 +353,7 @@ function FeedbackCard({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2.5">
+                <div onClick={() => setSelectedRating("negative")} className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors">
                   <span
                     className="w-2.5 h-2.5 rounded-full"
                     style={{
@@ -813,6 +820,14 @@ createPortal(
   </AnimatePresence>,
   document.body,
 )}
+      {selectedRating && (
+        <FeedbackUsersModal
+          rating={selectedRating}
+          onClose={() => setSelectedRating(null)}
+          source={source}
+          userType={userType}
+        />
+      )}
     </>
   );
 }

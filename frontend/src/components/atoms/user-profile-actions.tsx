@@ -142,7 +142,9 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
 
         {(userWithRole?.role === "admin" ||
           userWithRole?.role === "moderator" ||
-          userWithRole?.role === "tester") && (
+          userWithRole?.role === "tester" ||
+          userWithRole?.role === "gate_keeper" ||
+          userWithRole?.role === "auditor") && (
           <DropdownMenuItem
             onClick={handleViewAudit}
             className="text-foreground focus:text-foreground cursor-pointer mb-2 relative"
@@ -158,7 +160,11 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           </DropdownMenuItem>
         )}
 
-        {!isCoordinator && (
+        {/* History is shown to everyone except coordinators and the gate keeper /
+            auditor roles — those two get the "View Audit" option above instead. */}
+        {!isCoordinator &&
+          userWithRole?.role !== "gate_keeper" &&
+          userWithRole?.role !== "auditor" && (
         <DropdownMenuItem
           onClick={handleViewHistory}
           className="text-foreground focus:text-foreground cursor-pointer mb-2 relative"

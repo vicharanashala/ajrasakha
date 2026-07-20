@@ -8,6 +8,7 @@ import type {
   ReroutedQuestionItem,
   WorkloadBalanceResponse,
   QuestionMessageDetailsResponse,
+  QuestionFeedbackResponse,
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/features/qa-interface-page/QA-interface";
@@ -33,6 +34,7 @@ export type QueueQuestionItem = {
   crop?: string;
   expertName?: string;
   moderatorName?: string;
+  assigneeName?: string;
   allocatedAt?: string | null;
   minutesSinceAllocated?: number;
   openedAt?: string | null;
@@ -80,7 +82,35 @@ export type QueueDetailsResponse = {
   moderatorAllocatedManual: { count: number; items: QueueQuestionItem[] };
   availableModeratorsTimeBound: { count: number; items: QueueExpertItem[] };
   availableModeratorsManual: { count: number; items: QueueExpertItem[] };
+  // Gate keeper / auditor role queues
+  gateKeeperWaiting: { count: number; items: QueueQuestionItem[] };
+  gateKeeperAllocated: { count: number; items: QueueQuestionItem[] };
+  availableGateKeepers: { count: number; items: QueueExpertItem[] };
+  auditorWaiting: { count: number; items: QueueQuestionItem[] };
+  auditorAllocated: { count: number; items: QueueQuestionItem[] };
+  availableAuditors: { count: number; items: QueueExpertItem[] };
 };
+
+export interface RoleDashboardQuestion {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  priority?: string;
+  createdAt?: string;
+  gateKeeperAssignedAt?: string | null;
+  gateKeeperFinishedAt?: string | null;
+  auditorAssignedAt?: string | null;
+  auditorFinishedAt?: string | null;
+  details?: { state?: string; crop?: string };
+}
+export interface RoleDashboardResponse {
+  assignedCount: number;
+  submittedCount: number;
+  questions: RoleDashboardQuestion[];
+  totalPages: number;
+  totalCount: number;
+}
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
   private _reRouteUrl = `${API_BASE_URL}/reroute`;
@@ -157,8 +187,18 @@ export class QuestionService {
       params.append("is_non_agri", "true");
     }
 
+    if (filter.is_testing === true) {
+      params.append("is_testing", "true");
+    }
+
     if (filter.moderatorId) {
       params.append("moderatorId", filter.moderatorId);
+    }
+    if (filter.gateKeeperId) {
+      params.append("gateKeeperId", filter.gateKeeperId);
+    }
+    if (filter.auditorId) {
+      params.append("auditorId", filter.auditorId);
     }
 
     // states and normalisedCrops sent as JSON arrays in request body
@@ -275,6 +315,16 @@ export class QuestionService {
   ): Promise<QuestionMessageDetailsResponse | null> {
     const response = await apiFetch<QuestionMessageDetailsResponse | null>(
       `${this._baseUrl}/${questionId}/chatbot`,
+    );
+
+    return response;
+  }
+
+  async getQuestionFeedbackByQuestionId(
+    questionId: string,
+  ): Promise<QuestionFeedbackResponse | null> {
+    const response = await apiFetch<QuestionFeedbackResponse | null>(
+      `${this._baseUrl}/${questionId}/feedback`,
     );
 
     return response;
@@ -813,6 +863,27 @@ export class QuestionService {
     return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
   }
 
+  /** Gate keeper / auditor dashboard — assigned + submitted counts and their questions.
+   *  Managers can pass a target userId + role to view a specific user's dashboard. */
+  async getRoleDashboard(
+    page: number,
+    limit: number,
+    search: string,
+    userId?: string,
+    role?: "gate_keeper" | "auditor",
+  ): Promise<RoleDashboardResponse | null> {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (search) params.append("search", search);
+    if (userId) params.append("userId", userId);
+    if (role) params.append("role", role);
+    return apiFetch<RoleDashboardResponse>(
+      `${this._baseUrl}/role-dashboard?${params.toString()}`,
+    );
+  }
+
   async changeModerator(
     questionId: string,
     moderatorId: string,
@@ -828,6 +899,38 @@ export class QuestionService {
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/moderator`, {
       method: "DELETE",
+    });
+  }
+
+  async changeRoleAssignee(
+    questionId: string,
+    role: "gate_keeper" | "auditor",
+    userId: string,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/role-assignee`, {
+      method: "PATCH",
+      body: JSON.stringify({ role, userId }),
+    });
+  }
+
+  async removeRoleAssignee(
+    questionId: string,
+    role: "gate_keeper" | "auditor",
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/role-assignee`, {
+      method: "DELETE",
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  async toggleRoleAllocation(
+    questionId: string,
+    role: "gate_keeper" | "auditor",
+    enabled: boolean,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/role-allocation`, {
+      method: "PATCH",
+      body: JSON.stringify({ role, enabled }),
     });
   }
 
@@ -897,6 +1000,10 @@ export class QuestionService {
       params.append("is_non_agri", "true");
     }
 
+    if (filter.is_testing === true) {
+      params.append("is_testing", "true");
+    }
+
     // states and normalisedCrops sent as JSON arrays in request body
     const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
     if (filter.states && filter.states.length > 0) {
@@ -911,6 +1018,7 @@ export class QuestionService {
       data: {
         totalQuestions: number;
         statuses: { status: string; count: number }[];
+        sourceCounts: { source: string; count: number }[];
       };
     }>(`${this._baseUrl}/status-summary?${params.toString()}`, {
       method: "POST",

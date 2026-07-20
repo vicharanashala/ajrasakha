@@ -352,6 +352,11 @@ class QuestionResponse {
     'duplicate',
     'non_agri',
     'pending',
+    'dynamic',
+    'queue_progress',
+    'auditor_review',
+    'dynamic_closed',
+    'duplicate_closed',
   ])
   status?: QuestionStatus;
 
@@ -865,6 +870,14 @@ class GetDetailedQuestionsQuery {
   is_non_agri?: string | boolean;
 
   @JSONSchema({
+    description: 'filter questions with isTesting=true (Testing tab)',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  is_testing?: string | boolean;
+
+  @JSONSchema({
     description: 'filter questions with status=dynamic',
     example: 'true',
     type: 'string',
@@ -878,6 +891,12 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   moderatorId?: string;
+
+  @IsOptional()
+  gateKeeperId?: string;
+
+  @IsOptional()
+  auditorId?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

@@ -1,9 +1,9 @@
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
-import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useAuthStore } from "@/stores/auth-store";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { DateRange } from "react-day-picker";
 import {
   useUserProfile,
   type UserDetail,
@@ -11,6 +11,7 @@ import {
 import { FarmerDetailsContent } from "@/components/user/FarmerDetailsContent";
 import {
   AlertCircle,
+  ArrowLeft,
   Home,
   Loader2,
   MessageSquareText,
@@ -46,7 +47,6 @@ import { NotificationModal } from "@/components/NotificationModal";
 import { apiFetch } from "@/hooks/api/api-fetch";
 import { env } from "@/config/env";
 import { useToast } from "@/shared/components/toast";
-import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 import { initializeNotifications } from "@/services/pushService";
 import {
   CoordinatorDashboardSummary,
@@ -59,6 +59,7 @@ import {
   FarmerDashboardAnalytics,
   type FarmerDashboardData,
 } from "@/features/chatbotDashboard/components/FarmerDashboardAnalytics";
+import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
 import {
   CoordinatorNotificationDialog,
   UserNotificationHistorySheet,
@@ -88,12 +89,23 @@ function RouteComponent() {
   });
   const { userId } = Route.useParams();
   const canFetchProfile = isLikelyObjectId(userId);
+  const [engagementDateRange, setEngagementDateRange] =
+    useState<DateRange | undefined>(undefined);
+  const engagementRange = useMemo(
+    () => getISOStringsForDateRange(engagementDateRange),
+    [engagementDateRange],
+  );
 
   const {
     data: userProfile,
     isLoading: userProfileLoading,
     error: userProfileError,
-  } = useUserProfile(userId, canFetchProfile);
+  } = useUserProfile(
+    userId,
+    canFetchProfile,
+    engagementRange.startTime,
+    engagementRange.endTime,
+  );
 
   useEffect(() => {
     if (!user) {
@@ -485,8 +497,17 @@ function RouteComponent() {
           onClick={() => navigate({ to: "/home" })}
             className="h-11 gap-2 rounded-md px-4 text-base"
         >
-          <Home className="h-4 w-4 mr-2" />
-          Home
+          {currentUser?.role === "admin" ? (
+            <>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </>
+          ) : (
+            <>
+              <Home className="mr-2 h-4 w-4" />
+              Home
+            </>
+          )}
         </Button>
         <h1 className="min-w-0 text-center text-lg font-semibold tracking-tight sm:text-xl">
           {viewedProfileIsCoordinator ? "Coordinator Dashboard" : "User Dashboard"}
@@ -514,8 +535,7 @@ function RouteComponent() {
               }
             />
           )}
-          <ThemeToggleCompact />
-          <UserProfileActions />
+          {currentUser?.role !== "admin" && <UserProfileActions />}
         </div>
       </header>
       <main className="space-y-8">
@@ -553,6 +573,9 @@ function RouteComponent() {
         )}
         <FarmerDashboardAnalytics
           dashboard={userProfile?.farmerDashboard as FarmerDashboardData}
+          userId={String(userProfile?.userId || userId)}
+          engagementDateRange={engagementDateRange}
+          onEngagementDateRangeChange={setEngagementDateRange}
           afterEngagementTrends={
             viewedProfileIsCoordinator ? (
               <CoordinatorDuplicateQuestionHeatMap
@@ -783,7 +806,6 @@ function DashboardMessage({
         </Button>
         <h1 className="text-base font-semibold">User Dashboard</h1>
         <div className="flex items-center gap-2">
-          <ThemeToggleCompact />
           <UserProfileActions />
         </div>
       </header>

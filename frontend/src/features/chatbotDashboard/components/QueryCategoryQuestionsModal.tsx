@@ -58,7 +58,7 @@ interface QueryCategoryQuestionsModalProps {
   state?: string;
   crop?: string;
   crops?: string[];
-  status?: string; 
+  status?: string;
   closedWithInTwohours?: boolean;
   notificationType?: string;
   period?: string;
@@ -72,6 +72,19 @@ interface QueryCategoryQuestionsModalProps {
   isPassed?: boolean;
   tag?: string;
   totalClosedAndPassed?: number;
+  userId?: string;
+  closedQuestions?: number;
+  totalQuestions?: number;
+  passedQuestions?: number;
+  closedInLastTwoHours?: number;
+  passedInLastTwoHours?: number;
+  dynamicClosedInLastTwoHours?: number;
+  duplicateClosedInLastTwoHours?: number;
+  slaBreached?: number;
+  safeNotified?: number;
+  safeNotNotified?: number;
+  safeUntracked?: number;
+  isIndiaView?: boolean;
 }
 
 const PAGE_SIZE = 10;
@@ -94,12 +107,22 @@ export function QueryCategoryQuestionsModal({
   onClose,
   isPassed,
   tag,
-  totalClosedAndPassed
+  totalClosedAndPassed,
+  userId,
+  closedQuestions,
+  totalQuestions,
+  passedQuestions,
+  closedInLastTwoHours,
+  passedInLastTwoHours,
+  dynamicClosedInLastTwoHours,
+  duplicateClosedInLastTwoHours,
+  slaBreached,
+  safeNotified,
+  safeNotNotified,
+  safeUntracked,
+  isIndiaView,
 }: QueryCategoryQuestionsModalProps) {
-  const {
-    setSelectedQuestionId,
-    setView,
-  } = useSelectedQuestion();
+  const { setSelectedQuestionId, setView } = useSelectedQuestion();
 
   const [questionType, setQuestionType] =
     useState<QueryCategoryQuestionType>("all");
@@ -146,135 +169,130 @@ export function QueryCategoryQuestionsModal({
     search: debouncedSearch,
     enabled: true,
     isPassed,
-    tag
+    tag,
+    userId,
   });
-// console.log("dta----", data)
-  // const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
-  //   () => [
-  //     {
-  //       key: "questionId",
-  //       label: "Question ID",
-  //       sortable: true,
-  //       sortAccessor: (row) => row.questionId,
-  //       className: "w-[12%]",
-  //       cellClassName: "text-xs text-gray-500",
-  //       render: (row) => <CopyableIdCell id={row.questionId} />,
-  //     },
-  //     {
-  //       key: "email",
-  //       label: "Email",
-  //       sortable: true,
-  //       sortAccessor: (row) => row.email || "N/A",
-  //       className: "w-[16%]",
-  //       cellClassName: "truncate",
-  //       accessor: (row) => row.email || "N/A",
-  //     },
-  //     {
-  //       key: "name",
-  //       label: "Name",
-  //       sortable: true,
-  //       sortAccessor: (row) => row.name || row.farmerName || "N/A",
-  //       className: "w-[14%]",
-  //       cellClassName: "truncate",
-  //       accessor: (row) => row.name || row.farmerName || "N/A",
-  //     },
-  //     {
-  //       key: "question",
-  //       label: "Question",
-  //       sortable: true,
-  //       sortAccessor: (row) => row.question,
-  //       className: "w-[32%]",
-  //       cellClassName: "overflow-hidden",
-  //       render: (row) => (
-  //         <TranslatableText
-  //           text={row.question ?? ""}
-  //           showTooltip
-  //           textClassName="text-xs line-clamp-2"
-  //         />
-  //       ),
-  //     },
-  //     {
-  //       key: "createdAt",
-  //       label: "Created At",
-  //       sortable: true,
-  //       sortAccessor: (row) => (row.createdAt ? new Date(row.createdAt) : null),
-  //       className: "w-[10%]",
-  //       cellClassName: "whitespace-normal break-words text-[11px]",
-  //       render: (row) =>
-  //         row.createdAt
-  //           ? new Date(row.createdAt).toLocaleString(undefined, {
-  //               dateStyle: "short",
-  //               timeStyle: "short",
-  //             })
-  //           : undefined,
-  //     },
-  //     {
-  //       key: "questionType",
-  //       label: "Type",
-  //       align: "center",
-  //       sortable: true,
-  //       sortAccessor: (row) => row.questionType,
-  //       className: "w-[8%]",
-  //       render: (row) => (
-  //         <Badge
-  //           variant={
-  //             row.questionType === "duplicate" ? "destructive" : "secondary"
-  //           }
-  //           className="justify-center capitalize"
-  //         >
-  //           {row.questionType}
-  //         </Badge>
-  //       ),
-  //     },
-  //     {
-  //       key: "status",
-  //       label: "Status",
-  //       align: "center",
-  //       sortable: true,
-  //       sortAccessor: (row) => row.status ?? "",
-  //       className: "w-[8%]",
-  //       render: (row) => (
-  //         <Badge
-  //           variant="outline"
-  //           className="justify-center capitalize text-gray-500"
-  //         >
-  //           {row.status}
-  //         </Badge>
-  //       ),
-  //     },
-  //   ],
-  //   [],
-  // );
+
+  const isMapView = isIndiaView ?? (!!state || !!district);
+
+  console.log("State", state, " district", district)
+
+  console.log("Map view is", isMapView)
 
   const columns = useMemo<
     QuestionListColumn<QueryCategoryQuestionEntry>[]
   >(() => {
-    const baseColumns: QuestionListColumn<QueryCategoryQuestionEntry>[] = [
-     {
-  key: period ? "messageId" : "questionId",
-  label: period ? "Message ID" : "Question ID",
-  sortable: true,
-  sortAccessor: (row) => row.questionId || row.messageId,
-  className: "w-[12%]",
-  cellClassName: "text-xs text-gray-500",
-  render: (row) => (
-    <CopyableIdCell
-      id={period ? row.messageId : row.questionId}
-    />
-  ),
-},
+    // const baseColumns: QuestionListColumn<QueryCategoryQuestionEntry>[] = [
+    //   {
+    //     key: period ? "messageId" : "questionId",
+    //     label: period ? "Message ID" : "Question ID",
+    //     sortable: true,
+    //     sortAccessor: (row) => row.questionId || row.messageId,
+    //     className: "w-[12%]",
+    //     cellClassName: "text-xs text-gray-500",
+    //     render: (row) => (
+    //       <CopyableIdCell id={period ? row.messageId : row.questionId} />
+    //     ),
+    //   },
 
-      {
-        key: "email",
-        label: "Email",
-        sortable: true,
-        sortAccessor: (row) => row.email || "N/A",
-        className: "w-[16%]",
-        cellClassName: "truncate",
-        accessor: (row) => row.email || "N/A",
-      },
+    //   {
+    //     key: "email",
+    //     label: "Email",
+    //     sortable: true,
+    //     sortAccessor: (row) => row.email || "N/A",
+    //     className: "w-[16%]",
+    //     cellClassName: "truncate",
+    //     accessor: (row) => row.email || "N/A",
+    //   },
 
-      {
+    //   {
+    //     key: "name",
+    //     label: "Name",
+    //     sortable: true,
+    //     sortAccessor: (row) => row.name || row.farmerName || "N/A",
+    //     className: "w-[14%]",
+    //     cellClassName: "truncate",
+    //     render: (row) => (
+    //       <FarmerNameLink userId={row.userId}>
+    //         {row.name || row.farmerName || "N/A"}
+    //       </FarmerNameLink>
+    //     ),
+    //   },
+
+    //   {
+    //     key: "question",
+    //     label: period ? "Query" : "Question",
+    //     sortable: true,
+    //     sortAccessor: (row) => row.question,
+    //     className: "w-[32%]",
+    //     cellClassName: "overflow-hidden",
+    //     render: (row) => (
+    //       <button
+    //         className="text-left hover:underline"
+    //         onClick={() => {
+    //           setSelectedQuestionId(row.questionId);
+    //           setView("lifecycle");
+    //           onClose();
+    //         }}
+    //       >
+    //         <TranslatableText
+    //           text={row.question ?? ""}
+    //           showTooltip
+    //           textClassName="text-xs line-clamp-2"
+    //         />
+    //       </button>
+    //     ),
+    //   },
+
+    //   {
+    //     key: "createdAt",
+    //     label: "Created At",
+    //     sortable: true,
+    //     sortAccessor: (row) => (row.createdAt ? new Date(row.createdAt) : null),
+    //     className: "w-[10%]",
+    //     cellClassName: "whitespace-normal break-words text-[11px]",
+    //     render: (row) =>
+    //       row.createdAt
+    //         ? new Date(row.createdAt).toLocaleString(undefined, {
+    //             dateStyle: "short",
+    //             timeStyle: "short",
+    //           })
+    //         : undefined,
+    //   },
+    // ];
+
+    const baseColumns: QuestionListColumn<QueryCategoryQuestionEntry>[] = [];
+
+    if (!isMapView) {
+  baseColumns.push({
+    key: period ? "messageId" : "questionId",
+    label: period ? "Message ID" : "Question ID",
+    sortable: true,
+    sortAccessor: (row) => row.questionId || row.messageId,
+    className: "w-[12%]",
+    cellClassName: "text-xs text-gray-500",
+    render: (row) => (
+      <CopyableIdCell
+        id={period ? row.messageId : row.questionId}
+      />
+    ),
+  });
+}
+
+    // Email (Always)
+    baseColumns.push({
+      key: "email",
+      label: "Email",
+      sortable: true,
+      sortAccessor: (row) => row.email || "N/A",
+      className: "w-[18%]",
+      cellClassName: "truncate",
+      accessor: (row) => row.email || "N/A",
+    });
+
+    // Name (Dashboard only)
+    if (!isMapView) {
+      baseColumns.push({
         key: "name",
         label: "Name",
         sortable: true,
@@ -286,16 +304,18 @@ export function QueryCategoryQuestionsModal({
             {row.name || row.farmerName || "N/A"}
           </FarmerNameLink>
         ),
-      },
+      });
+    }
 
-      {
-        key: "question",
-        label: period ? "Query" : "Question",
-        sortable: true,
-        sortAccessor: (row) => row.question,
-        className: "w-[32%]",
-        cellClassName: "overflow-hidden",
-        render: (row) => (
+    // Question (Always)
+    baseColumns.push({
+      key: "question",
+      label: period ? "Query" : "Question",
+      sortable: true,
+      sortAccessor: (row) => row.question,
+      className: isMapView ? "w-[45%]" : "w-[32%]",
+      cellClassName: "overflow-hidden",
+      render: (row) => (
         <button
           className="text-left hover:underline"
           onClick={() => {
@@ -309,10 +329,37 @@ export function QueryCategoryQuestionsModal({
             showTooltip
             textClassName="text-xs line-clamp-2"
           />
-        </button>),
-      },
+        </button>
+      ),
+    });
 
-      {
+    // State (Only Map)
+    if (isMapView && !isIndiaView) {
+      baseColumns.push({
+        key: "state",
+        label: "State",
+        sortable: true,
+        sortAccessor: (row) => row.state ?? "",
+        className: "w-[12%]",
+        render: () => state ?? "-"
+      });
+    }
+
+    // District (Only District View)
+    if (district) {
+      baseColumns.push({
+        key: "district",
+        label: "District",
+        sortable: true,
+        sortAccessor: (row) => row.district ?? "",
+        className: "w-[12%]",
+        render: () => district ?? "-"
+      });
+    }
+
+    // Created At (Dashboard only)
+    if (!isMapView) {
+      baseColumns.push({
         key: "createdAt",
         label: "Created At",
         sortable: true,
@@ -326,11 +373,17 @@ export function QueryCategoryQuestionsModal({
                 timeStyle: "short",
               })
             : undefined,
-      },
-    ];
+      });
+    }
 
     // Show Type column only when status modal is NOT opened
-    if (!status && !closedWithInTwohours && !notificationType && !period) {
+    if (
+      !isMapView &&
+      !status &&
+      !closedWithInTwohours &&
+      !notificationType &&
+      !period
+    ) {
       baseColumns.push({
         key: "questionType",
         label: "Type",
@@ -352,35 +405,43 @@ export function QueryCategoryQuestionsModal({
     }
 
     if (!period) {
-  baseColumns.push({
-    key: "status",
-    label: "Status",
-    align: "center",
-    sortable: true,
-    sortAccessor: (row) => row.status ?? "",
-    className: "w-[8%]",
-    render: (row) => (
-      <Badge
-        variant="outline"
-        className="justify-center capitalize text-gray-500"
-      >
-        {row.status}
-      </Badge>
-    ),
-  });
-}
+      baseColumns.push({
+        key: "status",
+        label: "Status",
+        align: "center",
+        sortable: true,
+        sortAccessor: (row) => row.status ?? "",
+        className: "w-[8%]",
+        render: (row) => (
+          <Badge
+            variant="outline"
+            className="justify-center capitalize text-gray-500"
+          >
+            {row.status}
+          </Badge>
+        ),
+      });
+    }
 
     return baseColumns;
-  }, [status, closedWithInTwohours, notificationType]);
+  }, [  state,
+  district,
+  period,
+  status,
+  closedWithInTwohours,
+  notificationType,
+  setSelectedQuestionId,
+  setView,
+  onClose,]);
+
+  
 
   const questions = data?.questions ?? [];
 
   const total = data?.total ?? 0;
 
-  const [viewMode, setViewMode] =
-  useState<"table" | "lifecycle">("table");
+  const [viewMode, setViewMode] = useState<"table" | "lifecycle">("table");
 
-  
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -409,13 +470,9 @@ export function QueryCategoryQuestionsModal({
             }
           >
             <TabsList>
-              <TabsTrigger value="table">
-                Questions
-              </TabsTrigger>
+              <TabsTrigger value="table">Questions</TabsTrigger>
 
-              <TabsTrigger value="lifecycle">
-                Lifecycle Summary
-              </TabsTrigger>
+              <TabsTrigger value="lifecycle">Lifecycle Summary</TabsTrigger>
             </TabsList>
           </Tabs>
           <div className="min-w-0">
@@ -433,7 +490,11 @@ export function QueryCategoryQuestionsModal({
                       ? "Question that closed with in 2 hours"
                       : notificationType
                         ? "Question related to Notification users"
-                        : period? `Question related to the ${period}` : state && !district ?`Question releated to the ${state}`: `Question releated to the ${district}`}
+                        : period
+                          ? `Question related to the ${period}`
+                          : state && !district
+                            ? `Question releated to the ${state}`
+                            : `Question releated to the ${district}`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -462,13 +523,16 @@ export function QueryCategoryQuestionsModal({
                 setPage(1);
               }}
             >
-              {!status && !closedWithInTwohours && !notificationType && !period &&(
-                <TabsList>
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="unique">Unique</TabsTrigger>
-                  <TabsTrigger value="duplicate">Duplicate</TabsTrigger>
-                </TabsList>
-              )}
+              {!status &&
+                !closedWithInTwohours &&
+                !notificationType &&
+                !period && (
+                  <TabsList>
+                    <TabsTrigger value="all">All</TabsTrigger>
+                    <TabsTrigger value="unique">Unique</TabsTrigger>
+                    <TabsTrigger value="duplicate">Duplicate</TabsTrigger>
+                  </TabsList>
+                )}
             </Tabs>
             <button
               type="button"
@@ -480,7 +544,7 @@ export function QueryCategoryQuestionsModal({
             </button>
           </div>
         </div>
-            <QuestionListTable
+        <QuestionListTable
           data={questions}
           columns={columns}
           loading={isLoading}
@@ -502,14 +566,26 @@ export function QueryCategoryQuestionsModal({
           initialSortDirection="desc"
           viewMode={viewMode}
           startDate={startDate?.toString()}
-          endDate= {endDate?.toString()}
-          source= {source}
-          status= {status}
-          userType= {userType}
+          endDate={endDate?.toString()}
+          source={source}
+          status={status}
+          userType={userType}
           isPassed={isPassed}
           tag={tag}
           notificationType={notificationType}
           totalClosedAndPassed={totalClosedAndPassed}
+          userId={userId}
+          closedQuestions={closedQuestions}
+          totalQuestions={totalQuestions}
+          passedQuestions={passedQuestions}
+          closedInLastTwoHours={closedInLastTwoHours}
+          passedInLastTwoHours={passedInLastTwoHours}
+          dynamicClosedInLastTwoHours={dynamicClosedInLastTwoHours}
+          duplicateClosedInLastTwoHours={duplicateClosedInLastTwoHours}
+          slaBreached={slaBreached}
+          safeNotified={safeNotified}
+          safeNotNotified={safeNotNotified}
+          safeUntracked={safeUntracked}
         />
 
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">
