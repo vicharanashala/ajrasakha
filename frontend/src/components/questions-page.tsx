@@ -579,6 +579,7 @@ export const QuestionsPage = ({
               refetch();
             }}
             totalQuestions={displayTotal}
+            currentUser={currentUser}
             userRole={currentUser?.role!}
             isSelectionModeOn={isSelectionModeOn}
             handleBulkDelete={handleBulkDelete}

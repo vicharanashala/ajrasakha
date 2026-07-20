@@ -50,6 +50,7 @@ const SOURCE_TO_MODE: Record<string, string> = {
 export function AnswerModeSwitcher({
     answerMode,
     handleAnswerModeChange,
+    currentUserIsTrainingUser = false,
     hasSearch = false,
     sourceCounts,
     totalSearchCount,
@@ -59,6 +60,7 @@ export function AnswerModeSwitcher({
 }: {
     answerMode: Mode;
     handleAnswerModeChange: (mode: Mode) => void;
+    currentUserIsTrainingUser?: boolean;
     hasSearch?: boolean;
     sourceCounts?: { source: string; count: number }[];
     totalSearchCount?: number;
@@ -71,6 +73,9 @@ export function AnswerModeSwitcher({
 }) {
     const groupRef = useRef<HTMLDivElement>(null);
     const [glider, setGlider] = useState({ left: 0, width: 0 });
+    const visibleModes = currentUserIsTrainingUser
+        ? MODES.filter((mode) => mode.id === "training")
+        : MODES;
 
     useEffect(() => {
         const activeBtn = groupRef.current?.querySelector<HTMLButtonElement>(
@@ -94,7 +99,7 @@ export function AnswerModeSwitcher({
                 style={{ left: glider.left, width: glider.width }}
             />
 
-            {hasSearch && (
+            {!currentUserIsTrainingUser && hasSearch && (
                 <Tooltip delayDuration={1200}>
                     <TooltipTrigger asChild>
                         <button
@@ -120,7 +125,7 @@ export function AnswerModeSwitcher({
                 </Tooltip>
             )}
 
-            {MODES.map(({ id, label, icon: Icon }) => {
+            {visibleModes.map(({ id, label, icon: Icon }) => {
                 const srcKey = Object.entries(SOURCE_TO_MODE).find(([, mode]) => mode === id)?.[0];
                 const srcCount = srcKey ? sourceCounts?.find(s => s.source === srcKey)?.count : undefined;
                 return (
@@ -154,7 +159,7 @@ export function AnswerModeSwitcher({
             })}
 
             {/* Dedicated / My Assignment tab — shown only for moderators/admins */}
-            {showDedicated && (
+            {!currentUserIsTrainingUser && showDedicated && (
                 <>
                     <Tooltip delayDuration={1200}>
                         <TooltipTrigger asChild>

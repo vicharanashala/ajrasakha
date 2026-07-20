@@ -45,6 +45,7 @@ import {
 import type {
   IDetailedQuestion,
   IMyPreference,
+  IUser,
   QuestionSource,
   QuestionStatus,
   UserRole,
@@ -96,6 +97,7 @@ type QuestionsFiltersProps = {
   setIsBulkUpload: (val: boolean) => void;
   refetch: () => void;
   totalQuestions: number;
+  currentUser?: IUser;
   userRole: UserRole;
   isSelectionModeOn: boolean;
   bulkDeletingQuestions: boolean;
@@ -151,6 +153,7 @@ export const QuestionsFilters = ({
   onReset,
   refetch,
   totalQuestions,
+  currentUser,
   userRole,
   isSelectionModeOn,
   handleBulkDelete,
@@ -190,6 +193,7 @@ export const QuestionsFilters = ({
     filterToAnswerMode(appliedFilters),
   );
   const prevAnswerModeRef = useRef<AnswerMode>(filterToAnswerMode(appliedFilters));
+  const isTrainingUser = currentUser?.isTrainingUser === true;
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -510,6 +514,11 @@ export const QuestionsFilters = ({
     onChange(nextFilters);
   };
 
+  useEffect(() => {
+    if (!isTrainingUser || answerMode === "training") return;
+    handleAnswerModeChange("training");
+  }, [answerMode, isTrainingUser]);
+
   // Auto-switch to Search Results tab when user types; revert when cleared
   useEffect(() => {
     if (search && answerMode !== "search") {
@@ -734,6 +743,7 @@ export const QuestionsFilters = ({
           if (viewMode === "dedicated") setViewMode("all");
           handleAnswerModeChange(mode);
         }}
+        currentUserIsTrainingUser={isTrainingUser}
         hasSearch={!!search}
         sourceCounts={statusSummary?.sourceCounts}
         totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
