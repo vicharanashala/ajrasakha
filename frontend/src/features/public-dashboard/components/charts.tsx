@@ -101,6 +101,7 @@ export const DistributionDoughnut = ({
 
       {/* Scrollable legend: colour swatch · domain · count. */}
       <ul
+        className="custom-scrollbar"
         style={{
           flex: "1 1 220px",
           minWidth: 200,

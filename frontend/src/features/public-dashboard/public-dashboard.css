@@ -64,7 +64,7 @@
   color: #fff;
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 1100;
   box-shadow: 0 2px 12px rgba(12, 40, 24, 0.18);
 }
 .ace-dash .top-bar {
@@ -1792,4 +1792,38 @@
   overflow: hidden;
   min-height: 0;
 }
+
+/* Custom scrollbar styling for a cleaner, modern UI */
+.ace-dash .custom-scrollbar::-webkit-scrollbar,
+.ace-dash .state-list::-webkit-scrollbar,
+.ace-dash .workflow::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.ace-dash .custom-scrollbar::-webkit-scrollbar-track,
+.ace-dash .state-list::-webkit-scrollbar-track,
+.ace-dash .workflow::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ace-dash .custom-scrollbar::-webkit-scrollbar-thumb,
+.ace-dash .state-list::-webkit-scrollbar-thumb,
+.ace-dash .workflow::-webkit-scrollbar-thumb {
+  background: rgba(27, 36, 32, 0.15); /* --ink color with opacity */
+  border-radius: 99px;
+  transition: background 0.2s ease;
+}
+.ace-dash .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.ace-dash .state-list::-webkit-scrollbar-thumb:hover,
+.ace-dash .workflow::-webkit-scrollbar-thumb:hover {
+  background: rgba(27, 36, 32, 0.35); /* darker on hover */
+}
+
+/* Firefox compatibility */
+.ace-dash .custom-scrollbar,
+.ace-dash .state-list,
+.ace-dash .workflow {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(27, 36, 32, 0.15) transparent;
+}
+
 
