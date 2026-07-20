@@ -104,6 +104,7 @@ export const UsersTable = ({
         <Table className="min-w-[800px]">
           <TableHeader className="bg-card sticky top-0 z-10">
             <TableRow>
+              <TableHead className="text-center w-16">Sl. No</TableHead>
               <TableHead className="flex justify-start items-center w-52">
                 <p className="ml-5">User</p>
               </TableHead>
@@ -186,14 +187,14 @@ export const UsersTable = ({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-center py-10">
+                <TableCell colSpan={14} className="text-center py-10">
                   <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
                 </TableCell>
               </TableRow>
             ) : items?.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={13}
+                  colSpan={14}
                   rowSpan={10}
                   className="text-center py-10 text-muted-foreground"
                 >
@@ -262,7 +263,12 @@ const UserRow: React.FC<UserRowProps> = ({
   setRankPosition,
   userRole,
   showSensitive = false,
+  currentPage,
+  idx,
+  limit,
 }) => {
+  // 1-based serial number across pages.
+  const serialNo = ((currentPage ?? 1) - 1) * (limit ?? 0) + (idx ?? 0) + 1;
   const isBlocked = u.isBlocked || false;
   const navigate = useNavigate();
   const { mutate: updateActivity } = useUpdateActivity();
@@ -297,6 +303,8 @@ const UserRow: React.FC<UserRowProps> = ({
     moderator: "Moderator",
     expert: "Expert",
     pae_expert: "PAE Expert",
+    gate_keeper: "Gate Keeper",
+    auditor: "Auditor",
     tester: "Tester",
   };
 
@@ -305,6 +313,9 @@ const UserRow: React.FC<UserRowProps> = ({
       key={String(u._id)}
       className="text-center"
     >
+      <TableCell className="text-center w-16 text-muted-foreground">
+        {serialNo}
+      </TableCell>
 
       {/* <TableCell className={`align-middle w-36 border-l-1 ${u.isVerified ? 'border-l-blue-500' : 'border-l-red-500'}`} title={u.firstName}>
         <div className="flex items-center gap-2">

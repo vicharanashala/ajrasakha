@@ -36,7 +36,9 @@ export function PlaygroundHeader({
           <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
             {user &&
               user.role !== "expert" &&
-              user.role !== "call_agent" && (
+              user.role !== "call_agent" &&
+              user.role !== "gate_keeper" &&
+              user.role !== "auditor" && (
                 <TabsTrigger
                   value="performance"
                   className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -46,6 +48,17 @@ export function PlaygroundHeader({
                   </HoverCard>
                 </TabsTrigger>
               )}
+            {/* Gate keepers / auditors get their own role dashboard instead. */}
+            {user && (user.role === "gate_keeper" || user.role === "auditor") && (
+              <TabsTrigger
+                value="roleDashboard"
+                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+              >
+                <HoverCard openDelay={150}>
+                  <span>Dashboard</span>
+                </HoverCard>
+              </TabsTrigger>
+            )}
             {user && user.role === "expert" && (
               <TabsTrigger
                 value="expertPerformance"

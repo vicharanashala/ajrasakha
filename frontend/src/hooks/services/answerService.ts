@@ -32,6 +32,14 @@ export class AnswerService {
       throw error;
     }
   }
+  async confirmDuplicate(
+    questionId: string,
+  ): Promise<{ status: string; closed: boolean } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/confirm-duplicate`, {
+      method: "POST",
+    });
+  }
+
   async reviewAnswer({
     questionId,
     status,
