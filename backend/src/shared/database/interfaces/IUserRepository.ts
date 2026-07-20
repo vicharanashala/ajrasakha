@@ -226,6 +226,7 @@ export interface IUserRepository {
     search: string,
     sortOption: string,
     filter: string,
+    isTrainingUserFilter?: boolean,
     session?: ClientSession,
   ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }>;
   /**

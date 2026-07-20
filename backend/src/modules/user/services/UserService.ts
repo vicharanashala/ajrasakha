@@ -337,6 +337,7 @@ export class UserService extends BaseService {
     search: string,
     sort: string,
     filter: string,
+    currentUser?: IUser,
   ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }> {
     return await this._withTransaction(async (session: ClientSession) => {
       return await this.userRepo.findAllExperts(
@@ -345,6 +346,9 @@ export class UserService extends BaseService {
         search,
         sort,
         filter,
+        currentUser?.role === 'moderator'
+          ? currentUser.isTrainingUser === true
+          : undefined,
         session,
       );
     });

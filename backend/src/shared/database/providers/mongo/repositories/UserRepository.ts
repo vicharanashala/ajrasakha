@@ -1348,6 +1348,7 @@ export class UserRepository implements IUserRepository {
     search: string,
     sortOption: string,
     filter: string,
+    isTrainingUserFilter?: boolean,
     session?: ClientSession,
   ): Promise<{ experts: any[]; totalExperts: number; totalPages: number }> {
     await this.init();
@@ -1367,6 +1368,10 @@ export class UserRepository implements IUserRepository {
 
       if (filter && filter !== 'ALL') {
         matchQuery['preference.state'] = filter;
+      }
+
+      if (isTrainingUserFilter !== undefined) {
+        matchQuery.isTrainingUser = isTrainingUserFilter;
       }
 
       const sortMap: any = {

@@ -380,6 +380,7 @@ export class UserController {
   @HttpCode(200)
   @Authorized()
   async getAllExperts(
+    @CurrentUser() currentUser: IUser,
     @QueryParams()
     query: {
       page?: number;
@@ -396,6 +397,7 @@ export class UserController {
       search,
       sort,
       filter,
+      currentUser,
     );
   }
 
