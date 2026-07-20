@@ -613,6 +613,23 @@ const UserRow: React.FC<UserRowProps> = ({
               )}
 
               <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setIsOpen(false);
+                  if (!u._id) return;
+                  navigate({
+                    to: "/user-history/$userId",
+                    params: { userId: u._id },
+                  });
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 mr-2 text-blue-500" />
+                  View User History
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
                 disabled={u.status === 'in-active' && isBlocked}
                 onSelect={(e) => {
                   e.preventDefault();
