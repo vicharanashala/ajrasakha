@@ -7,7 +7,6 @@ import {
   Loader2,
   Trophy,
   Clock,
-  Target,
   CheckCircle,
   AlertCircle,
   History,
@@ -621,40 +620,6 @@ export const ExpertDashboard = ({
                   </p>
                 </div>
                 <Clock className="w-8 h-8 text-chart-3 opacity-60 text-green-400" />
-              </div>
-            </CardContent>
-          </Card>
-          {/*QA Target*/}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">
-                    QA Target
-                  </p>
-                  <p className="text-3xl font-bold text-foreground">{"N/A"}</p>
-                  <p className="text-xs text-green-600 mt-2 font-medium">
-                    Target For 1 month
-                  </p>
-                </div>
-                <Target className="w-8 h-8 text-chart-3 opacity-60 text-green-400" />
-              </div>
-            </CardContent>
-          </Card>
-          {/*QA Complete*/}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">
-                    QA Completed
-                  </p>
-                  <p className="text-3xl font-bold text-foreground">{"N/A"}</p>
-                  <p className="text-xs text-green-600 mt-2 font-medium">
-                    Completed Task
-                  </p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-chart-3 opacity-60 text-green-400" />
               </div>
             </CardContent>
           </Card>
