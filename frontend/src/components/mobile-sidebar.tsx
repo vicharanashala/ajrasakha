@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { isCoordinatorRole } from "@/lib/roles";
+import { canManageUsers, isCoordinatorRole } from "@/lib/roles";
 import { Sheet, SheetContent, SheetTrigger } from "./atoms/sheet";
 
 const SidebarButton = ({
@@ -70,15 +70,17 @@ export const MobileSidebar = ({
   const [activeTab, setActiveTab] = useState(
     user?.role === "call_agent"
       ? "call_interface"
-      : user?.role !== "expert"
-        ? "performance"
-        : "questions",
+      : user?.role === "gate_keeper" || user?.role === "auditor"
+        ? "roleDashboard"
+        : user?.role !== "expert"
+          ? "performance"
+          : "questions",
   );
   const isCoordinator = isCoordinatorRole(user?.role);
   const handleClick = (value: string) => {
     if (value === "chatbotanalytics") {
-      setTab("chatbotanalytics");
-      setActiveTab(value);
+      // ChatBot Analytics is now its own route rather than an in-page tab.
+      navigate({ to: "/chatbot" });
     } else if (value === "whatsapp_history") {
       navigate({ to: "/whatsapp-history" });
     } else {
@@ -90,8 +92,18 @@ export const MobileSidebar = ({
   };
 
   const menuItems = [
-    ...(user && user.role !== "expert" && user.role !== "call_agent"
+    // Gate keepers and auditors get their own role dashboard; every other non-expert,
+    // non-call-agent role gets the standard performance dashboard.
+    ...(user &&
+    user.role !== "expert" &&
+    user.role !== "call_agent" &&
+    user.role !== "gate_keeper" &&
+    user.role !== "auditor"
       ? [{ id: "performance", label: "Dashboard", icon: BarChart3 }]
+      : []),
+
+    ...(user && (user.role === "gate_keeper" || user.role === "auditor")
+      ? [{ id: "roleDashboard", label: "Dashboard", icon: BarChart3 }]
       : []),
 
     ...(user && user.role === "expert"
@@ -106,10 +118,7 @@ export const MobileSidebar = ({
       ? [{ id: "all_questions", label: "All Questions", icon: List }]
       : []),
 
-    ...(user &&
-    (user.role === "admin" ||
-      user.role === "moderator" ||
-      user.role === "tester")
+    ...(user && canManageUsers(user.role)
       ? [
           {
             id: "user_management",

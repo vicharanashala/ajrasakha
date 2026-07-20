@@ -25,3 +25,13 @@ export const isCoordinatorRole = (
 ): role is CoordinatorRole => {
   return COORDINATOR_ROLES.includes(role as CoordinatorRole);
 };
+
+/** Roles allowed to open the User / Expert Management page. */
+export const USER_MANAGEMENT_ROLES = ["admin", "moderator", "tester"] as const;
+
+/**
+ * Whether this role may see the User / Expert Management tab. An allowlist, so roles added
+ * later (gate_keeper, auditor, …) stay out until explicitly granted access.
+ */
+export const canManageUsers = (role?: string | UserRole | null): boolean =>
+  USER_MANAGEMENT_ROLES.includes(role as (typeof USER_MANAGEMENT_ROLES)[number]);

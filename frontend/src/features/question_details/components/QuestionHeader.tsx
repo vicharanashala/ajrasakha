@@ -450,6 +450,8 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
 
           {/* View Audit Button */}
           <div className="flex gap-2">
+          {(currentUser.role === "admin" || currentUser.role === "moderator" || 
+          currentUser.role === "gate_keeper" || currentUser.role === "auditor") && 
           <Button
             size="sm"
             variant="outline"
@@ -458,7 +460,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           >
             <History className="h-4 w-4" />
             View LifeCycle
-          </Button>
+          </Button>}
 
           {/* View Audit Button */}
           <Button
@@ -927,12 +929,13 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
         </AlertDialogContent>
       </AlertDialog>
 
-
+    {(currentUser.role === "admin" || currentUser.role === "moderator" || 
+    currentUser.role === "gate_keeper" || currentUser.role === "auditor") && 
       <QuestionLifecycleTable
         open={view === "lifecycle"}
         onClose={() => setView(undefined)}
         questionId={question._id!}
-      />
+      />}
 
       <AuditTrailModal
         open={auditModalOpen}

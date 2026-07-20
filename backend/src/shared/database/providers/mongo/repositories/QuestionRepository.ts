@@ -7703,4 +7703,21 @@ export class QuestionRepository implements IQuestionRepository {
 
     return rows.map(r => ({status: r._id ?? 'unknown', count: r.count}));
   }
+
+  async getCountByStatus () :Promise<any>{
+    const statusCount = await this.QuestionCollection.aggregate([
+        {
+          $match: {
+            isTesting: { $ne: true },
+          },
+        },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 }
+          }
+        }
+      ]).toArray();
+    return statusCount;
+  }
 }

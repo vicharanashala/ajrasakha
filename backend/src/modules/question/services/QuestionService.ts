@@ -656,6 +656,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     extracted_state: string;
     extracted_district: string;
     extracted_domain?: string | string[];
+    extracted_name?: string;
+    extracted_phone?: string;
+    extracted_age?: number;
+    extracted_gender?: string;
+    extracted_village?: string;
+    extracted_block?: string;
+    extracted_primary_crop?: string;
   }> {
     try {
       const result = await this.accAgentService.extractData(threadId, transcript);
@@ -679,6 +686,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       district: string;
       domain: string | string[];
       season: string;
+      farmerName?: string;
+      farmerPhone?: string;
+      farmerAge?: number;
+      farmerGender?: string;
+      farmerVillage?: string;
+      farmerBlock?: string;
+      farmerPrimaryCrop?: string;
     }
   ): Promise<void> {
     try {
@@ -1265,11 +1279,16 @@ export class QuestionService extends BaseService implements IQuestionService {
           : result.referenceQuestionId
             ? new ObjectId(String(result.referenceQuestionId))
             : null;
+      
+      // Get submission to check queue length
+      const questionSubmission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const queueLength = questionSubmission?.queue?.length || 0;
+      
       // Only flip the status to 'duplicate' when the question is still open/delayed.
       // For any other status (in-review, closed, etc.) the workflow is already past
       // that point, so the status must not change — we just record the reference.
       const canMarkDuplicate =
-        question.status === 'open' || question.status === 'delayed';
+        (question.status === 'open' || question.status === 'delayed') && queueLength === 0;
       await this.questionRepo.updateQuestion(questionId, {
         ...(canMarkDuplicate ? { status: 'duplicate' } : {}),
         similarityScore: result.similarityScore,
@@ -1749,7 +1768,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           source === 'AJRASAKHA' || source === 'WHATSAPP';
         let threadValidation;
         if (isTimeBoundedQuestion) {
-         /* threadValidation = await this.validateTimeBoundQuestionThread(
+          threadValidation = await this.validateTimeBoundQuestionThread(
             questionId,
             baseQuestion.threadId,
           );
@@ -1764,7 +1783,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               isTesting: true,
             });
             return;
-          }*/
+          }
           /* else {
              // Extract the last GDB tool response from thread content
              const content: any[] = threadValidation.data?.content || [];
@@ -4168,10 +4187,37 @@ export class QuestionService extends BaseService implements IQuestionService {
   private roleAssigneeFields(role: 'gate_keeper' | 'auditor'): {
     assigneeField: 'gateKeeperId' | 'auditorId';
     assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt';
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt';
   } {
     return role === 'gate_keeper'
-      ? {assigneeField: 'gateKeeperId', assignedAtField: 'gateKeeperAssignedAt'}
-      : {assigneeField: 'auditorId', assignedAtField: 'auditorAssignedAt'};
+      ? {
+          assigneeField: 'gateKeeperId',
+          assignedAtField: 'gateKeeperAssignedAt',
+          finishedAtField: 'gateKeeperFinishedAt',
+        }
+      : {
+          assigneeField: 'auditorId',
+          assignedAtField: 'auditorAssignedAt',
+          finishedAtField: 'auditorFinishedAt',
+        };
+  }
+
+  /**
+   * Once a gate keeper / auditor has submitted their response (finishedAt is set) their
+   * assignment is settled — reassigning or removing it would orphan work that has already
+   * been recorded against them. Callers must re-open the question first.
+   */
+  private assertRoleNotFinished(
+    question: unknown,
+    role: 'gate_keeper' | 'auditor',
+  ): void {
+    const {finishedAtField} = this.roleAssigneeFields(role);
+    if ((question as any)?.[finishedAtField]) {
+      const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
+      throw new BadRequestError(
+        `This question's ${noun} has already submitted their response, so the ${noun} can no longer be changed.`,
+      );
+    }
   }
 
   /** Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts
@@ -4208,6 +4254,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<void> {
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const question = await this.questionRepo.getById(questionId);
+    this.assertRoleNotFinished(question, role);
     const previousId = (question as any)?.[assigneeField]?.toString();
     const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
 
@@ -4275,6 +4322,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<void> {
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const question = await this.questionRepo.getById(questionId);
+    this.assertRoleNotFinished(question, role);
     const previousId = (question as any)?.[assigneeField]?.toString();
 
     await this.questionRepo.setRoleAssignee(
@@ -4426,13 +4474,18 @@ export class QuestionService extends BaseService implements IQuestionService {
         questionId.toString(),
         session,
       );
-      if (question.isAutoAllocate === false) {
-        await this.questionRepo.updateAutoAllocate(
-          questionId.toString(),
-          true,
-          session,
+
+      // Do NOT reset isAutoAllocate here. If a moderator deliberately turned off
+      // auto-allocation for this question, that decision must be respected even
+      // when the absent-expert cleanup removes experts from the queue.
+      // Only attempt re-allocation when the question still has isAutoAllocate: true.
+      if (!question.isAutoAllocate) {
+        console.log(
+          `[AbsentExpert] Skipping auto-reallocation for question ${questionId} — isAutoAllocate is false (moderator override).`,
         );
+        continue;
       }
+
       const latestSubmission =
         await this.questionSubmissionRepo.getByQuestionId(
           questionId.toString(),

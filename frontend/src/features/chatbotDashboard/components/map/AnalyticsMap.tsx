@@ -42,7 +42,9 @@ export default function IndiaAnalyticsMap({
   todayActiveFarmersData,
   analyticsData,
   weeklyAnalyticsData,
-  monthlyAnalyticsData
+  monthlyAnalyticsData,
+  questionStatusRange,
+  questionStatusDateRange
 }: any) {
   // Hooks
 
@@ -61,8 +63,8 @@ export default function IndiaAnalyticsMap({
   const { data: questionStatusData } = useClosedAndNotifedData(
     source,
     userType,
-    undefined,
-    undefined,
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
   );
   const {
     level,
@@ -88,6 +90,8 @@ export default function IndiaAnalyticsMap({
   } = useAllStatesandUserData({
     source: source as string,
     userType: userType as string,
+    startDate: questionStatusRange.startTime,
+    endDate: questionStatusRange.endTime,
     enabled: true,
   });
   // setAllStatesDataandUser(allStatesData);
@@ -101,10 +105,9 @@ export default function IndiaAnalyticsMap({
     selectedStateCode,
     source,
     userType,
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
   );
-
-  // console.log("Analytics of all state", allStatesData)
-  // console.log("District analytics of data", districtAnalytics)
 
   const { statesWithData, districtsOfState, activeGeo, minV, maxV } =
     useMapAnalytics({
@@ -122,8 +125,6 @@ export default function IndiaAnalyticsMap({
   const [flyTarget, setFlyTarget] = useState<L.LatLngBoundsExpression | null>(
     null,
   );
-  const state = selectedState;
-  // const {data: stateAndUserData} = useMapandUserData({state, source, userType})
 
   // Fly to helper
   const handleFlyTo = useCallback((feature: unknown) => {
@@ -391,14 +392,14 @@ const styleFn = useCallback(
               Questions
             </button>
 
-            <button
+            {source !== "whatsapp" && <button
               className={`px-3 py-1 text-sm ${
                 metric === "users" ? "bg-primary text-white" : "bg-background"
               }`}
               onClick={() => setMetric("users")}
             >
               Users
-            </button>
+            </button>}
           </div>
 
           <SearchBar
@@ -503,6 +504,7 @@ const styleFn = useCallback(
         analyticsData= {analyticsData}
         weeklyAnalyticsData= {weeklyAnalyticsData}
         monthlyAnalyticsData={monthlyAnalyticsData}
+        questionStatusRange={questionStatusRange}
       />
     </div>
   );

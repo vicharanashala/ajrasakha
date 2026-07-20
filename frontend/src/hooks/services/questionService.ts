@@ -1018,6 +1018,7 @@ export class QuestionService {
       data: {
         totalQuestions: number;
         statuses: { status: string; count: number }[];
+        sourceCounts: { source: string; count: number }[];
       };
     }>(`${this._baseUrl}/status-summary?${params.toString()}`, {
       method: "POST",

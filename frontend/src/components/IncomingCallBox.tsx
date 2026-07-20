@@ -52,6 +52,7 @@ export interface IncomingCallBoxProps {
   onTranscriptsListChange?: (transcripts: CallTranscript[]) => void;
   onCallStateChange?: (isActive: boolean) => void;
   onCallUuidChange?: (callUuid: string | null) => void;
+  onPhoneNumberChange?: (phoneNumber: string | null) => void;
 }
 
 declare global {
@@ -68,12 +69,18 @@ export const IncomingCallBox = ({
   onTranscriptsListChange,
   onCallStateChange,
   onCallUuidChange,
+  onPhoneNumberChange,
 }: IncomingCallBoxProps) => {
   console.log(" [IncomingCallBox] Component mounting...");
 
   const { data: currentUser, isLoading: isUserLoading, refetch: refetchCurrentUser } = useGetCurrentUser();
 
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+
+  // Notify parent of active phone number change
+  useEffect(() => {
+    onPhoneNumberChange?.(incomingCall?.number || null);
+  }, [incomingCall?.number, onPhoneNumberChange]);
   const [callStatus, setCallStatus] = useState<
     "idle" | "incoming" | "connected" | "held" | "ended"
   >("idle");
@@ -122,6 +129,7 @@ export const IncomingCallBox = ({
   const wsRef = useRef<PlivoWebSocketService | null>(null);
   const plivoClientRef = useRef<any>(null);
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCallUuidRef = useRef<string | null>(null);
 
   const handleMarkAgentAsAvailable = async () => {
     try {
@@ -500,8 +508,12 @@ export const IncomingCallBox = ({
       return;
     }
 
-    // Clear transcripts from previous call
-    setTranscripts([]);
+    // Clear transcripts from previous call only if call UUID changed
+    const currentCallUuid = incomingCall?.uuid || null;
+    if (currentCallUuid && currentCallUuid !== lastCallUuidRef.current) {
+      setTranscripts([]);
+      lastCallUuidRef.current = currentCallUuid;
+    }
 
     // console.log('🔌 Initializing WebSocket connection...');
     const ws = new PlivoWebSocketService();

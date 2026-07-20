@@ -24,10 +24,57 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-DAILY_PRICE_GEMMA_BASE_URL = os.getenv("WEATHER_GEMMA_BASE_URL", "http://100.100.108.44:8014/v1")
-DAILY_PRICE_GEMMA_MODEL = "google/gemma-4-E4B-it"
+DAILY_PRICE_GEMMA_BASE_URL = os.getenv("GEMMA_BASE_URL", "http://100.100.108.44:8013/v1")
+DAILY_PRICE_GEMMA_MODEL = os.getenv("GEMMA_MODEL", "google/gemma-4-26B-A4B-it")
 
-_FARMER_ACTIONS = frozenset({"get_prices", "search_markets", "lookup_commodity"})
+_FARMER_ACTIONS = frozenset({
+    "get_today_price",
+    "get_price_history",
+    "get_price_summary",
+    "get_highest_price",
+    "get_today_arrival",
+    "get_arrival_history",
+    "get_extreme_arrival",
+    "search_markets",
+})
+
+_COMMODITY_ACTIONS = frozenset({
+    "get_today_price",
+    "get_price_history",
+    "get_price_summary",
+    "get_highest_price",
+    "get_today_arrival",
+    "get_arrival_history",
+    "get_extreme_arrival",
+})
+
+_GEO_ACTIONS = frozenset({
+    "get_today_price",
+    "get_price_history",
+    "get_price_summary",
+    "get_highest_price",
+    "get_today_arrival",
+    "get_arrival_history",
+    "get_extreme_arrival",
+    "search_markets",
+})
+
+_HISTORY_ACTIONS = frozenset({
+    "get_price_history",
+    "get_price_summary",
+    "get_highest_price",
+    "get_arrival_history",
+    "get_extreme_arrival",
+})
+
+# Old tool actions → new MCP actions (PR #1017 renamed the surface).
+_LEGACY_ACTION_MAP = {
+    "get_prices": "get_today_price",
+    "lookup_commodity": "get_today_price",
+    "get_unresolved_markets": "search_markets",
+}
+
+MAX_INTENT_ACTIONS = 3
 
 _daily_price_mcp: MultiServerMCPClient | None = None
 _mandi_price_tool = None
@@ -61,48 +108,87 @@ async def _get_mandi_price_tool():
     return _mandi_price_tool
 
 
-def _heuristic_intent(query: str) -> dict[str, Any]:
-    """Fallback intent when Gemma is unavailable."""
-    q = (query or "").lower()
-    if "which market" in q or "nearest market" in q or "mandi near" in q or "find market" in q:
-        return {
-            "action": "search_markets",
-            "nearest_market": True,
-            "radius_km": 50,
-            "lookback_days": None,
-            "from_date": None,
-            "to_date": None,
-            "market_name": None,
-            "state": None,
-        }
-    if "alias" in q or "also known" in q or "canonical" in q or "what is the crop name" in q:
-        return {
-            "action": "lookup_commodity",
-            "nearest_market": False,
-            "radius_km": None,
-            "lookback_days": None,
-            "from_date": None,
-            "to_date": None,
-            "market_name": None,
-            "state": None,
-        }
-    lookback = 7
-    if "month" in q or "30 day" in q:
-        lookback = 30
-    elif "week" in q or "7 day" in q:
-        lookback = 7
-    elif "today" in q or "current" in q or "latest" in q or "now" in q:
-        lookback = 3
+def _empty_intent_fields() -> dict[str, Any]:
     return {
-        "action": "get_prices",
         "nearest_market": True,
         "radius_km": None,
-        "lookback_days": lookback,
+        "lookback_days": None,
         "from_date": None,
         "to_date": None,
         "market_name": None,
         "state": None,
+        "sort_order": None,
     }
+
+
+_MARKET_DISCOVERY_PHRASES = (
+    "nearby market",
+    "near market",
+    "nearby mandi",
+    "near mandi",
+    "nearest market",
+    "which market",
+    "which mandi",
+    "find market",
+    "find mandi",
+    "list market",
+    "list mandi",
+    "mandi near",
+    "market near",
+    "apmc near",
+    "find apmc",
+)
+
+
+def _is_market_discovery_query(query: str) -> bool:
+    q = (query or "").lower()
+    return any(phrase in q for phrase in _MARKET_DISCOVERY_PHRASES)
+
+
+def _heuristic_intent(query: str) -> dict[str, Any]:
+    """Fallback intent when Gemma is unavailable."""
+    q = (query or "").lower()
+    base = _empty_intent_fields()
+
+    if _is_market_discovery_query(query):
+        return {**base, "action": "search_markets", "nearest_market": True, "radius_km": 50}
+
+    if "which market" in q or "nearest market" in q or "mandi near" in q or "find market" in q or "find mandi" in q:
+        return {**base, "action": "search_markets", "nearest_market": True, "radius_km": 50}
+
+    if "arrival" in q:
+        if "lowest" in q or "least" in q:
+            return {**base, "action": "get_extreme_arrival", "sort_order": "lowest", "lookback_days": 7}
+        if "highest" in q or "maximum" in q or "most" in q:
+            return {**base, "action": "get_extreme_arrival", "sort_order": "highest", "lookback_days": 7}
+        if any(k in q for k in ("history", "week", "month", "days", "last ", "past ")):
+            lookback = 30 if "month" in q else 7
+            return {**base, "action": "get_arrival_history", "lookback_days": lookback}
+        return {**base, "action": "get_today_arrival"}
+
+    if any(k in q for k in ("average", "avg", "summary", "min max", "statistics", "stats")):
+        lookback = 30 if "month" in q else 7
+        return {**base, "action": "get_price_summary", "lookback_days": lookback}
+
+    # get_highest_price only when the query clearly refers to a historical period,
+    # e.g. "highest price last week", "maximum price last month".
+    # A bare "best price" / "where to sell" without a past-period keyword means today's price.
+    _historical_keywords = ("last ", "past ", "week", "month", "days", "history")
+    _highest_price_keywords = ("highest price", "maximum price", "max price", "highest rate")
+    if any(k in q for k in _highest_price_keywords) and any(hk in q for hk in _historical_keywords):
+        lookback = 30 if "month" in q else 7
+        return {**base, "action": "get_highest_price", "lookback_days": lookback}
+
+    if any(k in q for k in ("history", "week", "month", "days", "last ", "past ", "from ", "between")):
+        if "month" in q or "30 day" in q:
+            lookback = 30
+        elif "week" in q or "7 day" in q:
+            lookback = 7
+        else:
+            lookback = 7
+        return {**base, "action": "get_price_history", "lookback_days": lookback}
+
+    return {**base, "action": "get_today_price"}
 
 
 def _extract_json_object(text: str) -> dict[str, Any] | None:
@@ -121,15 +207,60 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _map_action(action: str) -> str:
+    key = (action or "").strip().lower()
+    key = _LEGACY_ACTION_MAP.get(key, key)
+    if key not in _FARMER_ACTIONS:
+        return "get_today_price"
+    return key
+
+
+def _normalize_action_list(raw_action: Any, fallback: str) -> list[str]:
+    """Map Gemma/heuristic action(s) to a deduped list (max MAX_INTENT_ACTIONS)."""
+    candidates: list[Any] = []
+    if isinstance(raw_action, list):
+        candidates = raw_action
+    elif raw_action is not None and str(raw_action).strip():
+        candidates = [raw_action]
+    else:
+        candidates = [fallback]
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in candidates:
+        mapped = _map_action(str(item))
+        if mapped in seen:
+            continue
+        seen.add(mapped)
+        out.append(mapped)
+        if len(out) >= MAX_INTENT_ACTIONS:
+            break
+    return out or [_map_action(fallback)]
+
+
 def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
     base = _heuristic_intent(query)
     if not raw:
-        return base
-    action = str(raw.get("action") or base["action"]).strip().lower()
-    if action not in _FARMER_ACTIONS:
-        action = "get_prices"
+        actions = _normalize_action_list(None, base["action"])
+        return {**base, "action": actions[0], "actions": actions}
+    raw_actions = raw.get("actions")
+    raw_action = raw.get("action")
+    actions = _normalize_action_list(
+        raw_actions if raw_actions is not None else raw_action,
+        base["action"],
+    )
+    action = actions[0]
+    # Legacy get_prices with an explicit lookback/range should become history.
+    raw_action_str = str(raw_action or "").strip().lower() if not isinstance(raw_action, list) else ""
+    if raw_action_str in {"get_prices", "lookup_commodity"} and (
+        raw.get("lookback_days") or raw.get("from_date") or raw.get("to_date")
+    ):
+        action = "get_price_history"
+        actions = ["get_price_history"] + [a for a in actions if a != "get_price_history"]
+
     out = {
         "action": action,
+        "actions": actions,
         "nearest_market": bool(raw.get("nearest_market", base.get("nearest_market", True))),
         "radius_km": raw.get("radius_km", base.get("radius_km")),
         "lookback_days": raw.get("lookback_days", base.get("lookback_days")),
@@ -137,6 +268,7 @@ def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
         "to_date": raw.get("to_date", base.get("to_date")),
         "market_name": raw.get("market_name", base.get("market_name")),
         "state": raw.get("state", base.get("state")),
+        "sort_order": raw.get("sort_order", base.get("sort_order")),
     }
     for key in ("radius_km", "lookback_days"):
         val = out.get(key)
@@ -147,12 +279,21 @@ def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
             out[key] = float(val) if key == "radius_km" else int(val)
         except (TypeError, ValueError):
             out[key] = base.get(key)
-    for key in ("from_date", "to_date", "market_name", "state"):
+    for key in ("from_date", "to_date", "market_name", "state", "sort_order"):
         val = out.get(key)
         if val is None or str(val).strip().lower() in {"", "null", "none"}:
             out[key] = None
         else:
-            out[key] = str(val).strip()
+            out[key] = str(val).strip().lower() if key == "sort_order" else str(val).strip()
+    if out["action"] == "get_extreme_arrival" and out["sort_order"] not in {"highest", "lowest"}:
+        out["sort_order"] = "highest"
+    if _is_market_discovery_query(query):
+        out["action"] = "search_markets"
+        out["actions"] = ["search_markets"]
+        out["market_name"] = None
+        out["nearest_market"] = True
+        if out.get("radius_km") is None:
+            out["radius_km"] = 50
     return out
 
 
@@ -181,7 +322,7 @@ async def _gemma_chat(
     headers = {"Content-Type": "application/json"}
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=20.0)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0)
             if response.status_code != 200:
                 trace_llm_error(trace_name, error=f"HTTP {response.status_code}")
                 return None
@@ -218,33 +359,59 @@ async def extract_daily_price_intent(query: str) -> dict[str, Any]:
     return intent
 
 
+def _unwrap_tool_payload(result: Any) -> Any:
+    """Normalize MCP content wrappers like [{'type':'text','text':'{...}'}]."""
+    if isinstance(result, str):
+        try:
+            return json.loads(result)
+        except (json.JSONDecodeError, TypeError):
+            return result
+    if isinstance(result, list) and result:
+        first = result[0]
+        if isinstance(first, dict) and isinstance(first.get("text"), str):
+            try:
+                return json.loads(first["text"])
+            except (json.JSONDecodeError, TypeError):
+                return first["text"]
+    return result
+
+
 def _tool_result_is_empty(result: Any) -> bool:
+    result = _unwrap_tool_payload(result)
     if result is None or result == "":
         return True
     if isinstance(result, str):
-        try:
-            result = json.loads(result)
-        except (json.JSONDecodeError, TypeError):
-            return not result.strip()
+        return not result.strip()
     if not isinstance(result, dict):
         return False
+    if result.get("error") and "results" not in result:
+        return True
+
+    if isinstance(result.get("results"), dict):
+        per_action = result["results"]
+        if not per_action:
+            return True
+        return all(_tool_result_is_empty(v) for v in per_action.values())
+
     if result.get("error"):
         return True
-    if "price_records" in result:
-        records = result.get("price_records") or []
-        return len(records) == 0
-    if "markets" in result:
-        return len(result.get("markets") or []) == 0
-    if "resolutions" in result:
-        resolutions = result.get("resolutions") or {}
-        if not resolutions:
-            return True
-        return not any(
-            isinstance(v, dict) and v.get("matched") for v in resolutions.values()
-        )
-    if "commodities" in result or "results" in result:
-        items = result.get("commodities") or result.get("results") or []
-        return len(items) == 0
+
+    list_keys = (
+        "price_records",
+        "markets",
+        "highest_records",
+        "arrival_records",
+        "highest_arrivals",
+        "lowest_arrivals",
+    )
+    for key in list_keys:
+        if key in result:
+            return len(result.get(key) or []) == 0
+
+    if "stats" in result:
+        stats = result.get("stats")
+        return not bool(stats)
+
     if result.get("count") == 0:
         return True
     return False
@@ -271,18 +438,19 @@ def _build_tool_args(
     crop: str,
     state: str | None,
 ) -> dict[str, Any]:
-    action = intent["action"]
-    args: dict[str, Any] = {"action": action}
+    actions = intent.get("actions") or [intent["action"]]
+    tool_action: str | list[str] = actions[0] if len(actions) == 1 else actions
+    args: dict[str, Any] = {"action": tool_action}
     tool_state = intent.get("state") or state
     if tool_state and str(tool_state).strip().lower() not in {"all", "not specified", "unknown"}:
         args["state"] = str(tool_state).strip()
 
-    if action in {"get_prices", "lookup_commodity"}:
+    if any(a in _COMMODITY_ACTIONS for a in actions):
         crop_clean = (crop or "").strip()
         if crop_clean and crop_clean.lower() not in {"all", "any", "general"}:
             args["commodity_name"] = [crop_clean]
 
-    if action in {"get_prices", "search_markets"}:
+    if any(a in _GEO_ACTIONS for a in actions):
         if lat is not None and lon is not None:
             args["lat"] = float(lat)
             args["long"] = float(lon)
@@ -292,7 +460,13 @@ def _build_tool_args(
         if intent.get("market_name"):
             args["market_name"] = intent["market_name"]
 
-    if action == "get_prices":
+    # Gemma sometimes puts the crop name in market_name (e.g. rice) — never treat crop as mandi name.
+    mn = (args.get("market_name") or "").strip().lower()
+    cr = (crop or "").strip().lower()
+    if mn and cr and (mn == cr or mn in {"rice", "paddy"} and cr in {"rice", "paddy"}):
+        args.pop("market_name", None)
+
+    if any(a in _HISTORY_ACTIONS for a in actions):
         if intent.get("lookback_days") is not None:
             args["lookback_days"] = intent["lookback_days"]
         else:
@@ -301,15 +475,40 @@ def _build_tool_args(
             if intent.get("to_date"):
                 args["to_date"] = intent["to_date"]
 
+    if "get_extreme_arrival" in actions and intent.get("sort_order"):
+        args["sort_order"] = intent["sort_order"]
+
     return args
 
 
-async def synthesize_daily_price_answer(query: str, tool_result: Any) -> str:
+def _fallback_unavailable_answer(payload: Any, *, crop: str | None = None, state: str | None = None) -> str:
+    """Deterministic English reply when Gemma cannot phrase an unavailable result."""
+    parts = ["Mandi price data is not available"]
+    crop_clean = (crop or "").strip()
+    state_clean = (state or "").strip()
+    if crop_clean and crop_clean.lower() not in {"all", "any", "general"}:
+        parts.append(f"for {crop_clean}")
+    if state_clean and state_clean.lower() not in {"all", "not specified", "unknown"}:
+        parts.append(f"in {state_clean}")
+    parts.append("right now.")
+    if isinstance(payload, dict) and payload.get("error"):
+        return " ".join(parts)
+    return " ".join(parts)
+
+
+async def synthesize_daily_price_answer(
+    query: str,
+    tool_result: Any,
+    *,
+    crop: str | None = None,
+    state: str | None = None,
+) -> str:
     """Ask Gemma to turn tool JSON into a farmer-facing English answer."""
-    if isinstance(tool_result, (dict, list)):
-        tool_text = json.dumps(tool_result, ensure_ascii=False, default=str)
+    payload = _unwrap_tool_payload(tool_result)
+    if isinstance(payload, (dict, list)):
+        tool_text = json.dumps(payload, ensure_ascii=False, default=str)
     else:
-        tool_text = str(tool_result)
+        tool_text = str(payload)
     user_content = (
         f"{DAILY_PRICE_ANSWER_PROMPT}\n\n"
         f"Farmer query: {query}\n\n"
@@ -323,9 +522,11 @@ async def synthesize_daily_price_answer(query: str, tool_result: Any) -> str:
         temperature=0.2,
         query=query,
     )
-    if not answer:
-        return ""
-    return answer.strip()
+    if answer and answer.strip():
+        return answer.strip()
+    if _tool_result_is_empty(payload):
+        return _fallback_unavailable_answer(payload, crop=crop, state=state)
+    return ""
 
 
 class DailyPriceInput(BaseModel):
@@ -377,25 +578,45 @@ async def daily_price(
             crop=crop,
             state=state,
         )
+        actions = intent.get("actions") or [intent["action"]]
 
-        if intent["action"] in {"get_prices", "lookup_commodity"} and not tool_args.get("commodity_name"):
-            logger.warning("daily_price_agent: missing commodity_name for action=%s", intent["action"])
+        if any(a in _COMMODITY_ACTIONS for a in actions) and not tool_args.get("commodity_name"):
+            logger.warning("daily_price_agent: missing commodity_name for actions=%s", actions)
             return ""
 
-        if intent["action"] in {"get_prices", "search_markets"} and (
+        if any(a in _GEO_ACTIONS for a in actions) and (
             tool_args.get("lat") is None or tool_args.get("long") is None
         ):
-            # Allow state-only get_prices / search_markets when geo is unavailable
             if not tool_args.get("state") and not tool_args.get("market_name"):
                 logger.warning("daily_price_agent: missing lat/long and state for geo/price query")
                 return ""
 
         tool_result = await call_mandi_price_tool(tool_args)
-        if _tool_result_is_empty(tool_result):
-            return ""
+        tool_payload = _unwrap_tool_payload(tool_result)
+        # Keep raw tool payload on the return envelope for logs only (not used in farmer answer).
+        logger.info(
+            "daily_price_agent tool_data: %s",
+            json.dumps(tool_payload, ensure_ascii=False, default=str)[:8000],
+        )
 
-        answer = await synthesize_daily_price_answer(query, tool_result)
-        return answer or ""
+        # Always ask Gemma — including error/empty payloads — so farmers get a clear "not available".
+        answer = await synthesize_daily_price_answer(
+            query,
+            tool_result,
+            crop=crop,
+            state=tool_args.get("state") or state,
+        )
+        return json.dumps(
+            {"answer": answer or "", "tool_data": tool_payload},
+            ensure_ascii=False,
+            default=str,
+        )
     except Exception as exc:
         logger.error("daily_price agent failed: %s", exc, exc_info=True)
-        return ""
+        return json.dumps(
+            {
+                "answer": _fallback_unavailable_answer({"error": str(exc)}, crop=crop, state=state),
+                "tool_data": {"error": str(exc)},
+            },
+            default=str,
+        )

@@ -47,7 +47,7 @@ export function UsersListModal({
 
   const demographicUsersQuery = useUsersByDemographic(
     category,
-    value,
+    filterValue || value,
     page,
     limit,
     search,
@@ -109,7 +109,7 @@ export function UsersListModal({
 
   // Frontend fallback filtering for the dynamic field, in case backend doesn't filter it yet
   const users = useMemo(() => {
-    if (!filterValue) return rawUsers;
+    if (!filterValue || filterValue.toLowerCase() === 'all') return rawUsers;
     return rawUsers.filter((u) => {
       let val: any = undefined;
       if (dynamicFieldKey === 'platform') {
@@ -117,6 +117,10 @@ export function UsersListModal({
         if (filterValue.toLowerCase() === 'unknown') {
           return [undefined, null, ''].includes(val) || String(val ?? '').trim() === '';
         }
+      } else if (dynamicFieldKey === 'awarenessOfKCC' || dynamicFieldKey === 'usesAgriApps') {
+        const val = (u.farmerProfile as any)?.[dynamicFieldKey];
+        const stringVal = val === true ? "yes" : "no";
+        return stringVal === filterValue.toLowerCase();
       } else {
         val = (u.farmerProfile as any)?.[dynamicFieldKey];
       }
@@ -192,7 +196,9 @@ export function UsersListModal({
                 }}
                 className="w-full pl-9 pr-3 py-2 border rounded-md text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white appearance-none"
               >
-                <option value="">All {dynamicFieldLabel}s</option>
+                <option value={category === 'kccAwareness' || category === 'agriAppUsage' ? "all" : ""}>
+                  All {dynamicFieldLabel}s
+                </option>
                 {filterOptions.map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
@@ -251,6 +257,9 @@ export function UsersListModal({
                   let dynamicValue: any = "-";
                   if (dynamicFieldKey === 'platform') {
                     dynamicValue = user.farmerProfile?.platform || "-";
+                  } else if (dynamicFieldKey === 'awarenessOfKCC' || dynamicFieldKey === 'usesAgriApps') {
+                    const val = (user.farmerProfile as any)?.[dynamicFieldKey];
+                    dynamicValue = val === true ? "Yes" : val === false ? "No" : "-";
                   } else {
                     dynamicValue = (user.farmerProfile as any)?.[dynamicFieldKey] ?? "-";
                   }

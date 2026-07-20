@@ -2069,7 +2069,7 @@ answer: ${updates.answer}`;
       //  WEBHOOK HANDLERS
       const webhookPayload = {
         question_id: questionId,
-        status: question?.tag === 'static_dynamic'?'dynamic_closed':'closed',
+        status: isDuplicateApproval ? 'duplicate_closed' : (question?.tag === 'static_dynamic' ? 'dynamic_closed' : 'closed'),
         answer: updates.answer ?? '',
         author:
           `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||

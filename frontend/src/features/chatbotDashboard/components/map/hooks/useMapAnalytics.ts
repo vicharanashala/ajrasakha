@@ -386,84 +386,33 @@ arr = geo.features.map((f) => {
 const chatbotService = new ChatbotService();
 
 export const useAllStatesandUserData = ({
-  // category,
-  // district,
-  // state,
-  // crop,
-  // crops,
-  // status,
-  // closedWithInTwohours,
-  // notificationType,
-  // period,
-  // questionType,
-  // page,
-  // limit,
   source,
   userType,
-  // startDate,
-  // endDate,
-  // search = "",
+  startDate,
+  endDate,
   enabled = true,
 }: {
-  // category?: string;
-  // district?: string;
-  // state: string
-  // crop?: string
-  // crops?: string[]
-  // status?: string
-  // closedWithInTwohours?: boolean
-  // notificationType?: string
-  // period?: string
-  // questionType: QueryCategoryQuestionType;
-  // page: number;
-  // limit: number;
+
   source: string;
   userType: string;
-  // startDate?: Date;
-  // endDate?: Date;
-  // search?: string;
+  startDate?: string;
+  endDate?: string;
   enabled: boolean;
 }) => {
   return useQuery<any>({
     queryKey: [
       "get-user-and-map-data",
-      // category,
-      // district,
-      // state,
-      // crop,
-      // crops?.join(","),
-      // status,
-      // closedWithInTwohours,
-      // notificationType,
-      // period,
-      // questionType,
-      // page,
-      // limit,
       source,
       userType,
-      // stringStartDate,
-      // stringEndDate,
-      // search,
+      startDate,
+      endDate
     ],
     queryFn: () =>
       chatbotService.getAllStatesQuestionsAndUsersData({
-        // category: category ?? "",
-        // district: district ?? "",
-        // state: state ?? "",
-        // crop: crop ?? "",
-        // crops: crops ?? [],
-        // status: status,
-        // closedWithInTwohours: closedWithInTwohours,
-        // notificationType: notificationType ?? "",
-        // period: period,
-        // questionType,
-        // page,
-        // limit,
         source,
         userType,
-        // stringStartDate,
-        // stringEndDate,
-        // search
+        startDate,
+        endDate
       }),
     enabled: enabled && Boolean(true),
   });
