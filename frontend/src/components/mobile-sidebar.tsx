@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { isCoordinatorRole } from "@/lib/roles";
+import { canManageUsers, isCoordinatorRole } from "@/lib/roles";
 import { Sheet, SheetContent, SheetTrigger } from "./atoms/sheet";
 
 const SidebarButton = ({
@@ -118,10 +118,7 @@ export const MobileSidebar = ({
       ? [{ id: "all_questions", label: "All Questions", icon: List }]
       : []),
 
-    ...(user &&
-    (user.role === "admin" ||
-      user.role === "moderator" ||
-      user.role === "tester")
+    ...(user && canManageUsers(user.role)
       ? [
           {
             id: "user_management",

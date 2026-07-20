@@ -5,6 +5,7 @@ import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
 import { NotificationModal } from "./NotificationModal";
 import { TabsList, TabsTrigger } from "@/components/atoms/tabs";
+import { canManageUsers } from "@/lib/roles";
 import type { IUser } from "@/types";
 
 export function PlaygroundHeader({
@@ -87,9 +88,7 @@ export function PlaygroundHeader({
               </TabsTrigger>
             )}
 
-            {user &&
-              user.role !== "expert" &&
-              user.role !== "call_agent" && (
+            {user && canManageUsers(user.role) && (
                 <TabsTrigger
                   value="user_management"
                   className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"

@@ -20,6 +20,7 @@ import { GateKeeperAuditorDashboard } from "./GateKeeperAuditorDashboard";
 import { NotificationModal } from "./NotificationModal";
 import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboard/AnnamDashboard_dev";
 import { cn } from "@/lib/utils";
+import { canManageUsers } from "@/lib/roles";
 import { CallInterface } from "./CallInterface";
 import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
@@ -327,7 +328,7 @@ export const PlaygroundPage = () => {
                   />
                 </TabsContent>
               )}
-              {user && user.role !== "expert" && user.role !== "call_agent" && (
+              {user && canManageUsers(user.role) && (
                 <TabsContent
                   value="user_management"
                   className={cn(
