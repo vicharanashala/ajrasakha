@@ -185,10 +185,11 @@ export const RoleAssigneeQueue = ({
                 </Label>
               </div>
 
-              {/* Manual select only when auto-allocation is OFF and the question is in
-                  this role's handling status (otherwise the queue assigns automatically
-                  or it's not this role's turn — just the toggle shows). */}
-              {!autoAllocate  && (
+              {/* Manual select only when auto-allocation is OFF, the question is in this
+                  role's handling status, and they have not already submitted (otherwise
+                  the queue assigns automatically, it's not this role's turn, or their
+                  work is already recorded — just the toggle shows). */}
+              {!autoAllocate && isRoleStatus && !finishedAt && (
                 <Button
                   variant="default"
                   className="gap-2 w-full sm:w-auto"
@@ -209,7 +210,7 @@ export const RoleAssigneeQueue = ({
             className="group relative w-42 h-42 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
             style={{ perspective: "1000px" }}
           >
-            {canManage && !autoAllocate && isRoleStatus && (
+            {canManage && !autoAllocate && isRoleStatus && !finishedAt && (
               <div className="absolute -top-1 right-0 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
                 <ConfirmationModal
                   title={`Remove ${noun}?`}

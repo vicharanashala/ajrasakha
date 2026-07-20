@@ -4187,10 +4187,37 @@ export class QuestionService extends BaseService implements IQuestionService {
   private roleAssigneeFields(role: 'gate_keeper' | 'auditor'): {
     assigneeField: 'gateKeeperId' | 'auditorId';
     assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt';
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt';
   } {
     return role === 'gate_keeper'
-      ? {assigneeField: 'gateKeeperId', assignedAtField: 'gateKeeperAssignedAt'}
-      : {assigneeField: 'auditorId', assignedAtField: 'auditorAssignedAt'};
+      ? {
+          assigneeField: 'gateKeeperId',
+          assignedAtField: 'gateKeeperAssignedAt',
+          finishedAtField: 'gateKeeperFinishedAt',
+        }
+      : {
+          assigneeField: 'auditorId',
+          assignedAtField: 'auditorAssignedAt',
+          finishedAtField: 'auditorFinishedAt',
+        };
+  }
+
+  /**
+   * Once a gate keeper / auditor has submitted their response (finishedAt is set) their
+   * assignment is settled — reassigning or removing it would orphan work that has already
+   * been recorded against them. Callers must re-open the question first.
+   */
+  private assertRoleNotFinished(
+    question: unknown,
+    role: 'gate_keeper' | 'auditor',
+  ): void {
+    const {finishedAtField} = this.roleAssigneeFields(role);
+    if ((question as any)?.[finishedAtField]) {
+      const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
+      throw new BadRequestError(
+        `This question's ${noun} has already submitted their response, so the ${noun} can no longer be changed.`,
+      );
+    }
   }
 
   /** Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts
@@ -4227,6 +4254,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<void> {
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const question = await this.questionRepo.getById(questionId);
+    this.assertRoleNotFinished(question, role);
     const previousId = (question as any)?.[assigneeField]?.toString();
     const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
 
@@ -4294,6 +4322,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<void> {
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const question = await this.questionRepo.getById(questionId);
+    this.assertRoleNotFinished(question, role);
     const previousId = (question as any)?.[assigneeField]?.toString();
 
     await this.questionRepo.setRoleAssignee(
