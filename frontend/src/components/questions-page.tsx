@@ -193,7 +193,20 @@ export const QuestionsPage = ({
         is_testing: isTesting,
         isTrainingQuestion,
         // Dedicated tab: filter to questions assigned to the current moderator
-        moderatorId: isDedicated ? (currentUser?._id?.toString() ?? undefined) : undefined,
+        // Dedicated ("My Assignment") tab: filter to questions assigned to the current
+        // user, by their role — moderator, gate keeper, or auditor.
+        moderatorId:
+          isDedicated && currentUser?.role === "moderator"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
+        gateKeeperId:
+          isDedicated && currentUser?.role === "gate_keeper"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
+        auditorId:
+          isDedicated && currentUser?.role === "auditor"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
       };
     },
     [
@@ -227,6 +240,7 @@ export const QuestionsPage = ({
       isTesting,
       isTrainingQuestion,
       viewMode,
+      currentUser,
     ],
   );
 

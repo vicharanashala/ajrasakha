@@ -68,6 +68,9 @@ export function ClosedQuestionsCard({
     (totalQuestions || 0) -
     (closedQuestions || 0) -
     (passedQuestions || 0);
+  const normalAvgTime = (avgCloseTimeMinutes > 0 && avgPassTimeMinutes > 0)
+    ? (avgCloseTimeMinutes + avgPassTimeMinutes) / 2
+    : (avgCloseTimeMinutes || avgPassTimeMinutes || 0);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -348,7 +351,7 @@ export function ClosedQuestionsCard({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="cursor-help text-xs font-semibold tabular-nums text-foreground underline-offset-2 hover:underline">
-                      {formatDurationFromMinutes(combinedAvgTime)}
+                      {formatDurationFromMinutes(normalAvgTime)}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent className="w-64 p-3">
@@ -369,9 +372,9 @@ export function ClosedQuestionsCard({
                         </span>
                       </div>
                       <div className="flex justify-between border-t pt-2 font-medium">
-                        <span>Weighted Average </span>
+                        <span>Average </span>
                         <span className="tabular-nums font-semibold">
-                          {formatDurationFromMinutes(combinedAvgTime)}
+                          {formatDurationFromMinutes(normalAvgTime)}
                         </span>
                       </div>
                     </div>
@@ -497,14 +500,23 @@ function StatTile({
       >
         {showInfo ? (
           <div className="space-y-1.5 text-xs">
-            {Object.entries(statusBreakup?.statuses ?? {})
-              .filter(([key, value]) => {
-                if (infoType === "non_gdb") {
-                  return key === "pass" || key === "dynamic_closed";
-                }
-                return key !== "pass" && key !== "closed" && key !== "dynamic_closed";
-              })
-              .map(([key, value]) => (
+            {(() => {
+              const statusesObj = statusBreakup?.statuses ?? {};
+              let entriesToShow: [string, number][] = [];
+              if (infoType === "non_gdb") {
+                entriesToShow = [
+                  ["dynamic_closed", statusesObj.dynamic_closed ?? 0],
+                  ["duplicate_closed", statusesObj.duplicate_closed ?? 0],
+                  ["pass", statusesObj.pass ?? 0],
+                ];
+              } else {
+                const excludeKeys = ["pass", "closed", "dynamic_closed", "duplicate_closed"];
+                entriesToShow = Object.entries(statusesObj)
+                  .filter(([key]) => !excludeKeys.includes(key))
+                  .map(([key, val]) => [key, Number(val ?? 0)]);
+              }
+
+              return entriesToShow.map(([key, value]) => (
                 <div
                   key={key}
                   className="flex justify-between gap-4 cursor-pointer hover:bg-muted/80 p-1 -mx-1 px-1 rounded transition-colors"
@@ -522,7 +534,8 @@ function StatTile({
 
                   <span className="font-medium">{String(value)}</span>
                 </div>
-              ))}
+              ));
+            })()}
           </div>
         ) : (
           <p className="text-xs">{tooltip}</p>

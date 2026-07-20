@@ -74,7 +74,7 @@ export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 import { TopRightBadge } from "./NewBadge";
 
-export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic";
+export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic" | "auditor_review" | "queue_duplicate";
 export type QuestionDateRangeFilter =
   | "all"
   | "today"
@@ -135,6 +135,9 @@ export type AdvanceFilterValues = {
   /** When set, filters to questions whose moderatorId matches this ID (dedicated tab). */
   moderatorId?: string;
   isTrainingQuestion?: boolean; // New property for training questions
+  /** Dedicated tab for gate keepers / auditors — filters by their assigned questions. */
+  gateKeeperId?: string;
+  auditorId?: string;
 };
 
 
@@ -376,6 +379,26 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
         </div>
       ),
     },
+    {
+      value: "auditor_review",
+      searchText: "Auditor Review",
+      children: (
+        <div className="flex items-center gap-2">
+          <BadgeCheck className="w-4 h-4 text-indigo-500" />
+          <span>Auditor Review</span>
+        </div>
+      ),
+    },
+    {
+      value: "queue_duplicate",
+      searchText: "Queue Duplicate",
+      children: (
+        <div className="flex items-center gap-2">
+          <Layers className="w-4 h-4 text-orange-400" />
+          <span>Queue Duplicate</span>
+        </div>
+      ),
+    },
   ];
 
   const reviewLevelOptions: SearchableFilterSelectOption[] = [
@@ -474,7 +497,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
                   </Label>
-                  <SearchableFilterSelect
+                  
+                    <SearchableFilterSelect
                     value={advanceFilter.status}
                     onValueChange={(v) => {
                       handleDialogChange("status", v);

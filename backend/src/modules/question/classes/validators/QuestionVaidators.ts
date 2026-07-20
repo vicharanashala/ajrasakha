@@ -352,6 +352,11 @@ class QuestionResponse {
     'duplicate',
     'non_agri',
     'pending',
+    'dynamic',
+    'queue_progress',
+    'auditor_review',
+    'dynamic_closed',
+    'duplicate_closed',
   ])
   status?: QuestionStatus;
 
@@ -903,6 +908,11 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   isTrainingQuestion?: string | boolean;
+  @IsOptional()
+  gateKeeperId?: string;
+
+  @IsOptional()
+  auditorId?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

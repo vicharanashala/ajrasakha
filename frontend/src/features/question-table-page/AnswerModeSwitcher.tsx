@@ -172,7 +172,7 @@ export function AnswerModeSwitcher({
                             </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-sm">
-                            Questions assigned to you for moderation
+                            Questions assigned to you
                         </TooltipContent>
                     </Tooltip>
                 </>

@@ -6,11 +6,12 @@ highest-ranked source segments that fit the requested character range. A
 successful answer body is always within 50 characters above or below the
 target and contains no model-authored prose.
 
-When an input answer contains the exact marker `👤 Answered by:`, Python keeps
-that marker and everything after it as an untouched reviewer footer. Only the
-text before that marker is sent to Claude, measured, and shortened. The footer
-is appended verbatim to both returned answer fields and does not count toward
-the requested character range.
+When an input answer contains either the exact marker `👤 Answered by:` or a
+standalone divider line of at least three underscores (such as `___________`),
+Python keeps the first recognized boundary and everything after it as an
+untouched footer. Only the text before that boundary is sent to Claude,
+measured, and shortened. The footer is appended verbatim to both returned
+answer fields and does not count toward the requested character range.
 
 ## Request
 

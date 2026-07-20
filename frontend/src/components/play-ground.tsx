@@ -16,7 +16,11 @@ import { PlaygroundHeader } from "./PlaygroundHeader";
 import { UserManagement } from "./user-management";
 import { Dashboard } from "./dashboard";
 import { ExpertDashboard } from "./ExpertDashboard";
+import { GateKeeperAuditorDashboard } from "./GateKeeperAuditorDashboard";
+import { NotificationModal } from "./NotificationModal";
+import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboard/AnnamDashboard_dev";
 import { cn } from "@/lib/utils";
+import { canManageUsers } from "@/lib/roles";
 import { CallInterface } from "./CallInterface";
 import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
@@ -85,17 +89,27 @@ export const PlaygroundPage = () => {
       localStorage.setItem(storageKey, explicitSelectionTab);
       return;
     }
-    const savedTab = localStorage.getItem(storageKey);
-    if (savedTab) {
-      setActiveTab(savedTab);
-    } else {
-      const defaultTab =
-        user.role === "expert"
-          ? "questions"
-          : user.role === "call_agent"
-            ? "call_interface"
+    const defaultTab =
+      user.role === "expert"
+        ? "questions"
+        : user.role === "call_agent"
+          ? "call_interface"
+          : user.role === "gate_keeper" || user.role === "auditor"
+            ? "roleDashboard"
             : "performance";
 
+    // A tab saved before the role changed (or before roleDashboard existed) can point at
+    // content this role no longer renders, leaving a blank page. Drop it in that case.
+    const savedTab = localStorage.getItem(storageKey);
+    const isGateKeeperOrAuditor =
+      user.role === "gate_keeper" || user.role === "auditor";
+    const savedTabValid =
+      !!savedTab &&
+      (isGateKeeperOrAuditor ? savedTab !== "performance" : savedTab !== "roleDashboard");
+
+    if (savedTab && savedTabValid) {
+      setActiveTab(savedTab);
+    } else {
       setActiveTab(defaultTab);
       localStorage.setItem(storageKey, defaultTab);
     }
@@ -225,7 +239,11 @@ export const PlaygroundPage = () => {
         <div className=" h-full py-6 min-w-0">
           <div className="grid h-full items-stretch gap-6 min-w-0">
             <div className="md:order-1 w-full min-w-0">
-              {user && user.role !== "expert" && (
+              {user &&
+                user.role !== "expert" &&
+                user.role !== "call_agent" &&
+                user.role !== "gate_keeper" &&
+                user.role !== "auditor" && (
                 <TabsContent
                   value="performance"
                   className={cn(
@@ -255,6 +273,21 @@ export const PlaygroundPage = () => {
                 >
                   {/* <PerformanceMatrics /> */}
                   <ExpertDashboard />
+                </TabsContent>
+              )}
+              {user && (user.role === "gate_keeper" || user.role === "auditor") && (
+                <TabsContent
+                  value="roleDashboard"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <GateKeeperAuditorDashboard />
                 </TabsContent>
               )}
               {user && user.role == "expert" && (
@@ -295,7 +328,7 @@ export const PlaygroundPage = () => {
                   />
                 </TabsContent>
               )}
-              {user && user.role !== "expert" && user.role !== "call_agent" && (
+              {user && canManageUsers(user.role) && (
                 <TabsContent
                   value="user_management"
                   className={cn(

@@ -1,7 +1,7 @@
 import type { UserCredential } from "firebase/auth";
 import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester" | "district_coordinator" | "block_coordinator" | "village_volunteer" | "call_agent";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent" | "gate_keeper" | "auditor";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -280,7 +280,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "pending" | "dynamic";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" |"pending"| "dynamic" | "queue_progress" | "auditor_review" | "dynamic_closed"|"queue_duplicate" | "duplicate_confirmed" | "duplicate_closed";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -495,6 +495,7 @@ export interface IQuestionFullData {
   referenceSource?: string;
   isDuplicateChecked?: boolean;
   autoAllocateModerator?: boolean;
+  isDuplicateCancelled?: boolean;
   referenceQuestionData?: {
     question: string;
     status: string;
@@ -511,6 +512,7 @@ export interface IQuestionFullData {
   };
   originalQuestion?: string;
   closedAt?: string;
+  closedBy?: string;
   threadId?: string;
   threadUserEmail?: string | null;
   messageId?: string;
@@ -522,8 +524,26 @@ export interface IQuestionFullData {
   moderatorId?: string | null;
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   assigned_moderator?: { name: string; email: string } | null;
+  /** Gate keeper / auditor currently assigned to this question (role-queue cron). */
+  assigned_gate_keeper?: { name: string; email: string } | null;
+  assigned_auditor?: { name: string; email: string } | null;
+  gateKeeperId?: string | null;
+  auditorId?: string | null;
+  gateKeeperAssignedAt?: string | null;
+  auditorAssignedAt?: string | null;
+  gateKeeperFinishedAt?: string | null;
+  auditorFinishedAt?: string | null;
+  autoAllocateGateKeeper?: boolean;
+  autoAllocateAuditor?: boolean;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
   isAssignedModerator?: boolean;
+  /** True when the requesting user is the assigned gate keeper / auditor (server-computed). */
+  isAssignedGateKeeper?: boolean;
+  isAssignedAuditor?: boolean;
+  /** Set when a Gate Keeper pushes to the Auditor (status → 'auditor_review'); records
+   *  whether the question was 'dynamic' or 'duplicate' so the Auditor shows the right
+   *  action (Notify User vs Push to GDB). */
+  auditorReviewType?: "dynamic" | "duplicate";
   /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
   moderatorAssignedAt?: string | null;
   closedFinalAnswer?: {
@@ -604,6 +624,7 @@ export interface IDetailedQuestion {
   aiInitialAnswer: string;
   status: QuestionStatus;
   tag?: "dynamic" | "static_dynamic";
+  auditorReviewType?: "dynamic" | "duplicate";
   totalAnswersCount: number;
   priority: QuestionPriority;
   metrics: IQuestionMetrics;
@@ -645,6 +666,9 @@ export interface IDetailedQuestion {
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   moderatorId?: string | null;
   isTrainingQuestion?: boolean;
+  isDuplicateCancelled?: boolean;
+  duplicateCancelReason?: string;
+  isAutoAllocate?: boolean;
 }
 
 export interface IDetailedQuestionResponse {
@@ -1039,6 +1063,12 @@ enum AuditAction {
   DELETE_EXPERT = 'DELETE_EXPERT',
   SELECT_MODERATOR = 'SELECT_MODERATOR',
   DELETE_MODERATOR = 'DELETE_MODERATOR',
+  SELECT_GATE_KEEPER = 'SELECT_GATE_KEEPER',
+  DELETE_GATE_KEEPER = 'DELETE_GATE_KEEPER',
+  SELECT_AUDITOR = 'SELECT_AUDITOR',
+  DELETE_AUDITOR = 'DELETE_AUDITOR',
+  TOGGLE_GATE_KEEPER_ALLOCATION = 'TOGGLE_GATE_KEEPER_ALLOCATION',
+  TOGGLE_AUDITOR_ALLOCATION = 'TOGGLE_AUDITOR_ALLOCATION',
   EXPERTS_ADD_COMMENT = 'EXPERTS_ADD_COMMENT',
 
   //EXPERTS_MANAGEMENT

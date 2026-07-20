@@ -5,6 +5,7 @@ import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
 import { NotificationModal } from "./NotificationModal";
 import { TabsList, TabsTrigger } from "@/components/atoms/tabs";
+import { canManageUsers } from "@/lib/roles";
 import type { IUser } from "@/types";
 
 export function PlaygroundHeader({
@@ -36,7 +37,9 @@ export function PlaygroundHeader({
           <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
             {user &&
               user.role !== "expert" &&
-              user.role !== "call_agent" && (
+              user.role !== "call_agent" &&
+              user.role !== "gate_keeper" &&
+              user.role !== "auditor" && (
                 <TabsTrigger
                   value="performance"
                   className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -46,6 +49,17 @@ export function PlaygroundHeader({
                   </HoverCard>
                 </TabsTrigger>
               )}
+            {/* Gate keepers / auditors get their own role dashboard instead. */}
+            {user && (user.role === "gate_keeper" || user.role === "auditor") && (
+              <TabsTrigger
+                value="roleDashboard"
+                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+              >
+                <HoverCard openDelay={150}>
+                  <span>Dashboard</span>
+                </HoverCard>
+              </TabsTrigger>
+            )}
             {user && user.role === "expert" && (
               <TabsTrigger
                 value="expertPerformance"
@@ -74,9 +88,7 @@ export function PlaygroundHeader({
               </TabsTrigger>
             )}
 
-            {user &&
-              user.role !== "expert" &&
-              user.role !== "call_agent" && (
+            {user && canManageUsers(user.role) && (
                 <TabsTrigger
                   value="user_management"
                   className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"

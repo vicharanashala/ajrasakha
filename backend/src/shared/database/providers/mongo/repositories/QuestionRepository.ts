@@ -302,6 +302,22 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Find questions that reference the given question (referenceQuestionId), optionally
+   *  filtered by status. Used to propagate a close to queue-duplicate children. */
+  async findByReferenceQuestionId(
+    referenceQuestionId: string,
+    status?: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    if (!isValidObjectId(referenceQuestionId)) return [];
+    const filter: Record<string, unknown> = {
+      referenceQuestionId: new ObjectId(referenceQuestionId),
+    };
+    if (status) filter.status = status;
+    return this.QuestionCollection.find(filter, {session}).toArray();
+  }
+
   async findDetailedQuestions(
     query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
     body?: DetailedQuestionsBodyDto,
@@ -353,6 +369,8 @@ export class QuestionRepository implements IQuestionRepository {
         is_testing,
         isTrainingQuestion,
         moderatorId,
+        gateKeeperId,
+        auditorId,
       } = query;
       //  const filter: any = {};
       const filter: any = {
@@ -519,6 +537,26 @@ export class QuestionRepository implements IQuestionRepository {
         // A moderator's assignments span all question types (including PAE questions),
         // so drop the pae_review restriction applied above for the normal tabs —
         // otherwise pae_review:true assignments would be hidden from "My Assignments".
+        delete filter.$or;
+        delete filter.pae_review;
+      }
+
+      // --- Gate keeper "My Assignments" tab: questions assigned to this gate keeper,
+      // restricted to the gate-keeper handling statuses. ---
+      if (gateKeeperId) {
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({ gateKeeperId: new ObjectId(gateKeeperId as string) });
+        filter.status = { $in: ['dynamic', 'duplicate', 'queue_duplicate'] };
+        delete filter.$or;
+        delete filter.pae_review;
+      }
+
+      // --- Auditor "My Assignments" tab: questions assigned to this auditor,
+      // restricted to the auditor_review status. ---
+      if (auditorId) {
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({ auditorId: new ObjectId(auditorId as string) });
+        filter.status = { $in: ['auditor_review'] };
         delete filter.$or;
         delete filter.pae_review;
       }
@@ -2124,10 +2162,15 @@ export class QuestionRepository implements IQuestionRepository {
         updatedAt: submission?.updatedAt,
       };
 
-      // 7.2 If question is closed with no submission queue, fetch the final answer directly
+      // 7.2 If question is closed with no submission queue, fetch the final answer directly.
+      // `dynamic_closed` (dynamic questions finalised via the Auditor "Notify User" flow)
+      // and `duplicate_closed` (duplicate questions finalised the same way) are treated the
+      // same as `closed` so their final answer shows in the timeline too.
       let closedFinalAnswer: any = null;
       if (
-        question.status === 'closed' &&
+        (question.status === 'closed' ||
+          question.status === 'dynamic_closed' ||
+          question.status === 'duplicate_closed') &&
         (submission?.queue?.length ?? 0) === 0
       ) {
         const fa = await this.AnswersCollection.findOne({
@@ -7278,7 +7321,7 @@ export class QuestionRepository implements IQuestionRepository {
     // New questions default the field to true on creation.
     // When `sources` is provided, restricts to that source group (time-bound / manual).
     const filter: Record<string, unknown> = {
-      status: { $in: ['in-review', 'duplicate', 'pae_submitted'] },
+      status: { $in: ['in-review', 'pae_submitted'] },
       autoAllocateModerator: true,
       $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
     };
@@ -7323,6 +7366,147 @@ export class QuestionRepository implements IQuestionRepository {
           updatedAt: now,
         },
       },
+    );
+  }
+
+  /** Unassigned questions in the given statuses eligible for role auto-allocation
+   *  (gate keeper / auditor). Returns oldest-first questions whose assignee field is
+   *  null/missing and whose autoAllocate flag is not explicitly false. */
+  async findUnassignedQuestionsForRole(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+  ): Promise<IQuestion[]> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: statuses },
+      // Gate keeper / auditor only handle time-bound (chatbot) questions.
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+      [assigneeField]: { $in: [null, undefined] },
+      // Only fetch when auto-allocation is explicitly ON — a missing field or `false`
+      // both mean "don't auto-assign".
+      [autoAllocateField]: { $eq: true },
+      isOnHold: { $ne: true },
+    };
+    return this.QuestionCollection.find(filter as any)
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Questions currently assigned to a given role assignee (gateKeeperId / auditorId),
+   *  restricted to the statuses that role handles. Used to compute per-user busy state. */
+  async findQuestionsAssignedToRole(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection.find({
+      [assigneeField]: { $ne: null, $exists: true },
+      status: { $in: statuses },
+      // Gate keeper / auditor only handle time-bound (chatbot) questions.
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+    } as any)
+      .toArray();
+  }
+
+  /** Dashboard data for a gate keeper / auditor: the total questions ever assigned to
+   *  them (assigneeField == userId), how many they've submitted (finishedAt set), and a
+   *  paginated list of those questions (newest assignment first, optional text search). */
+  async getRoleAssigneeDashboard(
+    userId: string,
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    finishedField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }> {
+    await this.init();
+    if (!isValidObjectId(userId)) {
+      return { assignedCount: 0, submittedCount: 0, questions: [], totalPages: 0, totalCount: 0 };
+    }
+    const oid = new ObjectId(userId);
+    const baseMatch: Record<string, unknown> = { [assigneeField]: oid };
+    if (search && search.trim()) {
+      baseMatch.question = { $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+    }
+    const safePage = Math.max(1, Math.floor(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 11), 100);
+
+    const [assignedCount, submittedCount, totalCount, questions] = await Promise.all([
+      this.QuestionCollection.countDocuments({ [assigneeField]: oid } as any),
+      this.QuestionCollection.countDocuments({ [assigneeField]: oid, [finishedField]: { $ne: null } } as any),
+      this.QuestionCollection.countDocuments(baseMatch as any),
+      this.QuestionCollection.find(baseMatch as any, {
+        projection: {
+          _id: 1, question: 1, status: 1, source: 1, priority: 1, createdAt: 1,
+          [assignedAtField]: 1, [finishedField]: 1,
+          'details.state': 1, 'details.crop': 1,
+        },
+      })
+        .sort({ [assignedAtField]: -1, createdAt: -1 } as any)
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .toArray(),
+    ]);
+
+    return {
+      assignedCount,
+      submittedCount,
+      // Stringify _id so the client gets a plain id (avoids "[object Object]" in URLs).
+      questions: questions.map(q => ({ ...q, _id: q._id?.toString() })),
+      totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / safeLimit)),
+    };
+  }
+
+  /** Sets or clears a role assignee (gateKeeperId / auditorId) and its assignedAt
+   *  timestamp on a question. Resets the matching finishedAt (a new/removed assignment
+   *  starts a fresh turn). */
+  async setRoleAssignee(
+    questionId: string,
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
+    assigneeId: string | null,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const now = new Date();
+    const finishedAtField =
+      assigneeField === 'gateKeeperId'
+        ? 'gateKeeperFinishedAt'
+        : 'auditorFinishedAt';
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      {
+        $set: {
+          [assigneeField]: assigneeId ? new ObjectId(assigneeId) : null,
+          [assignedAtField]: assigneeId ? now : null,
+          [finishedAtField]: null,
+          updatedAt: now,
+        },
+      },
+      { session },
+    );
+  }
+
+  /** Stamps the finished-at time for a role assignee (gate keeper / auditor) when they
+   *  act on the question. The assignee id is intentionally kept for history. */
+  async markRoleFinished(
+    questionId: string,
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    finishedAt: Date,
+  ): Promise<void> {
+    await this.init();
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { $set: { [finishedAtField]: finishedAt, updatedAt: new Date() } },
     );
   }
   /** One page (skip/limit) + exact total for a Queue-Details question section.
@@ -7527,5 +7711,22 @@ export class QuestionRepository implements IQuestionRepository {
     ]).toArray();
 
     return rows.map(r => ({status: r._id ?? 'unknown', count: r.count}));
+  }
+
+  async getCountByStatus () :Promise<any>{
+    const statusCount = await this.QuestionCollection.aggregate([
+        {
+          $match: {
+            isTesting: { $ne: true },
+          },
+        },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 }
+          }
+        }
+      ]).toArray();
+    return statusCount;
   }
 }

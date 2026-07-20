@@ -47,6 +47,8 @@ type ClosedInLastTwoHoursCardProps = {
   totalPassed: number;
   dynamicClosedInLastTwoHours?: number;
   totalDynamicClosed?: number;
+  duplicateClosedInLastTwoHours?: number;
+  totalDuplicateClosed?: number;
   userId?: string;
   isMapComponent?: boolean;
   showSourceFilter?: boolean;
@@ -67,6 +69,8 @@ export function ClosedInLastTwoHoursCard({
   totalPassed = 0,
   dynamicClosedInLastTwoHours = 0,
   totalDynamicClosed = 0,
+  duplicateClosedInLastTwoHours = 0,
+  totalDuplicateClosed = 0,
   userId,
   isMapComponent = false,
   showSourceFilter = true,
@@ -89,14 +93,14 @@ export function ClosedInLastTwoHoursCard({
   const closedWithinTwoHoursPct =
     safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
   
-  const passedInLastTwoHoursCombined = passedInLastTwoHours + dynamicClosedInLastTwoHours;
-  const totalPassedCombined = totalPassed + totalDynamicClosed;
+  const passedInLastTwoHoursCombined = passedInLastTwoHours + dynamicClosedInLastTwoHours + duplicateClosedInLastTwoHours;
+  const totalPassedCombined = totalPassed + totalDynamicClosed + totalDuplicateClosed;
   
   const passedPct =
     totalPassedCombined > 0 ? (passedInLastTwoHoursCombined / totalPassedCombined) * 100 : 0;
-  const combinedPct =
-    ((safeCount + passedInLastTwoHoursCombined) / (safeTotalClosed + totalPassedCombined)) *
-      100 || 0;
+  const combinedPct = (safeTotalClosed > 0 && totalPassedCombined > 0)
+    ? (closedWithinTwoHoursPct + passedPct) / 2
+    : (safeTotalClosed > 0 ? closedWithinTwoHoursPct : passedPct);
   const [closedWithInTwohours, setClosedWithInTowhours] = useState(false);
   const slaBreached =
     safeTotalClosed + totalPassedCombined - safeCount - passedInLastTwoHoursCombined;
@@ -122,6 +126,13 @@ export function ClosedInLastTwoHoursCard({
       count: dynamicClosedInLastTwoHours,
       of: totalDynamicClosed,
       statusKey: "dynamic_closed",
+      isPassedVal: true,
+    },
+    {
+      label: "Duplicate Closed",
+      count: duplicateClosedInLastTwoHours,
+      of: totalDuplicateClosed,
+      statusKey: "duplicate_closed",
       isPassedVal: true,
     },
   ];
@@ -367,7 +378,7 @@ export function ClosedInLastTwoHoursCard({
                 <div className="flex items-center gap-1.5">
                   <Gauge className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                    Weighted Combined Rate
+                    Average Combined Rate
                   </span>
                 </div>
                 <Tooltip>
@@ -398,7 +409,7 @@ export function ClosedInLastTwoHoursCard({
                         </span>
                       </div>
                       <div className="flex justify-between border-t pt-2 font-medium gap-4">
-                        <span>Weighted Combined Rate</span>
+                        <span>Average Combined Rate</span>
                         <span className="tabular-nums text-right font-semibold">
                           {combinedPct.toFixed(1)}% 
                         </span>
@@ -425,6 +436,7 @@ export function ClosedInLastTwoHoursCard({
           closedInLastTwoHours ={(closedInLastTwoHours || 0)}
           passedInLastTwoHours={passedInLastTwoHours || 0}
           dynamicClosedInLastTwoHours={dynamicClosedInLastTwoHours || 0}
+          duplicateClosedInLastTwoHours={duplicateClosedInLastTwoHours || 0}
           slaBreached={(slaBreached || 0)}
           userId={userId}
         />
@@ -498,7 +510,7 @@ function StatTile({
       <TooltipTrigger asChild>
         <motion.button
           type="button"
-          onClick={isMapComponent ? undefined : onClick}
+          onClick={onClick}
           whileHover={{ y: -2 }}
           whileTap={{ scale: 0.98 }}
           transition={{ duration: 0.15 }}

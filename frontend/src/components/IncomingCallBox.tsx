@@ -52,6 +52,7 @@ export interface IncomingCallBoxProps {
   onTranscriptsListChange?: (transcripts: CallTranscript[]) => void;
   onCallStateChange?: (isActive: boolean) => void;
   onCallUuidChange?: (callUuid: string | null) => void;
+  onPhoneNumberChange?: (phoneNumber: string | null) => void;
 }
 
 declare global {
@@ -68,12 +69,18 @@ export const IncomingCallBox = ({
   onTranscriptsListChange,
   onCallStateChange,
   onCallUuidChange,
+  onPhoneNumberChange,
 }: IncomingCallBoxProps) => {
   console.log(" [IncomingCallBox] Component mounting...");
 
   const { data: currentUser, isLoading: isUserLoading, refetch: refetchCurrentUser } = useGetCurrentUser();
 
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+
+  // Notify parent of active phone number change
+  useEffect(() => {
+    onPhoneNumberChange?.(incomingCall?.number || null);
+  }, [incomingCall?.number, onPhoneNumberChange]);
   const [callStatus, setCallStatus] = useState<
     "idle" | "incoming" | "connected" | "held" | "ended"
   >("idle");

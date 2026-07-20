@@ -2,6 +2,7 @@ import { IUserRepository } from '#shared/database/interfaces/IUserRepository.js'
 import {
   IUser,
   IUserRoleHistory,
+  UserRole,
   NotificationRetentionType,
   IAnswer,
   ICropRef,
@@ -978,6 +979,28 @@ export class UserRepository implements IUserRepository {
     );
   }
 
+  /** Users of a given role who can take a new question — not blocked and currently
+   *  holding no assigned question (one question at a time). Used by the gate-keeper /
+   *  auditor queue cron to find a free assignee. */
+  async findAvailableUsersByRole(role: UserRole): Promise<IUser[]> {
+    await this.init();
+    return this.usersCollection
+      .find({
+        role,
+        isBlocked: { $ne: true },
+        // Only active users. status defaults to 'active' on creation, so treat a
+        // missing/null status as active and exclude only explicitly in-active users.
+        status: { $ne: 'in-active' },
+        // Empty / missing assigned-questions array = free.
+        $or: [
+          { assignedQuestionIds: { $exists: false } },
+          { assignedQuestionIds: null },
+          { assignedQuestionIds: { $size: 0 } },
+        ],
+      })
+      .toArray();
+  }
+
   /** Appends a question (with its current status) to a moderator's assigned-questions
    *  array. Pulls any stale entry for the same question first so the questionId is never
    *  duplicated and the stored status is fresh. The cron passes 'in-review'; manual
@@ -987,6 +1010,7 @@ export class UserRepository implements IUserRepository {
     questionId: string,
     status: QuestionStatus,
     source?: QuestionSource,
+    session?: ClientSession,
   ): Promise<void> {
     await this.init();
     const qid = new ObjectId(questionId);
@@ -996,6 +1020,7 @@ export class UserRepository implements IUserRepository {
         $pull: { assignedQuestionIds: { questionId: qid } },
         $set: { updatedAt: new Date() },
       },
+      { session },
     );
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
@@ -1003,6 +1028,7 @@ export class UserRepository implements IUserRepository {
         $push: { assignedQuestionIds: { questionId: qid, status, source } },
         $set: { updatedAt: new Date() },
       },
+      { session },
     );
   }
 

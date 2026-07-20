@@ -2,7 +2,13 @@ import {DailyStats, IReviewWiseStats} from './getDailyStats.js';
 
 export const buildBackupEmailTemplate = (
   timestamp: string,
-  results: {db: string; publicUrl: string | null; status: 'success' | 'failed' | 'Already exists'; error?: any; timestamp?: string}[],
+  results: {
+    db: string;
+    publicUrl: string | null;
+    status: 'success' | 'failed' | 'Already exists';
+    error?: any;
+    timestamp?: string;
+  }[],
   stats?: DailyStats,
 ) => {
   return `
@@ -15,20 +21,28 @@ export const buildBackupEmailTemplate = (
       <div style="background-color: #f7f7f7; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
         <p><strong>Databases Backup  Status:</strong> ${timestamp}</p>
         <p style="margin-top: 5px;">
-          ${results.map(result => `
+          ${results
+            .map(
+              result => `
             <div style="
               color: ${result.status === 'failed' ? '#dc2626' : '#16a34a'};
               margin-bottom: 6px;
             ">
               <strong>${result.db}</strong> - ${result.status}
               ${result.timestamp ? `<span style="margin: 5px 0; font-size: 0.9em; color: #666;">Date: ${result.timestamp}</span>` : ''}
-              ${result.publicUrl ? `
+              ${
+                result.publicUrl
+                  ? `
                 🔗 <a href="${result.publicUrl}" target="_blank" style="color: #16a34a; text-decoration: none;">
                   View Backup File
                 </a>
-              ` : ''}
+              `
+                  : ''
+              }
             </div>
-          `).join('')}
+          `,
+            )
+            .join('')}
         </p>
         <div className="mt-5 text-sm text-gray-600">
           <strong>Excluded Databases:</strong> admin, local, config
@@ -280,11 +294,11 @@ export const buildDailyStatsEmailTemplate = (stats?: DailyStats) => {
           ${
             stats
               ? `
-                ${buildOverallSystemStatsTable(stats)}
+                ${buildTodayStatsTable(stats)}
                 <div style="height: 24px;"></div>
                 ${buildReviewWiseStatsTable(stats.reviewWiseCount)}
                 <div style="height: 24px;"></div>
-                ${buildTodayStatsTable(stats)}
+                ${buildOverallSystemStatsTable(stats)}
               `
               : `
                 <div style="padding: 20px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
@@ -318,61 +332,289 @@ export const buildDailyStatsEmailTemplate = (stats?: DailyStats) => {
 //////////////////////////////////////////////////// STATS TABLES /////////////////////////////////////////////////////////
 
 export const buildOverallSystemStatsTable = (stats: DailyStats) => `
-  <div style="border: 1px solid #e5e7eb;">
-    <div style="background-color: #f9fafb; padding: 16px 20px; border-bottom: 2px solid #047857;">
-      <h2 style="margin: 0; font-size: 16px; font-weight: 600; color: #1f2937;">
+  <div style="
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: #ffffff;
+  ">
+    <div style="
+      background-color: #f8fafc;
+      padding: 18px 20px;
+      border-bottom: 3px solid #047857;
+    ">
+      <h2 style="
+        margin: 0;
+        font-size: 17px;
+        font-weight: 700;
+        color: #111827;
+      ">
         System Overview
       </h2>
     </div>
-    
-    <table border="0" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+
+    <table border="0" cellpadding="0" cellspacing="0"
+      style="width: 100%; border-collapse: collapse;">
       <tbody>
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 16px 20px; font-size: 14px; color: #4b5563;">
-            Total Questions in System
-          </td>
-          <td style="padding: 16px 20px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">
-            ${stats.totalQuestions.toLocaleString()}
-          </td>
-        </tr>
 
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 16px 20px; font-size: 14px; color: #4b5563;">
-            Pending Moderator Approval
-          </td>
-          <td style="padding: 16px 20px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">
-            ${stats.totalInReviewQuestions.toLocaleString()}
-          </td>
-        </tr>
+        <!-- Total Questions -->
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 18px 20px;">
+            <div style="font-size: 14px; font-weight: 600; color: #374151;">
+              Total Questions in System
+            </div>
 
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 16px 20px; font-size: 14px; color: #4b5563;">
-            Under Expert Review
+            <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+              Agri Questions:
+              <strong style="color: #374151;">
+                ${stats.agriCount.toLocaleString()}
+              </strong>
+              &nbsp;&nbsp;•&nbsp;&nbsp;
+              Non-Agri:
+              <strong style="color: #374151;">
+                ${stats.nonAgriCount.toLocaleString()}
+              </strong>
+            </div>
           </td>
-          <td style="padding: 16px 20px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">
-            ${stats.totalQuestionsUnderExpertReview.toLocaleString()}
-          </td>
-        </tr>
 
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 16px 20px; font-size: 14px; color: #4b5563;">
-            Moderator Approval Rate
-          </td>
-          <td style="padding: 16px 20px; text-align: right; font-size: 14px; font-weight: 600; color: #059669;">
-            ${stats.moderatorApprovalRate.toFixed(2)}%
-          </td>
-        </tr>
-
-        <tr style="background-color: #f0fdf4;">
-          <td style="padding: 16px 20px; font-size: 14px; color: #065f46; font-weight: 500;">
-            Total Golden Dataset Entries
-          </td>
-          <td style="padding: 16px 20px; text-align: right;">
-            <span style="display: inline-block; background-color: #059669; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 15px; font-weight: 700;">
-              ${stats.totalClosedQuestions.toLocaleString()}
+          <td style="padding: 18px 20px; text-align: right;">
+            <span style="
+              display: inline-block;
+              background-color: #f3f4f6;
+              color: #111827;
+              padding: 7px 12px;
+              border-radius: 6px;
+              font-size: 16px;
+              font-weight: 700;
+            ">
+              ${stats.totalQuestions.toLocaleString()}
             </span>
           </td>
         </tr>
+
+
+        <!-- Expert Review -->
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 18px 20px;">
+            <div style="font-size: 14px; font-weight: 600; color: #374151;">
+              Under Expert Review
+            </div>
+
+            <table border="0" cellpadding="0" cellspacing="0"
+              style="margin-top: 10px; font-size: 12px; color: #6b7280;">
+              <tr>
+                <td style="padding: 2px 16px 2px 0;">
+                  Pending: <strong>${stats.pending.toLocaleString()}</strong>
+                </td>
+                <td style="padding: 2px 16px 2px 0;">
+                  Dynamic: <strong>${stats.dynamic.toLocaleString()}</strong>
+                </td>
+                <td style="padding: 2px 0;">
+                  Duplicate: <strong>${stats.duplicate.toLocaleString()}</strong>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 2px 16px 2px 0;">
+                  Open: <strong>${stats.open.toLocaleString()}</strong>
+                </td>
+                <td style="padding: 2px 16px 2px 0;">
+                  Delayed: <strong>${stats.delayed.toLocaleString()}</strong>
+                </td>
+                <td style="padding: 2px 0;">
+                  Hold: <strong>${stats.hold.toLocaleString()}</strong>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 2px 16px 2px 0;">
+                  Re-routed: <strong>${stats.rerouted.toLocaleString()}</strong>
+                </td>
+              </tr>
+            </table>
+          </td>
+
+          <td style="padding: 18px 20px; text-align: right; vertical-align: top;">
+            <span style="
+              display: inline-block;
+              background-color: #f3f4f6;
+              color: #111827;
+              padding: 7px 12px;
+              border-radius: 6px;
+              font-size: 15px;
+              font-weight: 700;
+            ">
+              ${(
+                stats.pending +
+                stats.dynamic +
+                stats.duplicate +
+                stats.open +
+                stats.delayed +
+                stats.hold +
+                stats.rerouted
+              ).toLocaleString()}
+            </span>
+          </td>
+        </tr>
+
+
+        <!-- Non-Golden Dataset -->
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 18px 20px;">
+            <div style="font-size: 14px; font-weight: 600; color: #374151;">
+              Total Non-Golden Dataset Questions
+            </div>
+
+            <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+              Pass:
+              <strong>${stats.pass.toLocaleString()}</strong>
+              &nbsp;&nbsp;•&nbsp;&nbsp;
+              Dynamic Closed:
+              <strong>${stats.dynamicClosed.toLocaleString()}</strong>
+              &nbsp;&nbsp;•&nbsp;&nbsp;
+              Duplicate Closed:
+              <strong>${stats.duplicateClosed.toLocaleString()}</strong>
+            </div>
+          </td>
+
+          <td style="padding: 18px 20px; text-align: right;">
+            <span style="
+              display: inline-block;
+              background-color: #f3f4f6;
+              color: #111827;
+              padding: 7px 12px;
+              border-radius: 6px;
+              font-size: 15px;
+              font-weight: 700;
+            ">
+              ${(
+                stats.pass +
+                stats.dynamicClosed +
+                stats.duplicateClosed
+              ).toLocaleString()}
+            </span>
+          </td>
+        </tr>
+
+
+        <!-- Approval Rate -->
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="
+            padding: 18px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+          ">
+            Moderator Approval Rate
+          </td>
+
+          <td style="padding: 18px 20px; text-align: right;">
+            <span style="
+              display: inline-block;
+              background-color: #f3f4f6;
+              padding: 7px 12px;
+              border-radius: 6px;
+              font-size: 16px;
+              font-weight: 700;
+              color: #111827;
+            ">
+              ${(stats.newModeratorApprovalRate).toFixed(2)}%
+            </span>
+          </td>
+        </tr>
+
+          <!-- ========================================= -->
+          <!-- MODERATOR QUEUE -->
+          <!-- ========================================= -->
+
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px 20px 18px;">
+              <div style="
+                font-size: 14px;
+                font-weight: 600;
+                color: #374151;
+              ">
+                Pending Moderator Approval
+              </div>
+
+              <div style="
+                margin-top: 7px;
+                font-size: 12px;
+                color: #6b7280;
+              ">
+                In Review:
+                <strong style="color: #374151;">
+                  ${stats.inReview.toLocaleString()}
+                </strong>
+
+                &nbsp;&nbsp;•&nbsp;&nbsp;
+
+                PAE Submitted:
+                <strong style="color: #374151;">
+                  ${stats.paeSubmitted.toLocaleString()}
+                </strong>
+              </div>
+            </td>
+
+            <td style="
+              padding: 12px 20px 18px;
+              text-align: right;
+              vertical-align: middle;
+            ">
+              <span style="
+                display: inline-block;
+                background-color: #f3f4f6;
+                color: #111827;
+                padding: 7px 12px;
+                border-radius: 6px;
+                font-size: 15px;
+                font-weight: 700;
+              ">
+                ${(stats.inReview + stats.paeSubmitted).toLocaleString()}
+              </span>
+            </td>
+          </tr>
+
+             <!-- ========================================= -->
+          <!-- OVERALL GOLDEN DATASET -->
+          <!-- ========================================= -->
+
+          <tr style="background-color: #ecfdf5;">
+            <td style="padding: 20px;">
+              <div style="
+                font-size: 14px;
+                font-weight: 700;
+                color: #065f46;
+              ">
+                Total Golden Dataset Entries
+              </div>
+
+              <div style="
+                margin-top: 5px;
+                font-size: 12px;
+                color: #047857;
+              ">
+                Overall entries currently available in the golden dataset
+              </div>
+            </td>
+
+            <td style="
+              padding: 20px;
+              text-align: right;
+              vertical-align: middle;
+            ">
+              <span style="
+                display: inline-block;
+                background-color: #059669;
+                color: #ffffff;
+                padding: 8px 14px;
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: 700;
+              ">
+                ${stats.closed.toLocaleString()}
+              </span>
+            </td>
+          </tr>
+
       </tbody>
     </table>
   </div>
@@ -381,108 +623,522 @@ export const buildOverallSystemStatsTable = (stats: DailyStats) => `
 export const buildReviewWiseStatsTable = (
   reviewWiseCount: IReviewWiseStats,
 ) => `
-  <div style="border: 1px solid #e5e7eb;">
-    <div style="background-color: #f9fafb; padding: 16px 20px; border-bottom: 2px solid #047857;">
-      <h2 style="margin: 0; font-size: 16px; font-weight: 600; color: #1f2937;">
-        Review Stage Distribution (Questions Passed at Each Level)
+  <div style="
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: #ffffff;
+  ">
+    <div style="
+      background-color: #f8fafc;
+      padding: 18px 20px;
+      border-bottom: 3px solid #047857;
+    ">
+      <h2 style="
+        margin: 0;
+        font-size: 17px;
+        font-weight: 700;
+        color: #111827;
+      ">
+        Review Stage Distribution
       </h2>
-    </div>
-    
-    <table border="0" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
-      <tbody>
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">Author Level (Initial Submission)</td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #1f2937;">${reviewWiseCount.authorLevel.toLocaleString()}</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">Level 1 Review</td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #1f2937;">${reviewWiseCount.levelOne.toLocaleString()}</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">Level 2 Review</td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #1f2937;">${reviewWiseCount.levelTwo.toLocaleString()}</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">Level 3 Review</td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #1f2937;">${reviewWiseCount.levelThree.toLocaleString()}</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">Level 4 Review</td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #1f2937;">${reviewWiseCount.levelFour.toLocaleString()}</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">Level 5 Review</td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #1f2937;">${reviewWiseCount.levelFive.toLocaleString()}</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">Level 6 Review</td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #1f2937;">${reviewWiseCount.levelSix.toLocaleString()}</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">Level 7 Review</td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #1f2937;">${reviewWiseCount.levelSeven.toLocaleString()}</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">Level 8 Review</td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #1f2937;">${reviewWiseCount.levelEight.toLocaleString()}</td>
-        </tr>
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">Level 9 Review</td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #1f2937;">${reviewWiseCount.levelNine.toLocaleString()}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-`;
 
-export const buildTodayStatsTable = (stats: DailyStats) => `
-  <div style="border: 1px solid #e5e7eb;">
-    <div style="background-color: #f9fafb; padding: 16px 20px; border-bottom: 2px solid #047857;">
-      <h2 style="margin: 0; font-size: 16px; font-weight: 600; color: #1f2937;">
-        Today's Activity
-      </h2>
+      <p style="
+        margin: 5px 0 0;
+        font-size: 12px;
+        line-height: 18px;
+        color: #6b7280;
+      ">
+        Questions passed at each level of the review workflow
+      </p>
     </div>
-    
-    <table border="0" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+
+    <table
+      border="0"
+      cellpadding="0"
+      cellspacing="0"
+      style="width: 100%; border-collapse: collapse;"
+    >
       <tbody>
-        <tr style="border-bottom: 1px solid #f3f4f6; background-color: #f0fdf4;">
-          <td style="padding: 16px 20px; font-size: 14px; color: #065f46; font-weight: 500;">
-            Golden Dataset Entries Added Today
+
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">
+            Author Level
+            <span style="font-size: 11px; color: #9ca3af;">
+              (Initial Submission)
+            </span>
           </td>
-          <td style="padding: 16px 20px; text-align: right;">
-            <span style="display: inline-block; background-color: #047857; color: #ffffff; padding: 6px 12px; border-radius: 4px; font-size: 15px; font-weight: 700;">
-              + ${stats.todayGolden.toLocaleString()}
+          <td style="padding: 14px 20px; text-align: right;">
+            <span style="
+              display: inline-block;
+              min-width: 50px;
+              background-color: #f3f4f6;
+              color: #374151;
+              padding: 5px 10px;
+              border-radius: 5px;
+              text-align: center;
+              font-size: 13px;
+              font-weight: 700;
+            ">
+              ${reviewWiseCount.authorLevel.toLocaleString()}
             </span>
           </td>
         </tr>
 
         <tr style="border-bottom: 1px solid #f3f4f6;">
           <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">
-            Total Questions Added
+            Level 1 Review
           </td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #1f2937;">
-            ${stats.todayAdded.toLocaleString()}
+          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+            ${reviewWiseCount.levelOne.toLocaleString()}
+          </td>
+        </tr>
+
+        <tr style="border-bottom: 1px solid #f3f4f6; background-color: #fafafa;">
+          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">
+            Level 2 Review
+          </td>
+          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+            ${reviewWiseCount.levelTwo.toLocaleString()}
           </td>
         </tr>
 
         <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="padding: 14px 20px 14px 40px; font-size: 13px; color: #6b7280;">
-            • Chatbot-Generated
+          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">
+            Level 3 Review
           </td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #4b5563;">
-            ${stats.chatbot.toLocaleString()}
+          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+            ${reviewWiseCount.levelThree.toLocaleString()}
           </td>
         </tr>
 
-        <tr>
-          <td style="padding: 14px 20px 14px 40px; font-size: 13px; color: #6b7280;">
-            • Manually Added
+        <tr style="border-bottom: 1px solid #f3f4f6; background-color: #fafafa;">
+          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">
+            Level 4 Review
           </td>
-          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #4b5563;">
-            ${stats.manual.toLocaleString()}
+          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+            ${reviewWiseCount.levelFour.toLocaleString()}
           </td>
         </tr>
+
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">
+            Level 5 Review
+          </td>
+          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+            ${reviewWiseCount.levelFive.toLocaleString()}
+          </td>
+        </tr>
+
+        <tr style="border-bottom: 1px solid #f3f4f6; background-color: #fafafa;">
+          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">
+            Level 6 Review
+          </td>
+          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+            ${reviewWiseCount.levelSix.toLocaleString()}
+          </td>
+        </tr>
+
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">
+            Level 7 Review
+          </td>
+          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+            ${reviewWiseCount.levelSeven.toLocaleString()}
+          </td>
+        </tr>
+
+        <tr style="border-bottom: 1px solid #f3f4f6; background-color: #fafafa;">
+          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">
+            Level 8 Review
+          </td>
+          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+            ${reviewWiseCount.levelEight.toLocaleString()}
+          </td>
+        </tr>
+
+        <tr style="border-bottom: 1px solid #f3f4f6; background-color: #fafafa;">
+          <td style="padding: 14px 20px; font-size: 13px; color: #4b5563;">
+            Level 8 Review
+          </td>
+          <td style="padding: 14px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+            ${reviewWiseCount.levelNine.toLocaleString()}
+          </td>
+        </tr>
+
       </tbody>
     </table>
   </div>
 `;
+
+export const buildTodayStatsTable = (stats: DailyStats) => {
+  const hasSourceBreakdown =
+    stats.webAppCount > 0 ||
+    stats.whatSappCount > 0 ||
+    stats.manualCount > 0 ||
+    stats.agriExpertCount > 0 ||
+    stats.outReachCount > 0;
+
+  const pendingModeratorCount = stats.inReview + stats.paeSubmitted;
+
+  return `
+    <div style="
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+      background-color: #ffffff;
+    ">
+
+      <!-- Header -->
+      <div style="
+        background-color: #f8fafc;
+        padding: 18px 20px;
+        border-bottom: 3px solid #047857;
+      ">
+        <h2 style="
+          margin: 0;
+          font-size: 17px;
+          font-weight: 700;
+          color: #111827;
+        ">
+          Today's Activity And Overall Performance
+        </h2>
+      </div>
+
+      <table
+        border="0"
+        cellpadding="0"
+        cellspacing="0"
+        style="width: 100%; border-collapse: collapse;"
+      >
+        <tbody>
+
+          <!-- ========================================= -->
+          <!-- TODAY'S GOLDEN DATASET -->
+          <!-- ========================================= -->
+
+          <tr style="
+            background-color: #ecfdf5;
+            border-bottom: 1px solid #d1fae5;
+          ">
+            <td style="padding: 20px;">
+              <div style="
+                font-size: 14px;
+                font-weight: 700;
+                color: #065f46;
+              ">
+                Golden Dataset Entries Added Today
+              </div>
+
+              <div style="
+                margin-top: 5px;
+                font-size: 12px;
+                color: #047857;
+              ">
+                New entries added to the golden dataset today
+              </div>
+            </td>
+
+            <td style="
+              padding: 20px;
+              text-align: right;
+              vertical-align: middle;
+            ">
+              <span style="
+                display: inline-block;
+                background-color: #047857;
+                color: #ffffff;
+                padding: 8px 14px;
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: 700;
+              ">
+                +${stats.todayGolden.toLocaleString()}
+              </span>
+            </td>
+          </tr>
+
+
+          <!-- ========================================= -->
+          <!-- TODAY'S GOLDEN DATASET SOURCE BREAKDOWN -->
+          <!-- ========================================= -->
+
+          ${
+            hasSourceBreakdown
+              ? `
+                <tr>
+                  <td
+                    colspan="2"
+                    style="
+                      padding: 14px 20px 8px;
+                      font-size: 11px;
+                      font-weight: 700;
+                      color: #9ca3af;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                  >
+                    Today's Golden Entries by Source
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+          ${
+            stats.webAppCount > 0
+              ? `
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="
+                    padding: 11px 20px 11px 32px;
+                    font-size: 13px;
+                    color: #4b5563;
+                  ">
+                    WebApp Generated
+                  </td>
+
+                  <td style="
+                    padding: 11px 20px;
+                    text-align: right;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #374151;
+                  ">
+                    ${stats.webAppCount.toLocaleString()}
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+          ${
+            stats.whatSappCount > 0
+              ? `
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="
+                    padding: 11px 20px 11px 32px;
+                    font-size: 13px;
+                    color: #4b5563;
+                  ">
+                    WhatsApp Generated
+                  </td>
+
+                  <td style="
+                    padding: 11px 20px;
+                    text-align: right;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #374151;
+                  ">
+                    ${stats.whatSappCount.toLocaleString()}
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+          ${
+            stats.manualCount > 0
+              ? `
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="
+                    padding: 11px 20px 11px 32px;
+                    font-size: 13px;
+                    color: #4b5563;
+                  ">
+                    Manually Added
+                  </td>
+
+                  <td style="
+                    padding: 11px 20px;
+                    text-align: right;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #374151;
+                  ">
+                    ${stats.manualCount.toLocaleString()}
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+          ${
+            stats.agriExpertCount > 0
+              ? `
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="
+                    padding: 11px 20px 11px 32px;
+                    font-size: 13px;
+                    color: #4b5563;
+                  ">
+                    Agri Expert
+                  </td>
+
+                  <td style="
+                    padding: 11px 20px;
+                    text-align: right;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #374151;
+                  ">
+                    ${stats.agriExpertCount.toLocaleString()}
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+          ${
+            stats.outReachCount > 0
+              ? `
+                <tr style="border-bottom: 1px solid #e5e7eb;">
+                  <td style="
+                    padding: 11px 20px 11px 32px;
+                    font-size: 13px;
+                    color: #4b5563;
+                  ">
+                    Outreach
+                  </td>
+
+                  <td style="
+                    padding: 11px 20px;
+                    text-align: right;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #374151;
+                  ">
+                    ${stats.outReachCount.toLocaleString()}
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+                  <!-- Approval Rate -->
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="
+            padding: 18px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+          ">
+            Moderator Approval Rate
+          </td>
+
+          <td style="padding: 18px 20px; text-align: right;">
+            <span style="
+              display: inline-block;
+              background-color: #f3f4f6;
+              padding: 7px 12px;
+              border-radius: 6px;
+              font-size: 16px;
+              font-weight: 700;
+              color: #111827;
+            ">
+              ${stats.newModeratorApprovalRate.toFixed(2)}%
+            </span>
+          </td>
+        </tr>
+
+
+          <!-- ========================================= -->
+          <!-- MODERATOR QUEUE -->
+          <!-- ========================================= -->
+
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px 20px 18px;">
+              <div style="
+                font-size: 14px;
+                font-weight: 600;
+                color: #374151;
+              ">
+                Pending Moderator Approval
+              </div>
+
+              <div style="
+                margin-top: 7px;
+                font-size: 12px;
+                color: #6b7280;
+              ">
+                In Review:
+                <strong style="color: #374151;">
+                  ${stats.inReview.toLocaleString()}
+                </strong>
+
+                &nbsp;&nbsp;•&nbsp;&nbsp;
+
+                PAE Submitted:
+                <strong style="color: #374151;">
+                  ${stats.paeSubmitted.toLocaleString()}
+                </strong>
+              </div>
+            </td>
+
+            <td style="
+              padding: 12px 20px 18px;
+              text-align: right;
+              vertical-align: middle;
+            ">
+              <span style="
+                display: inline-block;
+                background-color: #f3f4f6;
+                color: #111827;
+                padding: 7px 12px;
+                border-radius: 6px;
+                font-size: 15px;
+                font-weight: 700;
+              ">
+                ${pendingModeratorCount.toLocaleString()}
+              </span>
+            </td>
+          </tr>
+
+
+          <!-- ========================================= -->
+          <!-- OVERALL GOLDEN DATASET -->
+          <!-- ========================================= -->
+
+          <tr style="background-color: #ecfdf5;">
+            <td style="padding: 20px;">
+              <div style="
+                font-size: 14px;
+                font-weight: 700;
+                color: #065f46;
+              ">
+                Total Golden Dataset Entries
+              </div>
+
+              <div style="
+                margin-top: 5px;
+                font-size: 12px;
+                color: #047857;
+              ">
+                Overall entries currently available in the golden dataset
+              </div>
+            </td>
+
+            <td style="
+              padding: 20px;
+              text-align: right;
+              vertical-align: middle;
+            ">
+              <span style="
+                display: inline-block;
+                background-color: #059669;
+                color: #ffffff;
+                padding: 8px 14px;
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: 700;
+              ">
+                ${stats.closed.toLocaleString()}
+              </span>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+  `;
+};

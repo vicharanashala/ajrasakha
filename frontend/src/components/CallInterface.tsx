@@ -23,6 +23,7 @@ import {
   Copy,
   Check,
 } from "lucide-react";
+import { plivoService } from "@/hooks/api/plivo/api";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
 import { useGenerateCallQuestion } from "@/hooks/api/question/useGenerateCallQuestion";
 import { useAccAgentThread } from "@/hooks/api/acc-agent/useAccAgentThread";
@@ -526,6 +527,10 @@ export const CallInterface = () => {
   const [extractedCrop, setExtractedCrop] = useState("");
   const [hasGeneratedQuestions, setHasGeneratedQuestions] = useState(false);
 
+  // Phone number state tracking
+  const [callPhoneNumber, setCallPhoneNumber] = useState<string | null>(null);
+  const [lastCallPhoneNumber, setLastCallPhoneNumber] = useState<string | null>(null);
+
   // HITL state
   const [threadId, setThreadId] = useState<string | null>(null);
   const [extractedData, setExtractedData] =
@@ -537,6 +542,16 @@ export const CallInterface = () => {
   const [editableDistrict, setEditableDistrict] = useState("");
   const [editableDomain, setEditableDomain] = useState<string[]>([]);
   const [editableSeason, setEditableSeason] = useState("");
+
+  // Farmer Details HITL state
+  const [editableFarmerName, setEditableFarmerName] = useState("");
+  const [editableFarmerPhone, setEditableFarmerPhone] = useState("");
+  const [editableFarmerAge, setEditableFarmerAge] = useState("");
+  const [editableFarmerGender, setEditableFarmerGender] = useState("");
+  const [editableFarmerVillage, setEditableFarmerVillage] = useState("");
+  const [editableFarmerBlock, setEditableFarmerBlock] = useState("");
+  const [editableFarmerPrimaryCrop, setEditableFarmerPrimaryCrop] = useState("");
+  const [shouldUpdateFarmerProfile, setShouldUpdateFarmerProfile] = useState(true);
 
   // Auto-scroll to bottom of chat bubbles
   useEffect(() => {
@@ -615,6 +630,14 @@ export const CallInterface = () => {
     setEditableDistrict("");
     setEditableDomain([]);
     setEditableSeason("");
+    setEditableFarmerName("");
+    setEditableFarmerPhone("");
+    setEditableFarmerAge("");
+    setEditableFarmerGender("");
+    setEditableFarmerVillage("");
+    setEditableFarmerBlock("");
+    setEditableFarmerPrimaryCrop("");
+    setShouldUpdateFarmerProfile(true);
   };
 
   const handleResetConversation = () => {
@@ -640,6 +663,14 @@ export const CallInterface = () => {
     setEditableDistrict("");
     setEditableDomain([]);
     setEditableSeason("");
+    setEditableFarmerName("");
+    setEditableFarmerPhone("");
+    setEditableFarmerAge("");
+    setEditableFarmerGender("");
+    setEditableFarmerVillage("");
+    setEditableFarmerBlock("");
+    setEditableFarmerPrimaryCrop("");
+    setShouldUpdateFarmerProfile(true);
     toast.success("Conversation cleared");
   };
 
@@ -704,6 +735,15 @@ export const CallInterface = () => {
       setEditableState(data.extracted_state);
       setEditableDistrict(data.extracted_district);
 
+      // Farmer Details (fallback to current call details if not extracted)
+      setEditableFarmerName(data.extracted_name || "");
+      setEditableFarmerPhone(data.extracted_phone || callPhoneNumber || lastCallPhoneNumber || "");
+      setEditableFarmerAge(data.extracted_age !== undefined && data.extracted_age !== null ? String(data.extracted_age) : "");
+      setEditableFarmerGender(data.extracted_gender || "");
+      setEditableFarmerVillage(data.extracted_village || "");
+      setEditableFarmerBlock(data.extracted_block || "");
+      setEditableFarmerPrimaryCrop(data.extracted_primary_crop || data.extracted_crop || "");
+
       // Use domain from AI response if available, otherwise empty array
       const normalizedDomain = data.extracted_domain
         ? Array.isArray(data.extracted_domain)
@@ -762,13 +802,62 @@ export const CallInterface = () => {
           : [extractedData.extracted_domain]
         : [];
 
+      // Save/update farmer details if option is enabled and phone number is provided
+      if (shouldUpdateFarmerProfile && editableFarmerPhone.trim()) {
+        try {
+          const phoneNoKey = editableFarmerPhone.trim();
+          const profilePayload = {
+            farmerName: editableFarmerName.trim() || undefined,
+            phoneNo: phoneNoKey,
+            age: editableFarmerAge.trim() ? parseInt(editableFarmerAge.trim(), 10) : undefined,
+            gender: editableFarmerGender.trim() || undefined,
+            villageName: editableFarmerVillage.trim() || undefined,
+            blockName: editableFarmerBlock.trim() || undefined,
+            state: editableState.trim() || undefined,
+            district: editableDistrict.trim() || undefined,
+            primaryCrop: editableFarmerPrimaryCrop.trim() || undefined,
+          };
+
+          console.log(`[FARMER_FLOW] Saving/updating farmer details for phone ${phoneNoKey}:`, profilePayload);
+
+          // Check if farmer exists
+          let existing = null;
+          try {
+            existing = await plivoService.getFarmerByPhoneNo(phoneNoKey);
+          } catch (err) {
+            console.warn(`[FARMER_FLOW] Error checking existing farmer:`, err);
+          }
+
+          if (existing && existing.profile) {
+            // Update
+            const updatedProfile = { ...existing.profile, ...profilePayload };
+            await plivoService.updateFarmer(phoneNoKey, updatedProfile);
+            console.log(`[FARMER_FLOW] Successfully updated farmer profile for ${phoneNoKey}`);
+          } else {
+            // Create
+            await plivoService.createFarmer(phoneNoKey, profilePayload);
+            console.log(`[FARMER_FLOW] Successfully created farmer profile for ${phoneNoKey}`);
+          }
+        } catch (farmerErr) {
+          console.error(`[FARMER_FLOW] Failed to auto-save farmer profile:`, farmerErr);
+          toast.error("Failed to automatically save farmer profile details.");
+        }
+      }
+
       const wasEdited =
         editableQuery !== extractedData?.extracted_query ||
         editableCrop !== extractedData?.extracted_crop ||
         editableState !== extractedData?.extracted_state ||
         editableDistrict !== extractedData?.extracted_district ||
         JSON.stringify(finalDomain) !== JSON.stringify(extractedDomainArray) ||
-        editableSeason !== "";
+        editableSeason !== "" ||
+        editableFarmerName !== (extractedData?.extracted_name || "") ||
+        editableFarmerPhone !== (extractedData?.extracted_phone || "") ||
+        editableFarmerAge !== (extractedData?.extracted_age !== undefined && extractedData?.extracted_age !== null ? String(extractedData.extracted_age) : "") ||
+        editableFarmerGender !== (extractedData?.extracted_gender || "") ||
+        editableFarmerVillage !== (extractedData?.extracted_village || "") ||
+        editableFarmerBlock !== (extractedData?.extracted_block || "") ||
+        editableFarmerPrimaryCrop !== (extractedData?.extracted_primary_crop || "");
 
       if (wasEdited) {
         // Step 3: Update state with corrections
@@ -781,6 +870,13 @@ export const CallInterface = () => {
             district: editableDistrict,
             domain: finalDomain,
             season: editableSeason,
+            farmerName: editableFarmerName.trim() || undefined,
+            farmerPhone: editableFarmerPhone.trim() || undefined,
+            farmerAge: editableFarmerAge.trim() ? parseInt(editableFarmerAge.trim(), 10) : undefined,
+            farmerGender: editableFarmerGender.trim() || undefined,
+            farmerVillage: editableFarmerVillage.trim() || undefined,
+            farmerBlock: editableFarmerBlock.trim() || undefined,
+            farmerPrimaryCrop: editableFarmerPrimaryCrop.trim() || undefined,
           },
         });
         toast.info("Updated extracted data with your corrections.");
@@ -953,6 +1049,19 @@ export const CallInterface = () => {
             setEditableDistrict("");
             setEditableDomain([]);
             setEditableSeason("");
+          }
+        }}
+        onPhoneNumberChange={(phone) => {
+          if (phone === callPhoneNumber) {
+            return;
+          }
+          setCallPhoneNumber(phone);
+          // Preserve the last call's phone number when call ends
+          if (phone === null && callPhoneNumber !== null) {
+            setLastCallPhoneNumber(callPhoneNumber);
+          }
+          if (phone !== null) {
+            setLastCallPhoneNumber(null);
           }
         }}
       />
@@ -1148,7 +1257,7 @@ export const CallInterface = () => {
                 </CardTitle>
               </CardHeader>
               <div
-                className={`transition-all duration-300 ease-in-out overflow-hidden ${isSummaryExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${isSummaryExpanded ? "max-h-[1500px] opacity-100" : "max-h-0 opacity-0"}`}
               >
                 <CardContent className="p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
                   {isExtracting ? (
@@ -1296,6 +1405,124 @@ export const CallInterface = () => {
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+
+                        {/* Farmer Details Sub-form */}
+                        <div className="border-t border-zinc-200 dark:border-zinc-800 my-4 pt-4 space-y-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <User className="h-4 w-4 text-indigo-650 dark:text-indigo-400" />
+                            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+                              Farmer Profile Details
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="farmerName" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                                Farmer Name
+                              </Label>
+                              <Input
+                                id="farmerName"
+                                value={editableFarmerName}
+                                onChange={(e) => setEditableFarmerName(e.target.value)}
+                                className="text-sm"
+                                placeholder="Farmer name..."
+                              />
+                            </div>
+
+                            <div>
+                              <Label htmlFor="farmerPhone" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                                Phone Number
+                              </Label>
+                              <Input
+                                id="farmerPhone"
+                                value={editableFarmerPhone}
+                                onChange={(e) => setEditableFarmerPhone(e.target.value)}
+                                className="text-sm"
+                                placeholder="Phone number..."
+                              />
+                            </div>
+
+                            <div>
+                              <Label htmlFor="farmerAge" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                                Age
+                              </Label>
+                              <Input
+                                id="farmerAge"
+                                type="number"
+                                value={editableFarmerAge}
+                                onChange={(e) => setEditableFarmerAge(e.target.value)}
+                                className="text-sm"
+                                placeholder="Age..."
+                              />
+                            </div>
+
+                            <div>
+                              <Label htmlFor="farmerGender" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                                Gender
+                              </Label>
+                              <Input
+                                id="farmerGender"
+                                value={editableFarmerGender}
+                                onChange={(e) => setEditableFarmerGender(e.target.value)}
+                                className="text-sm"
+                                placeholder="Gender..."
+                              />
+                            </div>
+
+                            <div>
+                              <Label htmlFor="farmerVillage" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                                Village
+                              </Label>
+                              <Input
+                                id="farmerVillage"
+                                value={editableFarmerVillage}
+                                onChange={(e) => setEditableFarmerVillage(e.target.value)}
+                                className="text-sm"
+                                placeholder="Village..."
+                              />
+                            </div>
+
+                            <div>
+                              <Label htmlFor="farmerBlock" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                                Block
+                              </Label>
+                              <Input
+                                id="farmerBlock"
+                                value={editableFarmerBlock}
+                                onChange={(e) => setEditableFarmerBlock(e.target.value)}
+                                className="text-sm"
+                                placeholder="Block..."
+                              />
+                            </div>
+
+                            <div className="col-span-2">
+                              <Label htmlFor="farmerPrimaryCrop" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                                Primary Crop
+                              </Label>
+                              <Input
+                                id="farmerPrimaryCrop"
+                                value={editableFarmerPrimaryCrop}
+                                onChange={(e) => setEditableFarmerPrimaryCrop(e.target.value)}
+                                className="text-sm"
+                                placeholder="Primary crop..."
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-3 pt-2">
+                            <Checkbox
+                              id="update-farmer-profile"
+                              checked={shouldUpdateFarmerProfile}
+                              onCheckedChange={(checked) => setShouldUpdateFarmerProfile(!!checked)}
+                            />
+                            <label
+                              htmlFor="update-farmer-profile"
+                              className="text-xs font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer"
+                            >
+                              Save/update farmer profile in database on approval
+                            </label>
+                          </div>
                         </div>
                       </div>
 
