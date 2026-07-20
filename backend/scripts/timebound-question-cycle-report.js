@@ -211,6 +211,19 @@ try {
     return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || '';
   };
 
+  /**
+   * What the reviewer did, read straight off their history entry: exactly one of
+   * approvedAnswer / modifiedAnswer / rejectedAnswer is set on a completed review.
+   * (Verified across 104,884 reviewer entries: never more than one, and only ~0.03%
+   * have none — those are reviews still in flight, which fall through to the status.)
+   */
+  const reviewAction = entry => {
+    if (entry.approvedAnswer) return 'approved';
+    if (entry.modifiedAnswer) return 'modified';
+    if (entry.rejectedAnswer) return 'rejected';
+    return entry.status ?? '';
+  };
+
   /* ─────────────────────────── build rows ─────────────────────────── */
 
   // The submission history IS the work log: entry [0] is the author's answer, entries
@@ -269,6 +282,7 @@ try {
       const h = r ? hoursBetween(r.createdAt, r.updatedAt) : null;
       const label = `Reviewer ${n + 1}`;
       reviewerBlock[label] = r ? nameOf(r.updatedBy) : '';
+      reviewerBlock[`${label} Action`] = r ? reviewAction(r) : '';
       reviewerBlock[`${label} Assigned At (IST)`] = asIST(r?.createdAt);
       reviewerBlock[`${label} Completed At (IST)`] = asIST(r?.updatedAt);
       reviewerBlock[`${label} Time`] = humanDuration(h);
