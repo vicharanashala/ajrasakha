@@ -620,7 +620,7 @@ export class UserRepository implements IUserRepository {
 
     // 1. Fetch all experts
     const allUsersRaw = await this.usersCollection
-      .find({ role: 'expert', isBlocked: false }, { session })
+      .find({ role: 'expert', isBlocked: false, status: { $ne: 'in-active' } }, { session })
       .toArray();
 
     // 2. Remove duplicates based on email
@@ -727,6 +727,7 @@ export class UserRepository implements IUserRepository {
         {
           role: 'expert',
           isBlocked: false,
+          status: { $ne: 'in-active' },
           special_task_force: true,
         },
         { session },
@@ -756,6 +757,7 @@ export class UserRepository implements IUserRepository {
         {
           // role: 'expert',
           isBlocked: false,
+          status: { $ne: 'in-active' },
           special_task_force_moderator: true,
         },
         { session },
@@ -772,7 +774,7 @@ export class UserRepository implements IUserRepository {
     await this.init();
 
     // 1. Fetch all experts (include role and isBlocked for queue details)
-    const query: any = { role: 'expert', isBlocked: false };
+    const query: any = { role: 'expert', isBlocked: false, status: { $ne: 'in-active' } };
     const cursor = this.usersCollection.find(query, { session });
     if (limit) cursor.limit(limit);
     const allUsersRaw = await cursor.toArray();
@@ -876,6 +878,7 @@ export class UserRepository implements IUserRepository {
       .find({
         role: 'moderator',
         isBlocked: { $ne: true },
+        status: { $ne: 'in-active' },
         ...extraMatch,
         // No element is in a blocking status (also true for missing/null/empty arrays).
         // Scoped to `sources` when provided.
