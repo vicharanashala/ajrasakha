@@ -60,6 +60,16 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
 
+      # ---------- Derive project from SA credentials (same fallback the v1 action uses) ----------
+      - name: Set gcloud project from SA key
+        id: project
+        run: |
+          set -euo pipefail
+          PROJECT="$(jq -r '.project_id' "$CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE")"
+          gcloud config set project "$PROJECT" --quiet
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+          echo "Using project: $PROJECT"
+
       # ---------- Resolve region ----------
       - name: Resolve region
         id: region
@@ -74,7 +84,7 @@ jobs:
         if: inputs.target_job == 'backup-db'
         env:
           GCP_REGION: ${{ steps.region.outputs.region }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
         run: |
           set -euo pipefail
           REGION="$GCP_REGION"
@@ -99,7 +109,7 @@ jobs:
         if: inputs.target_job == 'backup-db'
         env:
           GCP_REGION: ${{ steps.region.outputs.region }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
         run: |
           set -euo pipefail
           REGION="$GCP_REGION"
@@ -144,7 +154,7 @@ jobs:
         if: inputs.target_job == 'backup-db'
         env:
           GCP_REGION: ${{ steps.region.outputs.region }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
         run: |
           gcloud run jobs execute backup-db \
             --region="$GCP_REGION" \
@@ -158,7 +168,7 @@ jobs:
         if: inputs.target_job == 'gate-keeper-auditor-queue'
         env:
           GCP_REGION: ${{ steps.region.outputs.region }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
         run: |
           set -euo pipefail
           REGION="$GCP_REGION"
@@ -183,7 +193,7 @@ jobs:
         if: inputs.target_job == 'gate-keeper-auditor-queue'
         env:
           GCP_REGION: ${{ steps.region.outputs.region }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
         run: |
           set -euo pipefail
           REGION="$GCP_REGION"
@@ -228,7 +238,7 @@ jobs:
         if: inputs.target_job == 'gate-keeper-auditor-queue'
         env:
           GCP_REGION: ${{ steps.region.outputs.region }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
         run: |
           gcloud run jobs execute gate-keeper-auditor-queue \
             --region="$GCP_REGION" \
