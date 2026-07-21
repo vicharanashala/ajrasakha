@@ -5,7 +5,9 @@ export class LoginPage {
 
   async open(): Promise<void> {
     await this.page.goto("/auth");
-    await expect(this.page.getByRole("heading", { name: "Welcome Back" })).toBeVisible();
+    await expect(this.page.locator('[data-slot="card-title"]')).toHaveText(
+      "Welcome Back",
+    );
   }
 
   async signIn(email: string, password: string): Promise<void> {
@@ -14,11 +16,17 @@ export class LoginPage {
     await this.page.getByRole("button", { name: "Sign In" }).click();
   }
 
-  async signInAndWaitForLanding(email: string, password: string): Promise<void> {
+  async signInAndWaitForLanding(
+    email: string,
+    password: string,
+  ): Promise<void> {
     await this.open();
     await this.signIn(email, password);
-    await expect(this.page).toHaveURL(/\/(home|pae-expert|user\/[^/?#]+)(?:[/?#]|$)/, {
-      timeout: 30_000,
-    });
+    await expect(this.page).toHaveURL(
+      /\/(home|pae-expert|user\/[^/?#]+)(?:[/?#]|$)/,
+      {
+        timeout: 30_000,
+      },
+    );
   }
 }

@@ -52,25 +52,25 @@ qa/reviewer-playwright/
 
 ### Root files
 
-| File | Responsibility and interaction |
-|---|---|
-| `.env.example` | Documents `REVIEWER_BASE_URL`, `REVIEWER_USER_EMAIL`, and `REVIEWER_USER_PASSWORD`. Copy it to `.env`; never place credentials in the example. |
-| `.gitignore` | Prevents `.env`, `node_modules`, `playwright-report`, and generated `test-results` content from being committed while preserving `test-results/.gitkeep`. |
-| `package.json` | Declares an ESM-only private package and the `test`, `test:list`, and `typecheck` scripts. It uses npm via `package-lock.json`. |
-| `package-lock.json` | Pins the installed dependency graph. The current lock resolves `@playwright/test` 1.61.1 and declares Playwright's Node requirement as Node 18 or newer. |
-| `playwright.config.ts` | Loads local environment values, declares test/result directories, timeouts, reporters, artifacts, execution policy, and the Chromium/Desktop Chrome project. |
-| `tsconfig.json` | Type-checks config, pages, fixtures, and tests using strict NodeNext/ES2022 settings without emitting JavaScript. |
+| File                   | Responsibility and interaction                                                                                                                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `.env.example`         | Documents `REVIEWER_BASE_URL`, `REVIEWER_USER_EMAIL`, and `REVIEWER_USER_PASSWORD`. Copy it to `.env`; never place credentials in the example.                                                                                             |
+| `.gitignore`           | Prevents `.env`, `node_modules`, `playwright-report`, and generated `test-results` content from being committed while preserving `test-results/.gitkeep`.                                                                                  |
+| `package.json`         | Declares an ESM-only private package and the `test`, `test:list`, and `typecheck` scripts. It uses npm via `package-lock.json`.                                                                                                            |
+| `package-lock.json`    | Pins the installed dependency graph. The current lock resolves `@playwright/test` 1.61.1 and declares Playwright's Node requirement as Node 18 or newer.                                                                                   |
+| `playwright.config.ts` | Loads local environment values, declares test/result directories, timeouts, reporters, artifacts, execution policy, and the Chromium/Desktop Chrome project.                                                                               |
+| `tsconfig.json`        | Type-checks config, pages, fixtures, and tests using strict NodeNext/ES2022 settings without emitting JavaScript.                                                                                                                          |
 | `AUTOMATION-REPORT.md` | Records the original Phase 3 scope, catalogue traceability, missing coverage, selector weaknesses, and the environment blockers observed when it was written. Treat its execution section as historical rather than current runtime truth. |
 
 ### Source directories
 
-| Directory | Responsibility and interaction |
-|---|---|
-| `fixtures/` | Extends Playwright's base test with environment, authenticated-page, dashboard, and question-detail fixtures. Tests import `test` and `expect` from this layer. |
-| `pages/` | Encapsulates browser selectors and repeated actions. Page objects receive the fixture-owned `Page`; they do not own browser lifecycle or test data. |
-| `tests/` | Defines the 12 executable catalogue cases. Tests combine fixtures/page objects with response-derived assertions and targeted routing for deterministic failures. |
-| `test-results/` | Receives the JSON report and retained artifacts. It is generated output, not framework source. |
-| `node_modules/` | Generated dependency installation. Recreate it with `npm ci`; do not edit it. |
+| Directory       | Responsibility and interaction                                                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fixtures/`     | Extends Playwright's base test with environment, authenticated-page, dashboard, and question-detail fixtures. Tests import `test` and `expect` from this layer.  |
+| `pages/`        | Encapsulates browser selectors and repeated actions. Page objects receive the fixture-owned `Page`; they do not own browser lifecycle or test data.              |
+| `tests/`        | Defines the 12 executable catalogue cases. Tests combine fixtures/page objects with response-derived assertions and targeted routing for deterministic failures. |
+| `test-results/` | Receives the JSON report and retained artifacts. It is generated output, not framework source.                                                                   |
+| `node_modules/` | Generated dependency installation. Recreate it with `npm ci`; do not edit it.                                                                                    |
 
 There is currently no `helpers/`, `utilities/`, `data/`, `mocks/`, `setup/`, or `global-teardown/` implementation.
 
@@ -103,24 +103,24 @@ flowchart LR
 
 `playwright.config.ts` defines the complete runner policy:
 
-| Setting | Implemented value |
-|---|---|
-| Test directory | `./tests` |
-| Artifact directory | `./test-results/artifacts` |
-| Parallelism | `fullyParallel: false` |
-| Workers | `1` |
-| Retries | `0` |
-| Test timeout | 45 seconds |
-| Assertion timeout | 10 seconds |
-| Accidental focused tests | `forbidOnly: true` |
-| Projects | One project: `chromium` with `Desktop Chrome` device settings |
-| Reporters | Terminal `list` reporter and JSON reporter at `test-results/results.json` |
-| Trace | Retained on failure |
-| Screenshot | Captured only on failure |
-| Video | Retained on failure |
-| Web server | None; application services must already be running |
-| Global setup/teardown | None |
-| Stored authentication state | None; authenticated tests log in through the UI |
+| Setting                     | Implemented value                                                         |
+| --------------------------- | ------------------------------------------------------------------------- |
+| Test directory              | `./tests`                                                                 |
+| Artifact directory          | `./test-results/artifacts`                                                |
+| Parallelism                 | `fullyParallel: false`                                                    |
+| Workers                     | `1`                                                                       |
+| Retries                     | `0`                                                                       |
+| Test timeout                | 45 seconds                                                                |
+| Assertion timeout           | 10 seconds                                                                |
+| Accidental focused tests    | `forbidOnly: true`                                                        |
+| Projects                    | One project: `chromium` with `Desktop Chrome` device settings             |
+| Reporters                   | Terminal `list` reporter and JSON reporter at `test-results/results.json` |
+| Trace                       | Retained on failure                                                       |
+| Screenshot                  | Captured only on failure                                                  |
+| Video                       | Retained on failure                                                       |
+| Web server                  | None; application services must already be running                        |
+| Global setup/teardown       | None                                                                      |
+| Stored authentication state | None; authenticated tests log in through the UI                           |
 
 ### Environment loading
 
@@ -176,11 +176,11 @@ sequenceDiagram
 
 The suite has no standalone API client and does not mock authentication. Browser routing is confined to the error/partial-data spec:
 
-| Test | Interception behavior |
-|---|---|
-| ERR-001 | Holds `**/users/me`, then calls `route.continue()` so the real request proceeds unchanged. |
-| ERR-002 | Holds and fulfills `**/questions/detailed?**` with an empty list response. The intercepted list request does not reach the backend. |
-| ERR-003 | Fulfills `**/questions/*/full` with a controlled HTTP 500. The intercepted full-detail request does not reach the backend. |
+| Test    | Interception behavior                                                                                                                                                                                 |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ERR-001 | Holds `**/users/me`, then calls `route.continue()` so the real request proceeds unchanged.                                                                                                            |
+| ERR-002 | Holds and fulfills `**/questions/detailed?**` with an empty list response. The intercepted list request does not reach the backend.                                                                   |
+| ERR-003 | Fulfills `**/questions/*/full` with a controlled HTTP 500. The intercepted full-detail request does not reach the backend.                                                                            |
 | ERR-010 | Calls `route.fetch()` for the real full-detail response, removes optional fields from the in-memory JSON, then fulfills the browser request with that modified response. Backend data is not changed. |
 
 All other test traffic is application-driven and reaches the frontend's configured services.
@@ -348,28 +348,28 @@ Artifact directory names are generated by Playwright and depend on the failed te
 
 ### Authentication and permissions
 
-| ID | What the test validates |
-|---|---|
+| ID       | What the test validates                                                                                                                                                                                                                                     |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | PERM-001 | Performs real email/password login; waits for successful `POST /auth/sync` and `GET /users/me`; requires both payloads to report role `expert`; requires final route `/home`. Missing credentials skip only this test. Invalid configured credentials fail. |
 
 ### Dashboard shell and question navigation
 
-| ID | What the test validates |
-|---|---|
-| DASH-001 | Authenticated `/home` exposes All Questions, and opening the tab renders either the Question column or the implemented empty state. |
-| QDET-001 | Selecting the first visible question receives a successful full-detail response whose `_id` and question are strings, then renders the matching question text and Exit action. |
-| QDET-002 | A response-derived `/home?question={id}` deep link renders the same question, survives reload, and preserves the ID in the URL. |
-| QDET-003 | The detail header renders response-derived question/status, Exit, View LifeCycle, View Audit, Created, and Updated UI. |
-| QDET-004 | State, district, crop, normalized crop, season, and domain match the full-detail response, using `-` for absent values and comma-joining domain arrays. |
+| ID       | What the test validates                                                                                                                                                                                 |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DASH-001 | Authenticated `/home` exposes All Questions, and opening the tab renders either the Question column or the implemented empty state.                                                                     |
+| QDET-001 | Selecting the first visible question receives a successful full-detail response whose `_id` and question are strings, then renders the matching question text and Exit action.                          |
+| QDET-002 | selected question details persist after browser reload                                                                                                                                                  |
+| QDET-003 | The detail header renders response-derived question/status, Exit, View LifeCycle, View Audit, Created, and Updated UI.                                                                                  |
+| QDET-004 | State, district, crop, normalized crop, season, and domain match the full-detail response, using `-` for absent values and comma-joining domain arrays.                                                 |
 | QDET-006 | The allocation queue renders each returned reviewer by name/email title and exposes at least one recognized allocation status when the queue is non-empty; an empty queue renders No Experts Allocated. |
-| QDET-011 | The in-page Exit action leaves question details and returns to either the question table or empty state. |
+| QDET-011 | The in-page Exit action leaves question details and returns to either the question table or empty state.                                                                                                |
 
 ### Loading, empty, error, and partial-data behavior
 
-| ID | What the test validates |
-|---|---|
-| ERR-001 | While a real `/users/me` response is held, protected home does not render All Questions; releasing the request restores the shell. |
-| ERR-002 | A held detailed-question request displays the loading spinner; fulfilling it with an empty result renders No questions found. |
+| ID      | What the test validates                                                                                                                                                                                        |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ERR-001 | While a real `/users/me` response is held, protected home does not render All Questions; releasing the request restores the shell.                                                                             |
+| ERR-002 | A held detailed-question request displays the loading spinner; fulfilling it with an empty result renders No questions found.                                                                                  |
 | ERR-003 | A controlled 500 from full details clears the loading spinner and does not render stale detail title/Exit UI. It does not assert a visible error panel because the implemented selected-query branch has none. |
 | ERR-010 | Removing optional context, metrics, closure/moderator, and metadata fields from a real upstream full response leaves a stable detail screen and renders `-` for district, normalized crop, season, and domain. |
 
@@ -389,23 +389,23 @@ No test creates, updates, finalizes, or deletes a question.
 
 ## 8. Current Implementation Status
 
-| Area | Status |
-|---|---|
-| Package isolation | Implemented as a private ESM npm package under `qa/reviewer-playwright`; no product package import or config mutation is required. |
-| TypeScript | Strict, no-emit NodeNext configuration implemented. |
-| Environment loading | Implemented for local `.env` with shell-variable precedence. |
-| Browser configuration | Chromium/Desktop Chrome only; one worker; no retries. |
-| Authentication | Real UI login implemented; PERM-001 verifies backend/frontend role `expert`; shared fixture verifies `/home`. |
-| Environment preflight | Implemented for tests using `environmentPage`; unreachable/non-OK `/auth` becomes an annotated skip. |
-| Dashboard | All Questions tab and table/empty-state assertions implemented. |
-| Question details | First-question open, response identity, deep link/reload, header, metadata, allocation, and Exit implemented. |
-| Error handling | Delayed user response, delayed/empty list, full-detail 500, and partial full response implemented with browser routing. |
-| Test data | Existing-data only; no deterministic record provisioning. |
-| Database tooling | Not implemented. The suite reaches data only through application APIs. |
-| Helpers/utilities | No separate helper or utility layer; shared behavior currently resides in page objects and fixtures. |
-| Reporting | Terminal list plus JSON implemented. No HTML/JUnit reporter. |
-| Artifacts | Failure screenshot, trace, and video implemented. |
-| CI | No QA-specific CI workflow or command is present in this package. |
+| Area                  | Status                                                                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Package isolation     | Implemented as a private ESM npm package under `qa/reviewer-playwright`; no product package import or config mutation is required. |
+| TypeScript            | Strict, no-emit NodeNext configuration implemented.                                                                                |
+| Environment loading   | Implemented for local `.env` with shell-variable precedence.                                                                       |
+| Browser configuration | Chromium/Desktop Chrome only; one worker; no retries.                                                                              |
+| Authentication        | Real UI login implemented; PERM-001 verifies backend/frontend role `expert`; shared fixture verifies `/home`.                      |
+| Environment preflight | Implemented for tests using `environmentPage`; unreachable/non-OK `/auth` becomes an annotated skip.                               |
+| Dashboard             | All Questions tab and table/empty-state assertions implemented.                                                                    |
+| Question details      | First-question open, response identity, deep link/reload, header, metadata, allocation, and Exit implemented.                      |
+| Error handling        | Delayed user response, delayed/empty list, full-detail 500, and partial full response implemented with browser routing.            |
+| Test data             | Existing-data only; no deterministic record provisioning.                                                                          |
+| Database tooling      | Not implemented. The suite reaches data only through application APIs.                                                             |
+| Helpers/utilities     | No separate helper or utility layer; shared behavior currently resides in page objects and fixtures.                               |
+| Reporting             | Terminal list plus JSON implemented. No HTML/JUnit reporter.                                                                       |
+| Artifacts             | Failure screenshot, trace, and video implemented.                                                                                  |
+| CI                    | No QA-specific CI workflow or command is present in this package.                                                                  |
 
 ---
 
@@ -560,11 +560,11 @@ npx playwright test tests\<feature>.spec.ts --grep "<TEST-ID>" --workers=1
 
 ### Environment variable reference
 
-| Variable | Required | Default | Used by |
-|---|---:|---|---|
-| `REVIEWER_BASE_URL` | No | `http://127.0.0.1:5173` | Playwright `baseURL` and environment-blocked diagnostic text. `.env.example` explicitly sets `http://localhost:5173`. |
-| `REVIEWER_USER_EMAIL` | Yes for authentication | None | PERM-001 and `authenticatedPage`. Must identify an existing applicable user. |
-| `REVIEWER_USER_PASSWORD` | Yes for authentication | None | PERM-001 and `authenticatedPage`. Keep it only in the shell or ignored `.env`. |
+| Variable                 |               Required | Default                 | Used by                                                                                                               |
+| ------------------------ | ---------------------: | ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `REVIEWER_BASE_URL`      |                     No | `http://127.0.0.1:5173` | Playwright `baseURL` and environment-blocked diagnostic text. `.env.example` explicitly sets `http://localhost:5173`. |
+| `REVIEWER_USER_EMAIL`    | Yes for authentication | None                    | PERM-001 and `authenticatedPage`. Must identify an existing applicable user.                                          |
+| `REVIEWER_USER_PASSWORD` | Yes for authentication | None                    | PERM-001 and `authenticatedPage`. Keep it only in the shell or ignored `.env`.                                        |
 
 Shell variables override values in `.env`:
 
@@ -576,13 +576,13 @@ $env:REVIEWER_USER_PASSWORD = "<secret>"
 
 ### Application endpoints observed or controlled by the suite
 
-| Method/path | Purpose in current tests |
-|---|---|
-| `GET /auth` | Frontend reachability preflight for fixture-based tests and login page navigation. |
-| `POST /auth/sync` | Real login synchronization; PERM-001 requires a successful response with `user.role === "expert"`. |
-| `GET /users/me` | Current-user resolution; PERM-001 requires role `expert`; ERR-001 delays this request. |
-| `*/questions/detailed?*` | Question-list traffic matched by ERR-002. The test's matcher does not constrain the HTTP method. |
-| `*/questions/{id}/full` | Full question detail used by QDET tests, failed by ERR-003, and response-modified by ERR-010. |
+| Method/path              | Purpose in current tests                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------- |
+| `GET /auth`              | Frontend reachability preflight for fixture-based tests and login page navigation.                 |
+| `POST /auth/sync`        | Real login synchronization; PERM-001 requires a successful response with `user.role === "expert"`. |
+| `GET /users/me`          | Current-user resolution; PERM-001 requires role `expert`; ERR-001 delays this request.             |
+| `*/questions/detailed?*` | Question-list traffic matched by ERR-002. The test's matcher does not constrain the HTTP method.   |
+| `*/questions/{id}/full`  | Full question detail used by QDET tests, failed by ERR-003, and response-modified by ERR-010.      |
 
 The frontend may issue other requests. These are the endpoints explicitly awaited or intercepted by this QA source.
 
