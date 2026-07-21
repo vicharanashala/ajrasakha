@@ -27,7 +27,14 @@ export const isCoordinatorRole = (
 };
 
 /** Roles allowed to open the User / Expert Management page. */
-export const USER_MANAGEMENT_ROLES = ["admin", "moderator", "tester"] as const;
+export const USER_MANAGEMENT_ROLES = [
+  "admin",
+  "moderator",
+  "tester",
+  // Gate keepers and auditors get the same Expert Management view as moderators.
+  "gate_keeper",
+  "auditor",
+] as const;
 
 /**
  * Whether this role may see the User / Expert Management tab. An allowlist, so roles added
