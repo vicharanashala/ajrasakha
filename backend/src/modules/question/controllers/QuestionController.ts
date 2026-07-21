@@ -1111,7 +1111,8 @@ export class QuestionController {
 
   @Patch('/:questionId/moderator')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors triage questions onward, so they assign moderators too.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({ summary: 'Change the moderator assigned to a question' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async changeModerator(
@@ -1195,7 +1196,8 @@ export class QuestionController {
 
   @Delete('/:questionId/moderator')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors triage questions onward, so they assign moderators too.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({ summary: 'Remove the moderator assigned to a question' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async removeModerator(

@@ -279,7 +279,8 @@ export class UserController {
   })
   @Get('/stf-moderators')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors pick moderators from this list when assigning.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   async getStfModerators() {
     const { users } = await this.userService.getAllUsers(
       1,
