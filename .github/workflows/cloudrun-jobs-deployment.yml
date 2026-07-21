@@ -28,6 +28,7 @@ on:
         type: choice
         options:
           - backup-db
+          - gate-keeper-auditor-queue
 
 permissions:
   contents: read
@@ -130,6 +131,86 @@ jobs:
           REGION: ${{ steps.region.outputs.region }}
         run: |
           gcloud run jobs execute backup-db \
+            --region="${REGION}" \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --wait
+
+      # ============================================================
+      # gate-keeper-auditor-queue  (every 1 min, Asia/Kolkata)
+      # ============================================================
+      - name: Deploy Cloud Run Job (gate-keeper-auditor-queue)
+        if: inputs.target_job == 'gate-keeper-auditor-queue'
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          job: gate-keeper-auditor-queue
+          region: ${{ steps.region.outputs.region }}
+          image: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_email: gate-keeper-auditor-queue-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          args: node build/jobs/gate-keeper-auditor-queue/run.js
+          memory: 512Mi
+          cpu: 1
+          task_timeout: 60
+          max_retries: 0
+          parallel: 1
+          wait_until: started
+          env_vars: |
+            NODE_ENV=production
+            DB_URL=${{ secrets.DB_URL }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            APP_PORT=4000
+
+      - name: Deploy Cloud Scheduler trigger (gate-keeper-auditor-queue-trigger)
+        if: inputs.target_job == 'gate-keeper-auditor-queue'
+        env:
+          REGION: ${{ steps.region.outputs.region }}
+          PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          SA: gate-keeper-auditor-queue-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          SCHEDULER_SA: backup-db-trigger-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+        run: |
+          set -euo pipefail
+          JOB_URI="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT}/jobs/gate-keeper-auditor-queue:run"
+
+          # Allow the Scheduler SA to invoke the Cloud Run Job.
+          gcloud run jobs add-iam-policy-binding gate-keeper-auditor-queue \
+            --region="${REGION}" \
+            --member="serviceAccount:${SCHEDULER_SA}" \
+            --role="roles/run.invoker" \
+            --project="${PROJECT}" || true
+
+          if gcloud scheduler jobs describe gate-keeper-auditor-queue-trigger \
+              --location="${REGION}" --project="${PROJECT}" >/dev/null 2>&1; then
+            echo "Updating existing scheduler job gate-keeper-auditor-queue-trigger"
+            gcloud scheduler jobs update http gate-keeper-auditor-queue-trigger \
+              --location="${REGION}" \
+              --project="${PROJECT}" \
+              --schedule="* * * * *" \
+              --time-zone="Asia/Kolkata" \
+              --uri="${JOB_URI}" \
+              --http-method=POST \
+              --oidc-service-account-email="${SCHEDULER_SA}" \
+              --oidc-token-audience="https://${REGION}-run.googleapis.com" \
+              --attempt-deadline=120s
+          else
+            echo "Creating scheduler job gate-keeper-auditor-queue-trigger"
+            gcloud scheduler jobs create http gate-keeper-auditor-queue-trigger \
+              --location="${REGION}" \
+              --project="${PROJECT}" \
+              --schedule="* * * * *" \
+              --time-zone="Asia/Kolkata" \
+              --uri="${JOB_URI}" \
+              --http-method=POST \
+              --oidc-service-account-email="${SCHEDULER_SA}" \
+              --oidc-token-audience="https://${REGION}-run.googleapis.com" \
+              --attempt-deadline=120s
+          fi
+
+      - name: Smoke test (execute gate-keeper-auditor-queue once)
+        if: inputs.target_job == 'gate-keeper-auditor-queue'
+        env:
+          REGION: ${{ steps.region.outputs.region }}
+        run: |
+          gcloud run jobs execute gate-keeper-auditor-queue \
             --region="${REGION}" \
             --project=${{ secrets.GCP_PROJECT_ID }} \
             --wait

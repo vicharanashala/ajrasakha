@@ -61,7 +61,23 @@ gcloud iam service-accounts create backup-db-trigger-sa \
 This SA only needs to be able to call the Job (no GCS access). The IAM binding
 that grants it `roles/run.invoker` on the Job is added by the workflow itself.
 
-### 1.5 Grant your GitHub Actions SA permission to deploy the Job
+It is reused across all reviewer-queue Jobs (`backup-db`, `gate-keeper-auditor-queue`, ...).
+
+### 1.5 (per reviewer-queue job) Create the Job's runtime service account
+
+Each reviewer-queue Job that does **not** need GCP API access only needs an
+empty service account to exist (Cloud Run Jobs require *some* SA). This is the
+principle of least privilege — it can't access anything by accident.
+
+```bash
+# Example for the gate-keeper / auditor queue Job.
+# Repeat for each reviewer-queue Job you add to the workflow.
+gcloud iam service-accounts create gate-keeper-auditor-queue-sa \
+  --display-name="Cloud Run Job: gate-keeper-auditor-queue" \
+  --project="${PROJECT_ID}"
+# No IAM bindings — the SA has no permissions on purpose.
+
+### 1.6 Grant your GitHub Actions SA permission to deploy the Job
 
 Your existing `GCP_GH_SA_KEY` service account needs these roles:
 
@@ -145,7 +161,11 @@ When you're ready to migrate the remaining cron jobs, repeat the same pattern:
 2. Extend `.github/workflows/cloudrun-jobs-deployment.yml` with a `target_job` option and per-job blocks.
 3. Decide if the job needs its own service account (most don't — they only touch Mongo via the existing connection string).
 
-The remaining 6 jobs to migrate:
+Jobs already migrated:
+- `backupDB` → `backup-db` (0 8,19 * * *)  ✅
+- `gateKeeperAuditorQueueCron` → `gate-keeper-auditor-queue` (* * * * *)  ✅
+
+Remaining 6 jobs to migrate:
 - `moderatorQueueCron` → `moderator-queue` (every 1 min)
 - `timeBoundReAllocateCron` → `time-bound-reallocate` (every 1 min)
 - `questionStatus` → `question-status` (every 1 min)
