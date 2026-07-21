@@ -679,7 +679,8 @@ export class QuestionController {
       },
     };
     try {
-      data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate);
+      const isAdmin = user.role === 'admin'
+      data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate, user.isTrainingUser??false,isAdmin??false);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,

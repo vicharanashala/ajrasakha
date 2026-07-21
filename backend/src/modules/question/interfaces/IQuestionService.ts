@@ -456,6 +456,8 @@ export interface IQuestionService {
     consecutiveApprovals?: number,
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ArrayBuffer | null>;
   generateOverallQuestionReport(
     startDate?: Date,
