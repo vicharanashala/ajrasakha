@@ -1033,5 +1033,47 @@ export class UserService extends BaseService {
     return await this._withTransaction(async (session: ClientSession) => {
       await this.userRepo.updateTrainingUserStatus(userId, action, session);
     });
+   }
+
+   async getWorkingHours(query: { userId: string; startDateTime: string; endDateTime: string }): Promise<{ workingHours: number }> {
+    try {
+      const { userId, startDateTime, endDateTime } = query;
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const user = await this.userRepo.findById(userId, session);
+        if (!user) throw new NotFoundError(`User with ID ${userId} not found`);
+
+        const history = await this.userRepo.getUserHistory({ userId, startDateTime, endDateTime }, session);
+        
+        let totalMs = 0;
+        const startLimit = new Date(startDateTime).getTime();
+        const endLimit = new Date(endDateTime).getTime();
+        const now = new Date().getTime();
+
+        (history.roleHistory || []).forEach((item) => {
+          if (item.isBlocked === true) return;
+
+          const fromTime = item.from ? new Date(item.from).getTime() : null;
+          if (!fromTime) return;
+
+          const toTime = item.to ? new Date(item.to).getTime() : now;
+
+          const start = Math.max(fromTime, startLimit);
+          const end = Math.min(toTime, endLimit);
+
+          if (end > start) {
+            totalMs += end - start;
+          }
+        });
+        const workingHours = Math.round((totalMs / (1000 * 60 * 60)) * 10) / 10;
+        return { workingHours };
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError || error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to calculate working hours: ${error}`);
+    }
   }
 }

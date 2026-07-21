@@ -44,6 +44,7 @@ import { useToggleRole } from "@/hooks/api/user/useToggleRole";
 import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
 import { useVerifyUser } from "@/hooks/api/user/useVerifyUser";
 import { useToggleSTF } from "@/hooks/api/user/useToggleSTF";
+import { isCoordinatorRole } from "@/lib/roles";
 import AvatarComponent from "./avatar-component";
 import { useToggleTrainingUserStatus } from "@/hooks/api/user/useToggleTrainingUser";
 
@@ -611,6 +612,7 @@ const UserRow: React.FC<UserRowProps> = ({
                 </DropdownMenuItem>
               )}
 
+              {isCoordinatorRole(u.role) && (
               <DropdownMenuItem
                 onSelect={(e) => {
                   e.preventDefault();
@@ -631,6 +633,7 @@ const UserRow: React.FC<UserRowProps> = ({
                   >New</Badge>
                 </div>
               </DropdownMenuItem>
+              )}
 
               <DropdownMenuItem
                 disabled={u.status === 'in-active' && isBlocked}
