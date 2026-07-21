@@ -84,11 +84,15 @@ jobs:
       - name: Deploy Cloud Scheduler trigger (backup-db-trigger)
         env:
           REGION: ${{ steps.region.outputs.region }}
-          PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-          SA: backup-db-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
-          SCHEDULER_SA: backup-db-trigger-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
           set -euo pipefail
+          PROJECT="$PROJECT_ID"
+          REGION="$REGION"
+          gcloud config set project "$PROJECT" --quiet
+
+          JOB_SA="backup-db-sa@${PROJECT}.iam.gserviceaccount.com"
+          SCHEDULER_SA="backup-db-trigger-sa@${PROJECT}.iam.gserviceaccount.com"
           JOB_URI="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT}/jobs/backup-db:run"
 
           # Allow the Scheduler SA to invoke the Cloud Run Job.
@@ -164,11 +168,15 @@ jobs:
         if: inputs.target_job == 'gate-keeper-auditor-queue'
         env:
           REGION: ${{ steps.region.outputs.region }}
-          PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-          SA: gate-keeper-auditor-queue-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
-          SCHEDULER_SA: backup-db-trigger-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
           set -euo pipefail
+          PROJECT="$PROJECT_ID"
+          REGION="$REGION"
+          gcloud config set project "$PROJECT" --quiet
+
+          JOB_SA="gate-keeper-auditor-queue-sa@${PROJECT}.iam.gserviceaccount.com"
+          SCHEDULER_SA="backup-db-trigger-sa@${PROJECT}.iam.gserviceaccount.com"
           JOB_URI="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT}/jobs/gate-keeper-auditor-queue:run"
 
           # Allow the Scheduler SA to invoke the Cloud Run Job.
