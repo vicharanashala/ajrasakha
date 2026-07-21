@@ -6,7 +6,7 @@
  *
  * Replaces the in-process node-cron in bootstrap/jobs/gateKeeperAuditorQueueCron.ts.
  */
-import { getContainer } from '../../../bootstrap/loadModules.js';
+import { getContainer } from '../../bootstrap/loadModules.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { QuestionService } from '#root/modules/core/index.js';
 

@@ -242,6 +242,7 @@ export class UserController {
       search?: string;
       sort: string;
       filter: string;
+      includeSelf?: string | boolean;
     },
   ): Promise<UsersNameResponseDto> {
     const {
@@ -250,6 +251,7 @@ export class UserController {
       search = '',
       sort = '',
       filter = '',
+      includeSelf,
     } = query;
     const userId = user._id.toString();
     return await this.userService.getAllUsersforManualSelect(
@@ -259,6 +261,7 @@ export class UserController {
       search,
       sort,
       filter,
+      includeSelf === true || includeSelf === 'true',
     );
   }
 
