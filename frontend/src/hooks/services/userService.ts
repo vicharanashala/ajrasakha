@@ -261,4 +261,19 @@ export class UserService {
       }
     );
   }
+
+  async getWorkingHours(
+    userId: string,
+    startDateTime: string,
+    endDateTime: string,
+  ): Promise<{ workingHours: number } | null> {
+    const params = new URLSearchParams({
+      userId,
+      startDateTime,
+      endDateTime,
+    });
+    return apiFetch<{ workingHours: number }>(
+      `${this._baseUrl}/working-hours?${params.toString()}`
+    );
+  }
 }
