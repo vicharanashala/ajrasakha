@@ -1,0 +1,135 @@
+# Deploy Cloud Run Jobs that replace in-process node-cron tasks.
+#
+# Required repository secrets:
+#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN      (image build/push - already used by other workflows)
+#   GCP_GH_SA_KEY, GCP_PROJECT_ID             (GCP authentication - already used)
+#   DB_URL, DB_NAME                           (MongoDB connection - already used)
+#   BACKUP_NOTIFICATION_EMAIL, EMAIL_USER, EMAIL_PASS   (mail config)
+#   GCP_BACKUP_BUCKET                         (target GCS bucket for backup ZIPs)
+#
+# Optional repository variables (Settings → Secrets and variables → Actions → Variables):
+#   GCP_REGION                                (default: asia-south2)
+#
+# Prerequisites (one-time, manual):
+#   1. GCS bucket named in GCP_BACKUP_BUCKET exists.
+#   2. Service account `backup-db-sa@PROJECT_ID.iam.gserviceaccount.com` exists with
+#      roles/storage.objectCreator and roles/storage.objectViewer on the bucket.
+#   3. Cloud Run API and Cloud Scheduler API are enabled in the project.
+
+name: Cloud Run Jobs Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_job:
+        description: Select Cloud Run Job to deploy
+        required: true
+        default: backup-db
+        type: choice
+        options:
+          - backup-db
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  DOCKER_IMAGE: reviewer-api
+
+jobs:
+  deploy-backup-db:
+    name: Deploy ${{ inputs.target_job }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
+
+      - name: Resolve region
+        id: region
+        run: echo "region=${GCP_REGION:-asia-south2}" >> "$GITHUB_OUTPUT"
+        env:
+          GCP_REGION: ${{ vars.GCP_REGION }}
+
+      - name: Deploy Cloud Run Job (backup-db)
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          job: backup-db
+          region: ${{ steps.region.outputs.region }}
+          image: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_email: backup-db-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          args: node build/jobs/backup/run.js
+          memory: 2Gi
+          cpu: 2
+          task_timeout: 3600
+          max_retries: 0
+          parallel: 1
+          wait_until: started
+          env_vars: |
+            NODE_ENV=production
+            DB_URL=${{ secrets.DB_URL }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            GCP_BACKUP_BUCKET=${{ secrets.GCP_BACKUP_BUCKET }}
+            ENABLE_DB_BACKUP=true
+            BACKUP_NOTIFICATION_EMAIL=${{ secrets.BACKUP_NOTIFICATION_EMAIL }}
+            EMAIL_USER=${{ secrets.EMAIL_USER }}
+            EMAIL_PASS=${{ secrets.EMAIL_PASS }}
+
+      - name: Deploy Cloud Scheduler trigger (backup-db-trigger)
+        env:
+          REGION: ${{ steps.region.outputs.region }}
+          PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          SA: backup-db-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          SCHEDULER_SA: backup-db-trigger-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+        run: |
+          set -euo pipefail
+          JOB_URI="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT}/jobs/backup-db:run"
+
+          # Allow the Scheduler SA to invoke the Cloud Run Job.
+          gcloud run jobs add-iam-policy-binding backup-db \
+            --region="${REGION}" \
+            --member="serviceAccount:${SCHEDULER_SA}" \
+            --role="roles/run.invoker" \
+            --project="${PROJECT}" || true
+
+          # Create or update the Scheduler job (idempotent).
+          if gcloud scheduler jobs describe backup-db-trigger \
+              --location="${REGION}" --project="${PROJECT}" >/dev/null 2>&1; then
+            echo "Updating existing scheduler job backup-db-trigger"
+            gcloud scheduler jobs update http backup-db-trigger \
+              --location="${REGION}" \
+              --project="${PROJECT}" \
+              --schedule="0 8,19 * * *" \
+              --time-zone="Asia/Kolkata" \
+              --uri="${JOB_URI}" \
+              --http-method=POST \
+              --oidc-service-account-email="${SCHEDULER_SA}" \
+              --oidc-token-audience="https://${REGION}-run.googleapis.com" \
+              --attempt-deadline=600s
+          else
+            echo "Creating scheduler job backup-db-trigger"
+            gcloud scheduler jobs create http backup-db-trigger \
+              --location="${REGION}" \
+              --project="${PROJECT}" \
+              --schedule="0 8,19 * * *" \
+              --time-zone="Asia/Kolkata" \
+              --uri="${JOB_URI}" \
+              --http-method=POST \
+              --oidc-service-account-email="${SCHEDULER_SA}" \
+              --oidc-token-audience="https://${REGION}-run.googleapis.com" \
+              --attempt-deadline=600s
+          fi
+
+      - name: Smoke test (execute job once)
+        env:
+          REGION: ${{ steps.region.outputs.region }}
+        run: |
+          gcloud run jobs execute backup-db \
+            --region="${REGION}" \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --wait
