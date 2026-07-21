@@ -69,7 +69,7 @@ jobs:
             --task-timeout=3600
             --max-retries=0
             --parallelism=1
-            --set-args=node,build/jobs/backup/run.js
+            --args=node,build/jobs/backup/run.js
             --service-account=backup-db-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
           env_vars: |
             NODE_ENV=production
@@ -156,7 +156,7 @@ jobs:
             --task-timeout=60
             --max-retries=0
             --parallelism=1
-            --set-args=node,build/jobs/gate-keeper-auditor-queue/run.js
+            --args=node,build/jobs/gate-keeper-auditor-queue/run.js
             --service-account=gate-keeper-auditor-queue-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
           env_vars: |
             NODE_ENV=production
