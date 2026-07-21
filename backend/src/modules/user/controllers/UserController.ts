@@ -272,12 +272,12 @@ export class UserController {
 
   @OpenAPI({
     summary: 'Get STF moderators',
-    description: 'Returns non-blocked moderators that have Special Task Force enabled.',
+    description: 'Returns non-blocked moderators that have Special Task Force enabled. Filters by isTrainingUser status.',
   })
   @Get('/stf-moderators')
   @HttpCode(200)
   @Authorized(['admin', 'moderator'])
-  async getStfModerators() {
+  async getStfModerators(@CurrentUser() currentUser: IUser) {
     const { users } = await this.userService.getAllUsers(
       1,
       1000,
@@ -289,17 +289,25 @@ export class UserController {
       undefined,
       true,
     );
-    return users.map(u => ({
-      _id: u._id?.toString(),
-      name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
-      email: u.email,
-      // The questions this moderator currently holds, each with its denormalised status
-      // ({ questionId, status }). Empty when free. Re-routed entries do not mark busy.
-      assignedQuestionIds: (u.assignedQuestionIds ?? []).map((a: any) => ({
-        questionId: a.questionId?.toString(),
-        status: a.status,
-      })),
-    }));
+    
+    // If current user is a training user, show only moderators who are also training users
+    // If current user is NOT a training user, show only moderators who are NOT training users
+    // If isTrainingUser field doesn't exist in the collection, treat it as false (not true)
+    const isTrainingUser = currentUser.isTrainingUser === true;
+    
+    return users
+      .filter(u => (u.isTrainingUser === true) === isTrainingUser)
+      .map(u => ({
+        _id: u._id?.toString(),
+        name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
+        email: u.email,
+        // The questions this moderator currently holds, each with its denormalised status
+        // ({ questionId, status }). Empty when free. Re-routed entries do not mark busy.
+        assignedQuestionIds: (u.assignedQuestionIds ?? []).map((a: any) => ({
+          questionId: a.questionId?.toString(),
+          status: a.status,
+        })),
+      }));
   }
 
   @OpenAPI({
