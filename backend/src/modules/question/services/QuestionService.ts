@@ -5503,11 +5503,15 @@ export class QuestionService extends BaseService implements IQuestionService {
     consecutiveApprovals?: number,
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ) {
     const result = await this.answerRepo.groupbyquestion(
       consecutiveApprovals,
       startDate,
       endDate,
+      isTrainingUser,
+      isAdmin
     );
 
     // Check if there's any data with reasons
