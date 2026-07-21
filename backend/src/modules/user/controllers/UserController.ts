@@ -272,7 +272,7 @@ export class UserController {
 
   @OpenAPI({
     summary: 'Get STF moderators',
-    description: 'Returns non-blocked moderators that have Special Task Force enabled. Optionally filters by isTrainingUser.',
+    description: 'Returns non-blocked moderators that have Special Task Force enabled. Filters by isTrainingUser status.',
   })
   @Get('/stf-moderators')
   @HttpCode(200)
@@ -290,11 +290,13 @@ export class UserController {
       true,
     );
     
-    // If current user is a training user, filter to show only moderators who are also training users
+    // If current user is a training user, show only moderators who are also training users
+    // If current user is NOT a training user, show only moderators who are NOT training users
+    // If isTrainingUser field doesn't exist in the collection, treat it as false (not true)
     const isTrainingUser = currentUser.isTrainingUser === true;
     
     return users
-      .filter(u => !isTrainingUser || u.isTrainingUser === true)
+      .filter(u => (u.isTrainingUser === true) === isTrainingUser)
       .map(u => ({
         _id: u._id?.toString(),
         name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
