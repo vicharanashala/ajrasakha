@@ -12,8 +12,10 @@ async function main(): Promise<void> {
   console.log('[backup-job] starting MongoDB cluster backup');
   console.log(`[backup-job] target db: ${dbConfig.dbName}`);
 
-  // Initialize DI container so createClusterBackup's email-step can resolve services.
+  // [DIAG] Diagnostic logs to verify new code is running
+  console.log('[backup-job] before loadAppModules');
   await loadAppModules('all');
+  console.log('[backup-job] after loadAppModules - container initialized');
 
   await createClusterBackup(dbConfig.url);
 

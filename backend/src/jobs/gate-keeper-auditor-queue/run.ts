@@ -11,8 +11,10 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 import { QuestionService } from '#root/modules/core/index.js';
 
 async function main(): Promise<void> {
-  // Initialize DI container before resolving services.
+  // [DIAG] Diagnostic logs to verify new code is running
+  console.log('[gk-auditor-job] before loadAppModules');
   await loadAppModules('all');
+  console.log('[gk-auditor-job] after loadAppModules - container initialized');
 
   const container = getContainer();
   const questionService = container.get<QuestionService>(
