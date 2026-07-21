@@ -111,10 +111,12 @@ export class QuestionController {
 
   @Get('/queue-details')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors get the same read-only queue visibility as moderators —
+  // they work the same queues and need to see who is holding what.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({
     summary:
-      'Queue details for moderators/admins. No params → all sections (counts + page 1). With ?section=&page= → one paginated section (exact count + that page of items).',
+      'Queue details for moderators/admins/gate keepers/auditors. No params → all sections (counts + page 1). With ?section=&page= → one paginated section (exact count + that page of items).',
   })
   async getQueueDetails(
     @QueryParams()
