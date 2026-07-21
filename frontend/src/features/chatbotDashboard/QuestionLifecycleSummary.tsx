@@ -32,6 +32,8 @@ interface Props {
   onLimitChange?: (limit: number) => void;
   totalClosedAndPassed?: number;
   userId?: string;
+  manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH";
+  effectiveDate?: string;
 }
 
 const formatDuration = (ms?: number) => {
@@ -71,6 +73,8 @@ export function QuestionLifecycleSummary({
   onLimitChange,
   totalClosedAndPassed,
   userId,
+  manualSource,
+  effectiveDate
 }: Props) {
   useEffect(() => {
     onPageChange?.(1);
@@ -91,6 +95,8 @@ export function QuestionLifecycleSummary({
     userId,
     page,
     limit,
+    manualSource,
+    effectiveDate,
   );
   const primaryMetrics = [
     {

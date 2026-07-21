@@ -132,6 +132,8 @@ const QuestionRow = ({
   showWorkType,
   showOpenedIdle,
   showModerator,
+  showAssignee,
+  assigneeLabel = "Assignee",
   onClick,
 }: {
   item: QueueQuestionItem;
@@ -140,6 +142,8 @@ const QuestionRow = ({
   showWorkType?: boolean;
   showOpenedIdle?: boolean;
   showModerator?: boolean;
+  showAssignee?: boolean;
+  assigneeLabel?: string;
   onClick?: () => void;
 }) => {
   const meta = [item.source, item.state, item.crop].filter(Boolean).join(" · ");
@@ -200,6 +204,16 @@ const QuestionRow = ({
         ) : (
           <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
             Awaiting moderator assignment
+          </p>
+        ))}
+      {showAssignee &&
+        (item.assigneeName ? (
+          <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
+            {assigneeLabel}: {item.assigneeName}
+          </p>
+        ) : (
+          <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+            Awaiting assignment
           </p>
         ))}
     </div>
@@ -984,6 +998,251 @@ export const QueueDetailsModal = ({
                 </>
               );
             })()}
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+/** One role column (Gate Keeper or Auditor): Waiting / Allocated / Available. */
+function RoleQueueColumn({
+  heading,
+  subheading,
+  assigneeLabel,
+  waitingKey,
+  allocatedKey,
+  availableKey,
+  waiting,
+  allocated,
+  available,
+  openSection,
+  toggle,
+  dateFilter,
+  onQuestionClick,
+}: {
+  heading: string;
+  subheading: string;
+  assigneeLabel: string;
+  waitingKey: string;
+  allocatedKey: string;
+  availableKey: string;
+  waiting: { count: number; items: QueueQuestionItem[] };
+  allocated: { count: number; items: QueueQuestionItem[] };
+  available: { count: number; items: QueueExpertItem[] };
+  openSection: string | null;
+  toggle: (k: string) => void;
+  dateFilter: { startTime?: Date; endTime?: Date };
+  onQuestionClick: (q: QueueQuestionItem) => void;
+}) {
+  return (
+    <div className="flex-1 min-w-0 space-y-3">
+      <div className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-2">
+        <p className="text-sm font-bold text-gray-900 dark:text-white">{heading}</p>
+        <p className="text-[11px] text-gray-500">{subheading}</p>
+      </div>
+
+      <Section<QueueQuestionItem>
+        icon={<Hourglass size={20} />}
+        color="amber"
+        title={`Waiting for ${assigneeLabel}`}
+        description="No assignee yet"
+        count={waiting.count}
+        section={waitingKey}
+        initialItems={waiting.items}
+        renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => onQuestionClick(q)} />}
+        isOpen={openSection === waitingKey}
+        onToggle={() => toggle(waitingKey)}
+        emptyText="Nothing waiting"
+        startTime={dateFilter.startTime}
+        endTime={dateFilter.endTime}
+      />
+
+      <Section<QueueQuestionItem>
+        icon={<ShieldCheck size={20} />}
+        color="green"
+        title={`Allocated to ${assigneeLabel}`}
+        description="Currently assigned"
+        count={allocated.count}
+        section={allocatedKey}
+        initialItems={allocated.items}
+        renderItem={(q) => (
+          <QuestionRow key={q._id} item={q} showAssignee assigneeLabel={assigneeLabel} onClick={() => onQuestionClick(q)} />
+        )}
+        isOpen={openSection === allocatedKey}
+        onToggle={() => toggle(allocatedKey)}
+        emptyText="Nothing allocated"
+        startTime={dateFilter.startTime}
+        endTime={dateFilter.endTime}
+      />
+
+      <Section<QueueExpertItem>
+        icon={<ShieldUser size={20} />}
+        color="violet"
+        title={`Available ${assigneeLabel}s`}
+        description="Free to take a question"
+        count={available.count}
+        section={availableKey}
+        initialItems={available.items}
+        renderItem={(e) => <ExpertRow key={e._id} item={e} />}
+        isOpen={openSection === availableKey}
+        onToggle={() => toggle(availableKey)}
+        emptyText={`No available ${assigneeLabel.toLowerCase()}s`}
+        startTime={dateFilter.startTime}
+        endTime={dateFilter.endTime}
+      />
+    </div>
+  );
+}
+
+/** Gate Keeper / Auditor queue overview — mirrors Queue Details, side by side. */
+export const GateKeeperAuditorQueueModal = ({
+  setIsSidebarOpen,
+}: {
+  setIsSidebarOpen?: (v: boolean) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<string | null>("gateKeeperWaiting");
+  const { goToQuestion } = useNavigateToQuestion();
+
+  useEffect(() => {
+    if (sessionStorage.getItem("reopenGkAuditorQueue") === "1") {
+      sessionStorage.removeItem("reopenGkAuditorQueue");
+      setOpen(true);
+      setIsSidebarOpen?.(false);
+    }
+  }, [setIsSidebarOpen]);
+
+  const handleQuestionClick = (item: QueueQuestionItem) => {
+    sessionStorage.setItem("reopenGkAuditorQueue", "1");
+    setOpen(false);
+    goToQuestion(item._id, "moderator_queue");
+  };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const [dateFilter, setDateFilter] = useState<Partial<AdvanceFilterValues>>({
+    startTime: today,
+    endTime: tomorrow,
+  });
+
+  const { data, isLoading, isError, error, refetch, isFetching } =
+    useGetQueueDetails(open, dateFilter.startTime ?? undefined, dateFilter.endTime ?? undefined);
+
+  const toggle = (key: string) => setOpenSection((prev) => (prev === key ? null : key));
+  const handleDateFilterChange = (key: string, value: Date | undefined) =>
+    setDateFilter((prev) => ({ ...prev, [key]: value }));
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) setIsSidebarOpen?.(false);
+      }}
+    >
+      <DialogTrigger asChild>
+        <button className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
+              <ShieldCheck size={20} />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                Gate Keeper / Auditor Queue
+              </p>
+              <p className="text-[11px] text-gray-500">
+                Live gate keeper & auditor allocation overview
+              </p>
+            </div>
+          </div>
+        </button>
+      </DialogTrigger>
+
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-[90vw] max-h-[90vh] overflow-y-auto [&_[data-slot=dialog-close]]:size-8 [&_[data-slot=dialog-close]]:flex [&_[data-slot=dialog-close]]:items-center [&_[data-slot=dialog-close]]:justify-center [&_[data-slot=dialog-close]]:rounded-md [&_[data-slot=dialog-close]]:opacity-100 [&_[data-slot=dialog-close]]:transition-colors [&_[data-slot=dialog-close]:hover]:bg-muted [&_[data-slot=dialog-close]_svg]:size-5">
+        <DialogHeader className="space-y-1 pr-8">
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            Gate Keeper / Auditor Queue
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Gate keeper (dynamic / duplicate / queue-duplicate) &amp; auditor (auditor-review) queues, side by side
+          </p>
+        </DialogHeader>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Filter by</span>
+            <DateRangeFilter
+              advanceFilter={dateFilter}
+              handleDialogChange={handleDateFilterChange}
+              customName="Created At"
+              type="createdAt"
+              className="w-[200px] [&>label]:hidden"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60 transition-colors"
+          >
+            <RefreshCcw size={13} className={cn(isFetching && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading queue details…
+          </div>
+        ) : isError ? (
+          <div className="py-12 text-center">
+            <AlertTriangle className="h-6 w-6 text-red-500 mx-auto mb-2" />
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {error?.message || "Failed to load queue details"}
+            </p>
+            <button type="button" onClick={() => refetch()} className="mt-3 text-xs font-medium text-blue-600 hover:underline">
+              Try again
+            </button>
+          </div>
+        ) : data ? (
+          <div className="py-2">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <RoleQueueColumn
+                heading="Gate Keeper Queue"
+                subheading="Dynamic / Duplicate / Queue-duplicate"
+                assigneeLabel="Gate Keeper"
+                waitingKey="gateKeeperWaiting"
+                allocatedKey="gateKeeperAllocated"
+                availableKey="availableGateKeepers"
+                waiting={data.gateKeeperWaiting}
+                allocated={data.gateKeeperAllocated}
+                available={data.availableGateKeepers}
+                openSection={openSection}
+                toggle={toggle}
+                dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
+                onQuestionClick={handleQuestionClick}
+              />
+              <div className="hidden lg:block w-px bg-gray-200 dark:bg-gray-800 self-stretch" />
+              <RoleQueueColumn
+                heading="Auditor Queue"
+                subheading="Auditor-review"
+                assigneeLabel="Auditor"
+                waitingKey="auditorWaiting"
+                allocatedKey="auditorAllocated"
+                availableKey="availableAuditors"
+                waiting={data.auditorWaiting}
+                allocated={data.auditorAllocated}
+                available={data.availableAuditors}
+                openSection={openSection}
+                toggle={toggle}
+                dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
+                onQuestionClick={handleQuestionClick}
+              />
+            </div>
           </div>
         ) : null}
       </DialogContent>

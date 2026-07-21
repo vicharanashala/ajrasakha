@@ -191,7 +191,7 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
       {visibleColumns.question && (
         <>
       <div className="mt-1 h-6 flex items-start gap-1.5">
-        {q.tag === "dynamic" && (
+        {(q.tag === "dynamic" || q.auditorReviewType === "dynamic") && (
           <Badge
             variant="outline"
             className="bg-green-500/10 text-green-600 border-green-500/30"

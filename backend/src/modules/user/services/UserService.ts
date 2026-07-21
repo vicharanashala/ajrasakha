@@ -258,14 +258,18 @@ export class UserService extends BaseService {
     search: string,
     sort: string,
     filter: string,
+    includeSelf = false,
   ): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
         const users = await this.userRepo.findAll(session);
-        const usersExceptMe = users.filter(
-          user => user._id.toString() !== userId,
-        );
+        // The caller is excluded by default: most manual-select flows are handing work
+        // to someone else (re-routing an answer, reallocating a question). Gate keepers /
+        // auditors assigning a question to themselves pass includeSelf.
+        const usersExceptMe = includeSelf
+          ? users
+          : users.filter(user => user._id.toString() !== userId);
 
         const myPreference: PreferenceDto = {
           state: me?.preference?.state ?? null,
@@ -288,6 +292,7 @@ export class UserService extends BaseService {
             penaltyPercentage: u.penalty ?? 0,
             createdAt: u.createdAt ?? null,
             isBlocked: u.isBlocked,
+            status: u.status ?? 'active',
             special_task_force: u.special_task_force,
             special_task_force_moderator: u.special_task_force_moderator,
             mobile: u.mobile ?? '',
@@ -1021,6 +1026,48 @@ export class UserService extends BaseService {
       throw new InternalServerError(
         `Failed to fetch user history`,
       );
+    }
+  }
+
+  async getWorkingHours(query: { userId: string; startDateTime: string; endDateTime: string }): Promise<{ workingHours: number }> {
+    try {
+      const { userId, startDateTime, endDateTime } = query;
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const user = await this.userRepo.findById(userId, session);
+        if (!user) throw new NotFoundError(`User with ID ${userId} not found`);
+
+        const history = await this.userRepo.getUserHistory({ userId, startDateTime, endDateTime }, session);
+        
+        let totalMs = 0;
+        const startLimit = new Date(startDateTime).getTime();
+        const endLimit = new Date(endDateTime).getTime();
+        const now = new Date().getTime();
+
+        (history.roleHistory || []).forEach((item) => {
+          if (item.isBlocked === true) return;
+
+          const fromTime = item.from ? new Date(item.from).getTime() : null;
+          if (!fromTime) return;
+
+          const toTime = item.to ? new Date(item.to).getTime() : now;
+
+          const start = Math.max(fromTime, startLimit);
+          const end = Math.min(toTime, endLimit);
+
+          if (end > start) {
+            totalMs += end - start;
+          }
+        });
+        const workingHours = Math.round((totalMs / (1000 * 60 * 60)) * 10) / 10;
+        return { workingHours };
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError || error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to calculate working hours: ${error}`);
     }
   }
 }

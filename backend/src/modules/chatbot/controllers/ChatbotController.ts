@@ -475,6 +475,8 @@ export class ChatbotController {
       isPassed?: string;
       tag?: string;
       userId?: string;
+      manualSource?: string;
+      effectiveDate?: string;
     },
     @QueryParam('userId') userId?: string,
   ) {
@@ -561,6 +563,15 @@ export class ChatbotController {
         query.tag,
         scopedUserId,
       );
+    } else if (query.manualSource){
+      return this.chatbotService.getQuestionByManualSource(
+        query.manualSource,
+        query.effectiveDate,
+        query.userType,
+        query.page,
+        query.limit,
+        query.search,
+      )
     } else {
       if(query.period){
         return this.chatbotService.getQueriesByPeriod(
@@ -2237,6 +2248,8 @@ export class ChatbotController {
     @QueryParam('userId') userId?: string,
     @QueryParam('page') page?: number,
     @QueryParam('limit') limit?: number,
+    @QueryParam('manualSource') manualSource?: string,
+    @QueryParam('effectiveDate') effectiveDate?: string,
   ): Promise<any> {
     const start= startDate
         ? new Date(startDate)
@@ -2255,7 +2268,9 @@ export class ChatbotController {
       notificationType,
       userId,
       page,
-      limit
+      limit,
+      manualSource,
+      effectiveDate
     );
   }
 

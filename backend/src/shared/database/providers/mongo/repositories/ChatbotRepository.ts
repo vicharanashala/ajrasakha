@@ -703,7 +703,7 @@ export class ChatbotRepository implements IChatbotRepository {
   private readonly coordinatorsRoles = COORDINATOR_ROLES;
 
   private async getSourceAdherenceStats(
-    source: 'WHATSAPP' | 'AJRASAKHA',
+    source: 'WHATSAPP' | 'AJRASAKHA' | 'MANUAL',
     userType = 'all',
     startTime?: string,
     endTime?: string,
@@ -722,8 +722,17 @@ export class ChatbotRepository implements IChatbotRepository {
     dynamicMarketCount: number;
     dynamicSchemesCount: number;
     markedDuplicateGdbCount: number;
+    nonGdbWithin120: number;
+    manualTotal?: number;
+    agriexpertTotal?: number;
+    outreachTotal?: number;
   }> {
     const matchQuery = buildBaseQuestionMatch(source);
+    if(source === "MANUAL"){
+      matchQuery.source = {
+        $nin: ['AJRASAKHA', 'WHATSAPP'],
+      };    
+    }
     if (startTime || endTime) {
       matchQuery.createdAt = {};
       if (startTime) matchQuery.createdAt.$gte = new Date(startTime);
@@ -945,11 +954,72 @@ export class ChatbotRepository implements IChatbotRepository {
               },
               {$count: 'count'},
             ],
+            nonGdbWithin120: [
+              {
+                $match: {
+                  _statusLower: {
+                    $in: [
+                      "pass",
+                      "dynamic-closed",
+                      "dynamic_closed",
+                      "duplicate_closed",
+                      "duplicate-closed",
+                    ],
+                  },
+                },
+              },
+              {
+                $match: {
+                  _operationalCompletionAt: {$ne: null},
+                },
+              },
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                      {
+                        $lte: [
+                          {
+                            $subtract: [
+                              '$_operationalCompletionAt',
+                              '$createdAt',
+                            ],
+                          },
+                          120 * 60 * 1000,
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+              {
+                $count: "count",
+              },
+            ],
           },
         },
       ],
       {session},
     ).toArray();
+    let manualTotal, agriexpertTotal, outreachTotal;
+    if (source === "MANUAL") {
+      [manualTotal, agriexpertTotal, outreachTotal] =
+        await Promise.all([
+          this.QuestionCollection.countDocuments({
+            ...matchQuery,
+            source: "MANUAL",
+          }),
+          this.QuestionCollection.countDocuments({
+            ...matchQuery,
+            source: "AGRI_EXPERT",
+          }),
+          this.QuestionCollection.countDocuments({
+            ...matchQuery,
+            source: "OUTREACH",
+          }),
+        ]);
+    }
 
     const row = result[0] ?? {};
     return {
@@ -965,6 +1035,10 @@ export class ChatbotRepository implements IChatbotRepository {
       dynamicMarketCount: row.dynamicMarket?.[0]?.count ?? 0,
       dynamicSchemesCount: row.dynamicSchemes?.[0]?.count ?? 0,
       markedDuplicateGdbCount: row.markedDuplicateGdb?.[0]?.count ?? 0,
+      nonGdbWithin120: row.nonGdbWithin120?.[0]?.count ?? 0,
+      manualTotal,
+      agriexpertTotal,
+      outreachTotal
     };
   }
 
@@ -979,7 +1053,7 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.init(source);
       await this.initReviewSystem();
 
-      const [whatsapp, ajrasakha] = await Promise.all([
+      const [whatsapp, ajrasakha, manual] = await Promise.all([
         this.getSourceAdherenceStats(
           'WHATSAPP',
           userType,
@@ -990,6 +1064,14 @@ export class ChatbotRepository implements IChatbotRepository {
         ),
         this.getSourceAdherenceStats(
           'AJRASAKHA',
+          userType,
+          startTime,
+          endTime,
+          source,
+          session,
+        ),
+        this.getSourceAdherenceStats(
+          'MANUAL',
           userType,
           startTime,
           endTime,
@@ -1144,6 +1226,14 @@ export class ChatbotRepository implements IChatbotRepository {
                 100,
             ) / 100
           : 0;
+      const manualAdherencePct =         
+        manual.questionAsked > 0
+          ? Math.round(
+              (manual.answeredWithin120Min / manual.questionAsked) *
+                100 *
+                100,
+            ) / 100
+          : 0;
 
       const startReference = startTime ? new Date(startTime) : new Date();
       const endReference = endTime ? new Date(endTime) : new Date();
@@ -1156,8 +1246,9 @@ export class ChatbotRepository implements IChatbotRepository {
       const hh = String(endIst.getHours()).padStart(2, '0');
       const mm = String(endIst.getMinutes()).padStart(2, '0');
       const date = startIst.toLocaleDateString('en-GB').split('/').join('-');
-      const whatsappNonGdbWithin120 = whatsapp.closedQuestionsCount;
-      const ajrasakhaNonGdbWithin120 = ajrasakha.closedQuestionsCount;
+      const whatsappNonGdbWithin120 = whatsapp.nonGdbWithin120;
+      const ajrasakhaNonGdbWithin120 = ajrasakha.nonGdbWithin120;
+      const manualNonGdbWithin120 = manual.nonGdbWithin120;
 
       return {
         date,
@@ -1165,34 +1256,52 @@ export class ChatbotRepository implements IChatbotRepository {
         timeWindow: `[00:00-${hh}:${mm}]`,
         whatsappQueriesAsked,
         ajrasakhaQueriesAsked,
+        manualQueriesAsked: 0,
         whatsappPushedToReviewer: whatsapp.questionAsked,
         ajrasakhaPushedToReviewer: ajrasakha.questionAsked,
+        manualPushedToReviewer: manual.questionAsked,
         whatsappAnsweredWithin120Min: whatsapp.answeredWithin120Min,
         ajrasakhaAnsweredWithin120Min: ajrasakha.answeredWithin120Min,
+        manualAnsweredWithin120Min: manual.answeredWithin120Min,
         whatsappPassedQuestions: whatsapp.passedQuestionsCount,
         ajrasakhaPassedQuestions: ajrasakha.passedQuestionsCount,
+        manualPassedQuestions: manual.passedQuestionsCount,
         whatsappMarkedDuplicate: whatsapp.markedDuplicateGdbCount,
         ajrasakhaMarkedDuplicate: ajrasakha.markedDuplicateGdbCount,
+        manualMarkedDuplicate: manual.markedDuplicateGdbCount,
         whatsappDynamicWeather,
         ajrasakhaDynamicWeather,
+        manualDynamicWeather: manual.dynamicWeatherCount,
         whatsappDynamicMarket,
         ajrasakhaDynamicMarket,
+        manualDynamicMarket: manual.dynamicMarketCount,
         whatsappDynamicSchemes,
         ajrasakhaDynamicSchemes,
+        manualDynamicSchemes: manual.dynamicSchemesCount,
         whatsappNonGdbWithin120,
         ajrasakhaNonGdbWithin120,
+        manualNonGdbWithin120,
         whatsappInReview: whatsapp.inReviewCount,
         ajrasakhaInReview: ajrasakha.inReviewCount,
+        manualInReview: manual.inReviewCount,
         whatsappOpen: whatsapp.openCount,
         ajrasakhaOpen: ajrasakha.openCount,
+        manualOpen: manual.openCount,
         whatsappDelayed: whatsapp.delayedCount,
         ajrasakhaDelayed: ajrasakha.delayedCount,
+        manualDelayed: manual.delayedCount,
         whatsappAverageResponseMinutes:
           Math.round(whatsapp.averageResponseMinutes * 100) / 100,
         ajrasakhaAverageResponseMinutes:
           Math.round(ajrasakha.averageResponseMinutes * 100) / 100,
+        manualAverageResponseMinutes:
+          Math.round(manual.averageResponseMinutes * 100) / 100,
         whatsappAdherencePct,
         ajrasakhaAdherencePct,
+        manualAdherencePct,
+        manualTotal : manual.manualTotal,
+        agriexpertTotal: manual.agriexpertTotal,
+        outreachTotal: manual.outreachTotal,
       };
     } catch (error) {
       throw new InternalServerError(
@@ -4550,60 +4659,61 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.init(source);
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
 
-      const result = await this.messagesCollection
-        .aggregate(
-          [
-            {
-              $match: {
-                isCreatedByUser: true,
-              },
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              isCreatedByUser: true,
             },
+          },
 
-            ...userTypeLookupStages,
+          ...userTypeLookupStages,
 
-            {
-              $group: {
-                _id: {
-                  $dateToString: {
-                    format: '%Y-%m',
-                    date: '$createdAt',
-                    timezone: '+05:30',
-                  },
-                },
-
-                count: {
-                  $sum: 1,
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
                 },
               },
-            },
 
-            {
-              $project: {
-                month: '$_id',
-                count: 1,
-                _id: 0,
+              count: {
+                $sum: 1,
               },
             },
+          },
 
-            {
-              $sort: {
-                month: 1,
-              },
+          {
+            $project: {
+              month: '$_id',
+              count: 1,
+              _id: 0,
             },
-          ],
-          {session},
-        )
-        .toArray();
+          },
 
-      return result as MonthlyQueryCountEntry[];
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to get monthly query counts: ${error}`,
-      );
-    }
+          {
+            $sort: {
+              month: 1,
+            },
+          },
+        ],
+        {session},
+      )
+      .toArray();
+
+    return result as MonthlyQueryCountEntry[];
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get monthly query counts: ${error}`,
+    );
   }
+}
 
   async getQuerySummaryByPeriod(
     period: 'daily' | 'weekly' | 'monthly',
@@ -18578,6 +18688,8 @@ export class ChatbotRepository implements IChatbotRepository {
     userId?: string,
     page = 1,
     limit = 1000,
+    manualSource?: string,
+    effectiveDate?: string,
   ) {
     try {
       await this.initReviewSystem();
@@ -18821,6 +18933,26 @@ export class ChatbotRepository implements IChatbotRepository {
 
         questionIds = breachedQuestions.map(q => q._id.toString());
       } else if (tag === 'notify') {
+        questionIds = await this.QuestionCollection.find(matchQuery, {
+          projection: {
+            _id: 1,
+          },
+        })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .map(x => x._id.toString())
+          .toArray();
+      } else if (manualSource) {
+        matchQuery.source = manualSource;
+        const parsedEffectiveDate = new Date(`${effectiveDate}T00:00:00+05:30`);
+        if (isNaN(parsedEffectiveDate.getTime())) {
+          throw new BadRequestError('Invalid effectiveDate');
+        }
+        const endOfDay = new Date(`${effectiveDate}T23:59:59.999+05:30`);
+        matchQuery.createdAt = {
+          $gte: parsedEffectiveDate,
+          $lte: endOfDay,
+        };
         questionIds = await this.QuestionCollection.find(matchQuery, {
           projection: {
             _id: 1,
@@ -20105,5 +20237,305 @@ export class ChatbotRepository implements IChatbotRepository {
       page: safePage,
       limit: safeLimit,
     };
+  }
+
+  async getQuestionByManualSource(
+    manualSource: 'MANUAL' | 'AGRI_EXPERT' | 'OUTREACH',
+    effectiveDate: string,
+    userType = 'all',
+    page = 1,
+    limit = 10,
+    search?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedQueryCategoryQuestions> {
+    try {
+      if (!manualSource) {
+        throw new BadRequestError('manualSource is required');
+      }
+
+      if (!effectiveDate) {
+        throw new BadRequestError('effectiveDate is required');
+      }
+
+      await this.initReviewSystem();
+      await this.init('annam');
+
+      const safePage = Math.max(Number(page) || 1, 1);
+      const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+      const skip = (safePage - 1) * safeLimit;
+
+      /*
+      * Base MANUAL filter gives us:
+      * - isTesting != true
+      * - status != non_agri
+      *
+      * We override source below based on manualSource.
+      */
+      const matchQuery: any = buildBaseQuestionMatch('MANUAL');
+
+      // --------------------------------------------------
+      // Manual source
+      // --------------------------------------------------
+
+      matchQuery.source = manualSource;
+
+      // --------------------------------------------------
+      // Effective date
+      // --------------------------------------------------
+
+      const parsedEffectiveDate = new Date(`${effectiveDate}T00:00:00+05:30`);
+
+      if (isNaN(parsedEffectiveDate.getTime())) {
+        throw new BadRequestError('Invalid effectiveDate');
+      }
+
+      const endOfDay = new Date(`${effectiveDate}T23:59:59.999+05:30`);
+
+      matchQuery.createdAt = {
+        $gte: parsedEffectiveDate,
+        $lte: endOfDay,
+      };
+
+      // --------------------------------------------------
+      // User type
+      // --------------------------------------------------
+
+      const userTypeQuery = await this.buildQuestionUserTypeMatchQuery(
+        'annam',
+        userType,
+      );
+
+      if (
+        userTypeQuery &&
+        Object.keys(userTypeQuery).length > 0
+      ) {
+        matchQuery.$and.push(userTypeQuery);
+      }
+
+      console.log("matchQuery----", matchQuery);
+
+      // --------------------------------------------------
+      // Search by user name / email
+      // --------------------------------------------------
+
+      if (search?.trim()) {
+        const escapedSearch = this.escapeRegex(search.trim());
+
+        const matchingUsers = await this.users
+          .find({
+            $or: [
+              {
+                email: {
+                  $regex: escapedSearch,
+                  $options: 'i',
+                },
+              },
+              {
+                name: {
+                  $regex: escapedSearch,
+                  $options: 'i',
+                },
+              },
+              {
+                firstName: {
+                  $regex: escapedSearch,
+                  $options: 'i',
+                },
+              },
+              {
+                lastName: {
+                  $regex: escapedSearch,
+                  $options: 'i',
+                },
+              },
+              {
+                'farmerProfile.farmerName': {
+                  $regex: escapedSearch,
+                  $options: 'i',
+                },
+              },
+            ],
+          })
+          .project({
+            _id: 1,
+          })
+          .toArray();
+
+        const userIds = matchingUsers.map(user =>
+          user._id.toString(),
+        );
+
+        matchQuery.userId = {
+          $in: userIds,
+        };
+      }
+
+      // --------------------------------------------------
+      // Questions
+      // --------------------------------------------------
+
+      const result = await this.QuestionCollection.aggregate(
+        [
+          {
+            $match: matchQuery,
+          },
+
+          {
+            $sort: {
+              createdAt: -1,
+            },
+          },
+
+          {
+            $facet: {
+              data: [
+                {
+                  $skip: skip,
+                },
+                {
+                  $limit: safeLimit,
+                },
+                {
+                  $project: {
+                    _id: 0,
+
+                    questionId: {
+                      $toString: '$_id',
+                    },
+
+                    userId: 1,
+                    threadId: 1,
+                    messageId: 1,
+                    question: 1,
+                    status: 1,
+                    source: 1,
+                    createdAt: 1,
+                    isCustomerNotified: 1,
+
+                    questionType: {
+                      $cond: [
+                        {
+                          $eq: ['$status', 'duplicate'],
+                        },
+                        'duplicate',
+                        'unique',
+                      ],
+                    },
+
+                    district: '$details.district',
+
+                    crop: {
+                      $ifNull: [
+                        '$details.normalised_crop',
+                        '$details.crop',
+                      ],
+                    },
+
+                    village: '$details.village',
+                    block: '$details.block',
+                  },
+                },
+              ],
+
+              metadata: [
+                {
+                  $count: 'total',
+                },
+              ],
+            },
+          },
+        ],
+        {
+          session,
+        },
+      ).toArray();
+
+      // --------------------------------------------------
+      // Pagination metadata
+      // --------------------------------------------------
+
+      const total =
+        result[0]?.metadata?.[0]?.total ?? 0;
+
+      const questions =
+        result[0]?.data ?? [];
+
+      // --------------------------------------------------
+      // Resolve question -> user
+      // --------------------------------------------------
+
+      const {
+        userMap,
+        questionUserMap,
+      } = await this.resolveQuestionUsers(questions);
+
+      // --------------------------------------------------
+      // Enrich questions
+      // --------------------------------------------------
+
+      const enrichedQuestions = questions.map(question => {
+        const resolvedUserId =
+          questionUserMap.get(question.questionId);
+
+        const user = resolvedUserId
+          ? userMap.get(resolvedUserId)
+          : undefined;
+
+        return {
+          ...question,
+
+          userId:
+            resolvedUserId ??
+            (question.userId?.toString
+              ? question.userId.toString()
+              : question.userId),
+
+          farmerName:
+            user?.farmerProfile?.farmerName ??
+            user?.name ??
+            null,
+
+          name:
+            `${user?.name ?? ''} ${user?.lastName ?? ''}`.trim(),
+
+          email:
+            user?.email ?? null,
+
+          village:
+            question.village ??
+            user?.farmerProfile?.villageName,
+
+          block:
+            question.block ??
+            user?.farmerProfile?.blockName,
+
+          district:
+            question.district ??
+            user?.farmerProfile?.district,
+
+          state:
+            user?.farmerProfile?.state,
+        };
+      });
+
+      return {
+        questions: enrichedQuestions,
+        total,
+        totalPages: Math.max(
+          1,
+          Math.ceil(total / safeLimit),
+        ),
+        page: safePage,
+        limit: safeLimit,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+
+      throw new InternalServerError(
+        `Failed to fetch questions for manual source ${manualSource}: ${error}`,
+      );
+    }
   }
 }
