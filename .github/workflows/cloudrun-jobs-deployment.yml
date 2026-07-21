@@ -61,16 +61,16 @@ jobs:
         with:
           job: backup-db
           region: ${{ steps.region.outputs.region }}
-          image: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          image: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_email: backup-db-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
-          args: node build/jobs/backup/run.js
-          memory: 2Gi
-          cpu: 2
-          task_timeout: 3600
-          max_retries: 0
-          parallel: 1
-          wait_until: started
+          flags: |
+            --memory=2Gi
+            --cpu=2
+            --task-timeout=3600
+            --max-retries=0
+            --parallelism=1
+            --set-args=node,build/jobs/backup/run.js
+            --service-account=backup-db-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
           env_vars: |
             NODE_ENV=production
             DB_URL=${{ secrets.DB_URL }}
@@ -148,16 +148,16 @@ jobs:
         with:
           job: gate-keeper-auditor-queue
           region: ${{ steps.region.outputs.region }}
-          image: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          image: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_email: gate-keeper-auditor-queue-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
-          args: node build/jobs/gate-keeper-auditor-queue/run.js
-          memory: 512Mi
-          cpu: 1
-          task_timeout: 60
-          max_retries: 0
-          parallel: 1
-          wait_until: started
+          flags: |
+            --memory=512Mi
+            --cpu=1
+            --task-timeout=60
+            --max-retries=0
+            --parallelism=1
+            --set-args=node,build/jobs/gate-keeper-auditor-queue/run.js
+            --service-account=gate-keeper-auditor-queue-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
           env_vars: |
             NODE_ENV=production
             DB_URL=${{ secrets.DB_URL }}
