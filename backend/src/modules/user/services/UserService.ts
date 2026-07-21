@@ -299,6 +299,7 @@ export class UserService extends BaseService {
               questionId: a.questionId?.toString(),
               status: a.status,
             })),
+            isTrainingUser: u.isTrainingUser ?? false,
           })),
           totalUsers: users.length,
           totalPages: 5,
