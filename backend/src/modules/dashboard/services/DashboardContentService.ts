@@ -104,7 +104,7 @@ export class DashboardContentService implements IDashboardContentService {
     ]);
     const roleCounts = userCounts.roles;
 
-    const { cropData = [], stateData = [], domainData = [] } =
+    const { cropData = [], stateData = [], districtData = [], domainData = [] } =
       analytics ?? ({} as Analytics);
 
     // A bulk update on 2026-06-05 wrote the literal string '$details.domain' into
@@ -117,6 +117,8 @@ export class DashboardContentService implements IDashboardContentService {
     return {
       ...counts,
       statesCovered: stateData.length,
+      // districtData is grouped on state+district, so its length is the district count.
+      districtsCovered: districtData.length,
       cropsCovered: cropData.length,
       domainsCovered: realDomains.length,
       stateData,

@@ -41,7 +41,10 @@ export interface SaturatedCropState {
 }
 
 export interface PublicDashboardStats extends PublicDashboardCounts {
+  /** Distinct states covered (grouped on details.state, casing/placeholders removed). */
   statesCovered: number;
+  /** Distinct districts covered, counted as state+district pairs. */
+  districtsCovered: number;
   cropsCovered: number;
   domainsCovered: number;
   stateData: Analytics['stateData'];

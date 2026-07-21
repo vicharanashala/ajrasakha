@@ -402,6 +402,13 @@ export class Analytics {
   @IsArray()
   stateData!: AnalyticsItem[];
 
+  /** Optional: only the question analytics computes districts; the answer-side
+   *  analytics (moderator activity) has no use for them. */
+  @JSONSchema({description: 'District wise analytics (grouped as state + district)'})
+  @IsArray()
+  @IsOptional()
+  districtData?: AnalyticsItem[];
+
   @JSONSchema({description: 'Domain wise analytics'})
   @IsArray()
   domainData!: AnalyticsItem[];

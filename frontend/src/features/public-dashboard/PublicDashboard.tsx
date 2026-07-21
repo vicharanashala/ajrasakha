@@ -86,11 +86,26 @@ export const PublicDashboard = () => {
         live?.sausCollaborated,
         findStatItem(content?.stats, "sau", "SAUs collaborating"),
       ),
-      states: findStatItem(content?.stats, "state", "States covered"),
-      districts: findStatItem(content?.stats, "district", "Districts covered"),
+      // States / districts covered are derived from the questions themselves (grouped on
+      // details.state and details.district), so they track real coverage rather than an
+      // admin-maintained figure.
+      states: liveStatItem(
+        live?.statesCovered,
+        findStatItem(content?.stats, "state", "States covered"),
+      ),
+      districts: liveStatItem(
+        live?.districtsCovered,
+        findStatItem(content?.stats, "district", "Districts covered"),
+      ),
       villages: findStatItem(content?.stats, "village", "Villages covered"),
     }),
-    [content?.stats, live?.expertsEngaged, live?.sausCollaborated],
+    [
+      content?.stats,
+      live?.expertsEngaged,
+      live?.sausCollaborated,
+      live?.statesCovered,
+      live?.districtsCovered,
+    ],
   );
 
   const activeTabLabel =

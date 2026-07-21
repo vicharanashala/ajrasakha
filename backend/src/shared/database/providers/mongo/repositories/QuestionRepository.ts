@@ -4955,6 +4955,28 @@ export class QuestionRepository implements IQuestionRepository {
       {session},
     ).toArray()) as AnalyticsItem[];
 
+    // Aggregate district data. Grouped on state+district so the same district name in
+    // two states counts once per state, then reported as "State — District".
+    const districtDataRaw = (await this.QuestionCollection.aggregate(
+      [
+        {$match: matchStage},
+        {
+          $group: {
+            _id: {state: '$details.state', district: '$details.district'},
+            count: {$sum: 1},
+          },
+        },
+        {
+          $project: {
+            name: {$concat: ['$_id.state', ' — ', '$_id.district']},
+            count: 1,
+            _id: 0,
+          },
+        },
+      ],
+      {session},
+    ).toArray()) as AnalyticsItem[];
+
     // Aggregate domain data
     const domainDataRaw = (await this.QuestionCollection.aggregate(
       [
@@ -5048,6 +5070,7 @@ export class QuestionRepository implements IQuestionRepository {
       analytics: {
         cropData: sortAllItems(cropDataRaw),
         stateData: stateDataRaw,
+        districtData: sortAllItems(districtDataRaw),
         domainData: sortAllItems(domainDataRaw),
         tableData,
       },
