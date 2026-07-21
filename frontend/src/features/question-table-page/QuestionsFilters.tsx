@@ -1228,7 +1228,7 @@ export const QuestionsFilters = ({
           </section>
 
           {/* Section: Download Reports */}
-          {userRole !== "expert" && userRole !== 'tester' && !isTrainingUser && (
+          {userRole !== "expert" && userRole !== 'tester' && (
             <section>
               <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
                 Download Reports
