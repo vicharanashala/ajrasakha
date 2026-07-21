@@ -1996,7 +1996,7 @@ export class UserRepository implements IUserRepository {
     try {
       await this.init();
       await this.usersCollection.updateMany(
-        { role: 'expert', status: { $ne: 'in-active' } },
+        { inactive: { $ne: true } },
         { $set: { isBlocked: false } },
       );
     } catch (error) {
