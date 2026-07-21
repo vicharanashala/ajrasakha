@@ -5,6 +5,9 @@ import path from 'path';
 import archiver from 'archiver';
 import {MongoClient} from 'mongodb';
 import {Bucket, Storage} from '@google-cloud/storage';
+// GCS client uses Application Default Credentials (ADC).
+// - On Cloud Run Jobs: resolves to the Job's service account automatically.
+// - On a VM (legacy): set GOOGLE_APPLICATION_CREDENTIALS env to a key file path.
 import {appConfig} from '#root/config/app.js';
 import {
   sendBackupFailureEmail,
@@ -65,9 +68,10 @@ export const createClusterBackup = async (mongoUri: string) => {
   try {
     const timestamp = getTimestamp();
 
-    const storage = new Storage({
-      keyFilename: appConfig.GOOGLE_APPLICATION_CREDENTIALS,
-    });
+    // No args: GCS client uses Application Default Credentials.
+    // On Cloud Run Jobs → resolves to the Job's service account.
+    // On a VM → picks up GOOGLE_APPLICATION_CREDENTIALS env var if set.
+    const storage = new Storage();
 
     const bucketName = appConfig.GCP_BACKUP_BUCKET;
     const bucket = storage.bucket(bucketName);
