@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { IUser } from "@/types";
 import { useDebounce } from "@/hooks/ui/useDebounce";
+import { canManageUsers } from "@/lib/roles";
 import {
   Filter,
   MapPin,
@@ -46,7 +47,9 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [limit, setLimit] = useState(12);
   const [showSensitive, setShowSensitive] = useState(false);
   const isAdmin = currentUser?.role === "admin";
-  const isModerator = currentUser?.role === "moderator" || currentUser?.role === "tester";
+  // Every non-admin role with management access (moderator, tester, gate keeper, auditor)
+  // gets the same Expert Management view, so this can't drift from the tab's allowlist.
+  const isModerator = !isAdmin && canManageUsers(currentUser?.role);
 
   const { data: adminUsers, isLoading: adminLoading } = useAdminGetAllUsers(
   page,
