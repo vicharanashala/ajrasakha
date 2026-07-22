@@ -90,6 +90,8 @@ export interface IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    month?: string,
+    coordinatorId?: string,
   ): Promise<DashboardResponse>;
   getKpiSummary(source?: string, userType?: string): Promise<KpiSummary>;
   getDailyActiveUsers(
@@ -435,10 +437,10 @@ export interface IChatbotService {
       userType: string,
       startDate?: Date,
       endDate?: Date
-    ): Promise<any>
-  getUserProfile(userId: string, startDate?: string, endDate?: string): Promise<any>
-  assignUsers(userId: string, targetIds: string[]): Promise<any>
-  unAssignUsers(userId: string, targetIds: string[]): Promise<any>
+    ): Promise<any>;
+  getUserProfile(userId: string, startDate?: string, endDate?: string): Promise<any>;
+  assignUsers(userId: string, targetIds: string[]): Promise<any>;
+  unAssignUsers(userId: string, targetIds: string[]): Promise<any>;
 
     getVillageUserCounts(
     state: string,

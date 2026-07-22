@@ -59,6 +59,7 @@ import {
   FarmerDashboardAnalytics,
   type FarmerDashboardData,
 } from "@/features/chatbotDashboard/components/FarmerDashboardAnalytics";
+import { CoordinatorKpiCards } from "@/features/chatbotDashboard/components/CoordinatorKpiCards";
 import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
 import {
   CoordinatorNotificationDialog,
@@ -540,12 +541,15 @@ function RouteComponent() {
       </header>
       <main className="space-y-8">
         {showCoordinatorSummary ? (
-          <CoordinatorDashboardSummary
-            user={userProfile}
-            assignedCount={assignedUsers.length}
-            availableCount={availableUsers.length}
-            isReadOnly={isCoordinatorReadOnlyView}
-          />
+          <>
+            <CoordinatorDashboardSummary
+              user={userProfile}
+              assignedCount={assignedUsers.length}
+              availableCount={availableUsers.length}
+              isReadOnly={isCoordinatorReadOnlyView}
+            />
+            <CoordinatorKpiCards userId={userId} />
+          </>
         ) : (
         <FarmerDetailsContent
           user={userProfile}

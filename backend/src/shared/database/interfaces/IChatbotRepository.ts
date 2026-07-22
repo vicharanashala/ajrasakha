@@ -1128,6 +1128,10 @@ export interface IChatbotRepository {
     startDate?: string,
     endDate?: string,
   ) : Promise<any>
+  getCoordinatorKpiSummary(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<any>;
   assignUsers(userId: string, targetIds: string[]): Promise<any>
   unAssignUsers(userId: string, targetIds: string[]): Promise<any>
 

@@ -807,11 +807,67 @@ export class ChatbotService extends BaseService implements IChatbotService {
     startTime?: string,
     endTime?: string,
     month?: string,
+    coordinatorId?: string,
   ): Promise<DashboardResponse> {
     const currentMonth =
       month ||
       `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     try {
+      if (coordinatorId) {
+        const stats = await this.chatbotRepository.getCoordinatorKpiSummary(coordinatorId);
+        const response: any = {
+          kpi: {
+            dau: stats.totalUsers,
+            dauLastMonthPct: 0,
+            dailyQueries: stats.todayQueries,
+            avgSessionDurationMin: stats.avgSessionDurationMin,
+            csatRating: 0,
+            repeatQueryRatePct: 0,
+            voiceUsageSharePct: 0,
+            totalAppInstalls: stats.totalAppInstalls,
+            inactiveUsersLast3Days: 0,
+            duplicateQuestionsCount: 0,
+            lowFeedbackUsersCount: 0,
+            dauValue: `${stats.dauActiveCount} / ${stats.dauTotalCount}`,
+            queriesValue: String(stats.todayQueries),
+            sessionValue: `${stats.avgSessionDurationMin.toFixed(1)} min`
+          },
+          dau: stats.dauTrend.map((t: any) => ({ day: t.date, count: t.count })),
+          weeklySessionDuration: [],
+          monthlySessionDuration: [],
+          dailyQueries: stats.queriesTrend.map((t: any) => ({ period: t.date, queryCount: t.count })),
+          weeklyQueries: [],
+          monthlyQueries: [],
+          channelSplit: [],
+          voiceAccuracy: [],
+          geo: [],
+          queryCategories: [],
+          ageGroups: [],
+          genderSplit: [],
+          farmingExperience: [],
+          kccAwareness: [],
+          agriAppUsage: [],
+          landHolding: [],
+          platformInstalls: [],
+          feedbackData: {
+            positiveFeedbacks: [],
+            negativeFeedbacks: [],
+            stats: {
+              _id: null,
+              positiveCount: 0,
+              negativeCount: 0,
+              averageRating: 0,
+              totalFeedbacks: 0
+            }
+          },
+          querySummaries: {
+            daily: { label: "Daily", totalQueries: stats.todayQueries },
+            weekly: { label: "Weekly", totalQueries: stats.todayQueries },
+            monthly: { label: "Monthly", totalQueries: stats.todayQueries }
+          }
+        };
+        return response;
+      }
       const [
         kpi,
         dau,
@@ -3785,6 +3841,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Internal Server Error ${error}`)
     }
   }
+
 
   // async getStateQuestionsAndUsersData(state: string, source: string, userType: string): Promise<any> {
   //   try {

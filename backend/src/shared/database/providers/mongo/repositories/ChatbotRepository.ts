@@ -17082,6 +17082,189 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async getHierarchyUserIds(userId: string): Promise<ObjectId[]> {
+    const rootUser = await this.users.findOne({ _id: new ObjectId(userId) });
+    if (!rootUser) return [];
+
+    const allIds: ObjectId[] = [rootUser._id];
+    let queue: ObjectId[] = rootUser.assignedCoordinators || [];
+
+    while (queue.length > 0) {
+      const nextBatch = queue;
+      queue = [];
+      const children = await this.users
+        .find({ _id: { $in: nextBatch } })
+        .project({ _id: 1, assignedCoordinators: 1 })
+        .toArray();
+
+      for (const child of children) {
+        const childId = child._id;
+        if (!allIds.some(id => id.toString() === childId.toString())) {
+          allIds.push(childId);
+        }
+        if (child.assignedCoordinators) {
+          for (const grandChildId of child.assignedCoordinators) {
+            if (
+              !allIds.some(id => id.toString() === grandChildId.toString()) &&
+              !queue.some(id => id.toString() === grandChildId.toString())
+            ) {
+              queue.push(grandChildId);
+            }
+          }
+        }
+      }
+    }
+    return allIds;
+  }
+
+  async getCoordinatorKpiSummary(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<any> {
+    try {
+      await this.init('annam');
+      await this.initReviewSystem();
+
+      const targetUserIds = await this.getHierarchyUserIds(userId);
+      const targetUserIdStrings = targetUserIds.map(id => id.toString());
+
+      const [totalUsers, totalAppInstalls] = await Promise.all([
+        this.users.countDocuments({ _id: { $in: targetUserIds } }, { session }),
+        this.users.countDocuments(
+          {
+            _id: { $in: targetUserIds },
+            farmerProfile: { $exists: true, $ne: null }
+          },
+          { session }
+        )
+      ]);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const activeUsersToday = await this.messagesCollection.distinct('user', {
+        user: { $in: targetUserIdStrings },
+        createdAt: { $gte: today },
+        isCreatedByUser: true,
+        isDeleted: { $ne: true }
+      }, { session });
+
+      const todayQueries = await this.messagesCollection.countDocuments({
+        user: { $in: targetUserIdStrings },
+        createdAt: { $gte: today },
+        isCreatedByUser: true,
+        isDeleted: { $ne: true }
+      }, { session });
+
+      const sessionStats = await this.conversations
+        .aggregate([
+          {
+            $match: {
+              user: { $in: targetUserIdStrings }
+            }
+          },
+          {
+            $project: {
+              durationMs: { $max: [0, { $subtract: ['$updatedAt', '$createdAt'] }] }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              avg: { $avg: '$durationMs' }
+            }
+          }
+        ], { session })
+        .toArray();
+
+      const avgSessionDurationMs = sessionStats[0]?.avg ?? 0;
+      const avgSessionDurationMin = avgSessionDurationMs / 60000;
+
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+      const [dauTrendRaw, queriesTrendRaw] = await Promise.all([
+        this.messagesCollection.aggregate([
+          {
+            $match: {
+              user: { $in: targetUserIdStrings },
+              createdAt: { $gte: thirtyDaysAgo },
+              isCreatedByUser: true,
+              isDeleted: { $ne: true }
+            }
+          },
+          {
+            $group: {
+              _id: {
+                day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+                user: '$user'
+              }
+            }
+          },
+          {
+            $group: {
+              _id: '$_id.day',
+              activeCount: { $sum: 1 }
+            }
+          },
+          { $sort: { _id: 1 } }
+        ], { session }).toArray(),
+
+        this.messagesCollection.aggregate([
+          {
+            $match: {
+              user: { $in: targetUserIdStrings },
+              createdAt: { $gte: thirtyDaysAgo },
+              isCreatedByUser: true,
+              isDeleted: { $ne: true }
+            }
+          },
+          {
+            $group: {
+              _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { _id: 1 } }
+        ], { session }).toArray()
+      ]);
+
+      const dauTrendMap = new Map(dauTrendRaw.map(d => [d._id, d.activeCount]));
+      const queriesTrendMap = new Map(queriesTrendRaw.map(q => [q._id, q.count]));
+
+      const dauTrend = [];
+      const queriesTrend = [];
+
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10);
+        dauTrend.push({
+          date: dateStr,
+          count: dauTrendMap.get(dateStr) ?? 0
+        });
+        queriesTrend.push({
+          date: dateStr,
+          count: queriesTrendMap.get(dateStr) ?? 0
+        });
+      }
+
+      return {
+        totalUsers,
+        totalAppInstalls,
+        dauActiveCount: activeUsersToday.length,
+        dauTotalCount: totalAppInstalls,
+        todayQueries,
+        avgSessionDurationMin,
+        dauTrend,
+        queriesTrend
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get coordinator KPI: ${error}`);
+    }
+  }
+
   private normalizeLocation(value?: string) {
     return (value || '').trim().toLowerCase();
   }

@@ -144,6 +144,8 @@ export class ChatbotController {
       query.userType,
       query.startTime,
       query.endTime,
+      undefined,
+      query.coordinatorId,
     );
   }
 
@@ -2086,6 +2088,7 @@ export class ChatbotController {
       query.endDate,
     );
   }
+
 
   @Patch('/assign-users/:userId')
   @HttpCode(200)
