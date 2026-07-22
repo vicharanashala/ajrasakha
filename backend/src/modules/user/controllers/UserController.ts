@@ -49,6 +49,7 @@ import {
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserEntryResponse,
+  UserReviewLevelItemResponse,
 } from '../../core/classes/validators/UserResponseValidators.js';
 
 @OpenAPI({
@@ -94,11 +95,14 @@ export class UserController {
     return user;
   }
 
-
-  // TODO: Add OpenAPI documentation 200 type definition
   @OpenAPI({
     summary: 'Get current user review level',
     description: 'Retrieves the review level statistics for the current user or moderator based on query parameters.',
+  })
+  @ResponseSchema(UserReviewLevelItemResponse, {
+    statusCode: 200,
+    isArray: true,
+    description: 'User review level statistics retrieved successfully',
   })
   @ResponseSchema(UserErrorResponse, {
     statusCode: 401,

@@ -220,6 +220,46 @@ export class UserNotificationCountResponse {
   count: number;
 }
 
+// ─── User Review Level Item ───────────────────────────────────────────────────
+
+export class UserReviewLevelItemResponse {
+  @JSONSchema({
+    description: 'Name of the review level (e.g. Author, Level 1, Level 2)',
+    example: 'Level 1',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  Review_level: string;
+
+  @JSONSchema({
+    description: 'Total questions allocated at this review level',
+    example: 12,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  count: number;
+
+  @JSONSchema({
+    description: 'Number of questions currently in review at this level',
+    example: 3,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  inReview: number;
+
+  @JSONSchema({
+    description: 'Number of delayed questions at this level',
+    example: 1,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsNumber()
+  delayed: number;
+}
+
 // ─── Export all validators ────────────────────────────────────────────────────
 
 export const USER_RESPONSE_VALIDATORS = [
@@ -230,4 +270,5 @@ export const USER_RESPONSE_VALIDATORS = [
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserNotificationCountResponse,
+  UserReviewLevelItemResponse,
 ];
