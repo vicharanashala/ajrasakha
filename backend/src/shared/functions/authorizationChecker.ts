@@ -14,7 +14,7 @@ export async function authorizationChecker(action): Promise<boolean> {
   // Moderators and Experts: access is gated by activity status, NOT isBlocked —
   // isBlocked is their availability flag (check-in/checkout) and must not deny
   // access. Every other role is unchanged: isBlocked denies access as before.
-  if (decoded.role === 'moderator' || decoded.role === 'expert') {
+  if (decoded.role === 'moderator' || decoded.role === 'expert' || decoded.role === 'gate_keeper' || decoded.role === 'auditor') {
     if (decoded.status === 'in-active') {
       return false
     }
