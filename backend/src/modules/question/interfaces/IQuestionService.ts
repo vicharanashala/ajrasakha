@@ -462,6 +462,8 @@ export interface IQuestionService {
   generateOverallQuestionReport(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ArrayBuffer | null>;
   generateStateCropQuestionReport(filters: {
     state?: string;

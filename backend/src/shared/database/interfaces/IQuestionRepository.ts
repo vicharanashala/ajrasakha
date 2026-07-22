@@ -430,6 +430,8 @@ export interface IQuestionRepository {
   getMonthlyQuestionStats(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<Array<{
     year: number;

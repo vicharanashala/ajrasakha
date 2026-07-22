@@ -5562,12 +5562,16 @@ export class QuestionService extends BaseService implements IQuestionService {
   async generateOverallQuestionReport(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       // Get monthly statistics from the repository
       const stats = await this.questionRepo.getMonthlyQuestionStats(
         startDate,
         endDate,
+        isTrainingUser,
+        isAdmin,
         session,
       );
 

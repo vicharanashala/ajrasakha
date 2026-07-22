@@ -5652,6 +5652,8 @@ export class QuestionRepository implements IQuestionRepository {
   async getMonthlyQuestionStats(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     Array<{
@@ -5694,6 +5696,13 @@ export class QuestionRepository implements IQuestionRepository {
         {
           $match: {
             createdAt: {$gte: defaultStartDate, $lte: defaultEndDate},
+            ...(
+              !isAdmin && isTrainingUser === true
+                ? { isTrainingQuestion: true }
+                : !isAdmin && isTrainingUser === false
+                  ? { isTrainingQuestion: false }
+                  : {}
+            ),
           },
         },
         {
@@ -5715,6 +5724,31 @@ export class QuestionRepository implements IQuestionRepository {
         {
           $match: {
             createdAt: {$gte: defaultStartDate, $lte: defaultEndDate},
+          },
+        },
+
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+
+        {
+          $unwind: '$question',
+        },
+
+        {
+          $match: {
+            ...(
+              !isAdmin && isTrainingUser === true
+                ? { 'question.isTrainingQuestion': true }
+                : !isAdmin && isTrainingUser === false
+                  ? { 'question.isTrainingQuestion': false }
+                  : {}
+            ),
           },
         },
 

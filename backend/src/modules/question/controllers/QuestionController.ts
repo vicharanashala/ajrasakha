@@ -724,6 +724,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin'
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
 
@@ -749,7 +750,7 @@ export class QuestionController {
       },
     };
     try {
-      data = await this.questionService.generateOverallQuestionReport(startDate, endDate);
+      data = await this.questionService.generateOverallQuestionReport(startDate, endDate,user.isTrainingUser??false,isAdmin??false);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
