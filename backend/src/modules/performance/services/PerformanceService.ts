@@ -244,9 +244,9 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getLevelWiseReport(startDate:string,endDate:string): Promise<ArrayBuffer | null> {
+  async getLevelWiseReport(startDate:string,endDate:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<ArrayBuffer | null> {
     return await this._withTransaction(async (session: ClientSession) => {
-      const result = await this.questionSubmissionRepo.getLevelWiseReport(startDate, endDate, session);
+      const result = await this.questionSubmissionRepo.getLevelWiseReport(startDate, endDate, isTrainingUser, isAdmin, session);
       
       if(result.length === 0 ) return null
 

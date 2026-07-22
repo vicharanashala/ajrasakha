@@ -160,6 +160,8 @@ export interface IQuestionSubmissionRepository {
   getLevelWiseReport(
     startDate: string,
     endDate: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<LevelReportStat[]>;
 

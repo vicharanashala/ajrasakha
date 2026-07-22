@@ -236,9 +236,11 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getLevelWiseReport(
+    @CurrentUser() user: IUser,
     @QueryParams() query: {startDate: string; endDate: string},
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
     const startDate = query.startDate;
     const endDate = query.endDate;
     if (!startDate || !endDate) {
@@ -250,6 +252,8 @@ export class PerformanceController {
     const data = await this.performanceService.getLevelWiseReport(
       startDate,
       endDate,
+      user.isTrainingUser ?? false,
+      isAdmin ?? false
     );
     if (!data) {
       response.status(200).json({

@@ -64,7 +64,7 @@ export interface IPerformanceService {
     currentUserId: string
   ): Promise<void>;
 
-  getLevelWiseReport(startDate:string, endDate:string): Promise<ArrayBuffer | null>;
+  getLevelWiseReport(startDate:string, endDate:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<ArrayBuffer | null>;
 
   getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 
