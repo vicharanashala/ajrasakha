@@ -54,6 +54,7 @@ import {
 } from "@/components/atoms/tooltip";
 import { TopRightBadge } from "@/components/NewBadge";
 
+type Source = 'annam' | 'whatsapp' | 'agri_expert';
 
 //shift based time range
 const shiftBasedTimeRange = {
@@ -69,15 +70,19 @@ const formatTime = (timeStr: string) => {
   const ampm = hour >= 12 ? 'PM' : 'AM';
   return `${hour % 12 || 12}:${m} ${ampm}`;
 };
+
 const DownloadShiftWiseReportButton = ({
   closeSideBar,
   userRole,
+  isTrainingUser
 }: {
   closeSideBar: () => void;
   userRole: any;
+  isTrainingUser: boolean;
 }) => {
   const [isDownloading, setIsDownloading] = useState(false);
-  const [source, setSource] = useState<"annam" | "whatsapp" | 'agri_expert'>('annam');
+  
+  const [source, setSource] = useState<Source>(isTrainingUser ? 'agri_expert' : 'annam');
 
   const defaultStartDate = new Date(Date.now());
   // const defaultEndDate = new Date(Date.now());
@@ -485,9 +490,15 @@ const DownloadShiftWiseReportButton = ({
                           px-3
                           text-sm
                         "
-                >
-                  <option value="annam">Annam</option>
-                  <option value="whatsapp">WhatsApp</option>
+                > 
+                {
+                  isTrainingUser === false && (
+                    <>
+                    <option value="annam">Annam</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    </>
+                  )
+                }
                   <option value="agri_expert">AgriExpert</option>
                 </select>
               </div>

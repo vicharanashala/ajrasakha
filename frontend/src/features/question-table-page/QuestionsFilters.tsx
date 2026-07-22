@@ -1274,6 +1274,7 @@ export const QuestionsFilters = ({
                   <DownloadShiftWiseReportButton
                     closeSideBar={() => setIsSidebarOpen(false)}
                     userRole={userRole}
+                    isTrainingUser={isTrainingUser}
                   />
                 </div>
 
