@@ -6,6 +6,7 @@ export { HumanNetwork } from "./HumanNetwork";
 export { ImpactOutreach } from "./ImpactOutreach";
 export { Integrations } from "./Integrations";
 export { KnowledgeEngine } from "./KnowledgeEngine";
+export { SaturatedCrops } from "./SaturatedCrops";
 export { Learning } from "./Learning";
 export { Multilingual } from "./Multilingual";
 export { NarrativeSection } from "./NarrativeSection";

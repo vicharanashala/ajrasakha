@@ -9,14 +9,12 @@ import { OutreachGallery } from "./components/OutreachGallery";
 import { TabPlaceholder } from "./components/TabPlaceholder";
 import {
   AnalyticsMapPublic,
-  Channels,
   // GrowthTimeline,   // temporarily hidden
   CoverageOverview,
   // ImpactOutreach,   // temporarily hidden
   Integrations,
-  // KnowledgeEngine,  // temporarily hidden
-  Learning,
-  Multilingual,
+  // KnowledgeEngine,  // temporarily hidden (demo KCC + maturity content)
+  SaturatedCrops,
   NarrativeSection,
   ReviewWorkflow,
   Roadmap,
@@ -156,6 +154,13 @@ export const PublicDashboard = () => {
               loading={_statsLoading || !live}
             />
             */}
+            {/* Saturated Crops was inside KnowledgeEngine (hidden above); it is live data,
+                so it now renders as its own section. */}
+            <SaturatedCrops
+              saturatedCropsByState={live?.saturatedCropsByState}
+              saturationThreshold={live?.saturationThreshold}
+              loading={_statsLoading || !live}
+            />
             {/* HumanNetwork now renders inside NarrativeSection's right column, above. */}
             <Integrations />
             {/* Temporarily hidden — re-enable when the content is ready.
@@ -164,9 +169,6 @@ export const PublicDashboard = () => {
             <OutreachGallery images={outreachImages} videos={outreachVideos} />
             <TechShowcase />
             <Roadmap />
-            <Multilingual />
-            <Channels />
-            <Learning />
             <ReviewWorkflow />
             {/* Temporarily hidden — re-enable when the content is ready.
             <GrowthTimeline />
