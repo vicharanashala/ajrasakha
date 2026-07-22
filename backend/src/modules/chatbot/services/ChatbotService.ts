@@ -3643,6 +3643,20 @@ export class ChatbotService extends BaseService implements IChatbotService {
         ajrasakhaAverageResponseMinutes: 0,
         whatsappAdherencePct: 0,
         ajrasakhaAdherencePct: 0,
+        manualQueriesAsked: 0,
+        manualPushedToReviewer: 0,
+        manualAnsweredWithin120Min: 0,
+        manualPassedQuestions: 0,
+        manualMarkedDuplicate: 0,
+        manualDynamicWeather: 0,
+        manualDynamicMarket: 0,
+        manualDynamicSchemes: 0,
+        manualNonGdbWithin120: 0,
+        manualInReview: 0,
+        manualOpen: 0,
+        manualDelayed: 0,
+        manualAverageResponseMinutes: 0,
+        manualAdherencePct: 0,
       }));
   }
 
@@ -3866,6 +3880,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       userId?: string,
       page?: number,
       limit?: number,
+      manualSource?: string,
+      effectiveDate?: string,
     ): Promise<any>{
       return this.chatbotRepository.getLifeCycleSummary(
         status,
@@ -3879,6 +3895,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userId,
         page,
         limit,
+        manualSource,
+        effectiveDate,
       );
   }
   async getFeedbackByLocation(source: string, page: number, limit: number, sortBy: string, sortOrder: string, userType: string, rating?: string, state?: string, district?: string, search?: string, startDate?: Date,
@@ -3901,6 +3919,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async getActiveUsersDetailsByQuestions(page: number, limit: number, source: string, userType: string, state?: string, district?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
       try{
       return this.chatbotRepository.getActiveUsersDetailsByQuestions(page, limit, source, userType, undefined, state, district, search, startDate, endDate);
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
+
+  async getQuestionByManualSource( manualSource: string, effectiveDate: string, userType: string, page: number, limit: number, search: string ) : Promise<any> {
+      try{
+      return this.chatbotRepository.getQuestionByManualSource( manualSource, effectiveDate, userType, page, limit, search );
     }catch(error){
       throw new InternalServerError(`Something went wrong ${error}`)
     }

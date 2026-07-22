@@ -499,6 +499,8 @@ export interface IChatbotService {
       userId?: string,
       page?: number,
       limit?: number,
+      manualSource?: string,
+      effectiveDate?: string,
     ): Promise<any>
 
   getFeedbackByLocation(
@@ -536,4 +538,13 @@ export interface IChatbotService {
       startDate?: Date,
       endDate?: Date,
     ): Promise<any>
+
+    getQuestionByManualSource(
+      manualSource: string,
+      effectiveDate: string,
+      userType: string,
+      page: number,
+      limit: number,
+      search?: string,
+    )
 }

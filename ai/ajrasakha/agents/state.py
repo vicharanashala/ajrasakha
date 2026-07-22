@@ -155,6 +155,3 @@ class AjraSakhaState(TypedDict):
     plan: Annotated[Optional[PlannerPlan], merge_plan]
     sanitizer_audit: Annotated[Optional[RetrievalSanitizerAudit], replace_sanitizer_audit]
     golden_retrieval_audit: Annotated[Optional[GoldenRetrievalAudit], replace_golden_retrieval_audit]
-    short_answer: Optional[str]
-    full_answer: Optional[str]
-    answer_shortening_status: Optional[str]

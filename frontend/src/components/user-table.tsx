@@ -43,6 +43,7 @@ import { useToggleRole } from "@/hooks/api/user/useToggleRole";
 import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
 import { useVerifyUser } from "@/hooks/api/user/useVerifyUser";
 import { useToggleSTF } from "@/hooks/api/user/useToggleSTF";
+import { isCoordinatorRole } from "@/lib/roles";
 import AvatarComponent from "./avatar-component";
 
 const truncate = (s: string, n = 80) => {
@@ -592,6 +593,7 @@ const UserRow: React.FC<UserRowProps> = ({
                 </DropdownMenuItem>
               )}
 
+              {isCoordinatorRole(u.role) && (
               <DropdownMenuItem
                 onSelect={(e) => {
                   e.preventDefault();
@@ -608,6 +610,7 @@ const UserRow: React.FC<UserRowProps> = ({
                   View User History
                 </div>
               </DropdownMenuItem>
+              )}
 
               <DropdownMenuItem
                 disabled={u.status === 'in-active' && isBlocked}

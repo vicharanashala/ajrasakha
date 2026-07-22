@@ -146,6 +146,8 @@ export const useQuestionFilter = ({
   isPassed = false,
   tag,
   userId,
+  manualSource,
+  effectiveDate,
 }: {
   category?: string;
   district?: string;
@@ -168,6 +170,8 @@ export const useQuestionFilter = ({
   isPassed?: boolean;
   tag?: string
   userId?: string;
+  manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH";
+  effectiveDate?: string;
 }) => {
   
   return useQuery<QueryCategoryQuestionsResponse>({
@@ -193,6 +197,8 @@ export const useQuestionFilter = ({
     isPassed,
     tag,
     userId,
+    manualSource,
+    effectiveDate,
   ],
     queryFn: () =>
       chatbotService.getQuestionByFilters({
@@ -216,6 +222,8 @@ export const useQuestionFilter = ({
         isPassed,
         tag,
         userId,
+        manualSource,
+        effectiveDate,
       }),
     enabled: enabled && Boolean(category || district || crop || status || true),
   });
@@ -426,6 +434,8 @@ export const useLifeCycleSummary = (
   userId?: string,
   page?: number,
   limit?: number,
+  manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH",
+  effectiveDate?: string,
   enabled=true) => {
   return useQuery({
     queryKey: [
@@ -441,6 +451,8 @@ export const useLifeCycleSummary = (
       userId,
       page,
       limit,
+      manualSource,
+      effectiveDate,
     ],
     queryFn: () => {
       return chatbotService.getLifeCycleSummary(  
@@ -454,7 +466,9 @@ export const useLifeCycleSummary = (
         notificationType,
         userId,
         page,
-        limit);
+        limit,
+        manualSource,
+        effectiveDate);
     },
     enabled,
     refetchOnWindowFocus: false,

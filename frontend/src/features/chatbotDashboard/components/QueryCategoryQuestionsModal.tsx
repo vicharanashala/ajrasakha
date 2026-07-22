@@ -85,6 +85,8 @@ interface QueryCategoryQuestionsModalProps {
   safeNotNotified?: number;
   safeUntracked?: number;
   isIndiaView?: boolean;
+  manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH";
+  effectiveDate?: string;
 }
 
 const PAGE_SIZE = 10;
@@ -121,6 +123,8 @@ export function QueryCategoryQuestionsModal({
   safeNotNotified,
   safeUntracked,
   isIndiaView,
+  manualSource,
+  effectiveDate
 }: QueryCategoryQuestionsModalProps) {
   const { setSelectedQuestionId, setView } = useSelectedQuestion();
 
@@ -170,6 +174,8 @@ export function QueryCategoryQuestionsModal({
     isPassed,
     tag,
     userId,
+    manualSource,
+    effectiveDate
   });
 
   const isMapView = isIndiaView ?? (!!state || !!district);
@@ -583,6 +589,8 @@ export function QueryCategoryQuestionsModal({
           safeNotified={safeNotified}
           safeNotNotified={safeNotNotified}
           safeUntracked={safeUntracked}
+          manualSource={manualSource}
+          effectiveDate={effectiveDate}
         />
 
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">

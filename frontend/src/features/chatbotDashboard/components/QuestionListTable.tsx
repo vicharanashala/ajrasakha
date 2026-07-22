@@ -80,6 +80,8 @@ type QuestionListTableProps<T> = {
   safeNotified?: number,
   safeNotNotified?: number,
   safeUntracked?: number,
+  manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH",
+  effectiveDate?: string,
 };
 
 const alignClasses = {
@@ -158,6 +160,8 @@ export function QuestionListTable<T>({
   safeNotified,
   safeNotNotified,
   safeUntracked,
+  manualSource,
+  effectiveDate,
 }: QuestionListTableProps<T>) {
   // console.log("notificationType----", notificationType, tag, status);
   const [sortKey, setSortKey] = useState(initialSortKey);
@@ -432,6 +436,8 @@ export function QuestionListTable<T>({
             setSummaryLimit(limit);
             setSummaryPage(1);
         }}
+        manualSource={manualSource}
+        effectiveDate={effectiveDate}
       />)}
       {(viewMode === "table") && (shouldPaginate && totalPages > 1) && (
         <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-[#2a2a2a]">
