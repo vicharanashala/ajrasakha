@@ -10,11 +10,11 @@ import { TabPlaceholder } from "./components/TabPlaceholder";
 import {
   AnalyticsMapPublic,
   Channels,
-  GrowthTimeline,
+  // GrowthTimeline,   // temporarily hidden
   CoverageOverview,
-  ImpactOutreach,
+  // ImpactOutreach,   // temporarily hidden
   Integrations,
-  KnowledgeEngine,
+  // KnowledgeEngine,  // temporarily hidden
   Learning,
   Multilingual,
   NarrativeSection,
@@ -46,7 +46,9 @@ export const PublicDashboard = () => {
 
   // ---- live data -----------------------------------------------------------
   const { data: content } = useGetDashboardContent();
-  const { data: live, isLoading: statsLoading } = useGetPublicStats();
+  // isLoading is only consumed by KnowledgeEngine, which is temporarily hidden — keep the
+  // destructure (prefixed) so re-enabling that section needs no change here.
+  const { data: live, isLoading: _statsLoading } = useGetPublicStats();
   const { data: counts } = useGetPublicCounts(); // seeded by fetch, kept live by the socket
   // Pushes count updates into the query above (change-stream driven); the returned
   // status drives the live indicator between the header and the carousel.
@@ -147,14 +149,18 @@ export const PublicDashboard = () => {
               cropsCovered={live?.cropsCovered}
               domainsCovered={live?.domainsCovered}
             />
+            {/* Temporarily hidden — re-enable when the content is ready.
             <KnowledgeEngine
               saturatedCropsByState={live?.saturatedCropsByState}
               saturationThreshold={live?.saturationThreshold}
-              loading={statsLoading || !live}
+              loading={_statsLoading || !live}
             />
+            */}
             {/* HumanNetwork now renders inside NarrativeSection's right column, above. */}
             <Integrations />
+            {/* Temporarily hidden — re-enable when the content is ready.
             <ImpactOutreach />
+            */}
             <OutreachGallery images={outreachImages} videos={outreachVideos} />
             <TechShowcase />
             <Roadmap />
@@ -162,7 +168,9 @@ export const PublicDashboard = () => {
             <Channels />
             <Learning />
             <ReviewWorkflow />
+            {/* Temporarily hidden — re-enable when the content is ready.
             <GrowthTimeline />
+            */}
           </main>
         </>
       ) : (

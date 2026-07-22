@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { SectionHead } from "../components/SectionHead";
-import { workflowSteps } from "../data/dashboardData";
 
 /** Animation states for each workflow step */
 type StepStatus = "pending" | "active" | "approved" | "rejected" | "modified";
@@ -13,41 +12,73 @@ const workflowDescriptions: Record<string, string> = {
   "Reviewer 1": "First reviewer validates answer accuracy and completeness",
   "Reviewer 2": "Second reviewer verifies technical correctness and recommendations",
   "Reviewer 3": "Third reviewer ensures quality standards and consistency",
+  "Reviewer 4": "A further reviewer from the queue — after a rejection or modification the answer is sent to the NEXT reviewers, not back to the ones who already saw it",
   "Moderator Approval": "Final review by moderator before entering the knowledge base",
   "Golden Database": "Validated Q&A pair stored in Golden Database for future farmer queries",
 };
+
+/** Boxes for the happy path. */
+const BASE_STEPS = [
+  "Question Submitted", "AI Processing", "Author",
+  "Reviewer 1", "Reviewer 2", "Reviewer 3",
+  "Moderator Approval", "Golden Database",
+];
+
+/**
+ * Boxes for the rejection / modification paths. Once Reviewer 1 rejects or modifies, the
+ * approval count drops to 0 and the answer goes to the NEXT reviewers in the queue — so
+ * these flows carry a fourth reviewer box rather than looping back to Reviewer 1.
+ */
+const RETRY_STEPS = [
+  "Question Submitted", "AI Processing", "Author",
+  "Reviewer 1", "Reviewer 2", "Reviewer 3", "Reviewer 4",
+  "Moderator Approval", "Golden Database",
+];
 
 /** Simulated review events for demo */
 const demoScenarios = [
   {
     name: "Standard Approval Flow",
     description: "3 consecutive approvals → Golden Database",
+    labels: BASE_STEPS,
     steps: [0, 1, 2, 3, 4, 5, 6, 7],
     approvals: [3, 4, 5],
     type: "approval" as const,
+    resetAtVisit: undefined as number | undefined,
   },
   {
     name: "Rejection → New Answer",
-    description: "Reviewer rejects → Author creates new answer → Next reviewer",
-    steps: [0, 1, 2, 3, 3, 4, 5, 6, 7],
-    approvals: [3, 4, 5],
+    description:
+      "Reviewer 1 rejects → Author writes a new answer → count resets to 0 → the NEXT 3 reviewers must all approve",
+    labels: RETRY_STEPS,
+    // 3 = Reviewer 1 rejects, 2 = Author writes the new answer, then 4/5/6 = Reviewer 2, 3, 4.
+    steps: [0, 1, 2, 3, 2, 4, 5, 6, 7, 8],
+    approvals: [3, 4, 5, 6],
     type: "rejection" as const,
     rejectAt: 3,
+    // Position in `steps` after which the consecutive-approval counter goes back to zero:
+    // a rejection creates a brand-new answer document, whose approvalCount starts at 0.
+    resetAtVisit: 3,
   },
   {
     name: "Modification → Next Reviewer",
-    description: "Reviewer requests modification → Author modifies → Next reviewer",
-    steps: [0, 1, 2, 3, 4, 4, 5, 6, 7],
-    approvals: [3, 4, 5],
+    description:
+      "Reviewer 1 modifies the answer → count resets to 0 → the NEXT 3 reviewers must all approve",
+    labels: RETRY_STEPS,
+    // The reviewer edits the answer in place (no Author step), then 4/5/6 = Reviewer 2, 3, 4.
+    steps: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+    approvals: [3, 4, 5, 6],
     type: "modification" as const,
-    modifyAt: 4,
+    modifyAt: 3,
+    // A modification calls resetApprovalCount() on the answer, so the tally restarts.
+    resetAtVisit: 3,
   },
 ];
 
 export const ReviewWorkflow = () => {
   const [scenarioIndex, setScenarioIndex] = useState(0);
   const [stepStates, setStepStates] = useState<StepStatus[]>(
-    workflowSteps.map(() => "pending")
+    demoScenarios[0].labels.map(() => "pending")
   );
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedStep, setSelectedStep] = useState<number | null>(null);
@@ -65,7 +96,7 @@ export const ReviewWorkflow = () => {
 
   // Reset animation when scenario changes
   useEffect(() => {
-    setStepStates(workflowSteps.map(() => "pending"));
+    setStepStates(demoScenarios[scenarioIndex].labels.map(() => "pending"));
     setCurrentStep(0);
     setSelectedStep(null);
     setIsPaused(false);
@@ -120,12 +151,25 @@ export const ReviewWorkflow = () => {
         return newStates;
       });
 
-      // Check for approvals (Reviewer 1, 2, 3)
-      if (scenario.approvals.includes(step)) {
+      // A rejection or modification invalidates the tally: the answer either is replaced
+      // (new document, approvalCount 0) or has resetApprovalCount() called on it, so the
+      // chain must earn 3 FRESH consecutive approvals. Reset before counting this step.
+      const isResetVisit =
+        scenario.resetAtVisit !== undefined && stepIndex === scenario.resetAtVisit;
+      if (isResetVisit) {
+        approvals = 0;
+        setApprovalCount(0);
+        pausedApprovalsRef.current = 0;
+        setShowApprovalCycle(false);
+      }
+
+      // Check for approvals (Reviewer 1, 2, 3). The reviewer who rejects/modifies at the
+      // reset visit is not an approval, so it is skipped here.
+      if (!isResetVisit && scenario.approvals.includes(step)) {
         approvals++;
         setApprovalCount(approvals);
         pausedApprovalsRef.current = approvals;
-        
+
         // Show approval cycle indicator after 3 consecutive approvals
         if (approvals >= 3) {
           setShowApprovalCycle(true);
@@ -195,12 +239,25 @@ export const ReviewWorkflow = () => {
         return newStates;
       });
 
-      // Check for approvals (Reviewer 1, 2, 3)
-      if (scenario.approvals.includes(step)) {
+      // A rejection or modification invalidates the tally: the answer either is replaced
+      // (new document, approvalCount 0) or has resetApprovalCount() called on it, so the
+      // chain must earn 3 FRESH consecutive approvals. Reset before counting this step.
+      const isResetVisit =
+        scenario.resetAtVisit !== undefined && stepIndex === scenario.resetAtVisit;
+      if (isResetVisit) {
+        approvals = 0;
+        setApprovalCount(0);
+        pausedApprovalsRef.current = 0;
+        setShowApprovalCycle(false);
+      }
+
+      // Check for approvals (Reviewer 1, 2, 3). The reviewer who rejects/modifies at the
+      // reset visit is not an approval, so it is skipped here.
+      if (!isResetVisit && scenario.approvals.includes(step)) {
         approvals++;
         setApprovalCount(approvals);
         pausedApprovalsRef.current = approvals;
-        
+
         // Show approval cycle indicator after 3 consecutive approvals
         if (approvals >= 3) {
           setShowApprovalCycle(true);
@@ -306,7 +363,7 @@ export const ReviewWorkflow = () => {
 
         {/* Main Workflow Steps */}
         <div className="workflow">
-          {workflowSteps.map((step, i) => (
+          {currentScenario.labels.map((step, i) => (
             <div key={i} className="wf-step-wrapper">
               {/* Step Card - Clickable to pause and view description */}
               <div
@@ -350,7 +407,7 @@ export const ReviewWorkflow = () => {
               </div>
 
               {/* Arrow between steps */}
-              {i < workflowSteps.length - 1 && (
+              {i < currentScenario.labels.length - 1 && (
                 <div className={`wf-arrow ${stepStates[i] === "active" ? "animating" : ""}`}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M5 12h14M12 5l7 7-7 7" />
@@ -373,9 +430,28 @@ export const ReviewWorkflow = () => {
             )}
           </div>
           <div className="step-desc-content">
-            <h4 className="step-desc-title">{workflowSteps[currentStep]}</h4>
-            <p className="step-desc-text">{workflowDescriptions[workflowSteps[currentStep]]}</p>
+            <h4 className="step-desc-title">{currentScenario.labels[currentStep]}</h4>
+            <p className="step-desc-text">
+              {workflowDescriptions[currentScenario.labels[currentStep]]}
+            </p>
           </div>
+        </div>
+
+        {/* Live tally — makes the reset after a rejection/modification visible: the count
+            drops back to 0/3 and has to be earned again. */}
+        <div className="approval-tally" aria-live="polite">
+          <span className="approval-tally-label">Consecutive approvals</span>
+          <span className="approval-tally-dots">
+            {[1, 2, 3].map((n) => (
+              <span
+                key={n}
+                className={`approval-tally-dot${approvalCount >= n ? " filled" : ""}`}
+              />
+            ))}
+          </span>
+          <span className="approval-tally-count mono">
+            {Math.min(approvalCount, 3)} / 3
+          </span>
         </div>
 
         {/* 3 Consecutive Approval Cycle Indicator */}

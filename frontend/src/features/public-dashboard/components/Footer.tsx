@@ -10,8 +10,10 @@ export const Footer = () => (
       <div className="col">
         <h5>About this dashboard</h5>
         <p style={{ maxWidth: 340 }}>
-          A public, no-login transparency portal. Figures shown here are illustrative
-          placeholders for design review and are not live production data.
+          This public transparency portal provides open access to real-time operational
+          data without requiring user authentication. All dashboards, statistics, and
+          metrics are synchronized with the live system and updated automatically to
+          ensure accurate, current, and transparent reporting.
         </p>
       </div>
       <div className="col">

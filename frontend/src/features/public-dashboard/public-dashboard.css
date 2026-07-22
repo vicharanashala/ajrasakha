@@ -488,7 +488,12 @@
 .ace-dash .wf-step .n { font-size: 11px; color: var(--green-deep); font-weight: 800; }
 .ace-dash .wf-step:last-child .n { color: rgba(255, 255, 255, 0.8); }
 .ace-dash .wf-step .t { font-size: 14px; margin-top: 8px; font-weight: 700; }
-.ace-dash .wf-arrow { position: absolute; right: -21px; top: 50%; transform: translateY(-50%); z-index: 2; color: var(--ink-soft); font-size: 14px; }
+/* NOTE: the old absolutely-positioned .wf-arrow rule was removed here. Arrows used to
+   be children of a position:relative .wf-step; they are now flex siblings inside
+   .wf-step-wrapper (see the .wf-arrow rule further down). The stale rule still won
+   for `position/right/top` (the newer rule declares neither), so every arrow was
+   absolutely positioned against .workflow-container and they all stacked on top of
+   each other at its right edge, outside the step row. */
 
 /* ---------- ANIMATED WORKFLOW ---------- */
 .ace-dash .workflow-container {
@@ -1981,4 +1986,45 @@
 
 @media (max-width: 640px) {
   .ace-dash .live-strip-note { display: none; }
+}
+
+/* ── Review workflow: live consecutive-approval tally ──
+   A rejection replaces the answer (new doc, approvalCount 0) and a modification calls
+   resetApprovalCount(), so the chain must earn 3 FRESH approvals. Showing the running
+   count makes that reset visible instead of implied. */
+.ace-dash .approval-tally {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 14px 0 4px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.ace-dash .approval-tally-label {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 11px;
+}
+.ace-dash .approval-tally-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+.ace-dash .approval-tally-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--green);
+  background: transparent;
+  /* Filling and emptying both animate, so the reset reads as a deliberate step. */
+  transition: background 0.35s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.ace-dash .approval-tally-dot.filled {
+  background: var(--green);
+  transform: scale(1.15);
+}
+.ace-dash .approval-tally-count {
+  font-weight: 700;
+  color: var(--green-deep);
 }
