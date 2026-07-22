@@ -433,12 +433,12 @@ export function DetailSidebar({
                   </div>
                 }
               />
-            ) : (
+            ) : (!startDate &&
               <StatCard
                 label="Todays Questions"
                 value={
                   isIndiaView
-                    ? analyticsData[analyticsData?.length - 1].totalQuestions
+                    ? analyticsData[analyticsData?.length - 1]?.totalQuestions
                     : 0
                 }
                 tooltip={
@@ -488,7 +488,7 @@ export function DetailSidebar({
               />
             )}
 
-            {source === "whatsapp" && (
+            {source === "whatsapp" && !startDate && (
               <StatCard
                 label="Weekly Questions"
                 value={
@@ -592,7 +592,7 @@ export function DetailSidebar({
                   </div>
                 }
               />
-            ) : source === "whatsapp" ? (
+            ) : source === "whatsapp" && !startDate ?  (
               <StatCard
                 label="Monthly Questions"
                 value={
