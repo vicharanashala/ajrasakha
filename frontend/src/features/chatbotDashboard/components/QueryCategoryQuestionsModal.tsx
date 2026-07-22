@@ -66,8 +66,8 @@ interface QueryCategoryQuestionsModalProps {
   // source? : string;
   userType?: string;
   isQueryCategory?: boolean;
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: string;
+  endDate?: string;
   onClose: () => void;
   isPassed?: boolean;
   tag?: string;
@@ -148,7 +148,6 @@ export function QueryCategoryQuestionsModal({
 
     return () => clearTimeout(timer);
   }, [searchTerm]);
-
   const { data, isLoading, isError, isFetching } = useQuestionFilter({
     category,
     district,
@@ -175,9 +174,7 @@ export function QueryCategoryQuestionsModal({
 
   const isMapView = isIndiaView ?? (!!state || !!district);
 
-  console.log("State", state, " district", district)
-
-  console.log("Map view is", isMapView)
+ 
 
   const columns = useMemo<
     QuestionListColumn<QueryCategoryQuestionEntry>[]

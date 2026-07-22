@@ -35,6 +35,7 @@ import { useUserMertices } from "@/features/chatbotDashboard/hooks/useDashboardD
 import { FeedbackUsersModal } from "@/features/chatbotDashboard/FeedbackUsersModal";
 import { useClosedQuestionLocation } from "@/features/chatbotDashboard/hooks/useFeedbackUsers";
 import { ClosedInLastTwoHoursCard } from "@/features/chatbotDashboard/ClosedInLastTwoHoursCard";
+import type { DateRange } from "react-day-picker";
 interface MapFeatureBase {
   type: string;
   properties: Record<string, unknown>;
@@ -73,6 +74,7 @@ interface DetailSidebarProps {
   weeklyAnalyticsData?: any;
   monthlyAnalyticsData?: any;
   questionStatusRange?: any;
+  questionStatusDateRange?: DateRange | undefined
 }
 
 export function DetailSidebar({
@@ -103,6 +105,7 @@ export function DetailSidebar({
   weeklyAnalyticsData,
   monthlyAnalyticsData,
   questionStatusRange,
+  questionStatusDateRange
 }: DetailSidebarProps) {
   const [isPassed, setIsPassed] = useState(false);
   const [showActiveUsersModal, setShowActiveUsersModal] = useState(false);
@@ -130,6 +133,8 @@ export function DetailSidebar({
     userType,
     state: selectedState ?? undefined,
     district: selectedDistrict ?? undefined,
+    startDate: questionStatusRange.startTime,
+    endDate: questionStatusRange.endTime,
     enabled: !isIndiaView,
   });
 
@@ -213,18 +218,17 @@ export function DetailSidebar({
 
   const safeTotalClosed = closedData?.totalClosedCount ?? 0;
 
-  const totalPassed = closedData?.totalPassCount ?? 0;
+  const totalPassed = closedData?.totalPassCount+closedData?.totalDuplicateClosedCount+closedData?.totalDynamicClosedCount;
 
-  const passedInLastTwoHours = closedData?.passInTwoHoursCount ?? 0;
+  const passedInLastTwoHours = closedData?.passInTwoHoursCount + closedData?.duplicateClosedInTwoHoursCount + closedData?.dynamicClosedInTwoHoursCount;
 
-  const combinedPct =
-    ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
-      100 || 0;
-  console.log(
-    "Start and end is",
-    questionStatusRange.startTime,
-    questionStatusRange.endTime,
-  );
+  const closedWithInTwoHoursPct = safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
+
+    const passedPct =
+    totalPassed > 0 ? (passedInLastTwoHours / totalPassed) * 100 : 0;
+
+  const combinedPct = safeTotalClosed > 0 && totalPassed > 0 ? (closedWithInTwoHoursPct + passedPct) / 2
+    : (safeTotalClosed > 0 ? closedWithInTwoHoursPct : passedPct);
 
   useEffect(() => {
     if (
@@ -639,6 +643,9 @@ export function DetailSidebar({
                     passedInLastTwoHours={passedInLastTwoHours}
                     totalPassed={totalPassed}
                     isMapComponent={true}
+                    dateRange={questionStatusDateRange}
+                    state= {selectedState ?? undefined}
+                    district= {selectedDistrict ?? undefined}
                   />
                 </div>
               </div>

@@ -298,7 +298,7 @@ export class ChatbotService {
     const params = new URLSearchParams();
     if (category) params.append("category", category);
     if (district) params.append("district", district);
-    if (state) params.append("state", state);
+    if (state) params.append("state", state); 
     if (crop) params.append("crop", crop);
     if (crops?.length) params.append("crops", crops?.join(","));
     if (status) params.append("status", status);
