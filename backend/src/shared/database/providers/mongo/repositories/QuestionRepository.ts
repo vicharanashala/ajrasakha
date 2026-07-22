@@ -6422,6 +6422,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     openAtMidnight: number;
@@ -6455,6 +6457,13 @@ export class QuestionRepository implements IQuestionRepository {
         : source === 'whatsapp'
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
+    
+    const trainingFilter =
+      !isAdmin && isTrainingUser === true
+        ? { isTrainingQuestion: true }
+        : !isAdmin && isTrainingUser === false
+          ? { isTrainingQuestion: false }
+          : {};
 
     const [
       openAtMidnight,
@@ -6473,6 +6482,7 @@ export class QuestionRepository implements IQuestionRepository {
             $lte: end,
           },
           source: sourceFilter,
+           ...trainingFilter,
           $or: [
             { closedAt: null },
             { closedAt: { $gte: midnight } },
@@ -6489,6 +6499,7 @@ export class QuestionRepository implements IQuestionRepository {
             $lte: end,
           },
           source: sourceFilter,
+           ...trainingFilter,
           closedAt: {
             $gte: midnight,
             $lt: sixAM,
@@ -6508,6 +6519,7 @@ export class QuestionRepository implements IQuestionRepository {
           },
 
           source: sourceFilter,
+           ...trainingFilter,
           
           ...createdAtShiftFilter,
         },
@@ -6527,6 +6539,7 @@ export class QuestionRepository implements IQuestionRepository {
           },
 
           source: sourceFilter,
+           ...trainingFilter,
 
           ...closedAtShiftFilter,
         },
@@ -6555,6 +6568,7 @@ export class QuestionRepository implements IQuestionRepository {
               },
 
               source: sourceFilter,
+               ...trainingFilter,
 
               ...createdAtShiftFilter,
             },
@@ -6603,6 +6617,7 @@ export class QuestionRepository implements IQuestionRepository {
               },
 
               source: sourceFilter,
+               ...trainingFilter,
 
               ...createdAtShiftFilter,
             },

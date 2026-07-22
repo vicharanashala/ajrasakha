@@ -302,9 +302,9 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedMetrics(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getShiftBasedMetrics(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 

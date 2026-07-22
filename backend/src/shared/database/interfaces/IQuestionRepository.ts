@@ -512,6 +512,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>;
 
