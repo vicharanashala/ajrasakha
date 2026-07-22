@@ -1,12 +1,19 @@
 {
+  "scripts": {
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:report": "npx playwright show-report"
+  },
   "dependencies": {
     "pdfkit": "^0.18.0",
     "plivo": "^4.77.1",
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/ws": "^8.18.1",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
     "http-proxy-middleware": "^4.0.0",
     "pdfkit": "^0.18.0"
   }
