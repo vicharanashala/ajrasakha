@@ -1,8 +1,8 @@
 import { MongoClient } from 'mongodb';
 
 // Connection URIs - Update these with your actual credentials/URIs
-const STAGING_URI = 'mongodb+srv://reviewer_system_staging:4LiOJhZY1p4ih2jn@staging.1fo96dy.mongodb.net/?appName=staging';
-const PROD_URI = 'mongodb+srv://reviewer_system_production:aElGucoOKT8ujHre@staging.1fo96dy.mongodb.net/?appName=staging';
+const STAGING_URI = '';
+const PROD_URI = '';
 
 // Explicit Database Names
 const STAGING_DB_NAME = 'ajrasakha-staging';
