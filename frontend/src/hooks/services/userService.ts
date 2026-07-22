@@ -31,8 +31,12 @@ export class UserService {
     return apiFetch<IUser>(`${this._baseUrl}/me`);
   }
 
-  async useGetAllUsers(): Promise<IUsersNameResponse | null> {
-    return apiFetch<IUsersNameResponse>(`${this._baseUrl}/all`);
+  /** `includeSelf` keeps the caller in the list — for flows where you may pick yourself
+   *  (a gate keeper / auditor taking a question). Omitted, the caller is excluded. */
+  async useGetAllUsers(includeSelf = false): Promise<IUsersNameResponse | null> {
+    return apiFetch<IUsersNameResponse>(
+      `${this._baseUrl}/all${includeSelf ? "?includeSelf=true" : ""}`,
+    );
   }
 
   /** All moderators ({_id, name, email}) — used for the report's moderator filter. */

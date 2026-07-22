@@ -816,6 +816,7 @@ export function AnnamDashboard_dev({
                                 isResponseAdherenceLoading ||
                                 isResponseAdherenceFetching
                               }
+                              userType={filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[400px]" />

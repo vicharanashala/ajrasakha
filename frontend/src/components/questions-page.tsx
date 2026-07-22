@@ -240,7 +240,11 @@ export const QuestionsPage = ({
       isTesting,
       isTrainingQuestion,
       viewMode,
-      currentUser,
+      // Only the id and role are read above. Depending on the whole `currentUser` object
+      // rebuilt this filter on every window-focus refetch (react-query returns a new
+      // object identity even when the data is unchanged).
+      currentUser?._id,
+      currentUser?.role,
     ],
   );
 
@@ -291,11 +295,23 @@ export const QuestionsPage = ({
     }
   }, [autoOpenQuestionId, selectedQuestionId]);
 
+  // Close the open question when the LIST's filters change, so the detail view never
+  // shows a question that's no longer in the result set.
+  //
+  // Keyed on a serialised snapshot rather than the `filter` object: `filter` is memoised
+  // on `currentUser`, a react-query value that gets a new identity on every window-focus
+  // refetch. Depending on the object meant that simply switching browser tabs and coming
+  // back re-ran this effect and slammed the moderator's open question shut, losing edits.
+  const filterSignature = useMemo(
+    () => JSON.stringify(filter),
+    [filter],
+  );
+
   useEffect(() => {
     if (selectedQuestionId && !autoOpenQuestionId) {
       setSelectedQuestionId("");
     }
-  }, [filter, debouncedSearch]);
+  }, [filterSignature, debouncedSearch]);
 
   useEffect(() => {
     if (debouncedSearch === "") return;

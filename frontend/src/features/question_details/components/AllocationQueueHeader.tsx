@@ -157,10 +157,8 @@ export const AllocationQueueHeader = ({
   // they can turn allocation on/off ahead of time). The "Select Experts" action only
   // shows when the question is actually in a normal expert-answering status — never for
   // triage statuses (dynamic / duplicate / queue_duplicate / auditor_review / non_agri).
-  const canManageAllocation =
-    currentUser.role !== "expert" &&
-    currentUser.role !== "gate_keeper" &&
-    currentUser.role !== "auditor";
+  // Gate keepers and auditors manage expert allocation alongside moderators/admins.
+  const canManageAllocation = currentUser.role !== "expert";
   const isExpertStatus =
     question.status !== "non_agri" &&
     question.status !== "queue_duplicate" &&

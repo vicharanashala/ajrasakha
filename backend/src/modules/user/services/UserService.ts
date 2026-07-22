@@ -258,14 +258,18 @@ export class UserService extends BaseService {
     search: string,
     sort: string,
     filter: string,
+    includeSelf = false,
   ): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
         const users = await this.userRepo.findAll(session);
-        const usersExceptMe = users.filter(
-          user => user._id.toString() !== userId,
-        );
+        // The caller is excluded by default: most manual-select flows are handing work
+        // to someone else (re-routing an answer, reallocating a question). Gate keepers /
+        // auditors assigning a question to themselves pass includeSelf.
+        const usersExceptMe = includeSelf
+          ? users
+          : users.filter(user => user._id.toString() !== userId);
 
         const myPreference: PreferenceDto = {
           state: me?.preference?.state ?? null,

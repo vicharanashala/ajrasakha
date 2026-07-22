@@ -6,10 +6,16 @@
  */
 import { createClusterBackup } from '../../utils/backup-cron.js';
 import { dbConfig } from '../../config/db.js';
+import { loadAppModules } from '../../bootstrap/loadModules.js';
 
 async function main(): Promise<void> {
   console.log('[backup-job] starting MongoDB cluster backup');
   console.log(`[backup-job] target db: ${dbConfig.dbName}`);
+
+  // [DIAG] Diagnostic logs to verify new code is running
+  console.log('[backup-job] before loadAppModules');
+  await loadAppModules('all');
+  console.log('[backup-job] after loadAppModules - container initialized');
 
   await createClusterBackup(dbConfig.url);
 
