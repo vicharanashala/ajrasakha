@@ -7,10 +7,20 @@ import { getContainer } from './loadModules.js';
 // import path from 'path';
 // import fs from 'fs';
 
+const WS_PATH = '/plivo-stream';
+
 export const initWebSocket = (server: Server) => {
-  const wss = new WebSocketServer({
-    server,
-    path: '/plivo-stream',
+  // noServer + manual upgrade routing. Passing { server, path } makes ws attach its own
+  // 'upgrade' listener that calls abortHandshake(400) — destroying the socket — for ANY
+  // path it doesn't own. With a second WebSocketServer on the same HTTP server (the
+  // dashboard one) that meant whichever registered first killed the other's handshakes.
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (req, socket, head) => {
+    const pathname = (req.url ?? '').split('?')[0];
+    // Not ours — leave the socket alone so the other WS server can claim it.
+    if (pathname !== WS_PATH) return;
+    wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
   });
   const plivoService = getContainer().get<PlivoService>(PLIVO_TYPES.PlivoService);
 

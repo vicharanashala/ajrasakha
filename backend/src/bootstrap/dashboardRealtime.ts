@@ -28,7 +28,17 @@ const BROADCAST_DEBOUNCE_MS = 1500;
 const RESUME_DELAY_MS = 5000;
 
 export const initDashboardRealtime = (server: Server): void => {
-  const wss = new WebSocketServer({ server, path: WS_PATH });
+  // noServer + manual upgrade routing — see websocket.ts. Passing { server, path } makes
+  // ws abort (destroy) the handshake for every path it doesn't own, so two path-scoped
+  // servers on one HTTP server kill each other's connections.
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (req, socket, head) => {
+    const pathname = (req.url ?? '').split('?')[0];
+    // Not ours — leave the socket for the other WS server.
+    if (pathname !== WS_PATH) return;
+    wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
+  });
   const container = getContainer();
   const dashboardService = container.get<IDashboardContentService>(
     GLOBAL_TYPES.DashboardContentService,
