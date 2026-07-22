@@ -1073,6 +1073,8 @@ export interface IChatbotRepository {
     isPassed?: string,
     tag?: string,
     userId?: string,
+    state?: string,
+    district?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(
