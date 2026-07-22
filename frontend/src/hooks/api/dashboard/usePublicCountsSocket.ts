@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { env } from "@/config/env";
 import type { PublicDashboardCounts } from "@/hooks/services/publicStatsService";
@@ -25,9 +25,18 @@ function dashboardSocketUrl(): string {
  * recycles idle connections), and closes cleanly on unmount. If the socket never connects,
  * the one-shot fetch in useGetPublicCounts() still provides a value.
  */
-export function usePublicCountsSocket(): void {
+/** Connection state, surfaced so the UI can show an honest "live" indicator. */
+export type LiveStatus = "connecting" | "live" | "offline";
+
+export function usePublicCountsSocket(): {
+  status: LiveStatus;
+  /** When the last push arrived — drives the "updated just now" cue. */
+  lastUpdateAt: number | null;
+} {
   const queryClient = useQueryClient();
   const closedByUs = useRef(false);
+  const [status, setStatus] = useState<LiveStatus>("connecting");
+  const [lastUpdateAt, setLastUpdateAt] = useState<number | null>(null);
 
   useEffect(() => {
     closedByUs.current = false;
@@ -47,6 +56,7 @@ export function usePublicCountsSocket(): void {
 
       socket.onopen = () => {
         retry = 0;
+        setStatus("live");
       };
 
       socket.onmessage = (event) => {
@@ -57,6 +67,7 @@ export function usePublicCountsSocket(): void {
           };
           if (msg.type === "counts" && msg.data) {
             queryClient.setQueryData(PUBLIC_COUNTS_KEY, msg.data);
+            setLastUpdateAt(Date.now());
           }
         } catch {
           // ignore malformed frames
@@ -64,7 +75,9 @@ export function usePublicCountsSocket(): void {
       };
 
       socket.onclose = () => {
-        if (!closedByUs.current) scheduleReconnect();
+        if (closedByUs.current) return;
+        setStatus("offline");
+        scheduleReconnect();
       };
 
       // Let onclose drive reconnection (an error is always followed by a close).
@@ -76,6 +89,7 @@ export function usePublicCountsSocket(): void {
       // 1s, 2s, 4s … capped at 30s.
       const delay = Math.min(30_000, 1000 * 2 ** retry);
       retry += 1;
+      setStatus("connecting");
       reconnectTimer = setTimeout(connect, delay);
     };
 
@@ -87,4 +101,6 @@ export function usePublicCountsSocket(): void {
       ws?.close();
     };
   }, [queryClient]);
+
+  return { status, lastUpdateAt };
 }

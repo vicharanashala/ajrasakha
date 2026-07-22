@@ -4,6 +4,7 @@ import "./public-dashboard.css";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 import { HeroCarousel, type CarouselStatItem } from "./components/HeroCarousel";
+import { LiveBadge } from "./components/LiveBadge";
 import { OutreachGallery } from "./components/OutreachGallery";
 import { TabPlaceholder } from "./components/TabPlaceholder";
 import {
@@ -47,7 +48,9 @@ export const PublicDashboard = () => {
   const { data: content } = useGetDashboardContent();
   const { data: live, isLoading: statsLoading } = useGetPublicStats();
   const { data: counts } = useGetPublicCounts(); // seeded by fetch, kept live by the socket
-  usePublicCountsSocket(); // pushes count updates into the query above (change-stream driven)
+  // Pushes count updates into the query above (change-stream driven); the returned
+  // status drives the live indicator between the header and the carousel.
+  const { status: liveStatus, lastUpdateAt } = usePublicCountsSocket();
 
   // Media is stored inline in the content doc (URLs already signed server-side), so there's
   // no separate /media fetch — everything comes from /content.
@@ -122,6 +125,7 @@ export const PublicDashboard = () => {
 
       {activeTab === "ace" ? (
         <>
+          <LiveBadge status={liveStatus} lastUpdateAt={lastUpdateAt} />
           <HeroCarousel
             stats={{
               totalQuestions: headline?.totalQuestions ?? 0,

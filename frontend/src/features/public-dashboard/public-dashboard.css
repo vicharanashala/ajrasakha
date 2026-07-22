@@ -1893,3 +1893,92 @@
     100%    { opacity: 0; }
   }
 }
+
+/* ── Live feed indicator: sits between the header and the carousel ── */
+.ace-dash .live-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--green-soft, #e4f6ea);
+  border-bottom: 1px solid rgba(34, 165, 90, 0.18);
+}
+
+.ace-dash .live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  background: #fff;
+  color: var(--green-deep, #178a48);
+  border: 1px solid rgba(34, 165, 90, 0.35);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+.ace-dash .live-badge.connecting,
+.ace-dash .live-badge.offline {
+  color: #9a6a12;
+  border-color: rgba(224, 138, 44, 0.4);
+}
+
+.ace-dash .live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green, #22a55a);
+  position: relative;
+}
+/* Steady heartbeat while connected. */
+.ace-dash .live-badge.live .live-dot { animation: live-pulse 1.8s ease-in-out infinite; }
+.ace-dash .live-badge.live .live-dot::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid var(--green, #22a55a);
+  animation: live-ring 1.8s ease-out infinite;
+}
+.ace-dash .live-badge.connecting .live-dot,
+.ace-dash .live-badge.offline .live-dot {
+  background: var(--saffron, #e08a2c);
+  animation: live-blink 1s steps(2, start) infinite;
+}
+
+/* Brief emphasis each time new counts land. */
+.ace-dash .live-badge.flash {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 4px rgba(34, 165, 90, 0.18);
+}
+
+.ace-dash .live-strip-note {
+  font-size: 12px;
+  color: var(--ink-soft, #5a6b62);
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.85); }
+}
+@keyframes live-ring {
+  0%   { opacity: 0.7; transform: scale(0.7); }
+  100% { opacity: 0;   transform: scale(1.6); }
+}
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ace-dash .live-dot,
+  .ace-dash .live-badge.live .live-dot::after { animation: none !important; }
+  .ace-dash .live-badge.flash { transform: none; }
+}
+
+@media (max-width: 640px) {
+  .ace-dash .live-strip-note { display: none; }
+}
