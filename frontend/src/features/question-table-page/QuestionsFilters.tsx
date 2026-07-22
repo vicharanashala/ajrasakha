@@ -1316,7 +1316,7 @@ export const QuestionsFilters = ({
               System
             </h3>
 
-            {userRole !== "expert" && !isTrainingUser && (
+            {userRole !== "expert" && (
               <button
                 onClick={handleClick}
                 className="relative w-full flex items-center justify-between p-4 mb-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
