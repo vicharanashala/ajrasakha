@@ -484,6 +484,7 @@ const tip = `
         weeklyAnalyticsData= {weeklyAnalyticsData}
         monthlyAnalyticsData={monthlyAnalyticsData}
         questionStatusRange={questionStatusRange}
+        questionStatusDateRange={questionStatusDateRange}
       />
     </div>
   );
