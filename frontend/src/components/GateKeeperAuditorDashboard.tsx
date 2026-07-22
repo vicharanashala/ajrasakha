@@ -21,6 +21,9 @@ import { Button } from "./atoms/button";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import type { IUser } from "@/types";
+import { DateRangeFilter } from "./DateRangeFilter";
+import { format } from "date-fns";
+import type { DateRange } from "react-day-picker";
 
 /** GateKeeper/Auditor check-in / check-out control. Kept as its own component so its
  *  per-second timer re-render stays isolated here and does NOT re-render the
@@ -173,6 +176,14 @@ export const GateKeeperAuditorDashboard = ({
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 250);
 
+  // Date filter state
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [dateFilterType, setDateFilterType] = useState<"assigned" | "completed" | "both">("both");
+
+  // Format dates for API
+  const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
+  const endDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
+
   const { data, isLoading, isFetching } = useGetRoleDashboard(
     page,
     QUESTIONS_LIMIT,
@@ -184,8 +195,16 @@ export const GateKeeperAuditorDashboard = ({
           currentUser?.role === "auditor",
       userId,
       role,
+      startDate,
+      endDate,
+      dateFilterType,
     },
   );
+
+  const handleFilterTypeChange = (type: "assigned" | "completed" | "both") => {
+    setDateFilterType(type);
+    setPage(1);
+  };
 
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
   const {
@@ -340,15 +359,56 @@ export const GateKeeperAuditorDashboard = ({
             <h1 className="text-1xl font-bold text-foreground mt-0 mb-3">
               Questions
             </h1>
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search questions..."
-              className="md:w-80"
-            />
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              {/* Date Range Filter using DateRangeFilter component */}
+              <DateRangeFilter
+                advanceFilter={{
+                  startTime: dateRange?.from,
+                  endTime: dateRange?.to,
+                }}
+                handleDialogChange={(key, value) => {
+                  if (key === "startTime" || key === "endTime") {
+                    setDateRange((prev) => ({
+                      from: key === "startTime" ? value : prev?.from,
+                      to: key === "endTime" ? value : prev?.to,
+                    }));
+                    setPage(1);
+                  }
+                }}
+                hideLabel
+              />
+              {/* Filter Type Selection */}
+              <div className="relative">
+                <select
+                  value={dateFilterType}
+                  onChange={(e) => handleFilterTypeChange(e.target.value as "assigned" | "completed" | "both")}
+                  className="h-10 pl-9 pr-8 text-sm border border-input bg-white dark:bg-[#1a1a1a] rounded-md hover:bg-accent/50 transition-colors cursor-pointer appearance-none w-full text-foreground"
+                >
+                  <option value="both">Both</option>
+                  <option value="assigned">Assigned Date</option>
+                  <option value="completed">Completed Date</option>
+                </select>
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                    <path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>
+                  </svg>
+                </div>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </div>
+              </div>
+              <Input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search questions..."
+                className="md:w-80"
+              />
+            </div>
           </div>
           <div className="ml-5 mr-5 mb-2 text-sm text-muted-foreground">
             Total Questions: {data?.totalCount ?? 0}
