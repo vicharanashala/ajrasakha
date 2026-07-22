@@ -483,6 +483,8 @@ export interface IQuestionService {
   generateDuplicateQuestionReport(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ArrayBuffer | null>;
   getMatchedQuestion(questionId, userId);
   getQuestionFeedback(questionId: string): Promise<any>;

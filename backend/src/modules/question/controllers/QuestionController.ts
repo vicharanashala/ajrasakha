@@ -880,6 +880,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
     const auditPayload: ModeratorAuditTrail = {
@@ -896,7 +897,7 @@ export class QuestionController {
       createdAt: new Date(),
     };
     try {
-      const data = await this.questionService.generateDuplicateQuestionReport(startDate, endDate);
+      const data = await this.questionService.generateDuplicateQuestionReport(startDate, endDate, user.isTrainingUser ?? false, isAdmin ?? false);
       if (!data) {
         this.auditTrailsService.createAuditTrail({
           ...auditPayload,

@@ -5857,6 +5857,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   async generateDuplicateQuestionReport(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       if (!startDate || !endDate) {
@@ -5869,6 +5871,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         await this.duplicateQuestionRepository.findDuplicatesByDateRange(
           startDate,
           endDate,
+          isTrainingUser,
+          isAdmin,
           session,
         );
 
