@@ -239,9 +239,7 @@ export function AnnamDashboard_dev({
   const [closed2hSource, setClosed2hSource] = useState<
     "both" | "annam" | "whatsapp"
   >("both");
-  const [questionStatusSource, setQuestionStatusSource] = useState<
-    "both" | "annam" | "whatsapp"
-  >("both");
+  const [questionStatusSource, setQuestionStatusSource] = useState<string>("whatsapp,annam");
   const [notificationsSource, setNotificationsSource] = useState<
     "both" | "annam" | "whatsapp"
   >("both");
