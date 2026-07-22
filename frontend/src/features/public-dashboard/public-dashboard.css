@@ -1827,3 +1827,69 @@
 }
 
 
+
+/* ── Live carousel figures: flag a value change pushed over the socket ──
+   The number itself keeps counting smoothly (useCountUp animates old → new); this adds
+   the "what changed" cue — a delta chip that drops in from above and settles below the
+   figure, plus a brief lift/glow on the number. */
+.ace-dash .cstat-live {
+  position: relative;
+  display: inline-block;
+}
+
+.ace-dash .cstat-num {
+  display: inline-block;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), text-shadow 0.35s ease;
+}
+/* Held while the delta chip is visible, so the figure reads as "just updated". */
+.ace-dash .cstat-num.bumped {
+  transform: translateY(-2px) scale(1.06);
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.55), 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.ace-dash .cstat-delta {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-top: 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+  pointer-events: none;
+  /* Drops in from above the figure, settles, then fades out. */
+  animation: cstat-delta-drop 2.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.ace-dash .cstat-delta.up {
+  color: #eafff1;
+  background: rgba(34, 165, 90, 0.9);
+  box-shadow: 0 4px 12px rgba(34, 165, 90, 0.45);
+}
+.ace-dash .cstat-delta.down {
+  color: #fff1f1;
+  background: rgba(214, 69, 69, 0.9);
+  box-shadow: 0 4px 12px rgba(214, 69, 69, 0.45);
+}
+
+@keyframes cstat-delta-drop {
+  /* start above the number, hidden */
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-38px) scale(0.85); }
+  /* drop down into place */
+  18%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.06); }
+  26%  { transform: translateX(-50%) translateY(0) scale(1); }
+  /* hold, then drift down and fade */
+  70%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.96); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ace-dash .cstat-delta { animation: cstat-delta-fade 2.6s linear forwards; }
+  .ace-dash .cstat-num.bumped { transform: none; }
+  @keyframes cstat-delta-fade {
+    0%, 80% { opacity: 1; }
+    100%    { opacity: 0; }
+  }
+}

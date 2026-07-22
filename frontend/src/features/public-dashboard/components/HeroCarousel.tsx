@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Counter } from "./Counter";
+import { AnimatedStatValue } from "./AnimatedStatValue";
 import { InlineLoader } from "./InlineLoader";
 import type { MediaItem } from "@/hooks/services/mediaService";
 
@@ -190,25 +190,20 @@ export const HeroCarousel = ({
             <h2>{s.title}</h2>
             <p className="tag">{s.tag}</p>
             <div className="carousel-stats">
-              {s.stats.map((st) => {
-                // Admin-edited figures are free text: "22" counts up, "22+" is shown as typed.
-                const n = Number(String(st.value).replace(/,/g, ""));
-                const isNumeric = String(st.value).trim() !== "" && Number.isFinite(n);
-                return (
-                  <div className="cstat" key={st.label}>
-                    <div className="n">
-                      {st.loading ? (
-                        <InlineLoader size={26} />
-                      ) : isNumeric ? (
-                        <Counter value={n} suffix={st.suffix} />
-                      ) : (
-                        <span className="mono">{st.value}</span>
-                      )}
-                    </div>
-                    <div className="l">{st.label}</div>
+              {s.stats.map((st) => (
+                // AnimatedStatValue handles the numeric/free-text split ("22" counts up,
+                // "22+" renders as typed) and flags live changes with a delta chip.
+                <div className="cstat" key={st.label}>
+                  <div className="n">
+                    {st.loading ? (
+                      <InlineLoader size={26} />
+                    ) : (
+                      <AnimatedStatValue value={st.value} suffix={st.suffix} />
+                    )}
                   </div>
-                );
-              })}
+                  <div className="l">{st.label}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
