@@ -15003,9 +15003,12 @@ export class ChatbotRepository implements IChatbotRepository {
     isPassed?: string,
     tag?: string,
     userId?: string,
+    state?: string,
+    district?: string,
   ): Promise<any> {
     await this.initReviewSystem();
     await this.init('annam');
+    console.log('State is coming to be', state)
 
     const safePage = Math.max(Number(page) || 1, 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
@@ -15062,6 +15065,21 @@ export class ChatbotRepository implements IChatbotRepository {
         matchQuery.createdAt.$lte = endOfDay;
       }
     }
+
+          if (state) {
+        matchQuery['details.state'] = {
+          $regex: `^${state}$`,
+          $options: 'i',
+        };
+      }
+
+      if (district) {
+        matchQuery['details.district'] = {
+          $regex: `^${district}$`,
+          $options: 'i',
+        };
+      }
+
 
     const query = await this.buildQuestionUserTypeMatchQuery(source, userType);
 

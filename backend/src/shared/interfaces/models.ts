@@ -377,6 +377,9 @@ export type IRequest = RequestDetails & {
   requestedUser?: IUser | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
+  /** Flag indicating if the request is for a training question. 
+   * Included in response for admin role to enable UI changes. */
+  isTrainingQuestion?: boolean;
 };
 
 export type INotificationType =

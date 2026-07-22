@@ -496,7 +496,8 @@ export class ChatbotController {
         query.userType,
         query.search,
       );
-    } else if (query.state && !query.district) {
+    } else if (query.state && !query.district && !query.closedWithInTwohours) {
+      console.log("Inside first else if.......")
       return this.chatbotService.getQuestionFromState(
         query.state,
         query.questionType,
@@ -509,7 +510,7 @@ export class ChatbotController {
         globalEndDate,
       );
     }
-    else if (query.district) {
+    else if (query.district && !query.closedWithInTwohours) {
       return this.chatbotService.getQuestionFromDistrict(
         query.district,
         query.state,
@@ -551,6 +552,9 @@ export class ChatbotController {
     } else if (query.closedWithInTwohours) {
       const startDate = new Date(query.startDate);
       const endDate = new Date(query.endDate);
+      console.log("query object is", query)
+      console.log("State from frontend is", query.state)
+      console.log("District from frontend is coming", query.district)
       return this.chatbotService.getQuestionsClosedWithinTwoHours(
         query.page,
         query.limit,
@@ -562,6 +566,8 @@ export class ChatbotController {
         query.isPassed,
         query.tag,
         scopedUserId,
+        query.state,
+        query.district
       );
     } else if (query.manualSource){
       return this.chatbotService.getQuestionByManualSource(
