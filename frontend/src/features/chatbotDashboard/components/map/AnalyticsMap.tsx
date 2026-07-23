@@ -46,6 +46,13 @@ export default function IndiaAnalyticsMap({
   // normally produce them are authenticated and disabled when isPublic.
   questionStatusData: externalQuestionStatusData,
   allUsers: externalAllUsers,
+  // Single-metric maps (e.g. the public saturated-crops map) hide the Questions/Users
+  // switch — there is only one meaningful metric. Defaults off, so every existing caller
+  // is unaffected.
+  hideMetricToggle = false,
+  // Hide the right-hand detail/country-overview panel entirely, letting the map fill the
+  // width. Used by the saturated-crops map, which has no per-country figures to show.
+  hideDetailSidebar = false,
 }: any) {
   // Hooks
 
@@ -340,27 +347,29 @@ const v = level === "state"
             onNavigate={goCrumb}
           />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <div className="flex overflow-hidden rounded-md border">
-            <button
-              className={`px-3 py-1 text-sm ${
-                metric === "questions"
-                  ? "bg-primary text-white"
-                  : "bg-background"
-              }`}
-              onClick={() => setMetric("questions")}
-            >
-              Questions
-            </button>
+          {!hideMetricToggle && (
+            <div className="flex overflow-hidden rounded-md border">
+              <button
+                className={`px-3 py-1 text-sm ${
+                  metric === "questions"
+                    ? "bg-primary text-white"
+                    : "bg-background"
+                }`}
+                onClick={() => setMetric("questions")}
+              >
+                Questions
+              </button>
 
-            <button
-              className={`px-3 py-1 text-sm ${
-                metric === "users" ? "bg-primary text-white" : "bg-background"
-              }`}
-              onClick={() => setMetric("users")}
-            >
-              Users
-            </button>
-          </div>
+              <button
+                className={`px-3 py-1 text-sm ${
+                  metric === "users" ? "bg-primary text-white" : "bg-background"
+                }`}
+                onClick={() => setMetric("users")}
+              >
+                Users
+              </button>
+            </div>
+          )}
 
           <SearchBar
             value={query}
@@ -436,7 +445,8 @@ const v = level === "state"
         </div>
       </div>
 
-      {/* RIGHT: Detail panel */}
+      {/* RIGHT: Detail panel — omitted when the caller hides it (saturated-crops map). */}
+      {!hideDetailSidebar && (
       <DetailSidebar
         level={level}
         selectedState={selectedState}
@@ -464,6 +474,7 @@ const v = level === "state"
         clickedDistrict={clickedDistrict}
         setClickedDistrict={setClickedDistrict}
       />
+      )}
     </div>
   );
 }

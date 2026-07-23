@@ -14,7 +14,7 @@ import {
   // ImpactOutreach,   // temporarily hidden
   Integrations,
   // KnowledgeEngine,  // temporarily hidden (demo KCC + maturity content)
-  SaturatedCrops,
+  SaturatedCropsMap,
   NarrativeSection,
   ReviewWorkflow,
   Roadmap,
@@ -154,9 +154,9 @@ export const PublicDashboard = () => {
               loading={_statsLoading || !live}
             />
             */}
-            {/* Saturated Crops was inside KnowledgeEngine (hidden above); it is live data,
-                so it now renders as its own section. */}
-            <SaturatedCrops
+            {/* Saturated crops on the India map: a scrollable state → crop-count list on
+                the left, the choropleth on the right. Live data from /dashboard/stats. */}
+            <SaturatedCropsMap
               saturatedCropsByState={live?.saturatedCropsByState}
               saturationThreshold={live?.saturationThreshold}
               loading={_statsLoading || !live}
