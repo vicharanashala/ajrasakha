@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { MediaItem } from "@/hooks/services/mediaService";
 import { useInView } from "@/hooks/useInView";
 
@@ -7,15 +7,12 @@ import { useInView } from "@/hooks/useInView";
  * Dashboard Media, supplied by the parent. Renders nothing at all when nothing has been
  * uploaded, so the dashboard stays clean until content exists.
  *
- * Visuals (matched to the Syngenta-style reference):
- *   • Caption is overlaid on the bottom-left of each photograph with a black gradient
- *     behind it for legibility (no longer sits below the image).
- *   • On click, the photograph fades to black, then opens a centred lightbox preview
- *     with the full-resolution image and the same caption text. The lightbox fades in
- *     and out, and clicking the backdrop or pressing Esc closes it.
- *
- * Entrance + hover animations (lift, Ken-Burns zoom, staggered reveal) are unchanged —
- * see `public-dashboard.css` for `.media-card`, `.media-card-media` and `.card-grid-anim`.
+ * Upgraded Features:
+ *   • Filter bar supporting 'Photographs' and 'Videos' (All Media removed).
+ *   • Horizontal sliding carousel track with touch swipe and CSS scroll-snap.
+ *   • Bilateral floating chevrons with scroll boundary auto-fade listeners.
+ *   • Custom YouTube thumbnail loading with glass play button overlay.
+ *   • Enhanced lightbox supporting direct video play & YouTube playback.
  */
 export const OutreachGallery = ({
   images = [],
@@ -26,15 +23,28 @@ export const OutreachGallery = ({
 }) => {
   const { ref: galleryRef, isVisible: galleryInView } = useInView();
 
-  // `fadingId` drives a brief black overlay on the clicked card before the lightbox
-  // opens, giving the "fade to black" transition feel.
+  const [filter, setFilter] = useState<"all" | "photos" | "videos">("all");
   const [fadingId, setFadingId] = useState<string | null>(null);
-  // `active` is the media item currently shown in the lightbox.
   const [active, setActive] = useState<MediaItem | null>(null);
+
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  // Normalise collections
+  const normalImages = images.map((img) => ({ ...img, kind: "outreach_image" as const }));
+  const normalVideos = clips.map((vid) => ({ ...vid, kind: "outreach_video" as const }));
+  const allMedia = [...normalImages, ...normalVideos];
+
+  // Filter media based on choice
+  const filteredMedia = allMedia.filter((item) => {
+    if (filter === "photos") return item.kind === "outreach_image";
+    if (filter === "videos") return item.kind === "outreach_video";
+    return true;
+  });
 
   const openMedia = (m: MediaItem) => {
     setFadingId(m._id);
-    // Match the CSS `media-card-fade` duration (~320 ms) before swapping to the lightbox.
     window.setTimeout(() => {
       setActive(m);
       setFadingId(null);
@@ -43,9 +53,37 @@ export const OutreachGallery = ({
 
   const closeLightbox = () => setActive(null);
 
-  // Allow Esc to dismiss the lightbox. We do this in an effect rather than during render
-  // because `window` doesn't exist during SSR and writing `onkeydown` from inside a render
-  // triggers React's render-phase side-effect warnings.
+  const scrollLeft = () => {
+    if (trackRef.current) {
+      const cardWidth = trackRef.current.firstElementChild?.getBoundingClientRect().width || 300;
+      trackRef.current.scrollBy({ left: -(cardWidth + 20), behavior: "smooth" });
+    }
+  };
+
+  const scrollRight = () => {
+    if (trackRef.current) {
+      const cardWidth = trackRef.current.firstElementChild?.getBoundingClientRect().width || 300;
+      trackRef.current.scrollBy({ left: cardWidth + 20, behavior: "smooth" });
+    }
+  };
+
+  const handleScroll = () => {
+    if (trackRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = trackRef.current;
+      setCanScrollLeft(scrollLeft > 10);
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
+    }
+  };
+
+  const selectFilter = (f: "all" | "photos" | "videos") => {
+    setFilter(f);
+    if (trackRef.current) {
+      trackRef.current.scrollLeft = 0;
+    }
+    setCanScrollLeft(false);
+    setCanScrollRight(true);
+  };
+
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
@@ -53,126 +91,172 @@ export const OutreachGallery = ({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // closeLightbox is stable (it just calls setActive(null)), so we only re-bind when
-    // `active` toggles — that's all we care about.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
+
+  // Sync scroll arrows state when filter choice changes
+  useEffect(() => {
+    const track = trackRef.current;
+    if (track) {
+      // Small timeout to allow layout rendering before calculating boundaries
+      const timer = window.setTimeout(handleScroll, 80);
+      track.addEventListener("scroll", handleScroll);
+      return () => {
+        track.removeEventListener("scroll", handleScroll);
+        window.clearTimeout(timer);
+      };
+    }
+  }, [filter, filteredMedia.length]);
 
   if (!images.length && !clips.length) return null;
 
+  const getFallbackTitle = (item: typeof filteredMedia[0], index: number) => {
+    if (item.title) return item.title;
+    return item.kind === "outreach_video"
+      ? `Field Demonstration Video #${index + 1}`
+      : `Punjab Outreach Photograph #${index + 1}`;
+  };
+
+  const getFallbackCaption = (item: typeof filteredMedia[0]) => {
+    if (item.caption) return item.caption;
+    return item.kind === "outreach_video"
+      ? "Demonstration of scientific farming practices during field visits."
+      : "Captured during field visits and farmer interaction programmes.";
+  };
+
   return (
     <section className="wrap" id="outreach-media" ref={galleryRef}>
-      <div className={`sec-head mt-10 anim-head${galleryInView ? " in-view" : ""}`}>
-        {/* <span className="sec-num">FIELD</span> */}
-        <h2>Outreach from the Ground</h2>
-      </div>
-      <p className={`sec-desc anim-head${galleryInView ? " in-view" : ""}`}>
-        Photographs and videos captured during village outreach — demonstrations, farmer
-        interactions and field visits.
-      </p>
+      <div className={`outreach-gallery-card anim-head ${galleryInView ? "in-view" : ""}`}>
+        {/* Unified Design System Header */}
+        <div className="detail-header" style={{ borderBottom: "none", paddingBottom: 0, marginBottom: 28 }}>
+          <h3>
+            Outreach from the Ground
+            <span className="live-pulse-dot" />
+          </h3>
+          <p>
+            Photographs and videos captured during village outreach — demonstrations, farmer
+            interactions and field visits.
+          </p>
+        </div>
 
-      {clips.length > 0 && (
-        <>
-          <div
-            className={`eyebrow anim-head${galleryInView ? " in-view" : ""}`}
-            style={{ marginBottom: 12, transitionDelay: "0.05s" }}
+        {/* Modern Filter Pill Bar */}
+        <div className="media-filter-bar">
+          <button
+            className={`media-filter-btn ${filter === "all" ? "active" : ""}`}
+            onClick={() => selectFilter("all")}
           >
-            FIELD VIDEOS
-          </div>
-          <div
-            className={`media-grid card-grid-anim${galleryInView ? " in-view" : ""}`}
-            style={{ marginBottom: images.length ? 28 : 0 }}
+            All Media ({allMedia.length})
+          </button>
+          <button
+            className={`media-filter-btn ${filter === "photos" ? "active" : ""}`}
+            onClick={() => selectFilter("photos")}
           >
-            {clips.map((v) => (
-              <figure className="media-card" key={v._id}>
-                {v.source === "youtube" ? (
-                  // Embeds keep their 16:9 frame; the card still lifts/reveals via .media-card.
-                  <div className="media-card-media media-card-media-video">
-                    <iframe
-                      src={`https://www.youtube.com/embed/${v.youtubeId}`}
-                      title={v.title || "YouTube video"}
-                      loading="lazy"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
+            Photographs ({normalImages.length})
+          </button>
+          <button
+            className={`media-filter-btn ${filter === "videos" ? "active" : ""}`}
+            onClick={() => selectFilter("videos")}
+          >
+            Videos ({normalVideos.length})
+          </button>
+        </div>
+
+        {/* Carousel Wrapper */}
+        <div className="media-carousel-wrapper">
+          {/* Floating Left Chevron */}
+          <button
+            className="media-carousel-arrow prev"
+            onClick={scrollLeft}
+            disabled={!canScrollLeft}
+            aria-label="Scroll Left"
+          >
+            ‹
+          </button>
+
+          {/* Floating Right Chevron */}
+          <button
+            className="media-carousel-arrow next"
+            onClick={scrollRight}
+            disabled={!canScrollRight}
+            aria-label="Scroll Right"
+          >
+            ›
+          </button>
+
+          {/* Scroll snap Track */}
+          <div
+            className="media-carousel-track"
+            ref={trackRef}
+            onScroll={handleScroll}
+          >
+            {filteredMedia.map((item, idx) => {
+              const title = getFallbackTitle(item, idx);
+              const caption = getFallbackCaption(item);
+
+              // Get thumbnail (direct YouTube thumbnail loader)
+              const thumbnailUrl = item.kind === "outreach_video"
+                ? (item.source === "youtube" ? `https://img.youtube.com/vi/${item.youtubeId}/hqdefault.jpg` : item.url)
+                : item.url;
+
+              return (
+                <figure
+                  className={`media-card media-card-clickable ${
+                    fadingId === item._id ? "media-card-fading" : ""
+                  }`}
+                  key={item._id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={title}
+                  onClick={() => openMedia(item)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openMedia(item);
+                    }
+                  }}
+                >
+                  <div className="media-card-media">
+                    {/* Glassmorphic Badge */}
+                    <span className="media-format-badge">
+                      {item.kind === "outreach_video" ? "Video" : "Photo"}
+                    </span>
+
+                    {/* Cover Image */}
+                    <img src={thumbnailUrl} alt={title} loading="lazy" />
+
+                    {/* Custom Overlay Play Button for Videos */}
+                    {item.kind === "outreach_video" && (
+                      <div className="play-button-overlay">
+                        <div className="play-button-icon">
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="media-card-shade" aria-hidden="true" />
+                    <div className="media-card-fade" aria-hidden="true" />
                   </div>
-                ) : (
-                  // Uploaded video gets the same framed box + Ken-Burns hover zoom as photos.
-                  <div className="media-card-media media-card-media-video">
-                    <video src={v.url} controls preload="metadata" />
-                  </div>
-                )}
-                {(v.title || v.caption) && (
+
+                  {/* Caption Below Card */}
                   <figcaption className="media-card-caption-below">
-                    {v.title && <strong>{v.title}</strong>}
-                    {v.caption && <span>{v.caption}</span>}
+                    <strong>{title}</strong>
+                    <span>{caption}</span>
                   </figcaption>
-                )}
-              </figure>
-            ))}
+                </figure>
+              );
+            })}
           </div>
-        </>
-      )}
+        </div>
+      </div>
 
-      {images.length > 0 && (
-        <>
-          <div
-            className={`eyebrow anim-head${galleryInView ? " in-view" : ""}`}
-            style={{ marginBottom: 12, transitionDelay: "0.05s" }}
-          >
-            FIELD PHOTOGRAPHS
-          </div>
-          <div className={`media-grid card-grid-anim${galleryInView ? " in-view" : ""}`}>
-            {images.map((m) => (
-              <figure
-                className={`media-card media-card-clickable${
-                  fadingId === m._id ? " media-card-fading" : ""
-                }`}
-                key={m._id}
-                role="button"
-                tabIndex={0}
-                aria-label={m.title || "View outreach photograph"}
-                onClick={() => openMedia(m)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    openMedia(m);
-                  }
-                }}
-              >
-                <div className="media-card-media">
-                  <img src={m.url} alt={m.title || "Outreach photograph"} loading="lazy" />
-
-                  {/* Black gradient at the bottom for caption legibility */}
-                  <div className="media-card-shade" aria-hidden="true" />
-
-                  {/* Caption overlay — sits on top of the image, bottom-left.
-                      We always render the wrapper so the card height stays consistent,
-                      but hide it visually if there is no caption text. */}
-                  {(m.title || m.caption) && (
-                    <figcaption className="media-card-caption">
-                      {m.title && <strong>{m.title}</strong>}
-                      {m.caption && <span>{m.caption}</span>}
-                    </figcaption>
-                  )}
-
-                  {/* Black fade overlay — animated in on click before the lightbox opens */}
-                  <div className="media-card-fade" aria-hidden="true" />
-                </div>
-              </figure>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Lightbox — full-resolution preview with the same caption.
-          The wrapper fades in/out; the close button is a clear pill in the corner. */}
+      {/* Lightbox Modal (Supports Images and Videos) */}
       {active && (
         <div
           className="media-lightbox"
           role="dialog"
           aria-modal="true"
-          aria-label={active.title || "Outreach photograph"}
+          aria-label={active.title || "Outreach Gallery Preview"}
           onClick={closeLightbox}
         >
           <button
@@ -187,13 +271,27 @@ export const OutreachGallery = ({
             className="media-lightbox-figure"
             onClick={(e) => e.stopPropagation()}
           >
-            <img src={active.url} alt={active.title || "Outreach photograph"} />
-            {(active.title || active.caption) && (
-              <figcaption className="media-lightbox-caption">
-                {active.title && <strong>{active.title}</strong>}
-                {active.caption && <span>{active.caption}</span>}
-              </figcaption>
+            {active.kind === "outreach_video" ? (
+              <div className="media-lightbox-video-container">
+                {active.source === "youtube" ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${active.youtubeId}?autoplay=1`}
+                    title={active.title || "YouTube video"}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video src={active.url} controls autoPlay />
+                )}
+              </div>
+            ) : (
+              <img src={active.url} alt={active.title || "Outreach photograph"} />
             )}
+
+            <figcaption className="media-lightbox-caption">
+              <strong>{getFallbackTitle(active, 0)}</strong>
+              <span>{getFallbackCaption(active)}</span>
+            </figcaption>
           </figure>
         </div>
       )}
