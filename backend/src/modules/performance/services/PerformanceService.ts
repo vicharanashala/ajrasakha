@@ -308,33 +308,33 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedTrends(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getShiftBasedTrends(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 
-  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getQuestionStatusDistribution(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getQuestionStatusDistribution(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 
-  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getQuestionLevelDistribution(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getQuestionLevelDistribution(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 
-  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedTopExperts(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getShiftBasedTopExperts(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 
-  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedTopApprovingExperts(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getShiftBasedTopApprovingExperts(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 }

@@ -68,13 +68,13 @@ export interface IPerformanceService {
 
   getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 }

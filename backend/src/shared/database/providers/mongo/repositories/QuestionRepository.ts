@@ -6653,6 +6653,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     {
@@ -6674,6 +6676,13 @@ export class QuestionRepository implements IQuestionRepository {
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
 
+    const trainingFilter =
+      !isAdmin && isTrainingUser === true
+        ? { isTrainingQuestion: true }
+        : !isAdmin && isTrainingUser === false
+          ? { isTrainingQuestion: false }
+          : {};
+
     /**
      * Added Questions Aggregation
      */
@@ -6686,6 +6695,7 @@ export class QuestionRepository implements IQuestionRepository {
               $lte: end,
             },
              source: sourceFilter,
+            ...trainingFilter,
             ...getShiftFilter('createdAt', shift, from, to),
           },
         },
@@ -6727,6 +6737,7 @@ export class QuestionRepository implements IQuestionRepository {
               $lte: end,
             },
              source: sourceFilter,
+            ...trainingFilter,
             ...getShiftFilter('closedAt', shift, from, to),
           },
         },
@@ -6815,6 +6826,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     {
@@ -6835,6 +6848,13 @@ export class QuestionRepository implements IQuestionRepository {
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
 
+    const trainingFilter =
+      !isAdmin && isTrainingUser === true
+        ? { isTrainingQuestion: true }
+        : !isAdmin && isTrainingUser === false
+          ? { isTrainingQuestion: false }
+          : {};
+
     const result = await this.QuestionCollection.aggregate(
       [
         /**
@@ -6847,6 +6867,7 @@ export class QuestionRepository implements IQuestionRepository {
               $lte: end,
             },
              source: sourceFilter,
+            ...trainingFilter,
             ...getShiftFilter('createdAt', shift, from, to),
           },
         },
@@ -6888,6 +6909,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     {
@@ -6907,6 +6930,13 @@ export class QuestionRepository implements IQuestionRepository {
         : source === 'whatsapp'
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
+
+    const trainingFilter =
+      !isAdmin && isTrainingUser === true
+        ? { isTrainingQuestion: true }
+        : !isAdmin && isTrainingUser === false
+          ? { isTrainingQuestion: false }
+          : {};
 
     const result = await this.QuestionSubmissionCollection.aggregate(
       [
@@ -6942,6 +6972,7 @@ export class QuestionRepository implements IQuestionRepository {
         {
           $match: {
             'question.source': sourceFilter,
+            ...trainingFilter
           },
         },
 
@@ -7035,6 +7066,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     {
@@ -7058,6 +7091,13 @@ export class QuestionRepository implements IQuestionRepository {
         : source === 'whatsapp'
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
+
+    const trainingFilter =
+      !isAdmin && isTrainingUser === true
+        ? { isTrainingQuestion: true }
+        : !isAdmin && isTrainingUser === false
+          ? { isTrainingQuestion: false }
+          : {};
 
     const result = await this.QuestionSubmissionCollection.aggregate<{
       userId: ObjectId;
@@ -7084,6 +7124,7 @@ export class QuestionRepository implements IQuestionRepository {
                     $eq: ['$_id', '$$questionId'],
                   },
                   source: sourceFilter,
+                  ...trainingFilter,
                 },
               },
             ],
@@ -7218,6 +7259,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     {
@@ -7238,6 +7281,13 @@ export class QuestionRepository implements IQuestionRepository {
         : source === 'whatsapp'
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
+
+    const trainingFilter =
+      !isAdmin && isTrainingUser === true
+        ? { isTrainingQuestion: true }
+        : !isAdmin && isTrainingUser === false
+          ? { isTrainingQuestion: false }
+          : {};
 
     const result = await this.AnswersCollection.aggregate<{
       userId: ObjectId;
@@ -7272,6 +7322,7 @@ export class QuestionRepository implements IQuestionRepository {
                     $eq: ['$_id', '$$questionId'],
                   },
                   source: sourceFilter,
+                  ...trainingFilter,
                 },
               },
             ],
