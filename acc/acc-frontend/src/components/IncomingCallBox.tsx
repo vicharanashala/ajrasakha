@@ -129,6 +129,7 @@ export const IncomingCallBox = ({
   const plivoClientRef = useRef<any>(null);
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCallUuidRef = useRef<string | null>(null);
+  const activeCallUuidRef = useRef<string | null>(null);
 
   const handleMarkAgentAsAvailable = async () => {
     try {
@@ -348,12 +349,14 @@ export const IncomingCallBox = ({
         });
         setLastCallNumber(callerName);
         setCallStatus("incoming");
+        activeCallUuidRef.current = actualCallUuid;
 
         // Try to get the assigned call UUID from backend user document
         refetchCurrentUser().then((res: any) => {
           const backendCallUuid = res.data?.currentCallUuid;
           if (backendCallUuid) {
             actualCallUuid = backendCallUuid;
+            activeCallUuidRef.current = backendCallUuid;
           }
           // console.log(`📞 [IncomingCallBox] Resolved call UUID for incoming: ${actualCallUuid}`);
           onCallUuidChange?.(actualCallUuid);
@@ -371,11 +374,15 @@ export const IncomingCallBox = ({
       onCallStateChange?.(true);
 
       let actualCallUuid = callInfo?.callUUID || callInfo?.calluuid;
+      if (actualCallUuid) {
+        activeCallUuidRef.current = actualCallUuid;
+      }
 
       refetchCurrentUser().then((res: any) => {
         const backendCallUuid = res.data?.currentCallUuid;
         if (backendCallUuid) {
           actualCallUuid = backendCallUuid;
+          activeCallUuidRef.current = backendCallUuid;
         }
         if (actualCallUuid) {
           // console.log(`📞 [IncomingCallBox] Resolved call UUID for answered: ${actualCallUuid}`);
@@ -494,6 +501,10 @@ export const IncomingCallBox = ({
     // Setup message handlers
     ws.onMessage("transcript", (message: PlivoTranscriptMessage) => {
       // console.log('📝 [IncomingCallBox] Received transcript:', message);
+      if (message.callId && activeCallUuidRef.current && message.callId !== activeCallUuidRef.current) {
+        // Ignore transcripts for other concurrent calls
+        return;
+      }
       if (message.callId) {
         onCallUuidChange?.(message.callId);
       }
@@ -513,6 +524,10 @@ export const IncomingCallBox = ({
 
     ws.onMessage("call_end", (message: any) => {
       // console.log('📴 Call ended from WebSocket:', message);
+      if (message.callId && activeCallUuidRef.current && message.callId !== activeCallUuidRef.current) {
+        // Ignore call end for other concurrent calls
+        return;
+      }
       if (message.callId) {
         onCallUuidChange?.(message.callId);
       }
