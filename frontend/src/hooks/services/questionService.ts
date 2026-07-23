@@ -879,6 +879,9 @@ export class QuestionService {
     search: string,
     userId?: string,
     role?: "gate_keeper" | "auditor",
+    startDate?: string,
+    endDate?: string,
+    dateFilterType?: "assigned" | "completed" | "both",
   ): Promise<RoleDashboardResponse | null> {
     const params = new URLSearchParams({
       page: String(page),
@@ -887,6 +890,9 @@ export class QuestionService {
     if (search) params.append("search", search);
     if (userId) params.append("userId", userId);
     if (role) params.append("role", role);
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+    if (dateFilterType) params.append("dateFilterType", dateFilterType);
     return apiFetch<RoleDashboardResponse>(
       `${this._baseUrl}/role-dashboard?${params.toString()}`,
     );

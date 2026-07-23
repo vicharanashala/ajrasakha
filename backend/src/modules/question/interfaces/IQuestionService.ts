@@ -398,6 +398,9 @@ export interface IQuestionService {
     page: number,
     limit: number,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
   ): Promise<{
     assignedCount: number;
     submittedCount: number;

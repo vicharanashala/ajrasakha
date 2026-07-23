@@ -949,6 +949,9 @@ export class QuestionController {
       search?: string;
       userId?: string;
       role?: 'gate_keeper' | 'auditor';
+      startDate?: string;
+      endDate?: string;
+      dateFilterType?: 'assigned' | 'completed' | 'both';
     },
   ) {
     // Managers (admin / moderator) may view a specific gate keeper's / auditor's
@@ -972,12 +975,28 @@ export class QuestionController {
     }
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 11;
+
+    // Parse date range - ensure startDate has 00:00:00 and endDate has 23:59:59
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+    if (query.startDate) {
+      startDate = new Date(query.startDate);
+      startDate.setHours(0, 0, 0, 0);
+    }
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
     return this.questionService.getRoleAssigneeDashboard(
       targetUserId,
       role,
       page,
       limit,
       query.search,
+      startDate,
+      endDate,
+      query.dateFilterType || 'both',
     );
   }
 
