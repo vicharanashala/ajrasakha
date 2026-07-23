@@ -62,10 +62,12 @@ jobs:
           image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
+          secrets: |
+            DB_URL=AJRASAKHA_REVIEWER_SYS_DB_URI_PROD:latest
+            
           env_vars: |
             NODE_ENV=production
             APP_PORT=${{ secrets.APP_PORT }}
-            DB_URL=${{ secrets.DB_URL }}
             DB_NAME=${{ secrets.DB_NAME }}
             VAPID_EMAIL=${{ secrets.VAPID_EMAIL }}
             VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
