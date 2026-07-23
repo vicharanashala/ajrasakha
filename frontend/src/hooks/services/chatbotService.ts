@@ -273,6 +273,8 @@ export class ChatbotService {
     isPassed,
     tag,
     userId,
+    manualSource,
+    effectiveDate,
   }: {
     category?: string;
     district?: string;
@@ -294,11 +296,13 @@ export class ChatbotService {
     isPassed?: boolean;
     tag?: string;
     userId?: string;
+    manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH";
+    effectiveDate?: string;
   }) {
     const params = new URLSearchParams();
     if (category) params.append("category", category);
     if (district) params.append("district", district);
-    if (state) params.append("state", state);
+    if (state) params.append("state", state); 
     if (crop) params.append("crop", crop);
     if (crops?.length) params.append("crops", crops?.join(","));
     if (status) params.append("status", status);
@@ -323,6 +327,12 @@ export class ChatbotService {
     }
     if (userId) {
       params.append("userId", userId);
+    }
+    if (manualSource) {
+      params.append("manualSource", manualSource);
+    }
+    if(effectiveDate){
+      params.append("effectiveDate", effectiveDate);
     }
     return apiFetch<any>(
       `${this._baseUrl}/filtered-questions?${params.toString()}`,
@@ -613,6 +623,8 @@ export class ChatbotService {
     userId?: string,
     page?: number,
     limit?: number,
+    manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH",
+    effectiveDate?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
     if (startDate) {
@@ -648,7 +660,12 @@ export class ChatbotService {
     if (limit) {
       params.append("limit", String(limit));
     }
-
+    if (manualSource) {
+      params.append("manualSource", String(manualSource));
+    }
+    if (effectiveDate) {
+      params.append("effectiveDate", effectiveDate);
+    }
     return apiFetch<any>(
       `${this._baseUrl}/lifecycle-summary?${params.toString()}`
     );

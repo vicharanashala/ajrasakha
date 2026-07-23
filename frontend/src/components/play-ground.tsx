@@ -79,11 +79,23 @@ export const PlaygroundPage = () => {
           ? "all_questions"
           : null;
 
+  // Guards the default-tab effect so it initialises once per user (and re-runs only when
+  // an explicit selection changes). react-query gives `user` a new identity on every
+  // window-focus refetch and notification invalidation; without this the effect would
+  // re-apply the default/selection tab each time and pull moderators out of an answer
+  // they were editing.
+  const tabInitialisedFor = useRef<string | null>(null);
+
   // Set default tab based on user role when user data loads
   useEffect(() => {
     if (!user) return;
     const storageKey = getStorageKey(user);
     if (!storageKey) return;
+
+    const initKey = `${storageKey}|${explicitSelectionTab ?? ""}`;
+    if (tabInitialisedFor.current === initKey) return;
+    tabInitialisedFor.current = initKey;
+
     if (explicitSelectionTab) {
       setActiveTab(explicitSelectionTab);
       localStorage.setItem(storageKey, explicitSelectionTab);
@@ -113,7 +125,7 @@ export const PlaygroundPage = () => {
       setActiveTab(defaultTab);
       localStorage.setItem(storageKey, defaultTab);
     }
-  }, [user]);
+  }, [user?.role, user?.email, explicitSelectionTab]);
 
   // Heartbeat for Call Agents
   useEffect(() => {
@@ -137,9 +149,29 @@ export const PlaygroundPage = () => {
     return () => clearInterval(interval);
   }, [user?.role, user?.isCallAgentActive]);
 
+  // The selection this effect last navigated for. Navigation must happen only when the
+  // selection itself changes — NOT when the `user` object merely gets a new identity
+  // (react-query refetches it on window focus and whenever a notification action
+  // invalidates ["user"]). Without this guard, switching browser tabs or reviewing an
+  // answer re-ran the effect and yanked the moderator back to the question list,
+  // discarding in-progress edits.
+  const lastNavigatedSelection = useRef<string | null>(null);
+
   // Only update tab when there's a specific selection that requires navigation
   useEffect(() => {
     if (!user) return;
+
+    const selectionKey = [
+      selectedRequestId,
+      selectedHistoryId,
+      selectedQuestionId,
+      selectedCommentId,
+      selectedQuestionType,
+    ].join("|");
+    // Same selection as last time → this run was caused by something else (a user
+    // refetch). Leave the current tab alone.
+    if (lastNavigatedSelection.current === selectionKey) return;
+    lastNavigatedSelection.current = selectionKey;
 
     let calculatedTab: string | null = null;
 
@@ -168,8 +200,12 @@ export const PlaygroundPage = () => {
       setActiveTab(calculatedTab);
       localStorage.setItem(storageKey, calculatedTab);
     }
+    // Depend on the primitive user fields actually used (role for the target tab, email
+    // for the storage key) rather than the object, so a refetch that returns identical
+    // data doesn't re-trigger navigation.
   }, [
-    user,
+    user?.role,
+    user?.email,
     selectedQuestionId,
     selectedRequestId,
     selectedCommentId,

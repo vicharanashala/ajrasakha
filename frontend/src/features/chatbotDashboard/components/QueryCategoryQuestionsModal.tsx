@@ -66,8 +66,8 @@ interface QueryCategoryQuestionsModalProps {
   // source? : string;
   userType?: string;
   isQueryCategory?: boolean;
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: string;
+  endDate?: string;
   onClose: () => void;
   isPassed?: boolean;
   tag?: string;
@@ -85,6 +85,8 @@ interface QueryCategoryQuestionsModalProps {
   safeNotNotified?: number;
   safeUntracked?: number;
   isIndiaView?: boolean;
+  manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH";
+  effectiveDate?: string;
 }
 
 const PAGE_SIZE = 10;
@@ -121,6 +123,8 @@ export function QueryCategoryQuestionsModal({
   safeNotNotified,
   safeUntracked,
   isIndiaView,
+  manualSource,
+  effectiveDate
 }: QueryCategoryQuestionsModalProps) {
   const { setSelectedQuestionId, setView } = useSelectedQuestion();
 
@@ -148,7 +152,6 @@ export function QueryCategoryQuestionsModal({
 
     return () => clearTimeout(timer);
   }, [searchTerm]);
-
   const { data, isLoading, isError, isFetching } = useQuestionFilter({
     category,
     district,
@@ -171,13 +174,13 @@ export function QueryCategoryQuestionsModal({
     isPassed,
     tag,
     userId,
+    manualSource,
+    effectiveDate
   });
 
   const isMapView = isIndiaView ?? (!!state || !!district);
 
-  console.log("State", state, " district", district)
-
-  console.log("Map view is", isMapView)
+ 
 
   const columns = useMemo<
     QuestionListColumn<QueryCategoryQuestionEntry>[]
@@ -586,6 +589,8 @@ export function QueryCategoryQuestionsModal({
           safeNotified={safeNotified}
           safeNotNotified={safeNotNotified}
           safeUntracked={safeUntracked}
+          manualSource={manualSource}
+          effectiveDate={effectiveDate}
         />
 
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">

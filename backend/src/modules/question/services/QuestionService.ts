@@ -1768,7 +1768,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           source === 'AJRASAKHA' || source === 'WHATSAPP';
         let threadValidation;
         if (isTimeBoundedQuestion) {
-         /* threadValidation = await this.validateTimeBoundQuestionThread(
+          threadValidation = await this.validateTimeBoundQuestionThread(
             questionId,
             baseQuestion.threadId,
           );
@@ -1783,7 +1783,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               isTesting: true,
             });
             return;
-          }*/
+          }
           /* else {
              // Extract the last GDB tool response from thread content
              const content: any[] = threadValidation.data?.content || [];
@@ -4221,13 +4221,17 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   /** Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts
-   *  plus their paginated question list. "Submitted" = they finished it (finishedAt set). */
+   *  plus their paginated question list. "Submitted" = they finished it (finishedAt set).
+   *  Supports optional date range filtering by assigned date, completed date, or both. */
   async getRoleAssigneeDashboard(
     userId: string,
     role: 'gate_keeper' | 'auditor',
     page: number,
     limit: number,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
   ) {
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const finishedField =
@@ -4240,6 +4244,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       page,
       limit,
       search,
+      startDate,
+      endDate,
+      dateFilterType,
     );
   }
 

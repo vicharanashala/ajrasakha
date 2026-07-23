@@ -97,6 +97,8 @@ export const RoleAssigneeQueue = ({
     useRemoveRoleAssignee();
   const { data: usersData, isLoading: usersLoading } = useGetAllUsers({
     enabled: isModalOpen,
+    // A gate keeper / auditor may take the question themselves, so keep them in the list.
+    includeSelf: true,
   });
 
   const candidates = useMemo(() => {

@@ -497,7 +497,7 @@ function RouteComponent() {
           onClick={() => navigate({ to: "/home" })}
             className="h-11 gap-2 rounded-md px-4 text-base"
         >
-          {currentUser?.role === "admin" ? (
+          {currentUser?.role === "admin" || !currentUserOwnsViewedProfile ? (
             <>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back

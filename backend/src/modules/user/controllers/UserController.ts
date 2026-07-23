@@ -242,6 +242,7 @@ export class UserController {
       search?: string;
       sort: string;
       filter: string;
+      includeSelf?: string | boolean;
     },
   ): Promise<UsersNameResponseDto> {
     const {
@@ -250,6 +251,7 @@ export class UserController {
       search = '',
       sort = '',
       filter = '',
+      includeSelf,
     } = query;
     const userId = user._id.toString();
     return await this.userService.getAllUsersforManualSelect(
@@ -259,6 +261,7 @@ export class UserController {
       search,
       sort,
       filter,
+      includeSelf === true || includeSelf === 'true',
     );
   }
 
@@ -276,7 +279,8 @@ export class UserController {
   })
   @Get('/stf-moderators')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors pick moderators from this list when assigning.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   async getStfModerators() {
     const { users } = await this.userService.getAllUsers(
       1,
@@ -1188,5 +1192,18 @@ export class UserController {
   async getUserHistoryById(@QueryParams() query: { userId: string; startDateTime?: string; endDateTime?: string;}): Promise<IUserHistory> {
     
     return await this.userService.getUserHistoryById(query);
+  }
+
+  @OpenAPI({
+    summary: 'Get user working hours',
+    description: 'Calculates the total working hours for a user in a given time period.',
+  })
+  @Get('/working-hours')
+  @HttpCode(200)
+  @Authorized()
+  async getWorkingHours(
+    @QueryParams() query: { userId: string; startDateTime: string; endDateTime: string; }
+  ): Promise<{ workingHours: number }> {
+    return await this.userService.getWorkingHours(query);
   }
 }

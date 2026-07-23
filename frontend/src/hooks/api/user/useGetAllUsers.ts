@@ -31,11 +31,13 @@ export interface IUsersNameResponse {
 
 
 export const useGetAllUsers = (
-  options: { enabled?: boolean } = {}
+  options: { enabled?: boolean; includeSelf?: boolean } = {}
 ) => {
+  const includeSelf = options.includeSelf ?? false;
   const { data, isLoading, error } = useQuery<IUsersNameResponse| null>({
-    queryKey: ["users"],
-    queryFn:()=> userService.useGetAllUsers(),
+    // includeSelf is part of the key so the two variants don't share a cache entry.
+    queryKey: ["users", includeSelf],
+    queryFn:()=> userService.useGetAllUsers(includeSelf),
     enabled: options.enabled,
   });
 
