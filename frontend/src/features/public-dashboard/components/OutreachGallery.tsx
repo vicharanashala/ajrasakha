@@ -53,17 +53,53 @@ export const OutreachGallery = ({
 
   const closeLightbox = () => setActive(null);
 
+  const animateScroll = (element: HTMLDivElement, target: number, duration: number) => {
+    const start = element.scrollLeft;
+    const change = target - start;
+    const startTime = performance.now();
+
+    // Temporarily disable scroll snapping to prevent snapping conflicts during JS animation
+    const originalSnap = element.style.scrollSnapType;
+    element.style.scrollSnapType = "none";
+
+    const easeInOutCubic = (t: number): number => {
+      return t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+    };
+
+    const animate = (currentTime: number) => {
+      const timeElapsed = currentTime - startTime;
+      const progress = Math.min(timeElapsed / duration, 1);
+      element.scrollLeft = start + change * easeInOutCubic(progress);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // Restore scroll snapping behavior once transition finishes
+        element.style.scrollSnapType = originalSnap || "x mandatory";
+      }
+    };
+
+    requestAnimationFrame(animate);
+  };
+
   const scrollLeft = () => {
     if (trackRef.current) {
-      const cardWidth = trackRef.current.firstElementChild?.getBoundingClientRect().width || 300;
-      trackRef.current.scrollBy({ left: -(cardWidth + 20), behavior: "smooth" });
+      // Scroll by the full visible width of the carousel track (page-by-page)
+      const scrollAmount = trackRef.current.clientWidth;
+      const target = Math.max(0, trackRef.current.scrollLeft - scrollAmount);
+      animateScroll(trackRef.current, target, 500);
     }
   };
 
   const scrollRight = () => {
     if (trackRef.current) {
-      const cardWidth = trackRef.current.firstElementChild?.getBoundingClientRect().width || 300;
-      trackRef.current.scrollBy({ left: cardWidth + 20, behavior: "smooth" });
+      // Scroll by the full visible width of the carousel track (page-by-page)
+      const scrollAmount = trackRef.current.clientWidth;
+      const target = Math.min(
+        trackRef.current.scrollWidth - trackRef.current.clientWidth,
+        trackRef.current.scrollLeft + scrollAmount
+      );
+      animateScroll(trackRef.current, target, 500);
     }
   };
 
@@ -169,7 +205,7 @@ export const OutreachGallery = ({
             disabled={!canScrollLeft}
             aria-label="Scroll Left"
           >
-            ‹
+            <span className="arrow-icon">‹</span>
           </button>
 
           {/* Floating Right Chevron */}
@@ -179,7 +215,7 @@ export const OutreachGallery = ({
             disabled={!canScrollRight}
             aria-label="Scroll Right"
           >
-            ›
+            <span className="arrow-icon">›</span>
           </button>
 
           {/* Scroll snap Track */}

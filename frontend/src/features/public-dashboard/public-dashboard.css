@@ -1268,14 +1268,25 @@
   width: 100%;
 }
 
+@keyframes card-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .ace-dash .media-carousel-track {
   display: grid;
-  grid-template-rows: repeat(2, auto); /* 2 rows horizontal grid */
+  grid-template-rows: auto; /* Single horizontal row */
   grid-auto-flow: column; /* horizontal grid flow */
   grid-auto-columns: calc(33.333% - 14px); /* 3 cards visible on desktop */
   gap: 20px;
   overflow-x: auto;
-  scroll-behavior: smooth;
+  scroll-behavior: auto; /* Handled smoothly by JS animator */
   scroll-snap-type: x mandatory;
   scrollbar-width: none; /* Hide default scrollbar in Firefox */
   -ms-overflow-style: none; /* Hide default scrollbar in IE */
@@ -1294,6 +1305,7 @@
   box-shadow: var(--shadow-sm);
   overflow: hidden;
   position: relative;
+  animation: card-slide-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
               box-shadow 0.35s ease,
               border-color 0.35s ease;
@@ -1309,28 +1321,80 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--green-soft);
-  color: var(--green-deep);
+  background: #ffffff; /* Solid high-contrast white background */
+  border: 2px solid var(--green); /* Thicker green border */
+  color: var(--green); /* Green chevron arrow */
   font-size: 22px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(18, 36, 29, 0.1);
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 4px 16px rgba(18, 36, 29, 0.15); /* Slightly stronger shadow */
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease, opacity 0.25s ease;
   z-index: 10;
+}
+
+.ace-dash .media-carousel-arrow .arrow-icon {
+  display: inline-block;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  line-height: 1;
+}
+
+@keyframes prev-arrow-swipe {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+  45% {
+    transform: translateX(10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes next-arrow-swipe {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(10px);
+    opacity: 0;
+  }
+  45% {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.ace-dash .media-carousel-arrow.prev:hover:not(:disabled) .arrow-icon {
+  animation: prev-arrow-swipe 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.ace-dash .media-carousel-arrow.next:hover:not(:disabled) .arrow-icon {
+  animation: next-arrow-swipe 0.4s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .ace-dash .media-carousel-arrow:hover:not(:disabled) {
   background: var(--green);
   border-color: var(--green);
-  color: #fff;
-  transform: translateY(-50%) scale(1.12);
-  box-shadow: 0 6px 16px rgba(34, 165, 90, 0.35);
+  color: #ffffff;
+  transform: translateY(-50%) scale(1.08); /* Scale slightly less to keep swipe prominent */
+  box-shadow: 0 6px 20px rgba(34, 165, 90, 0.35);
 }
 
 .ace-dash .media-carousel-arrow:active:not(:disabled) {
@@ -2142,12 +2206,15 @@
 .ace-dash .live-strip {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end; /* Align right side */
   gap: 10px;
   flex-wrap: wrap;
-  padding: 10px 16px;
-  background: var(--green-soft, #e4f6ea);
-  border-bottom: 1px solid rgba(34, 165, 90, 0.18);
+  padding: 16px 20px 0 20px;
+  background: transparent; /* Remove background color */
+  border-bottom: none; /* Remove border-bottom */
+  max-width: 1400px; /* Align with the dashboard wrap width */
+  margin: 0 auto;
+  width: 100%;
 }
 
 .ace-dash .live-badge {
