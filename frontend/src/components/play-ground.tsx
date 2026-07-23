@@ -29,6 +29,7 @@ import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
+import { GdbCoverageDashboard } from "../features/gdb-coverage/GdbCoverageDashboard";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -299,6 +300,14 @@ export const PlaygroundPage = () => {
                     <span>Data Processing</span>
                   </TabsTrigger>
                 )}
+                {user && user.role === "admin" && (
+                  <TabsTrigger
+                    value="gdb_coverage"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>GDB Coverage</span>
+                  </TabsTrigger>
+                )}
                 {/*
                 {user && (
                   <TabsTrigger
@@ -548,6 +557,22 @@ export const PlaygroundPage = () => {
                   )}
                 >
                   <ManageCallAgents />
+                </TabsContent>
+              )}
+
+              {user?.role === "admin" && (
+                <TabsContent
+                  value="gdb_coverage"
+                  className={cn(
+                    "mt-0 border-0 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <GdbCoverageDashboard />
                 </TabsContent>
               )}
               {/* {user && (

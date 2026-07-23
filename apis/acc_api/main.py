@@ -13,6 +13,8 @@ import urllib.request
 import urllib.error
 import re
 from dotenv import load_dotenv
+import numpy as np
+from gdb_gap_detector import build_gap_report, invalidate_cache
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,7 +57,17 @@ golden_client = MongoClient(GOLDEN_MONGO_URI)
 golden_qa_collection = golden_client[GOLDEN_DB_NAME][GOLDEN_QA_COLLECTION]
 golden_pop_collection = golden_client[GOLDEN_DB_NAME][GOLDEN_POP_COLLECTION]
 
-model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+# Loading the embedding model can download several hundred MB on a cold host.
+# Keep application import cheap so health checks and analytics tests do not
+# trigger a download; the model is loaded only by endpoints that need it.
+model: SentenceTransformer | None = None
+
+
+def get_embedding_model() -> SentenceTransformer:
+    global model
+    if model is None:
+        model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+    return model
 
 
 class SearchRequest(BaseModel):
@@ -522,7 +534,9 @@ def search_unified(request: SearchRequest):
         raise HTTPException(status_code=400, detail="Query must not be empty.")
 
     query_text = f"Represent this sentence for searching relevant passages: {request.query}"
-    query_embedding = model.encode(query_text, normalize_embeddings=True).tolist()
+    query_embedding = get_embedding_model().encode(
+        query_text, normalize_embeddings=True
+    ).tolist()
 
     # ---------------- Reviewer Search ----------------
     t_rev = time.perf_counter()
@@ -841,6 +855,48 @@ def get_filters():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+#  GET /gdb/gap-report — GDB Coverage Gap Detector
+# ---------------------------------------------------------------------------
+
+
+def _model_embed_fn(texts: list[str]) -> np.ndarray:
+    """Wrap the existing SentenceTransformer model for use in the gap detector."""
+    return get_embedding_model().encode(
+        texts, normalize_embeddings=True, show_progress_bar=False
+    )
+
+
+@app.get("/gdb/gap-report", summary="GDB Coverage Gap Report")
+def gdb_gap_report(refresh: bool = False):
+    """Generate (or return cached) the GDB Coverage Gap analysis.
+
+    The report identifies:
+    - Top-20 priority coverage gaps by semantic cluster and farmer demand.
+    - Crop × state × domain coverage classification (STRONG / PARTIAL / GAP).
+    - Outreach recommendations for field engagement prioritisation.
+
+    Query params:
+      refresh=true  Force a fresh report, bypassing the 5-minute cache.
+    """
+    t0 = time.perf_counter()
+    try:
+        if refresh:
+            invalidate_cache()
+        report = build_gap_report(
+            reviewer_collection=reviewer_collection,
+            golden_collection=golden_qa_collection,
+            embed_fn=_model_embed_fn,
+            use_cache=not refresh,
+        )
+    except Exception as exc:
+        log.error("[/gdb/gap-report] Failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Gap report generation failed: {exc}")
+
+    log.info("[/gdb/gap-report] Completed in %.0f ms.", (time.perf_counter() - t0) * 1000)
+    return report
 
 
 if __name__ == "__main__":

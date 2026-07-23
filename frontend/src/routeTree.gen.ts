@@ -16,6 +16,7 @@ import { Route as PaeExpertIndexRouteImport } from './routes/pae-expert/index'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as HistoryIndexRouteImport } from './routes/history/index'
+import { Route as GdbCoverageIndexRouteImport } from './routes/gdb-coverage/index'
 import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/index'
 import { Route as CoordinatorIndexRouteImport } from './routes/coordinator/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
@@ -58,6 +59,11 @@ const HistoryIndexRoute = HistoryIndexRouteImport.update({
   path: '/history/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GdbCoverageIndexRoute = GdbCoverageIndexRouteImport.update({
+  id: '/gdb-coverage/',
+  path: '/gdb-coverage/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FlagsReportedIndexRoute = FlagsReportedIndexRouteImport.update({
   id: '/flags-reported/',
   path: '/flags-reported/',
@@ -94,15 +100,16 @@ export interface FileRoutesByFullPath {
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/coordinator/profile': typeof CoordinatorProfileRoute
   '/user/$userId': typeof UserUserIdRoute
-  '/audit': typeof AuditIndexRoute
-  '/auth': typeof AuthIndexRoute
-  '/coordinator': typeof CoordinatorIndexRoute
-  '/flags-reported': typeof FlagsReportedIndexRoute
-  '/history': typeof HistoryIndexRoute
-  '/home': typeof HomeIndexRoute
-  '/notifications': typeof NotificationsIndexRoute
-  '/pae-expert': typeof PaeExpertIndexRoute
-  '/profile': typeof ProfileIndexRoute
+  '/audit/': typeof AuditIndexRoute
+  '/auth/': typeof AuthIndexRoute
+  '/coordinator/': typeof CoordinatorIndexRoute
+  '/flags-reported/': typeof FlagsReportedIndexRoute
+  '/gdb-coverage/': typeof GdbCoverageIndexRoute
+  '/history/': typeof HistoryIndexRoute
+  '/home/': typeof HomeIndexRoute
+  '/notifications/': typeof NotificationsIndexRoute
+  '/pae-expert/': typeof PaeExpertIndexRoute
+  '/profile/': typeof ProfileIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthIndexRoute
   '/coordinator': typeof CoordinatorIndexRoute
   '/flags-reported': typeof FlagsReportedIndexRoute
+  '/gdb-coverage': typeof GdbCoverageIndexRoute
   '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
   '/notifications': typeof NotificationsIndexRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/auth/': typeof AuthIndexRoute
   '/coordinator/': typeof CoordinatorIndexRoute
   '/flags-reported/': typeof FlagsReportedIndexRoute
+  '/gdb-coverage/': typeof GdbCoverageIndexRoute
   '/history/': typeof HistoryIndexRoute
   '/home/': typeof HomeIndexRoute
   '/notifications/': typeof NotificationsIndexRoute
@@ -142,15 +151,16 @@ export interface FileRouteTypes {
     | '/whatsapp-history'
     | '/coordinator/profile'
     | '/user/$userId'
-    | '/audit'
-    | '/auth'
-    | '/coordinator'
-    | '/flags-reported'
-    | '/history'
-    | '/home'
-    | '/notifications'
-    | '/pae-expert'
-    | '/profile'
+    | '/audit/'
+    | '/auth/'
+    | '/coordinator/'
+    | '/flags-reported/'
+    | '/gdb-coverage/'
+    | '/history/'
+    | '/home/'
+    | '/notifications/'
+    | '/pae-expert/'
+    | '/profile/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/coordinator'
     | '/flags-reported'
+    | '/gdb-coverage'
     | '/history'
     | '/home'
     | '/notifications'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/auth/'
     | '/coordinator/'
     | '/flags-reported/'
+    | '/gdb-coverage/'
     | '/history/'
     | '/home/'
     | '/notifications/'
@@ -192,6 +204,7 @@ export interface RootRouteChildren {
   AuthIndexRoute: typeof AuthIndexRoute
   CoordinatorIndexRoute: typeof CoordinatorIndexRoute
   FlagsReportedIndexRoute: typeof FlagsReportedIndexRoute
+  GdbCoverageIndexRoute: typeof GdbCoverageIndexRoute
   HistoryIndexRoute: typeof HistoryIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
   NotificationsIndexRoute: typeof NotificationsIndexRoute
@@ -218,63 +231,70 @@ declare module '@tanstack/react-router' {
     '/profile/': {
       id: '/profile/'
       path: '/profile'
-      fullPath: '/profile'
+      fullPath: '/profile/'
       preLoaderRoute: typeof ProfileIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pae-expert/': {
       id: '/pae-expert/'
       path: '/pae-expert'
-      fullPath: '/pae-expert'
+      fullPath: '/pae-expert/'
       preLoaderRoute: typeof PaeExpertIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications/': {
       id: '/notifications/'
       path: '/notifications'
-      fullPath: '/notifications'
+      fullPath: '/notifications/'
       preLoaderRoute: typeof NotificationsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home/': {
       id: '/home/'
       path: '/home'
-      fullPath: '/home'
+      fullPath: '/home/'
       preLoaderRoute: typeof HomeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history/': {
       id: '/history/'
       path: '/history'
-      fullPath: '/history'
+      fullPath: '/history/'
       preLoaderRoute: typeof HistoryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gdb-coverage/': {
+      id: '/gdb-coverage/'
+      path: '/gdb-coverage'
+      fullPath: '/gdb-coverage/'
+      preLoaderRoute: typeof GdbCoverageIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/flags-reported/': {
       id: '/flags-reported/'
       path: '/flags-reported'
-      fullPath: '/flags-reported'
+      fullPath: '/flags-reported/'
       preLoaderRoute: typeof FlagsReportedIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/coordinator/': {
       id: '/coordinator/'
       path: '/coordinator'
-      fullPath: '/coordinator'
+      fullPath: '/coordinator/'
       preLoaderRoute: typeof CoordinatorIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/': {
       id: '/auth/'
       path: '/auth'
-      fullPath: '/auth'
+      fullPath: '/auth/'
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/audit/': {
       id: '/audit/'
       path: '/audit'
-      fullPath: '/audit'
+      fullPath: '/audit/'
       preLoaderRoute: typeof AuditIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -304,6 +324,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthIndexRoute: AuthIndexRoute,
   CoordinatorIndexRoute: CoordinatorIndexRoute,
   FlagsReportedIndexRoute: FlagsReportedIndexRoute,
+  GdbCoverageIndexRoute: GdbCoverageIndexRoute,
   HistoryIndexRoute: HistoryIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
   NotificationsIndexRoute: NotificationsIndexRoute,

@@ -33,7 +33,10 @@ type EnvKey =
   | "VITE_POP_API_URL"
 
   // Call Agent Management
-  | "VITE_CALL_AGENT_MANAGER_USER_IDS";
+  | "VITE_CALL_AGENT_MANAGER_USER_IDS"
+
+  // ACC semantic search / gap report API
+  | "VITE_ACC_API_URL";
 
 /**
  * Internal getter (single source of truth)
@@ -87,4 +90,6 @@ export const env = {
     const ids = getEnv("VITE_CALL_AGENT_MANAGER_USER_IDS", false, "");
     return ids ? ids.split(",").map(id => id.trim()) : [];
   },
+
+  accApiUrl: () => getEnv("VITE_ACC_API_URL", false, "http://localhost:8001"),
 };
