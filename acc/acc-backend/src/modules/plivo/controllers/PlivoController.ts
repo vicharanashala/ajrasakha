@@ -216,6 +216,19 @@ export class PlivoController {
     }
   }
 
+  @Get('/active-calls')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  @OpenAPI({ summary: 'Get currently active ongoing calls for admin monitoring' })
+  async getActiveCalls(): Promise<any[]> {
+    try {
+      return this.plivoService.getActiveCalls();
+    } catch (error: any) {
+      console.error('❌ Error fetching active calls:', error);
+      throw new InternalServerError('Failed to fetch active calls');
+    }
+  }
+
   @Post('/send-message')
   @Authorized()
   @OpenAPI({

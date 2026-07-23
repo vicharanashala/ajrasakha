@@ -29,6 +29,15 @@ interface SarvamStreamSession {
   debounceTimer: NodeJS.Timeout | null;
 }
 
+export interface ActiveCallInfo {
+  callId: string;
+  agentUserId?: string;
+  agentName?: string;
+  farmerNumber?: string;
+  startTime: string;
+  status: 'active' | 'ended';
+}
+
 @injectable()
 export class PlivoService {
   private sarvamApiKey: string;
@@ -38,6 +47,7 @@ export class PlivoService {
   private activeStreams: Map<string, SarvamStreamSession> = new Map();
   private plivoClient: plivo.Client;
   private callAgentMapping: Map<string, string> = new Map();
+  private activeCallsMap: Map<string, ActiveCallInfo> = new Map();
 
   constructor(
     @inject(PLIVO_TYPES.CallDetailsRepository)
@@ -435,5 +445,33 @@ export class PlivoService {
     const inbound = await this.finalizeTrackStream(callId, 'inbound');
     const outbound = await this.finalizeTrackStream(callId, 'outbound');
     return { inbound, outbound };
+  }
+
+  registerActiveCall(callId: string, details?: Partial<ActiveCallInfo>): ActiveCallInfo {
+    const existing = this.activeCallsMap.get(callId);
+    const info: ActiveCallInfo = {
+      callId,
+      agentUserId: details?.agentUserId || existing?.agentUserId || this.callAgentMapping.get(callId),
+      agentName: details?.agentName || existing?.agentName,
+      farmerNumber: details?.farmerNumber || existing?.farmerNumber,
+      startTime: details?.startTime || existing?.startTime || new Date().toISOString(),
+      status: 'active',
+    };
+    this.activeCallsMap.set(callId, info);
+    console.log(`📞 [PLIVO-SERVICE] Registered active call ${callId}`, info);
+    return info;
+  }
+
+  removeActiveCall(callId: string): void {
+    this.activeCallsMap.delete(callId);
+    console.log(`📴 [PLIVO-SERVICE] Removed active call ${callId}`);
+  }
+
+  getActiveCalls(): ActiveCallInfo[] {
+    return Array.from(this.activeCallsMap.values()).filter(c => c.status === 'active');
+  }
+
+  getActiveCall(callId: string): ActiveCallInfo | undefined {
+    return this.activeCallsMap.get(callId);
   }
 }

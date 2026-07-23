@@ -2,8 +2,17 @@ import { env } from "@/config/env";
 
 let hasConnectionAlertShown = false;
 
+export interface ActiveCallItem {
+  callId: string;
+  agentUserId?: string;
+  agentName?: string;
+  farmerNumber?: string;
+  startTime: string;
+  status: 'active' | 'ended';
+}
+
 export interface PlivoTranscriptMessage {
-  type: 'transcript' | 'call_start' | 'call_end' | 'call_disconnected' | 'transcription_error';
+  type: 'transcript' | 'call_start' | 'call_end' | 'call_disconnected' | 'transcription_error' | 'live_audio_chunk' | 'active_call_started' | 'active_call_ended' | 'active_calls_list';
   callId: string;
   track?: 'inbound' | 'outbound';
   text?: string;
@@ -14,6 +23,9 @@ export interface PlivoTranscriptMessage {
   timestamp: string;
   error?: string;
   data?: any;
+  payload?: string; // Base64 PCM chunk
+  callInfo?: ActiveCallItem;
+  activeCalls?: ActiveCallItem[];
 }
 
 export class PlivoWebSocketService {
@@ -32,6 +44,10 @@ export class PlivoWebSocketService {
     this.messageHandlers.set('call_start', [(message: PlivoTranscriptMessage) => {}]);
     this.messageHandlers.set('call_end', [(message: PlivoTranscriptMessage) => {}]);
     this.messageHandlers.set('transcription_error', [(message: PlivoTranscriptMessage) => {}]);
+    this.messageHandlers.set('live_audio_chunk', [(message: PlivoTranscriptMessage) => {}]);
+    this.messageHandlers.set('active_call_started', [(message: PlivoTranscriptMessage) => {}]);
+    this.messageHandlers.set('active_call_ended', [(message: PlivoTranscriptMessage) => {}]);
+    this.messageHandlers.set('active_calls_list', [(message: PlivoTranscriptMessage) => {}]);
   }
 
   connect(token?: string): Promise<void> {
@@ -51,8 +67,12 @@ export class PlivoWebSocketService {
 
         this.ws = new WebSocket(wsUrl);
 
+        let isHandled = false;
+
         this.ws.onopen = () => {
+          isHandled = true;
           this.reconnectAttempts = 0;
+          console.log(`✅ [WEBSOCKET] Connected to ${wsUrl}`);
           resolve();
         };
 
@@ -70,12 +90,16 @@ export class PlivoWebSocketService {
         };
 
         this.ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          reject(error);
+          console.warn(`⚠️ [WEBSOCKET] Connection error to ${wsUrl}. Will attempt reconnect.`);
+          if (!isHandled) {
+            isHandled = true;
+            resolve(); // Resolve gracefully to prevent uncaught promise rejection
+          }
         };
 
       } catch (error) {
-        reject(error);
+        console.warn('⚠️ [WEBSOCKET] Connection setup error:', error);
+        resolve();
       }
     });
   }
@@ -132,6 +156,24 @@ export class PlivoWebSocketService {
       } else {
         this.messageHandlers.delete(type);
       }
+    }
+  }
+
+  subscribeLiveAudio(callId: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'subscribe_live_audio', callId }));
+    }
+  }
+
+  unsubscribeLiveAudio(callId: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'unsubscribe_live_audio', callId }));
+    }
+  }
+
+  requestActiveCalls() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'get_active_calls' }));
     }
   }
 }

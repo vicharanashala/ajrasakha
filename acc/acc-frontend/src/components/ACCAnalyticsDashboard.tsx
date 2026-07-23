@@ -7,6 +7,7 @@ import { Badge } from "./atoms/badge";
 import { Spinner } from "./atoms/spinner";
 import { useACCAnalytics } from "../hooks/api/plivo/useACCAnalytics";
 import { useGetCurrentUser } from "../hooks/api/user/useGetCurrentUser";
+import { LiveCallMonitor } from "./LiveCallMonitor";
 import { 
   Phone, 
   Calendar, 
@@ -20,8 +21,11 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Radio
 } from "lucide-react";
+
+// ... existing code inside component ...
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Cell } from "recharts";
 import CountUp from "react-countup";
 import { useQuery } from "@tanstack/react-query";
@@ -136,6 +140,7 @@ const FloatingPopoverText = ({ text, title = "Content", characterLimit = 120, is
 
 export const ACCAnalyticsDashboard = () => {
   const { data: user } = useGetCurrentUser();
+  const [activeDashboardView, setActiveDashboardView] = useState<'analytics' | 'live_monitor'>('analytics');
   const [showCustomFilter, setShowCustomFilter] = useState(false);
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
@@ -274,43 +279,74 @@ export const ACCAnalyticsDashboard = () => {
 
   return (
     <div className="space-y-6 text-foreground">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* Header & View Switcher */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card p-4 rounded-xl border">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-2">
             <BarChart3 className="h-8 w-8 text-primary" />
-            ACC Analytics Dashboard
+            ACC Management Dashboard
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Domain-based call analytics overview
+          <p className="text-muted-foreground mt-1 text-sm">
+            Call center analytics, domain performance, and real-time live call monitoring
           </p>
         </div>
         
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={showCustomFilter ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowCustomFilter(!showCustomFilter)}
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            {showCustomFilter ? "Hide Filter" : "Date Filter"}
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleRefreshAll}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleDownloadQueries} 
-            disabled={isDownloading}
-            className="border-emerald-200 hover:bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:hover:bg-emerald-950/20"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            {isDownloading ? "Downloading..." : "Download Queries"}
-          </Button>
+          <div className="bg-muted p-1 rounded-lg flex items-center gap-1 border">
+            <Button
+              variant={activeDashboardView === 'analytics' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveDashboardView('analytics')}
+              className="text-xs flex items-center gap-1.5"
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              Analytics
+            </Button>
+
+            <Button
+              variant={activeDashboardView === 'live_monitor' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveDashboardView('live_monitor')}
+              className="text-xs flex items-center gap-1.5 text-red-500 font-semibold"
+            >
+              <Radio className="w-3.5 h-3.5 animate-pulse" />
+              Live Call Intercept
+            </Button>
+          </div>
+
+          {activeDashboardView === 'analytics' && (
+            <>
+              <Button
+                variant={showCustomFilter ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowCustomFilter(!showCustomFilter)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                {showCustomFilter ? "Hide Filter" : "Date Filter"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleRefreshAll}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleDownloadQueries} 
+                disabled={isDownloading}
+                className="border-emerald-200 hover:bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:hover:bg-emerald-950/20"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isDownloading ? "Downloading..." : "Download Queries"}
+              </Button>
+            </>
+          )}
         </div>
       </div>
+
+      {activeDashboardView === 'live_monitor' ? (
+        <LiveCallMonitor />
+      ) : (
+        <>
 
       {/* Custom Date Filter */}
       {showCustomFilter && (
@@ -768,6 +804,8 @@ export const ACCAnalyticsDashboard = () => {
           </Card>
         </div>
       ) : null}
+        </>
+      )}
     </div>
   );
 };

@@ -15,6 +15,18 @@ export const initWebSocket = (server: Server) => {
   const plivoService = getContainer().get<PlivoService>(PLIVO_TYPES.PlivoService);
   const userService = getContainer().get<UserService>(GLOBAL_TYPES.UserService);
 
+  // Map callId -> Set of admin WebSocket subscribers listening to live audio
+  const audioSubscribers = new Map<string, Set<WebSocket>>();
+
+  const removeSubscriberFromAll = (ws: WebSocket) => {
+    audioSubscribers.forEach((subscribers, cId) => {
+      subscribers.delete(ws);
+      if (subscribers.size === 0) {
+        audioSubscribers.delete(cId);
+      }
+    });
+  };
+
   wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
     console.log('🔌 Plivo stream connected');
 
@@ -26,6 +38,10 @@ export const initWebSocket = (server: Server) => {
     const handleCallEnd = async () => {
       if (!isMediaStream || isCallEnded) return;
       isCallEnded = true;
+
+      // Remove call from active list & subscribers
+      plivoService.removeActiveCall(callId.toString());
+      audioSubscribers.delete(callId.toString());
 
       try {
         const finalChunkResults = await plivoService.processRemainingAudio(callId.toString());
@@ -81,6 +97,13 @@ export const initWebSocket = (server: Server) => {
               },
               timestamp: new Date().toISOString()
             }));
+
+            // Notify admin UI of call termination
+            client.send(JSON.stringify({
+              type: 'active_call_ended',
+              callId,
+              timestamp: new Date().toISOString()
+            }));
           }
         });
       } catch (finalError) {
@@ -117,10 +140,44 @@ export const initWebSocket = (server: Server) => {
       try {
         const msg = JSON.parse(data.toString());
 
+        // Admin Subscription & Live Control Commands
+        if (msg.type === 'subscribe_live_audio' && msg.callId) {
+          console.log(`🎧 [WEBSOCKET] Admin subscribed to live audio for call ${msg.callId}`);
+          if (!audioSubscribers.has(msg.callId)) {
+            audioSubscribers.set(msg.callId, new Set());
+          }
+          audioSubscribers.get(msg.callId)!.add(ws);
+          return;
+        }
+
+        if (msg.type === 'unsubscribe_live_audio' && msg.callId) {
+          console.log(`🎧 [WEBSOCKET] Admin unsubscribed from live audio for call ${msg.callId}`);
+          if (audioSubscribers.has(msg.callId)) {
+            audioSubscribers.get(msg.callId)!.delete(ws);
+          }
+          return;
+        }
+
+        if (msg.type === 'get_active_calls') {
+          const activeCalls = plivoService.getActiveCalls();
+          ws.send(JSON.stringify({
+            type: 'active_calls_list',
+            activeCalls,
+            timestamp: new Date().toISOString()
+          }));
+          return;
+        }
+
+        // Plivo Telecom Events
         if (msg.event === 'start') {
           isMediaStream = true;
           callId = msg.start.callId;
           console.log('📞 Call started:', msg.start);
+
+          const activeCallInfo = plivoService.registerActiveCall(callId, {
+            farmerNumber: msg.start.from || msg.start.callerId || 'Unknown',
+            startTime: new Date().toISOString()
+          });
 
           plivoService.initializeStreams(callId, (result) => {
             const transcriptMessage = {
@@ -144,12 +201,20 @@ export const initWebSocket = (server: Server) => {
             console.log(`📤 [BACKEND] Transcript sent to ${clientCount} frontend clients`);
           });
 
+          // Broadcast active call start to all connected admin/frontend clients
           Array.from(wss.clients).forEach((client: any) => {
             if (client !== ws && client.readyState === 1) {
               client.send(JSON.stringify({
                 type: 'call_start',
                 callId,
                 data: msg.start
+              }));
+
+              client.send(JSON.stringify({
+                type: 'active_call_started',
+                callId,
+                callInfo: activeCallInfo,
+                timestamp: new Date().toISOString()
               }));
             }
           });
@@ -159,6 +224,24 @@ export const initWebSocket = (server: Server) => {
           const audioBuffer = Buffer.from(msg.media.payload, 'base64');
           audioChunks.push(audioBuffer);
           const track = msg.media.track || 'inbound';
+
+          // Relay live PCM audio chunk to all admins listening to this callId
+          const subscribers = audioSubscribers.get(callId.toString());
+          if (subscribers && subscribers.size > 0) {
+            const liveChunkMsg = JSON.stringify({
+              type: 'live_audio_chunk',
+              callId: callId.toString(),
+              track,
+              payload: msg.media.payload,
+              timestamp: new Date().toISOString()
+            });
+            subscribers.forEach((subscriber) => {
+              if (subscriber.readyState === 1) {
+                subscriber.send(liveChunkMsg);
+              }
+            });
+          }
+
           plivoService.transcribeAudio(audioBuffer, callId, track).catch((transcribeError) => {
             console.error('❌ [BACKEND] transcribeAudio failed:', transcribeError);
             Array.from(wss.clients).forEach((client: any) => {
@@ -183,6 +266,7 @@ export const initWebSocket = (server: Server) => {
 
     ws.on('close', async () => {
       console.log('❌ Stream disconnected');
+      removeSubscriberFromAll(ws);
 
       if (isMediaStream) {
         await handleCallEnd();
@@ -203,6 +287,7 @@ export const initWebSocket = (server: Server) => {
 
     ws.on('error', (err) => {
       console.error('🔥 WS Error:', err);
+      removeSubscriberFromAll(ws);
     });
   });
 };
