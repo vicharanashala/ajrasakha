@@ -3657,6 +3657,47 @@ export class ChatbotService extends BaseService implements IChatbotService {
         manualDelayed: 0,
         manualAverageResponseMinutes: 0,
         manualAdherencePct: 0,
+        answeredWithin120MinClosedwhatsapp: 0,
+        answeredWithin120MinPasswhatsapp: 0,
+        answeredWithin120MinDynamicClosedwhatsapp: 0,
+        answeredWithin120MinDuplicateClosedwhatsapp: 0,
+        answeredWithin120MinClosedajrasakha: 0,
+        answeredWithin120MinPassajrasakha: 0,
+        answeredWithin120MinDynamicClosedajrasakha: 0,
+        answeredWithin120MinDuplicateClosedajrasakha: 0,
+        answeredWithin120MinClosedmanual: 0,
+        answeredWithin120MinPassmanual: 0,
+        answeredWithin120MinDynamicClosedmanual: 0,
+        answeredWithin120MinDuplicateClosedmanual: 0,
+
+        whatsappdynamicWeatherDynamicCount: 0,
+        whatsappdynamicWeatherStaticDynamicCount: 0,
+        ajrasakhadynamicWeatherDynamicCount: 0,
+        ajrasakhadynamicWeatherStaticDynamicCount: 0,
+        manualdynamicWeatherDynamicCount: 0,
+        manualdynamicWeatherStaticDynamicCount: 0,
+
+        whatsappdynamicMarketDynamicCount: 0,
+        whatsappdynamicMarketStaticDynamicCount: 0,
+        ajrasakhadynamicMarketDynamicCount: 0,
+        ajrasakhadynamicMarketStaticDynamicCount: 0,
+        manualdynamicMarketDynamicCount: 0,
+        manualdynamicMarketStaticDynamicCount: 0,
+
+        whatsappdynamicSchemesDynamicCount: 0,
+        whatsappdynamicSchemesStaticDynamicCount: 0,
+        ajrasakhadynamicSchemesDynamicCount: 0,
+        ajrasakhadynamicSchemesStaticDynamicCount: 0,
+        manualdynamicSchemesDynamicCount: 0,
+        manualdynamicSchemesStaticDynamicCount: 0,
+
+        totalDynamicWhatsappCount: 0,
+        totalDynamicAjrasakhaCount: 0,
+        totalDynamicManualCount: 0,
+
+        totalStaticDynamicWhatsappCount: 0,
+        totalStaticDynamicAjrasakhaCount: 0,
+        totalStaticDynamicManualCount: 0,
       }));
   }
 

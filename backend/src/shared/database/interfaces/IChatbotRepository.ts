@@ -470,9 +470,9 @@ export interface ResponseAdherenceTable {
   whatsappDynamicSchemes: number;
   ajrasakhaDynamicSchemes: number;
   manualDynamicSchemes: number;
-  whatsappNonGdbWithin120: number;
-  ajrasakhaNonGdbWithin120: number;
-  manualNonGdbWithin120: number;
+  // whatsappNonGdbWithin120: number;
+  // ajrasakhaNonGdbWithin120: number;
+  // manualNonGdbWithin120: number;
   whatsappInReview: number;
   ajrasakhaInReview: number;
   manualInReview: number;
@@ -491,6 +491,47 @@ export interface ResponseAdherenceTable {
   manualTotal?: number;
   agriexpertTotal?: number;
   outreachTotal?: number;
+  answeredWithin120MinClosedwhatsapp: number,
+  answeredWithin120MinPasswhatsapp: number,
+  answeredWithin120MinDynamicClosedwhatsapp: number,
+  answeredWithin120MinDuplicateClosedwhatsapp: number,
+  answeredWithin120MinClosedajrasakha: number,
+  answeredWithin120MinPassajrasakha: number,
+  answeredWithin120MinDynamicClosedajrasakha: number,
+  answeredWithin120MinDuplicateClosedajrasakha: number,
+  answeredWithin120MinClosedmanual: number,
+  answeredWithin120MinPassmanual: number,
+  answeredWithin120MinDynamicClosedmanual: number,
+  answeredWithin120MinDuplicateClosedmanual: number,
+
+  whatsappdynamicWeatherDynamicCount: number;
+  whatsappdynamicWeatherStaticDynamicCount: number;
+  ajrasakhadynamicWeatherDynamicCount: number;
+  ajrasakhadynamicWeatherStaticDynamicCount: number;
+  manualdynamicWeatherDynamicCount: number;
+  manualdynamicWeatherStaticDynamicCount: number;
+
+  whatsappdynamicMarketDynamicCount: number;
+  whatsappdynamicMarketStaticDynamicCount: number;
+  ajrasakhadynamicMarketDynamicCount: number;
+  ajrasakhadynamicMarketStaticDynamicCount: number;
+  manualdynamicMarketDynamicCount: number;
+  manualdynamicMarketStaticDynamicCount: number;
+
+  whatsappdynamicSchemesDynamicCount: number;
+  whatsappdynamicSchemesStaticDynamicCount: number;
+  ajrasakhadynamicSchemesDynamicCount: number;
+  ajrasakhadynamicSchemesStaticDynamicCount: number;
+  manualdynamicSchemesDynamicCount: number;
+  manualdynamicSchemesStaticDynamicCount: number;
+
+  totalDynamicWhatsappCount: number;
+  totalDynamicAjrasakhaCount: number;
+  totalDynamicManualCount: number;
+
+  totalStaticDynamicWhatsappCount: number;
+  totalStaticDynamicAjrasakhaCount: number;
+  totalStaticDynamicManualCount: number;
 }
 
 // ─── Single consolidated interface ───────────────────────────────────────────

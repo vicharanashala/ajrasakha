@@ -37,9 +37,9 @@ type ResponseAdherenceTableData = {
   whatsappDynamicSchemes: number;
   ajrasakhaDynamicSchemes: number;
   manualDynamicSchemes: number;
-  whatsappNonGdbWithin120: number;
-  ajrasakhaNonGdbWithin120: number;
-  manualNonGdbWithin120: number;
+  // whatsappNonGdbWithin120: number;
+  // ajrasakhaNonGdbWithin120: number;
+  // manualNonGdbWithin120: number;
   whatsappInReview: number;
   ajrasakhaInReview: number;
   manualInReview: number;
@@ -58,6 +58,47 @@ type ResponseAdherenceTableData = {
   manualTotal: number;
   agriexpertTotal: number;
   outreachTotal: number;
+  answeredWithin120MinClosedwhatsapp: number;
+  answeredWithin120MinPasswhatsapp: number;
+  answeredWithin120MinDynamicClosedwhatsapp: number;
+  answeredWithin120MinDuplicateClosedwhatsapp: number;
+  answeredWithin120MinClosedajrasakha: number;
+  answeredWithin120MinPassajrasakha: number;
+  answeredWithin120MinDynamicClosedajrasakha: number;
+  answeredWithin120MinDuplicateClosedajrasakha: number;
+  answeredWithin120MinClosedmanual: number;
+  answeredWithin120MinPassmanual: number;
+  answeredWithin120MinDynamicClosedmanual: number;
+  answeredWithin120MinDuplicateClosedmanual: number;
+
+  whatsappdynamicWeatherDynamicCount: number;
+  whatsappdynamicWeatherStaticDynamicCount: number;
+  ajrasakhadynamicWeatherDynamicCount: number;
+  ajrasakhadynamicWeatherStaticDynamicCount: number;
+  manualdynamicWeatherDynamicCount: number;
+  manualdynamicWeatherStaticDynamicCount: number;
+
+  whatsappdynamicMarketDynamicCount: number;
+  whatsappdynamicMarketStaticDynamicCount: number;
+  ajrasakhadynamicMarketDynamicCount: number;
+  ajrasakhadynamicMarketStaticDynamicCount: number;
+  manualdynamicMarketDynamicCount: number;
+  manualdynamicMarketStaticDynamicCount: number;
+
+  whatsappdynamicSchemesDynamicCount: number;
+  whatsappdynamicSchemesStaticDynamicCount: number;
+  ajrasakhadynamicSchemesDynamicCount: number;
+  ajrasakhadynamicSchemesStaticDynamicCount: number;
+  manualdynamicSchemesDynamicCount: number;
+  manualdynamicSchemesStaticDynamicCount: number;
+
+  totalDynamicWhatsappCount: number;
+  totalDynamicAjrasakhaCount: number;
+  totalDynamicManualCount: number;
+
+  totalStaticDynamicWhatsappCount: number;
+  totalStaticDynamicAjrasakhaCount: number;
+  totalStaticDynamicManualCount: number;
 };
 
 const DEFAULT_DATA: ResponseAdherenceTableData = {
@@ -85,9 +126,9 @@ const DEFAULT_DATA: ResponseAdherenceTableData = {
   whatsappDynamicSchemes: 0,
   ajrasakhaDynamicSchemes: 0,
   manualDynamicSchemes: 0,
-  whatsappNonGdbWithin120: 0,
-  ajrasakhaNonGdbWithin120: 0,
-  manualNonGdbWithin120: 0,
+  // whatsappNonGdbWithin120: 0,
+  // ajrasakhaNonGdbWithin120: 0,
+  // manualNonGdbWithin120: 0,
   whatsappInReview: 0,
   ajrasakhaInReview: 0,
   manualInReview: 0,
@@ -106,6 +147,47 @@ const DEFAULT_DATA: ResponseAdherenceTableData = {
   manualTotal: 0,
   agriexpertTotal: 0,
   outreachTotal: 0,
+  answeredWithin120MinClosedwhatsapp: 0,
+  answeredWithin120MinPasswhatsapp: 0,
+  answeredWithin120MinDynamicClosedwhatsapp: 0,
+  answeredWithin120MinDuplicateClosedwhatsapp: 0,
+  answeredWithin120MinClosedajrasakha: 0,
+  answeredWithin120MinPassajrasakha: 0,
+  answeredWithin120MinDynamicClosedajrasakha: 0,
+  answeredWithin120MinDuplicateClosedajrasakha: 0,
+  answeredWithin120MinClosedmanual: 0,
+  answeredWithin120MinPassmanual: 0,
+  answeredWithin120MinDynamicClosedmanual: 0,
+  answeredWithin120MinDuplicateClosedmanual: 0,
+
+  whatsappdynamicWeatherDynamicCount: 0,
+  whatsappdynamicWeatherStaticDynamicCount: 0,
+  ajrasakhadynamicWeatherDynamicCount: 0,
+  ajrasakhadynamicWeatherStaticDynamicCount: 0,
+  manualdynamicWeatherDynamicCount: 0,
+  manualdynamicWeatherStaticDynamicCount: 0,
+
+  whatsappdynamicMarketDynamicCount: 0,
+  whatsappdynamicMarketStaticDynamicCount: 0,
+  ajrasakhadynamicMarketDynamicCount: 0,
+  ajrasakhadynamicMarketStaticDynamicCount: 0,
+  manualdynamicMarketDynamicCount: 0,
+  manualdynamicMarketStaticDynamicCount: 0,
+
+  whatsappdynamicSchemesDynamicCount: 0,
+  whatsappdynamicSchemesStaticDynamicCount: 0,
+  ajrasakhadynamicSchemesDynamicCount: 0,
+  ajrasakhadynamicSchemesStaticDynamicCount: 0,
+  manualdynamicSchemesDynamicCount: 0,
+  manualdynamicSchemesStaticDynamicCount: 0,
+
+  totalDynamicWhatsappCount: 0,
+  totalDynamicAjrasakhaCount: 0,
+  totalDynamicManualCount: 0,
+
+  totalStaticDynamicWhatsappCount: 0,
+  totalStaticDynamicAjrasakhaCount: 0,
+  totalStaticDynamicManualCount: 0,
 };
 
 const ALL_ROW_IDS = [
@@ -115,11 +197,22 @@ const ALL_ROW_IDS = [
   "queriesAsked",
   "pushedReviewer",
   "answered120",
+  "answered120Closed",
+  "answered120Pass",
+  "answered120DynamicClosed",
+  "answered120DuplicateClosed",
   "duplicate",
+
+  "totalDynamic",
   "dynamicWeather",
   "dynamicMarket",
   "dynamicSchemes",
-  "nonGdb",
+
+  "totalStaticDynamic",
+  "staticdynamicWeather",
+  "staticdynamicMarket",
+  "staticdynamicSchemes",
+  // "nonGdb",
   "inReview",
   "open",
   "delayed",
@@ -203,7 +296,7 @@ export function ResponseAdherenceTableCard({
   userType: 'all' | 'external' | 'internal';
 }) {
   type ExportColumn = "whatsapp" | "ajraSakha" | "manual";
-
+    console.log("data----", data);
   const [checkedColumns, setCheckedColumns] = useState<
     Record<ExportColumn, boolean>
   >({
@@ -223,12 +316,12 @@ export function ResponseAdherenceTableCard({
     d.whatsappQueriesAsked > 0 ? d.whatsappQueriesAsked : "NIL";
   const manualQueriesAskedDisplay = 
     d.manualQueriesAsked > 0 ? d.manualQueriesAsked : "NIL";
-  const manualDynamicWeatherDisplay =
-    d.manualDynamicWeather > 0 ? d.manualDynamicWeather : "NIL";
-  const manualDynamicMarketDisplay =
-    d.manualDynamicMarket > 0 ? d.manualDynamicMarket : "NIL";
-  const manualDynamicSchemesDisplay =
-    d.manualDynamicSchemes > 0 ? d.manualDynamicSchemes : "NIL";
+  // const manualDynamicWeatherDisplay =
+  //   d.manualDynamicWeather > 0 ? d.manualDynamicWeather : "NIL";
+  // const manualDynamicMarketDisplay =
+  //   d.manualDynamicMarket > 0 ? d.manualDynamicMarket : "NIL";
+  // const manualDynamicSchemesDisplay =
+  //   d.manualDynamicSchemes > 0 ? d.manualDynamicSchemes : "NIL";
   const [internalDate, setInternalDate] = useState<string>(todayAsInputDate());
   const [checkedRows, setCheckedRows] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
@@ -262,11 +355,22 @@ export function ResponseAdherenceTableCard({
     { id: "queriesAsked", field: "Queries Asked", whatsapp: whatsappQueriesAskedDisplay, ajraSakha: d.ajrasakhaQueriesAsked, manual: manualQueriesAskedDisplay, notes: "" },
     { id: "pushedReviewer", field: "Questions pushed into the review system", whatsapp: d.whatsappPushedToReviewer, ajraSakha: d.ajrasakhaPushedToReviewer, manual: d.manualPushedToReviewer, notes: "" },
     { id: "answered120", field: "Questions answered within 120 minutes", whatsapp: d.whatsappAnsweredWithin120Min, ajraSakha: d.ajrasakhaAnsweredWithin120Min, manual: d.manualAnsweredWithin120Min, notes: "" },
+    { id: "answered120Closed", field: "Closed within 120 minutes", whatsapp: d.answeredWithin120MinClosedwhatsapp,ajraSakha: d.answeredWithin120MinClosedajrasakha,manual: d.answeredWithin120MinClosedmanual,notes: "",},
+    { id: "answered120Pass",field: "Pass within 120 minutes",whatsapp: d.answeredWithin120MinPasswhatsapp,ajraSakha: d.answeredWithin120MinPassajrasakha,manual: d.answeredWithin120MinPassmanual,notes: "",},
+    { id: "answered120DynamicClosed",field: "Dynamic Closed within 120 minutes",whatsapp: d.answeredWithin120MinDynamicClosedwhatsapp,ajraSakha: d.answeredWithin120MinDynamicClosedajrasakha,manual: d.answeredWithin120MinDynamicClosedmanual,notes: "",},
+    { id: "answered120DuplicateClosed",field: "Duplicate Closed within 120 minutes",whatsapp: d.answeredWithin120MinDuplicateClosedwhatsapp,ajraSakha: d.answeredWithin120MinDuplicateClosedajrasakha,manual: d.answeredWithin120MinDuplicateClosedmanual,notes: "",},
     { id: "duplicate", field: "Marked Duplicate (Fetched from GDB)", whatsapp: d.whatsappMarkedDuplicate, ajraSakha: d.ajrasakhaMarkedDuplicate, manual: d.manualMarkedDuplicate, notes: "" },
-    { id: "dynamicWeather", field: "Dynamic - Weather", whatsapp: d.whatsappDynamicWeather, ajraSakha: d.ajrasakhaDynamicWeather, manual: manualDynamicWeatherDisplay, notes: "" },
-    { id: "dynamicMarket", field: "Dynamic - Market", whatsapp: d.whatsappDynamicMarket, ajraSakha: d.ajrasakhaDynamicMarket, manual:manualDynamicMarketDisplay, notes: "" },
-    { id: "dynamicSchemes", field: "Dynamic - Schemes", whatsapp: d.whatsappDynamicSchemes, ajraSakha: d.ajrasakhaDynamicSchemes, manual: manualDynamicSchemesDisplay, notes: "" },
-    { id: "nonGdb", field: "Non GDB Questions - Answer prepared in 120 Min by AEs", whatsapp: d.whatsappNonGdbWithin120, ajraSakha: d.ajrasakhaNonGdbWithin120, manual: d.manualNonGdbWithin120, notes: "" },
+
+    { id: "totalDynamic", field: "Total - Dynamic", whatsapp: d.totalDynamicWhatsappCount, ajraSakha: d.totalDynamicAjrasakhaCount, manual: d.totalDynamicManualCount, notes: "" },
+    { id: "dynamicWeather", field: "Dynamic - Weather", whatsapp: d.whatsappdynamicWeatherDynamicCount, ajraSakha: d.ajrasakhadynamicWeatherDynamicCount, manual: d.manualdynamicWeatherDynamicCount, notes: "" },
+    { id: "dynamicMarket", field: "Dynamic - Market", whatsapp: d.whatsappdynamicMarketDynamicCount, ajraSakha: d.ajrasakhadynamicMarketDynamicCount, manual:d.manualdynamicMarketDynamicCount, notes: "" },
+    { id: "dynamicSchemes", field: "Dynamic - Schemes", whatsapp: d.whatsappdynamicSchemesDynamicCount, ajraSakha: d.ajrasakhadynamicSchemesDynamicCount, manual: d.manualdynamicSchemesDynamicCount, notes: "" },
+
+    { id: "totalStaticDynamic", field: "Total - Static Dynamic", whatsapp: d.totalStaticDynamicWhatsappCount, ajraSakha: d.totalStaticDynamicAjrasakhaCount, manual: d.totalStaticDynamicManualCount, notes: "" },
+    { id: "staticdynamicWeather", field: "Static Dynamic - Weather", whatsapp: d.whatsappdynamicWeatherStaticDynamicCount, ajraSakha: d.ajrasakhadynamicWeatherStaticDynamicCount, manual: d.manualdynamicWeatherStaticDynamicCount, notes: "" },
+    { id: "staticdynamicMarket", field: "Static Dynamic - Market", whatsapp: d.whatsappdynamicMarketStaticDynamicCount, ajraSakha: d.ajrasakhadynamicMarketStaticDynamicCount, manual:d.manualdynamicMarketStaticDynamicCount, notes: "" },
+    { id: "staticdynamicSchemes", field: "Static Dynamic - Schemes", whatsapp: d.whatsappdynamicSchemesStaticDynamicCount, ajraSakha: d.ajrasakhadynamicSchemesStaticDynamicCount, manual: d.manualdynamicSchemesStaticDynamicCount, notes: "" },
+    // { id: "nonGdb", field: "Non GDB Questions - Answer prepared in 120 Min by AEs", whatsapp: d.whatsappNonGdbWithin120, ajraSakha: d.ajrasakhaNonGdbWithin120, manual: d.manualNonGdbWithin120, notes: "" },
     { id: "inReview", field: "Question in Review", whatsapp: d.whatsappInReview, ajraSakha: d.ajrasakhaInReview, manual: d.manualInReview, notes: "" },
     { id: "open", field: "Questions are Open", whatsapp: d.whatsappOpen, ajraSakha: d.ajrasakhaOpen, manual: d.manualOpen, notes: "" },
     { id: "delayed", field: "Questions are delayed", whatsapp: d.whatsappDelayed, ajraSakha: d.ajrasakhaDelayed, manual: d.manualDelayed, notes: "" },
@@ -316,12 +420,44 @@ export function ResponseAdherenceTableCard({
      },
      {
        key: "answered120",
-       label: "Answered within 120 min",
+       label: "Responded within 120 min",
        type: "data",
        wa: d.whatsappAnsweredWithin120Min,
        as: d.ajrasakhaAnsweredWithin120Min,
        manual: d.manualAnsweredWithin120Min,
      },
+     {
+        key: "answered120Closed",
+        label: "Closed within 120 minutes",
+        type: "data",
+        wa: `${d.answeredWithin120MinClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
+        as: `${d.answeredWithin120MinClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
+        manual: `${d.answeredWithin120MinClosedmanual} / ${d.manualAnsweredWithin120Min}`,
+      },
+      {
+        key: "answered120Pass",
+        label: "Pass within 120 minutes)",
+        type: "data",
+        wa: `${d.answeredWithin120MinPasswhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
+        as: `${d.answeredWithin120MinPassajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
+        manual: `${d.answeredWithin120MinPassmanual} / ${d.manualAnsweredWithin120Min}`,
+      },
+      {
+        key: "answered120DynamicClosed",
+        label: "Dynamic Closed within 120 minutes",
+        type: "data",
+        wa: `${d.answeredWithin120MinDynamicClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
+        as: `${d.answeredWithin120MinDynamicClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
+        manual: `${d.answeredWithin120MinDynamicClosedmanual} / ${d.manualAnsweredWithin120Min}`,
+      },
+      {
+        key: "answered120DuplicateClosed",
+        label: "Duplicate Closed within 120 minutes",
+        type: "data",
+        wa: `${d.answeredWithin120MinDuplicateClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
+        as: `${d.answeredWithin120MinDuplicateClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
+        manual: `${d.answeredWithin120MinDuplicateClosedmanual} / ${d.manualAnsweredWithin120Min}`,
+      },
      {
        key: "duplicate",
        label: "Marked Duplicate (GDB)",
@@ -330,38 +466,78 @@ export function ResponseAdherenceTableCard({
        as: d.ajrasakhaMarkedDuplicate,
        manual: d.manualMarkedDuplicate,
      },
+      {
+       key: "totalDynamic",
+       label: "Total - Dynamic",
+       type: "data",
+       wa: d.totalDynamicWhatsappCount,
+       as: d.totalDynamicAjrasakhaCount,
+       manual: d.totalDynamicManualCount,
+     },
      {
        key: "dynamicWeather",
        label: "Dynamic — Weather",
        type: "data",
-       wa: d.whatsappDynamicWeather,
-       as: d.ajrasakhaDynamicWeather,
-       manual: manualDynamicWeatherDisplay,
+       wa: d.whatsappdynamicWeatherDynamicCount,
+       as: d.ajrasakhadynamicMarketDynamicCount,
+       manual: d.manualdynamicWeatherDynamicCount,
      },
      {
        key: "dynamicMarket",
        label: "Dynamic — Market",
        type: "data",
-       wa: d.whatsappDynamicMarket,
-       as: d.ajrasakhaDynamicMarket,
-       manual: manualDynamicMarketDisplay,
+       wa: d.whatsappdynamicMarketDynamicCount,
+       as: d.ajrasakhadynamicSchemesDynamicCount,
+       manual: d.manualdynamicMarketDynamicCount,
      },
      {
        key: "dynamicSchemes",
        label: "Dynamic — Schemes",
        type: "data",
-       wa: d.whatsappDynamicSchemes,
-       as: d.ajrasakhaDynamicSchemes,
-       manual: manualDynamicSchemesDisplay,
+       wa: d.whatsappdynamicSchemesDynamicCount,
+       as: d.ajrasakhadynamicSchemesDynamicCount,
+       manual: d.manualdynamicSchemesDynamicCount,
+     },
+      {
+       key: "totalStaticDynamic",
+       label: "Total - Static Dynamic",
+       type: "data",
+       wa: d.totalStaticDynamicWhatsappCount,
+       as: d.totalStaticDynamicAjrasakhaCount,
+       manual: d.totalStaticDynamicManualCount,
+     },
+      {
+       key: "staticdynamicWeather",
+       label: "Static Dynamic — Weather",
+       type: "data",
+       wa: d.whatsappdynamicWeatherStaticDynamicCount,
+       as: d.ajrasakhadynamicWeatherStaticDynamicCount,
+       manual: d.manualdynamicWeatherStaticDynamicCount,
      },
      {
-       key: "nonGdb",
-       label: "Non-GDB answered in 120 min by AEs",
+       key: "staticdynamicMarket",
+       label: "Static Dynamic — Market",
        type: "data",
-       wa: d.whatsappNonGdbWithin120,
-       as: d.ajrasakhaNonGdbWithin120,
-       manual: d.manualNonGdbWithin120,
+       wa: d.whatsappdynamicMarketStaticDynamicCount,
+       as: d.ajrasakhadynamicMarketStaticDynamicCount,
+       manual: d.manualdynamicMarketStaticDynamicCount,
      },
+     {
+       key: "staticdynamicSchemes",
+       label: "Static Dynamic — Schemes",
+       type: "data",
+       wa: d.whatsappdynamicSchemesStaticDynamicCount,
+       as: d.ajrasakhadynamicSchemesStaticDynamicCount,
+       manual: d.manualdynamicSchemesStaticDynamicCount,
+     },
+    //  {
+    //    key: "nonGdb",
+    //    label: "Non-GDB answered in 120 min by AEs",
+    //    type: "data",
+    //    wa: d.whatsappNonGdbWithin120,
+    //    as: d.ajrasakhaNonGdbWithin120,
+    //    manual: d.manualNonGdbWithin120,
+    //  },
      {
        key: "inReview",
        label: "In Review",

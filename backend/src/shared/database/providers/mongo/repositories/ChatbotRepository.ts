@@ -722,10 +722,20 @@ export class ChatbotRepository implements IChatbotRepository {
     dynamicMarketCount: number;
     dynamicSchemesCount: number;
     markedDuplicateGdbCount: number;
-    nonGdbWithin120: number;
+    // nonGdbWithin120: number;
     manualTotal?: number;
     agriexpertTotal?: number;
     outreachTotal?: number;
+    answeredWithin120MinClosed: number;
+    answeredWithin120MinPass: number;
+    answeredWithin120MinDynamicClosed: number;
+    answeredWithin120MinDuplicateClosed: number;
+    dynamicWeatherDynamicCount: number;
+    dynamicWeatherStaticDynamicCount: number;
+    dynamicMarketDynamicCount: number;
+    dynamicMarketStaticDynamicCount: number;
+    dynamicSchemesDynamicCount: number;
+    dynamicSchemesStaticDynamicCount: number;
   }> {
     const matchQuery = buildBaseQuestionMatch(source);
     if(source === "MANUAL"){
@@ -766,6 +776,12 @@ export class ChatbotRepository implements IChatbotRepository {
                 },
               ],
             },
+            _isMarkedDuplicate: {
+              $ne: [
+                { $type: "$referenceQuestionId" },
+                "missing"
+              ]
+            },
             _isDynamicCategory: {
               $regexMatch: {
                 input: {
@@ -798,6 +814,13 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $addFields: {
             _isPassed: {$eq: ['$_statusLower', 'pass']},
+            _normalizedStatus: {
+              $replaceAll: {
+                input: '$_statusLower',
+                find: '-',
+                replacement: '_',
+              },
+            },
             _operationalCompletionAt: {
               $switch: {
                 branches: [
@@ -913,7 +936,7 @@ export class ChatbotRepository implements IChatbotRepository {
             markedDuplicateGdb: [
               {
                 $match: {
-                  _isGdbDuplicate: true,
+                  _isMarkedDuplicate: true,
                 },
               },
               {$count: 'count'},
@@ -921,63 +944,106 @@ export class ChatbotRepository implements IChatbotRepository {
             dynamicWeather: [
               {
                 $match: {
-                  status: 'dynamic',
+                  // status: 'dynamic',
                   $or: [
                     {'details.domain': /weather/i},
                     {'details.category': /weather/i},
                   ],
                 },
               },
-              {$count: 'count'},
+                {
+                  $group: {
+                    _id: {
+                      $cond: [
+                        {
+                          $eq: [
+                            { $toLower: { $ifNull: ['$tag', ''] } },
+                            'static_dynamic',
+                          ],
+                        },
+                        'static_dynamic',
+                        'dynamic',
+                      ],
+                    },
+                    count: { $sum: 1 },
+                  },
+                },
             ],
             dynamicMarket: [
               {
                 $match: {
-                  status: 'dynamic',
+                  // status: 'dynamic',
                   $or: [
                     {'details.domain': /market/i},
                     {'details.category': /market/i},
                   ],
                 },
               },
-              {$count: 'count'},
+                {
+                $group: {
+                  _id: {
+                    $cond: [
+                      {
+                        $eq: [
+                          { $toLower: { $ifNull: ['$tag', ''] } },
+                          'static_dynamic',
+                        ],
+                      },
+                      'static_dynamic',
+                      'dynamic',
+                    ],
+                  },
+                  count: { $sum: 1 },
+                },
+              },
             ],
             dynamicSchemes: [
               {
                 $match: {
-                  status: 'dynamic',
+                  // status: 'dynamic',
                   $or: [
                     {'details.domain': /scheme/i},
                     {'details.category': /scheme/i},
                   ],
                 },
               },
-              {$count: 'count'},
+                {
+                $group: {
+                  _id: {
+                    $cond: [
+                      {
+                        $eq: [
+                          { $toLower: { $ifNull: ['$tag', ''] } },
+                          'static_dynamic',
+                        ],
+                      },
+                      'static_dynamic',
+                      'dynamic',
+                    ],
+                  },
+                  count: { $sum: 1 },
+                },
+              },
             ],
-            nonGdbWithin120: [
+            answeredWithin120MinBreakdown: [
               {
                 $match: {
-                  _statusLower: {
+                  _operationalCompletionAt: { $ne: null },
+                  _normalizedStatus: {
                     $in: [
-                      "pass",
-                      "dynamic-closed",
-                      "dynamic_closed",
-                      "duplicate_closed",
-                      "duplicate-closed",
+                      'closed',
+                      'pass',
+                      'dynamic_closed',
+                      'duplicate_closed',
                     ],
                   },
                 },
               },
               {
                 $match: {
-                  _operationalCompletionAt: {$ne: null},
-                },
-              },
-              {
-                $match: {
                   $expr: {
                     $and: [
-                      {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                      { $gte: ['$_operationalCompletionAt', '$createdAt'] },
                       {
                         $lte: [
                           {
@@ -994,7 +1060,10 @@ export class ChatbotRepository implements IChatbotRepository {
                 },
               },
               {
-                $count: "count",
+                $group: {
+                  _id: '$_normalizedStatus',
+                  count: { $sum: 1 },
+                },
               },
             ],
           },
@@ -1022,6 +1091,35 @@ export class ChatbotRepository implements IChatbotRepository {
     }
 
     const row = result[0] ?? {};
+    const answeredWithin120minBreakdown = Object.fromEntries(
+      (row.answeredWithin120MinBreakdown ?? []).map(
+        (item: { _id: string; count: number }) => [
+          item._id,
+          item.count,
+        ],
+      ),
+    );
+    const getCount = (
+      items: { _id: string; count: number }[] = [],
+      type: 'dynamic' | 'static_dynamic',
+    ) => items.find(item => item._id === type)?.count ?? 0;
+
+    const weatherDynamic = getCount(row.dynamicWeather, 'dynamic');
+    const weatherStaticDynamic = getCount(
+      row.dynamicWeather,
+      'static_dynamic',
+    );
+    const marketDynamic = getCount(row.dynamicmarket, 'dynamic');
+    const marketStaticDynamic = getCount(
+      row.dynamicWeather,
+      'static_dynamic',
+    );
+    const schemesDynamic = getCount(row.dynamicSchemes, 'dynamic');
+    const schemesStaticDynamic = getCount(
+      row.dynamicWeather,
+      'static_dynamic',
+    );
+    // console.log("weatherDynamic and weatherStaticDynamic", weatherDynamic, weatherStaticDynamic);
     return {
       questionAsked: row.questionAsked?.[0]?.count ?? 0,
       closedQuestionsCount: row.closedQuestions?.[0]?.count ?? 0,
@@ -1031,14 +1129,28 @@ export class ChatbotRepository implements IChatbotRepository {
       inReviewCount: row.inReview?.[0]?.count ?? 0,
       openCount: row.open?.[0]?.count ?? 0,
       delayedCount: row.delayed?.[0]?.count ?? 0,
-      dynamicWeatherCount: row.dynamicWeather?.[0]?.count ?? 0,
-      dynamicMarketCount: row.dynamicMarket?.[0]?.count ?? 0,
-      dynamicSchemesCount: row.dynamicSchemes?.[0]?.count ?? 0,
+      dynamicWeatherCount:  weatherDynamic + weatherStaticDynamic,
+      dynamicMarketCount: marketDynamic + marketStaticDynamic,
+      dynamicSchemesCount: schemesDynamic + schemesStaticDynamic,
       markedDuplicateGdbCount: row.markedDuplicateGdb?.[0]?.count ?? 0,
-      nonGdbWithin120: row.nonGdbWithin120?.[0]?.count ?? 0,
+      // nonGdbWithin120: row.nonGdbWithin120?.[0]?.count ?? 0,
       manualTotal,
       agriexpertTotal,
-      outreachTotal
+      outreachTotal,
+      answeredWithin120MinClosed:
+        answeredWithin120minBreakdown.closed ?? 0,
+      answeredWithin120MinPass:
+        answeredWithin120minBreakdown.pass ?? 0,
+      answeredWithin120MinDynamicClosed:
+        answeredWithin120minBreakdown.dynamic_closed ?? 0,
+      answeredWithin120MinDuplicateClosed:
+        answeredWithin120minBreakdown.duplicate_closed ?? 0,
+      dynamicWeatherDynamicCount: weatherDynamic?? 0,
+      dynamicWeatherStaticDynamicCount: weatherStaticDynamic?? 0,
+      dynamicMarketDynamicCount: marketDynamic?? 0,
+      dynamicMarketStaticDynamicCount: marketStaticDynamic?? 0,
+      dynamicSchemesDynamicCount: schemesDynamic?? 0,
+      dynamicSchemesStaticDynamicCount: schemesStaticDynamic?? 0,
     };
   }
 
@@ -1246,10 +1358,12 @@ export class ChatbotRepository implements IChatbotRepository {
       const hh = String(endIst.getHours()).padStart(2, '0');
       const mm = String(endIst.getMinutes()).padStart(2, '0');
       const date = startIst.toLocaleDateString('en-GB').split('/').join('-');
-      const whatsappNonGdbWithin120 = whatsapp.nonGdbWithin120;
-      const ajrasakhaNonGdbWithin120 = ajrasakha.nonGdbWithin120;
-      const manualNonGdbWithin120 = manual.nonGdbWithin120;
-
+      // const whatsappNonGdbWithin120 = whatsapp.nonGdbWithin120;
+      // const ajrasakhaNonGdbWithin120 = ajrasakha.nonGdbWithin120;
+      // const manualNonGdbWithin120 = manual.nonGdbWithin120;
+      console.log("ajrasakha---", ajrasakha);
+      console.log("whatsapp---", whatsapp);
+      console.log("manual---", manual);
       return {
         date,
         time: `${hh}:${mm}`,
@@ -1278,9 +1392,9 @@ export class ChatbotRepository implements IChatbotRepository {
         whatsappDynamicSchemes,
         ajrasakhaDynamicSchemes,
         manualDynamicSchemes: manual.dynamicSchemesCount,
-        whatsappNonGdbWithin120,
-        ajrasakhaNonGdbWithin120,
-        manualNonGdbWithin120,
+        // whatsappNonGdbWithin120,
+        // ajrasakhaNonGdbWithin120,
+        // manualNonGdbWithin120,
         whatsappInReview: whatsapp.inReviewCount,
         ajrasakhaInReview: ajrasakha.inReviewCount,
         manualInReview: manual.inReviewCount,
@@ -1302,8 +1416,50 @@ export class ChatbotRepository implements IChatbotRepository {
         manualTotal : manual.manualTotal,
         agriexpertTotal: manual.agriexpertTotal,
         outreachTotal: manual.outreachTotal,
+        answeredWithin120MinClosedwhatsapp: whatsapp.answeredWithin120MinClosed,
+        answeredWithin120MinPasswhatsapp: whatsapp.answeredWithin120MinPass,
+        answeredWithin120MinDynamicClosedwhatsapp: whatsapp.answeredWithin120MinDynamicClosed,
+        answeredWithin120MinDuplicateClosedwhatsapp: whatsapp.answeredWithin120MinDuplicateClosed,
+        answeredWithin120MinClosedajrasakha: ajrasakha.answeredWithin120MinClosed,
+        answeredWithin120MinPassajrasakha: ajrasakha.answeredWithin120MinPass,
+        answeredWithin120MinDynamicClosedajrasakha: ajrasakha.answeredWithin120MinDynamicClosed,
+        answeredWithin120MinDuplicateClosedajrasakha: ajrasakha.answeredWithin120MinDuplicateClosed,
+        answeredWithin120MinClosedmanual: manual.answeredWithin120MinClosed,
+        answeredWithin120MinPassmanual: manual.answeredWithin120MinPass,
+        answeredWithin120MinDynamicClosedmanual: manual.answeredWithin120MinDynamicClosed,
+        answeredWithin120MinDuplicateClosedmanual: manual.answeredWithin120MinDuplicateClosed,
+
+        whatsappdynamicWeatherDynamicCount: whatsapp.dynamicWeatherDynamicCount,
+        whatsappdynamicWeatherStaticDynamicCount: whatsapp.dynamicWeatherStaticDynamicCount,
+        ajrasakhadynamicWeatherDynamicCount: ajrasakha.dynamicWeatherDynamicCount,
+        ajrasakhadynamicWeatherStaticDynamicCount: ajrasakha.dynamicWeatherStaticDynamicCount,
+        manualdynamicWeatherDynamicCount: manual.dynamicWeatherDynamicCount,
+        manualdynamicWeatherStaticDynamicCount: manual.dynamicWeatherStaticDynamicCount,
+
+        whatsappdynamicMarketDynamicCount: whatsapp.dynamicMarketDynamicCount,
+        whatsappdynamicMarketStaticDynamicCount: whatsapp.dynamicMarketStaticDynamicCount,
+        ajrasakhadynamicMarketDynamicCount: ajrasakha.dynamicMarketDynamicCount,
+        ajrasakhadynamicMarketStaticDynamicCount: ajrasakha.dynamicMarketStaticDynamicCount,
+        manualdynamicMarketDynamicCount: manual.dynamicMarketDynamicCount,
+        manualdynamicMarketStaticDynamicCount: manual.dynamicMarketStaticDynamicCount,
+
+        whatsappdynamicSchemesDynamicCount: whatsapp.dynamicSchemesDynamicCount,
+        whatsappdynamicSchemesStaticDynamicCount: whatsapp.dynamicSchemesStaticDynamicCount,
+        ajrasakhadynamicSchemesDynamicCount: ajrasakha.dynamicSchemesDynamicCount,
+        ajrasakhadynamicSchemesStaticDynamicCount: ajrasakha.dynamicSchemesStaticDynamicCount,
+        manualdynamicSchemesDynamicCount: manual.dynamicSchemesDynamicCount,
+        manualdynamicSchemesStaticDynamicCount: manual.dynamicSchemesStaticDynamicCount,
+
+        totalDynamicWhatsappCount: whatsapp.dynamicWeatherDynamicCount + whatsapp.dynamicMarketDynamicCount + whatsapp.dynamicSchemesDynamicCount,
+        totalDynamicAjrasakhaCount: ajrasakha.dynamicWeatherDynamicCount + ajrasakha.dynamicWeatherDynamicCount + ajrasakha.dynamicSchemesDynamicCount,
+        totalDynamicManualCount: manual.dynamicWeatherDynamicCount + manual.dynamicMarketDynamicCount + manual.dynamicSchemesDynamicCount,
+
+        totalStaticDynamicWhatsappCount: whatsapp.dynamicWeatherStaticDynamicCount + whatsapp.dynamicMarketStaticDynamicCount + whatsapp.dynamicSchemesStaticDynamicCount,
+        totalStaticDynamicAjrasakhaCount: ajrasakha.dynamicWeatherStaticDynamicCount + ajrasakha.dynamicMarketStaticDynamicCount + ajrasakha.dynamicSchemesStaticDynamicCount,
+        totalStaticDynamicManualCount: manual.dynamicWeatherStaticDynamicCount + manual.dynamicMarketStaticDynamicCount + manual.dynamicSchemesStaticDynamicCount,
       };
     } catch (error) {
+      console.log("error------", error);
       throw new InternalServerError(
         `Failed to get response adherence table: ${error}`,
       );
