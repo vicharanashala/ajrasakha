@@ -41,6 +41,7 @@ import type { DashboardStat } from "@/hooks/services/dashboardContentService";
 export const PublicDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
+  const [heroTabIndex, setHeroTabIndex] = useState(0); // Lifted state for syncing hero tab index with narrative details below
 
   // ---- live data -----------------------------------------------------------
   const { data: content } = useGetDashboardContent();
@@ -136,10 +137,24 @@ export const PublicDashboard = () => {
             }}
             loading={figuresLoading}
             images={carouselImages}
+            activeIndex={heroTabIndex}
+            setActiveIndex={setHeroTabIndex}
           />
           <main>
-            {/* 60-second overview carousel (left) + Human Intelligence Network (right) */}
-            <NarrativeSection blocks={blocks} roles={live?.userRoleOverview} />
+            {/* Detailed tab info page content + Human Intelligence Network vertically stacked */}
+            <NarrativeSection
+              blocks={blocks}
+              roles={live?.userRoleOverview}
+              activeTabIndex={heroTabIndex}
+              setActiveTabIndex={setHeroTabIndex}
+              stats={{
+                totalQuestions: headline?.totalQuestions ?? 0,
+                validatedQAPairs: headline?.validatedQAPairs ?? 0,
+                questionsToday: headline?.questionsToday ?? 0,
+                questionsThisMonth: headline?.questionsThisMonth ?? 0,
+                ...editorial,
+              }}
+            />
             <AnalyticsMapPublic />
             <CoverageOverview
               cropData={cropData}

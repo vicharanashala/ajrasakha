@@ -384,3 +384,12 @@ code {
 .animate-badgePulse {
   animation: badgePulse 2.4s ease-in-out infinite;
 }
+
+/* Make global viewport scrollbars thinner */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+html {
+  scrollbar-width: thin;
+}
