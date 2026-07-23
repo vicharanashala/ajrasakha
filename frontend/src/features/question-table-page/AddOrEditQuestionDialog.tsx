@@ -1162,6 +1162,36 @@ export const AddOrEditQuestionDialog = ({
                       })}
                 </div>
 
+                {userRole !== "expert" && mode === "edit" && (
+                  <>
+                    <Separator className="my-4" />
+                    <div className="flex items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5 pr-4">
+                        <Label>Test Question</Label>
+                        <p className="text-xs text-muted-foreground">
+                          When enabled, the question is marked as a test question
+                          (isTesting) and auto-allocation is turned off. Disable to
+                          remove it from testing and turn auto-allocation back on.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={!!updatedData?.isTesting}
+                        onCheckedChange={(value) =>
+                          setUpdatedData((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  isTesting: value,
+                                  isAutoAllocate: !value,
+                                }
+                              : prev
+                          )
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+
                 {userRole === "expert" && mode === "edit" && (
                   <>
                     <Separator className="my-4" />
