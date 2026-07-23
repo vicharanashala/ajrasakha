@@ -8,7 +8,7 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 
 // Schedule every 1 minutes
 const start =false
-//if(start){
+if(start){
 if(!appConfig.isDevelopment){
 cron.schedule('*/1 * * * *', async () => {
   console.log('<<CRON>> Running question status update job...');

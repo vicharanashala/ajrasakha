@@ -6,7 +6,7 @@ import { appConfig } from '#root/config/app.js';
 
 // Run every 2 minutes, all day — time-bound questions can arrive at any hour
 const start =false
-//if(start){
+if(start){
 if(!appConfig.isDevelopment){
 cron.schedule(
   '0 */1 * * * *',
