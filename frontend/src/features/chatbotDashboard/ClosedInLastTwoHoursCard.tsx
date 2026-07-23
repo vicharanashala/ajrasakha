@@ -51,6 +51,8 @@ type ClosedInLastTwoHoursCardProps = {
   totalDuplicateClosed?: number;
   userId?: string;
   isMapComponent?: boolean;
+  state?: string;
+  district?:string;
   showSourceFilter?: boolean;
 };
 
@@ -73,8 +75,12 @@ export function ClosedInLastTwoHoursCard({
   totalDuplicateClosed = 0,
   userId,
   isMapComponent = false,
+  state,
+  district,
   showSourceFilter = true,
 }: ClosedInLastTwoHoursCardProps) {
+
+  console.log("State on frontend is", state);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -450,8 +456,8 @@ export function ClosedInLastTwoHoursCard({
           userType={userType}
           onClose={() => setClosedWithInTowhours(false)}
           closedWithInTwohours={true}
-          startDate={dateRange?.from}
-          endDate={dateRange?.to}
+          startDate={dateRange?.from?.toISOString()}
+          endDate={dateRange?.to?.toISOString()}
           isPassed={isPassed}
           tag= {slaBreachedQs ? slaBreachedQs : "sla"}
           closedInLastTwoHours ={(closedInLastTwoHours || 0)}
@@ -460,6 +466,8 @@ export function ClosedInLastTwoHoursCard({
           duplicateClosedInLastTwoHours={duplicateClosedInLastTwoHours || 0}
           slaBreached={(slaBreached || 0)}
           userId={userId}
+          state={state}
+          district={district}
         />
       )}
     </div>
