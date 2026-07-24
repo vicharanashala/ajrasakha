@@ -17083,38 +17083,36 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getHierarchyUserIds(userId: string): Promise<ObjectId[]> {
-    const rootUser = await this.users.findOne({ _id: new ObjectId(userId) });
-    if (!rootUser) return [];
+    let rootUser = null;
 
-    const allIds: ObjectId[] = [rootUser._id];
-    let queue: ObjectId[] = rootUser.assignedCoordinators || [];
+    const isValidObjectId =
+      ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
 
-    while (queue.length > 0) {
-      const nextBatch = queue;
-      queue = [];
-      const children = await this.users
-        .find({ _id: { $in: nextBatch } })
-        .project({ _id: 1, assignedCoordinators: 1 })
-        .toArray();
+    if (isValidObjectId) {
+      rootUser = await this.users.findOne({ _id: new ObjectId(userId) });
+    } else {
+      rootUser = await this.users.findOne({
+        $or: [{ firebaseUID: userId }, { email: userId }]
+      });
+    }
 
-      for (const child of children) {
-        const childId = child._id;
-        if (!allIds.some(id => id.toString() === childId.toString())) {
-          allIds.push(childId);
-        }
-        if (child.assignedCoordinators) {
-          for (const grandChildId of child.assignedCoordinators) {
-            if (
-              !allIds.some(id => id.toString() === grandChildId.toString()) &&
-              !queue.some(id => id.toString() === grandChildId.toString())
-            ) {
-              queue.push(grandChildId);
-            }
-          }
+    if (!rootUser && isValidObjectId) {
+      const centralUser = await this.ReviewUsers.findOne({ _id: new ObjectId(userId) });
+      if (centralUser) {
+        const orConditions = [];
+        if (centralUser.firebaseUID) orConditions.push({ firebaseUID: centralUser.firebaseUID });
+        if (centralUser.email) orConditions.push({ email: centralUser.email });
+
+        if (orConditions.length > 0) {
+          rootUser = await this.users.findOne({ $or: orConditions });
         }
       }
     }
-    return allIds;
+
+    if (!rootUser) return [];
+
+    const ids = [rootUser._id, ...(rootUser.assignedCoordinators || [])];
+    return ids.map(id => new ObjectId(id));
   }
 
   async getCoordinatorKpiSummary(
@@ -17133,7 +17131,8 @@ export class ChatbotRepository implements IChatbotRepository {
         this.users.countDocuments(
           {
             _id: { $in: targetUserIds },
-            farmerProfile: { $exists: true, $ne: null }
+            farmerProfile: { $exists: true, $ne: null },
+            isVerified: true
           },
           { session }
         )

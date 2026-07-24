@@ -88,6 +88,18 @@ function RouteComponent() {
   const { data: currentUser } = useGetCurrentUser({
     enabled: !!user,
   });
+  const handleBack = () => {
+    if (currentUser?.role === "admin") {
+      navigate({ to: "/chatbot" });
+    } else if (currentUser?.role && isCoordinatorRole(currentUser.role)) {
+      navigate({
+        to: "/user/$userId",
+        params: { userId: currentUser?._id || "" },
+      });
+    } else {
+      navigate({ to: "/home" });
+    }
+  };
   const { userId } = Route.useParams();
   const canFetchProfile = isLikelyObjectId(userId);
   const [engagementDateRange, setEngagementDateRange] =
@@ -444,7 +456,7 @@ function RouteComponent() {
       <DashboardMessage
         title="Invalid farmer ID"
         description="Please open this dashboard from a farmer name in the listing."
-        onBack={() => navigate({ to: "/home" })}
+        onBack={handleBack}
       />
     );
   }
@@ -454,7 +466,7 @@ function RouteComponent() {
       <DashboardMessage
         title="Farmer not found"
         description="This farmer profile could not be loaded. The user may have been removed or the ID is incorrect."
-        onBack={() => navigate({ to: "/home" })}
+        onBack={handleBack}
       />
     );
   }
@@ -478,8 +490,7 @@ function RouteComponent() {
     currentUserIsCoordinator &&
     viewedProfileIsCoordinator &&
     !currentUserOwnsViewedProfile;
-  const showCoordinatorSummary =
-    viewedProfileIsCoordinator && currentUser?.role !== "admin";
+  const showCoordinatorSummary = viewedProfileIsCoordinator;
   const canManageAssignments =
     viewedProfileIsCoordinator &&
     (currentUser?.role === "admin" || currentUserOwnsViewedProfile);
@@ -495,7 +506,7 @@ function RouteComponent() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate({ to: "/home" })}
+          onClick={handleBack}
             className="h-11 gap-2 rounded-md px-4 text-base"
         >
           {currentUser?.role === "admin" || !currentUserOwnsViewedProfile ? (
@@ -547,6 +558,18 @@ function RouteComponent() {
               assignedCount={assignedUsers.length}
               availableCount={availableUsers.length}
               isReadOnly={isCoordinatorReadOnlyView}
+              isAdmin={currentUser?.role === "admin"}
+              isUpdatingVerification={verifyUserMutation.isPending}
+              onEdit={handleEditUser}
+              onDelete={handleDeleteUser}
+              onVerificationChange={(nextStatus) =>
+                requestVerificationChange(userProfile, nextStatus)
+              }
+              onNotificationHistory={
+                currentUser?.role === "admin"
+                  ? (targetUser) => setNotificationHistoryUser(targetUser)
+                  : undefined
+              }
             />
             <CoordinatorKpiCards userId={userId} />
           </>
