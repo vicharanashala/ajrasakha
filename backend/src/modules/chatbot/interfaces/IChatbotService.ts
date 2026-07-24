@@ -149,7 +149,7 @@ export interface IChatbotService {
     },
   ): Promise<QueryAnalyticsResponse>;
   getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
-  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean, loginStatus?: 'all' | 'loggedIn' | 'loggedOut'): Promise<PaginatedUserDetails>;
+  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean, fromMap?: boolean, loginStatus?: 'all' | 'loggedIn' | 'loggedOut'): Promise<PaginatedUserDetails>;
   getUsersByDemographic(
     category: string,
     value: string,

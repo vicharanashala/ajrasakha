@@ -730,6 +730,7 @@ export interface IChatbotRepository {
     activeTodayByProfile?: boolean,
     missingDemographicField?: string,
     isVerified?: boolean,
+    fromMap?: boolean,
     loginStatus?: 'all' | 'loggedIn' | 'loggedOut',
   ): Promise<PaginatedUserDetails>;
 
