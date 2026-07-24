@@ -2473,7 +2473,19 @@ export class QuestionRepository implements IQuestionRepository {
         delete (updates as any).context;
       }
 
+      // Test-question toggle: `isTesting: false` means "remove from testing" — drop
+      // the flag entirely rather than persisting a `false`. `isTesting: true` is a
+      // normal $set below (and the caller also sends isAutoAllocate: false alongside).
+      const removeTestingFlag = (updates as any).isTesting === false;
+      if (removeTestingFlag) {
+        delete (updates as any).isTesting;
+      }
+
       const updateOperation: any = {$set: {...updates, updatedAt: new Date()}};
+
+      if (removeTestingFlag) {
+        updateOperation.$unset = {...(updateOperation.$unset || {}), isTesting: ''};
+      }
 
       if (contextValue) {
         const q = await this.QuestionCollection.findOne(
@@ -2488,7 +2500,10 @@ export class QuestionRepository implements IQuestionRepository {
           );
         }
         // Unset the context field from the question document to ensure it uses the one from context collection
-        (updateOperation as any).$unset = {context: 1};
+        (updateOperation as any).$unset = {
+          ...((updateOperation as any).$unset || {}),
+          context: 1,
+        };
       }
 
       const result = await this.QuestionCollection.updateOne(
@@ -7402,7 +7417,8 @@ export class QuestionRepository implements IQuestionRepository {
 
   /** Dashboard data for a gate keeper / auditor: the total questions ever assigned to
    *  them (assigneeField == userId), how many they've submitted (finishedAt set), and a
-   *  paginated list of those questions (newest assignment first, optional text search). */
+   *  paginated list of those questions (newest assignment first, optional text search).
+   *  Supports optional date range filtering by assigned date, completed date, or both. */
   async getRoleAssigneeDashboard(
     userId: string,
     assigneeField: 'gateKeeperId' | 'auditorId',
@@ -7411,6 +7427,9 @@ export class QuestionRepository implements IQuestionRepository {
     page: number,
     limit: number,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType: 'assigned' | 'completed' | 'both' = 'both',
   ): Promise<{
     assignedCount: number;
     submittedCount: number;
@@ -7427,12 +7446,57 @@ export class QuestionRepository implements IQuestionRepository {
     if (search && search.trim()) {
       baseMatch.question = { $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
     }
+
+    // Apply date range filters based on filter type
+    if (startDate && endDate) {
+      if (dateFilterType === 'assigned') {
+        baseMatch[assignedAtField] = {
+          $gte: startDate,
+          $lte: endDate,
+        };
+      } else if (dateFilterType === 'completed') {
+        baseMatch[finishedField] = {
+          $gte: startDate,
+          $lte: endDate,
+        };
+      } else {
+        // 'both' - questions that were either assigned OR completed within the range
+        baseMatch.$or = [
+          { [assignedAtField]: { $gte: startDate, $lte: endDate } },
+          { [finishedField]: { $gte: startDate, $lte: endDate } },
+        ];
+      }
+    }
+
     const safePage = Math.max(1, Math.floor(page) || 1);
     const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 11), 100);
 
+    // Build count queries with date filters
+    const assignedCountMatch: Record<string, unknown> = { [assigneeField]: oid };
+    const submittedCountMatch: Record<string, unknown> = { [assigneeField]: oid, [finishedField]: { $ne: null } };
+
+    if (startDate && endDate) {
+      if (dateFilterType === 'assigned') {
+        assignedCountMatch[assignedAtField] = { $gte: startDate, $lte: endDate };
+        submittedCountMatch[assignedAtField] = { $gte: startDate, $lte: endDate };
+      } else if (dateFilterType === 'completed') {
+        assignedCountMatch[finishedField] = { $gte: startDate, $lte: endDate };
+        submittedCountMatch[finishedField] = { $gte: startDate, $lte: endDate };
+      } else {
+        assignedCountMatch.$or = [
+          { [assignedAtField]: { $gte: startDate, $lte: endDate } },
+          { [finishedField]: { $gte: startDate, $lte: endDate } },
+        ];
+        submittedCountMatch.$or = [
+          { [assignedAtField]: { $gte: startDate, $lte: endDate } },
+          { [finishedField]: { $gte: startDate, $lte: endDate } },
+        ];
+      }
+    }
+
     const [assignedCount, submittedCount, totalCount, questions] = await Promise.all([
-      this.QuestionCollection.countDocuments({ [assigneeField]: oid } as any),
-      this.QuestionCollection.countDocuments({ [assigneeField]: oid, [finishedField]: { $ne: null } } as any),
+      this.QuestionCollection.countDocuments(assignedCountMatch as any),
+      this.QuestionCollection.countDocuments(submittedCountMatch as any),
       this.QuestionCollection.countDocuments(baseMatch as any),
       this.QuestionCollection.find(baseMatch as any, {
         projection: {

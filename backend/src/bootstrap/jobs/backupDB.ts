@@ -12,7 +12,7 @@ import { getContainer } from '../loadModules.js';
 // The in-process cron is disabled to avoid double execution.
 //
 // To re-enable for local dev, flip `ENABLE_INPROCESS_CRON` to true.
-const ENABLE_INPROCESS_CRON = false;
+const ENABLE_INPROCESS_CRON = true;
 
 if (ENABLE_INPROCESS_CRON) {
   cron.schedule(
