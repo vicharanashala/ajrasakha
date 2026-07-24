@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO, handlers=[_handler])
 log = logging.getLogger(__name__)
 load_dotenv()
 
-CREATE_QUESTION_URL = os.getenv("CREATE_QUESTION_URL", "https://desk.vicharanashala.ai/api/questions")
+CREATE_QUESTION_URL = os.getenv("CREATE_QUESTION_URL", "https://reviewer-backend-239934307367.asia-south2.run.app")
 
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY")
 
