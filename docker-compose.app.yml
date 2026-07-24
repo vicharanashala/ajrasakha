@@ -26,6 +26,27 @@ services:
     networks:
       - reviewer-net
 
+  gap-detector:
+    build:
+      context: ./apis/gap_detector
+      dockerfile: Dockerfile
+    container_name: gap-detector
+    restart: unless-stopped
+    ports:
+      - "${GAP_DETECTOR_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      MONGO_URL: ${DB_URL}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - reviewer-net
+
   reviewer-frontend:
     build:
       context: ./frontend
@@ -42,6 +63,7 @@ services:
         VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-}
         VITE_SARVAM_API_KEY: ${VITE_SARVAM_API_KEY}
         VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
+        VITE_GAP_DETECTOR_API_URL: ${VITE_GAP_DETECTOR_API_URL:-http://localhost:8000}
     container_name: reviewer-frontend
     restart: unless-stopped
     ports:
@@ -59,6 +81,7 @@ services:
       VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-}
       VITE_SARVAM_API_KEY: ${VITE_SARVAM_API_KEY}
       VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
+      VITE_GAP_DETECTOR_API_URL: ${VITE_GAP_DETECTOR_API_URL:-http://localhost:8000}
     depends_on:
       reviewer-backend:
         condition: service_healthy

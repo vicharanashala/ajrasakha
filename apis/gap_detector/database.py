@@ -1,11 +1,9 @@
 import os
 from pymongo import MongoClient
 
-# Use the environment variable if available, else fallback to the hardcoded URI for development
-MONGO_URI = os.getenv(
-    "MONGO_URL",
-    "mongodb+srv://lpulga167_db_user:UUXFvuymiWUfMeT3@hackathon.ibfnza4.mongodb.net/?appName=hackathon"
-)
+MONGO_URI = os.getenv("MONGO_URL")
+if not MONGO_URI:
+    raise ValueError("MONGO_URL environment variable is required")
 
 # Connect to MongoDB cluster
 client = MongoClient(MONGO_URI)
@@ -17,23 +15,33 @@ def get_disclaimer_triggered_queries():
     In the real schema, we assume there's a collection 'queries' 
     where 'has_disclaimer' is True, or it failed to be answered.
     """
-    # Assuming 'queries' is the collection name
-    # We look for queries that couldn't be answered by GDB
-    collection = db.get_collection("queries")
+    collection = db.get_collection("questions")
     
-    # Query structure is an assumption; we can adjust based on exact DB introspect
-    cursor = collection.find({
-        "status": "disclaimer_triggered"
-    }, {
-        "_id": 1,
-        "text": 1,
-        "crop": 1,
-        "state": 1,
-        "domain": 1,
-        "timestamp": 1
-    })
+    # We fetch all queries for now and map them to the expected format
+    cursor = collection.find({})
     
-    return list(cursor)
+    mapped_queries = []
+    for doc in cursor:
+        details = doc.get("details", {})
+        
+        # Safely extract domain (it might be a list)
+        domain = "Unknown"
+        raw_domain = details.get("domain")
+        if isinstance(raw_domain, list) and len(raw_domain) > 0:
+            domain = raw_domain[0]
+        elif isinstance(raw_domain, str):
+            domain = raw_domain
+            
+        mapped_queries.append({
+            "_id": str(doc.get("_id")),
+            "text": doc.get("question", doc.get("text", "")),
+            "crop": details.get("crop", "Unknown"),
+            "state": details.get("state", "Unknown"),
+            "domain": domain,
+            "timestamp": doc.get("createdAt").isoformat() if doc.get("createdAt") else ""
+        })
+        
+    return mapped_queries
 
 if __name__ == "__main__":
     # Test connection

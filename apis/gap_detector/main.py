@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from .engine import run_gap_analysis
-import random
+from engine import run_gap_analysis
 
 app = FastAPI(
     title="GDB Coverage Gap Detector",
@@ -35,22 +34,13 @@ def get_clusters():
 @app.get("/api/v1/heatmap")
 def get_heatmap_data():
     """
-    Returns mock heatmap data for now.
-    In a full implementation, this aggregates clusters by crop/state/domain.
+    Returns actual heatmap data aggregated from the gap analysis clusters.
     """
-    states = ["Maharashtra", "Punjab", "Gujarat", "Karnataka"]
-    crops = ["Cotton", "Wheat", "Chilli", "Tomato"]
-    
-    data = []
-    for state in states:
-        for crop in crops:
-            data.append({
-                "id": f"{state}-{crop}",
-                "state": state,
-                "crop": crop,
-                "value": random.randint(10, 100) # Mock coverage score/gap frequency
-            })
-    return {"heatmap": data}
+    from engine import get_heatmap_data as engine_get_heatmap
+    try:
+        return engine_get_heatmap()
+    except Exception as e:
+        return {"heatmap": [], "error": str(e)}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

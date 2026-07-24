@@ -6,6 +6,8 @@ def cluster_queries(embeddings, eps=0.5, min_samples=2):
     """
     Cluster the query embeddings using DBSCAN.
     DBSCAN is effective here as we don't know the number of clusters (intents) beforehand.
+    Note: This only clusters by semantic text similarity. Metadata tagging (crop/state/domain) 
+    is handled by the engine after clusters are formed.
     """
     if len(embeddings) == 0:
         return []

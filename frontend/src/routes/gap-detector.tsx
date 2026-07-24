@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { Heatmap } from '../components/gap-detector/Heatmap'
 import { GapList } from '../components/gap-detector/GapList'
+import { env } from '../config/env'
 
 export const Route = createFileRoute('/gap-detector')({
   component: GapDetectorDashboard,
@@ -16,8 +17,8 @@ function GapDetectorDashboard() {
     const fetchData = async () => {
       try {
         const [clustersRes, heatmapRes] = await Promise.all([
-          fetch('http://localhost:8000/api/v1/clusters'),
-          fetch('http://localhost:8000/api/v1/heatmap')
+          fetch(`${env.gapDetectorApiUrl()}/api/v1/clusters`),
+          fetch(`${env.gapDetectorApiUrl()}/api/v1/heatmap`)
         ])
         
         setData(await clustersRes.json())
