@@ -490,7 +490,8 @@ function RouteComponent() {
     currentUserIsCoordinator &&
     viewedProfileIsCoordinator &&
     !currentUserOwnsViewedProfile;
-  const showCoordinatorSummary = viewedProfileIsCoordinator;
+  const showCoordinatorSummary =
+    viewedProfileIsCoordinator && currentUser?.role !== "admin";
   const canManageAssignments =
     viewedProfileIsCoordinator &&
     (currentUser?.role === "admin" || currentUserOwnsViewedProfile);
@@ -558,18 +559,6 @@ function RouteComponent() {
               assignedCount={assignedUsers.length}
               availableCount={availableUsers.length}
               isReadOnly={isCoordinatorReadOnlyView}
-              isAdmin={currentUser?.role === "admin"}
-              isUpdatingVerification={verifyUserMutation.isPending}
-              onEdit={handleEditUser}
-              onDelete={handleDeleteUser}
-              onVerificationChange={(nextStatus) =>
-                requestVerificationChange(userProfile, nextStatus)
-              }
-              onNotificationHistory={
-                currentUser?.role === "admin"
-                  ? (targetUser) => setNotificationHistoryUser(targetUser)
-                  : undefined
-              }
             />
             <CoordinatorKpiCards userId={userId} />
           </>
@@ -597,6 +586,9 @@ function RouteComponent() {
             coordinatorRole={userProfile?.userRole}
             parentCoordinator={parentCoordinator}
           />
+        )}
+        {currentUser?.role === "admin" && viewedProfileIsCoordinator && (
+          <CoordinatorKpiCards userId={userId} />
         )}
         <FarmerDashboardAnalytics
           dashboard={userProfile?.farmerDashboard as FarmerDashboardData}
