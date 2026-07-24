@@ -2811,6 +2811,18 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
         //6. Allocate experts
+        // If the question is a duplicate and auto-allocate is OFF, it means the
+        // moderator intentionally toggled off auto-allocate and is now manually
+        // picking an expert. Reopen the question so the selected expert can see
+        // it in their dashboard (only open/delayed questions are visible there).
+        if (question.status === 'duplicate' && question.isAutoAllocate === false) {
+          await this.questionRepo.updateQuestion(
+            questionId,
+            { status: 'open' },
+            session,
+          );
+        }
+
         const expertIds = experts.map(e => new ObjectId(e));
 
         // if the last expert is  reviewing other question  (if status is not reviewed or not submitted an answer)
