@@ -134,6 +134,7 @@ export type AdvanceFilterValues = {
   is_testing?: boolean;
   /** When set, filters to questions whose moderatorId matches this ID (dedicated tab). */
   moderatorId?: string;
+  isTrainingQuestion?: boolean; // New property for training questions
   /** Dedicated tab for gate keepers / auditors — filters by their assigned questions. */
   gateKeeperId?: string;
   auditorId?: string;
@@ -496,6 +497,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
                   </Label>
+                  
                     <SearchableFilterSelect
                     value={advanceFilter.status}
                     onValueChange={(v) => {

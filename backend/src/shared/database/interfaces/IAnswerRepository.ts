@@ -247,6 +247,8 @@ export interface IAnswerRepository {
     consecutiveApprovals?: number,
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<{
     result: any[];

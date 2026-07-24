@@ -50,9 +50,24 @@ export const AllocationQueueHeader = ({
     useToggleAutoAllocateQuestion();
 
   const expertsIdsInQueue = new Set(queue.map((expert) => expert._id));
+  
+  // Filter experts based on current user's isTrainingUser status
+  // If current user is a training user, show only experts who are also training users
+  // If current user is NOT a training user, show only experts who are NOT training users (or don't have the field)
+  const isCurrentUserTrainingUser = currentUser.isTrainingUser === true;
+  
   const experts =
     usersData?.users.filter(
-      (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
+      (user) => {
+        // Base filter: must be an expert and not already in queue
+        if (user.role !== "expert" || expertsIdsInQueue.has(user._id)) {
+          return false;
+        }
+        
+        // Training user filter: match isTrainingUser status
+        const isExpertTrainingUser = user.isTrainingUser === true;
+        return isExpertTrainingUser === isCurrentUserTrainingUser;
+      }
     ) || [];
   // let experts = [];
 

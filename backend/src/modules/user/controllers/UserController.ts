@@ -275,13 +275,13 @@ export class UserController {
 
   @OpenAPI({
     summary: 'Get STF moderators',
-    description: 'Returns non-blocked moderators that have Special Task Force enabled.',
+    description: 'Returns non-blocked moderators that have Special Task Force enabled. Filters by isTrainingUser status.',
   })
   @Get('/stf-moderators')
   @HttpCode(200)
   // Gate keepers and auditors pick moderators from this list when assigning.
   @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
-  async getStfModerators() {
+  async getStfModerators(@CurrentUser() currentUser: IUser) {
     const { users } = await this.userService.getAllUsers(
       1,
       1000,
@@ -293,17 +293,25 @@ export class UserController {
       undefined,
       true,
     );
-    return users.map(u => ({
-      _id: u._id?.toString(),
-      name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
-      email: u.email,
-      // The questions this moderator currently holds, each with its denormalised status
-      // ({ questionId, status }). Empty when free. Re-routed entries do not mark busy.
-      assignedQuestionIds: (u.assignedQuestionIds ?? []).map((a: any) => ({
-        questionId: a.questionId?.toString(),
-        status: a.status,
-      })),
-    }));
+    
+    // If current user is a training user, show only moderators who are also training users
+    // If current user is NOT a training user, show only moderators who are NOT training users
+    // If isTrainingUser field doesn't exist in the collection, treat it as false (not true)
+    const isTrainingUser = currentUser.isTrainingUser === true;
+    
+    return users
+      .filter(u => (u.isTrainingUser === true) === isTrainingUser)
+      .map(u => ({
+        _id: u._id?.toString(),
+        name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
+        email: u.email,
+        // The questions this moderator currently holds, each with its denormalised status
+        // ({ questionId, status }). Empty when free. Re-routed entries do not mark busy.
+        assignedQuestionIds: (u.assignedQuestionIds ?? []).map((a: any) => ({
+          questionId: a.questionId?.toString(),
+          status: a.status,
+        })),
+      }));
   }
 
   @OpenAPI({
@@ -384,6 +392,7 @@ export class UserController {
   @HttpCode(200)
   @Authorized()
   async getAllExperts(
+    @CurrentUser() currentUser: IUser,
     @QueryParams()
     query: {
       page?: number;
@@ -400,6 +409,7 @@ export class UserController {
       search,
       sort,
       filter,
+      currentUser,
     );
   }
 
@@ -1194,7 +1204,88 @@ export class UserController {
     return await this.userService.getUserHistoryById(query);
   }
 
-  @OpenAPI({
+  //make user a training user
+   @OpenAPI({
+    summary: 'Assign or remove TMU (Training Model User) status for a user',
+    description: 'Assigns or removes Training Model User status for a user. Admin access required.',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'TMU status updated successfully',
+  })
+  @Patch('/training-users')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async toggleTrainingUserStatus(
+    @Body() body: BlockUnblockBody,
+    @CurrentUser() user: IUser,
+  ): Promise<{ message: string }> {
+    const { action, userId } = body;
+    const userDetails = await this.userService.getUserById(userId);
+    if (!userDetails) {
+      throw new NotFoundError('User not found');
+    }
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_MANAGEMENT,
+      action: action === 'assign' ? AuditAction.ASSIGN_TRAINING_USER : AuditAction.REMOVE_TRAINING_USER,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        userId: userId,
+        name: `${userDetails.firstName} ${userDetails.lastName}`,
+        email: userDetails.email,
+        role: userDetails.role,
+      },
+      changes: {
+        before: {
+          isTrainingUser: action === 'assign' ? false : true,
+        },
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      await this.userService.updateTrainingUserStatus(userId, action);
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to update training user status',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to update training user status');
+    }
+
+    auditPayload = {
+      ...auditPayload,
+      changes: {
+        ...auditPayload.changes,
+        after: {
+          isTrainingUser: action === 'assign' ? true : false,
+        },
+      },
+    };
+    this.auditTrailsService.createAuditTrail(auditPayload);
+    return { message: `Training user status ${action === 'assign' ? 'assigned' : 'removed'} successfully` };
+  }
+
+   @OpenAPI({
     summary: 'Get user working hours',
     description: 'Calculates the total working hours for a user in a given time period.',
   })

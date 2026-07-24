@@ -48,7 +48,7 @@ export interface IPerformanceService {
     moderatorApprovalRate: ModeratorApprovalRate;
   }>;
 
-  getGoldenDataset(query: GetGoldenDatasetQuery): Promise<GoldenDataset>;
+  getGoldenDataset(query: GetGoldenDatasetQuery,isTrainingUser?: boolean, isAdmin?: boolean): Promise<GoldenDataset>;
 
   getContributionTrend(timeRange: string): Promise<QuestionContributionTrend[]>;
 
@@ -64,17 +64,17 @@ export interface IPerformanceService {
     currentUserId: string
   ): Promise<void>;
 
-  getLevelWiseReport(startDate:string, endDate:string): Promise<ArrayBuffer | null>;
+  getLevelWiseReport(startDate:string, endDate:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<ArrayBuffer | null>;
 
-  getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 
-  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
+  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean):  Promise<any>;
 }

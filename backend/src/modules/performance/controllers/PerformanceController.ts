@@ -123,8 +123,9 @@ export class PerformanceController {
   @OpenAPI({ summary: 'Get golden dataset analytics' })
   @Get('/golden-dataset')
   @Authorized()
-  async getGoldenDataset(@QueryParams() query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
-    return this.performanceService.getGoldenDataset(query);
+  async getGoldenDataset(@CurrentUser() user: IUser,@QueryParams() query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
+
+    return this.performanceService.getGoldenDataset(query,user.isTrainingUser??false,user.role === 'admin');
   }
 
   @OpenAPI({ summary: 'Get question contribution trends' })
@@ -236,9 +237,11 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getLevelWiseReport(
+    @CurrentUser() user: IUser,
     @QueryParams() query: {startDate: string; endDate: string},
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
     const startDate = query.startDate;
     const endDate = query.endDate;
     if (!startDate || !endDate) {
@@ -250,6 +253,8 @@ export class PerformanceController {
     const data = await this.performanceService.getLevelWiseReport(
       startDate,
       endDate,
+      user.isTrainingUser ?? false,
+      isAdmin ?? false
     );
     if (!data) {
       response.status(200).json({
@@ -378,9 +383,12 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getShiftBasedMetrics(
+    @CurrentUser() user: IUser,
     @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser ?? false;
     const startDate = query.startDate;
     // const endDate = query.endDate;
     const shift = query.shift;
@@ -390,13 +398,16 @@ export class PerformanceController {
         message: 'startDate, endDate and shift are required',
       });
     }
+    isTrainingUser && (query.source = 'agri_expert');
     const data = await this.performanceService.getShiftBasedMetrics(
       startDate,
       // endDate,
       shift,
       query.source ?? 'annam',
       query.from ?? '00:00',
-      query.to ?? '23:59' 
+      query.to ?? '23:59' ,
+      isTrainingUser,
+      isAdmin
     );
     if (!data) {
       response.status(200).json({
@@ -431,9 +442,12 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getShiftBasedTrends(
+    @CurrentUser() user: IUser,
     @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser ?? false;
     const startDate = query.startDate;
     // const endDate = query.endDate;
     const shift = query.shift;
@@ -443,13 +457,16 @@ export class PerformanceController {
         message: 'startDate, endDate and shift are required',
       });
     }
+    isTrainingUser && (query.source = 'agri_expert');
     const data = await this.performanceService.getShiftBasedTrends(
       startDate,
       // endDate,
       shift,
       query.source ?? 'annam',
       query.from ?? '00:00',
-      query.to ?? '23:59' 
+      query.to ?? '23:59' ,
+      isTrainingUser,
+      isAdmin
     );
     if (!data) {
       response.status(200).json({
@@ -484,9 +501,12 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getQuestionStatusDistribution(
+    @CurrentUser() user: IUser,
     @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser ?? false;
     const startDate = query.startDate;
     // const endDate = query.endDate;
     const shift = query.shift;
@@ -496,13 +516,16 @@ export class PerformanceController {
         message: 'startDate, endDate and shift are required',
       });
     }
+    isTrainingUser && (query.source = 'agri_expert');
     const data = await this.performanceService.getQuestionStatusDistribution(
       startDate,
       // endDate,
       shift,
       query.source ?? 'annam',
       query.from ?? '00:00',
-      query.to ?? '23:59' 
+      query.to ?? '23:59' ,
+      isTrainingUser,
+      isAdmin
     );
     if (!data) {
       response.status(200).json({
@@ -537,9 +560,12 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getQuestionLevelDistribution(
+    @CurrentUser() user: IUser,
     @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser ?? false;
     const startDate = query.startDate;
     // const endDate = query.endDate;
     const shift = query.shift;
@@ -549,13 +575,16 @@ export class PerformanceController {
         message: 'startDate, endDate and shift are required',
       });
     }
+    isTrainingUser && (query.source = 'agri_expert');
     const data = await this.performanceService.getQuestionLevelDistribution(
       startDate,
       // endDate,
       shift,
       query.source ?? 'annam',
       query.from ?? '00:00',
-      query.to ?? '23:59' 
+      query.to ?? '23:59' ,
+      isTrainingUser,
+      isAdmin
     );
     if (!data) {
       response.status(200).json({
@@ -590,9 +619,12 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getShiftBasedTopExperts(
+    @CurrentUser() user: IUser,
     @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser ?? false;
     const startDate = query.startDate;
     // const endDate = query.endDate;
     const shift = query.shift;
@@ -602,13 +634,16 @@ export class PerformanceController {
         message: 'startDate, endDate and shift are required',
       });
     }
+    isTrainingUser && (query.source = 'agri_expert');
     const data = await this.performanceService.getShiftBasedTopExperts(
       startDate,
       // endDate,
       shift,
       query.source ?? 'annam',
       query.from ?? '00:00',
-      query.to ?? '23:59' 
+      query.to ?? '23:59' ,
+      isTrainingUser,
+      isAdmin
     );
     if (!data) {
       response.status(200).json({
@@ -643,9 +678,12 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getShiftBasedTopApprovingExperts(
+    @CurrentUser() user: IUser,
     @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser ?? false;
     const startDate = query.startDate;
     // const endDate = query.endDate;
     const shift = query.shift;
@@ -655,13 +693,16 @@ export class PerformanceController {
         message: 'startDate, endDate and shift are required',
       });
     }
+    isTrainingUser && (query.source = 'agri_expert');
     const data = await this.performanceService.getShiftBasedTopApprovingExperts(
       startDate,
       // endDate,
       shift,
       query.source ?? 'annam',
       query.from ?? '00:00',
-      query.to ?? '23:59' 
+      query.to ?? '23:59' ,
+      isTrainingUser,
+      isAdmin
     );
     if (!data) {
       response.status(200).json({

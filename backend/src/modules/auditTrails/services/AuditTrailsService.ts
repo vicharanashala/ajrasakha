@@ -221,6 +221,8 @@ export class AuditTrailsService
     shift: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<any> {
     // Implement the logic to get shift based audit action counts
     return this.auditTrailsRepository.getShiftBasedAuditActionCounts(
@@ -228,7 +230,9 @@ export class AuditTrailsService
       // endDate,
       shift,
       from,
-      to
+      to,
+      isTrainingUser,
+      isAdmin
     );
   }
 

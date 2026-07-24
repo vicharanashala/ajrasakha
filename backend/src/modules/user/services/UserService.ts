@@ -303,6 +303,7 @@ export class UserService extends BaseService {
               questionId: a.questionId?.toString(),
               status: a.status,
             })),
+            isTrainingUser: u.isTrainingUser ?? false,
           })),
           totalUsers: users.length,
           totalPages: 5,
@@ -341,6 +342,7 @@ export class UserService extends BaseService {
     search: string,
     sort: string,
     filter: string,
+    currentUser?: IUser,
   ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }> {
     return await this._withTransaction(async (session: ClientSession) => {
       return await this.userRepo.findAllExperts(
@@ -349,6 +351,9 @@ export class UserService extends BaseService {
         search,
         sort,
         filter,
+        currentUser?.role === 'moderator'
+          ? currentUser.isTrainingUser === true
+          : undefined,
         session,
       );
     });
@@ -1029,7 +1034,13 @@ export class UserService extends BaseService {
     }
   }
 
-  async getWorkingHours(query: { userId: string; startDateTime: string; endDateTime: string }): Promise<{ workingHours: number }> {
+   async updateTrainingUserStatus(userId: string, action: string): Promise<void> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      await this.userRepo.updateTrainingUserStatus(userId, action, session);
+    });
+   }
+
+   async getWorkingHours(query: { userId: string; startDateTime: string; endDateTime: string }): Promise<{ workingHours: number }> {
     try {
       const { userId, startDateTime, endDateTime } = query;
       if (!userId) throw new NotFoundError('User ID is required');

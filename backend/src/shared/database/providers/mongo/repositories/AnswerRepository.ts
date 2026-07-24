@@ -1663,7 +1663,7 @@ export class AnswerRepository implements IAnswerRepository {
     }
   }
 
-  async groupbyquestion(consecutiveApprovals?: number, startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any> {
+  async groupbyquestion(consecutiveApprovals?: number, startDate?: Date, endDate?: Date, isTrainingUser?: boolean, isAdmin?: boolean, session?: ClientSession): Promise<any> {
     try {
       await this.init();
 
@@ -1676,20 +1676,52 @@ export class AnswerRepository implements IAnswerRepository {
         defaultEndDate.setHours(23, 59, 59, 999);
       }
 
-      const result = await this.AnswerCollection.aggregate([
+      const pipeline: any = [
         {
           $match: {
-            createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
-          }
+            createdAt: {
+              $gte: defaultStartDate,
+              $lte: defaultEndDate,
+            },
+          },
         },
-      
+
+        {
+          $lookup: {
+            from: "questions",
+            localField: "questionId",
+            foreignField: "_id",
+            as: "question",
+          },
+        },
+
+        {
+          $unwind: "$question",
+        },
+      ];
+
+      if (!isAdmin && isTrainingUser === true) {
+        pipeline.push({
+          $match: {
+            "question.isTrainingQuestion": true,
+          },
+        });
+      } else if (!isAdmin && isTrainingUser === false) {
+        pipeline.push({
+          $match: {
+            "question.isTrainingQuestion": { $ne: true },
+          },
+        });
+      }
+
+      pipeline.push(
         // Count modifications per answer
         {
           $addFields: {
             modificationsCount: { $size: { $ifNull: ["$modifications", []] } }
           }
         },
-      
+
         // Group per question
         {
           $group: {
@@ -1701,7 +1733,7 @@ export class AnswerRepository implements IAnswerRepository {
             latestCreatedAt: { $max: "$createdAt" }
           }
         },
-      
+
         // Month-wise metrics
         {
           $group: {
@@ -1709,14 +1741,14 @@ export class AnswerRepository implements IAnswerRepository {
               year: { $year: "$latestCreatedAt" },
               month: { $month: "$latestCreatedAt" }
             },
-      
+
             // Modified questions
             modifiedCount: {
               $sum: {
                 $cond: [{ $eq: ["$hasModifiedAnswer", 1] }, 1, 0]
               }
             },
-      
+
             // Rejected = multiple answers BUT no modifications
             rejectedCount: {
               $sum: {
@@ -1734,14 +1766,80 @@ export class AnswerRepository implements IAnswerRepository {
             }
           }
         },
-      
+
         { $sort: { "_id.year": 1, "_id.month": 1 } }
-      ], {
-        allowDiskUse: true
+      );
+
+      const result = await this.AnswerCollection.aggregate(pipeline, {
+        allowDiskUse: true,
       }).toArray();
+
+      // const result = await this.AnswerCollection.aggregate([
+      //   {
+      //     $match: {
+      //       createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
+      //     }
+      //   },
+      
+      //   // Count modifications per answer
+      //   {
+      //     $addFields: {
+      //       modificationsCount: { $size: { $ifNull: ["$modifications", []] } }
+      //     }
+      //   },
+      
+      //   // Group per question
+      //   {
+      //     $group: {
+      //       _id: "$questionId",
+      //       totalAnswers: { $sum: 1 },
+      //       hasModifiedAnswer: {
+      //         $max: { $cond: [{ $gte: ["$modificationsCount", 1] }, 1, 0] }
+      //       },
+      //       latestCreatedAt: { $max: "$createdAt" }
+      //     }
+      //   },
+      
+      //   // Month-wise metrics
+      //   {
+      //     $group: {
+      //       _id: {
+      //         year: { $year: "$latestCreatedAt" },
+      //         month: { $month: "$latestCreatedAt" }
+      //       },
+      
+      //       // Modified questions
+      //       modifiedCount: {
+      //         $sum: {
+      //           $cond: [{ $eq: ["$hasModifiedAnswer", 1] }, 1, 0]
+      //         }
+      //       },
+      
+      //       // Rejected = multiple answers BUT no modifications
+      //       rejectedCount: {
+      //         $sum: {
+      //           $cond: [
+      //             {
+      //               $and: [
+      //                 { $gte: ["$totalAnswers", 2] },
+      //                 { $eq: ["$hasModifiedAnswer", 0] }
+      //               ]
+      //             },
+      //             1,
+      //             0
+      //           ]
+      //         }
+      //       }
+      //     }
+      //   },
+      
+      //   { $sort: { "_id.year": 1, "_id.month": 1 } }
+      // ], {
+      //   allowDiskUse: true
+      // }).toArray();
       
       
-      const questionsPerMonth = await this.QuestionCollection.aggregate([
+      const questionsPerMonthPipeline:any = [
         {
           $match: {
             createdAt: { $gte: defaultStartDate, $lte: defaultEndDate }
@@ -1757,7 +1855,23 @@ export class AnswerRepository implements IAnswerRepository {
           }
         },
         { $sort: { "_id.year": 1, "_id.month": 1 } }
-      ]).toArray();
+      ]
+
+      if (!isAdmin && isTrainingUser === true) {
+        questionsPerMonthPipeline.push({
+          $match: {
+            "question.isTrainingQuestion": true,
+          },
+        });
+      } else if (!isAdmin && isTrainingUser === false) {
+        questionsPerMonthPipeline.push({
+          $match: {
+            "question.isTrainingQuestion": { $ne: true },
+          },
+        });
+      }
+
+      const questionsPerMonth = await this.QuestionCollection.aggregate(questionsPerMonthPipeline).toArray();
      
      let reasonsPipeline: any[] = [
         { $unwind: "$history" },
@@ -1825,8 +1939,23 @@ export class AnswerRepository implements IAnswerRepository {
          }
        },
        { $unwind: "$q" },
-     
-       {
+     ];
+
+      if (!isAdmin && isTrainingUser === true) {
+        reasonsPipeline.push({
+          $match: {
+            "q.isTrainingQuestion": true,
+          },
+        });
+      } else if (!isAdmin && isTrainingUser === false) {
+        reasonsPipeline.push({
+          $match: {
+            "q.isTrainingQuestion": { $ne: true },
+          },
+        });
+      }
+
+     reasonsPipeline.push({
          $project: {
            _id: 0,
            question: "$q.question",
@@ -1835,8 +1964,7 @@ export class AnswerRepository implements IAnswerRepository {
            createdAt: 1,
          }
        },
-       { $sort: { createdAt: 1 } }
-     ];
+       { $sort: { createdAt: 1 } })
 
      const reasons = await this.QuestionSubmissionCollection.aggregate(reasonsPipeline).toArray();
     

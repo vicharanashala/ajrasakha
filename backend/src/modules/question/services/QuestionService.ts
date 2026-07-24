@@ -173,6 +173,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     return questionText.substring(0, maxLength) + '...';
   }
 
+  private isQuestionUserTrainingTypeMatch(
+    user: IUser,
+    question: IQuestion,
+  ): boolean {
+    return (question.isTrainingQuestion === true) === (user.isTrainingUser === true);
+  }
+
   async createBulkQuestions(
     userId: string,
     questions: any[],
@@ -1489,8 +1496,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
       const popContextFromBody = body.popContext;
       const toolsUsed = body.tools_used || [];
-      body = normalizeKeysToLower(body);
+      const isTrainingQuestion =
+        body.isTrainingQuestion === true;
 
+      body = normalizeKeysToLower(body);
       let {
         question,
         priority,
@@ -1645,6 +1654,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           toolsUsed,
           createdAt: new Date(),
           updatedAt: new Date(),
+          isTrainingQuestion,
           ...(source !== 'AGRI_EXPERT' && { originalQuestion: originalquestion }),
           ...(messageId && { messageId }),
           ...(threadId && { threadId }),
@@ -1735,10 +1745,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         const users = await this.userRepo.findExpertsByPreference(
           details as PreferenceDto,
         );
-        const initialUsersToAllocate = users.slice(
-          0,
-          DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-        );
+
+        const TMU: typeof users = [];
+        const normalUsers: typeof users = [];
+        for (const user of users) {
+          if (user.isTrainingUser) {
+            TMU.push(user);
+          } else {
+            normalUsers.push(user);
+          }
+        }
+        const initialUsersToAllocate = (
+          baseQuestion.isTrainingQuestion ? TMU : normalUsers
+        ).slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
         const queue: ObjectId[] = initialUsersToAllocate.map(
           u => new ObjectId(u._id.toString()),
         );
@@ -2401,32 +2420,65 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     let allExpertIds: string[] = [];
-    const isAjrasakha = question.source == 'AJRASAKHA' ? true : false;
-    if (isAjrasakha) {
-      const users = await this.userRepo.getExpertsWithFallback(
-        details,
-        session,
-      );
+      const isAjrasakha = question.source == 'AJRASAKHA' ? true : false;
+      const isTrainingQuestion = question.isTrainingQuestion === true;
+      if (isAjrasakha) {
+        const users = await this.userRepo.getExpertsWithFallback(
+          details,
+          session,
+        );
+        
+        allExpertIds = users
+          .filter(user => user.isTrainingUser !== true)
+          .map(user => user._id.toString());
+      } else {
+        const expertTMU = [];
+        const expertNormal = [];
+        const [users, preferredExperts] = await Promise.all([
+          this.userRepo.findAll(),
+          this.userRepo.findExpertsByPreference(details, session),
+        ]);
 
-      allExpertIds = users.map(user => user._id.toString());
-    } else {
-      const [users, preferredExperts] = await Promise.all([
-        this.userRepo.findAll(),
-        this.userRepo.findExpertsByPreference(details, session),
-      ]);
+        for (const user of users) {
+          if (user.role !== 'expert' || user.isBlocked === true) {
+            continue;
+          }
 
-      const expertIdsSet = new Set<string>();
+          if (user.isTrainingUser) {
+            expertTMU.push(user);
+          } else {
+            expertNormal.push(user);
+          }
+        }
 
-      // Add preferred experts first to the set to ensure they get priority in allocation
-      preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
+        const eligibleUsers = isTrainingQuestion ? expertTMU : expertNormal;
 
-      // Add remaining
-      users
-        .filter(user => user.role === 'expert' && user.isBlocked !== true)
-        .forEach(user => expertIdsSet.add(user._id.toString()));
+        const preferredTMU = [];
+        const preferredNormal = [];
 
-      allExpertIds = Array.from(expertIdsSet);
-    }
+        for (const user of preferredExperts) {
+          if (user.isTrainingUser) {
+            preferredTMU.push(user);
+          } else {
+            preferredNormal.push(user);
+          }
+        }
+        const eligiblePreferredExperts = isTrainingQuestion
+          ? preferredTMU
+          : preferredNormal;
+
+        const expertIdsSet = new Set<string>();
+
+        // Add preferred experts first to the set to ensure they get priority in allocation
+        eligiblePreferredExperts.forEach(user =>
+          expertIdsSet.add(user._id.toString()),
+        );
+
+        // Add remaining
+        eligibleUsers.forEach(user => expertIdsSet.add(user._id.toString()));
+
+        allExpertIds = Array.from(expertIdsSet);
+      }
 
     let updatedQueue;
 
@@ -5458,11 +5510,15 @@ export class QuestionService extends BaseService implements IQuestionService {
     consecutiveApprovals?: number,
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ) {
     const result = await this.answerRepo.groupbyquestion(
       consecutiveApprovals,
       startDate,
       endDate,
+      isTrainingUser,
+      isAdmin
     );
 
     // Check if there's any data with reasons
@@ -5513,12 +5569,16 @@ export class QuestionService extends BaseService implements IQuestionService {
   async generateOverallQuestionReport(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       // Get monthly statistics from the repository
       const stats = await this.questionRepo.getMonthlyQuestionStats(
         startDate,
         endDate,
+        isTrainingUser,
+        isAdmin,
         session,
       );
 
@@ -5804,6 +5864,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   async generateDuplicateQuestionReport(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       if (!startDate || !endDate) {
@@ -5816,6 +5878,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         await this.duplicateQuestionRepository.findDuplicatesByDateRange(
           startDate,
           endDate,
+          isTrainingUser,
+          isAdmin,
           session,
         );
 
@@ -6768,16 +6832,21 @@ export class QuestionService extends BaseService implements IQuestionService {
       let failedAssignments = 0;
 
       // Assign one question per available moderator within a single source group.
+      // For manual questions only, training questions may be assigned only to
+      // moderators marked as training users.
       const runPass = async (
         label: string,
         moderators: IUser[],
         questions: IQuestion[],
+        canAssignQuestion?: (moderator: IUser, question: IQuestion) => boolean,
       ) => {
         for (const moderator of moderators) {
           const moderatorId = moderator._id!.toString();
 
           const nextQuestion = questions.find(
-            (q: any) => !claimedIds.has(q._id.toString()),
+            (q: any) =>
+              !claimedIds.has(q._id.toString()) &&
+              (canAssignQuestion ? canAssignQuestion(moderator, q) : true),
           );
           if (!nextQuestion) {
             // Moderator is free for this category but no more questions left in it.
@@ -6864,7 +6933,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       await runPass('time-bound', timeBoundModerators, timeBoundQuestions);
-      await runPass('manual', manualModerators, manualQuestions);
+      await runPass(
+        'manual',
+        manualModerators,
+        manualQuestions,
+        (moderator, question) =>
+          this.isQuestionUserTrainingTypeMatch(moderator, question),
+      );
 
       console.log(
         `[ModeratorQueue] Done. assigned=${assigned}, availableWaiting=${availableWaiting}, failed=${failedAssignments}`,

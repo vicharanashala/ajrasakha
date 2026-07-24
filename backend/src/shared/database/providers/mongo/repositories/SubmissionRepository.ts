@@ -3711,6 +3711,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async getLevelWiseReport(
     startDate: string,
     endDate: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<LevelReportStat[]> {
     await this.init();
@@ -3735,6 +3737,30 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             $lte: convertedEndDate,
           },
         },
+      },
+
+      // Lookup question
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+
+      {
+        $unwind: '$question',
+      },
+
+      // Filter by training question (only for non-admins)
+      {
+        $match:
+          !isAdmin && isTrainingUser === true
+            ? { 'question.isTrainingQuestion': true }
+            : !isAdmin && isTrainingUser === false
+              ? { 'question.isTrainingQuestion': false }
+              : {},
       },
 
       // 3️⃣ Add computed fields

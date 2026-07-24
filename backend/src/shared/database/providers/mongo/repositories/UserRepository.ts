@@ -841,7 +841,7 @@ export class UserRepository implements IUserRepository {
     await this.init();
 
     // 1. Fetch all experts (include role and isBlocked for queue details)
-    const query: any = { role: 'expert', isBlocked: false };
+    const query: any = { role: 'expert', isBlocked: false, isTrainingUser: { $ne: true } };
     const cursor = this.usersCollection.find(query, { session });
     if (limit) cursor.limit(limit);
     const allUsersRaw = await cursor.toArray();
@@ -1348,6 +1348,7 @@ export class UserRepository implements IUserRepository {
     search: string,
     sortOption: string,
     filter: string,
+    isTrainingUserFilter?: boolean,
     session?: ClientSession,
   ): Promise<{ experts: any[]; totalExperts: number; totalPages: number }> {
     await this.init();
@@ -1367,6 +1368,10 @@ export class UserRepository implements IUserRepository {
 
       if (filter && filter !== 'ALL') {
         matchQuery['preference.state'] = filter;
+      }
+
+      if (isTrainingUserFilter !== undefined) {
+        matchQuery.isTrainingUser = isTrainingUserFilter;
       }
 
       const sortMap: any = {
@@ -2312,6 +2317,60 @@ export class UserRepository implements IUserRepository {
     } catch (error) {
       console.error('Error fetching user history:', error);
       throw new InternalServerError('Failed to fetch user history');
+    }
+  }
+
+  async updateTrainingUserStatus(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    try {
+      const isTrainingUser = action === 'assign';
+      const updatedAt = new Date();
+      const updatedUser =await this.usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            isTrainingUser,
+            updatedAt,
+          },
+        },
+        { upsert: true, returnDocument: 'after', session },
+      );
+
+      
+      await Promise.all([
+        this.userRoleHistoryCollection.updateOne(
+          {
+            userId: new ObjectId(userId),
+            to: null,
+          },
+          {
+            $set: {
+              to: updatedAt,
+              updatedAt,
+            },
+          },
+          { session },
+        ),
+        this.userRoleHistoryCollection.insertOne(
+          {
+            userId: new ObjectId(userId),
+            role: updatedUser.role,
+            from: updatedAt,
+            to: null,
+            isVerified: updatedUser.isVerified ?? false,
+            status: updatedUser.status,
+            isBlocked: updatedUser.isBlocked,
+            special_task_force: updatedUser.special_task_force,
+            isTrainingUser: updatedUser.isTrainingUser,
+          },
+          { session },
+        )])
+    } catch (error) {
+      throw new InternalServerError(`Failed to update training user status`);
     }
   }
 }

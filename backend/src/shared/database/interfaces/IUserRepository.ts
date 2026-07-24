@@ -226,6 +226,7 @@ export interface IUserRepository {
     search: string,
     sortOption: string,
     filter: string,
+    isTrainingUserFilter?: boolean,
     session?: ClientSession,
   ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }>;
   /**
@@ -241,6 +242,12 @@ export interface IUserRepository {
   ): Promise<void>;
 
   updateSTFStatus(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void>;
+
+  updateTrainingUserStatus(
     userId: string,
     action: string,
     session?: ClientSession,
