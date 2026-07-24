@@ -13,17 +13,34 @@ logger = logging.getLogger(__name__)
 async def check_and_flag_entry(db: AsyncIOMotorDatabase, gdb_entry_id: str):
     """
     Called after every new feedback record is captured.
-    Checks if this GDB entry crosses the flagging threshold.
+    Flags the entry immediately if score < threshold (no minimum responses gate).
+    Also auto-resolves the flag if the score has risen back above threshold.
     """
     entry = await db.gdb_entries.find_one({"_id": gdb_entry_id})
     if not entry:
         return
 
-    total = entry.get("total_responses", 0)
     score = entry.get("helpfulness_score", 100.0)
 
-    if total >= settings.min_responses_to_flag and score < settings.feedback_threshold:
+    if score < settings.feedback_threshold:
         await _create_flag(db, entry)
+    else:
+        # Score is now healthy — auto-resolve any existing flag
+        existing = await db.flagged_entries.find_one({"gdb_entry_id": gdb_entry_id})
+        if existing and existing.get("status") != "resolved":
+            await db.flagged_entries.update_one(
+                {"gdb_entry_id": gdb_entry_id},
+                {"$set": {
+                    "status": "resolved",
+                    "review_notes": f"Auto-resolved: score recovered to {score:.1f}%",
+                    "resolved_at": datetime.now(timezone.utc),
+                }}
+            )
+            await db.gdb_entries.update_one(
+                {"_id": gdb_entry_id},
+                {"$set": {"is_flagged": False}}
+            )
+            logger.info(f"Auto-resolved flag for {gdb_entry_id} (score recovered to {score:.1f}%)")
 
 
 async def _create_flag(db: AsyncIOMotorDatabase, entry: dict):
@@ -99,37 +116,45 @@ async def _create_flag(db: AsyncIOMotorDatabase, entry: dict):
 
 async def run_full_flagging_pipeline(db: AsyncIOMotorDatabase) -> dict:
     """
-    Scans ALL GDB entries and flags any that cross the threshold.
+    Scans ALL GDB entries and flags any whose score is below threshold.
+    No minimum-responses gate — any entry below threshold gets flagged.
+    Also unflag entries that have recovered above threshold.
     Returns a summary of what was flagged.
     """
+    threshold = settings.feedback_threshold
+
+    # --- Flag everything below threshold ---
     newly_flagged = []
     updated = []
-    threshold = settings.feedback_threshold
-    min_resp = settings.min_responses_to_flag
 
-    cursor = db.gdb_entries.find(
-        {
-            "total_responses": {"$gte": min_resp},
-            "helpfulness_score": {"$lt": threshold},
-        }
-    )
-
-    async for entry in cursor:
+    async for entry in db.gdb_entries.find({"helpfulness_score": {"$lt": threshold}}):
         gdb_id = entry["_id"]
         existing = await db.flagged_entries.find_one({"gdb_entry_id": gdb_id})
         if not existing:
-            await _create_flag(db, entry)
             newly_flagged.append(gdb_id)
         else:
-            await _create_flag(db, entry)
             updated.append(gdb_id)
+        await _create_flag(db, entry)
+        # Always ensure DB field is in sync
+        await db.gdb_entries.update_one(
+            {"_id": gdb_id},
+            {"$set": {"is_flagged": True}}
+        )
+
+    # --- Unflag everything that has recovered ---
+    async for entry in db.gdb_entries.find({"helpfulness_score": {"$gte": threshold}, "is_flagged": True}):
+        gdb_id = entry["_id"]
+        await db.gdb_entries.update_one({"_id": gdb_id}, {"$set": {"is_flagged": False}})
+        await db.flagged_entries.update_one(
+            {"gdb_entry_id": gdb_id, "status": {"$ne": "resolved"}},
+            {"$set": {"status": "resolved", "review_notes": "Auto-resolved by pipeline: score recovered"}}
+        )
 
     return {
         "newly_flagged": len(newly_flagged),
         "updated": len(updated),
         "total_flagged": await db.flagged_entries.count_documents({"status": "flagged"}),
         "threshold": threshold,
-        "min_responses": min_resp,
     }
 
 

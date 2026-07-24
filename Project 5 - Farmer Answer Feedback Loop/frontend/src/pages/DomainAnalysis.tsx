@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Cell, RadialBarChart, RadialBar, Legend,
@@ -6,7 +7,7 @@ import {
 import { getDomainBreakdown } from '../client/api'
 import {
   FiGrid, FiAlertTriangle, FiZap, FiCheckCircle, FiBarChart2,
-  FiPackage, FiList, FiThumbsUp, FiThumbsDown, FiFlag
+  FiPackage, FiList, FiThumbsUp, FiThumbsDown, FiFlag, FiExternalLink
 } from 'react-icons/fi'
 
 const COLORS = [
@@ -32,6 +33,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 }
 
 export default function DomainAnalysis() {
+  const navigate = useNavigate()
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -54,19 +56,25 @@ export default function DomainAnalysis() {
         <p className="page-subtitle">Helpfulness breakdown by agricultural domain</p>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards — click to filter GDB entries by domain */}
       <div className="stat-grid mb-6">
         {byScore.slice(0, 3).map((d, i) => (
-          <div key={d.name} className="stat-card" style={{
-            '--accent-color': i === 0 ? 'var(--red-500)' : i === 1 ? 'var(--amber-500)' : 'var(--green-500)',
-            '--icon-bg': i === 0 ? 'var(--red-glow)' : i === 1 ? 'var(--amber-glow)' : 'var(--green-glow)',
-          } as any}>
+          <div
+            key={d.name}
+            className="stat-card clickable"
+            style={{
+              '--accent-color': i === 0 ? 'var(--red-500)' : i === 1 ? 'var(--amber-500)' : 'var(--green-500)',
+              '--icon-bg': i === 0 ? 'var(--red-glow)' : i === 1 ? 'var(--amber-glow)' : 'var(--green-glow)',
+            } as any}
+            onClick={() => navigate(`/gdb-entries?domain=${encodeURIComponent(d.name)}`)}
+            title={`View ${d.name} entries in GDB`}
+          >
             <div className="stat-icon">{i === 0 ? <FiAlertTriangle /> : i === 1 ? <FiZap /> : <FiCheckCircle />}</div>
             <div className="stat-value" style={{ fontSize: '1.4rem', color: i === 0 ? 'var(--red-400)' : i === 1 ? 'var(--amber-400)' : 'var(--green-400)' }}>
               {d.helpfulness_score.toFixed(1)}%
             </div>
             <div className="stat-label">{d.name}</div>
-            <div className="stat-sub">{d.total_responses} responses</div>
+            <div className="stat-sub">{d.total_responses} responses — click to browse</div>
           </div>
         ))}
       </div>
@@ -142,7 +150,12 @@ export default function DomainAnalysis() {
                 const scoreClass = d.helpfulness_score >= 60 ? 'score-high' : d.helpfulness_score >= 40 ? 'score-mid' : 'score-low'
                 const fillClass = d.helpfulness_score >= 60 ? 'fill-high' : d.helpfulness_score >= 40 ? 'fill-mid' : 'fill-low'
                 return (
-                  <tr key={d.name}>
+                  <tr
+                    key={d.name}
+                    className="tr-clickable"
+                    onClick={() => navigate(`/gdb-entries?domain=${encodeURIComponent(d.name)}`)}
+                    title={`Browse ${d.name} entries`}
+                  >
                     <td><span className="badge badge-domain">{d.name}</span></td>
                     <td style={{ color: 'var(--text-secondary)' }}>{d.total_responses}</td>
                     <td style={{ color: 'var(--green-400)' }}>

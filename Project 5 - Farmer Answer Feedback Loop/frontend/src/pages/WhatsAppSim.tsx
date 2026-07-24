@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { simulateWhatsApp, submitFeedback } from '../client/api'
 import {
   FiSmartphone, FiSend, FiZap, FiChevronRight, FiBookOpen,
-  FiThumbsUp, FiThumbsDown, FiCpu, FiMessageSquare
+  FiThumbsUp, FiThumbsDown, FiCpu, FiMessageSquare, FiCheckCircle
 } from 'react-icons/fi'
 
 interface Message {
@@ -167,7 +167,14 @@ export default function WhatsAppSim() {
               {messages.map(msg => (
                 <div key={msg.id} className={`wa-msg ${msg.from === 'bot' ? 'wa-msg-bot' : 'wa-msg-farmer'}`}>
                   <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
-                  <div className="wa-msg-time">{msg.time} {msg.from === 'farmer' ? '✓✓' : ''}</div>
+                  <div className="wa-msg-time">
+                    {msg.time}
+                    {msg.from === 'farmer' && (
+                      <span style={{ marginLeft: 3, color: '#53bdeb', display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                        <FiCheckCircle size={10} /><FiCheckCircle size={10} />
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
               {loading && (

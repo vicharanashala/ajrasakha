@@ -42,6 +42,19 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     await connect_db()
+    # Restore any persisted flagging settings from DB
+    from app.database import get_db
+    db = get_db()
+    saved = await db.flagging_settings.find_one({"_id": "global"})
+    if saved:
+        if "feedback_threshold" in saved:
+            flagging.router  # ensure module loaded
+            import app.routes.flagging as _fl
+            _fl._threshold_override = saved["feedback_threshold"]
+        if "min_responses_to_flag" in saved:
+            import app.routes.flagging as _fl
+            _fl._min_responses_override = saved["min_responses_to_flag"]
+        logger.info(f"Restored flagging settings from DB: threshold={saved.get('feedback_threshold')}, min_resp={saved.get('min_responses_to_flag')}")
     logger.info("Farmer Feedback System API started ✅")
 
 

@@ -27,6 +27,16 @@ export const getFlaggedEntries = (params?: Record<string, unknown>) =>
 export const runFlaggingPipeline = () => api.post('/flagging/run').then(r => r.data)
 export const updateFlagStatus = (gdb_entry_id: string, new_status: string, review_notes?: string) =>
   api.patch(`/flagging/${gdb_entry_id}/status`, { new_status, review_notes }).then(r => r.data)
+export const getFlaggingSettings = () =>
+  api.get('/flagging/settings', { timeout: 3000 })
+    .then(r => r.data)
+    .catch(() => ({ feedback_threshold: 60, min_responses_to_flag: 10 }))
+export const updateFlaggingSettings = (data: { feedback_threshold?: number; min_responses_to_flag?: number }) =>
+  api.patch('/flagging/settings', data).then(r => r.data)
+export const editGDBEntry = (
+  gdb_entry_id: string,
+  data: { question?: string; answer?: string; review_notes?: string }
+) => api.patch(`/flagging/${gdb_entry_id}/edit-entry`, data).then(r => r.data)
 
 // Digest
 export const getLatestDigest = () => api.get('/digest/latest').then(r => r.data)

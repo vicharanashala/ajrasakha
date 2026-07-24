@@ -846,3 +846,40 @@ body {
 .text-secondary { color: var(--text-secondary); }
 .font-bold { font-weight: 700; }
 .w-full { width: 100%; }
+
+/* ── Clickable Cards & Rows ──────────────────────────────── */
+.clickable {
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.14) !important;
+}
+.clickable:active { transform: translateY(0px); }
+
+.tr-clickable {
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.tr-clickable:hover { background: rgba(255,255,255,0.04); }
+.tr-clickable:active { background: rgba(255,255,255,0.07); }
+
+/* ── GDB Row Detail Drawer ───────────────────────────────── */
+.row-detail {
+  background: rgba(255,255,255,0.02);
+  border-top: 1px solid var(--border-glass);
+  padding: 1rem 1.25rem;
+  animation: slideDown 0.15s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.row-detail-answer {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  white-space: pre-wrap;
+}

@@ -2,13 +2,92 @@
 Flagging routes — manage the auto-flagging pipeline and reviewer queue.
 """
 from fastapi import APIRouter, Depends, HTTPException, Body
+from pydantic import BaseModel, Field
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.database import get_db
 from app.services.flagging_service import run_full_flagging_pipeline
+from app.config import settings
 from datetime import datetime, timezone
 from typing import Optional
 
+
+class FlaggingSettingsUpdate(BaseModel):
+    feedback_threshold: Optional[float] = Field(None, gt=0, le=100)
+    min_responses_to_flag: Optional[int] = Field(None, ge=1)
+
 router = APIRouter(prefix="/flagging", tags=["Flagging Pipeline"])
+
+# In-memory override for dynamic thresholds (persisted to DB for durability)
+_threshold_override: Optional[float] = None
+_min_responses_override: Optional[int] = None
+
+
+def get_effective_threshold() -> float:
+    return _threshold_override if _threshold_override is not None else settings.feedback_threshold
+
+
+def get_effective_min_responses() -> int:
+    return _min_responses_override if _min_responses_override is not None else settings.min_responses_to_flag
+
+
+@router.get("/settings", summary="Get current flagging thresholds")
+async def get_flagging_settings(db: AsyncIOMotorDatabase = Depends(get_db)):
+    """Returns the current flagging threshold and minimum responses setting."""
+    # Try to load from DB first (persisted settings)
+    saved = await db.flagging_settings.find_one({"_id": "global"})
+    if saved:
+        return {
+            "feedback_threshold": saved.get("feedback_threshold", settings.feedback_threshold),
+            "min_responses_to_flag": saved.get("min_responses_to_flag", settings.min_responses_to_flag),
+            "source": "database",
+        }
+    return {
+        "feedback_threshold": settings.feedback_threshold,
+        "min_responses_to_flag": settings.min_responses_to_flag,
+        "source": "env_default",
+    }
+
+
+@router.patch("/settings", summary="Update flagging thresholds dynamically")
+async def update_flagging_settings(
+    body: FlaggingSettingsUpdate,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """
+    Dynamically update the flagging threshold and/or minimum responses.
+    Changes are persisted to the database and take effect immediately.
+    """
+    global _threshold_override, _min_responses_override
+
+    update_fields = {"updated_at": datetime.now(timezone.utc)}
+    if body.feedback_threshold is not None:
+        update_fields["feedback_threshold"] = body.feedback_threshold
+        _threshold_override = body.feedback_threshold
+        # Patch the live settings object so check_and_flag_entry uses the new threshold immediately
+        settings.feedback_threshold = body.feedback_threshold
+    if body.min_responses_to_flag is not None:
+        update_fields["min_responses_to_flag"] = body.min_responses_to_flag
+        _min_responses_override = body.min_responses_to_flag
+        settings.min_responses_to_flag = body.min_responses_to_flag
+
+    if len(update_fields) == 1:  # only updated_at
+        raise HTTPException(status_code=422, detail="Provide at least one of: feedback_threshold, min_responses_to_flag")
+
+    await db.flagging_settings.update_one(
+        {"_id": "global"},
+        {"$set": update_fields},
+        upsert=True,
+    )
+
+    # Auto-run pipeline so DB flags are immediately in sync with new threshold
+    pipeline_result = await run_full_flagging_pipeline(db)
+
+    return {
+        "message": "Flagging settings updated and pipeline re-run",
+        "feedback_threshold": get_effective_threshold(),
+        "min_responses_to_flag": get_effective_min_responses(),
+        "pipeline": pipeline_result,
+    }
 
 
 @router.get("/flagged", summary="Get all flagged GDB entries")
@@ -127,3 +206,53 @@ async def update_flag_status(
         )
 
     return {"message": f"Status updated to '{new_status}'", "gdb_entry_id": gdb_entry_id}
+
+
+@router.patch("/{gdb_entry_id}/edit-entry", summary="Expert edit: update question and/or answer")
+async def edit_gdb_entry(
+    gdb_entry_id: str,
+    question: Optional[str] = Body(None, embed=True),
+    answer: Optional[str] = Body(None, embed=True),
+    review_notes: Optional[str] = Body(None, embed=True),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """
+    Allows an expert reviewer to directly edit the question and/or answer
+    text of a GDB entry from the flagged entries review page.
+    Also optionally records review notes on the flag record.
+    """
+    gdb_entry = await db.gdb_entries.find_one({"_id": gdb_entry_id})
+    if not gdb_entry:
+        raise HTTPException(status_code=404, detail=f"GDB entry '{gdb_entry_id}' not found")
+
+    if not question and not answer:
+        raise HTTPException(status_code=422, detail="Provide at least one of: question, answer")
+
+    gdb_update = {"updated_at": datetime.now(timezone.utc)}
+    if question:
+        gdb_update["question"] = question.strip()
+    if answer:
+        gdb_update["answer"] = answer.strip()
+
+    await db.gdb_entries.update_one(
+        {"_id": gdb_entry_id},
+        {"$set": gdb_update},
+    )
+
+    # Also update review notes on the flag record if provided
+    if review_notes is not None:
+        await db.flagged_entries.update_one(
+            {"gdb_entry_id": gdb_entry_id},
+            {"$set": {
+                "review_notes": review_notes,
+                "updated_at": datetime.now(timezone.utc),
+            }},
+        )
+
+    updated = await db.gdb_entries.find_one({"_id": gdb_entry_id})
+    return {
+        "message": f"GDB entry '{gdb_entry_id}' updated successfully",
+        "gdb_entry_id": gdb_entry_id,
+        "question": updated.get("question"),
+        "answer": updated.get("answer"),
+    }

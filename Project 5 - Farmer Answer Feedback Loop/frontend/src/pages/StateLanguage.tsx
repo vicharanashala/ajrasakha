@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Cell,
@@ -39,6 +40,7 @@ function ScoreBar({ score }: { score: number }) {
 }
 
 export default function StateLanguage() {
+  const navigate = useNavigate()
   const [stateData, setStateData] = useState<any[]>([])
   const [langData, setLangData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -61,13 +63,16 @@ export default function StateLanguage() {
         <p className="page-subtitle">Helpfulness scores broken down by geography and farmer language</p>
       </div>
 
-      {/* Language Stats */}
+      {/* Language Stats — click to filter GDB by language */}
       <div className="stat-grid mb-6">
         {langData.slice(0, 5).map(l => (
-          <div key={l.name} className="stat-card" style={{
-            '--accent-color': 'var(--purple-500)',
-            '--icon-bg': 'rgba(168,85,247,0.12)'
-          } as any}>
+          <div
+            key={l.name}
+            className="stat-card clickable"
+            style={{ '--accent-color': 'var(--purple-500)', '--icon-bg': 'rgba(168,85,247,0.12)' } as any}
+            onClick={() => navigate(`/gdb-entries?language=${encodeURIComponent(l.name)}`)}
+            title={`View ${l.name} GDB entries`}
+          >
             <div className="stat-icon"><FiMessageCircle /></div>
             <div className="stat-value" style={{
               fontSize: '1.5rem',
@@ -76,7 +81,7 @@ export default function StateLanguage() {
               {l.helpfulness_score.toFixed(1)}%
             </div>
             <div className="stat-label">{l.name}</div>
-            <div className="stat-sub">{l.total_responses} responses</div>
+            <div className="stat-sub">{l.total_responses} responses — click to browse</div>
           </div>
         ))}
       </div>
@@ -148,7 +153,12 @@ export default function StateLanguage() {
             </thead>
             <tbody>
               {stateData.map(s => (
-                <tr key={s.name}>
+                <tr
+                  key={s.name}
+                  className="tr-clickable"
+                  onClick={() => navigate(`/gdb-entries?state=${encodeURIComponent(s.name)}`)}
+                  title={`Browse entries from ${s.name}`}
+                >
                   <td style={{ fontWeight: 500 }}>{s.name || 'Unknown'}</td>
                   <td style={{ color: 'var(--text-secondary)' }}>{s.total_responses}</td>
                   <td style={{ color: 'var(--green-400)' }}>
@@ -183,7 +193,12 @@ export default function StateLanguage() {
             </thead>
             <tbody>
               {langData.map(l => (
-                <tr key={l.name}>
+                <tr
+                  key={l.name}
+                  className="tr-clickable"
+                  onClick={() => navigate(`/gdb-entries?language=${encodeURIComponent(l.name)}`)}
+                  title={`Browse ${l.name} entries`}
+                >
                   <td><span className="badge badge-lang">{l.name || 'Unknown'}</span></td>
                   <td style={{ color: 'var(--text-secondary)' }}>{l.total_responses}</td>
                   <td style={{ color: 'var(--green-400)' }}>
