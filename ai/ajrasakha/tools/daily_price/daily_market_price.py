@@ -698,7 +698,7 @@ def mandi_price_tool(
             return {
                 "stats":                  stats,
                 "resolution":             resolution_meta,
-                "price_records":          formatted[:15],
+                "price_records":          formatted,
                 "total_records_returned": len(formatted),
             }
 
@@ -899,6 +899,7 @@ def mandi_price_tool(
         return {
             "action":     "get_price_summary",
             "stats":      result.get("stats"),
+            "records":    result.get("price_records"),
             "resolution": result.get("resolution"),
             "total_records_analysed": result.get("total_records_returned"),
         }
