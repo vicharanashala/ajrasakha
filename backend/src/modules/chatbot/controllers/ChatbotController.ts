@@ -227,6 +227,9 @@ export class ChatbotController {
 
     @QueryParam('endDate')
     endDate: string,
+
+    @QueryParam('coordinatorId')
+    coordinatorId?: string,
   ) {
     // console.log("Selected state code controller", selectedStateCode);
     let convertedStartDate = undefined
@@ -244,6 +247,7 @@ export class ChatbotController {
       userType,
       convertedStartDate,
       convertedEndDate,
+      coordinatorId,
     );
   }
 

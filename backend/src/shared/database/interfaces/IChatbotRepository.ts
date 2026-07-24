@@ -936,6 +936,7 @@ export interface IChatbotRepository {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<DistrictAnalyticsEntry[]>;
 
   getWeatherConcernAnalytics(

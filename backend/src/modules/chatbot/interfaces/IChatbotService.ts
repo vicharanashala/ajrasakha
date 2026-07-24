@@ -227,6 +227,7 @@ export interface IChatbotService {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<DistrictAnalyticsEntry[]>;
   getWeatherConcernAnalytics(
     filters?: WeatherConcernAnalyticsFilters,

@@ -209,11 +209,13 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 interface DashboardStateWiseAnalyticsProps {
   source: "annam" | "vicharanashala" | "whatsapp";
   userType: "all" | "external" | "internal";
+  coordinatorId?: string;
 }
 
 export const DashboardStateWiseAnalytics = ({
   source,
   userType,
+  coordinatorId,
 }: DashboardStateWiseAnalyticsProps) => {
   const [selectedState, setSelectedState] = useState("Punjab");
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
@@ -229,6 +231,9 @@ export const DashboardStateWiseAnalytics = ({
     selectedStateCode,
     source,
     userType,
+    undefined,
+    undefined,
+    coordinatorId,
   );
 
 
@@ -442,6 +447,7 @@ export const DashboardStateWiseAnalytics = ({
               userType={userType}
               isQueryCategory = {false}
               onClose={() => setSelectedDistrict(null)}
+              coordinatorId={coordinatorId}
             />
           )}
       </CardContent>

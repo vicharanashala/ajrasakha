@@ -1271,6 +1271,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ) {
     try {
       let stateCode: number;
@@ -1294,6 +1295,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startDate,
         endDate,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(

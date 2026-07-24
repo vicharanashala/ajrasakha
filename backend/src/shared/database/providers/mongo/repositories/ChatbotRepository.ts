@@ -2494,6 +2494,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<DistrictAnalyticsEntry[]> {
     try {
       await this.initReviewSystem();
@@ -2555,6 +2556,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
 
       const raw = await this.QuestionCollection.aggregate(

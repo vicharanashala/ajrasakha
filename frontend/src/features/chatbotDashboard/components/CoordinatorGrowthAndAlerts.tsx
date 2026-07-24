@@ -6,12 +6,19 @@ import type { DashboardFilterValues } from "../DashboardFilters";
 import { useQueryCategories } from "../hooks/useActiveUsersAnalytics";
 import { useTopCrops } from "../hooks/useTopCrops";
 import { QueryInsightsSection } from "./QueryInsightsSection";
+import { DashboardStateWiseAnalytics } from "../DashboardQueryState";
 
 const LazyUserGrowthChart = React.lazy(
   () => import("./UserGrowthChart"),
 );
 
-export function CoordinatorGrowthAndAlerts({ userId }: { userId: string }) {
+export function CoordinatorGrowthAndAlerts({
+  userId,
+  isDistrictCoordinator = false,
+}: {
+  userId: string;
+  isDistrictCoordinator?: boolean;
+}) {
   const source = "annam";
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = React.useState(false);
 
@@ -83,6 +90,16 @@ export function CoordinatorGrowthAndAlerts({ userId }: { userId: string }) {
         userType="all"
         coordinatorId={userId}
       />
+
+      {isDistrictCoordinator && (
+        <div className="mt-6">
+          <DashboardStateWiseAnalytics
+            source={source}
+            userType="all"
+            coordinatorId={userId}
+          />
+        </div>
+      )}
     </div>
   );
 }

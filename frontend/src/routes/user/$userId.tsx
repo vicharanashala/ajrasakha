@@ -564,7 +564,10 @@ function RouteComponent() {
             />
             <UserQuestionMetricsCards userId={userId} />
             <CoordinatorKpiCards userId={userId} />
-            <CoordinatorGrowthAndAlerts userId={userId} />
+            <CoordinatorGrowthAndAlerts
+              userId={userId}
+              isDistrictCoordinator={userProfile?.userRole === "district_coordinator"}
+            />
           </>
         ) : (
         <FarmerDetailsContent
@@ -595,7 +598,10 @@ function RouteComponent() {
           <>
           <UserQuestionMetricsCards userId={userId} />
           <CoordinatorKpiCards userId={userId} />
-            <CoordinatorGrowthAndAlerts userId={userId} />
+            <CoordinatorGrowthAndAlerts
+              userId={userId}
+              isDistrictCoordinator={userProfile?.userRole === "district_coordinator"}
+            />
           </>
         )}
         <FarmerDashboardAnalytics
