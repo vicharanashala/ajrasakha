@@ -2782,7 +2782,7 @@ export class QuestionRepository implements IQuestionRepository {
       {
         status: 'closed',
         ...(!isAdmin && {
-          trainingQuestion: isTrainingUser === true,
+          isTrainingQuestion: isTrainingUser === true,
         }),
       },
       {session},
@@ -2818,6 +2818,9 @@ export class QuestionRepository implements IQuestionRepository {
     const matchCondition: any = {
       createdAt: {$gte: startDate, $lt: endDate},
       status: {$ne: 'pass'},
+      ...(!isAdmin && {
+            isTrainingQuestion: isTrainingUser === true,
+           }),
     };
 
     const closedMatchCondition: any = {
@@ -2826,6 +2829,9 @@ export class QuestionRepository implements IQuestionRepository {
         $gte: startDate,
         $lt: endDate,
       },
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser === true,
+      }),
     };
 
     // Add time filtering if provided
@@ -2975,7 +2981,7 @@ export class QuestionRepository implements IQuestionRepository {
         };
       },
     );
-
+    
     const [closedStats] = await this.QuestionCollection.aggregate(
       [
         {
@@ -3039,6 +3045,8 @@ export class QuestionRepository implements IQuestionRepository {
       endDate,
       customStartTime,
       customEndTime,
+      isTrainingUser,
+      isAdmin
     );
     return {
       yearData: formattedData,
@@ -3117,7 +3125,7 @@ export class QuestionRepository implements IQuestionRepository {
              $lt: end,
            },
            ...(!isAdmin && {
-             trainingQuestion: isTrainingUser === true,
+             'question.isTrainingQuestion': isTrainingUser === true,
            }),
          },
        },
@@ -3721,6 +3729,9 @@ export class QuestionRepository implements IQuestionRepository {
     const matchCondition: any = {
       createdAt: {$gte: startDate, $lt: endDate},
       status: {$ne: 'pass'},
+      ...(!isAdmin && {
+          isTrainingQuestion: isTrainingUser === true,
+        }),
     };
 
     const closedMatchCondition: any = {
@@ -3729,6 +3740,9 @@ export class QuestionRepository implements IQuestionRepository {
         $gte: startDate,
         $lt: endDate,
       },
+      ...(!isAdmin && {
+          isTrainingQuestion: isTrainingUser === true,
+        }),
     };
 
     // Add time filtering if provided
@@ -3932,6 +3946,8 @@ export class QuestionRepository implements IQuestionRepository {
       endDate,
       customStartTime,
       customEndTime,
+      isTrainingUser,
+      isAdmin
     );
     return {
       weeksData,
@@ -4001,6 +4017,9 @@ export class QuestionRepository implements IQuestionRepository {
     const matchCondition: any = {
       createdAt: {$gte: startDate, $lt: endDate},
       status: {$ne: 'pass'},
+      ...(!isAdmin && {
+          isTrainingQuestion: isTrainingUser === true,
+        }),
     };
 
     const closedMatchCondition: any = {
@@ -4009,6 +4028,9 @@ export class QuestionRepository implements IQuestionRepository {
         $gte: startDate,
         $lt: endDate,
       },
+      ...(!isAdmin && {
+          isTrainingQuestion: isTrainingUser === true,
+        }),
     };
 
     // Add time filtering if provided
@@ -4212,6 +4234,8 @@ export class QuestionRepository implements IQuestionRepository {
       endDate,
       customStartTime,
       customEndTime,
+      isTrainingUser,
+      isAdmin
     );
     return {
       dailyData,
@@ -4296,6 +4320,9 @@ export class QuestionRepository implements IQuestionRepository {
     const matchCondition: any = {
       createdAt: {$gte: startDate, $lt: endDate},
       status: {$ne: 'pass'},
+      ...(!isAdmin && {
+          isTrainingQuestion: isTrainingUser === true,
+        }),
     };
 
     const closedMatchCondition: any = {
@@ -4304,6 +4331,9 @@ export class QuestionRepository implements IQuestionRepository {
         $gte: startDate,
         $lt: endDate,
       },
+      ...(!isAdmin && {
+          isTrainingQuestion: isTrainingUser === true,
+        }),
     };
 
     // Add time filtering if provided
@@ -4623,6 +4653,8 @@ export class QuestionRepository implements IQuestionRepository {
       endDate,
       customStartTime,
       customEndTime,
+      isTrainingUser,
+      isAdmin
     );
 
     return {
@@ -6263,6 +6295,8 @@ export class QuestionRepository implements IQuestionRepository {
     endDate?: Date,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{
     assigned: number;
     submitted: number;
@@ -6270,8 +6304,16 @@ export class QuestionRepository implements IQuestionRepository {
   }> {
     await this.init();
 
-    const matchCondition: any = {status: {$ne: 'pass'}};
-    const closedMatchCondition: any = {};
+    const matchCondition: any = {
+      status: { $ne: 'pass' }, ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser === true,
+      }),
+    };
+    const closedMatchCondition: any = {
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser === true,
+      }),
+    };
 
     if (startDate && endDate) {
       // Filter by createdAt in IST format for assigned and submitted
