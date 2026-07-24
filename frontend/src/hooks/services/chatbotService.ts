@@ -167,10 +167,13 @@ export class ChatbotService {
     );
   }
 
-  async getQueryCategories(source: string, userType: string): Promise<any> {
+  async getQueryCategories(source: string, userType: string, coordinatorId?: string): Promise<any> {
     const params = new URLSearchParams();
     params.append("source", source);
     params.append("userType", userType);
+    if (coordinatorId) {
+      params.append("coordinatorId", coordinatorId);
+    }
     return apiFetch<any>(
       `${this._baseUrl}/query-categories?${params.toString()}`,
     );

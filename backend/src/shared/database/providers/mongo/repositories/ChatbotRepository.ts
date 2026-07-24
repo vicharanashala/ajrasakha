@@ -2115,17 +2115,19 @@ export class ChatbotRepository implements IChatbotRepository {
     _source = 'annam',
     session?: ClientSession,
     userType = 'all',
+    coordinatorId?: string,
   ): Promise<QueryCategoryEntry[]> {
     try {
       await this.initReviewSystem();
 
       // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-      const matchQuery = buildBaseQuestionMatch(source);
-
-      matchQuery['details.domain'] = {
-        $exists: true,
-        $nin: [null, ''],
+      const matchQuery: any = {
+        ...buildBaseQuestionMatch(source),
+        'details.domain': {
+          $exists: true,
+          $nin: [null, ''],
+        },
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -2134,7 +2136,16 @@ export class ChatbotRepository implements IChatbotRepository {
       );
 
       if (query && Object.keys(query).length) {
+        if (!matchQuery.$and) matchQuery.$and = [];
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length) {
+          if (!matchQuery.$and) matchQuery.$and = [];
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
       const pipeline = [
         {
@@ -2238,6 +2249,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
     userType = 'all',
     search?: string,
+    coordinatorId?: string,
   ): Promise<PaginatedQueryCategoryQuestions> {
     try {
       await this.initReviewSystem();
@@ -2247,11 +2259,12 @@ export class ChatbotRepository implements IChatbotRepository {
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
 
-      const baseMatch = buildBaseQuestionMatch(_source);
-
-      baseMatch['details.domain'] = {
-        $exists: true,
-        $nin: [null, ''],
+      const baseMatch: any = {
+        ...buildBaseQuestionMatch(_source),
+        'details.domain': {
+          $exists: true,
+          $nin: [null, ''],
+        },
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -2260,7 +2273,16 @@ export class ChatbotRepository implements IChatbotRepository {
       );
 
       if (query && Object.keys(query).length > 0) {
+        if (!baseMatch.$and) baseMatch.$and = [];
         baseMatch.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          if (!baseMatch.$and) baseMatch.$and = [];
+          baseMatch.$and.push(coordinatorMatch);
+        }
       }
       const categoryLabel = category?.trim();
       if (!categoryLabel) {
@@ -4368,6 +4390,7 @@ export class ChatbotRepository implements IChatbotRepository {
     source: string,
     userType?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{totalQuestions: number; topCrops: any[]}> {
     try {
       await this.initReviewSystem();
@@ -4387,6 +4410,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchStage.$and.push(coordinatorMatch);
+        }
       }
       const cropFieldRaw = {
         $ifNull: ['$details.normalised_crop', '$details.crop'],
@@ -14502,6 +14532,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
     userType = 'all',
     search?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -14657,6 +14688,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (Object.keys(userTypeMatch).length) {
         finalMatch.$and.push(userTypeMatch);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          finalMatch.$and.push(coordinatorMatch);
+        }
       }
 
       const result = await this.QuestionCollection.aggregate(

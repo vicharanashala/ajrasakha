@@ -536,6 +536,7 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    coordinatorId?: string,
   ): Promise<QueryCategoryEntry[]>;
 
   getQueryCategoryQuestions(
@@ -547,6 +548,7 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
     search?: string,
+    coordinatorId?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
 
   getWeatherConcernQueries(
@@ -579,6 +581,7 @@ export interface IChatbotRepository {
     source?: string,
     userType?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{
     totalQuestions: number;
     topCrops: {name: string; count: number}[];
@@ -619,7 +622,7 @@ export interface IChatbotRepository {
   //   search?: string,
   // ): Promise<any>;
 
-    getQuestionsByCrop(crop: string, crops?: string[] ,questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
+    getQuestionsByCrop(crop: string, crops?: string[] ,questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string, coordinatorId?: string): Promise<any>
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(

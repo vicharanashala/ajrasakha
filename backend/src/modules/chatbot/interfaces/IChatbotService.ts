@@ -105,6 +105,7 @@ export interface IChatbotService {
   getQueryCategories(
     source?: string,
     userType?: string,
+    coordinatorId?: string,
   ): Promise<QueryCategoryEntry[]>;
   getQueryCategoryQuestions(
     category: string,
@@ -114,6 +115,7 @@ export interface IChatbotService {
     source?: string,
     userType?: string,
     search?: string,
+    coordinatorId?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
   getQuestionFromDistrict(
     district: string,
@@ -127,9 +129,10 @@ export interface IChatbotService {
     startDate?: Date,
     endDate?: Date,
     knownDistricts?: string[],
+    coordinatorId?: string,
   ): Promise<any>;
-  getTopCrops(source?: string, userType?: string): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
-  getQuestionsByCrop(crop: string, crops?:string[], questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string): Promise<any>
+  getTopCrops(source?: string, userType?: string, coordinatorId?: string,): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+  getQuestionsByCrop(crop: string, crops?:string[], questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string, coordinatorId?: string): Promise<any>
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
   getDailyAnalytics(month?: string, source?: string, userType?: string): Promise<any[]>;
   getTodayQueryCount(source?: string, userType?: string): Promise<number>;

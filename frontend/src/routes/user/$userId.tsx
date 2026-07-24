@@ -57,6 +57,7 @@ import {
 } from "@/features/chatbotDashboard/components/CoordinatorDashboardSections";
 import {
   FarmerDashboardAnalytics,
+  UserQuestionMetricsCards,
   type FarmerDashboardData,
 } from "@/features/chatbotDashboard/components/FarmerDashboardAnalytics";
 import { CoordinatorKpiCards } from "@/features/chatbotDashboard/components/CoordinatorKpiCards";
@@ -561,6 +562,7 @@ function RouteComponent() {
               availableCount={availableUsers.length}
               isReadOnly={isCoordinatorReadOnlyView}
             />
+            <UserQuestionMetricsCards userId={userId} />
             <CoordinatorKpiCards userId={userId} />
             <CoordinatorGrowthAndAlerts userId={userId} />
           </>
@@ -591,6 +593,7 @@ function RouteComponent() {
         )}
         {currentUser?.role === "admin" && viewedProfileIsCoordinator && (
           <>
+          <UserQuestionMetricsCards userId={userId} />
           <CoordinatorKpiCards userId={userId} />
             <CoordinatorGrowthAndAlerts userId={userId} />
           </>
@@ -607,6 +610,7 @@ function RouteComponent() {
               />
             ) : undefined
           }
+          hideQuestionMetrics={viewedProfileIsCoordinator || showCoordinatorSummary}
         />
         {canManageAssignments && (
             <>

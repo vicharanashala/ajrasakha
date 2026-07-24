@@ -3,6 +3,9 @@ import { useDashboardData } from "../hooks/useDashboardData";
 import { AlertCard } from "../AlertCard";
 import { DuplicateQuestionsModal } from "./DuplicateQuestionsModal";
 import type { DashboardFilterValues } from "../DashboardFilters";
+import { useQueryCategories } from "../hooks/useActiveUsersAnalytics";
+import { useTopCrops } from "../hooks/useTopCrops";
+import { QueryInsightsSection } from "./QueryInsightsSection";
 
 const LazyUserGrowthChart = React.lazy(
   () => import("./UserGrowthChart"),
@@ -21,6 +24,16 @@ export function CoordinatorGrowthAndAlerts({ userId }: { userId: string }) {
   };
 
   const { data, isFetching } = useDashboardData(filters, source, true);
+
+  // Fetch query categories and top crops specific to this coordinator
+  const { data: queryCategories, isLoading: isLoadingQueryCategories } =
+    useQueryCategories(source, "all", true, userId);
+
+  const {
+    data: topCrops,
+    isLoading: isLoadingTopCrops,
+    error: errorLoadingtopCrops,
+  } = useTopCrops(source, "all", true, userId);
 
   return (
     <div className="space-y-6">
@@ -58,6 +71,18 @@ export function CoordinatorGrowthAndAlerts({ userId }: { userId: string }) {
           )}
         </div>
       </div>
+
+      <QueryInsightsSection
+        queryCategories={queryCategories}
+        topCrops={topCrops}
+        isLoadingQueryCategories={isLoadingQueryCategories}
+        isLoadingTopCrops={isLoadingTopCrops}
+        errorLoadingtopCrops={errorLoadingtopCrops}
+        shouldLoadQueryInsights={true}
+        source={source}
+        userType="all"
+        coordinatorId={userId}
+      />
     </div>
   );
 }

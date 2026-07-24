@@ -397,8 +397,8 @@ export class ChatbotController {
   @Get('/query-categories')
   @HttpCode(200)
   @Authorized()
-  async getQueryCategories(@QueryParams() query: SourceQueryDto) {
-    return this.chatbotService.getQueryCategories(query.source, query.userType);
+  async getQueryCategories(@QueryParams() query: { source?: string; userType?: string; coordinatorId?: string }) {
+    return this.chatbotService.getQueryCategories(query.source || 'annam', query.userType || 'all', query.coordinatorId);
   }
 
   // @OpenAPI({
@@ -479,6 +479,7 @@ export class ChatbotController {
       userId?: string;
       manualSource?: string;
       effectiveDate?: string;
+      coordinatorId?: string;
     },
     @QueryParam('userId') userId?: string,
   ) {
@@ -497,6 +498,7 @@ export class ChatbotController {
         query.source,
         query.userType,
         query.search,
+        query.coordinatorId,
       );
     } else if (query.state && !query.district) {
       return this.chatbotService.getQuestionFromState(
@@ -535,6 +537,7 @@ export class ChatbotController {
         query.source,
         query.userType,
         query.search,
+        query.coordinatorId,
       );
     } else if (query.status) {
       const startDate = new Date(query.startDate);
@@ -729,9 +732,9 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getTopCrops(
-    @QueryParams() query: {source?: string; userType?: string},
+    @QueryParams() query: {source?: string; userType?: string; coordinatorId?: string},
   ) {
-    return this.chatbotService.getTopCrops(query.source, query.userType);
+    return this.chatbotService.getTopCrops(query.source, query.userType, query.coordinatorId);
   }
 
   @OpenAPI({

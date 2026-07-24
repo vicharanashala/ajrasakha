@@ -87,6 +87,7 @@ interface QueryCategoryQuestionsModalProps {
   isIndiaView?: boolean;
   manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH";
   effectiveDate?: string;
+  coordinatorId?: string;
 }
 
 const PAGE_SIZE = 10;
@@ -124,7 +125,8 @@ export function QueryCategoryQuestionsModal({
   safeUntracked,
   isIndiaView,
   manualSource,
-  effectiveDate
+  effectiveDate,
+  coordinatorId,
 }: QueryCategoryQuestionsModalProps) {
   const { setSelectedQuestionId, setView } = useSelectedQuestion();
 
@@ -176,7 +178,8 @@ export function QueryCategoryQuestionsModal({
     tag,
     userId,
     manualSource,
-    effectiveDate
+    effectiveDate,
+    coordinatorId,
   });
 
   const isMapView = isIndiaView ?? (!!state || !!district);

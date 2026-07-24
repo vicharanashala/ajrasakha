@@ -79,14 +79,15 @@ export const useRetentionMetrics = (
   });
 };
 
-export const useQueryCategories = (source: string, userType: string, enabled: boolean = true) => {
+export const useQueryCategories = (source: string, userType: string, enabled: boolean = true, coordinatorId?: string) => {
   return useQuery({
     queryKey: ["query-categories",
       source,
       userType,
+      coordinatorId,
     ],
     queryFn: () => {
-      return chatbotService.getQueryCategories(source, userType);
+      return chatbotService.getQueryCategories(source, userType, coordinatorId);
     },
     enabled,
   });
@@ -148,6 +149,7 @@ export const useQuestionFilter = ({
   userId,
   manualSource,
   effectiveDate,
+  coordinatorId,
 }: {
   category?: string;
   district?: string;
@@ -172,6 +174,7 @@ export const useQuestionFilter = ({
   userId?: string;
   manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH";
   effectiveDate?: string;
+  coordinatorId?: string;
 }) => {
   return useQuery<QueryCategoryQuestionsResponse>({
   queryKey: [
@@ -198,6 +201,7 @@ export const useQuestionFilter = ({
     userId,
     manualSource,
     effectiveDate,
+    coordinatorId,
   ],
     queryFn: () =>
       chatbotService.getQuestionByFilters({
@@ -223,6 +227,7 @@ export const useQuestionFilter = ({
         userId,
         manualSource,
         effectiveDate,
+        coordinatorId,
       }),
     enabled: enabled && Boolean(category || district || crop || status || true),
   });

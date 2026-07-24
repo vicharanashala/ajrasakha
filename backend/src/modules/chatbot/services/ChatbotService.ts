@@ -1131,12 +1131,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getQueryCategories(source = 'annam', userType = 'all') {
+  async getQueryCategories(source = 'annam', userType = 'all', coordinatorId?: string) {
     try {
       return await this.chatbotRepository.getQueryCategories(
         source,
         undefined,
         userType,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1153,6 +1154,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source = 'annam',
     userType = 'all',
     search?: string,
+    coordinatorId?: string,
   ) {
     try {
       return await this.chatbotRepository.getQueryCategoryQuestions(
@@ -1164,6 +1166,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         undefined,
         userType,
         search,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1355,9 +1358,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTopCrops(source?: string, userType?: string) {
+  async getTopCrops(source?: string, userType?: string, coordinatorId?: string) {
     try {
-      return await this.chatbotRepository.getTopCrops(source, userType);
+      return await this.chatbotRepository.getTopCrops(source, userType, undefined, coordinatorId);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top crops: ${error}`);
     }
@@ -3729,6 +3732,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source?: string,
     userType?: string,
     search?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionsByCrop(
@@ -3741,6 +3745,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         undefined,
         userType,
         search,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(`Internal server error ${error}`);

@@ -142,12 +142,14 @@ export function FarmerDashboardAnalytics({
   engagementDateRange,
   onEngagementDateRangeChange,
   afterEngagementTrends,
+  hideQuestionMetrics = false,
 }: {
   dashboard?: FarmerDashboardData;
   userId?: string;
   engagementDateRange?: DateRange;
   onEngagementDateRangeChange?: (range: DateRange | undefined) => void;
   afterEngagementTrends?: ReactNode;
+  hideQuestionMetrics?: boolean;
 }) {
   const navigate = useNavigate();
   const [engagementTrendType, setEngagementTrendType] =
@@ -279,7 +281,7 @@ export function FarmerDashboardAnalytics({
 
   return (
     <div className="space-y-8">
-      <UserQuestionMetricsCards userId={userId} />
+      {!hideQuestionMetrics && <UserQuestionMetricsCards userId={userId} />}
 
       <div className="grid gap-6">
         <DashboardSection
@@ -399,7 +401,7 @@ export function FarmerDashboardAnalytics({
   );
 }
 
-function UserQuestionMetricsCards({ userId }: { userId?: string }) {
+export function UserQuestionMetricsCards({ userId }: { userId?: string }) {
   const [questionStatusDateRange, setQuestionStatusDateRange] =
     useState<DateRange | undefined>(undefined);
   const [closed2hDateRange, setClosed2hDateRange] =
