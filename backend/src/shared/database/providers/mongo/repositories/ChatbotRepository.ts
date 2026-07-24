@@ -1479,9 +1479,6 @@ averageResponseNonGdb: [
       // const whatsappNonGdbWithin120 = whatsapp.nonGdbWithin120;
       // const ajrasakhaNonGdbWithin120 = ajrasakha.nonGdbWithin120;
       // const manualNonGdbWithin120 = manual.nonGdbWithin120;
-      console.log("ajrasakha---", ajrasakha);
-      console.log("whatsapp---", whatsapp);
-      console.log("manual---", manual);
       return {
         date,
         time: `${hh}:${mm}`,
