@@ -58,7 +58,7 @@ export function BulkUploadAllocationModal({
   }, [open, paeOnly]);
 
   const paeExperts =
-    usersData?.users.filter((u) => u.role === "pae_expert") ?? [];
+    (usersData?.users ?? []).filter((u) => u.role === "pae_expert");
 
   const filteredPaeExperts = paeExperts.filter(
     (e) =>

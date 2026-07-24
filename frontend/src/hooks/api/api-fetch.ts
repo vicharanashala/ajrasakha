@@ -1,6 +1,7 @@
 import { auth } from "@/config/firebase";
 import { useAuthStore } from "@/stores/auth-store";
 import { getIdToken, type User } from "firebase/auth";
+import { env } from "@/config/env";
 
 export const getCurrentUser = (): Promise<User | null> => {
   return new Promise((resolve) => {
@@ -14,9 +15,10 @@ export const apiFetch = async <T>(
   url: string,
   options: RequestInit = {}
 ): Promise<T | null> => {
-  const firebaseUser = await getCurrentUser();
+  const isMock = env.enableMocks();
+  const firebaseUser = isMock ? null : await getCurrentUser();
 
-  let token: string | null = null;
+  let token: string | null = isMock ? "mock-id-token" : null;
   if (firebaseUser) {
     try {
       token = await getIdToken(firebaseUser);

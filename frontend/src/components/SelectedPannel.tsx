@@ -44,7 +44,7 @@ export default function SelectedAnswerPanel({
     useGetReRouteAllocation();
 
   const experts =
-    usersData?.users.filter((user) => user.role === "expert") || [];
+    (usersData?.users ?? []).filter((user) => user.role === "expert");
 
   const filteredExperts = experts.filter(
     (expert) =>
