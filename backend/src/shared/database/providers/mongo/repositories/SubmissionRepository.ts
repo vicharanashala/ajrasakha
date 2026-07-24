@@ -1,4 +1,4 @@
-import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import {
   IQuestionSubmission,
   ISubmissionHistory,
@@ -10,21 +10,21 @@ import {
   IReviewerHeatmapResponse,
   LevelReportStat,
 } from '#root/shared/interfaces/models.js';
-import { ClientSession, Collection, ObjectId } from 'mongodb';
-import { MongoDatabase } from '../MongoDatabase.js';
-import { GLOBAL_TYPES } from '#root/types.js';
-import { inject } from 'inversify';
+import {ClientSession, Collection, ObjectId} from 'mongodb';
+import {MongoDatabase} from '../MongoDatabase.js';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {inject} from 'inversify';
 import {
   BadRequestError,
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-import { USER_VALIDATORS } from '#root/modules/user/validators/UserValidators.js';
-import { GetHeatMapQuery } from '#root/modules/dashboard/validators/DashboardValidators.js';
-import { getReviewerQueuePosition } from '#root/utils/getReviewerQueuePosition.js';
-import { ExpertReviewLevelDto } from '#root/modules/user/validators/UserValidators.js';
-import { IReviewWiseStats } from '#root/utils/getDailyStats.js';
-import { HistoryItem } from '#root/modules/question/classes/validators/QuestionVaidators.js';
+import {USER_VALIDATORS} from '#root/modules/user/validators/UserValidators.js';
+import {GetHeatMapQuery} from '#root/modules/dashboard/validators/DashboardValidators.js';
+import {getReviewerQueuePosition} from '#root/utils/getReviewerQueuePosition.js';
+import {ExpertReviewLevelDto} from '#root/modules/user/validators/UserValidators.js';
+import {IReviewWiseStats} from '#root/utils/getDailyStats.js';
+import {HistoryItem} from '#root/modules/question/classes/validators/QuestionVaidators.js';
 
 export class QuestionSubmissionRepository implements IQuestionSubmissionRepository {
   private QuestionSubmissionCollection: Collection<IQuestionSubmission>;
@@ -33,7 +33,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
-  ) { }
+  ) {}
 
   private async init() {
     this.QuestionSubmissionCollection =
@@ -53,7 +53,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         {
           questionId: new ObjectId(questionId),
         },
-        { session },
+        {session},
       );
     } catch (error) {
       throw new InternalServerError(
@@ -69,8 +69,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     try {
       await this.init();
       return this.QuestionSubmissionCollection.find(
-        { queue: new ObjectId(expertId) },
-        { session },
+        {queue: new ObjectId(expertId)},
+        {session},
       ).toArray();
     } catch (error) {
       throw new InternalServerError(
@@ -96,7 +96,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           session,
         },
       );
-      return { ...submission, _id: result.insertedId };
+      return {...submission, _id: result.insertedId};
     } catch (error) {
       throw new InternalServerError(`Failed to add submission: ${error}`);
     }
@@ -111,9 +111,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       await this.init();
 
       return await this.QuestionSubmissionCollection.findOneAndUpdate(
-        { questionId: new ObjectId(questionId) },
-        { $push: { queue: { $each: expertIds } } },
-        { session, returnDocument: 'after' },
+        {questionId: new ObjectId(questionId)},
+        {$push: {queue: {$each: expertIds}}},
+        {session, returnDocument: 'after'},
       );
     } catch (error) {
       throw new InternalServerError(`Error while allocating experts: ${error}`);
@@ -160,11 +160,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         !currentExpertHistory?.answer;
 
       const result = await this.QuestionSubmissionCollection.updateOne(
-        { questionId: new ObjectId(questionId) },
+        {questionId: new ObjectId(questionId)},
         {
           $pull: {
             queue: new ObjectId(expertId),
-            history: { updatedBy: new ObjectId(expertId) },
+            history: {updatedBy: new ObjectId(expertId)},
           },
           // Reset all time-bound tracking tied to the removed expert so they're fully
           // freed from this question (clears the 45-min allocation/open clocks).
@@ -174,7 +174,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             currentExpertOpenedAt: null,
           },
         },
-        { session },
+        {session},
       );
       if (result.matchedCount === 0) {
         throw new InternalServerError(
@@ -191,9 +191,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         // firstAllocationAt so it falls back into the never-allocated queue and can
         // be re-picked for allocation.
         await this.QuestionCollection.updateOne(
-          { _id: new ObjectId(questionId) },
-          { $unset: { firstAllocationAt: '' } },
-          { session },
+          {_id: new ObjectId(questionId)},
+          {$unset: {firstAllocationAt: ''}},
+          {session},
         );
       } else if (removedFirstExpert) {
         // Allocation shifts to the next expert (now the head of the queue). Ensure
@@ -201,15 +201,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         // question isn't treated as never-allocated. Only set when absent to
         // preserve the original first-allocation timestamp when it already exists.
         await this.QuestionCollection.updateOne(
-          { _id: new ObjectId(questionId) },
-          { $set: { firstAllocationAt: new Date() } },
-          { session },
+          {_id: new ObjectId(questionId)},
+          {$set: {firstAllocationAt: new Date()}},
+          {session},
         );
       }
 
       if (shouldCreateNextHistoryEntry) {
         await this.QuestionSubmissionCollection.updateOne(
-          { questionId: new ObjectId(questionId) },
+          {questionId: new ObjectId(questionId)},
           {
             $push: {
               history: {
@@ -220,7 +220,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
               },
             },
           },
-          { session },
+          {session},
         );
       }
 
@@ -239,9 +239,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     try {
       await this.init();
       return await this.QuestionSubmissionCollection.findOneAndUpdate(
-        { questionId: new ObjectId(questionId) },
-        { $set: { queue } },
-        { session, returnDocument: 'after' },
+        {questionId: new ObjectId(questionId)},
+        {$set: {queue}},
+        {session, returnDocument: 'after'},
       );
     } catch (error) {
       throw new InternalServerError(`Error while updating queue: ${error}`);
@@ -252,7 +252,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     questionId: string,
     userSubmissionData: ISubmissionHistory,
     session?: ClientSession,
-    reviewDelayNotificationSent?: boolean
+    reviewDelayNotificationSent?: boolean,
   ): Promise<void> {
     try {
       await this.init();
@@ -273,17 +273,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         updateDoc.$set.lastRespondedBy = userSubmissionData.updatedBy;
       }
 
-      if (
-        reviewDelayNotificationSent !== undefined
-      ) {
+      if (reviewDelayNotificationSent !== undefined) {
         updateDoc.$set.reviewDelayNotificationSent =
           reviewDelayNotificationSent;
       }
 
       const result = await this.QuestionSubmissionCollection.updateOne(
-        { questionId: new ObjectId(questionId) },
+        {questionId: new ObjectId(questionId)},
         updateDoc,
-        { session },
+        {session},
       );
       if (result.matchedCount === 0) {
         throw new InternalServerError(
@@ -304,26 +302,32 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     try {
       await this.init();
 
-      const setFields: Record<string, any> = { 'history.$[entry].updatedAt': new Date() };
+      const setFields: Record<string, any> = {
+        'history.$[entry].updatedAt': new Date(),
+      };
       for (const [key, value] of Object.entries(updatedDoc)) {
         setFields[`history.$[entry].${key}`] = value;
       }
 
       const result = await this.QuestionSubmissionCollection.updateOne(
-        { questionId: new ObjectId(questionId) },
-        { $set: setFields },
+        {questionId: new ObjectId(questionId)},
+        {$set: setFields},
         {
           session,
-          arrayFilters: [{ 'entry.updatedBy': new ObjectId(userId) }],
+          arrayFilters: [{'entry.updatedBy': new ObjectId(userId)}],
         },
       );
 
       if (result.matchedCount === 0) {
-        throw new NotFoundError(`Failed to find submission for questionId: ${questionId}`);
+        throw new NotFoundError(
+          `Failed to find submission for questionId: ${questionId}`,
+        );
       }
 
       if (result.modifiedCount === 0) {
-        throw new BadRequestError(`No matching history entry found for userId: ${userId}`);
+        throw new BadRequestError(
+          `No matching history entry found for userId: ${userId}`,
+        );
       }
     } catch (error) {
       throw new InternalServerError(
@@ -351,9 +355,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
       const historyData = await this.QuestionSubmissionCollection.aggregate(
         [
-          { $match: { questionId: new ObjectId(questionId) } },
-          { $unwind: '$history' },
-          { $sort: { 'history.createdAt': -1 } },
+          {$match: {questionId: new ObjectId(questionId)}},
+          {$unwind: '$history'},
+          {$sort: {'history.createdAt': -1}},
           {
             $lookup: {
               from: 'users',
@@ -396,7 +400,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                 },
                 {
                   $addFields: {
-                    reviewAnswer: { $arrayElemAt: ['$reviewAnswerData', 0] },
+                    reviewAnswer: {$arrayElemAt: ['$reviewAnswerData', 0]},
                   },
                 },
               ],
@@ -405,10 +409,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           {
             $project: {
               _id: 0,
-              updatedBy: { $arrayElemAt: ['$updatedByUser', 0] },
-              answer: { $arrayElemAt: ['$answerData', 0] },
-              review: { $arrayElemAt: ['$reviewData', 0] },
-              lastModifiedBy: { $arrayElemAt: ['$lastModifiedByUser', 0] },
+              updatedBy: {$arrayElemAt: ['$updatedByUser', 0]},
+              answer: {$arrayElemAt: ['$answerData', 0]},
+              review: {$arrayElemAt: ['$reviewData', 0]},
+              lastModifiedBy: {$arrayElemAt: ['$lastModifiedByUser', 0]},
               'history.status': 1,
               'history.reasonForRejection': 1,
               'history.approvedAnswer': 1,
@@ -420,7 +424,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             },
           },
         ],
-        { session },
+        {session},
       ).toArray();
 
       type ReviewWithAnswer = IReview & {
@@ -460,49 +464,49 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         return {
           updatedBy: updatedBy
             ? {
-              _id: updatedBy?._id.toString(),
-              userName:
-                reviewerPosition == 0
-                  ? 'Author'
-                  : `Reviewer ${reviewerPosition}`,
-              // userName: `${updatedBy.firstName} ${updatedBy.lastName}`,
-              // email: updatedBy.email,
-            }
-            : { _id: '', userName: '', email: '' },
+                _id: updatedBy?._id.toString(),
+                userName:
+                  reviewerPosition == 0
+                    ? 'Author'
+                    : `Reviewer ${reviewerPosition}`,
+                // userName: `${updatedBy.firstName} ${updatedBy.lastName}`,
+                // email: updatedBy.email,
+              }
+            : {_id: '', userName: '', email: ''},
 
           lastModifiedBy: lastModifiedBy
             ? {
-              _id: lastModifiedBy._id.toString(),
-              // userName: `${lastModifiedBy.firstName} ${lastModifiedBy.lastName}`,
-              userName: `Reviewer ${getReviewerQueuePosition(
-                queue,
-                lastModifiedBy._id.toString(),
-              )}`,
-              // email: lastModifiedBy.email,
-            }
-            : { _id: '', userName: '', email: '' },
+                _id: lastModifiedBy._id.toString(),
+                // userName: `${lastModifiedBy.firstName} ${lastModifiedBy.lastName}`,
+                userName: `Reviewer ${getReviewerQueuePosition(
+                  queue,
+                  lastModifiedBy._id.toString(),
+                )}`,
+                // email: lastModifiedBy.email,
+              }
+            : {_id: '', userName: '', email: ''},
 
           answer: answer
             ? {
-              _id: answer._id.toString(),
-              answer: answer.answer,
-              approvalCount: answer.approvalCount?.toString() ?? '0',
-              sources: answer.sources ?? [],
-              remarks: answer.remarks ?? '',
-            }
+                _id: answer._id.toString(),
+                answer: answer.answer,
+                approvalCount: answer.approvalCount?.toString() ?? '0',
+                sources: answer.sources ?? [],
+                remarks: answer.remarks ?? '',
+              }
             : undefined,
 
           review: review
             ? {
-              _id: review._id.toString(),
-              reviewType: review.reviewType,
-              action: review.action,
-              reason: review.reason,
-              answer: transformAnswer(reviewAnswer),
-              parameters: review.parameters,
-              createdAt: review.createdAt,
-              updatedAt: review.updatedAt,
-            }
+                _id: review._id.toString(),
+                reviewType: review.reviewType,
+                action: review.action,
+                reason: review.reason,
+                answer: transformAnswer(reviewAnswer),
+                parameters: review.parameters,
+                createdAt: review.createdAt,
+                updatedAt: review.updatedAt,
+              }
             : undefined,
 
           status: h.status,
@@ -533,8 +537,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     try {
       await this.init();
       await this.QuestionSubmissionCollection.findOneAndDelete(
-        { questionId: new ObjectId(questionId) },
-        { session },
+        {questionId: new ObjectId(questionId)},
+        {session},
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update submission: ${error}`);
@@ -547,7 +551,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     try {
       await this.init();
 
-      let { startTime, endTime, page = 1, limit = 10 } = query;
+      let {startTime, endTime, page = 1, limit = 10} = query;
 
       page = Number(page) || 1;
       limit = Number(limit) || 10;
@@ -584,11 +588,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             $expr: {
               $or: [
                 // Index 0: any status is allowed
-                { $eq: ['$historyIndex', 0] },
+                {$eq: ['$historyIndex', 0]},
                 // Index >= 1: must have specific status
                 {
                   $and: [
-                    { $gte: ['$historyIndex', 1] },
+                    {$gte: ['$historyIndex', 1]},
                     {
                       $in: [
                         '$history.status',
@@ -604,40 +608,40 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         // ✅ Step 3: Apply date range filtering
         ...(startTime || endTime
           ? [
-            {
-              $match: {
-                ...(startTime && {
-                  'history.createdAt': {
-                    $gte: new Date(`${startTime}T00:00:00.000+05:30`),
-                  },
-                }),
-                ...(endTime && {
-                  'history.updatedAt': {
-                    $lte: new Date(`${endTime}T23:59:59.999+05:30`),
-                  },
-                }),
+              {
+                $match: {
+                  ...(startTime && {
+                    'history.createdAt': {
+                      $gte: new Date(`${startTime}T00:00:00.000+05:30`),
+                    },
+                  }),
+                  ...(endTime && {
+                    'history.updatedAt': {
+                      $lte: new Date(`${endTime}T23:59:59.999+05:30`),
+                    },
+                  }),
+                },
               },
-            },
-          ]
+            ]
           : []),
         // ✅ Step 4: Ensure updatedBy exists
         {
           $match: {
-            'history.updatedBy': { $exists: true, $ne: null },
+            'history.updatedBy': {$exists: true, $ne: null},
           },
         },
         {
           $addFields: {
             turnaroundHours: {
               $cond: {
-                if: { $eq: ['$historyIndex', 0] },
+                if: {$eq: ['$historyIndex', 0]},
                 // ✅ Index 0: from ROOT createdAt to history.updatedAt
                 then: {
                   $divide: [
                     {
                       $subtract: [
-                        { $toDate: '$history.updatedAt' },
-                        { $toDate: '$createdAt' },
+                        {$toDate: '$history.updatedAt'},
+                        {$toDate: '$createdAt'},
                       ],
                     },
                     1000 * 60 * 60,
@@ -648,8 +652,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                   $divide: [
                     {
                       $subtract: [
-                        { $toDate: '$history.updatedAt' },
-                        { $toDate: '$createdAt' },
+                        {$toDate: '$history.updatedAt'},
+                        {$toDate: '$createdAt'},
                       ],
                     },
                     1000 * 60 * 60,
@@ -666,18 +670,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             timeRange: {
               $switch: {
                 branches: [
-                  { case: { $lt: ['$turnaroundHours', 1] }, then: '0_1' },
-                  { case: { $lt: ['$turnaroundHours', 2] }, then: '1_2' },
-                  { case: { $lt: ['$turnaroundHours', 3] }, then: '2_3' },
-                  { case: { $lt: ['$turnaroundHours', 4] }, then: '3_4' },
-                  { case: { $lt: ['$turnaroundHours', 5] }, then: '4_5' },
-                  { case: { $lt: ['$turnaroundHours', 6] }, then: '5_6' },
-                  { case: { $lt: ['$turnaroundHours', 7] }, then: '6_7' },
-                  { case: { $lt: ['$turnaroundHours', 8] }, then: '7_8' },
-                  { case: { $lt: ['$turnaroundHours', 9] }, then: '8_9' },
-                  { case: { $lt: ['$turnaroundHours', 10] }, then: '9_10' },
-                  { case: { $lt: ['$turnaroundHours', 11] }, then: '10_11' },
-                  { case: { $lt: ['$turnaroundHours', 12] }, then: '11_12' },
+                  {case: {$lt: ['$turnaroundHours', 1]}, then: '0_1'},
+                  {case: {$lt: ['$turnaroundHours', 2]}, then: '1_2'},
+                  {case: {$lt: ['$turnaroundHours', 3]}, then: '2_3'},
+                  {case: {$lt: ['$turnaroundHours', 4]}, then: '3_4'},
+                  {case: {$lt: ['$turnaroundHours', 5]}, then: '4_5'},
+                  {case: {$lt: ['$turnaroundHours', 6]}, then: '5_6'},
+                  {case: {$lt: ['$turnaroundHours', 7]}, then: '6_7'},
+                  {case: {$lt: ['$turnaroundHours', 8]}, then: '7_8'},
+                  {case: {$lt: ['$turnaroundHours', 9]}, then: '8_9'},
+                  {case: {$lt: ['$turnaroundHours', 10]}, then: '9_10'},
+                  {case: {$lt: ['$turnaroundHours', 11]}, then: '10_11'},
+                  {case: {$lt: ['$turnaroundHours', 12]}, then: '11_12'},
                 ],
                 default: '12_plus',
               },
@@ -687,20 +691,20 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
         {
           $group: {
-            _id: { reviewerId: '$history.updatedBy', timeRange: '$timeRange' },
-            count: { $sum: 1 },
+            _id: {reviewerId: '$history.updatedBy', timeRange: '$timeRange'},
+            count: {$sum: 1},
           },
         },
         {
           $group: {
             _id: '$_id.reviewerId',
-            counts: { $push: { k: '$_id.timeRange', v: '$count' } },
+            counts: {$push: {k: '$_id.timeRange', v: '$count'}},
           },
         },
         {
           $project: {
             reviewerId: '$_id',
-            counts: { $arrayToObject: '$counts' },
+            counts: {$arrayToObject: '$counts'},
           },
         },
         /*{
@@ -714,35 +718,35 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         {
           $lookup: {
             from: 'users',
-            let: { reviewerId: '$reviewerId' },
+            let: {reviewerId: '$reviewerId'},
             pipeline: [
               {
                 $match: {
-                  $expr: { $eq: ['$_id', '$$reviewerId'] },
+                  $expr: {$eq: ['$_id', '$$reviewerId']},
                 },
               },
               {
-                $match: { status: { $ne: 'in-active' } },
+                $match: {status: {$ne: 'in-active'}},
               },
             ],
             as: 'reviewer',
           },
         },
 
-        { $unwind: '$reviewer' },
+        {$unwind: '$reviewer'},
         {
           $project: {
             _id: 0,
-            reviewerId: { $toString: '$reviewerId' },
+            reviewerId: {$toString: '$reviewerId'},
             reviewerName: {
               $trim: {
                 input: {
                   $concat: [
-                    { $ifNull: ['$reviewer.firstName', ''] },
+                    {$ifNull: ['$reviewer.firstName', '']},
                     {
                       $cond: [
-                        { $ifNull: ['$reviewer.lastName', false] },
-                        { $concat: [' ', '$reviewer.lastName'] },
+                        {$ifNull: ['$reviewer.lastName', false]},
+                        {$concat: [' ', '$reviewer.lastName']},
                         '',
                       ],
                     },
@@ -760,8 +764,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
         {
           $facet: {
-            data: [{ $skip: skip }, { $limit: limit }],
-            totalCount: [{ $count: 'count' }],
+            data: [{$skip: skip}, {$limit: limit}],
+            totalCount: [{$count: 'count'}],
           },
         },
       ];
@@ -1061,7 +1065,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     userId: string,
     page = 1,
     limit = 20,
-    dateRange?: { from?: string; to?: string },
+    dateRange?: {from?: string; to?: string},
     session?: ClientSession,
     selectedHistoryId?: string,
   ): Promise<any> {
@@ -1082,15 +1086,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
     const matchStage = selectedHistoryId
       ? {
-        $match: {
-          questionId: new ObjectId(selectedHistoryId),
-        },
-      }
+          $match: {
+            questionId: new ObjectId(selectedHistoryId),
+          },
+        }
       : {
-        $match: {
-          'history.updatedBy': userObjId,
-        },
-      };
+          $match: {
+            'history.updatedBy': userObjId,
+          },
+        };
 
     const pipeline: any[] = [
       matchStage,
@@ -1104,7 +1108,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       },
 
       // Match again after unwind
-      { $match: { 'history.updatedBy': userObjId } },
+      {$match: {'history.updatedBy': userObjId}},
 
       // ---- LOOKUPS ----
       {
@@ -1115,7 +1119,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'reviewDoc',
         },
       },
-      { $unwind: { path: '$reviewDoc', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$reviewDoc', preserveNullAndEmptyArrays: true}},
 
       {
         $lookup: {
@@ -1125,7 +1129,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'answerDoc',
         },
       },
-      { $unwind: { path: '$answerDoc', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$answerDoc', preserveNullAndEmptyArrays: true}},
 
       {
         $lookup: {
@@ -1135,7 +1139,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'rejectedAnswerDoc',
         },
       },
-      { $unwind: { path: '$rejectedAnswerDoc', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$rejectedAnswerDoc', preserveNullAndEmptyArrays: true}},
 
       {
         $lookup: {
@@ -1145,7 +1149,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'modifiedAnswerDoc',
         },
       },
-      { $unwind: { path: '$modifiedAnswerDoc', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$modifiedAnswerDoc', preserveNullAndEmptyArrays: true}},
 
       {
         $lookup: {
@@ -1155,7 +1159,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'approvedAnswerDoc',
         },
       },
-      { $unwind: { path: '$approvedAnswerDoc', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$approvedAnswerDoc', preserveNullAndEmptyArrays: true}},
 
       {
         $lookup: {
@@ -1165,15 +1169,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'questionDoc',
         },
       },
-      { $unwind: { path: '$questionDoc', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$questionDoc', preserveNullAndEmptyArrays: true}},
 
       // Determine author vs review actions
       {
         $addFields: {
           isAuthor: {
             $and: [
-              { $eq: ['$historyIndex', 0] },
-              { $eq: ['$answerDoc.authorId', userObjId] },
+              {$eq: ['$historyIndex', 0]},
+              {$eq: ['$answerDoc.authorId', userObjId]},
             ],
           },
         },
@@ -1184,29 +1188,29 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           action: {
             $switch: {
               branches: [
-                { case: { $eq: ['$isAuthor', true] }, then: 'author' },
+                {case: {$eq: ['$isAuthor', true]}, then: 'author'},
                 {
-                  case: { $eq: ['$reviewDoc.action', 'accepted'] },
+                  case: {$eq: ['$reviewDoc.action', 'accepted']},
                   then: 'approved',
                 },
                 {
-                  case: { $eq: ['$reviewDoc.action', 'rejected'] },
+                  case: {$eq: ['$reviewDoc.action', 'rejected']},
                   then: 'rejected',
                 },
                 {
-                  case: { $eq: ['$reviewDoc.action', 'modified'] },
+                  case: {$eq: ['$reviewDoc.action', 'modified']},
                   then: 'modified',
                 },
               ],
               default: null,
             },
           },
-          activityType: { $literal: 'history' },
+          activityType: {$literal: 'history'},
         },
       },
 
       // Only count valid actions
-      { $match: { action: { $in: ['author', 'approved', 'rejected', 'modified'] } } },
+      {$match: {action: {$in: ['author', 'approved', 'rejected', 'modified']}}},
 
       {
         $addFields: {
@@ -1220,9 +1224,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $project: {
           _id: {
             $concat: [
-              { $toString: '$_id' },
+              {$toString: '$_id'},
               '_history_',
-              { $toString: '$historyIndex' },
+              {$toString: '$historyIndex'},
             ],
           },
           activityType: 1,
@@ -1230,14 +1234,14 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           mainDate: 1,
           createdAt: '$mainDate',
           // Reviewer's position in the queue: 0 = Author, N = Level N.
-          level: { $indexOfArray: ['$queue', userObjId] },
+          level: {$indexOfArray: ['$queue', userObjId]},
           // Time the question/review was assigned to this user. Mirrors
           // buildReviewTat: the author (index 0) is assigned at first allocation
           // (falling back to question creation), reviewers at their own entry's
           // createdAt. `completedAt` is the submission/review time (mainDate).
           assignedAt: {
             $cond: [
-              { $eq: ['$historyIndex', 0] },
+              {$eq: ['$historyIndex', 0]},
               {
                 $ifNull: [
                   '$questionDoc.firstAllocationAt',
@@ -1262,23 +1266,23 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             createdAt: '$reviewDoc.createdAt',
           },
           question: {
-            _id: { $toString: '$questionDoc._id' },
+            _id: {$toString: '$questionDoc._id'},
             question: '$questionDoc.question',
           },
           answer: {
-            _id: { $toString: '$answerDoc._id' },
+            _id: {$toString: '$answerDoc._id'},
             answer: '$answerDoc.answer',
           },
           rejectedAnswer: {
-            _id: { $toString: '$rejectedAnswerDoc._id' },
+            _id: {$toString: '$rejectedAnswerDoc._id'},
             answer: '$rejectedAnswerDoc.answer',
           },
           modifiedAnswer: {
-            _id: { $toString: '$modifiedAnswerDoc._id' },
+            _id: {$toString: '$modifiedAnswerDoc._id'},
             answer: '$modifiedAnswerDoc.answer',
           },
           approvedAnswer: {
-            _id: { $toString: '$approvedAnswerDoc._id' },
+            _id: {$toString: '$approvedAnswerDoc._id'},
             answer: '$approvedAnswerDoc.answer',
           },
         },
@@ -1288,7 +1292,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     // Get history activities
     const historyActivities = await this.QuestionSubmissionCollection.aggregate(
       pipeline,
-      { session },
+      {session},
     ).toArray();
 
     // Get reroute activities from separate collection
@@ -1296,7 +1300,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     const reroutePipeline: any[] = [
       {
         $match: selectedHistoryId
-          ? { questionId: new ObjectId(selectedHistoryId) }
+          ? {questionId: new ObjectId(selectedHistoryId)}
           : {},
       },
 
@@ -1312,7 +1316,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $match: {
           'reroutes.reroutedTo': userObjId,
-          'reroutes.status': { $ne: 'pending' },
+          'reroutes.status': {$ne: 'pending'},
         },
       },
 
@@ -1325,7 +1329,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'rerouteAnswerDoc',
         },
       },
-      { $unwind: { path: '$rerouteAnswerDoc', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$rerouteAnswerDoc', preserveNullAndEmptyArrays: true}},
 
       // Lookup question
       {
@@ -1336,17 +1340,17 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'questionDoc',
         },
       },
-      { $unwind: { path: '$questionDoc', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$questionDoc', preserveNullAndEmptyArrays: true}},
 
       // Lookup all answer details from answers collection
       {
         $lookup: {
           from: 'answers',
-          let: { aId: '$reroutes.answerId' },
+          let: {aId: '$reroutes.answerId'},
           pipeline: [
             {
               $match: {
-                $expr: { $eq: ['$_id', '$aId'] },
+                $expr: {$eq: ['$_id', '$aId']},
               },
             },
             {
@@ -1362,7 +1366,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'answerDetails',
         },
       },
-      { $unwind: { path: '$answerDetails', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$answerDetails', preserveNullAndEmptyArrays: true}},
 
       // Lookup rejected answer details if exists
       {
@@ -1373,7 +1377,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'rejectedAnswerDoc',
         },
       },
-      { $unwind: { path: '$rejectedAnswerDoc', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$rejectedAnswerDoc', preserveNullAndEmptyArrays: true}},
 
       // Lookup modified answer details if exists
       {
@@ -1384,7 +1388,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'modifiedAnswerDoc',
         },
       },
-      { $unwind: { path: '$modifiedAnswerDoc', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$modifiedAnswerDoc', preserveNullAndEmptyArrays: true}},
 
       // Lookup approved answer details if exists
       {
@@ -1395,7 +1399,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'approvedAnswerDoc',
         },
       },
-      { $unwind: { path: '$approvedAnswerDoc', preserveNullAndEmptyArrays: true } },
+      {$unwind: {path: '$approvedAnswerDoc', preserveNullAndEmptyArrays: true}},
 
       // Map reroute status to action
       {
@@ -1404,40 +1408,40 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             $switch: {
               branches: [
                 {
-                  case: { $eq: ['$reroutes.status', 'expert_completed'] },
+                  case: {$eq: ['$reroutes.status', 'expert_completed']},
                   then: 'reroute_completed',
                 },
                 // {case: {$eq: ['$reroutes.status', 'rejected']}, then: 'reroute_rejected'},
                 {
-                  case: { $eq: ['$reroutes.status', 'modified'] },
+                  case: {$eq: ['$reroutes.status', 'modified']},
                   then: 'reroute_modified',
                 },
                 {
-                  case: { $eq: ['$reroutes.status', 'expert_rejected'] },
+                  case: {$eq: ['$reroutes.status', 'expert_rejected']},
                   then: 'expert_rejected',
                 },
                 {
-                  case: { $eq: ['$reroutes.status', 'pending'] },
+                  case: {$eq: ['$reroutes.status', 'pending']},
                   then: 'reroute_pending',
                 },
                 {
-                  case: { $eq: ['$reroutes.status', 'approved'] },
+                  case: {$eq: ['$reroutes.status', 'approved']},
                   then: 'reroute_approved',
                 },
                 {
-                  case: { $eq: ['$reroutes.status', 'moderator_rejected'] },
+                  case: {$eq: ['$reroutes.status', 'moderator_rejected']},
                   then: 'moderator_rejected',
                 },
                 {
-                  case: { $eq: ['$reroutes.status', 'rejected'] },
+                  case: {$eq: ['$reroutes.status', 'rejected']},
                   then: 'reroute_created_answer',
                 },
               ],
               default: 'reroute_assigned',
             },
           },
-          activityType: { $literal: 'reroute' },
-          mainDate: { $ifNull: ['$reroutes.updatedAt', '$reroutes.reroutedAt'] },
+          activityType: {$literal: 'reroute'},
+          mainDate: {$ifNull: ['$reroutes.updatedAt', '$reroutes.reroutedAt']},
         },
       },
 
@@ -1445,9 +1449,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $project: {
           _id: {
             $concat: [
-              { $toString: '$_id' },
+              {$toString: '$_id'},
               '_reroute_',
-              { $toString: '$rerouteIndex' },
+              {$toString: '$rerouteIndex'},
             ],
           },
           activityType: 1,
@@ -1464,19 +1468,19 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           rejectionReason: '$reroutes.rejectionReason',
           reroutedBy: '$reroutes.reroutedBy',
           question: {
-            _id: { $toString: '$questionDoc._id' },
+            _id: {$toString: '$questionDoc._id'},
             question: '$questionDoc.question',
           },
           // For expert_rejected status, only send the main answer
           answer: {
             $cond: {
-              if: { $eq: ['$reroutes.status', 'expert_rejected'] },
+              if: {$eq: ['$reroutes.status', 'expert_rejected']},
               then: {
-                _id: { $toString: '$rerouteAnswerDoc._id' },
+                _id: {$toString: '$rerouteAnswerDoc._id'},
                 answer: '$rerouteAnswerDoc.answer',
               },
               else: {
-                _id: { $toString: '$rerouteAnswerDoc._id' },
+                _id: {$toString: '$rerouteAnswerDoc._id'},
                 answer: '$rerouteAnswerDoc.answer',
               },
             },
@@ -1486,12 +1490,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             $cond: {
               if: {
                 $and: [
-                  { $eq: ['$reroutes.status', 'rejected'] },
-                  { $ne: ['$rejectedAnswerDoc', null] },
+                  {$eq: ['$reroutes.status', 'rejected']},
+                  {$ne: ['$rejectedAnswerDoc', null]},
                 ],
               },
               then: {
-                _id: { $toString: '$rejectedAnswerDoc._id' },
+                _id: {$toString: '$rejectedAnswerDoc._id'},
                 answer: '$rejectedAnswerDoc.answer',
               },
               else: '$REMOVE',
@@ -1502,12 +1506,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             $cond: {
               if: {
                 $and: [
-                  { $eq: ['$reroutes.status', 'modified'] },
-                  { $ne: ['$modifiedAnswerDoc', null] },
+                  {$eq: ['$reroutes.status', 'modified']},
+                  {$ne: ['$modifiedAnswerDoc', null]},
                 ],
               },
               then: {
-                _id: { $toString: '$modifiedAnswerDoc._id' },
+                _id: {$toString: '$modifiedAnswerDoc._id'},
                 answer: '$modifiedAnswerDoc.answer',
               },
               else: '$REMOVE',
@@ -1520,15 +1524,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                 $and: [
                   {
                     $or: [
-                      { $eq: ['$reroutes.status', 'expert_completed'] },
-                      { $eq: ['$reroutes.status', 'approved'] },
+                      {$eq: ['$reroutes.status', 'expert_completed']},
+                      {$eq: ['$reroutes.status', 'approved']},
                     ],
                   },
-                  { $ne: ['$approvedAnswerDoc', null] },
+                  {$ne: ['$approvedAnswerDoc', null]},
                 ],
               },
               then: {
-                _id: { $toString: '$approvedAnswerDoc._id' },
+                _id: {$toString: '$approvedAnswerDoc._id'},
                 answer: '$approvedAnswerDoc.answer',
               },
               else: '$REMOVE',
@@ -1540,7 +1544,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
     const rerouteActivities = await this.ReRouteCollection.aggregate(
       reroutePipeline,
-      { session },
+      {session},
     ).toArray();
 
     // Combine both arrays
@@ -1550,11 +1554,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     const filteredActivities =
       dateFilter && Object.keys(dateFilter).length > 0
         ? combinedActivities.filter(activity => {
-          const activityDate = new Date(activity.mainDate);
-          if (dateFilter.$gte && activityDate < dateFilter.$gte) return false;
-          if (dateFilter.$lte && activityDate > dateFilter.$lte) return false;
-          return true;
-        })
+            const activityDate = new Date(activity.mainDate);
+            if (dateFilter.$gte && activityDate < dateFilter.$gte) return false;
+            if (dateFilter.$lte && activityDate > dateFilter.$lte) return false;
+            return true;
+          })
         : combinedActivities;
 
     // Sort by date (descending)
@@ -1583,21 +1587,21 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   //690f05447360add0cf5aa0f8
   async getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
     await this.init();
-    let { userId, startTime, endTime } = query;
+    let {userId, startTime, endTime} = query;
     const reviewerId = new ObjectId(userId);
     const pipeline = [
       // 1) Safe fields
       {
         $addFields: {
-          queueIndex: { $indexOfArray: ['$queue', reviewerId] },
-          historyArr: { $ifNull: ['$history', []] },
+          queueIndex: {$indexOfArray: ['$queue', reviewerId]},
+          historyArr: {$ifNull: ['$history', []]},
         },
       },
 
       // 2) Compute history length
       {
         $addFields: {
-          historyLen: { $size: '$historyArr' },
+          historyLen: {$size: '$historyArr'},
         },
       },
 
@@ -1606,8 +1610,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $addFields: {
           historyExceptFirst: {
             $cond: [
-              { $gt: ['$historyLen', 1] },
-              { $slice: ['$historyArr', 1, { $subtract: ['$historyLen', 1] }] },
+              {$gt: ['$historyLen', 1]},
+              {$slice: ['$historyArr', 1, {$subtract: ['$historyLen', 1]}]},
               [],
             ],
           },
@@ -1626,8 +1630,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                     as: 'h',
                     cond: {
                       $and: [
-                        { $eq: ['$$h.updatedBy', reviewerId] },
-                        { $eq: ['$$h.status', 'in-review'] },
+                        {$eq: ['$$h.updatedBy', reviewerId]},
+                        {$eq: ['$$h.status', 'in-review']},
                       ],
                     },
                   },
@@ -1643,20 +1647,20 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $addFields: {
           isAuthor: {
-            $and: [{ $eq: ['$queueIndex', 0] }, { $eq: ['$historyLen', 0] }],
+            $and: [{$eq: ['$queueIndex', 0]}, {$eq: ['$historyLen', 0]}],
           },
           computedLevel: {
             $cond: [
               {
                 $and: [
-                  { $eq: ['$hasInReviewEntry', true] },
-                  { $gt: ['$historyLen', 1] },
+                  {$eq: ['$hasInReviewEntry', true]},
+                  {$gt: ['$historyLen', 1]},
                 ],
               },
               {
                 $concat: [
                   'Level ',
-                  { $toString: { $subtract: ['$historyLen', 1] } },
+                  {$toString: {$subtract: ['$historyLen', 1]}},
                 ],
               },
               null,
@@ -1669,13 +1673,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $addFields: {
           Review_level: {
-            $cond: [{ $eq: ['$isAuthor', true] }, 'Author', '$computedLevel'],
+            $cond: [{$eq: ['$isAuthor', true]}, 'Author', '$computedLevel'],
           },
         },
       },
 
       // 7) Keep only documents with Review_level
-      { $match: { Review_level: { $ne: null } } },
+      {$match: {Review_level: {$ne: null}}},
 
       // 8) **LOOKUP QUESTIONS COLLECTION**
       {
@@ -1698,8 +1702,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       // 10) **ADD STATUS FLAGS**
       {
         $addFields: {
-          isInReview: { $eq: ['$questionDetails.status', 'in-review'] },
-          isDelayed: { $eq: ['$questionDetails.status', 'delayed'] },
+          isInReview: {$eq: ['$questionDetails.status', 'in-review']},
+          isDelayed: {$eq: ['$questionDetails.status', 'delayed']},
         },
       },
 
@@ -1707,15 +1711,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $group: {
           _id: '$Review_level',
-          count: { $sum: 1 },
+          count: {$sum: 1},
           inReview: {
             $sum: {
-              $cond: [{ $eq: ['$isInReview', true] }, 1, 0],
+              $cond: [{$eq: ['$isInReview', true]}, 1, 0],
             },
           },
           delayed: {
             $sum: {
-              $cond: [{ $eq: ['$isDelayed', true] }, 1, 0],
+              $cond: [{$eq: ['$isDelayed', true]}, 1, 0],
             },
           },
         },
@@ -1762,13 +1766,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                       found: {
                         $first: {
                           $filter: {
-                            input: { $ifNull: ['$actual', []] },
-                            cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
                           },
                         },
                       },
                     },
-                    in: { $ifNull: ['$$found.count', 0] },
+                    in: {$ifNull: ['$$found.count', 0]},
                   },
                 },
                 inReview: {
@@ -1777,13 +1781,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                       found: {
                         $first: {
                           $filter: {
-                            input: { $ifNull: ['$actual', []] },
-                            cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
                           },
                         },
                       },
                     },
-                    in: { $ifNull: ['$$found.inReview', 0] },
+                    in: {$ifNull: ['$$found.inReview', 0]},
                   },
                 },
                 delayed: {
@@ -1792,13 +1796,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                       found: {
                         $first: {
                           $filter: {
-                            input: { $ifNull: ['$actual', []] },
-                            cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
                           },
                         },
                       },
                     },
-                    in: { $ifNull: ['$$found.delayed', 0] },
+                    in: {$ifNull: ['$$found.delayed', 0]},
                   },
                 },
               },
@@ -1807,11 +1811,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
 
-      { $unwind: '$merged' },
-      { $replaceRoot: { newRoot: '$merged' } },
+      {$unwind: '$merged'},
+      {$replaceRoot: {newRoot: '$merged'}},
 
       // Optional: ensure Author comes first
-      { $sort: { Review_level: 1 } },
+      {$sort: {Review_level: 1}},
     ];
     const start = startTime
       ? new Date(`${startTime}T00:00:00.000+05:30`)
@@ -1827,20 +1831,20 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
               as: 'h',
               cond: {
                 $and: [
-                  ...(start ? [{ $gte: ['$$h.updatedAt', start] }] : []),
-                  ...(end ? [{ $lte: ['$$h.updatedAt', end] }] : []),
+                  ...(start ? [{$gte: ['$$h.updatedAt', start]}] : []),
+                  ...(end ? [{$lte: ['$$h.updatedAt', end]}] : []),
                 ],
               },
             },
           },
         },
       },
-      { $match: { history: { $ne: [] } } },
+      {$match: {history: {$ne: []}}},
       // 1) Ensure history exists
       {
         $addFields: {
-          historyArr: { $ifNull: ['$history', []] },
-          historyLen: { $size: { $ifNull: ['$history', []] } },
+          historyArr: {$ifNull: ['$history', []]},
+          historyLen: {$size: {$ifNull: ['$history', []]}},
         },
       },
 
@@ -1849,8 +1853,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $addFields: {
           isAuthor: {
             $and: [
-              { $gt: ['$historyLen', 0] },
-              { $eq: [{ $arrayElemAt: ['$historyArr.updatedBy', 0] }, reviewerId] },
+              {$gt: ['$historyLen', 0]},
+              {$eq: [{$arrayElemAt: ['$historyArr.updatedBy', 0]}, reviewerId]},
             ],
           },
         },
@@ -1861,11 +1865,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $addFields: {
           completedEntriesWithIndex: {
             $map: {
-              input: { $range: [1, { $size: '$historyArr' }] }, // indices 1..N
+              input: {$range: [1, {$size: '$historyArr'}]}, // indices 1..N
               as: 'i',
               in: {
                 index: '$$i',
-                entry: { $arrayElemAt: ['$historyArr', '$$i'] },
+                entry: {$arrayElemAt: ['$historyArr', '$$i']},
               },
             },
           },
@@ -1881,8 +1885,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
               as: 'x',
               cond: {
                 $and: [
-                  { $eq: ['$$x.entry.updatedBy', reviewerId] },
-                  { $ne: ['$$x.entry.status', 'in-review'] },
+                  {$eq: ['$$x.entry.updatedBy', reviewerId]},
+                  {$ne: ['$$x.entry.status', 'in-review']},
                 ],
               },
             },
@@ -1896,8 +1900,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           reviewEntry: {
             $cond: [
               '$isAuthor',
-              { $arrayElemAt: ['$historyArr', 0] },
-              { $arrayElemAt: ['$completedEntriesWithIndex.entry', 0] },
+              {$arrayElemAt: ['$historyArr', 0]},
+              {$arrayElemAt: ['$completedEntriesWithIndex.entry', 0]},
             ],
           },
         },
@@ -1908,11 +1912,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $addFields: {
           Review_level: {
             $cond: [
-              { $eq: ['$isAuthor', true] },
+              {$eq: ['$isAuthor', true]},
               'Author',
               {
                 $cond: [
-                  { $gt: [{ $size: '$completedEntriesWithIndex' }, 0] },
+                  {$gt: [{$size: '$completedEntriesWithIndex'}, 0]},
                   {
                     $concat: [
                       'Level ',
@@ -1935,28 +1939,28 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $addFields: {
           approvedCount: {
-            $cond: [{ $ifNull: ['$reviewEntry.approvedAnswer', false] }, 1, 0],
+            $cond: [{$ifNull: ['$reviewEntry.approvedAnswer', false]}, 1, 0],
           },
           rejectedCount: {
-            $cond: [{ $ifNull: ['$reviewEntry.rejectedAnswer', false] }, 1, 0],
+            $cond: [{$ifNull: ['$reviewEntry.rejectedAnswer', false]}, 1, 0],
           },
           modifiedCount: {
-            $cond: [{ $ifNull: ['$reviewEntry.modifiedAnswer', false] }, 1, 0],
+            $cond: [{$ifNull: ['$reviewEntry.modifiedAnswer', false]}, 1, 0],
           },
         },
       },
 
       // 8) Keep only documents with Review_level
-      { $match: { Review_level: { $ne: null } } },
+      {$match: {Review_level: {$ne: null}}},
 
       // 9) Group counts by Review_level
       {
         $group: {
           _id: '$Review_level',
-          count: { $sum: 1 },
-          approvedCount: { $sum: '$approvedCount' },
-          rejectedCount: { $sum: '$rejectedCount' },
-          modifiedCount: { $sum: '$modifiedCount' },
+          count: {$sum: 1},
+          approvedCount: {$sum: '$approvedCount'},
+          rejectedCount: {$sum: '$rejectedCount'},
+          modifiedCount: {$sum: '$modifiedCount'},
         },
       },
 
@@ -2002,18 +2006,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                       found: {
                         $first: {
                           $filter: {
-                            input: { $ifNull: ['$actual', []] },
-                            cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
                           },
                         },
                       },
                     },
-                    in: { $ifNull: ['$$found.count', 0] },
+                    in: {$ifNull: ['$$found.count', 0]},
                   },
                 },
                 approvedCount: {
                   $cond: [
-                    { $eq: ['$$lvl', 'Author'] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -2021,20 +2025,20 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ['$actual', []] },
-                                cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
                               },
                             },
                           },
                         },
-                        in: { $ifNull: ['$$found.approvedCount', 0] },
+                        in: {$ifNull: ['$$found.approvedCount', 0]},
                       },
                     },
                   ],
                 },
                 rejectedCount: {
                   $cond: [
-                    { $eq: ['$$lvl', 'Author'] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -2042,20 +2046,20 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ['$actual', []] },
-                                cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
                               },
                             },
                           },
                         },
-                        in: { $ifNull: ['$$found.rejectedCount', 0] },
+                        in: {$ifNull: ['$$found.rejectedCount', 0]},
                       },
                     },
                   ],
                 },
                 modifiedCount: {
                   $cond: [
-                    { $eq: ['$$lvl', 'Author'] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -2063,13 +2067,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ['$actual', []] },
-                                cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
                               },
                             },
                           },
                         },
-                        in: { $ifNull: ['$$found.modifiedCount', 0] },
+                        in: {$ifNull: ['$$found.modifiedCount', 0]},
                       },
                     },
                   ],
@@ -2081,23 +2085,23 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       },
 
       // 12) Unwind merged array
-      { $unwind: '$merged' },
-      { $replaceRoot: { newRoot: '$merged' } },
+      {$unwind: '$merged'},
+      {$replaceRoot: {newRoot: '$merged'}},
 
       // 13) Sort Author first, then Levels numerically
       {
         $addFields: {
           levelSort: {
             $cond: [
-              { $eq: ['$Review_level', 'Author'] },
+              {$eq: ['$Review_level', 'Author']},
               0,
-              { $toInt: { $substr: ['$Review_level', 6, -1] } },
+              {$toInt: {$substr: ['$Review_level', 6, -1]}},
             ],
           },
         },
       },
-      { $sort: { levelSort: 1 } },
-      { $project: { levelSort: 0 } },
+      {$sort: {levelSort: 1}},
+      {$project: {levelSort: 0}},
     ];
 
     let pending =
@@ -2106,16 +2110,16 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       await this.QuestionSubmissionCollection.aggregate(pipe).toArray();
     if (pending.length == 0) {
       pending = [
-        { Review_level: 'Author', count: 0 },
-        { Review_level: 'Level 1', count: 0 },
-        { Review_level: 'Level 2', count: 0 },
-        { Review_level: 'Level 3', count: 0 },
-        { Review_level: 'Level 4', count: 0 },
-        { Review_level: 'Level 5', count: 0 },
-        { Review_level: 'Level 6', count: 0 },
-        { Review_level: 'Level 7', count: 0 },
-        { Review_level: 'Level 8', count: 0 },
-        { Review_level: 'Level 9', count: 0 },
+        {Review_level: 'Author', count: 0},
+        {Review_level: 'Level 1', count: 0},
+        {Review_level: 'Level 2', count: 0},
+        {Review_level: 'Level 3', count: 0},
+        {Review_level: 'Level 4', count: 0},
+        {Review_level: 'Level 5', count: 0},
+        {Review_level: 'Level 6', count: 0},
+        {Review_level: 'Level 7', count: 0},
+        {Review_level: 'Level 8', count: 0},
+        {Review_level: 'Level 9', count: 0},
       ];
     }
 
@@ -2159,25 +2163,25 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
           pendingcount: {
             $sum: {
-              $cond: [{ $eq: ['$reroutes.status', 'pending'] }, 1, 0],
+              $cond: [{$eq: ['$reroutes.status', 'pending']}, 1, 0],
             },
           },
 
           approvedCount: {
             $sum: {
-              $cond: [{ $eq: ['$reroutes.status', 'approved'] }, 1, 0],
+              $cond: [{$eq: ['$reroutes.status', 'approved']}, 1, 0],
             },
           },
 
           rejectedCount: {
             $sum: {
-              $cond: [{ $eq: ['$reroutes.status', 'rejected'] }, 1, 0],
+              $cond: [{$eq: ['$reroutes.status', 'rejected']}, 1, 0],
             },
           },
 
           modifiedCount: {
             $sum: {
-              $cond: [{ $eq: ['$reroutes.status', 'modified'] }, 1, 0],
+              $cond: [{$eq: ['$reroutes.status', 'modified']}, 1, 0],
             },
           },
 
@@ -2202,7 +2206,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $project: {
           _id: 0,
-          Review_level: { $literal: 'rerouted' },
+          Review_level: {$literal: 'rerouted'},
           pendingcount: 1,
           approvedCount: 1,
           rejectedCount: 1,
@@ -2345,9 +2349,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       if (normalised_crop) {
         if (normalised_crop === '__NOT_SET__') {
           questionFilter.$or = [
-            { 'details.normalised_crop': { $exists: false } },
-            { 'details.normalised_crop': null },
-            { 'details.normalised_crop': '' },
+            {'details.normalised_crop': {$exists: false}},
+            {'details.normalised_crop': null},
+            {'details.normalised_crop': ''},
           ];
         } else {
           questionFilter['details.normalised_crop'] = {
@@ -2362,7 +2366,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       if (domain) questionFilter['details.domain'] = domain;
       if (status) questionFilter['status'] = status;
       const questions = await this.QuestionCollection.find(questionFilter, {
-        projection: { _id: 1 },
+        projection: {_id: 1},
       }).toArray();
 
       questionIds = questions.map(q => q._id);
@@ -2379,12 +2383,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       // --------------------------------------------------
       ...(questionIds
         ? [
-          {
-            $match: {
-              questionId: { $in: questionIds },
+            {
+              $match: {
+                questionId: {$in: questionIds},
+              },
             },
-          },
-        ]
+          ]
         : []),
 
       // --------------------------------------------------
@@ -2398,8 +2402,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
               as: 'h',
               cond: {
                 $and: [
-                  ...(start ? [{ $gte: ['$$h.updatedAt', start] }] : []),
-                  ...(end ? [{ $lte: ['$$h.updatedAt', end] }] : []),
+                  ...(start ? [{$gte: ['$$h.updatedAt', start]}] : []),
+                  ...(end ? [{$lte: ['$$h.updatedAt', end]}] : []),
                 ],
               },
             },
@@ -2407,15 +2411,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
 
-      { $match: { history: { $ne: [] } } },
+      {$match: {history: {$ne: []}}},
 
       // --------------------------------------------------
       // 3. Normalize history
       // --------------------------------------------------
       {
         $addFields: {
-          historyArr: { $ifNull: ['$history', []] },
-          historyLen: { $size: { $ifNull: ['$history', []] } },
+          historyArr: {$ifNull: ['$history', []]},
+          historyLen: {$size: {$ifNull: ['$history', []]}},
         },
       },
 
@@ -2428,7 +2432,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           // A. Author → Level 8 (cumulative)
           // ==============================================
           normalLevels: [
-            { $match: { historyLen: { $gt: 1 } } },
+            {$match: {historyLen: {$gt: 1}}},
 
             {
               $addFields: {
@@ -2437,7 +2441,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                     0,
                     {
                       $min: [
-                        { $subtract: ['$historyLen', 1] },
+                        {$subtract: ['$historyLen', 1]},
                         9, // cap at Level 8
                       ],
                     },
@@ -2454,9 +2458,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                     as: 'idx',
                     in: {
                       $cond: [
-                        { $eq: ['$$idx', 0] },
+                        {$eq: ['$$idx', 0]},
                         'Author',
-                        { $concat: ['Level ', { $toString: '$$idx' }] },
+                        {$concat: ['Level ', {$toString: '$$idx'}]},
                       ],
                     },
                   },
@@ -2464,15 +2468,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
               },
             },
 
-            { $unwind: '$Review_level' },
+            {$unwind: '$Review_level'},
 
             // Exclude Level 9 from normal logic
-            { $match: { Review_level: { $ne: 'Level 9' } } },
+            {$match: {Review_level: {$ne: 'Level 9'}}},
 
             {
               $group: {
                 _id: '$Review_level',
-                count: { $sum: 1 },
+                count: {$sum: 1},
               },
             },
           ],
@@ -2481,7 +2485,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           // B. Level 9 (closed questions from Level 8)
           // ==============================================
           level9: [
-            { $match: { historyLen: { $gt: 9 } } },
+            {$match: {historyLen: {$gt: 9}}},
 
             {
               $lookup: {
@@ -2492,7 +2496,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
               },
             },
 
-            { $unwind: '$question' },
+            {$unwind: '$question'},
 
             {
               $match: {
@@ -2503,7 +2507,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             {
               $group: {
                 _id: 'Level 9',
-                count: { $sum: 1 },
+                count: {$sum: 1},
               },
             },
           ],
@@ -2521,8 +2525,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
 
-      { $unwind: '$combined' },
-      { $replaceRoot: { newRoot: '$combined' } },
+      {$unwind: '$combined'},
+      {$replaceRoot: {newRoot: '$combined'}},
 
       // --------------------------------------------------
       // 6. Merge with fixed level list
@@ -2565,12 +2569,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                         $first: {
                           $filter: {
                             input: '$actual',
-                            cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
                           },
                         },
                       },
                     },
-                    in: { $ifNull: ['$$found.count', 0] },
+                    in: {$ifNull: ['$$found.count', 0]},
                   },
                 },
               },
@@ -2582,23 +2586,23 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       // --------------------------------------------------
       // 7. Final output & sort
       // --------------------------------------------------
-      { $unwind: '$merged' },
-      { $replaceRoot: { newRoot: '$merged' } },
+      {$unwind: '$merged'},
+      {$replaceRoot: {newRoot: '$merged'}},
 
       {
         $addFields: {
           levelSort: {
             $cond: [
-              { $eq: ['$Review_level', 'Author'] },
+              {$eq: ['$Review_level', 'Author']},
               0,
-              { $toInt: { $substr: ['$Review_level', 6, -1] } },
+              {$toInt: {$substr: ['$Review_level', 6, -1]}},
             ],
           },
         },
       },
 
-      { $sort: { levelSort: 1 } },
-      { $project: { levelSort: 0 } },
+      {$sort: {levelSort: 1}},
+      {$project: {levelSort: 0}},
     ];
     const reviewerId = userId && userId !== 'all' ? new ObjectId(userId) : null;
     const userIdPipeline = [
@@ -2607,12 +2611,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       // --------------------------------------------------
       ...(questionIds
         ? [
-          {
-            $match: {
-              questionId: { $in: questionIds },
+            {
+              $match: {
+                questionId: {$in: questionIds},
+              },
             },
-          },
-        ]
+          ]
         : []),
 
       // --------------------------------------------------
@@ -2626,8 +2630,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
               as: 'h',
               cond: {
                 $and: [
-                  ...(start ? [{ $gte: ['$$h.updatedAt', start] }] : []),
-                  ...(end ? [{ $lte: ['$$h.updatedAt', end] }] : []),
+                  ...(start ? [{$gte: ['$$h.updatedAt', start]}] : []),
+                  ...(end ? [{$lte: ['$$h.updatedAt', end]}] : []),
                 ],
               },
             },
@@ -2635,15 +2639,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
 
-      { $match: { history: { $ne: [] } } },
+      {$match: {history: {$ne: []}}},
 
       // --------------------------------------------------
       // 3. Ensure history exists and calculate length
       // --------------------------------------------------
       {
         $addFields: {
-          historyArr: { $ifNull: ['$history', []] },
-          historyLen: { $size: { $ifNull: ['$history', []] } },
+          historyArr: {$ifNull: ['$history', []]},
+          historyLen: {$size: {$ifNull: ['$history', []]}},
         },
       },
 
@@ -2659,17 +2663,17 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
               // If reviewerId provided, check if it matches history[0]
               {
                 $and: [
-                  { $gt: ['$historyLen', 0] },
+                  {$gt: ['$historyLen', 0]},
                   {
                     $eq: [
-                      { $arrayElemAt: ['$historyArr.updatedBy', 0] },
+                      {$arrayElemAt: ['$historyArr.updatedBy', 0]},
                       reviewerId,
                     ],
                   },
                 ],
               },
               // If no reviewerId, all documents with history have an author
-              { $gt: ['$historyLen', 0] },
+              {$gt: ['$historyLen', 0]},
             ],
           },
         },
@@ -2682,11 +2686,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $addFields: {
           completedEntriesWithIndex: {
             $map: {
-              input: { $range: [1, '$historyLen'] },
+              input: {$range: [1, '$historyLen']},
               as: 'i',
               in: {
                 index: '$$i',
-                entry: { $arrayElemAt: ['$historyArr', '$$i'] },
+                entry: {$arrayElemAt: ['$historyArr', '$$i']},
               },
             },
           },
@@ -2708,12 +2712,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                 $and: [
                   // If reviewerId provided, filter by it; otherwise include all
                   ...(reviewerId
-                    ? [{ $eq: ['$$x.entry.updatedBy', reviewerId] }]
+                    ? [{$eq: ['$$x.entry.updatedBy', reviewerId]}]
                     : []),
                   {
                     $or: [
-                      { $ne: ['$$x.entry.status', 'in-review'] },
-                      { $eq: ['$$x.index', { $subtract: ['$historyLen', 1] }] },
+                      {$ne: ['$$x.entry.status', 'in-review']},
+                      {$eq: ['$$x.index', {$subtract: ['$historyLen', 1]}]},
                     ],
                   },
                 ],
@@ -2732,12 +2736,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           reviewEntries: {
             $cond: [
               '$isAuthor',
-              [{ $arrayElemAt: ['$historyArr', 0] }],
+              [{$arrayElemAt: ['$historyArr', 0]}],
               {
                 $cond: [
                   reviewerId,
                   // Single reviewer: take first matching entry
-                  [{ $arrayElemAt: ['$completedEntriesWithIndex.entry', 0] }],
+                  [{$arrayElemAt: ['$completedEntriesWithIndex.entry', 0]}],
                   // All reviewers: take all completed entries
                   '$completedEntriesWithIndex.entry',
                 ],
@@ -2754,7 +2758,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                   // Single reviewer: get their level
                   {
                     $cond: [
-                      { $gt: [{ $size: '$completedEntriesWithIndex' }, 0] },
+                      {$gt: [{$size: '$completedEntriesWithIndex'}, 0]},
                       [
                         {
                           $concat: [
@@ -2779,7 +2783,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                       input: '$completedEntriesWithIndex',
                       as: 'entry',
                       in: {
-                        $concat: ['Level ', { $toString: '$$entry.index' }],
+                        $concat: ['Level ', {$toString: '$$entry.index'}],
                       },
                     },
                   },
@@ -2797,18 +2801,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $addFields: {
           combined: {
             $map: {
-              input: { $range: [0, { $size: '$reviewLevels' }] },
+              input: {$range: [0, {$size: '$reviewLevels'}]},
               as: 'idx',
               in: {
-                Review_level: { $arrayElemAt: ['$reviewLevels', '$$idx'] },
-                reviewEntry: { $arrayElemAt: ['$reviewEntries', '$$idx'] },
+                Review_level: {$arrayElemAt: ['$reviewLevels', '$$idx']},
+                reviewEntry: {$arrayElemAt: ['$reviewEntries', '$$idx']},
               },
             },
           },
         },
       },
 
-      { $unwind: '$combined' },
+      {$unwind: '$combined'},
 
       // --------------------------------------------------
       // 9. Add approved/rejected/modified counting
@@ -2818,21 +2822,21 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           Review_level: '$combined.Review_level',
           approvedCount: {
             $cond: [
-              { $ifNull: ['$combined.reviewEntry.approvedAnswer', false] },
+              {$ifNull: ['$combined.reviewEntry.approvedAnswer', false]},
               1,
               0,
             ],
           },
           rejectedCount: {
             $cond: [
-              { $ifNull: ['$combined.reviewEntry.rejectedAnswer', false] },
+              {$ifNull: ['$combined.reviewEntry.rejectedAnswer', false]},
               1,
               0,
             ],
           },
           modifiedCount: {
             $cond: [
-              { $ifNull: ['$combined.reviewEntry.modifiedAnswer', false] },
+              {$ifNull: ['$combined.reviewEntry.modifiedAnswer', false]},
               1,
               0,
             ],
@@ -2843,7 +2847,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       // --------------------------------------------------
       // 10. Keep only documents with Review_level
       // --------------------------------------------------
-      { $match: { Review_level: { $ne: null } } },
+      {$match: {Review_level: {$ne: null}}},
 
       // --------------------------------------------------
       // 11. Group counts by Review_level
@@ -2851,10 +2855,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $group: {
           _id: '$Review_level',
-          count: { $sum: 1 },
-          approvedCount: { $sum: '$approvedCount' },
-          rejectedCount: { $sum: '$rejectedCount' },
-          modifiedCount: { $sum: '$modifiedCount' },
+          count: {$sum: 1},
+          approvedCount: {$sum: '$approvedCount'},
+          rejectedCount: {$sum: '$rejectedCount'},
+          modifiedCount: {$sum: '$modifiedCount'},
         },
       },
 
@@ -2904,18 +2908,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                       found: {
                         $first: {
                           $filter: {
-                            input: { $ifNull: ['$actual', []] },
-                            cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                            input: {$ifNull: ['$actual', []]},
+                            cond: {$eq: ['$$this.Review_level', '$$lvl']},
                           },
                         },
                       },
                     },
-                    in: { $ifNull: ['$$found.count', 0] },
+                    in: {$ifNull: ['$$found.count', 0]},
                   },
                 },
                 approvedCount: {
                   $cond: [
-                    { $eq: ['$$lvl', 'Author'] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -2923,20 +2927,20 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ['$actual', []] },
-                                cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
                               },
                             },
                           },
                         },
-                        in: { $ifNull: ['$$found.approvedCount', 0] },
+                        in: {$ifNull: ['$$found.approvedCount', 0]},
                       },
                     },
                   ],
                 },
                 rejectedCount: {
                   $cond: [
-                    { $eq: ['$$lvl', 'Author'] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -2944,20 +2948,20 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ['$actual', []] },
-                                cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
                               },
                             },
                           },
                         },
-                        in: { $ifNull: ['$$found.rejectedCount', 0] },
+                        in: {$ifNull: ['$$found.rejectedCount', 0]},
                       },
                     },
                   ],
                 },
                 modifiedCount: {
                   $cond: [
-                    { $eq: ['$$lvl', 'Author'] },
+                    {$eq: ['$$lvl', 'Author']},
                     0,
                     {
                       $let: {
@@ -2965,13 +2969,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                           found: {
                             $first: {
                               $filter: {
-                                input: { $ifNull: ['$actual', []] },
-                                cond: { $eq: ['$$this.Review_level', '$$lvl'] },
+                                input: {$ifNull: ['$actual', []]},
+                                cond: {$eq: ['$$this.Review_level', '$$lvl']},
                               },
                             },
                           },
                         },
-                        in: { $ifNull: ['$$found.modifiedCount', 0] },
+                        in: {$ifNull: ['$$found.modifiedCount', 0]},
                       },
                     },
                   ],
@@ -2985,8 +2989,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       // --------------------------------------------------
       // 14. Unwind and format output
       // --------------------------------------------------
-      { $unwind: '$merged' },
-      { $replaceRoot: { newRoot: '$merged' } },
+      {$unwind: '$merged'},
+      {$replaceRoot: {newRoot: '$merged'}},
 
       // --------------------------------------------------
       // 15. Sort Author first, then Levels numerically
@@ -2995,15 +2999,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $addFields: {
           levelSort: {
             $cond: [
-              { $eq: ['$Review_level', 'Author'] },
+              {$eq: ['$Review_level', 'Author']},
               0,
-              { $toInt: { $substr: ['$Review_level', 6, -1] } },
+              {$toInt: {$substr: ['$Review_level', 6, -1]}},
             ],
           },
         },
       },
-      { $sort: { levelSort: 1 } },
-      { $project: { levelSort: 0 } },
+      {$sort: {levelSort: 1}},
+      {$project: {levelSort: 0}},
     ];
     let pipeline;
     if (userId && userId !== 'all') {
@@ -3027,7 +3031,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       await this.QuestionSubmissionCollection.aggregate<IReviewWiseStats>([
         {
           $addFields: {
-            historyLength: { $size: '$history' },
+            historyLength: {$size: '$history'},
           },
         },
 
@@ -3040,51 +3044,51 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
         },
 
-        { $unwind: '$question' },
+        {$unwind: '$question'},
 
         {
           $group: {
             _id: null,
 
             authorLevel: {
-              $sum: { $cond: [{ $gte: ['$historyLength', 1] }, 1, 0] },
+              $sum: {$cond: [{$gte: ['$historyLength', 1]}, 1, 0]},
             },
 
             levelOne: {
-              $sum: { $cond: [{ $gte: ['$historyLength', 3] }, 1, 0] },
+              $sum: {$cond: [{$gte: ['$historyLength', 3]}, 1, 0]},
             },
 
             levelTwo: {
-              $sum: { $cond: [{ $gte: ['$historyLength', 4] }, 1, 0] },
+              $sum: {$cond: [{$gte: ['$historyLength', 4]}, 1, 0]},
             },
 
             levelThree: {
-              $sum: { $cond: [{ $gte: ['$historyLength', 5] }, 1, 0] },
+              $sum: {$cond: [{$gte: ['$historyLength', 5]}, 1, 0]},
             },
 
             levelFour: {
-              $sum: { $cond: [{ $gte: ['$historyLength', 6] }, 1, 0] },
+              $sum: {$cond: [{$gte: ['$historyLength', 6]}, 1, 0]},
             },
 
             levelFive: {
-              $sum: { $cond: [{ $gte: ['$historyLength', 7] }, 1, 0] },
+              $sum: {$cond: [{$gte: ['$historyLength', 7]}, 1, 0]},
             },
 
             levelSix: {
-              $sum: { $cond: [{ $gte: ['$historyLength', 8] }, 1, 0] },
+              $sum: {$cond: [{$gte: ['$historyLength', 8]}, 1, 0]},
             },
 
             levelSeven: {
-              $sum: { $cond: [{ $gte: ['$historyLength', 9] }, 1, 0] },
+              $sum: {$cond: [{$gte: ['$historyLength', 9]}, 1, 0]},
             },
 
             levelEight: {
-              $sum: { $cond: [{ $gte: ['$historyLength', 10] }, 1, 0] },
+              $sum: {$cond: [{$gte: ['$historyLength', 10]}, 1, 0]},
             },
 
             levelNineEligible: {
               $sum: {
-                $cond: [{ $gte: ['$historyLength', 10] }, 1, 0],
+                $cond: [{$gte: ['$historyLength', 10]}, 1, 0],
               },
             },
 
@@ -3093,8 +3097,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                 $cond: [
                   {
                     $and: [
-                      { $gte: ['$historyLength', 10] },
-                      { $eq: ['$question.status', 'in-review'] },
+                      {$gte: ['$historyLength', 10]},
+                      {$eq: ['$question.status', 'in-review']},
                     ],
                   },
                   1,
@@ -3154,13 +3158,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             $in: absentExpertIds.map(id => new ObjectId(id)),
           },
         },
-        { session },
+        {session},
       ).toArray();
 
       const pendingSubmissions: IQuestionSubmission[] = [];
 
       for (const submission of submissions) {
-        const { queue = [], history = [] } = submission;
+        const {queue = [], history = []} = submission;
 
         if (queue.length === 0) continue;
 
@@ -3226,23 +3230,23 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             $or: [
               // Type A — Never answered
               {
-                history: { $size: 0 },
+                history: {$size: 0},
                 lastRespondedBy: null,
-                createdAt: { $lte: oneHourAgo },
+                createdAt: {$lte: oneHourAgo},
               },
 
               // Type B — Last update stuck in-review
               {
-                'history.1': { $exists: true },
+                'history.1': {$exists: true},
                 $expr: {
                   $let: {
                     vars: {
-                      lastHistory: { $arrayElemAt: ['$history', -1] },
+                      lastHistory: {$arrayElemAt: ['$history', -1]},
                     },
                     in: {
                       $and: [
-                        { $eq: ['$$lastHistory.status', 'in-review'] },
-                        { $lte: ['$$lastHistory.createdAt', oneHourAgo] },
+                        {$eq: ['$$lastHistory.status', 'in-review']},
+                        {$lte: ['$$lastHistory.createdAt', oneHourAgo]},
                       ],
                     },
                   },
@@ -3262,9 +3266,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         {
           $unwind: '$question',
         },
-        ...(limit ? [{ $limit: limit }] : []),
+        ...(limit ? [{$limit: limit}] : []),
       ],
-      { session },
+      {session},
     ).toArray();
   }
   async findById(id: string): Promise<IQuestionSubmission | null> {
@@ -3280,7 +3284,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   ): Promise<IQuestionSubmission | null> {
     await this.init();
     const result = await this.QuestionSubmissionCollection.findOneAndUpdate(
-      { _id: new ObjectId(id) }, // filter
+      {_id: new ObjectId(id)}, // filter
       update, // update operators
       {
         returnDocument: 'after', // return updated doc
@@ -3293,7 +3297,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   // ─── Time-bound allocation tracking ───────────────────────────────────────
 
-  async markQuestionOpenedByExpert(questionId: string, expertId: string, isTimeBound: boolean = true): Promise<void> {
+  async markQuestionOpenedByExpert(
+    questionId: string,
+    expertId: string,
+    isTimeBound: boolean = true,
+  ): Promise<void> {
     await this.init();
 
     // Always clear currentExpertOpenedAt on any OTHER time-bound question this
@@ -3301,11 +3309,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     // (time-bound or not) frees the old time-bound question for reallocation.
     await this.QuestionSubmissionCollection.updateMany(
       {
-        questionId: { $ne: new ObjectId(questionId) },
+        questionId: {$ne: new ObjectId(questionId)},
         queue: new ObjectId(expertId),
-        currentExpertOpenedAt: { $ne: null },
+        currentExpertOpenedAt: {$ne: null},
       },
-      { $set: { currentExpertOpenedAt: null, updatedAt: new Date() } },
+      {$set: {currentExpertOpenedAt: null, updatedAt: new Date()}},
     );
 
     // Only set currentExpertOpenedAt on the current question if it's time-bound
@@ -3337,15 +3345,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     if (!currentExpertId || currentExpertId !== expertId.toString()) return;
 
     await this.QuestionSubmissionCollection.updateOne(
-      { questionId: new ObjectId(questionId) },
-      { $set: { currentExpertOpenedAt: new Date(), updatedAt: new Date() } },
+      {questionId: new ObjectId(questionId)},
+      {$set: {currentExpertOpenedAt: new Date(), updatedAt: new Date()}},
     );
   }
 
-  async setCurrentExpertAllocatedAt(questionId: string, allocatedAt: Date): Promise<void> {
+  async setCurrentExpertAllocatedAt(
+    questionId: string,
+    allocatedAt: Date,
+  ): Promise<void> {
     await this.init();
     await this.QuestionSubmissionCollection.updateOne(
-      { questionId: new ObjectId(questionId) },
+      {questionId: new ObjectId(questionId)},
       {
         $set: {
           currentExpertAllocatedAt: allocatedAt,
@@ -3360,26 +3371,41 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
    *  their response — both the allocated-at and opened-at clocks are reset so the
    *  time-bound stuck/idle cron won't flag the question until the next expert is
    *  allocated (which sets currentExpertAllocatedAt afresh). */
-  async clearCurrentExpertTracking(questionId: string, session?: ClientSession): Promise<void> {
+  async clearCurrentExpertTracking(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
     await this.init();
     await this.QuestionSubmissionCollection.updateOne(
-      { questionId: new ObjectId(questionId) },
-      { $set: { currentExpertAllocatedAt: null, currentExpertOpenedAt: null, updatedAt: new Date() } },
-      { session },
+      {questionId: new ObjectId(questionId)},
+      {
+        $set: {
+          currentExpertAllocatedAt: null,
+          currentExpertOpenedAt: null,
+          updatedAt: new Date(),
+        },
+      },
+      {session},
     );
   }
 
-  async findTimeBoundQuestionsForReallocation(): Promise<IQuestionSubmission[]> {
+  async findTimeBoundQuestionsForReallocation(): Promise<
+    IQuestionSubmission[]
+  > {
     await this.init();
     const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
 
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
       {
         $match: {
-          currentExpertAllocatedAt: { $exists: true, $ne: null, $lte: fortyFiveMinAgo },
+          currentExpertAllocatedAt: {
+            $exists: true,
+            $ne: null,
+            $lte: fortyFiveMinAgo,
+          },
           $or: [
-            { currentExpertOpenedAt: { $exists: false } },
-            { currentExpertOpenedAt: null },
+            {currentExpertOpenedAt: {$exists: false}},
+            {currentExpertOpenedAt: null},
           ],
         },
       },
@@ -3391,20 +3417,31 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'question',
         },
       },
-      { $unwind: '$question' },
+      {$unwind: '$question'},
       {
         $match: {
-          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          'question.source': {$in: ['WHATSAPP', 'AJRASAKHA']},
           // 're-routed' questions are owned by the reroute flow (moderators handle them),
           // not the time-bound cron — exclude them so they don't consume STF capacity.
-          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri', 're-routed'] },
-          'question.isOnHold': { $ne: true },
+          'question.status': {
+            $nin: [
+              'closed',
+              'in-review',
+              'pae_submitted',
+              'pass',
+              'duplicate',
+              'draft',
+              'non_agri',
+              're-routed',
+            ],
+          },
+          'question.isOnHold': {$ne: true},
           'question.isAutoAllocate': {$eq: true},
           // Test questions must never be auto-allocated, regardless of isAutoAllocate.
-          'question.isTesting': { $ne: true },
+          'question.isTesting': {$ne: true},
         },
       },
-      { $sort: { 'question.createdAt': 1 } },
+      {$sort: {'question.createdAt': 1}},
     ]).toArray();
   }
 
@@ -3420,20 +3457,24 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
       {
         $match: {
-          currentExpertOpenedAt: { $exists: true, $ne: null, $lte: fortyFiveMinAgo },
+          currentExpertOpenedAt: {
+            $exists: true,
+            $ne: null,
+            $lte: fortyFiveMinAgo,
+          },
         },
       },
       {
         $addFields: {
-          lastHistory: { $arrayElemAt: [{ $ifNull: ['$history', []] }, -1] },
+          lastHistory: {$arrayElemAt: [{$ifNull: ['$history', []]}, -1]},
         },
       },
       {
         $match: {
-          'lastHistory.answer': { $in: [null] },
-          'lastHistory.approvedAnswer': { $in: [null] },
-          'lastHistory.modifiedAnswer': { $in: [null] },
-          'lastHistory.rejectedAnswer': { $in: [null] },
+          'lastHistory.answer': {$in: [null]},
+          'lastHistory.approvedAnswer': {$in: [null]},
+          'lastHistory.modifiedAnswer': {$in: [null]},
+          'lastHistory.rejectedAnswer': {$in: [null]},
         },
       },
       {
@@ -3444,18 +3485,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'question',
         },
       },
-      { $unwind: '$question' },
+      {$unwind: '$question'},
       {
         $match: {
-          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $in: ['open', 'delayed'] },
-          'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': { $eq: true },
+          'question.source': {$in: ['WHATSAPP', 'AJRASAKHA']},
+          'question.status': {$in: ['open', 'delayed']},
+          'question.isOnHold': {$ne: true},
+          'question.isAutoAllocate': {$eq: true},
           // Test questions must never be auto-allocated, regardless of isAutoAllocate.
-          'question.isTesting': { $ne: true },
+          'question.isTesting': {$ne: true},
         },
       },
-      { $sort: { 'question.createdAt': 1 } },
+      {$sort: {'question.createdAt': 1}},
     ]).toArray();
   }
 
@@ -3467,15 +3508,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     // first allocation. Shaped to the submission-like form the callers expect
     // (.questionId / .question / .queue).
     const questions = await this.QuestionCollection.find({
-      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
       isAutoAllocate: true,
-      status: { $in: ['open', 'delayed'] },
+      status: {$in: ['open', 'delayed']},
       firstAllocationAt: null,
-      isOnHold: { $ne: true },
+      isOnHold: {$ne: true},
       // Test questions must never be auto-allocated, regardless of isAutoAllocate.
-      isTesting: { $ne: true },
+      isTesting: {$ne: true},
     })
-      .sort({ createdAt: 1 })
+      .sort({createdAt: 1})
       .toArray();
 
     return questions.map(q => ({
@@ -3500,31 +3541,31 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
       {
         $addFields: {
-          histLen: { $size: { $ifNull: ['$history', []] } },
-          queueLen: { $size: { $ifNull: ['$queue', []] } },
-          lastHistory: { $arrayElemAt: ['$history', -1] },
+          histLen: {$size: {$ifNull: ['$history', []]}},
+          queueLen: {$size: {$ifNull: ['$queue', []]}},
+          lastHistory: {$arrayElemAt: ['$history', -1]},
         },
       },
       {
         $match: {
           // Queue must not be empty
-          queueLen: { $gt: 0 },
+          queueLen: {$gt: 0},
           // All queue members must have a history entry (everyone has done their part)
-          $expr: { $gte: ['$histLen', '$queueLen'] },
+          $expr: {$gte: ['$histLen', '$queueLen']},
           // The last history entry must indicate completed work
           $or: [
             // Author (queue has 1 member) submitted their answer
             {
               $and: [
-                { queueLen: 1 },
-                { 'lastHistory.answer': { $exists: true, $ne: null } },
+                {queueLen: 1},
+                {'lastHistory.answer': {$exists: true, $ne: null}},
               ],
             },
             // Reviewer (queue has >1 members) completed their review (status != 'in-review')
             {
               $and: [
-                { queueLen: { $gt: 1 } },
-                { 'lastHistory.status': { $nin: ['in-review'] } },
+                {queueLen: {$gt: 1}},
+                {'lastHistory.status': {$nin: ['in-review']}},
               ],
             },
           ],
@@ -3538,15 +3579,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'question',
         },
       },
-      { $unwind: '$question' },
+      {$unwind: '$question'},
       {
         $match: {
-          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $in: ['open', 'delayed'] },
-          'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': {$eq:true},
+          'question.source': {$in: ['WHATSAPP', 'AJRASAKHA']},
+          'question.status': {$in: ['open', 'delayed']},
+          'question.isOnHold': {$ne: true},
+          'question.isAutoAllocate': {$eq: true},
           // Test questions must never be auto-allocated, regardless of isAutoAllocate.
-          'question.isTesting': { $ne: true },
+          'question.isTesting': {$ne: true},
         },
       },
     ]).toArray();
@@ -3562,7 +3603,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   ): Promise<void> {
     await this.init();
     await this.QuestionSubmissionCollection.updateOne(
-      { questionId: new ObjectId(questionId) },
+      {questionId: new ObjectId(questionId)},
       {
         $push: {
           queue: new ObjectId(reviewerId),
@@ -3589,7 +3630,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     //
     // Position 0 (author): active if history[0].answer is missing/null (hasn't submitted yet).
     // Position ≥ 1 (reviewer): active if history[position].status === 'in-review' (hasn't completed review).
-    const result = await this.QuestionSubmissionCollection.aggregate<{ _id: string; count: number }>([
+    const result = await this.QuestionSubmissionCollection.aggregate<{
+      _id: string;
+      count: number;
+    }>([
       {
         $lookup: {
           from: 'questions',
@@ -3598,12 +3642,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           as: 'q',
         },
       },
-      { $unwind: '$q' },
+      {$unwind: '$q'},
       {
         $match: {
-          'q.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'q.status': { $in: ['open', 'delayed'] },
-          'q.isOnHold': { $ne: true },
+          'q.source': {$in: ['WHATSAPP', 'AJRASAKHA']},
+          'q.status': {$in: ['open', 'delayed']},
+          'q.isOnHold': {$ne: true},
         },
       },
       // Unwind queue so each expert gets their own document with their position index
@@ -3616,7 +3660,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       // Get the corresponding history entry for this queue position (may be null if not yet created)
       {
         $addFields: {
-          correspondingHistory: { $arrayElemAt: ['$history', '$queueIndex'] },
+          correspondingHistory: {$arrayElemAt: ['$history', '$queueIndex']},
         },
       },
       // Determine if this expert still has pending work at their position
@@ -3625,18 +3669,18 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           isPending: {
             $cond: {
               // Position 0 = author: pending if no history entry yet, or history entry has no answer
-              if: { $eq: ['$queueIndex', 0] },
+              if: {$eq: ['$queueIndex', 0]},
               then: {
                 $or: [
-                  { $eq: ['$correspondingHistory', null] },
-                  { $not: { $ifNull: ['$correspondingHistory.answer', false] } },
+                  {$eq: ['$correspondingHistory', null]},
+                  {$not: {$ifNull: ['$correspondingHistory.answer', false]}},
                 ],
               },
               // Position >= 1 = reviewer: pending if no history entry yet, or status is 'in-review'
               else: {
                 $or: [
-                  { $eq: ['$correspondingHistory', null] },
-                  { $eq: ['$correspondingHistory.status', 'in-review'] },
+                  {$eq: ['$correspondingHistory', null]},
+                  {$eq: ['$correspondingHistory.status', 'in-review']},
                 ],
               },
             },
@@ -3644,13 +3688,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
       // Keep only experts who still have pending work
-      { $match: { isPending: true } },
+      {$match: {isPending: true}},
       // Filter out null queue entries
-      { $match: { queue: { $ne: null } } },
+      {$match: {queue: {$ne: null}}},
       {
         $group: {
           _id: '$queue',
-          count: { $sum: 1 },
+          count: {$sum: 1},
         },
       },
     ]).toArray();
@@ -3659,7 +3703,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     for (const r of result) {
       if (r._id) map.set(r._id.toString(), r.count);
     }
-   // console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
+    // console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
     return map;
   }
 
@@ -3685,7 +3729,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       // 2️⃣ Ignore author level (index 0) + filter date
       {
         $match: {
-          historyIndex: { $gt: 0 },
+          historyIndex: {$gt: 0},
           'history.createdAt': {
             $gte: convertedStartDate,
             $lte: convertedEndDate,
@@ -3701,7 +3745,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           month: {
             $dateToString: {
               format: '%Y-%m',
-              date: { $toDate: '$history.createdAt' },
+              date: {$toDate: '$history.createdAt'},
             },
           },
 
@@ -3709,14 +3753,14 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             $cond: [
               {
                 $and: [
-                  { $ifNull: ['$history.createdAt', false] },
-                  { $ifNull: ['$history.updatedAt', false] },
+                  {$ifNull: ['$history.createdAt', false]},
+                  {$ifNull: ['$history.updatedAt', false]},
                 ],
               },
               {
                 $subtract: [
-                  { $toDate: '$history.updatedAt' },
-                  { $toDate: '$history.createdAt' },
+                  {$toDate: '$history.updatedAt'},
+                  {$toDate: '$history.createdAt'},
                 ],
               },
               null,
@@ -3735,23 +3779,23 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
           approvedCount: {
             $sum: {
-              $cond: [{ $ifNull: ['$history.approvedAnswer', false] }, 1, 0],
+              $cond: [{$ifNull: ['$history.approvedAnswer', false]}, 1, 0],
             },
           },
 
           rejectedCount: {
             $sum: {
-              $cond: [{ $ifNull: ['$history.rejectedAnswer', false] }, 1, 0],
+              $cond: [{$ifNull: ['$history.rejectedAnswer', false]}, 1, 0],
             },
           },
 
           modifiedCount: {
             $sum: {
-              $cond: [{ $ifNull: ['$history.modifiedAnswer', false] }, 1, 0],
+              $cond: [{$ifNull: ['$history.modifiedAnswer', false]}, 1, 0],
             },
           },
 
-          avgTimeTaken: { $avg: '$timeTaken' },
+          avgTimeTaken: {$avg: '$timeTaken'},
         },
       },
 
@@ -3769,13 +3813,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $addFields: {
           approvedPercentage: {
             $cond: [
-              { $eq: ['$totalProcessed', 0] },
+              {$eq: ['$totalProcessed', 0]},
               0,
               {
                 $round: [
                   {
                     $multiply: [
-                      { $divide: ['$approvedCount', '$totalProcessed'] },
+                      {$divide: ['$approvedCount', '$totalProcessed']},
                       100,
                     ],
                   },
@@ -3787,13 +3831,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
           rejectedPercentage: {
             $cond: [
-              { $eq: ['$totalProcessed', 0] },
+              {$eq: ['$totalProcessed', 0]},
               0,
               {
                 $round: [
                   {
                     $multiply: [
-                      { $divide: ['$rejectedCount', '$totalProcessed'] },
+                      {$divide: ['$rejectedCount', '$totalProcessed']},
                       100,
                     ],
                   },
@@ -3805,13 +3849,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
           modifiedPercentage: {
             $cond: [
-              { $eq: ['$totalProcessed', 0] },
+              {$eq: ['$totalProcessed', 0]},
               0,
               {
                 $round: [
                   {
                     $multiply: [
-                      { $divide: ['$modifiedCount', '$totalProcessed'] },
+                      {$divide: ['$modifiedCount', '$totalProcessed']},
                       100,
                     ],
                   },
@@ -3822,7 +3866,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
 
           avgTimeTakenMinutes: {
-            $round: [{ $divide: ['$avgTimeTaken', 1000 * 60] }, 2],
+            $round: [{$divide: ['$avgTimeTaken', 1000 * 60]}, 2],
           },
         },
       },
@@ -3853,7 +3897,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           data: {
             $sortArray: {
               input: '$data',
-              sortBy: { level: 1 },
+              sortBy: {level: 1},
             },
           },
         },
@@ -3870,7 +3914,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
       // 🔟 Sort months
       {
-        $sort: { month: 1 },
+        $sort: {month: 1},
       },
     ];
     const result =
@@ -3916,13 +3960,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
         };
       } else if (update.popHistory) {
-        updateDoc.$pop = { history: 1 };
+        updateDoc.$pop = {history: 1};
       }
 
       const result = await this.QuestionSubmissionCollection.updateOne(
-        { questionId: new ObjectId(questionId) },
+        {questionId: new ObjectId(questionId)},
         updateDoc,
-        { session },
+        {session},
       );
 
       if (result.matchedCount === 0) {
@@ -3948,24 +3992,24 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       [
         {
           $addFields: {
-            historyLength: { $size: { $ifNull: ['$history', []] } },
+            historyLength: {$size: {$ifNull: ['$history', []]}},
           },
         },
         {
           $addFields: {
-            currentReviewerId: { $arrayElemAt: ['$queue', '$historyLength'] },
+            currentReviewerId: {$arrayElemAt: ['$queue', '$historyLength']},
           },
         },
         {
           $match: {
             $or: [
-              { currentReviewerId: { $in: expertObjectIds } },
-              { currentReviewerId: { $in: expertIds } }, // Handle cases where IDs are stored as strings
+              {currentReviewerId: {$in: expertObjectIds}},
+              {currentReviewerId: {$in: expertIds}}, // Handle cases where IDs are stored as strings
             ],
           },
         },
       ],
-      { session },
+      {session},
     ).toArray();
   }
 
@@ -4130,13 +4174,16 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
         ],
       },
-      { session },
+      {session},
     )
       .limit(limit || 0)
       .toArray();
   }
 
-  async findReallocationQuestionsByIds(questionIds?: string[], session?: ClientSession): Promise<IQuestionSubmission[]> {
+  async findReallocationQuestionsByIds(
+    questionIds?: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]> {
     await this.init();
 
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>(
@@ -4167,12 +4214,14 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
         },
       ],
-      { session },
+      {session},
     ).toArray();
   }
 
   //get delayed questions
-  async getDelayedReviews(session: ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]> {
+  async getDelayedReviews(
+    session: ClientSession,
+  ): Promise<{_id: ObjectId; questionId: ObjectId; userId: ObjectId}[]> {
     try {
       await this.init();
 
@@ -4181,15 +4230,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       //   Date.now() - 30 * 1000,
       // );
 
-      const thresholdTime = new Date(
-        Date.now() - 45 * 60 * 1000,
-      );
+      const thresholdTime = new Date(Date.now() - 45 * 60 * 1000);
 
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
 
-      const delayedReviews =
-        await this.QuestionSubmissionCollection.aggregate([
+      const delayedReviews = await this.QuestionSubmissionCollection.aggregate(
+        [
           {
             $match: {
               createdAt: {
@@ -4217,10 +4264,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           {
             $addFields: {
               latestHistory: {
-                $arrayElemAt: [
-                  '$history',
-                  -1,
-                ],
+                $arrayElemAt: ['$history', -1],
               },
             },
           },
@@ -4269,13 +4313,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                     },
 
                     {
-                      'latestHistory.status':
-                        'in-review',
+                      'latestHistory.status': 'in-review',
                     },
 
                     {
-                      'latestHistory.createdAt':
-                      {
+                      'latestHistory.createdAt': {
                         $lte: thresholdTime,
                       },
                     },
@@ -4285,7 +4327,6 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                         $exists: false,
                       },
                     },
-
                   ],
                 },
               ],
@@ -4311,10 +4352,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
                     ],
                   },
                   {
-                    $arrayElemAt: [
-                      '$queue',
-                      0,
-                    ],
+                    $arrayElemAt: ['$queue', 0],
                   },
                   '$latestHistory.updatedBy',
                 ],
@@ -4322,18 +4360,24 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             },
           },
         ],
-          { session }
-        ).toArray();
+        {session},
+      ).toArray();
 
-      return delayedReviews as { _id: ObjectId; questionId: ObjectId; userId: ObjectId; }[];
-
+      return delayedReviews as {
+        _id: ObjectId;
+        questionId: ObjectId;
+        userId: ObjectId;
+      }[];
     } catch (error) {
       console.error('Error getting delayed questions', error);
     }
   }
 
   //mark delayed notification sent
-  async markDelayedNotificationsSent(notifiedSubmissionIds: ObjectId[], session?: ClientSession): Promise<void> {
+  async markDelayedNotificationsSent(
+    notifiedSubmissionIds: ObjectId[],
+    session?: ClientSession,
+  ): Promise<void> {
     try {
       await this.init();
       await this.QuestionSubmissionCollection.updateMany(
@@ -4348,11 +4392,44 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
         },
       );
-
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Error marking delayed notifications sent', error);
     }
   }
 
+  /**
+   * Perform background processing on a question submission.
+   * @param submissionId - The submission document ID
+   */
+  async backgroundProcessAction(
+    submissionId: string,
+  ): Promise<{modifiedCount: number}> {
+    try {
+      await this.init();
+
+      if (!ObjectId.isValid(submissionId)) {
+        throw new BadRequestError('Invalid submission ID');
+      }
+      const result = await this.QuestionSubmissionCollection.updateOne(
+        {
+          _id: new ObjectId(submissionId),
+        },
+        [
+          {
+            $set: {
+              history: {$slice: ['$history', 1]},
+              queue: {$slice: ['$queue', 1]},
+            },
+          },
+        ],
+      );
+
+      return {modifiedCount: result.modifiedCount};
+    } catch (error) {
+      console.error('Error removing second history and queue entry:', error);
+      throw new InternalServerError(
+        'Failed to remove second history and queue entry',
+      );
+    }
+  }
 }
