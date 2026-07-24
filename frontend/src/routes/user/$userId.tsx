@@ -60,6 +60,7 @@ import {
   type FarmerDashboardData,
 } from "@/features/chatbotDashboard/components/FarmerDashboardAnalytics";
 import { CoordinatorKpiCards } from "@/features/chatbotDashboard/components/CoordinatorKpiCards";
+import { CoordinatorGrowthAndAlerts } from "@/features/chatbotDashboard/components/CoordinatorGrowthAndAlerts";
 import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
 import {
   CoordinatorNotificationDialog,
@@ -561,6 +562,7 @@ function RouteComponent() {
               isReadOnly={isCoordinatorReadOnlyView}
             />
             <CoordinatorKpiCards userId={userId} />
+            <CoordinatorGrowthAndAlerts userId={userId} />
           </>
         ) : (
         <FarmerDetailsContent
@@ -588,7 +590,10 @@ function RouteComponent() {
           />
         )}
         {currentUser?.role === "admin" && viewedProfileIsCoordinator && (
+          <>
           <CoordinatorKpiCards userId={userId} />
+            <CoordinatorGrowthAndAlerts userId={userId} />
+          </>
         )}
         <FarmerDashboardAnalytics
           dashboard={userProfile?.farmerDashboard as FarmerDashboardData}

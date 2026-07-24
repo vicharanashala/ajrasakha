@@ -48,12 +48,14 @@ export class ChatbotService {
     source: string,
     userType: string,
     range: number,
+    coordinatorId?: string,
   ): Promise<GrowthResponse | null> {
     const params = new URLSearchParams();
 
     if (range) params.append("range", range.toString());
     params.append("source", source);
-    params.append("userType", userType)
+    params.append("userType", userType);
+    if (coordinatorId) params.append("coordinatorId", coordinatorId);
 
     return apiFetch<GrowthResponse>(
       `${this._baseUrl}/user-growth?${params.toString()}`,
@@ -65,12 +67,14 @@ export class ChatbotService {
     userType: string,
     startDate: string,
     endDate: string,
+    coordinatorId?: string,
   ): Promise<GrowthResponse | null> {
     const params = new URLSearchParams();
     params.append("startDate", startDate);
     params.append("endDate", endDate);
     params.append("source", source);
     params.append("userType", userType);
+    if (coordinatorId) params.append("coordinatorId", coordinatorId);
 
     return apiFetch<GrowthResponse>(
       `${this._baseUrl}/user-growth?${params.toString()}`,

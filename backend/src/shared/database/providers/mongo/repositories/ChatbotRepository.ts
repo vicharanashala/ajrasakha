@@ -9239,9 +9239,18 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate: Date,
     endDate: Date,
     session?: ClientSession,
+    coordinatorId?: string,
   ) {
     try {
       await this.init('annam');
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length === 0) return [];
+        coordinatorMatch = { _id: { $in: targetUserIds } };
+      }
+
       const userMatch =
         userType === 'all'
           ? {}
@@ -9256,6 +9265,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $match: {
               createdAt: {$gte: startDate, $lte: endDate},
               ...userMatch,
+              ...coordinatorMatch,
             },
           },
           {
@@ -9282,9 +9292,18 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate: Date,
     endDate: Date,
     session?: ClientSession,
+    coordinatorId?: string,
   ) {
     try {
       await this.init('annam');
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length === 0) return [];
+        coordinatorMatch = { _id: { $in: targetUserIds } };
+      }
+
       const userMatch =
         userType === 'all'
           ? {}
@@ -9300,6 +9319,7 @@ export class ChatbotRepository implements IChatbotRepository {
               farmerProfile: {$exists: true, $ne: null},
               updatedAt: {$gte: startDate, $lte: endDate},
               ...userMatch,
+              ...coordinatorMatch,
             },
           },
           {
@@ -9326,9 +9346,19 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate: Date,
     endDate: Date,
     session?: ClientSession,
+    coordinatorId?: string,
   ) {
     try {
       await this.init('annam');
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length === 0) return [];
+        const targetUserIdStrings = targetUserIds.map(id => id.toString());
+        coordinatorMatch = { user: { $in: targetUserIdStrings } };
+      }
+
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
       const result = await this.messagesCollection
         .aggregate([
@@ -9336,6 +9366,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $match: {
               createdAt: {$gte: startDate, $lte: endDate},
               isDeleted: {$ne: true},
+              ...coordinatorMatch,
             },
           },
           ...userTypeLookupStages,
@@ -9429,6 +9460,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getDuplicateQuestions(
     source = 'annam',
+    coordinatorId?: string,
     session?: ClientSession,
   ): Promise<DuplicateQuestionEntry[]> {
     try {
@@ -9439,12 +9471,19 @@ export class ChatbotRepository implements IChatbotRepository {
       if (source === 'whatsapp') {
         return await this.getWhatsAppDuplicateQuestions();
       }
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+      }
+
       // 1. Fetch duplicate questions from the main review DB
       const dupeQuestions = await this.QuestionCollection.find(
         {
           similarityScore: {$exists: true},
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           status: {$ne: 'non_agri'},
+          ...coordinatorMatch,
         },
         {session},
       )
@@ -9561,7 +9600,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDomainSpikes(days = 60, session?: ClientSession) {
+  async getDomainSpikes(days = 60, coordinatorId?: string, session?: ClientSession) {
     try {
       await this.initReviewSystem();
 
@@ -9608,10 +9647,16 @@ export class ChatbotRepository implements IChatbotRepository {
         },
       };
 
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+      }
+
       const matchStage = {
         ...domainMatch,
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
         status: {$ne: 'non_agri'},
+        ...coordinatorMatch,
       };
 
       const pipeline: any[] = [
@@ -17115,6 +17160,19 @@ export class ChatbotRepository implements IChatbotRepository {
     return ids.map(id => new ObjectId(id));
   }
 
+  async buildCoordinatorMatchQuery(coordinatorId?: string): Promise<any> {
+    if (!coordinatorId) return {};
+    const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+    if (targetUserIds.length === 0) return { _id: null };
+    const targetUserIdStrings = targetUserIds.map(id => id.toString());
+    const targetUserObjects = targetUserIds.map(id => new ObjectId(id));
+    return {
+      userId: {
+        $in: [...targetUserObjects, ...targetUserIdStrings]
+      }
+    };
+  }
+
   async getCoordinatorKpiSummary(
     userId: string,
     session?: ClientSession,
@@ -17154,6 +17212,35 @@ export class ChatbotRepository implements IChatbotRepository {
         isCreatedByUser: true,
         isDeleted: { $ne: true }
       }, { session });
+
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      threeDaysAgo.setHours(0, 0, 0, 0);
+
+      const activeUsers3Days = await this.messagesCollection.distinct('user', {
+        user: { $in: targetUserIdStrings },
+        createdAt: { $gte: threeDaysAgo },
+        isCreatedByUser: true,
+        isDeleted: { $ne: true }
+      }, { session });
+
+      const inactiveUsersLast3Days = Math.max(0, totalUsers - activeUsers3Days.length);
+
+      const coordinatorMatch = await this.buildCoordinatorMatchQuery(userId);
+      const duplicateQuestionsCount = await this.QuestionCollection.countDocuments({
+        similarityScore: { $exists: true },
+        $or: [{ isTesting: { $exists: false } }, { isTesting: { $ne: true } }],
+        status: { $ne: 'non_agri' },
+        ...coordinatorMatch,
+      }, { session });
+
+      const usersWithFeedback = await this.messagesCollection.distinct('user', {
+        user: { $in: targetUserIdStrings },
+        feedback: { $exists: true },
+        isCreatedByUser: false,
+        isDeleted: { $ne: true }
+      }, { session });
+      const lowFeedbackUsersCount = Math.max(0, totalUsers - usersWithFeedback.length);
 
       const sessionStats = await this.conversations
         .aggregate([
@@ -17257,7 +17344,10 @@ export class ChatbotRepository implements IChatbotRepository {
         todayQueries,
         avgSessionDurationMin,
         dauTrend,
-        queriesTrend
+        queriesTrend,
+        inactiveUsersLast3Days,
+        duplicateQuestionsCount,
+        lowFeedbackUsersCount
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get coordinator KPI: ${error}`);

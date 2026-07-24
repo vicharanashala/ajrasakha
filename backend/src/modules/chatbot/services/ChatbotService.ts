@@ -825,9 +825,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
             repeatQueryRatePct: 0,
             voiceUsageSharePct: 0,
             totalAppInstalls: stats.totalAppInstalls,
-            inactiveUsersLast3Days: 0,
-            duplicateQuestionsCount: 0,
-            lowFeedbackUsersCount: 0,
+            inactiveUsersLast3Days: stats.inactiveUsersLast3Days,
+            duplicateQuestionsCount: stats.duplicateQuestionsCount,
+            lowFeedbackUsersCount: stats.lowFeedbackUsersCount,
             dauValue: `${stats.dauActiveCount} / ${stats.dauTotalCount}`,
             queriesValue: String(stats.todayQueries),
             sessionValue: `${stats.avgSessionDurationMin.toFixed(1)} min`
@@ -2986,6 +2986,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     range: number,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<GrowthResponse> {
     return await this._withTransaction(async session => {
       const resolvedEndDate = endDate ? new Date(endDate) : new Date();
@@ -3008,18 +3009,21 @@ export class ChatbotService extends BaseService implements IChatbotService {
           resolvedStartDate,
           resolvedEndDate,
           session,
+          coordinatorId,
         ),
         this.chatbotRepository.getInstalls(
           userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
+          coordinatorId,
         ),
         this.chatbotRepository.getActiveUsers(
           userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
+          coordinatorId,
         ),
       ]);
       return {
@@ -3033,9 +3037,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     });
   }
 
-  async getDuplicateQuestions(source = 'annam') {
+  async getDuplicateQuestions(source = 'annam', coordinatorId?: string) {
     try {
-      return await this.chatbotRepository.getDuplicateQuestions(source);
+      return await this.chatbotRepository.getDuplicateQuestions(source, coordinatorId);
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch duplicate questions: ${error}`,
@@ -3043,9 +3047,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDomainSpikes(days = 60) {
+  async getDomainSpikes(days = 60, coordinatorId?: string) {
     try {
-      return await this.chatbotRepository.getDomainSpikes(days);
+      return await this.chatbotRepository.getDomainSpikes(days, coordinatorId);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch domain spikes: ${error}`);
     }

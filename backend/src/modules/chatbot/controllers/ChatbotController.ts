@@ -1141,8 +1141,8 @@ export class ChatbotController {
   @Get('/duplicate-questions')
   @HttpCode(200)
   @Authorized()
-  async getDuplicateQuestions(@QueryParams() query: SourceQueryDto) {
-    return this.chatbotService.getDuplicateQuestions(query.source);
+  async getDuplicateQuestions(@QueryParams() query: {source?: string; coordinatorId?: string}) {
+    return this.chatbotService.getDuplicateQuestions(query.source || 'annam', query.coordinatorId);
   }
 
   @OpenAPI({
@@ -1153,8 +1153,8 @@ export class ChatbotController {
   @Get('/domain-spikes')
   @HttpCode(200)
   @Authorized()
-  async getDomainSpikes(@QueryParams() query: {days?: number}) {
-    return this.chatbotService.getDomainSpikes(query.days ?? 60);
+  async getDomainSpikes(@QueryParams() query: {days?: number; coordinatorId?: string}) {
+    return this.chatbotService.getDomainSpikes(query.days ?? 60, query.coordinatorId);
   }
 
   @Get('/user-growth')
@@ -1184,12 +1184,13 @@ export class ChatbotController {
         30,
         startDate,
         endDate,
+        query.coordinatorId,
       );
       return data;
     }
 
     const range = Number(query.range) || 30;
-    const data = await this.chatbotService.getGrowth(query.source, query.userType, range);
+    const data = await this.chatbotService.getGrowth(query.source, query.userType, range,undefined, undefined, query.coordinatorId,);
     return data;
   }
 

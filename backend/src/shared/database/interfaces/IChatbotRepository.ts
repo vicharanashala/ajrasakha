@@ -821,9 +821,9 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<KccAndAgriAppStats>;
 
-  getIdsCreated(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
-  getInstalls(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
-  getActiveUsers(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
+  getIdsCreated(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
+  getInstalls(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
+  getActiveUsers(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
 
   getFeedbackData(
     source?: string,
@@ -868,12 +868,14 @@ export interface IChatbotRepository {
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
   getDuplicateQuestions(
     source?: string,
+    coordinatorId?: string,
     session?: ClientSession,
   ): Promise<DuplicateQuestionEntry[]>;
 
   /** Domain query spikes: days where a domain's question count is ≥2× its 30-day rolling average. */
   getDomainSpikes(
     days?: number,
+    coordinatorId?: string,
     session?: ClientSession,
   ): Promise<DomainSpikeEntry[]>;
 

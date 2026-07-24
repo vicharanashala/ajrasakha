@@ -199,9 +199,10 @@ export interface IChatbotService {
     range: number,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<GrowthResponse>;
-  getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
-  getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
+  getDuplicateQuestions(source?: string, coordinatorId?: string): Promise<DuplicateQuestionEntry[]>;
+  getDomainSpikes(days?: number, coordinatorId?: string): Promise<DomainSpikeEntry[]>;
   getDailyQuestionTrends(
     days?: number,
     source?: string,
