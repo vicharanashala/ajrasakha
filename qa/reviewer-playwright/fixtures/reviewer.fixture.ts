@@ -2,12 +2,13 @@ import { test as base, expect, type Page } from "@playwright/test";
 import { LoginPage } from "../pages/login.page.js";
 import { DashboardPage } from "../pages/dashboard.page.js";
 import { QuestionDetailsPage } from "../pages/question-details.page.js";
-
+import { ResponsePage } from "../pages/response.page.js";
 type ReviewerFixtures = {
   environmentPage: Page;
   authenticatedPage: Page;
   dashboardPage: DashboardPage;
   questionDetailsPage: QuestionDetailsPage;
+  responsePage: ResponsePage;
 };
 
 const credentials = () => ({
@@ -52,6 +53,10 @@ export const test = base.extend<ReviewerFixtures>({
 
   questionDetailsPage: async ({ authenticatedPage }, use) => {
     await use(new QuestionDetailsPage(authenticatedPage));
+  },
+
+  responsePage: async ({ authenticatedPage }, use) => {
+    await use(new ResponsePage(authenticatedPage));
   },
 });
 
