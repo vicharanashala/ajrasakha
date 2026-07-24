@@ -6873,8 +6873,10 @@ export class ChatbotRepository implements IChatbotRepository {
     activeTodayByProfile = false,
     missingDemographicField = '',
     isVerfied?: boolean,
+    fromMap?: boolean,
     loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
+    console.log("Profile completed----", profileCompleted)
     try {
       await this.init(source);
 
@@ -6913,10 +6915,12 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
-        'farmerProfile.state': {
-          $nin: [null, ''],
-        },
       };
+      if(fromMap === true){
+       userFilter['farmerProfile.state'] ={
+        $nin: [null, ''],
+       }
+      }
       if (isVerfied !== undefined) {
         userFilter.isVerified = isVerfied;
       }
@@ -7071,6 +7075,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {farmerProfile: {$exists: true, $ne: null}},
         ];
       } else if (profileCompleted === 'no') {
+        console.log("profile completed?", profileCompleted);
         userFilter.$and = [
           ...(userFilter.$and ?? []),
           {$or: [{farmerProfile: {$exists: false}}, {farmerProfile: null}]},
