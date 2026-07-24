@@ -45,7 +45,11 @@ export class PlivoService {
   ) {
     this.sarvamApiKey = appConfig.sarvamAPI;
     this.ensureDebugDir();
-    this.plivoClient = new plivo.Client(process.env.PLIVO_AUTH_ID, process.env.PLIVO_AUTH_TOKEN, { timeout: 30000 });
+    this.plivoClient = new plivo.Client(
+      process.env.PLIVO_AUTH_ID || 'MAMAZINGDUMMYAUTHID',
+      process.env.PLIVO_AUTH_TOKEN || 'dummytoken',
+      { timeout: 30000 }
+    );
   }
 
   private ensureDebugDir(): void {

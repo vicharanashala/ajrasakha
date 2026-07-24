@@ -3,11 +3,15 @@ import webPush from 'web-push';
 import {ISubscription} from '#root/shared/index.js';
 // import { CORE_TYPES, NotificationService } from '#root/modules/core/index.js';
 // import { getContainer } from '#root/bootstrap/loadModules.js';
-webPush.setVapidDetails(
-  `mailto:${process.env.VAPID_EMAIL}`,
-  process.env.VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webPush.setVapidDetails(
+    `mailto:${process.env.VAPID_EMAIL || 'admin@ajrasakha.org'}`,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  );
+} else {
+  console.warn('[Push Notification] VAPID keys not configured in environment. Push notifications disabled.');
+}
 
 export const sendPushNotification = async (
   subscription: any,

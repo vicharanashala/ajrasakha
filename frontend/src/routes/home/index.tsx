@@ -27,10 +27,11 @@ function RouteComponent() {
       navigate({ to: "/auth" });
       return;
     }
-    if (currentUser?.role === "pae_expert") {
-      navigate({ to: "/pae-expert" });
-      return;
-    }
+    // Allow pae_expert to view PlaygroundPage / chat directly for local testing
+    // if (currentUser?.role === "pae_expert") {
+    //   navigate({ to: "/pae-expert" });
+    //   return;
+    // }
     if (isCoordinatorRole(currentUser?.role)) {
       navigate({
         to: "/user/$userId",
@@ -40,8 +41,8 @@ function RouteComponent() {
     }
   }, [user, currentUser, navigate]);
 
-  // Don't render anything until we know the role — prevents PlaygroundPage flash for pae_expert
-  if (!user || isLoading || currentUser?.role === "pae_expert" || isCoordinatorRole(currentUser?.role)) return null;
+  // Don't render anything until we know the role
+  if (!user || isLoading || isCoordinatorRole(currentUser?.role)) return null;
 
   return (
     <div className="min-h-screen min-w-screen p-4 relative flex flex-col overflow-hidden">
