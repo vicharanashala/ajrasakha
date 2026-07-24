@@ -122,45 +122,7 @@ export interface QueryCategoryQuestionsResponse {
   lifeCycleSummary: any;
 }
 
-// export const useQueryCategoryQuestions = ({
-//   category,
-//   questionType,
-//   page,
-//   limit,
-//   source,
-//   userType = "all",
-//   enabled = true,
-// }: {
-//   category?: string;
-//   questionType: QueryCategoryQuestionType;
-//   page: number;
-//   limit: number;
-//   source: string;
-//   userType?: string;
-//   enabled?: boolean;
-// }) => {
-//   return useQuery<QueryCategoryQuestionsResponse>({
-//     queryKey: [
-//       "query-category-questions",
-//       category,
-//       questionType,
-//       page,
-//       limit,
-//       source,
-//       userType,
-//     ],
-//     queryFn: () =>
-//       chatbotService.getQueryCategoryQuestions({
-//         category: category ?? "",
-//         questionType,
-//         page,
-//         limit,
-//         source,
-//         userType,
-//       }),
-//     enabled: enabled && Boolean(category),
-//   });
-// };
+
 
 export const useQuestionFilter = ({
   category,
@@ -182,7 +144,10 @@ export const useQuestionFilter = ({
   search = "",
   enabled = true,
   isPassed = false,
-  tag
+  tag,
+  userId,
+  manualSource,
+  effectiveDate,
 }: {
   category?: string;
   district?: string;
@@ -198,15 +163,16 @@ export const useQuestionFilter = ({
   limit: number;
   source: string;
   userType?: string;
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: string;
+  endDate?: string;
   search?: string;
   enabled?: boolean;
   isPassed?: boolean;
-  tag?: string;
+  tag?: string
+  userId?: string;
+  manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH";
+  effectiveDate?: string;
 }) => {
-  const stringStartDate = startDate?.toISOString();
-  const stringEndDate = endDate?.toISOString();
   
   return useQuery<QueryCategoryQuestionsResponse>({
   queryKey: [
@@ -225,11 +191,14 @@ export const useQuestionFilter = ({
     limit,
     source,
     userType,
-    stringStartDate,
-    stringEndDate,
+    startDate,
+    endDate,
     search,
     isPassed,
-    tag
+    tag,
+    userId,
+    manualSource,
+    effectiveDate,
   ],
     queryFn: () =>
       chatbotService.getQuestionByFilters({
@@ -247,11 +216,14 @@ export const useQuestionFilter = ({
         limit,
         source,
         userType,
-        stringStartDate,
-        stringEndDate,
+        startDate,
+        endDate,
         search,
         isPassed,
-        tag
+        tag,
+        userId,
+        manualSource,
+        effectiveDate,
       }),
     enabled: enabled && Boolean(category || district || crop || status || true),
   });
@@ -292,16 +264,17 @@ export const useAllWhatsappUsers = () => {
   });
 };
 
-export const useClosedAndNotifedData = (source: string, userType: string, startDate?: string, endDate?: string, enabled: boolean = true)=>{
+export const useClosedAndNotifedData = (source: string, userType: string, startDate?: string, endDate?: string, enabled: boolean = true, userId?: string)=>{
   return useQuery({
     queryKey: ["closed-notified-data",
       source,
       userType,
       startDate,
       endDate,
+      userId,
     ],
     queryFn: () => {
-      return chatbotService.getClosedAndNotifedData(source, userType, startDate, endDate);
+      return chatbotService.getClosedAndNotifedData(source, userType, startDate, endDate, userId);
     },
     // Removed placeholderData to ensure proper refetch
     staleTime: 1000 * 60 * 2, // 2 minutes
@@ -360,6 +333,8 @@ export const useActiveUserDetails = ({
   district,
   state,
   search,
+  startDate,
+  endDate,
   enabled = true
 }:{
   page: number,
@@ -369,6 +344,8 @@ export const useActiveUserDetails = ({
   district?: string,
   state?: string,
   search?: string
+  startDate?: string,
+  endDate?: string,
   enabled: boolean
 })=>{
   return useQuery<any>({
@@ -380,7 +357,9 @@ export const useActiveUserDetails = ({
       userType,
       district,
       state,
-      search
+      search,
+      startDate,
+      endDate,
     ],
     queryFn: ()=>{
       return chatbotService.getActiveUserDetails({
@@ -390,7 +369,9 @@ export const useActiveUserDetails = ({
         userType,
         district: district ?? '',
         state: state ?? '',
-        search: search ?? ''
+        search: search ?? '',
+        startDate,
+        endDate
       })
     },
     enabled,
@@ -450,8 +431,11 @@ export const useLifeCycleSummary = (
   isPassed?: boolean,
   tag?: string,
   notificationType?: string,
+  userId?: string,
   page?: number,
   limit?: number,
+  manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH",
+  effectiveDate?: string,
   enabled=true) => {
   return useQuery({
     queryKey: [
@@ -464,8 +448,11 @@ export const useLifeCycleSummary = (
       isPassed,
       tag,
       notificationType,
+      userId,
       page,
       limit,
+      manualSource,
+      effectiveDate,
     ],
     queryFn: () => {
       return chatbotService.getLifeCycleSummary(  
@@ -477,8 +464,11 @@ export const useLifeCycleSummary = (
         isPassed,
         tag,
         notificationType,
+        userId,
         page,
-        limit);
+        limit,
+        manualSource,
+        effectiveDate);
     },
     enabled,
     refetchOnWindowFocus: false,
@@ -530,3 +520,56 @@ export const useTopQuestionInstances = ({
     enabled: enabled && Boolean(questionId),
   });
 };
+
+export const useActiveUserDetailsByQuestion = ({
+  page,
+  limit,
+  source,
+  userType,
+  district,
+  state,
+  search,
+  startDate,
+  endDate,
+  enabled = true
+}:{
+  page: number,
+  limit: number,
+  source: string,
+  userType: string,
+  district?: string,
+  state?: string,
+  search?: string
+  startDate?: string,
+  endDate?: string,
+  enabled: boolean
+})=>{
+  return useQuery<any>({
+    queryKey: [
+      "get-active-user-details",
+      page,
+      limit,
+      source,
+      userType,
+      district,
+      state,
+      search,
+      startDate,
+      endDate,
+    ],
+    queryFn: ()=>{
+      return chatbotService.getActiveUsersDetailsByQuestions({
+        page,
+        limit,
+        source,
+        userType,
+        district: district ?? '',
+        state: state ?? '',
+        search: search ?? '',
+        startDate,
+        endDate
+      })
+    },
+    enabled,
+  })
+}

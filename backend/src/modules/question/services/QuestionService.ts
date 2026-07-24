@@ -21,6 +21,7 @@ import {
   IAuthorsHistory,
   QuestionStatus,
   QuestionSource,
+  UserRole,
   TIME_BOUND_SOURCES,
   MANUAL_SOURCES,
 } from '#root/shared/interfaces/models.js';
@@ -655,6 +656,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     extracted_state: string;
     extracted_district: string;
     extracted_domain?: string | string[];
+    extracted_name?: string;
+    extracted_phone?: string;
+    extracted_age?: number;
+    extracted_gender?: string;
+    extracted_village?: string;
+    extracted_block?: string;
+    extracted_primary_crop?: string;
   }> {
     try {
       const result = await this.accAgentService.extractData(threadId, transcript);
@@ -678,6 +686,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       district: string;
       domain: string | string[];
       season: string;
+      farmerName?: string;
+      farmerPhone?: string;
+      farmerAge?: number;
+      farmerGender?: string;
+      farmerVillage?: string;
+      farmerBlock?: string;
+      farmerPrimaryCrop?: string;
     }
   ): Promise<void> {
     try {
@@ -1264,11 +1279,16 @@ export class QuestionService extends BaseService implements IQuestionService {
           : result.referenceQuestionId
             ? new ObjectId(String(result.referenceQuestionId))
             : null;
+      
+      // Get submission to check queue length
+      const questionSubmission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const queueLength = questionSubmission?.queue?.length || 0;
+      
       // Only flip the status to 'duplicate' when the question is still open/delayed.
       // For any other status (in-review, closed, etc.) the workflow is already past
       // that point, so the status must not change — we just record the reference.
       const canMarkDuplicate =
-        question.status === 'open' || question.status === 'delayed';
+        (question.status === 'open' || question.status === 'delayed') && queueLength === 0;
       await this.questionRepo.updateQuestion(questionId, {
         ...(canMarkDuplicate ? { status: 'duplicate' } : {}),
         similarityScore: result.similarityScore,
@@ -1283,6 +1303,31 @@ export class QuestionService extends BaseService implements IQuestionService {
           ? 'Duplicate detected and question updated.'
           : `Duplicate detected; status left unchanged (question is '${question.status}').`,
         isDuplicate: true,
+        referenceQuestionId: refId?.toString(),
+      };
+    }
+
+    if (result.isQueueDuplicate) {
+      const refId = result.referenceQuestionId instanceof ObjectId
+        ? result.referenceQuestionId
+        : result.referenceQuestionId
+          ? new ObjectId(String(result.referenceQuestionId))
+          : null;
+      const canMarkQueue =
+        question.status === 'open' || question.status === 'delayed';
+      await this.questionRepo.updateQuestion(questionId, {
+        ...(canMarkQueue ? { status: 'queue_duplicate', isAutoAllocate: false } : {}),
+        similarityScore: result.similarityScore,
+        referenceQuestionId: refId,
+        referenceQuestion: result.referenceQuestion,
+        referenceSource: result.referenceSource,
+        isDuplicateChecked: true,
+      });
+      return {
+        message: canMarkQueue
+          ? 'Found in the GDB pending-duplicate queue.'
+          : `In GDB queue; status left unchanged (question is '${question.status}').`,
+        isDuplicate: false,
         referenceQuestionId: refId?.toString(),
       };
     }
@@ -1307,6 +1352,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     logData: Record<string, any>,
   ): Promise<{
     isDuplicate: boolean;
+    isQueueDuplicate?: boolean;
     isNonAgri?: boolean;
     referenceQuestionId?: ObjectId | string | null;
     referenceQuestion?: string;
@@ -1325,7 +1371,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       rephrased_query: baseQuestion.question,
     });
 
-    console.log('[runDuplicateCheckPipeline] gdbResult:', gdbResult);
 
     const extractObjectId = (id: any): ObjectId | null => {
       const raw = id?.$oid ?? id;
@@ -1374,7 +1419,46 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
     }
 
-    // No GDB match — call LLM directly to classify non-agri vs agri (no embedding search)
+    // No GDB duplicate match — check the GDB pending-duplicate queue before falling
+    // through to the LLM, so the LLM classification only runs when the question is
+    // neither a duplicate nor already in the queue (single LLM call site).
+    try {
+      const pendingResult = await this.aiService.checkPendingDuplicate({
+        rephrased_query: baseQuestion.question,
+        crop: cropName,
+        state: details.state,
+        createdAt: baseQuestion.createdAt,
+      });
+      // A `detail` field means the GDB server didn't find a queued match.
+      // Reference details come from the top-level response (duplicate_question_id /
+      // query / similarity_score), not the candidates_checked array.
+      const dupId =
+        pendingResult?.duplicate_question_id ?? pendingResult?.matched_question_id;
+      // Only treat as a queue-duplicate when the GDB returned a usable reference id —
+      // a null/undefined duplicate_question_id means no queued match.
+      const foundInGdbQueue =
+        !!pendingResult &&
+        !pendingResult.detail &&
+        typeof dupId === 'string' &&
+        dupId.trim().length > 0;
+      if (foundInGdbQueue) {
+        const refId = /^[a-f\d]{24}$/i.test(dupId) ? new ObjectId(dupId) : null;
+        return {
+          isDuplicate: false,
+          isQueueDuplicate: true,
+          referenceQuestionId: refId,
+          referenceQuestion: pendingResult!.query,
+          referenceSource: 'reviewer',
+          similarityScore: Number(((pendingResult!.similarity_score ?? 0) * 100).toFixed(2)),
+        };
+      }
+    } catch (queueError: any) {
+      console.warn(
+        `[runDuplicateCheckPipeline] check-pending-duplicate failed: ${queueError?.message}`,
+      );
+    }
+
+    // No GDB match and not in the queue — call LLM to classify non-agri vs agri.
     try {
       const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
       if (llmResult.isNonAgri) {
@@ -1550,6 +1634,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           contextId,
           details,
           isAutoAllocate: !(source === 'AJRASAKHA' || source === 'WHATSAPP'),
+          // New questions are eligible for gate-keeper / auditor auto-allocation by
+          // default; the cron only picks them up once they reach a matching status.
+          autoAllocateGateKeeper: true,
+          autoAllocateAuditor: true,
           embedding: textEmbedding,
           metrics: null,
           aiInitialAnswer,
@@ -1802,6 +1890,13 @@ export class QuestionService extends BaseService implements IQuestionService {
               logData,
             );
 
+            const refId = result.referenceQuestionId instanceof ObjectId
+              ? result.referenceQuestionId
+              : result.referenceQuestionId
+                ? new ObjectId(String(result.referenceQuestionId))
+                : null;
+
+            // 1. Duplicate
             if (result.isDuplicate) {
               const refId =
                 result.referenceQuestionId instanceof ObjectId
@@ -1822,6 +1917,21 @@ export class QuestionService extends BaseService implements IQuestionService {
               return;
             }
 
+            // 2. Found in the GDB pending-duplicate queue → carry the matched reference
+            //    details and turn auto-allocate off.
+            if (result.isQueueDuplicate) {
+              await this.questionRepo.updateQuestion(questionId, {
+                status: 'queue_duplicate',
+                isAutoAllocate: false,
+                similarityScore: result.similarityScore,
+                referenceQuestionId: refId,
+                referenceQuestion: result.referenceQuestion,
+                referenceSource: result.referenceSource,
+              });
+              return;
+            }
+
+            // 3. Non-agri (LLM) → non_agri, else → open.
             if (result.isNonAgri) {
               await this.questionRepo.updateQuestion(questionId, {
                 status: 'non_agri',
@@ -1835,7 +1945,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             });
           } catch (pipelineError: any) {
             console.error(
-              '[processQuestionInBackground] Duplicate check pipeline failed, proceeding as open:',
+              '[processQuestionInBackground] duplicate/queue pipeline failed, proceeding as open:',
               pipelineError?.message,
             );
             await this.questionRepo.updateQuestion(questionId, {
@@ -2115,7 +2225,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           updates.details.normalised_crop = normalised_crop;
         }
       }
-      return this._withTransaction(async (session: ClientSession) => {
+      const result = await this._withTransaction(async (session: ClientSession) => {
         const existingQuestion = await this.questionRepo.getById(
           questionId,
           session,
@@ -2200,8 +2310,27 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
           }
         }
+        // Auditor "Notify User" flow closes dynamic questions as `dynamic_closed` and
+        // duplicate questions as `duplicate_closed`. Stamp closedAt/isClosed just like the
+        // regular `closed` transition so analytics and closed-question filters treat them
+        // consistently.
+        if (
+          updates.status === 'dynamic_closed' ||
+          updates.status === 'duplicate_closed'
+        ) {
+          updates.isClosed = true;
+          if (!updates.closedAt) updates.closedAt = new Date();
+        }
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
+
+      // After commit: if the status changed, free any gate keeper / auditor whose
+      // handling scope the question has now left (pass / push-to-auditor / close, etc.)
+      // so the role queue cron can hand them another question.
+      if (!threadUpdate && updates.status) {
+        await this.freeRoleAssigneeOnStatusChange(questionId, updates.status);
+      }
+      return result;
     } catch (error) {
       throw new InternalServerError(`Failed to update question: ${error}`);
     }
@@ -3868,9 +3997,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
   ): Promise<{
     question: IQuestion | null;
-    approved_moderator: { name: string; email: string };
-    assigned_moderator: { name: string; email: string } | null;
+    approved_moderator: {name: string; email: string};
+    assigned_moderator: {name: string; email: string} | null;
+    assigned_gate_keeper: {name: string; email: string} | null;
+    assigned_auditor: {name: string; email: string} | null;
     isAssignedModerator: boolean;
+    isAssignedGateKeeper: boolean;
+    isAssignedAuditor: boolean;
   }> {
     try {
       const user = await this.userRepo.findById(userId);
@@ -3924,10 +4057,41 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
+      // Resolve the currently assigned gate keeper / auditor (role queue), same as
+      // the moderator resolution above.
+      let assigned_gate_keeper: {name: string; email: string} | null = null;
+      const assignedGateKeeperId = (question as any).gateKeeperId?.toString();
+      if (assignedGateKeeperId && ObjectId.isValid(assignedGateKeeperId)) {
+        const u = await this.userRepo.findById(assignedGateKeeperId);
+        if (u) {
+          assigned_gate_keeper = {
+            name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
+            email: u.email,
+          };
+        }
+      }
+      let assigned_auditor: {name: string; email: string} | null = null;
+      const assignedAuditorId = (question as any).auditorId?.toString();
+      if (assignedAuditorId && ObjectId.isValid(assignedAuditorId)) {
+        const u = await this.userRepo.findById(assignedAuditorId);
+        if (u) {
+          assigned_auditor = {
+            name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
+            email: u.email,
+          };
+        }
+      }
+
       // Whether the requesting user is the moderator this question is assigned to.
       // Used by the UI to gate the Pass / Accept / Push to GDB actions.
       const isAssignedModerator =
         !!assignedModeratorId && assignedModeratorId === userId;
+      // Same, for the gate keeper / auditor role queues — computed server-side to
+      // avoid ObjectId serialization mismatches when comparing ids on the client.
+      const isAssignedGateKeeper =
+        !!assignedGateKeeperId && assignedGateKeeperId === userId;
+      const isAssignedAuditor =
+        !!assignedAuditorId && assignedAuditorId === userId;
 
       // Resolve user email from conversation collection using threadId
       let threadUserEmail: string | null = null;
@@ -3945,7 +4109,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         },
         approved_moderator,
         assigned_moderator,
+        assigned_gate_keeper,
+        assigned_auditor,
         isAssignedModerator,
+        isAssignedGateKeeper,
+        isAssignedAuditor,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
@@ -4012,6 +4180,184 @@ export class QuestionService extends BaseService implements IQuestionService {
         previousModeratorId,
         questionId,
       );
+    }
+  }
+
+  /** Field mapping for the gate-keeper / auditor role assignee on a question. */
+  private roleAssigneeFields(role: 'gate_keeper' | 'auditor'): {
+    assigneeField: 'gateKeeperId' | 'auditorId';
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt';
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt';
+  } {
+    return role === 'gate_keeper'
+      ? {
+          assigneeField: 'gateKeeperId',
+          assignedAtField: 'gateKeeperAssignedAt',
+          finishedAtField: 'gateKeeperFinishedAt',
+        }
+      : {
+          assigneeField: 'auditorId',
+          assignedAtField: 'auditorAssignedAt',
+          finishedAtField: 'auditorFinishedAt',
+        };
+  }
+
+  /**
+   * Once a gate keeper / auditor has submitted their response (finishedAt is set) their
+   * assignment is settled — reassigning or removing it would orphan work that has already
+   * been recorded against them. Callers must re-open the question first.
+   */
+  private assertRoleNotFinished(
+    question: unknown,
+    role: 'gate_keeper' | 'auditor',
+  ): void {
+    const {finishedAtField} = this.roleAssigneeFields(role);
+    if ((question as any)?.[finishedAtField]) {
+      const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
+      throw new BadRequestError(
+        `This question's ${noun} has already submitted their response, so the ${noun} can no longer be changed.`,
+      );
+    }
+  }
+
+  /** Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts
+   *  plus their paginated question list. "Submitted" = they finished it (finishedAt set).
+   *  Supports optional date range filtering by assigned date, completed date, or both. */
+  async getRoleAssigneeDashboard(
+    userId: string,
+    role: 'gate_keeper' | 'auditor',
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
+  ) {
+    const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+    const finishedField =
+      role === 'gate_keeper' ? 'gateKeeperFinishedAt' : 'auditorFinishedAt';
+    return this.questionRepo.getRoleAssigneeDashboard(
+      userId,
+      assigneeField,
+      finishedField,
+      assignedAtField,
+      page,
+      limit,
+      search,
+      startDate,
+      endDate,
+      dateFilterType,
+    );
+  }
+
+  /** Manually (re)assign the gate keeper / auditor for a question — mirrors
+   *  changeQuestionModerator: pulls the question from the previous assignee's
+   *  assignedQuestionIds and appends it to the new assignee's. */
+  async changeQuestionRoleAssignee(
+    questionId: string,
+    role: 'gate_keeper' | 'auditor',
+    userId: string,
+    actorName?: string,
+  ): Promise<void> {
+    const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+    const question = await this.questionRepo.getById(questionId);
+    this.assertRoleNotFinished(question, role);
+    const previousId = (question as any)?.[assigneeField]?.toString();
+    const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
+
+    await this.questionRepo.setRoleAssignee(
+      questionId,
+      assigneeField,
+      assignedAtField,
+      userId,
+    );
+
+    if (previousId && ObjectId.isValid(previousId) && previousId !== userId) {
+      await this.userRepo.removeAssignedQuestion(previousId, questionId);
+
+      // Notify the replaced user that their allocation was taken away, naming who did it.
+      try {
+        const by = actorName ? ` by ${actorName}` : '';
+        await this.notificationService.saveTheNotifications(
+          `This question's ${noun} allocation has been removed${by}.`,
+          'Allocation Removed',
+          questionId,
+          previousId,
+          'moderator_approval',
+        );
+      } catch (err: any) {
+        console.error(
+          `[RoleAssignee] Failed to send reassignment-removal notification for ${questionId} → ${previousId}:`,
+          err?.message,
+        );
+      }
+    }
+    await this.userRepo.addAssignedQuestion(
+      userId,
+      questionId,
+      ((question as any)?.status ?? 'open') as QuestionStatus,
+      (question as any)?.source,
+    );
+
+    // Notify the newly-assigned user, mirroring the auto-allocation cron so a manual
+    // assignment by a moderator/admin triggers the same "Question Assigned" alert.
+    try {
+      await this.notificationService.saveTheNotifications(
+        role === 'gate_keeper'
+          ? 'A question has been assigned to you for review'
+          : 'A question has been assigned to you for audit',
+        'Question Assigned',
+        questionId,
+        userId,
+        'moderator_approval',
+      );
+    } catch (err: any) {
+      console.error(
+        `[RoleAssignee] Failed to send assignment notification for ${questionId} → ${userId}:`,
+        err?.message,
+      );
+    }
+  }
+
+  /** Remove the gate keeper / auditor currently assigned to a question. When an actor
+   *  name is supplied (manual removal by a moderator/admin), the removed user is notified
+   *  that their allocation was taken away and by whom. */
+  async removeQuestionRoleAssignee(
+    questionId: string,
+    role: 'gate_keeper' | 'auditor',
+    actorName?: string,
+  ): Promise<void> {
+    const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+    const question = await this.questionRepo.getById(questionId);
+    this.assertRoleNotFinished(question, role);
+    const previousId = (question as any)?.[assigneeField]?.toString();
+
+    await this.questionRepo.setRoleAssignee(
+      questionId,
+      assigneeField,
+      assignedAtField,
+      null,
+    );
+
+    if (previousId && ObjectId.isValid(previousId)) {
+      await this.userRepo.removeAssignedQuestion(previousId, questionId);
+
+      // Notify the user who lost the assignment, naming who removed it.
+      try {
+        const by = actorName ? ` by ${actorName}` : '';
+        await this.notificationService.saveTheNotifications(
+          `This question's ${role === 'gate_keeper' ? 'gate keeper' : 'auditor'} allocation has been removed${by}.`,
+          'Allocation Removed',
+          questionId,
+          previousId,
+          'moderator_approval',
+        );
+      } catch (err: any) {
+        console.error(
+          `[RoleAssignee] Failed to send removal notification for ${questionId} → ${previousId}:`,
+          err?.message,
+        );
+      }
     }
   }
 
@@ -4135,13 +4481,18 @@ export class QuestionService extends BaseService implements IQuestionService {
         questionId.toString(),
         session,
       );
-      if (question.isAutoAllocate === false) {
-        await this.questionRepo.updateAutoAllocate(
-          questionId.toString(),
-          true,
-          session,
+
+      // Do NOT reset isAutoAllocate here. If a moderator deliberately turned off
+      // auto-allocation for this question, that decision must be respected even
+      // when the absent-expert cleanup removes experts from the queue.
+      // Only attempt re-allocation when the question still has isAutoAllocate: true.
+      if (!question.isAutoAllocate) {
+        console.log(
+          `[AbsentExpert] Skipping auto-reallocation for question ${questionId} — isAutoAllocate is false (moderator override).`,
         );
+        continue;
       }
+
       const latestSubmission =
         await this.questionSubmissionRepo.getByQuestionId(
           questionId.toString(),
@@ -5803,6 +6154,36 @@ export class QuestionService extends BaseService implements IQuestionService {
       content: message.content || [],
     };
   }
+
+  async getQuestionFeedback(questionId: string) {
+    const questionData = await this.questionRepo.getById(questionId);
+
+    if (!questionData) {
+      throw new Error('Question not found');
+    }
+
+    const { question, details, createdAt, messageId } = questionData;
+
+    const annamMessages = await this.chatbotRepository.findFromSecondDb({
+      question,
+      details,
+      createdAt,
+      questionId: questionId.toString(),
+      messageId: messageId ? messageId.toString() : undefined,
+    });
+
+    const message = annamMessages?.[0];
+
+    return {
+      feedback: message?.feedback || null,
+      user: {
+        username: message?.userDetails?.username || 'N/A',
+        email: message?.userDetails?.email || '',
+        avatar: message?.userDetails?.avatar || null,
+      },
+      createdAt: message?.createdAt ? new Date(message.createdAt).toISOString() : '',
+    };
+  }
   async checkStatus(questionIds: string[]): Promise<ICheckStatusResponse[]> {
     const result =
       await this.questionRepo.getQuestionsWithAnswerDetails(questionIds);
@@ -6496,6 +6877,187 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
       throw new InternalServerError(
         `Moderator queue cron failed: ${error?.message}`,
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // GATE KEEPER / AUDITOR QUEUE CRON
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /** Statuses each role handles (drives both assignment and auto-freeing). */
+  private static readonly GATE_KEEPER_STATUSES: QuestionStatus[] = [
+    'dynamic',
+    'duplicate',
+    'queue_duplicate',
+  ];
+  private static readonly AUDITOR_STATUSES: QuestionStatus[] = ['auditor_review'];
+
+  /**
+   * Gate-keeper / auditor single-allocation cron. One question per user at a time:
+   *   - dynamic / duplicate / queue_duplicate  → a free gate keeper
+   *   - auditor_review                          → a free auditor
+   * The assignee is recorded on the question (gateKeeperId / auditorId) and on the
+   * user (assignedQuestionIds). They're freed when they act on the question — see
+   * freeRoleAssigneeOnStatusChange.
+   */
+  async runGateKeeperAuditorQueueCron(): Promise<{
+    gateKeeperAssigned: number;
+    auditorAssigned: number;
+  }> {
+    const gateKeeperAssigned = await this.assignRoleQueue({
+      label: 'GateKeeper',
+      role: 'gate_keeper',
+      statuses: QuestionService.GATE_KEEPER_STATUSES,
+      assigneeField: 'gateKeeperId',
+      assignedAtField: 'gateKeeperAssignedAt',
+      autoAllocateField: 'autoAllocateGateKeeper',
+      notificationTitle: 'Question Assigned',
+      notificationMessage: 'A question has been assigned to you for review',
+    });
+    const auditorAssigned = await this.assignRoleQueue({
+      label: 'Auditor',
+      role: 'auditor',
+      statuses: QuestionService.AUDITOR_STATUSES,
+      assigneeField: 'auditorId',
+      assignedAtField: 'auditorAssignedAt',
+      autoAllocateField: 'autoAllocateAuditor',
+      notificationTitle: 'Question Assigned',
+      notificationMessage: 'A question has been assigned to you for audit',
+    });
+    return { gateKeeperAssigned, auditorAssigned };
+  }
+
+  /** Assigns one unassigned question (in the given statuses) to each free user of a
+   *  role, updating both the question and the user's assigned list. Best-effort. */
+  private async assignRoleQueue(cfg: {
+    label: string;
+    role: UserRole;
+    statuses: QuestionStatus[];
+    assigneeField: 'gateKeeperId' | 'auditorId';
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt';
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor';
+    notificationTitle: string;
+    notificationMessage: string;
+  }): Promise<number> {
+    try {
+      const [users, questions] = await Promise.all([
+        this.userRepo.findAvailableUsersByRole(cfg.role),
+        this.questionRepo.findUnassignedQuestionsForRole(
+          cfg.statuses,
+          cfg.assigneeField,
+          cfg.autoAllocateField,
+        ),
+      ]);
+      if (!users.length || !questions.length) return 0;
+
+      let assigned = 0;
+      const claimed = new Set<string>();
+      for (const user of users) {
+        const userId = user._id!.toString();
+        const next = questions.find(q => !claimed.has(q._id!.toString()));
+        if (!next) break; // no more questions this run
+        const questionId = next._id!.toString();
+        claimed.add(questionId);
+        try {
+          // Run the three writes in one transaction so a failure in any of them
+          // rolls back the whole assignment (no half-assigned question / user).
+          await this._withTransaction(async (session: ClientSession) => {
+            await this.questionRepo.setRoleAssignee(
+              questionId,
+              cfg.assigneeField,
+              cfg.assignedAtField,
+              userId,
+              session,
+            );
+            await this.userRepo.addAssignedQuestion(
+              userId,
+              questionId,
+              next.status,
+              next.source,
+              session,
+            );
+            await this.notificationService.saveTheNotifications(
+              cfg.notificationMessage,
+              cfg.notificationTitle,
+              questionId,
+              userId,
+              'moderator_approval',
+              session,
+            );
+          });
+          console.log(
+            `[${cfg.label}] Assigned question ${questionId} → ${cfg.role} ${userId}`,
+          );
+          assigned++;
+        } catch (err: any) {
+          claimed.delete(questionId);
+          console.error(
+            `[${cfg.label}] Failed to assign ${questionId} → ${userId}:`,
+            err?.message,
+          );
+        }
+      }
+      console.log(`[${cfg.label}] Done. assigned=${assigned}`);
+      return assigned;
+    } catch (error: any) {
+      console.error(`[${cfg.label}] queue cron failed:`, error?.message);
+      return 0;
+    }
+  }
+
+  /**
+   * Free the gate keeper / auditor assigned to a question once its status moves out
+   * of that role's handling statuses (i.e. they've acted on it — pass / allocate
+   * experts / push to auditor for a gate keeper; push to GDB / notify user for an
+   * auditor). Clears the assignee field on the question and removes it from the
+   * user's assigned list so the cron can hand them another. Best-effort; never throws.
+   */
+  async freeRoleAssigneeOnStatusChange(
+    questionId: string,
+    newStatus?: QuestionStatus,
+  ): Promise<void> {
+    try {
+      const question = await this.questionRepo.getById(questionId);
+      if (!question) return;
+      // Fall back to the question's current (already-committed) status when the caller
+      // doesn't pass one — e.g. after an answer approval/close.
+      const status = newStatus ?? question.status;
+
+      // When the question leaves the role's handling statuses, the assignee has acted:
+      // free the user (assignedQuestionIds) and stamp finishedAt — but keep the assignee
+      // id on the question for history/timeline. Guarded by finishedAt so a later status
+      // change doesn't overwrite the original finish time.
+      const gkId = (question as any).gateKeeperId?.toString();
+      if (gkId && !QuestionService.GATE_KEEPER_STATUSES.includes(status)) {
+        // Always pull the question from the gate keeper's assigned list so they're
+        // freed (e.g. on cancel duplicate → open). Only stamp finishedAt once so a
+        // later status change doesn't overwrite the original finish time.
+        await this.userRepo.removeAssignedQuestion(gkId, questionId);
+        if (!(question as any).gateKeeperFinishedAt) {
+          await this.questionRepo.markRoleFinished(
+            questionId,
+            'gateKeeperFinishedAt',
+            new Date(),
+          );
+        }
+      }
+
+      const audId = (question as any).auditorId?.toString();
+      if (audId && !QuestionService.AUDITOR_STATUSES.includes(status)) {
+        await this.userRepo.removeAssignedQuestion(audId, questionId);
+        if (!(question as any).auditorFinishedAt) {
+          await this.questionRepo.markRoleFinished(
+            questionId,
+            'auditorFinishedAt',
+            new Date(),
+          );
+        }
+      }
+    } catch (err: any) {
+      console.error(
+        `[RoleAssignee] Failed to free assignee for ${questionId}:`,
+        err?.message,
       );
     }
   }
@@ -7558,6 +8120,74 @@ export class QuestionService extends BaseService implements IQuestionService {
         return { count: mods.length, items };
       }
 
+      // ── Gate keeper / auditor role queues (mirror the moderator queue sections) ──
+      case 'gateKeeperWaiting':
+      case 'auditorWaiting': {
+        const isGK = section === 'gateKeeperWaiting';
+        const qs = await this.questionRepo.findUnassignedQuestionsForRole(
+          isGK
+            ? QuestionService.GATE_KEEPER_STATUSES
+            : QuestionService.AUDITOR_STATUSES,
+          isGK ? 'gateKeeperId' : 'auditorId',
+          isGK ? 'autoAllocateGateKeeper' : 'autoAllocateAuditor',
+        );
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        return {
+          count,
+          items: pageQs.map(q => this.submissionToQueueItem({question: q})),
+        };
+      }
+
+      case 'gateKeeperAllocated':
+      case 'auditorAllocated': {
+        const isGK = section === 'gateKeeperAllocated';
+        const assigneeField = isGK ? 'gateKeeperId' : 'auditorId';
+        const qs = await this.questionRepo.findQuestionsAssignedToRole(
+          assigneeField,
+          isGK
+            ? QuestionService.GATE_KEEPER_STATUSES
+            : QuestionService.AUDITOR_STATUSES,
+        );
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        const ids = pageQs
+          .map(q => (q as any)[assigneeField]?.toString())
+          .filter(Boolean) as string[];
+        const names = await this.resolveExpertNames(ids);
+        const items: QueueQuestionItem[] = pageQs.map(q => {
+          const id = (q as any)[assigneeField]?.toString();
+          return {
+            ...this.submissionToQueueItem({question: q}),
+            assigneeName: id ? (names.get(id) ?? 'Unknown') : undefined,
+          };
+        });
+        return {count, items};
+      }
+
+      case 'availableGateKeepers':
+      case 'availableAuditors': {
+        const role =
+          section === 'availableGateKeepers' ? 'gate_keeper' : 'auditor';
+        const users = (await this.userRepo.findAvailableUsersByRole(
+          role,
+        )) as any[];
+        const items: QueueExpertItem[] = users
+          .slice(skip, skip + safeLimit)
+          .map(u => ({
+            _id: u._id.toString(),
+            name:
+              `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+              u.email ||
+              'Unknown',
+            email: u.email,
+            reputationScore: u.reputation_score,
+            role: u.role,
+            isSpecialTaskForce: u.special_task_force === true,
+          }));
+        return {count: users.length, items};
+      }
+
       default:
         return { count: 0, items: [] };
     }
@@ -7616,6 +8246,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       moderatorAllocatedManual,
       availableModeratorsTimeBound,
       availableModeratorsManual,
+      gateKeeperWaiting,
+      gateKeeperAllocated,
+      availableGateKeepers,
+      auditorWaiting,
+      auditorAllocated,
+      availableAuditors,
       receivedStatusCounts,
     ] = await Promise.all([
       safe('received'),
@@ -7638,6 +8274,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       safe('moderatorAllocatedManual'),
       safe('availableModeratorsTimeBound'),
       safe('availableModeratorsManual'),
+      safe('gateKeeperWaiting'),
+      safe('gateKeeperAllocated'),
+      safe('availableGateKeepers'),
+      safe('auditorWaiting'),
+      safe('auditorAllocated'),
+      safe('availableAuditors'),
       // Separate aggregation — not a paginatable section, so call directly
       this.questionRepo
         .getReceivedStatusCounts(startTime, endTime)
@@ -7685,6 +8327,28 @@ export class QuestionService extends BaseService implements IQuestionService {
         availableModeratorsTimeBound as QueueDetailsResponse['availableModeratorsTimeBound'],
       availableModeratorsManual:
         availableModeratorsManual as QueueDetailsResponse['availableModeratorsManual'],
+
+      // ── Gate keeper / auditor role queues ──
+      gateKeeperWaiting:
+        gateKeeperWaiting as QueueDetailsResponse['gateKeeperWaiting'],
+      gateKeeperAllocated:
+        gateKeeperAllocated as QueueDetailsResponse['gateKeeperAllocated'],
+      availableGateKeepers:
+        availableGateKeepers as QueueDetailsResponse['availableGateKeepers'],
+      auditorWaiting: auditorWaiting as QueueDetailsResponse['auditorWaiting'],
+      auditorAllocated:
+        auditorAllocated as QueueDetailsResponse['auditorAllocated'],
+      availableAuditors:
+        availableAuditors as QueueDetailsResponse['availableAuditors'],
     };
+  }
+
+  /**
+   * Remove the second entry from history and queue arrays in a question submission.
+   * This is used for migration purposes to fix duplicate entries.
+   * @param submissionId - The submission document ID
+   */
+  async backgroundProcessAction(submissionId: string): Promise<{ modifiedCount: number }> {
+    return this.questionSubmissionRepo.backgroundProcessAction(submissionId);
   }
 }

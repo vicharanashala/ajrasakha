@@ -318,8 +318,13 @@ export class AiService {
       }
 
       const fullUrl = `${this._whatsAppServerUrl}/threads/${threadId}/state`;
-
-      const response = await fetch(fullUrl);
+      console.log("Full url ", fullUrl);
+      let response;
+      try{
+      response = await fetch(fullUrl);
+      }catch(err){
+        console.error("Error fetching WhatsApp message:", err);
+      }
 
       if (!response.ok) {
         console.error("Failed to fetch WhatsApp message:", response.statusText);
@@ -533,6 +538,74 @@ export class AiService {
     }
   }
 
+  /** Check whether a pending question is a duplicate of an already-answered one.
+   *  POST {gdbServerUrl}/v1/gdb/check-pending-duplicate
+   *       { rephrased_query, crop, state, createdAt }.
+   *  When a match exists, returns the duplicate-check result (is_duplicate, …).
+   *  When nothing matches, the GDB server replies with { detail: "…" } — that body is
+   *  returned as-is (not null) so callers can distinguish "not found" from a transport
+   *  error (which returns null). */
+  async checkPendingDuplicate(params: {
+    rephrased_query: string;
+    crop: string;
+    state: string;
+    createdAt?: Date | string | null;
+  }): Promise<GdbPendingDuplicateResponse | null> {
+    try {
+      const response = await fetch(
+        `${this._gdbServerUrl}/v1/gdb/check-pending-duplicate`,
+        {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(params),
+        },
+      );
+
+      const data = (await response.json().catch(() => null)) as
+        | GdbPendingDuplicateResponse
+        | null;
+
+      // A "question not found" reply (non-2xx, but carrying a `detail`) is a valid
+      // outcome the caller acts on — surface it. Only treat it as a failure when the
+      // response isn't ok AND there's no parseable body to act on.
+      if (!response.ok && !data?.detail) {
+        console.error(
+          `[checkPendingDuplicate] Failed: ${response.status} ${response.statusText}`,
+        );
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('[checkPendingDuplicate] Error:', error);
+      return null;
+    }
+  }
+
+}
+
+export interface GdbPendingDuplicateCandidate {
+  question_id: string;
+  reference_question_id: string | null;
+  question: string;
+  similarity_score: number;
+  created_at: string;
+  is_duplicate: boolean;
+}
+
+export interface GdbPendingDuplicateResponse {
+  is_duplicate?: boolean;
+  duplicate_question_id?: string | null;
+  matched_question_id?: string | null;
+  similarity_score?: number;
+  match_type?: string;
+  query?: string;
+  crop?: string;
+  state?: string;
+  candidates_checked?: GdbPendingDuplicateCandidate[];
+  audit?: any;
+  /** Present (with a non-2xx status) when the question_id wasn't found. */
+  detail?: string;
 }
 
 export interface GdbMatchItem {

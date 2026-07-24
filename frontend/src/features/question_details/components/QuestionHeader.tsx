@@ -11,6 +11,9 @@ import { useState } from "react";
 import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
 import { useManualCheckDuplicate } from "@/hooks/api/question/useManualCheckDuplicate";
 import { toast } from "sonner";
+import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
+import { useConfirmDuplicate } from "@/hooks/api/answer/useConfirmDuplicate";
+import { Textarea } from "@/components/atoms/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
 import { CircleCheck, GitCompareArrows, History } from "lucide-react";
@@ -83,6 +86,85 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   const { mutate: checkDuplicate, isPending: isCheckingDuplicate } = useManualCheckDuplicate();
   const originalQuestion = question.originalQuestion?.trim();
   const { view, setView } = useSelectedQuestion();
+
+  // "Closed by" label. For system-closed questions (e.g. queue-duplicate children
+  // auto-closed when their parent closed) show the acting moderator's name with a
+  // "(System)" suffix, since the close was performed by the system on their behalf.
+  const closedByName = question.approved_moderator?.name || "Unknown";
+  const closedByLabel =
+    question.closedBy === "System" ? `${closedByName} (System)` : closedByName;
+
+  // ─── Cancel / Confirm Duplicate (assigned gate keeper only) ────────────────
+  // Both actions are only offered to the gate keeper this question is currently
+  // assigned to (server-computed to avoid ObjectId serialization mismatches).
+  const isAssignedGateKeeper = Boolean(question.isAssignedGateKeeper);
+  const isDuplicateCancelled = Boolean(question.isDuplicateCancelled);
+  const [cancelDuplicateOpen, setCancelDuplicateOpen] = useState(false);
+  const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
+  const { mutateAsync: confirmDuplicate, isPending: isConfirmingDuplicate } =
+    useConfirmDuplicate();
+
+  const handleConfirmDuplicate = async () => {
+    let toastId;
+    try {
+      toastId = toast.loading("Confirming duplicate...");
+      const res = await confirmDuplicate(question._id!);
+      toast.dismiss(toastId);
+      toast.success(
+        res?.closed
+          ? "Duplicate confirmed. The reference question is already closed, so this question was closed and the user will be notified."
+          : "Duplicate confirmed. This question will close automatically once the reference question is closed."
+      );
+      setConfirmDuplicateOpen(false);
+      goBack();
+    } catch (error) {
+      console.error(error);
+      toast.dismiss(toastId);
+      toast.error("Failed to confirm duplicate");
+    }
+  };
+
+  const [cancelReason, setCancelReason] = useState("");
+  // null = not chosen yet; the moderator must confirm whether to turn auto-allocation on.
+  const [autoAllocate, setAutoAllocate] = useState<boolean | null>(null);
+  const { mutateAsync: updateQuestion, isPending: isCancellingDuplicate } = useUpdateQuestion();
+
+  const resetCancelDuplicate = () => {
+    setCancelReason("");
+    setAutoAllocate(null);
+  };
+
+  const handleCancelDuplicate = async () => {
+    const reason = cancelReason.trim();
+    if (!reason) {
+      toast.error("Please provide a reason for cancelling the duplicate.");
+      return;
+    }
+    if (autoAllocate === null) {
+      toast.error("Please choose whether to turn on auto allocation.");
+      return;
+    }
+    let toastId;
+    try {
+      toastId = toast.loading("Cancelling duplicate...");
+      await updateQuestion({
+        _id: question._id,
+        status: "open",
+        isDuplicateCancelled: true,
+        duplicateCancelReason: reason,
+        isAutoAllocate: autoAllocate,
+      });
+      toast.dismiss(toastId);
+      toast.success("Duplicate cancelled. Question reopened. Please refresh the page to see updated changes.");
+      setCancelDuplicateOpen(false);
+      resetCancelDuplicate();
+    } catch (error) {
+      console.error(error);
+      toast.dismiss(toastId);
+      toast.error("Failed to cancel duplicate");
+    }
+  };
+
   // For compare mode: reference answer (from the original/reference question)
   const referenceAnswerText = (() => {
     const text = question.referenceQuestionData?.text;
@@ -238,6 +320,36 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 Show Reference
               </Button>
             )}
+            {isDuplicate && currentUser.role === "gate_keeper" && isAssignedGateKeeper && !isDuplicateCancelled && (question.status === "queue_duplicate") && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmDuplicateOpen(true)}
+                  className="border-green-500/30 text-green-700 hover:bg-green-500/10 hover:text-green-700"
+                >
+                  Confirm Duplicate
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCancelDuplicateOpen(true)}
+                  className="border-amber-400/30 text-amber-600 hover:bg-amber-400/10 hover:text-amber-600"
+                >
+                  Cancel Duplicate
+                </Button>
+              </>
+            )}
+            {isDuplicateCancelled && (
+              <div className="flex items-center gap-1.5">
+                <Badge className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+                  DUPLICATE_CANCELED
+                </Badge>
+                <span className="text-[11px] italic text-muted-foreground">
+                  To view the cancel reason, check the audit trail.
+                </span>
+              </div>
+            )}
             {!isDuplicate && !question.referenceQuestionId && currentUser.role !== "expert" && currentUser.role !== "tester" && (
               question.isDuplicateChecked ? (
                 <Badge className="bg-green-500/10 text-green-700 border-green-500/30 gap-1">
@@ -326,7 +438,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 <span>
                   Closed by{" "}
                   <span className="font-medium text-foreground">
-                    {question.approved_moderator?.name || "Unknown"}
+                    {closedByLabel}
                   </span>
                 </span>
 
@@ -338,6 +450,8 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
 
           {/* View Audit Button */}
           <div className="flex gap-2">
+          {(currentUser.role === "admin" || currentUser.role === "moderator" || 
+          currentUser.role === "gate_keeper" || currentUser.role === "auditor") && 
           <Button
             size="sm"
             variant="outline"
@@ -346,7 +460,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           >
             <History className="h-4 w-4" />
             View LifeCycle
-          </Button>
+          </Button>}
 
           {/* View Audit Button */}
           <Button
@@ -380,7 +494,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                         <span>
                           Closed by{" "}
                           <span className="font-medium text-foreground">
-                            {question.approved_moderator?.name || "Unknown"}
+                            {closedByLabel}
                           </span>
                         </span>
                         <span>•</span>
@@ -404,6 +518,104 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           </div>
         </div>
       </header>
+      <Dialog
+        open={cancelDuplicateOpen}
+        onOpenChange={(open) => {
+          setCancelDuplicateOpen(open);
+          if (!open) resetCancelDuplicate();
+        }}
+      >
+        <DialogContent className="!max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel Duplicate</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will reopen the question (status → open). Please provide a reason for cancelling the duplicate.
+          </p>
+          <Textarea
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="Reason for cancelling the duplicate..."
+            className="min-h-[100px]"
+          />
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium">Do you want to turn on auto allocation?</p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={autoAllocate === true ? "default" : "outline"}
+                onClick={() => setAutoAllocate(true)}
+              >
+                Yes
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={autoAllocate === false ? "default" : "outline"}
+                onClick={() => setAutoAllocate(false)}
+              >
+                No
+              </Button>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setCancelDuplicateOpen(false);
+                resetCancelDuplicate();
+              }}
+              disabled={isCancellingDuplicate}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCancelDuplicate}
+              disabled={isCancellingDuplicate || !cancelReason.trim() || autoAllocate === null}
+            >
+              {isCancellingDuplicate ? "Cancelling..." : "Confirm"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={confirmDuplicateOpen}
+        onOpenChange={setConfirmDuplicateOpen}
+      >
+        <DialogContent className="!max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Duplicate</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This confirms the question is a genuine duplicate of its reference
+            question. If the reference question is already closed, this question
+            will be closed now with the reference's answer and the user will be
+            notified. Otherwise it will move to <b>duplicate confirmed</b> and
+            close automatically when the reference question is closed.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmDuplicateOpen(false)}
+              disabled={isConfirmingDuplicate}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={handleConfirmDuplicate}
+              disabled={isConfirmingDuplicate}
+            >
+              {isConfirmingDuplicate ? "Confirming..." : "Confirm Duplicate"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={duplicateModalOpen} onOpenChange={(open) => { setDuplicateModalOpen(open); if (!open) setCompareMode(false); }}>
         <DialogContent className="!max-w-[65vw] max-h-[92vh] overflow-y-auto">
           <DialogHeader>
@@ -717,12 +929,13 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
         </AlertDialogContent>
       </AlertDialog>
 
-
+    {(currentUser.role === "admin" || currentUser.role === "moderator" || 
+    currentUser.role === "gate_keeper" || currentUser.role === "auditor") && 
       <QuestionLifecycleTable
         open={view === "lifecycle"}
         onClose={() => setView(undefined)}
         questionId={question._id!}
-      />
+      />}
 
       <AuditTrailModal
         open={auditModalOpen}

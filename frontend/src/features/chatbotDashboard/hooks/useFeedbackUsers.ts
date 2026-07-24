@@ -55,3 +55,93 @@ export const useFeedbackUsers = ({
     enabled,
   });
 };
+
+export const useFeedbackLocation =({
+  source,
+  page,
+  limit,
+  sortBy,
+  sortOrder,
+  userType,
+  rating,
+  state,
+  district,
+  search,
+  startDate,
+  endDate,
+  enabled = true,
+}: {
+  source?: string;
+  page: number;
+  limit: number;
+  sortBy?: string;
+  sortOrder?: string;
+  userType?: string;
+  rating?: string;
+  state?: string;
+  district?: string; 
+  search?: string;
+  startDate?: string,
+  endDate?: string,
+  enabled?: boolean;
+}) =>{
+  return useQuery({
+    queryKey: [
+      "feedback-location",
+      source,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      userType,
+      rating,
+      state,
+      district,
+      search,
+      startDate,
+      endDate
+    ],
+    queryFn: () => {
+      return chatbotService.getFeedbackByLocation({
+        source,
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        userType,
+        rating,
+        state,
+        district,
+        search,
+        startDate,
+        endDate
+      });
+    },
+    enabled,
+  });
+}
+
+export const useClosedQuestionLocation = ({source, userType, state, district, startDate, endDate, enabled=true}:{source?: string, userType?: string, state?: string, district?: string, startDate?: string, endDate?: string, enabled?: boolean})=>{
+  return useQuery({
+    queryKey: [
+      "closed-question-location",
+      source,
+      userType,
+      state,
+      district,
+      startDate,
+      endDate
+    ],
+    queryFn: () => {
+      return chatbotService.getClosedInLastTwoHoursByLocation({
+        source,
+        userType,
+        state,
+        district,
+        startDate,
+        endDate,
+      });
+    },
+    enabled,
+  });
+}

@@ -15,6 +15,7 @@ export class AgentAssignmentService {
    * Finds the smallest available agent number that is not currently assigned to an active agent
    */
   async assignAgentNumber(userId: string, session?: ClientSession): Promise<string> {
+    console.log(`🔄 [AGENT-ASSIGNMENT] Assigning agent number for user ${userId}`);
     // Get all active call agents with their assigned agent numbers
     const activeAgents = await this.userRepository.findCallAgents(session);
     
@@ -33,6 +34,7 @@ export class AgentAssignmentService {
     }
 
     const assignedAgent = `agent_${agentNumber}`;
+    console.log(`✅ [AGENT-ASSIGNMENT] Assigned ${assignedAgent} to user ${userId} (${activeAgents.length} active agents, ${assignedNumbers.size} currently assigned)`);
 
     // Update the user with the assigned agent number
     await this.userRepository.edit(userId, { 
@@ -50,12 +52,14 @@ export class AgentAssignmentService {
    * Sets agent field back to 'not_available'
    */
   async releaseAgentNumber(userId: string, session?: ClientSession): Promise<void> {
+    console.log(`🔓 [AGENT-ASSIGNMENT] Releasing agent number for user ${userId}`);
     await this.userRepository.edit(userId, { 
       agent: 'not_available',
       isCallAgentActive: false,
       isBusy: false,
       currentCallUuid: null
     }, session);
+    console.log(`✅ [AGENT-ASSIGNMENT] Released agent number for user ${userId}`);
   }
 
   /**
@@ -75,6 +79,7 @@ export class AgentAssignmentService {
     );
 
     if (availableAgents.length === 0) {
+      console.warn(`⚠️ [AGENT-ASSIGNMENT] No available agents found (${activeAgents.length} total active agents, all busy or unassigned)`);
       return null;
     }
 
@@ -85,6 +90,7 @@ export class AgentAssignmentService {
       return numA - numB;
     });
 
+    console.log(`✅ [AGENT-ASSIGNMENT] Found available agent: ${availableAgents[0].agent} (userId=${availableAgents[0]._id}), ${availableAgents.length} agents available`);
     return availableAgents[0];
   }
 
@@ -92,6 +98,7 @@ export class AgentAssignmentService {
    * Marks an agent as busy when they answer a call
    */
   async markAgentAsBusy(userId: string, callUuid: string, session?: ClientSession): Promise<void> {
+    console.log(`📞 [AGENT-ASSIGNMENT] Marking agent ${userId} as BUSY for call ${callUuid}`);
     await this.userRepository.edit(userId, { 
       isBusy: true,
       currentCallUuid: callUuid
@@ -102,6 +109,7 @@ export class AgentAssignmentService {
    * Marks an agent as available when their call ends
    */
   async markAgentAsAvailable(userId: string, session?: ClientSession): Promise<void> {
+    console.log(`♻️ [AGENT-ASSIGNMENT] Marking agent ${userId} as AVAILABLE`);
     await this.userRepository.edit(userId, {
       isBusy: false,
       currentCallUuid: null
@@ -116,7 +124,14 @@ export class AgentAssignmentService {
    * @returns A promise that resolves to the updated agent if found, or null if no available agent
    */
   async findAndMarkAvailableAgent(callUuid: string, session?: ClientSession): Promise<IUser | null> {
-    return await this.userRepository.findAndMarkAvailableAgent(callUuid, session);
+    console.log(`🔍 [AGENT-ASSIGNMENT] Atomically finding and marking available agent for call ${callUuid}`);
+    const agent = await this.userRepository.findAndMarkAvailableAgent(callUuid, session);
+    if (agent) {
+      console.log(`✅ [AGENT-ASSIGNMENT] Atomically assigned agent ${agent.agent} (userId=${agent._id}) for call ${callUuid}`);
+    } else {
+      console.warn(`⚠️ [AGENT-ASSIGNMENT] No available agent found for call ${callUuid} (atomic find-and-mark)`);
+    }
+    return agent;
   }
 
   /**
@@ -127,6 +142,7 @@ export class AgentAssignmentService {
     const username = env[`PLIVO_ENDPOINT_USERNAME_${agentNumber.toUpperCase()}`];
 
     if (!username) {
+      console.error(`❌ [AGENT-ASSIGNMENT] Credentials not found for ${agentNumber}. Missing env var PLIVO_ENDPOINT_USERNAME_${agentNumber.toUpperCase()}`);
       throw new Error(`Credentials not found for ${agentNumber}. Please set PLIVO_ENDPOINT_USERNAME_${agentNumber.toUpperCase()} in environment variables.`);
     }
 

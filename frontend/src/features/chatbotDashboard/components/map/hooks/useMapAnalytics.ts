@@ -18,6 +18,8 @@ interface UseMapAnalyticsProps {
   allStatesData?: any[];
   districtAnalytics?: DistrictAnalyticsResponse;
   metric: "questions" | "users" | "activeUsers";
+    startDate?: Date;
+  endDate?: Date;
 }
 
 // const normalizeState = (state: string) => {
@@ -41,7 +43,9 @@ export function useMapAnalytics({
   selectedDistrict,
   allStatesData,
   districtAnalytics,
-  metric
+  metric,
+  startDate,
+  endDate
 }: UseMapAnalyticsProps) {
   // Attach analytics to states
   // const statesWithData = useMemo(() => {
@@ -64,6 +68,8 @@ export function useMapAnalytics({
   //   };
   // }, [statesGeo]);
 
+  const hasDateFilter = !!startDate || !!endDate;
+
   const analyticsMap = useMemo(() => {
     if (!allStatesData) return new Map();
 
@@ -71,6 +77,36 @@ export function useMapAnalytics({
       allStatesData.map((item) => [String(item.state).toLowerCase(), item]),
     );
   }, [allStatesData]);
+
+  const stateRankMap = useMemo(() => {
+  if (!allStatesData) return new Map<string, number>();
+
+  const sorted = [...allStatesData].sort((a, b) => {
+    switch (metric) {
+case "users":
+  return hasDateFilter
+    ? b.activeUsers - a.activeUsers
+    : b.totalUsers - a.totalUsers;
+
+      case "activeUsers":
+        return b.activeUsers - a.activeUsers;
+
+      default:
+        return b.totalQuestions - a.totalQuestions;
+    }
+  });
+
+  const map = new Map<string, number>();
+
+  sorted.forEach((state, index) => {
+    map.set(
+      state.state.toLowerCase(),
+      sorted.length - index,
+    );
+  });
+
+  return map;
+}, [allStatesData, metric]);
 
   const statesWithData = useMemo(() => {
     if (!statesGeo) return null;
@@ -99,17 +135,22 @@ export function useMapAnalytics({
             _name: stateName,
             _analytics: {
               questions: analytics?.totalQuestions ?? 0,
-              answers: analytics?.closedQuestions ?? 0,
-              users: analytics?.totalUsers ?? 0,
+              // answers: analytics?.closedQuestions ?? 0,
+               feedback: analytics?.totalFeedbacks ?? 0,
+              users: hasDateFilter
+  ? analytics?.activeUsers ?? 0
+  : analytics?.totalUsers ?? 0,
               activeUsers: analytics?.activeUsers ?? 0,
               coordinators: analytics?.coordinators ?? 0,
-              closureHrs: analytics?.avgCloseTimeHours ?? 0,
+                rank: stateRankMap.get(
+    stateName.toLowerCase(),
+  ) ?? 0,
             },
           },
         };
       }),
     };
-  }, [statesGeo, analyticsMap]);
+  }, [statesGeo, analyticsMap, stateRankMap]);
 
   const districtMap = useMemo(() => {
     if (!districtAnalytics) return new Map();
@@ -126,8 +167,10 @@ export function useMapAnalytics({
     .filter((d) => d.district.toLowerCase() !== "others")
     .sort((a, b) => {
       switch (metric) {
-        case "users":
-          return b.totalUsers - a.totalUsers;
+case "users":
+  return hasDateFilter
+    ? b.activeUsers - a.activeUsers
+    : b.totalUsers - a.totalUsers;
 
         case "activeUsers":
           return b.activeUsers - a.activeUsers;
@@ -139,19 +182,6 @@ export function useMapAnalytics({
 
   const map = new Map<string, number>();
   
-  console.log(`District Ranking (${metric}):`);
-
-  sorted.forEach((district, index) => {
-  const rank = sorted.length - index;
-
-  console.log({
-    district: district.district,
-    rank,
-    questions: district.totalQuestions,
-    users: district.totalUsers,
-    activeUsers: district.activeUsers,
-  });
-});
 
   sorted.forEach((district, index) => {
     map.set(
@@ -196,6 +226,11 @@ export function useMapAnalytics({
 
         const analytics = districtMap.get(districtName.toLowerCase());
 
+        console.log({
+  district: districtName,
+  analytics,
+});
+
         return {
           type: f.type ?? "Feature",
           geometry: f.geometry,
@@ -205,11 +240,14 @@ export function useMapAnalytics({
             _parent: f.properties.NAME_1 as string,
           _analytics: {
     questions: analytics?.totalQuestions ?? 0,
-    answers: analytics?.closedQuestions ?? 0,
-    users: analytics?.totalUsers ?? 0,
+    // answers: analytics?.closedQuestions ?? 0,
+      feedback: analytics?.totalFeedbacks ?? 0,
+    users: hasDateFilter
+  ? analytics?.activeUsers ?? 0
+  : analytics?.totalUsers ?? 0,
     activeUsers: analytics?.activeUsers ?? 0,
     coordinators: analytics?.coordinators ?? 0,
-    closureHrs: analytics?.avgClosingMsTime ?? 0,
+    // closureHrs: analytics?.avgClosingMsTime ?? 0,
 
     rank:
       districtName === "Others"
@@ -231,11 +269,12 @@ export function useMapAnalytics({
           _parent: selectedState,
          _analytics: {
     questions: othersAnalytics.totalQuestions ?? 0,
-    answers: othersAnalytics.closedQuestions ?? 0,
+    // answers: othersAnalytics.closedQuestions ?? 0,
+      feedback: othersAnalytics.totalFeedbacks ?? 0,
     users: othersAnalytics.totalUsers ?? 0,
     activeUsers: othersAnalytics.activeUsers ?? 0,
     coordinators: othersAnalytics.coordinators ?? 0,
-    closureHrs: 0,
+    // closureHrs: 0,
 
     rank: -1,
 },
@@ -281,28 +320,22 @@ export function useMapAnalytics({
 
   let arr: number[];
 
-  if (level === "state") {
-    // District map -> use ranks
-    arr = geo.features
-      .map((f) => f.properties._analytics.rank ?? -1)
-      .filter((v) => v >= 0);
-  } else {
-    // India map -> use actual values
-    arr = geo.features.map((f) => {
-      const analytics = f.properties._analytics;
+arr = geo.features.map((f) => {
+  const analytics = f.properties._analytics;
 
-      switch (metric) {
-        case "users":
-          return analytics.users;
+  switch (metric) {
+case "users":
+  return hasDateFilter
+    ? analytics.activeUsers
+    : analytics.users;
 
-        case "activeUsers":
-          return analytics.activeUsers;
+    case "activeUsers":
+      return analytics.activeUsers;
 
-        default:
-          return analytics.questions;
-      }
-    });
+    default:
+      return analytics.questions;
   }
+});
 
   return [
     Math.min(...arr),
@@ -336,16 +369,17 @@ export function useMapAnalytics({
         const x = f.properties._analytics;
         return {
           questions: acc.questions + x.questions,
-          answers: acc.answers + x.answers,
+          // answers: acc.answers + x.answers,
+            feedback: acc.feedback + x.feedback,
           users: acc.users + x.users,
           activeUsers: acc.activeUsers + x.activeUsers,
           coordinators: acc.coordinators + x.coordinators,
-          closureHrs: acc.closureHrs + x.closureHrs,
+          // closureHrs: acc.closureHrs + x.closureHrs,
         };
       },
       {
         questions: 0,
-        answers: 0,
+        feedback: 0,
         users: 0,
         activeUsers: 0,
         coordinators: 0,
@@ -368,84 +402,33 @@ export function useMapAnalytics({
 const chatbotService = new ChatbotService();
 
 export const useAllStatesandUserData = ({
-  // category,
-  // district,
-  // state,
-  // crop,
-  // crops,
-  // status,
-  // closedWithInTwohours,
-  // notificationType,
-  // period,
-  // questionType,
-  // page,
-  // limit,
   source,
   userType,
-  // startDate,
-  // endDate,
-  // search = "",
+  startDate,
+  endDate,
   enabled = true,
 }: {
-  // category?: string;
-  // district?: string;
-  // state: string
-  // crop?: string
-  // crops?: string[]
-  // status?: string
-  // closedWithInTwohours?: boolean
-  // notificationType?: string
-  // period?: string
-  // questionType: QueryCategoryQuestionType;
-  // page: number;
-  // limit: number;
+
   source: string;
   userType: string;
-  // startDate?: Date;
-  // endDate?: Date;
-  // search?: string;
+  startDate?: string;
+  endDate?: string;
   enabled: boolean;
 }) => {
   return useQuery<any>({
     queryKey: [
       "get-user-and-map-data",
-      // category,
-      // district,
-      // state,
-      // crop,
-      // crops?.join(","),
-      // status,
-      // closedWithInTwohours,
-      // notificationType,
-      // period,
-      // questionType,
-      // page,
-      // limit,
       source,
       userType,
-      // stringStartDate,
-      // stringEndDate,
-      // search,
+      startDate,
+      endDate
     ],
     queryFn: () =>
       chatbotService.getAllStatesQuestionsAndUsersData({
-        // category: category ?? "",
-        // district: district ?? "",
-        // state: state ?? "",
-        // crop: crop ?? "",
-        // crops: crops ?? [],
-        // status: status,
-        // closedWithInTwohours: closedWithInTwohours,
-        // notificationType: notificationType ?? "",
-        // period: period,
-        // questionType,
-        // page,
-        // limit,
         source,
         userType,
-        // stringStartDate,
-        // stringEndDate,
-        // search
+        startDate,
+        endDate
       }),
     enabled: enabled && Boolean(true),
   });
@@ -490,7 +473,6 @@ export const useVillageUserCounts = ({
   // search?: string;
   enabled: boolean;
 }) => {
-  console.log("State of hook", state, "district of hook", district)
   return useQuery<any>({
     queryKey: [
       "get-user-and-map-data",

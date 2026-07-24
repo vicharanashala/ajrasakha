@@ -45,4 +45,5 @@ backend_routes.txt
 endpoints.txt
 frontend/playwright-report/
 frontend/test-results/
+.clinerules/
 

@@ -1,38 +1,37 @@
 import {
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from "@/components/atoms/tabs";
-import { UserProfileActions } from "@/components/atoms/user-profile-actions";
-import { ThemeToggleCompact } from "./atoms/ThemeToggle";
 import { QAInterface } from "../features/qa-interface-page/QA-interface";
 // import { FullSubmissionHistory } from "./submission-history";
 import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";
-import { BellIcon } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 // import { RequestsPage } from "./request-page";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
-import { MobileSidebar } from "./mobile-sidebar";
-import { HoverCard } from "./atoms/hover-card";
+import { PlaygroundHeader } from "./PlaygroundHeader";
 import { UserManagement } from "./user-management";
 import { Dashboard } from "./dashboard";
 import { ExpertDashboard } from "./ExpertDashboard";
+import { GateKeeperAuditorDashboard } from "./GateKeeperAuditorDashboard";
 import { NotificationModal } from "./NotificationModal";
 import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboard/AnnamDashboard_dev";
 import { cn } from "@/lib/utils";
+import { canManageUsers } from "@/lib/roles";
 import { CallInterface } from "./CallInterface";
 import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 import { CallAgentDashboard } from "./CallAgentDashboard";
+import { UserService } from "@/hooks/services/userService";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
+  const navigate = useNavigate();
   const userId = user?._id?.toString();
   const {
     selectedQuestionId,
@@ -68,29 +67,111 @@ export const PlaygroundPage = () => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
   };
+  const explicitSelectionTab = selectedRequestId
+    ? "request_queue"
+    : selectedHistoryId
+      ? "history"
+      : selectedQuestionId
+        ? user?.role === "expert"
+          ? "questions"
+          : "all_questions"
+        : selectedCommentId
+          ? "all_questions"
+          : null;
+
+  // Guards the default-tab effect so it initialises once per user (and re-runs only when
+  // an explicit selection changes). react-query gives `user` a new identity on every
+  // window-focus refetch and notification invalidation; without this the effect would
+  // re-apply the default/selection tab each time and pull moderators out of an answer
+  // they were editing.
+  const tabInitialisedFor = useRef<string | null>(null);
+
   // Set default tab based on user role when user data loads
   useEffect(() => {
     if (!user) return;
     const storageKey = getStorageKey(user);
     if (!storageKey) return;
-    const savedTab = localStorage.getItem(storageKey);
-    if (savedTab) {
-      setActiveTab(savedTab);
-    } else {
-      const defaultTab =
-        user.role === "expert"
-          ? "questions"
-          : user.role === "call_agent"
-            ? "call_interface"
+
+    const initKey = `${storageKey}|${explicitSelectionTab ?? ""}`;
+    if (tabInitialisedFor.current === initKey) return;
+    tabInitialisedFor.current = initKey;
+
+    if (explicitSelectionTab) {
+      setActiveTab(explicitSelectionTab);
+      localStorage.setItem(storageKey, explicitSelectionTab);
+      return;
+    }
+    const defaultTab =
+      user.role === "expert"
+        ? "questions"
+        : user.role === "call_agent"
+          ? "call_interface"
+          : user.role === "gate_keeper" || user.role === "auditor"
+            ? "roleDashboard"
             : "performance";
 
+    // A tab saved before the role changed (or before roleDashboard existed) can point at
+    // content this role no longer renders, leaving a blank page. Drop it in that case.
+    const savedTab = localStorage.getItem(storageKey);
+    const isGateKeeperOrAuditor =
+      user.role === "gate_keeper" || user.role === "auditor";
+    const savedTabValid =
+      !!savedTab &&
+      (isGateKeeperOrAuditor ? savedTab !== "performance" : savedTab !== "roleDashboard");
+
+    if (savedTab && savedTabValid) {
+      setActiveTab(savedTab);
+    } else {
       setActiveTab(defaultTab);
       localStorage.setItem(storageKey, defaultTab);
     }
-  }, [user]);
+  }, [user?.role, user?.email, explicitSelectionTab]);
+
+  // Heartbeat for Call Agents
+  useEffect(() => {
+    if (!user || user.role !== "call_agent" || !user.isCallAgentActive) return;
+
+    const userService = new UserService();
+    const sendHeartbeat = async () => {
+      try {
+        await userService.sendHeartbeat();
+      } catch (err) {
+        console.error("Failed to send heartbeat:", err);
+      }
+    };
+
+    // Send immediately on mount or status change
+    sendHeartbeat();
+
+    // Send every 30 seconds
+    const interval = setInterval(sendHeartbeat, 30000);
+
+    return () => clearInterval(interval);
+  }, [user?.role, user?.isCallAgentActive]);
+
+  // The selection this effect last navigated for. Navigation must happen only when the
+  // selection itself changes — NOT when the `user` object merely gets a new identity
+  // (react-query refetches it on window focus and whenever a notification action
+  // invalidates ["user"]). Without this guard, switching browser tabs or reviewing an
+  // answer re-ran the effect and yanked the moderator back to the question list,
+  // discarding in-progress edits.
+  const lastNavigatedSelection = useRef<string | null>(null);
+
   // Only update tab when there's a specific selection that requires navigation
   useEffect(() => {
     if (!user) return;
+
+    const selectionKey = [
+      selectedRequestId,
+      selectedHistoryId,
+      selectedQuestionId,
+      selectedCommentId,
+      selectedQuestionType,
+    ].join("|");
+    // Same selection as last time → this run was caused by something else (a user
+    // refetch). Leave the current tab alone.
+    if (lastNavigatedSelection.current === selectionKey) return;
+    lastNavigatedSelection.current = selectionKey;
 
     let calculatedTab: string | null = null;
 
@@ -119,8 +200,12 @@ export const PlaygroundPage = () => {
       setActiveTab(calculatedTab);
       localStorage.setItem(storageKey, calculatedTab);
     }
+    // Depend on the primitive user fields actually used (role for the target tab, email
+    // for the storage key) rather than the object, so a refetch that returns identical
+    // data doesn't re-trigger navigation.
   }, [
-    user,
+    user?.role,
+    user?.email,
     selectedQuestionId,
     selectedRequestId,
     selectedCommentId,
@@ -130,6 +215,13 @@ export const PlaygroundPage = () => {
 
   const handleTabChange = (value: string) => {
     if (!user) return;
+
+    // ChatBot Analytics is now its own route rather than an in-page tab.
+    if (value === "chatbotanalytics") {
+      navigate({ to: "/chatbot" });
+      return;
+    }
+
     const storageKey = getStorageKey(user);
     if (!storageKey) return;
     setActiveTab(value);
@@ -172,203 +264,22 @@ export const PlaygroundPage = () => {
         onValueChange={handleTabChange}
         className="h-full w-full"
       >
-        <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="mx-auto flex items-center justify-between gap-4 px-4 py-3">
-            {/* Logo */}
-            <div className="flex items-center gap-3 shrink-0">
-              <img
-                src="/annam-logo.png"
-                alt="Annam Logo"
-                className="h-10 w-auto md:h-14"
-              />
-            </div>
-
-            <div className="flex-1 md:flex justify-center min-w-0 hidden ">
-              <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
-                {user &&
-                  user.role !== "expert" &&
-                  user.role !== "call_agent" && (
-                    <TabsTrigger
-                      value="performance"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <HoverCard openDelay={150}>
-                        <span>Dashboard</span>
-                      </HoverCard>
-                    </TabsTrigger>
-                  )}
-                {user && user.role === "expert" && (
-                  <TabsTrigger
-                    value="expertPerformance"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <HoverCard openDelay={150}>
-                      <span>Dashboard</span>
-                    </HoverCard>
-                  </TabsTrigger>
-                )}
-
-                {user && user.role == "expert" && (
-                  <TabsTrigger
-                    value="questions"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <span>My Queue</span>
-                  </TabsTrigger>
-                )}
-                {user && user.role !== "call_agent" && (
-                  <TabsTrigger
-                    value="all_questions"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <span>All Questions</span>
-                  </TabsTrigger>
-                )}
-
-                {user &&
-                  user.role !== "expert" &&
-                  user.role !== "call_agent" && (
-                    <TabsTrigger
-                      value="user_management"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <HoverCard openDelay={150}>
-                        <span>
-                          {user.role === "admin" ? "User" : "Expert"} Management
-                        </span>
-                      </HoverCard>
-                    </TabsTrigger>
-                  )}
-
-                {/* {user && user.role !== "expert" && (
-                  <TabsTrigger
-                    value="request_queue"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <span>Request Queue</span>
-                  </TabsTrigger>
-                )} */}
-                {user && user.role !== "call_agent" && (
-                  <TabsTrigger
-                    value="upload"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <HoverCard openDelay={150}>
-                      <span>Agents Interface</span>
-                    </HoverCard>
-                  </TabsTrigger>
-                )}
-
-                {user?.role === "call_agent" && (
-                  <>
-                    <TabsTrigger
-                      value="call_dashboard"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <HoverCard openDelay={150}>
-                        <span>Dashboard</span>
-                      </HoverCard>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="call_interface"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <HoverCard openDelay={150}>
-                        <span>Call Interface</span>
-                      </HoverCard>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="call_history"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <HoverCard openDelay={150}>
-                        <span>Call History</span>
-                      </HoverCard>
-                    </TabsTrigger>
-                  </>
-                )}
-
-                {user?.role === "admin" && (
-                  <TabsTrigger
-                    value="manage_agents"
-                    onClick={() => handleTabChange("manage_agents")}
-                    className={
-                      activeTab === "manage_agents"
-                        ? "bg-accent text-accent-foreground"
-                        : ""
-                    }
-                  >
-                    Manage Agents
-                  </TabsTrigger>
-                )}
-
-                {user &&
-                  user.role !== "expert" &&
-                  user.role !== "call_agent" && (
-                    <TabsTrigger
-                      value="chatbotanalytics"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <span>ChatBot Analytics</span>
-                    </TabsTrigger>
-                  )}
-                {user && user.role === "admin" && (
-                  <TabsTrigger
-                    value="data_processing"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <span>Data Processing</span>
-                  </TabsTrigger>
-                )}
-                {/*
-                {user && (
-                  <TabsTrigger
-                    value="history"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                  >
-                    <HoverCard openDelay={150}>
-                      <span>History</span>
-                    </HoverCard>
-                  </TabsTrigger>
-                )} */}
-              </TabsList>
-            </div>
-
-            {/* RIGHT SIDE ICONS */}
-            <div className="flex items-center gap-3 shrink-0">
-              {/* Notifications */}
-              <NotificationModal
-                trigger={
-                  <button className="relative p-1 rounded-md hover:bg-accent transition-colors">
-                    <BellIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition" />
-                    {user?.notifications! > 0 && (
-                      <span className="absolute -top-[4px] -right-[12px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white">
-                        {user?.notifications! > 99
-                          ? "99+"
-                          : user?.notifications}
-                      </span>
-                    )}
-                  </button>
-                }
-              />
-
-              <ThemeToggleCompact />
-
-              <UserProfileActions />
-
-              <MobileSidebar
-                user={user!}
-                setTab={setActiveTab}
-                setChatbotSource={setChatbotSource}
-              />
-            </div>
-          </div>
-        </header>
+        <PlaygroundHeader
+          user={user}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          setTab={setActiveTab}
+          setChatbotSource={setChatbotSource}
+        />
 
         <div className=" h-full py-6 min-w-0">
           <div className="grid h-full items-stretch gap-6 min-w-0">
             <div className="md:order-1 w-full min-w-0">
-              {user && user.role !== "expert" && (
+              {user &&
+                user.role !== "expert" &&
+                user.role !== "call_agent" &&
+                user.role !== "gate_keeper" &&
+                user.role !== "auditor" && (
                 <TabsContent
                   value="performance"
                   className={cn(
@@ -398,6 +309,21 @@ export const PlaygroundPage = () => {
                 >
                   {/* <PerformanceMatrics /> */}
                   <ExpertDashboard />
+                </TabsContent>
+              )}
+              {user && (user.role === "gate_keeper" || user.role === "auditor") && (
+                <TabsContent
+                  value="roleDashboard"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <GateKeeperAuditorDashboard />
                 </TabsContent>
               )}
               {user && user.role == "expert" && (
@@ -438,26 +364,7 @@ export const PlaygroundPage = () => {
                   />
                 </TabsContent>
               )}
-              {user && user.role !== "expert" && user.role !== "call_agent" && (
-                <TabsContent
-                  value="chatbotanalytics"
-                  className={cn(
-                    "mt-0 border-0 md:px-4 px-4 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out",
-                  )}
-                >
-                  <AnnamDashboard
-                    source={chatbotSource}
-                    onSourceChange={setChatbotSource}
-                  />
-                </TabsContent>
-              )}
-
-              {user && user.role !== "expert" && user.role !== "call_agent" && (
+              {user && canManageUsers(user.role) && (
                 <TabsContent
                   value="user_management"
                   className={cn(

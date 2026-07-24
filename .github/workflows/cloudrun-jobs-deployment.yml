@@ -1,0 +1,246 @@
+# Deploy Cloud Run Jobs that replace in-process node-cron tasks.
+#
+# Pattern mirrors .github/workflows/backend-deployment.yml (the working gold
+# standard), but uses raw `gcloud run jobs deploy` commands because v2 of the
+# google-github-actions/deploy-cloudrun action is beta for jobs and rejects
+# many of the flags we need as direct inputs.
+#
+# Required repository secrets (same as backend-deployment.yml):
+#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+#   GCP_GH_SA_KEY, GCP_PROJECT_ID
+#   DB_URL, DB_NAME
+#   BACKUP_NOTIFICATION_EMAIL, EMAIL_USER, EMAIL_PASS
+#   GCP_BACKUP_BUCKET
+#
+# Optional repository variables:
+#   GCP_REGION   (default: asia-south2)
+#
+# Prerequisites (one-time, manual):
+#   1. GCS bucket named in GCP_BACKUP_BUCKET exists.
+#   2. Service accounts `backup-db-sa@PROJECT.iam.gserviceaccount.com` and
+#      `gate-keeper-auditor-queue-sa@PROJECT.iam.gserviceaccount.com` exist.
+#      `backup-db-sa` needs roles/storage.objectCreator + roles/storage.objectViewer
+#      on the bucket.
+#   3. Service account `backup-db-trigger-sa@PROJECT.iam.gserviceaccount.com` exists
+#      with no IAM bindings (used as Scheduler SA).
+#   4. Cloud Run API and Cloud Scheduler API are enabled in the project.
+
+name: Cloud Run Jobs Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_job:
+        description: Select Cloud Run Job to deploy
+        required: true
+        default: backup-db
+        type: choice
+        options:
+          - backup-db
+          - gate-keeper-auditor-queue
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  DOCKER_IMAGE: reviewer-api
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.target_job }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------- Auth (same pattern as backend-deployment.yml) ----------
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
+
+      # ---------- Derive project from SA credentials (same fallback the v1 action uses) ----------
+      - name: Set gcloud project from SA key
+        id: project
+        run: |
+          set -euo pipefail
+          PROJECT="$(jq -r '.project_id' "$CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE")"
+          gcloud config set project "$PROJECT" --quiet
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+          echo "Using project: $PROJECT"
+
+      # ---------- Resolve region ----------
+      - name: Resolve region
+        id: region
+        run: echo "region=${GCP_REGION:-asia-south2}" >> "$GITHUB_OUTPUT"
+        env:
+          GCP_REGION: ${{ vars.GCP_REGION }}
+
+      # ============================================================
+      # backup-db  (twice daily, Asia/Kolkata)
+      # ============================================================
+      - name: Deploy Cloud Run Job (backup-db)
+        if: inputs.target_job == 'backup-db'
+        env:
+          GCP_REGION: ${{ steps.region.outputs.region }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
+        run: |
+          set -euo pipefail
+          REGION="$GCP_REGION"
+          PROJECT="$GCP_PROJECT_ID"
+          IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest"
+
+          gcloud run jobs deploy backup-db \
+            --image="${IMAGE}" \
+            --region="${REGION}" \
+            --project="${PROJECT}" \
+            --memory=2Gi \
+            --cpu=2 \
+            --task-timeout=3600 \
+            --max-retries=0 \
+            --parallelism=1 \
+            --args=node,build/jobs/backup/run.js \
+            --service-account="backup-db-sa@${PROJECT}.iam.gserviceaccount.com" \
+            --set-env-vars="^,^NODE_ENV=production,DB_URL=${{ secrets.DB_URL }},DB_NAME=${{ secrets.DB_NAME }},GCP_BACKUP_BUCKET=${{ secrets.GCP_BACKUP_BUCKET }},ENABLE_DB_BACKUP=true,BACKUP_NOTIFICATION_EMAIL=${{ secrets.BACKUP_NOTIFICATION_EMAIL }},EMAIL_USER=${{ secrets.EMAIL_USER }},EMAIL_PASS=${{ secrets.EMAIL_PASS }}" \
+            --labels="managed-by=github-actions,commit-sha=${{ github.sha }}"
+
+      - name: Deploy Cloud Scheduler trigger (backup-db-trigger)
+        if: inputs.target_job == 'backup-db'
+        env:
+          GCP_REGION: ${{ steps.region.outputs.region }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
+        run: |
+          set -euo pipefail
+          REGION="$GCP_REGION"
+          PROJECT="$GCP_PROJECT_ID"
+          SCHEDULER_SA="backup-db-trigger-sa@${PROJECT}.iam.gserviceaccount.com"
+          JOB_URI="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT}/jobs/backup-db:run"
+
+          gcloud run jobs add-iam-policy-binding backup-db \
+            --region="${REGION}" \
+            --member="serviceAccount:${SCHEDULER_SA}" \
+            --role="roles/run.invoker" \
+            --project="${PROJECT}" || true
+
+          if gcloud scheduler jobs describe backup-db-trigger \
+              --location="${REGION}" --project="${PROJECT}" >/dev/null 2>&1; then
+            echo "Updating existing scheduler job backup-db-trigger"
+            gcloud scheduler jobs update http backup-db-trigger \
+              --location="${REGION}" \
+              --project="${PROJECT}" \
+              --schedule="0 8,19 * * *" \
+              --time-zone="Asia/Kolkata" \
+              --uri="${JOB_URI}" \
+              --http-method=POST \
+              --oidc-service-account-email="${SCHEDULER_SA}" \
+              --oidc-token-audience="https://${REGION}-run.googleapis.com" \
+              --attempt-deadline=600s
+          else
+            echo "Creating scheduler job backup-db-trigger"
+            gcloud scheduler jobs create http backup-db-trigger \
+              --location="${REGION}" \
+              --project="${PROJECT}" \
+              --schedule="0 8,19 * * *" \
+              --time-zone="Asia/Kolkata" \
+              --uri="${JOB_URI}" \
+              --http-method=POST \
+              --oidc-service-account-email="${SCHEDULER_SA}" \
+              --oidc-token-audience="https://${REGION}-run.googleapis.com" \
+              --attempt-deadline=600s
+          fi
+
+      - name: Smoke test (execute backup-db once)
+        if: inputs.target_job == 'backup-db'
+        env:
+          GCP_REGION: ${{ steps.region.outputs.region }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
+        run: |
+          gcloud run jobs execute backup-db \
+            --region="$GCP_REGION" \
+            --project="$GCP_PROJECT_ID" \
+            --wait
+
+      # ============================================================
+      # gate-keeper-auditor-queue  (every 1 min, Asia/Kolkata)
+      # ============================================================
+      - name: Deploy Cloud Run Job (gate-keeper-auditor-queue)
+        if: inputs.target_job == 'gate-keeper-auditor-queue'
+        env:
+          GCP_REGION: ${{ steps.region.outputs.region }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
+        run: |
+          set -euo pipefail
+          REGION="$GCP_REGION"
+          PROJECT="$GCP_PROJECT_ID"
+          IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest"
+
+          gcloud run jobs deploy gate-keeper-auditor-queue \
+            --image="${IMAGE}" \
+            --region="${REGION}" \
+            --project="${PROJECT}" \
+            --memory=512Mi \
+            --cpu=1 \
+            --task-timeout=60 \
+            --max-retries=0 \
+            --parallelism=1 \
+            --args=node,build/jobs/gate-keeper-auditor-queue/run.js \
+            --service-account="gate-keeper-auditor-queue-sa@${PROJECT}.iam.gserviceaccount.com" \
+            --set-env-vars="^,^NODE_ENV=production,DB_URL=${{ secrets.DB_URL }},DB_NAME=${{ secrets.DB_NAME }},APP_PORT=4000" \
+            --labels="managed-by=github-actions,commit-sha=${{ github.sha }}"
+
+      - name: Deploy Cloud Scheduler trigger (gate-keeper-auditor-queue-trigger)
+        if: inputs.target_job == 'gate-keeper-auditor-queue'
+        env:
+          GCP_REGION: ${{ steps.region.outputs.region }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
+        run: |
+          set -euo pipefail
+          REGION="$GCP_REGION"
+          PROJECT="$GCP_PROJECT_ID"
+          SCHEDULER_SA="backup-db-trigger-sa@${PROJECT}.iam.gserviceaccount.com"
+          JOB_URI="https://${REGION}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${PROJECT}/jobs/gate-keeper-auditor-queue:run"
+
+          gcloud run jobs add-iam-policy-binding gate-keeper-auditor-queue \
+            --region="${REGION}" \
+            --member="serviceAccount:${SCHEDULER_SA}" \
+            --role="roles/run.invoker" \
+            --project="${PROJECT}" || true
+
+          if gcloud scheduler jobs describe gate-keeper-auditor-queue-trigger \
+              --location="${REGION}" --project="${PROJECT}" >/dev/null 2>&1; then
+            echo "Updating existing scheduler job gate-keeper-auditor-queue-trigger"
+            gcloud scheduler jobs update http gate-keeper-auditor-queue-trigger \
+              --location="${REGION}" \
+              --project="${PROJECT}" \
+              --schedule="* * * * *" \
+              --time-zone="Asia/Kolkata" \
+              --uri="${JOB_URI}" \
+              --http-method=POST \
+              --oidc-service-account-email="${SCHEDULER_SA}" \
+              --oidc-token-audience="https://${REGION}-run.googleapis.com" \
+              --attempt-deadline=120s
+          else
+            echo "Creating scheduler job gate-keeper-auditor-queue-trigger"
+            gcloud scheduler jobs create http gate-keeper-auditor-queue-trigger \
+              --location="${REGION}" \
+              --project="${PROJECT}" \
+              --schedule="* * * * *" \
+              --time-zone="Asia/Kolkata" \
+              --uri="${JOB_URI}" \
+              --http-method=POST \
+              --oidc-service-account-email="${SCHEDULER_SA}" \
+              --oidc-token-audience="https://${REGION}-run.googleapis.com" \
+              --attempt-deadline=120s
+          fi
+
+      - name: Smoke test (execute gate-keeper-auditor-queue once)
+        if: inputs.target_job == 'gate-keeper-auditor-queue'
+        env:
+          GCP_REGION: ${{ steps.region.outputs.region }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
+        run: |
+          gcloud run jobs execute gate-keeper-auditor-queue \
+            --region="$GCP_REGION" \
+            --project="$GCP_PROJECT_ID" \
+            --wait

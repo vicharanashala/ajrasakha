@@ -258,14 +258,18 @@ export class UserService extends BaseService {
     search: string,
     sort: string,
     filter: string,
+    includeSelf = false,
   ): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
         const users = await this.userRepo.findAll(session);
-        const usersExceptMe = users.filter(
-          user => user._id.toString() !== userId,
-        );
+        // The caller is excluded by default: most manual-select flows are handing work
+        // to someone else (re-routing an answer, reallocating a question). Gate keepers /
+        // auditors assigning a question to themselves pass includeSelf.
+        const usersExceptMe = includeSelf
+          ? users
+          : users.filter(user => user._id.toString() !== userId);
 
         const myPreference: PreferenceDto = {
           state: me?.preference?.state ?? null,
@@ -288,6 +292,7 @@ export class UserService extends BaseService {
             penaltyPercentage: u.penalty ?? 0,
             createdAt: u.createdAt ?? null,
             isBlocked: u.isBlocked,
+            status: u.status ?? 'active',
             special_task_force: u.special_task_force,
             special_task_force_moderator: u.special_task_force_moderator,
             mobile: u.mobile ?? '',
@@ -839,7 +844,8 @@ export class UserService extends BaseService {
         agent: assignedAgent,
         isCallAgentActive: true,
         isBusy: false,
-        currentCallUuid: null
+        currentCallUuid: null,
+        lastAgentActiveAt: new Date()
       }, session);
 
       return updatedUser;
@@ -871,6 +877,53 @@ export class UserService extends BaseService {
 
       return updatedUser;
     });
+  }
+
+  /**
+   * Updates the heartbeat timestamp for an active agent
+   */
+  async updateAgentHeartbeat(userId: string): Promise<void> {
+    await this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      if (user.role !== ('call_agent' as any)) {
+        throw new BadRequestError('User is not a call agent');
+      }
+
+      await this.userRepo.edit(userId, {
+        lastAgentActiveAt: new Date()
+      }, session);
+    });
+  }
+
+  /**
+   * Cleanup inactive agents who haven't sent a heartbeat for over 75 seconds
+   */
+  async cleanupInactiveAgents(): Promise<void> {
+    const activeAgents = await this.userRepo.findActiveCallAgents();
+    if (activeAgents.length === 0) {
+      return; // Run only if there are active agents
+    }
+
+    const oneMinuteAgo = new Date(Date.now() - 75 * 1000); // 75 seconds ago
+    const inactiveAgents = activeAgents.filter(
+      agent =>
+        !agent.lastAgentActiveAt || new Date(agent.lastAgentActiveAt) < oneMinuteAgo
+    );
+
+    if (inactiveAgents.length > 0) {
+      for (const agent of inactiveAgents) {
+        try {
+          const userId = agent._id.toString();
+          await this.setAgentOffline(userId);
+        } catch (error) {
+          console.error(`[AGENT-CLEANUP] Failed to mark agent ${agent._id} offline:`, error);
+        }
+      }
+    }
   }
 
   /**
@@ -973,6 +1026,48 @@ export class UserService extends BaseService {
       throw new InternalServerError(
         `Failed to fetch user history`,
       );
+    }
+  }
+
+  async getWorkingHours(query: { userId: string; startDateTime: string; endDateTime: string }): Promise<{ workingHours: number }> {
+    try {
+      const { userId, startDateTime, endDateTime } = query;
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const user = await this.userRepo.findById(userId, session);
+        if (!user) throw new NotFoundError(`User with ID ${userId} not found`);
+
+        const history = await this.userRepo.getUserHistory({ userId, startDateTime, endDateTime }, session);
+        
+        let totalMs = 0;
+        const startLimit = new Date(startDateTime).getTime();
+        const endLimit = new Date(endDateTime).getTime();
+        const now = new Date().getTime();
+
+        (history.roleHistory || []).forEach((item) => {
+          if (item.isBlocked === true) return;
+
+          const fromTime = item.from ? new Date(item.from).getTime() : null;
+          if (!fromTime) return;
+
+          const toTime = item.to ? new Date(item.to).getTime() : now;
+
+          const start = Math.max(fromTime, startLimit);
+          const end = Math.min(toTime, endLimit);
+
+          if (end > start) {
+            totalMs += end - start;
+          }
+        });
+        const workingHours = Math.round((totalMs / (1000 * 60 * 60)) * 10) / 10;
+        return { workingHours };
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError || error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to calculate working hours: ${error}`);
     }
   }
 }

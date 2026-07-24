@@ -75,7 +75,7 @@ export class FeedbackUsersQueryDto extends SourceQueryDto {
 
   @JSONSchema({ example: 'thumbsUp', description: 'Filter by feedback rating: thumbsUp or thumbsDown' })
   @IsOptional()
-  @IsIn(['thumbsUp', 'thumbsDown'])
+  @IsIn(['all', 'thumbsUp', 'thumbsDown'])
   rating?: string;
 
   @JSONSchema({ example: 'accurate_reliable', description: 'Filter by specific feedback tag' })
@@ -420,6 +420,11 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsString()
   isVerified?: string;
+
+     @JSONSchema({ example: 'true', description: 'If true, return only users who are has state in farmer profile' })
+  @IsOptional()
+  @IsString()
+  fromMap?: string;
 
   @JSONSchema({ example: 'loggedIn', description: 'Filter by login status: all, loggedIn, or loggedOut' })
   @IsOptional()

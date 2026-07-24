@@ -25,8 +25,13 @@ import http from 'http';
 import { initWebSocket } from './bootstrap/websocket.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { faqPopConfig } from './config/faqPop.js';
+import { aiConfig } from './config/ai.js';
+import { installTailnetProxy, tailnetAgentFor } from './bootstrap/tailnetProxy.js';
 
 
+// Must run before any service issues a request: the AI / agent / GDB / WhatsApp servers
+// sit on the tailnet (100.x), which is only reachable through Tailscale's local proxy.
+if (aiConfig.useTailnetProxy) installTailnetProxy();
 
 const app = express();
 
@@ -118,11 +123,20 @@ const proxyOnError = (label: string) => (err: Error, _req: any, res: any) => {
   if (!res.headersSent) res.status(502).json({ error: `${label} service unavailable`, detail: err.message });
 };
 
+// The FAQ/POP servers sit on the tailnet (100.x). http-proxy-middleware uses node's raw
+// http module, so the global patches in installTailnetProxy() don't reach it — it needs
+// its own SOCKS agent, or it dials an unroutable address and the request hangs forever.
+// The timeouts turn a dead upstream into a prompt 502 instead of an endless spinner.
+const PROXY_TIMEOUT_MS = 30_000;
+
 if (faqPopConfig.faqApiUrl) {
   app.use('/api/faq', createProxyMiddleware({
     target: faqPopConfig.faqApiUrl,
     changeOrigin: true,
     pathRewrite: { '^/api/faq': '' },
+    agent: tailnetAgentFor(faqPopConfig.faqApiUrl),
+    timeout: PROXY_TIMEOUT_MS,
+    proxyTimeout: PROXY_TIMEOUT_MS,
     on: { error: proxyOnError('faq') },
   }));
 }
@@ -131,6 +145,9 @@ if (faqPopConfig.popApiUrl) {
     target: faqPopConfig.popApiUrl,
     changeOrigin: true,
     pathRewrite: { '^/api/pop': '' },
+    agent: tailnetAgentFor(faqPopConfig.popApiUrl),
+    timeout: PROXY_TIMEOUT_MS,
+    proxyTimeout: PROXY_TIMEOUT_MS,
     on: { error: proxyOnError('pop') },
   }));
 }

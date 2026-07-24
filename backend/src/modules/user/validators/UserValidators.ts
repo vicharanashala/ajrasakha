@@ -47,6 +47,8 @@ class UserDto {
 
   isBlocked: boolean
 
+  status?: 'active' | 'in-active'
+
   special_task_force: boolean
 
   special_task_force_moderator: boolean
