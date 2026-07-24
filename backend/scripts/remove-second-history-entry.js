@@ -1,6 +1,6 @@
 import { MongoClient, ObjectId } from 'mongodb';
 
-const MONGO_URI = process.env.DB_URI!;
+const MONGO_URI = process.env.DB_URI;
 const DB_NAME = process.env.DB_NAME;
 
 const DOCUMENT_ID = '6a5d9b227772a6175de20377';
