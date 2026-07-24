@@ -536,6 +536,7 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    coordinatorId?: string,
   ): Promise<QueryCategoryEntry[]>;
 
   getQueryCategoryQuestions(
@@ -547,6 +548,7 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
     search?: string,
+    coordinatorId?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
 
   getWeatherConcernQueries(
@@ -579,6 +581,7 @@ export interface IChatbotRepository {
     source?: string,
     userType?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{
     totalQuestions: number;
     topCrops: {name: string; count: number}[];
@@ -619,7 +622,7 @@ export interface IChatbotRepository {
   //   search?: string,
   // ): Promise<any>;
 
-    getQuestionsByCrop(crop: string, crops?: string[] ,questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
+    getQuestionsByCrop(crop: string, crops?: string[] ,questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string, coordinatorId?: string): Promise<any>
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
@@ -822,9 +825,9 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<KccAndAgriAppStats>;
 
-  getIdsCreated(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
-  getInstalls(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
-  getActiveUsers(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
+  getIdsCreated(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
+  getInstalls(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
+  getActiveUsers(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
 
   getFeedbackData(
     source?: string,
@@ -869,12 +872,14 @@ export interface IChatbotRepository {
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
   getDuplicateQuestions(
     source?: string,
+    coordinatorId?: string,
     session?: ClientSession,
   ): Promise<DuplicateQuestionEntry[]>;
 
   /** Domain query spikes: days where a domain's question count is ≥2× its 30-day rolling average. */
   getDomainSpikes(
     days?: number,
+    coordinatorId?: string,
     session?: ClientSession,
   ): Promise<DomainSpikeEntry[]>;
 
@@ -895,6 +900,7 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{question: string; count: number}>>;
 
   /** 10 most frequently asked questions from the questions collection. */
@@ -904,6 +910,7 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{questionId: string; question: string; count: number}>>;
 
   /** Get documents for a specific top question drill-down. */
@@ -916,6 +923,7 @@ export interface IChatbotRepository {
     page?: number,
     limit?: number,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>;
   getResponseAdherenceTable(
     session?: ClientSession,
@@ -932,6 +940,7 @@ export interface IChatbotRepository {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<DistrictAnalyticsEntry[]>;
 
   getWeatherConcernAnalytics(
@@ -1040,6 +1049,7 @@ export interface IChatbotRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<any>;
 
   /**
@@ -1131,6 +1141,10 @@ export interface IChatbotRepository {
     startDate?: string,
     endDate?: string,
   ) : Promise<any>
+  getCoordinatorKpiSummary(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<any>;
   assignUsers(userId: string, targetIds: string[]): Promise<any>
   unAssignUsers(userId: string, targetIds: string[]): Promise<any>
 

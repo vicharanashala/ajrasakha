@@ -8,7 +8,8 @@ export const useUserGrowth = (
   userType: string,
   startDate?: Date,
   endDate?: Date,
-  enabled: boolean = true
+  enabled: boolean = true,
+  coordinatorId?: string,
 ) => {
   const startISO = startDate?.toISOString();
   const endISO = endDate
@@ -16,13 +17,13 @@ export const useUserGrowth = (
     : undefined;
 
   return useQuery({
-    queryKey: ["user_growth", source, userType, startISO, endISO],
+    queryKey: ["user_growth", source, userType, startISO, endISO, coordinatorId],
     queryFn: () => {
       if (startISO && endISO) {
-        return chatbotService.getUserGrowthByDateRange(source, userType, startISO, endISO);
+        return chatbotService.getUserGrowthByDateRange(source, userType, startISO, endISO, coordinatorId,);
       }
 
-      return chatbotService.getUserGrowth(source, userType, 3650);
+      return chatbotService.getUserGrowth(source, userType, 3650, coordinatorId);
     },
     enabled,
   });

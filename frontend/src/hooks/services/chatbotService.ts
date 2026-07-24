@@ -48,12 +48,14 @@ export class ChatbotService {
     source: string,
     userType: string,
     range: number,
+    coordinatorId?: string,
   ): Promise<GrowthResponse | null> {
     const params = new URLSearchParams();
 
     if (range) params.append("range", range.toString());
     params.append("source", source);
-    params.append("userType", userType)
+    params.append("userType", userType);
+    if (coordinatorId) params.append("coordinatorId", coordinatorId);
 
     return apiFetch<GrowthResponse>(
       `${this._baseUrl}/user-growth?${params.toString()}`,
@@ -65,12 +67,14 @@ export class ChatbotService {
     userType: string,
     startDate: string,
     endDate: string,
+    coordinatorId?: string,
   ): Promise<GrowthResponse | null> {
     const params = new URLSearchParams();
     params.append("startDate", startDate);
     params.append("endDate", endDate);
     params.append("source", source);
     params.append("userType", userType);
+    if (coordinatorId) params.append("coordinatorId", coordinatorId);
 
     return apiFetch<GrowthResponse>(
       `${this._baseUrl}/user-growth?${params.toString()}`,
@@ -163,10 +167,13 @@ export class ChatbotService {
     );
   }
 
-  async getQueryCategories(source: string, userType: string): Promise<any> {
+  async getQueryCategories(source: string, userType: string, coordinatorId?: string): Promise<any> {
     const params = new URLSearchParams();
     params.append("source", source);
     params.append("userType", userType);
+    if (coordinatorId) {
+      params.append("coordinatorId", coordinatorId);
+    }
     return apiFetch<any>(
       `${this._baseUrl}/query-categories?${params.toString()}`,
     );
@@ -237,6 +244,7 @@ export class ChatbotService {
       endTime?: string;
       page?: number;
       limit?: number;
+      coordinatorId?: string;
     }
   ): Promise<any> {
     const params = new URLSearchParams();
@@ -246,6 +254,7 @@ export class ChatbotService {
     if (filters.endTime) params.append("endTime", filters.endTime);
     if (filters.page) params.append("page", filters.page.toString());
     if (filters.limit) params.append("limit", filters.limit.toString());
+    if (filters.coordinatorId) params.append("coordinatorId", filters.coordinatorId);
 
     return apiFetch<any>(
       `${this._baseUrl}/top-questions/${questionId}?${params.toString()}`

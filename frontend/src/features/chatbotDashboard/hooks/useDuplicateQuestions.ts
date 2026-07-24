@@ -19,13 +19,22 @@ export interface DuplicateQuestionEntry {
   threadId: string;
 }
 
-export function useDuplicateQuestions(enabled = false, source: 'annam' | 'whatsapp'= 'annam', userType: string) {
+export function useDuplicateQuestions(
+  enabled = false,
+  source: 'annam' | 'whatsapp' = 'annam',
+  userType: string,
+  coordinatorId?: string,
+) {
   return useQuery<DuplicateQuestionEntry[], Error>({
-    queryKey: ['duplicate-questions', source, userType],
+    queryKey: ['duplicate-questions', source, userType, coordinatorId],
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
+      const params = new URLSearchParams();
+      params.append("source", source);
+      params.append("userType", userType);
+      if (coordinatorId) params.append("coordinatorId", coordinatorId);
       const result = await apiFetch<DuplicateQuestionEntry[]>(
-        `${API_BASE_URL}/analytics/duplicate-questions?source=${source}&userType=${userType}`
+        `${API_BASE_URL}/analytics/duplicate-questions?${params.toString()}`
       );
       return result ?? [];
     },

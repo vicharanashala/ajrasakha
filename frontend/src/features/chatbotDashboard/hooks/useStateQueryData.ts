@@ -27,6 +27,7 @@ export function useStateWiseAnalytics(
   userType: "all" | "external" | "internal" = "all",
   startDate?: string,
   endDate?: string,
+  coordinatorId?: string,
 ) {
   const { data, isLoading,  isFetching, error } = useQuery<
     DistrictAnalyticsResponse,
@@ -40,6 +41,7 @@ export function useStateWiseAnalytics(
       userType,
       startDate,
       endDate,
+      coordinatorId,
     ],
 
     enabled: !!state,
@@ -69,6 +71,9 @@ export function useStateWiseAnalytics(
       }
       if(endDate){
         params.set("endDate", endDate)
+      }
+      if(coordinatorId){
+        params.set("coordinatorId", coordinatorId)
       }
 
       const queryString = params.toString();

@@ -21,6 +21,7 @@ export interface DomainSpikeEntry {
 
 interface DomainSpikesModalProps {
   onClose: () => void;
+  coordinatorId?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -32,8 +33,8 @@ function fmtDate(iso: string) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function DomainSpikesModal({ onClose }: DomainSpikesModalProps) {
-  const { data: spikes = [], isLoading, isError, refetch, isFetching } = useDomainSpikes(true, 3650); // 3650 days = 10 years
+export function DomainSpikesModal({ onClose, coordinatorId }: DomainSpikesModalProps) {
+  const { data: spikes = [], isLoading, isError, refetch, isFetching } = useDomainSpikes(true, 3650, coordinatorId); // 3650 days = 10 years
 
   const [dateRange, setDateRange] = useState<{ startTime?: Date; endTime?: Date }>({
     startTime: undefined,
