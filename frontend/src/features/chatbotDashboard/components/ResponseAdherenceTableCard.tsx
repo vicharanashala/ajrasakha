@@ -49,6 +49,50 @@ type ResponseAdherenceTableData = {
   whatsappDelayed: number;
   ajrasakhaDelayed: number;
   manualDelayed: number;
+
+            whatsappClosedCount: number;
+        whatsappPendingCount: number;
+        whatsappNonAgriCount: number;
+        whatsappDynamicCount: number;
+        whatsappDuplicateCount: number;
+        whatsappHoldCount: number;
+        whatsappPaeSubmitedCount: number;
+        whatsappDynamicCLosedCount: number;
+        whatsappReroutedCount: number;
+        whatsappPassCount: number;
+        whatsappDuplicateClosedCount: number;
+
+      ajrasakhaClosedCount: number;
+    ajrasakhaPendingCount: number;
+    ajrasakhaNonAgriCount: number;
+    ajrasakhaDynamicCount: number;
+    ajrasakhaDuplicateCount: number;
+    ajrasakhaHoldCount: number;
+    ajrasakhaPaeSubmitedCount:number;
+    ajrasakhaDynamicCLosedCount: number;
+    ajrasakhaReroutedCount: number;
+    ajrasakhaPassCount: number;
+    ajrasakhaDuplicateClosedCount:number;
+
+      manualClosedCount: number;
+    manualPendingCount: number;
+    manualNonAgriCount:number;
+    manualDynamicCount: number;
+    manualDuplicateCount: number;
+    manualHoldCount: number;
+    manualPaeSubmitedCount:number;
+    manualDynamicCLosedCount: number;
+    manualReroutedCount: number;
+    manualPassCount: number;
+    manualDuplicateClosedCount:number;
+
+                  manualAverageResponseGBDMinutes: number;
+    manualAverageResponseNonGBDMinutes: number;
+    whatsappAverageResponseGBDMinutes:number;
+        whatsappAverageResponseNonGBDMinutes:number;
+            ajrasakhaAverageResponseGBDMinutes: number;
+    ajrasakhaAverageResponseNonGBDMinutes: number;
+
   whatsappAverageResponseMinutes: number;
   ajrasakhaAverageResponseMinutes: number;
   manualAverageResponseMinutes: number;
@@ -126,6 +170,50 @@ const DEFAULT_DATA: ResponseAdherenceTableData = {
   whatsappDynamicSchemes: 0,
   ajrasakhaDynamicSchemes: 0,
   manualDynamicSchemes: 0,
+
+            whatsappClosedCount: 0,
+        whatsappPendingCount: 0,
+        whatsappNonAgriCount: 0,
+        whatsappDynamicCount: 0,
+        whatsappDuplicateCount: 0,
+        whatsappHoldCount: 0,
+        whatsappPaeSubmitedCount: 0,
+        whatsappDynamicCLosedCount: 0,
+        whatsappReroutedCount: 0,
+        whatsappPassCount: 0,
+        whatsappDuplicateClosedCount: 0,
+
+      ajrasakhaClosedCount: 0,
+    ajrasakhaPendingCount: 0,
+    ajrasakhaNonAgriCount: 0,
+    ajrasakhaDynamicCount: 0,
+    ajrasakhaDuplicateCount: 0,
+    ajrasakhaHoldCount: 0,
+    ajrasakhaPaeSubmitedCount:0,
+    ajrasakhaDynamicCLosedCount: 0,
+    ajrasakhaReroutedCount: 0,
+    ajrasakhaPassCount: 0,
+    ajrasakhaDuplicateClosedCount:0,
+
+      manualClosedCount: 0,
+    manualPendingCount: 0,
+    manualNonAgriCount:0,
+    manualDynamicCount: 0,
+    manualDuplicateCount: 0,
+    manualHoldCount: 0,
+    manualPaeSubmitedCount:0,
+    manualDynamicCLosedCount: 0,
+    manualReroutedCount: 0,
+    manualPassCount: 0,
+    manualDuplicateClosedCount:0,
+
+                  manualAverageResponseGBDMinutes: 0,
+    manualAverageResponseNonGBDMinutes: 0,
+    whatsappAverageResponseGBDMinutes:0,
+        whatsappAverageResponseNonGBDMinutes: 0,
+            ajrasakhaAverageResponseGBDMinutes: 0,
+    ajrasakhaAverageResponseNonGBDMinutes: 0,
+
   // whatsappNonGdbWithin120: 0,
   // ajrasakhaNonGdbWithin120: 0,
   // manualNonGdbWithin120: 0,
@@ -374,9 +462,23 @@ export function ResponseAdherenceTableCard({
     { id: "inReview", field: "Question in Review", whatsapp: d.whatsappInReview, ajraSakha: d.ajrasakhaInReview, manual: d.manualInReview, notes: "" },
     { id: "open", field: "Questions are Open", whatsapp: d.whatsappOpen, ajraSakha: d.ajrasakhaOpen, manual: d.manualOpen, notes: "" },
     { id: "delayed", field: "Questions are delayed", whatsapp: d.whatsappDelayed, ajraSakha: d.ajrasakhaDelayed, manual: d.manualDelayed, notes: "" },
+    {id: "closed", field: "Question are closed", whatsapp: d.whatsappClosedCount, ajraSakha: d.ajrasakhaClosedCount, manual: d.manualClosedCount, notes:""},
+    {id: "pending", field: "Question are pending", whatsapp: d.whatsappPendingCount, ajraSakha: d.ajrasakhaPendingCount, manual: d.manualPendingCount, notes:""},
+    {id: "non agri", field: "Question are non-agri", whatsapp: d.whatsappNonAgriCount, ajraSakha: d.ajrasakhaNonAgriCount, manual: d.manualNonAgriCount, notes:""},
+    {id: "dynamic", field: "Dynamic Question", whatsapp: d.whatsappDynamicCount, ajraSakha: d.ajrasakhaDynamicCount, manual: d.manualDynamicCount, notes:""},
+    {id: "duplicate", field: "Duplicate Question", whatsapp: d.whatsappDuplicateCount, ajraSakha: d.ajrasakhaDuplicateCount, manual: d.manualDuplicateCount, notes:""},
+    {id: "hold", field: "Question on hold", whatsapp: d.whatsappHoldCount, ajraSakha: d.ajrasakhaHoldCount, manual: d.manualHoldCount, notes:""},
+    {id: "paeSubmited", field: "PAE Submited Questions", whatsapp: d.whatsappPaeSubmitedCount, ajraSakha: d.ajrasakhaPaeSubmitedCount, manual: d.manualPaeSubmitedCount, notes:""},
+    {id: "dynamic closed", field: "Dynamic Closed Questions", whatsapp: d.whatsappDynamicCLosedCount, ajraSakha: d.ajrasakhaDynamicCLosedCount, manual: d.manualDynamicCLosedCount, notes:""},
+    {id: "rerouted", field: "Rerouted Questions", whatsapp: d.whatsappReroutedCount, ajraSakha: d.ajrasakhaReroutedCount, manual: d.manualReroutedCount, notes:""},
+    {id: "pass", field: "Pass Questions", whatsapp: d.whatsappPassCount, ajraSakha: d.ajrasakhaPassCount, manual: d.manualPassCount, notes:""},
+    {id: "duplicate closed", field: "Duplicate Closed Questions", whatsapp: d.whatsappDuplicateClosedCount, ajraSakha: d.ajrasakhaDuplicateClosedCount, manual: d.manualDuplicateClosedCount, notes:""},
     { id: "summaryDelayReason", field: "Summary of the reason for delay", whatsapp: "", ajraSakha: "", manual: "", notes: "" },
     { id: "avgResponse", field: "Average response time", whatsapp: formatMinutes(d.whatsappAverageResponseMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseMinutes), manual: formatMinutes(d.manualAverageResponseMinutes), notes: "" },
+    { id: "avgResponseGDB", field: "Average response time GDB", whatsapp: formatMinutes(d.whatsappAverageResponseGBDMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseGBDMinutes), manual: formatMinutes(d.manualAverageResponseGBDMinutes), notes: "" },
+    { id: "avgResponseNonGDB", field: "Average response time Non GDB", whatsapp: formatMinutes(d.whatsappAverageResponseNonGBDMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseNonGBDMinutes), manual: formatMinutes(d.manualAverageResponseNonGBDMinutes), notes: "" },
     { id: "adherencePct", field: "Percentage of questions completed within 120 minutes", whatsapp: `${d.whatsappAdherencePct.toFixed(2)}%`, ajraSakha: `${d.ajrasakhaAdherencePct.toFixed(2)}%`, manual: `${d.manualAdherencePct.toFixed(2)}%`, notes: "" },
+    { id: "slaBreached", field: "SLA Breached", whatsapp: `${(100 - d.whatsappAdherencePct).toFixed(2)}%`, ajraSakha: `${(100 - d.ajrasakhaAdherencePct).toFixed(2)}%`, manual: `${(100 - d.manualAdherencePct).toFixed(2)}%`, notes: "" },
   ] as const;
 
    const rows: RowConfig[] = [
@@ -562,6 +664,105 @@ export function ResponseAdherenceTableCard({
        as: d.ajrasakhaDelayed,
        manual: d.manualDelayed,
      },
+      {
+       key: "closed",
+       label: "Closed",
+       type: "data",
+       wa: d.whatsappClosedCount,
+       as: d.ajrasakhaClosedCount,
+       manual: d.manualClosedCount,
+     },
+
+     {
+       key: "pending",
+       label: "Pending",
+       type: "data",
+       wa: d.whatsappPendingCount,
+       as: d.ajrasakhaPendingCount,
+       manual: d.manualPendingCount,
+     },
+
+      {
+       key: "nonAgri",
+       label: "Non Agri",
+       type: "data",
+       wa: d.whatsappNonAgriCount,
+       as: d.ajrasakhaNonAgriCount,
+       manual: d.manualNonAgriCount,
+     },
+
+           {
+       key: "dynamic",
+       label: "Dynamic",
+       type: "data",
+       wa: d.whatsappDynamicCount,
+       as: d.ajrasakhaDynamicCount,
+       manual: d.manualDynamicCount,
+     },
+
+                {
+       key: "duplicate",
+       label: "Duplicate",
+       type: "data",
+       wa: d.whatsappDuplicateCount,
+       as: d.ajrasakhaDuplicateCount,
+       manual: d.manualDuplicateCount,
+     },
+
+                     {
+       key: "hold",
+       label: "Hold",
+       type: "data",
+       wa: d.whatsappHoldCount,
+       as: d.ajrasakhaHoldCount,
+       manual: d.manualHoldCount,
+     },
+
+                       {
+       key: "paeSubmited",
+       label: "PAE Submited",
+       type: "data",
+       wa: d.whatsappPaeSubmitedCount,
+       as: d.ajrasakhaPaeSubmitedCount,
+       manual: d.manualPaeSubmitedCount,
+     },
+
+                            {
+       key: "dynamic closed",
+       label: "Dynamic Closed",
+       type: "data",
+       wa: d.whatsappDynamicCLosedCount,
+       as: d.ajrasakhaDynamicCLosedCount,
+       manual: d.manualDynamicCLosedCount,
+     },
+
+                                 {
+       key: "rerouted",
+       label: "Rerouted",
+       type: "data",
+       wa: d.whatsappReroutedCount,
+       as: d.ajrasakhaReroutedCount,
+       manual: d.manualReroutedCount,
+     },
+
+                                   {
+       key: "pass",
+       label: "Pass",
+       type: "data",
+       wa: d.whatsappPassCount,
+       as: d.ajrasakhaPassCount,
+       manual: d.manualPassCount,
+     },
+
+                                        {
+       key: "duplicate closed",
+       label: "Duplicate Closed",
+       type: "data",
+       wa: d.whatsappDuplicateClosedCount,
+       as: d.ajrasakhaDuplicateClosedCount,
+       manual: d.manualDuplicateClosedCount,
+     },
+
      {
        key: "summaryDelayReason",
        label: "Summary of delay reason",
@@ -578,9 +779,25 @@ export function ResponseAdherenceTableCard({
        as: formatMinutes(d.ajrasakhaAverageResponseMinutes),
        manual: formatMinutes(d.manualAverageResponseMinutes),
      },
+         {
+       key: "avgResponseGDB",
+       label: "Avg. Response Time of GDB",
+       type: "data",
+       wa: formatMinutes(d.whatsappAverageResponseGBDMinutes),
+       as: formatMinutes(d.ajrasakhaAverageResponseGBDMinutes),
+       manual: formatMinutes(d.manualAverageResponseGBDMinutes),
+     },
+     {
+       key: "avgResponseNonGDB",
+       label: "Avg. Response Time of Non GDB",
+       type: "data",
+       wa: formatMinutes(d.whatsappAverageResponseNonGBDMinutes),
+       as: formatMinutes(d.ajrasakhaAverageResponseNonGBDMinutes),
+       manual: formatMinutes(d.manualAverageResponseNonGBDMinutes),
+     },
      {
        key: "adherencePct",
-       label: "% Completed within 120 min",
+       label: "% Responded within 120 min",
        type: "data",
        wa:
          d.whatsappAdherencePct != null
@@ -593,6 +810,24 @@ export function ResponseAdherenceTableCard({
        manual:
          d.manualAdherencePct != null
            ? `${d.manualAdherencePct.toFixed(2)}%`
+           : "—",
+       highlight: true,
+     },
+          {
+       key: "slaBreached",
+       label: "SLA Breached",
+       type: "data",
+       wa:
+         d.whatsappAdherencePct != null
+           ? `${(100.00 - d.whatsappAdherencePct).toFixed(2)}%`
+           : "—",
+       as:
+         d.ajrasakhaAdherencePct != null
+           ? `${(100 - d.ajrasakhaAdherencePct).toFixed(2)}%`
+           : "—",
+       manual:
+         d.manualAdherencePct != null
+           ? `${(100 - d.manualAdherencePct).toFixed(2)}%`
            : "—",
        highlight: true,
      },

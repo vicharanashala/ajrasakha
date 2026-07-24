@@ -482,6 +482,49 @@ export interface ResponseAdherenceTable {
   whatsappDelayed: number;
   ajrasakhaDelayed: number;
   manualDelayed: number;
+
+          whatsappClosedCount: number;
+        whatsappPendingCount: number;
+        whatsappNonAgriCount: number;
+        whatsappDynamicCount: number;
+        whatsappDuplicateCount: number;
+        whatsappHoldCount: number;
+        whatsappPaeSubmitedCount: number;
+        whatsappDynamicCLosedCount: number;
+        whatsappReroutedCount: number;
+        whatsappPassCount: number;
+        whatsappDuplicateClosedCount: number;
+
+      ajrasakhaClosedCount: number;
+    ajrasakhaPendingCount: number;
+    ajrasakhaNonAgriCount: number;
+    ajrasakhaDynamicCount: number;
+    ajrasakhaDuplicateCount: number;
+    ajrasakhaHoldCount: number;
+    ajrasakhaPaeSubmitedCount:number;
+    ajrasakhaDynamicCLosedCount: number;
+    ajrasakhaReroutedCount: number;
+    ajrasakhaPassCount: number;
+    ajrasakhaDuplicateClosedCount:number;
+
+      manualClosedCount: number;
+    manualPendingCount: number;
+    manualNonAgriCount:number;
+    manualDynamicCount: number;
+    manualDuplicateCount: number;
+    manualHoldCount: number;
+    manualPaeSubmitedCount:number;
+    manualDynamicCLosedCount: number;
+    manualReroutedCount: number;
+    manualPassCount: number;
+    manualDuplicateClosedCount:number;
+          manualAverageResponseGBDMinutes: number;
+    manualAverageResponseNonGBDMinutes: number;
+            whatsappAverageResponseGBDMinutes: number;
+        whatsappAverageResponseNonGBDMinutes: number;
+            ajrasakhaAverageResponseGBDMinutes: number,
+    ajrasakhaAverageResponseNonGBDMinutes: number;
+
   whatsappAverageResponseMinutes: number;
   ajrasakhaAverageResponseMinutes: number;
   manualAverageResponseMinutes: number;
