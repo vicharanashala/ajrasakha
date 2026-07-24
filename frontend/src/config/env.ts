@@ -5,6 +5,7 @@ type EnvKey =
   // Common
   | "VITE_ENABLE_MOCKS"
   | "VITE_API_BASE_URL"
+  | "VITE_GAP_DETECTOR_API_URL"
 
   // Firebase
   | "VITE_FIREBASE_API_KEY"
@@ -61,6 +62,7 @@ function getEnv(key: EnvKey, required = true, fallback = ""): string {
 // Public env helpers (ONLY using defined EnvKey values)
 export const env = {
   apiBaseUrl: () => getEnv("VITE_API_BASE_URL", true, "http://localhost:3000/api"),
+  gapDetectorApiUrl: () => getEnv("VITE_GAP_DETECTOR_API_URL", false, "http://localhost:8000"),
 
   enableMocks: () => getEnv("VITE_ENABLE_MOCKS", false, "false") === "true",
 

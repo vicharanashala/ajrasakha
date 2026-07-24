@@ -1,0 +1,37 @@
+name: GDB Gap Detector Weekly Report
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Every Sunday at 00:00
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        working-directory: ./apis/gap_detector
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: Generate Weekly Report
+        working-directory: ./apis/gap_detector
+        env:
+          MONGO_URL: ${{ secrets.MONGO_URL }}
+        run: python report.py
+        
+      - name: Upload Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap-detector-weekly-report
+          path: ./apis/gap_detector/reports/*.md
+          retention-days: 90

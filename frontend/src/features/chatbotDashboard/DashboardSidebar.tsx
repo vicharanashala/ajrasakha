@@ -11,7 +11,7 @@ import { Calendar } from "@/components/atoms/calendar";
 import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Download, Loader2, CalendarIcon, Shapes, Info, UserCheck } from "lucide-react";
+import { Download, Loader2, CalendarIcon, Shapes, Info, UserCheck, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { ChatbotService } from "@/hooks/services/chatbotService";
 import {
@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { useNavigate } from "@tanstack/react-router";
 
 import { STATES } from "../../components/MetaData";
 
@@ -37,7 +38,8 @@ export type DashboardView =
   | "query-analysis"
   | "app-health"
   | "user-details"
-  | "export-data";
+  | "export-data"
+  | "gap-detector";
 
 interface NavItemConfig {
   label: string;
@@ -280,6 +282,16 @@ const NAV_SECTIONS: SidebarSection[] = [
         ],
     }, */
   {
+    sectionLabel: "Tools",
+    items: [
+      {
+        label: "Gap Detector",
+        icon: <Activity size={16} />,
+        view: "gap-detector",
+      },
+    ],
+  },
+  {
     sectionLabel: "Management",
     items: [
       { label: "User details", icon: <UsersIcon />, view: "user-details" },
@@ -288,12 +300,6 @@ const NAV_SECTIONS: SidebarSection[] = [
         icon: <Download size={16} />,
         view: "export-data",
       },
-      // {
-      //   label: "User Verification",
-      //   icon: <UserCheck size={16} />,
-      //   view: "verify-users",
-      //   adminOnly: true,
-      // },
     ],
   },
 ];
@@ -309,6 +315,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   healthLabel = "Moderate · needs improvement",
   source = "vicharanashala",
 }) => {
+  const navigate = useNavigate();
   const [segmentsExpanded, setSegmentsExpanded] = useState<boolean>(false);
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<boolean>(true);
@@ -470,9 +477,13 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         setIsDownloadDialogOpen(true);
         return;
       }
+      if (view === "gap-detector") {
+        navigate({ to: "/gap-detector" });
+        return;
+      }
       onViewChange(view);
     },
-    [collapsed, isMobile, onViewChange],
+    [collapsed, isMobile, onViewChange, navigate],
   );
 
   const handleChildClick = useCallback(
