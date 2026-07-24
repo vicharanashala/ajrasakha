@@ -48,7 +48,7 @@ export interface IPerformanceService {
     moderatorApprovalRate: ModeratorApprovalRate;
   }>;
 
-  getGoldenDataset(query: GetGoldenDatasetQuery): Promise<GoldenDataset>;
+  getGoldenDataset(query: GetGoldenDatasetQuery,isTrainingUser?: boolean, isAdmin?: boolean): Promise<GoldenDataset>;
 
   getContributionTrend(timeRange: string): Promise<QuestionContributionTrend[]>;
 

@@ -123,8 +123,9 @@ export class PerformanceController {
   @OpenAPI({ summary: 'Get golden dataset analytics' })
   @Get('/golden-dataset')
   @Authorized()
-  async getGoldenDataset(@QueryParams() query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
-    return this.performanceService.getGoldenDataset(query);
+  async getGoldenDataset(@CurrentUser() user: IUser,@QueryParams() query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
+
+    return this.performanceService.getGoldenDataset(query,user.isTrainingUser??false,user.role === 'admin');
   }
 
   @OpenAPI({ summary: 'Get question contribution trends' })

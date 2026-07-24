@@ -2776,10 +2776,15 @@ export class QuestionRepository implements IQuestionRepository {
     return await this.QuestionCollection.find({status}, {session}).toArray();
   }
 
-  async getClosedQuestionsCount(session?: ClientSession): Promise<number> {
+  async getClosedQuestionsCount(isTrainingUser?: boolean, isAdmin?: boolean,session?: ClientSession): Promise<number> {
     await this.init();
     return await this.QuestionCollection.countDocuments(
-      {status: 'closed'},
+      {
+        status: 'closed',
+        ...(!isAdmin && {
+          trainingQuestion: isTrainingUser === true,
+        }),
+      },
       {session},
     );
   }
@@ -2788,6 +2793,8 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedYear: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     yearData: GoldenDatasetEntry[];
@@ -2987,6 +2994,8 @@ export class QuestionRepository implements IQuestionRepository {
 
     const totalVerifiedByType = closedStats?.totalVerified ?? 0;
     const {moderatorBreakdown} = await this.getTodayApproved(
+      isTrainingUser,
+      isAdmin,
       session,
       startDate,
       endDate,
@@ -3051,6 +3060,8 @@ export class QuestionRepository implements IQuestionRepository {
    * @returns A promise that resolves to question document
    */
   async getTodayApproved(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
     startDate?: Date,
     endDate?: Date,
@@ -3099,14 +3110,17 @@ export class QuestionRepository implements IQuestionRepository {
     },
 
     // Filter by question.closedAt
-    {
-      $match: {
-        'question.closedAt': {
-          $gte: start,
-          $lt: end,
-        },
-      },
-    },
+       {
+         $match: {
+           'question.closedAt': {
+             $gte: start,
+             $lt: end,
+           },
+           ...(!isAdmin && {
+             trainingQuestion: isTrainingUser === true,
+           }),
+         },
+       },
 
     {
       $group: {
@@ -3664,6 +3678,8 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedMonth: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     weeksData: GoldenDatasetEntry[];
@@ -3871,6 +3887,8 @@ export class QuestionRepository implements IQuestionRepository {
    const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     const {moderatorBreakdown} = await this.getTodayApproved(
+      isTrainingUser,
+      isAdmin,
       session,
       startDate,
       endDate,
@@ -3935,6 +3953,8 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedWeek: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     dailyData: GoldenDatasetEntry[];
@@ -4147,6 +4167,8 @@ export class QuestionRepository implements IQuestionRepository {
     const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     const {moderatorBreakdown} = await this.getTodayApproved(
+      isTrainingUser,
+      isAdmin,
       session,
       startDate,
       endDate,
@@ -4212,6 +4234,8 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedDay: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
@@ -4551,6 +4575,8 @@ export class QuestionRepository implements IQuestionRepository {
       const specificDayEnd = new Date(specificDayStart);
       specificDayEnd.setDate(specificDayEnd.getDate() + 1);
       const result = await this.getTodayApproved(
+        isTrainingUser,
+        isAdmin,
         session,
         specificDayStart,
         specificDayEnd,
@@ -4616,6 +4642,8 @@ export class QuestionRepository implements IQuestionRepository {
   async getCustomRangeAnalytics(
     customStartDateTime: string,
     customEndDateTime: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     customData: GoldenDatasetEntry[];
@@ -4679,6 +4707,8 @@ export class QuestionRepository implements IQuestionRepository {
     );
 
     const {moderatorBreakdown} = await this.getTodayApproved(
+      isTrainingUser,
+      isAdmin,
       session,
       startDate,
       endDate,
