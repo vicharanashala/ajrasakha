@@ -91,7 +91,9 @@ TEST_CASES = [
             #"stable": True,
             "crop": "Wheat",
             "is_complete": True,
-        },
+            "script_language": "English",
+            "vocal_language": "English",
+            },
     },
     {
         "name": "market_question_2",
@@ -106,7 +108,9 @@ TEST_CASES = [
             "state": "Haryana",
             "crop": "Paddy",
             "is_complete": True,
-        },
+            "script_language": "English",
+            "vocal_language": "English",
+            },
     },
     {
         "name": "soil_question_1",
@@ -243,6 +247,8 @@ TEST_CASES = [
         "weather": False,
         "soil": False,
         "schemes": False,
+        "script_language": "English",
+        "vocal_language": "English",
     },
 }
 ]
