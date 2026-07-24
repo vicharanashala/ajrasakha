@@ -1109,7 +1109,7 @@ export class ChatbotRepository implements IChatbotRepository {
   },
   {
     $group: {
-      id: null,
+      _id: null,
       avgMinutes: {
         $avg: {
           $divide: [
@@ -1149,7 +1149,7 @@ averageResponseNonGdb: [
   },
   {
     $group: {
-      id: null,
+      _id: null,
       avgMinutes: {
         $avg: {
           $divide: [

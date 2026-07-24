@@ -324,6 +324,7 @@ type RowConfig =
   | {
       key: string;
       label: string;
+      tooltip?: string;
       type: "single";
       value: React.ReactNode;
       span?: boolean;
@@ -331,6 +332,7 @@ type RowConfig =
   | {
       key: string;
       label: string;
+      tooltip?: string;
       type: "header";
       wa: React.ReactNode;
       manual: React.ReactNode;
@@ -340,6 +342,7 @@ type RowConfig =
   | {
       key: string;
       label: string;
+      tooltip?: string;
       type: "data";
       wa: React.ReactNode;
       manual: React.ReactNode;
@@ -481,357 +484,423 @@ export function ResponseAdherenceTableCard({
     { id: "slaBreached", field: "SLA Breached", whatsapp: `${(100 - d.whatsappAdherencePct).toFixed(2)}%`, ajraSakha: `${(100 - d.ajrasakhaAdherencePct).toFixed(2)}%`, manual: `${(100 - d.manualAdherencePct).toFixed(2)}%`, notes: "" },
   ] as const;
 
-   const rows: RowConfig[] = [
-     {
-       key: "date",
-       label: "Date",
-       type: "single",
-       value: d.date || effectiveDate,
-     },
-     {
-       key: "time",
-       label: "Time Window",
-       type: "single",
-       value: d.timeWindow,
-       span: true,
-     },
-     {
-       key: "header",
-       label: "Source",
-       type: "header",
-       wa: "WhatsApp",
-       as: "AjraSakha",
-       manual: "Manual",
-       isHeader: true,
-     },
-     {
-       key: "queriesAsked",
-       label: "Queries Asked",
-       type: "data",
-       wa: whatsappQueriesAskedDisplay,
-       as: d.ajrasakhaQueriesAsked,
-       manual: manualQueriesAskedDisplay,
-     },
-     {
-       key: "pushedReviewer",
-       label: "Pushed into Reviewer System",
-       type: "data",
-       wa: d.whatsappPushedToReviewer,
-       as: d.ajrasakhaPushedToReviewer,
-       manual: d.manualPushedToReviewer,
-     },
-     {
-       key: "answered120",
-       label: "Responded within 120 min",
-       type: "data",
-       wa: d.whatsappAnsweredWithin120Min,
-       as: d.ajrasakhaAnsweredWithin120Min,
-       manual: d.manualAnsweredWithin120Min,
-     },
-     {
-        key: "answered120Closed",
-        label: "Closed within 120 minutes",
-        type: "data",
-        wa: `${d.answeredWithin120MinClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
-        as: `${d.answeredWithin120MinClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
-        manual: `${d.answeredWithin120MinClosedmanual} / ${d.manualAnsweredWithin120Min}`,
-      },
-      {
-        key: "answered120Pass",
-        label: "Pass within 120 minutes)",
-        type: "data",
-        wa: `${d.answeredWithin120MinPasswhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
-        as: `${d.answeredWithin120MinPassajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
-        manual: `${d.answeredWithin120MinPassmanual} / ${d.manualAnsweredWithin120Min}`,
-      },
-      {
-        key: "answered120DynamicClosed",
-        label: "Dynamic Closed within 120 minutes",
-        type: "data",
-        wa: `${d.answeredWithin120MinDynamicClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
-        as: `${d.answeredWithin120MinDynamicClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
-        manual: `${d.answeredWithin120MinDynamicClosedmanual} / ${d.manualAnsweredWithin120Min}`,
-      },
-      {
-        key: "answered120DuplicateClosed",
-        label: "Duplicate Closed within 120 minutes",
-        type: "data",
-        wa: `${d.answeredWithin120MinDuplicateClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
-        as: `${d.answeredWithin120MinDuplicateClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
-        manual: `${d.answeredWithin120MinDuplicateClosedmanual} / ${d.manualAnsweredWithin120Min}`,
-      },
-     {
-       key: "duplicate",
-       label: "Marked Duplicate (GDB)",
-       type: "data",
-       wa: d.whatsappMarkedDuplicate,
-       as: d.ajrasakhaMarkedDuplicate,
-       manual: d.manualMarkedDuplicate,
-     },
-      {
-       key: "totalDynamic",
-       label: "Total - Dynamic",
-       type: "data",
-       wa: d.totalDynamicWhatsappCount,
-       as: d.totalDynamicAjrasakhaCount,
-       manual: d.totalDynamicManualCount,
-     },
-     {
-       key: "dynamicWeather",
-       label: "Dynamic — Weather",
-       type: "data",
-       wa: d.whatsappdynamicWeatherDynamicCount,
-       as: d.ajrasakhadynamicMarketDynamicCount,
-       manual: d.manualdynamicWeatherDynamicCount,
-     },
-     {
-       key: "dynamicMarket",
-       label: "Dynamic — Market",
-       type: "data",
-       wa: d.whatsappdynamicMarketDynamicCount,
-       as: d.ajrasakhadynamicSchemesDynamicCount,
-       manual: d.manualdynamicMarketDynamicCount,
-     },
-     {
-       key: "dynamicSchemes",
-       label: "Dynamic — Schemes",
-       type: "data",
-       wa: d.whatsappdynamicSchemesDynamicCount,
-       as: d.ajrasakhadynamicSchemesDynamicCount,
-       manual: d.manualdynamicSchemesDynamicCount,
-     },
-      {
-       key: "totalStaticDynamic",
-       label: "Total - Static Dynamic",
-       type: "data",
-       wa: d.totalStaticDynamicWhatsappCount,
-       as: d.totalStaticDynamicAjrasakhaCount,
-       manual: d.totalStaticDynamicManualCount,
-     },
-      {
-       key: "staticdynamicWeather",
-       label: "Static Dynamic — Weather",
-       type: "data",
-       wa: d.whatsappdynamicWeatherStaticDynamicCount,
-       as: d.ajrasakhadynamicWeatherStaticDynamicCount,
-       manual: d.manualdynamicWeatherStaticDynamicCount,
-     },
-     {
-       key: "staticdynamicMarket",
-       label: "Static Dynamic — Market",
-       type: "data",
-       wa: d.whatsappdynamicMarketStaticDynamicCount,
-       as: d.ajrasakhadynamicMarketStaticDynamicCount,
-       manual: d.manualdynamicMarketStaticDynamicCount,
-     },
-     {
-       key: "staticdynamicSchemes",
-       label: "Static Dynamic — Schemes",
-       type: "data",
-       wa: d.whatsappdynamicSchemesStaticDynamicCount,
-       as: d.ajrasakhadynamicSchemesStaticDynamicCount,
-       manual: d.manualdynamicSchemesStaticDynamicCount,
-     },
-    //  {
-    //    key: "nonGdb",
-    //    label: "Non-GDB answered in 120 min by AEs",
-    //    type: "data",
-    //    wa: d.whatsappNonGdbWithin120,
-    //    as: d.ajrasakhaNonGdbWithin120,
-    //    manual: d.manualNonGdbWithin120,
-    //  },
-     {
-       key: "inReview",
-       label: "In Review",
-       type: "data",
-       wa: d.whatsappInReview,
-       as: d.ajrasakhaInReview,
-       manual: d.manualInReview,
-     },
-     {
-       key: "open",
-       label: "Open",
-       type: "data",
-       wa: d.whatsappOpen,
-       as: d.ajrasakhaOpen,
-       manual: d.manualOpen,
-     },
-     {
-       key: "delayed",
-       label: "Delayed",
-       type: "data",
-       wa: d.whatsappDelayed,
-       as: d.ajrasakhaDelayed,
-       manual: d.manualDelayed,
-     },
-      {
-       key: "closed",
-       label: "Closed",
-       type: "data",
-       wa: d.whatsappClosedCount,
-       as: d.ajrasakhaClosedCount,
-       manual: d.manualClosedCount,
-     },
+  const rows: RowConfig[] = [
+    {
+      key: "date",
+      label: "Date",
+      tooltip: "Date for which the response adherence metrics are calculated.",
+      type: "single",
+      value: d.date || effectiveDate,
+    },
+    {
+      key: "time",
+      label: "Time Window",
+      tooltip:
+        "Time range within the selected date used to calculate all metrics in this report.",
+      type: "single",
+      value: d.timeWindow,
+      span: true,
+    },
+    {
+      key: "header",
+      label: "Source",
+      tooltip:
+        "Channel through which the question entered the system: WhatsApp, AjraSakha, or Manual.",
+      type: "header",
+      wa: "WhatsApp",
+      as: "AjraSakha",
+      manual: "Manual",
+      isHeader: true,
+    },
 
-     {
-       key: "pending",
-       label: "Pending",
-       type: "data",
-       wa: d.whatsappPendingCount,
-       as: d.ajrasakhaPendingCount,
-       manual: d.manualPendingCount,
-     },
+    {
+      key: "queriesAsked",
+      label: "Queries Asked",
+      tooltip:
+        "Total user queries received from this source during the selected time window.",
+      type: "data",
+      wa: whatsappQueriesAskedDisplay,
+      as: d.ajrasakhaQueriesAsked,
+      manual: manualQueriesAskedDisplay,
+    },
+    {
+      key: "pushedReviewer",
+      label: "Pushed into Reviewer System",
+      tooltip:
+        "Total questions created in the reviewer system for this source during the selected time window.",
+      type: "data",
+      wa: d.whatsappPushedToReviewer,
+      as: d.ajrasakhaPushedToReviewer,
+      manual: d.manualPushedToReviewer,
+    },
 
-      {
-       key: "nonAgri",
-       label: "Non Agri",
-       type: "data",
-       wa: d.whatsappNonAgriCount,
-       as: d.ajrasakhaNonAgriCount,
-       manual: d.manualNonAgriCount,
-     },
+    {
+      key: "answered120",
+      label: "Responded within 120 min",
+      tooltip:
+        "Total completed questions whose operational completion time was within 120 minutes of question creation.",
+      type: "data",
+      wa: d.whatsappAnsweredWithin120Min,
+      as: d.ajrasakhaAnsweredWithin120Min,
+      manual: d.manualAnsweredWithin120Min,
+    },
+    {
+      key: "answered120Closed",
+      label: "Closed within 120 minutes",
+      tooltip:
+        "Questions with Closed status that were completed within 120 minutes. The value is shown against the total questions responded to within 120 minutes.",
+      type: "data",
+      wa: `${d.answeredWithin120MinClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
+      as: `${d.answeredWithin120MinClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
+      manual: `${d.answeredWithin120MinClosedmanual} / ${d.manualAnsweredWithin120Min}`,
+    },
+    {
+      key: "answered120Pass",
+      label: "Pass within 120 minutes",
+      tooltip:
+        "Questions with Pass status that were completed within 120 minutes. The value is shown against the total questions responded to within 120 minutes.",
+      type: "data",
+      wa: `${d.answeredWithin120MinPasswhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
+      as: `${d.answeredWithin120MinPassajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
+      manual: `${d.answeredWithin120MinPassmanual} / ${d.manualAnsweredWithin120Min}`,
+    },
+    {
+      key: "answered120DynamicClosed",
+      label: "Dynamic Closed within 120 minutes",
+      tooltip:
+        "Dynamic questions that reached Dynamic Closed status within 120 minutes. The value is shown against the total questions responded to within 120 minutes.",
+      type: "data",
+      wa: `${d.answeredWithin120MinDynamicClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
+      as: `${d.answeredWithin120MinDynamicClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
+      manual: `${d.answeredWithin120MinDynamicClosedmanual} / ${d.manualAnsweredWithin120Min}`,
+    },
+    {
+      key: "answered120DuplicateClosed",
+      label: "Duplicate Closed within 120 minutes",
+      tooltip:
+        "Duplicate questions that reached Duplicate Closed status within 120 minutes. The value is shown against the total questions responded to within 120 minutes.",
+      type: "data",
+      wa: `${d.answeredWithin120MinDuplicateClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,
+      as: `${d.answeredWithin120MinDuplicateClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,
+      manual: `${d.answeredWithin120MinDuplicateClosedmanual} / ${d.manualAnsweredWithin120Min}`,
+    },
 
-           {
-       key: "dynamic",
-       label: "Dynamic",
-       type: "data",
-       wa: d.whatsappDynamicCount,
-       as: d.ajrasakhaDynamicCount,
-       manual: d.manualDynamicCount,
-     },
+    {
+      key: "duplicate",
+      label: "Marked Duplicate (GDB)",
+      tooltip:
+        "Questions identified as duplicates of an existing Golden Database (GDB) question.",
+      type: "data",
+      wa: d.whatsappMarkedDuplicate,
+      as: d.ajrasakhaMarkedDuplicate,
+      manual: d.manualMarkedDuplicate,
+    },
 
-                {
-       key: "duplicate",
-       label: "Duplicate",
-       type: "data",
-       wa: d.whatsappDuplicateCount,
-       as: d.ajrasakhaDuplicateCount,
-       manual: d.manualDuplicateCount,
-     },
+    {
+      key: "totalDynamic",
+      label: "Total - Dynamic",
+      tooltip:
+        "Total dynamic Weather, Market, and Schemes questions. These are handled through dynamic data or tool-based processing.",
+      type: "data",
+      wa: d.totalDynamicWhatsappCount,
+      as: d.totalDynamicAjrasakhaCount,
+      manual: d.totalDynamicManualCount,
+    },
+    {
+      key: "dynamicWeather",
+      label: "Dynamic — Weather",
+      tooltip:
+        "Weather-related questions classified as Dynamic.",
+      type: "data",
+      wa: d.whatsappdynamicWeatherDynamicCount,
+      as: d.ajrasakhadynamicWeatherDynamicCount,
+      manual: d.manualdynamicWeatherDynamicCount,
+    },
+    {
+      key: "dynamicMarket",
+      label: "Dynamic — Market",
+      tooltip:
+        "Market-related questions classified as Dynamic.",
+      type: "data",
+      wa: d.whatsappdynamicMarketDynamicCount,
+      as: d.ajrasakhadynamicMarketDynamicCount,
+      manual: d.manualdynamicMarketDynamicCount,
+    },
+    {
+      key: "dynamicSchemes",
+      label: "Dynamic — Schemes",
+      tooltip:
+        "Government scheme-related questions classified as Dynamic.",
+      type: "data",
+      wa: d.whatsappdynamicSchemesDynamicCount,
+      as: d.ajrasakhadynamicSchemesDynamicCount,
+      manual: d.manualdynamicSchemesDynamicCount,
+    },
 
-                     {
-       key: "hold",
-       label: "Hold",
-       type: "data",
-       wa: d.whatsappHoldCount,
-       as: d.ajrasakhaHoldCount,
-       manual: d.manualHoldCount,
-     },
+    {
+      key: "totalStaticDynamic",
+      label: "Total - Static Dynamic",
+      tooltip:
+        "Total Weather, Market, and Schemes questions tagged as Static Dynamic.",
+      type: "data",
+      wa: d.totalStaticDynamicWhatsappCount,
+      as: d.totalStaticDynamicAjrasakhaCount,
+      manual: d.totalStaticDynamicManualCount,
+    },
+    {
+      key: "staticdynamicWeather",
+      label: "Static Dynamic — Weather",
+      tooltip:
+        "Weather-related questions tagged as Static Dynamic.",
+      type: "data",
+      wa: d.whatsappdynamicWeatherStaticDynamicCount,
+      as: d.ajrasakhadynamicWeatherStaticDynamicCount,
+      manual: d.manualdynamicWeatherStaticDynamicCount,
+    },
+    {
+      key: "staticdynamicMarket",
+      label: "Static Dynamic — Market",
+      tooltip:
+        "Market-related questions tagged as Static Dynamic.",
+      type: "data",
+      wa: d.whatsappdynamicMarketStaticDynamicCount,
+      as: d.ajrasakhadynamicMarketStaticDynamicCount,
+      manual: d.manualdynamicMarketStaticDynamicCount,
+    },
+    {
+      key: "staticdynamicSchemes",
+      label: "Static Dynamic — Schemes",
+      tooltip:
+        "Government scheme-related questions tagged as Static Dynamic.",
+      type: "data",
+      wa: d.whatsappdynamicSchemesStaticDynamicCount,
+      as: d.ajrasakhadynamicSchemesStaticDynamicCount,
+      manual: d.manualdynamicSchemesStaticDynamicCount,
+    },
 
-                       {
-       key: "paeSubmited",
-       label: "PAE Submited",
-       type: "data",
-       wa: d.whatsappPaeSubmitedCount,
-       as: d.ajrasakhaPaeSubmitedCount,
-       manual: d.manualPaeSubmitedCount,
-     },
+    {
+      key: "inReview",
+      label: "In Review",
+      tooltip:
+        "Questions currently under review and awaiting completion of the review process.",
+      type: "data",
+      wa: d.whatsappInReview,
+      as: d.ajrasakhaInReview,
+      manual: d.manualInReview,
+    },
+    {
+      key: "open",
+      label: "Open",
+      tooltip:
+        "Questions currently in Open status and not yet completed.",
+      type: "data",
+      wa: d.whatsappOpen,
+      as: d.ajrasakhaOpen,
+      manual: d.manualOpen,
+    },
+    {
+      key: "delayed",
+      label: "Delayed",
+      tooltip:
+        "Questions currently marked as Delayed in the reviewer system.",
+      type: "data",
+      wa: d.whatsappDelayed,
+      as: d.ajrasakhaDelayed,
+      manual: d.manualDelayed,
+    },
+    {
+      key: "closed",
+      label: "Closed",
+      tooltip:
+        "Questions whose current reviewer-system status is Closed.",
+      type: "data",
+      wa: d.whatsappClosedCount,
+      as: d.ajrasakhaClosedCount,
+      manual: d.manualClosedCount,
+    },
+    {
+      key: "pending",
+      label: "Pending",
+      tooltip:
+        "Questions whose current reviewer-system status is Pending.",
+      type: "data",
+      wa: d.whatsappPendingCount,
+      as: d.ajrasakhaPendingCount,
+      manual: d.manualPendingCount,
+    },
+    {
+      key: "nonAgri",
+      label: "Non Agri",
+      tooltip:
+        "Questions classified as non-agricultural and therefore outside the agricultural query workflow.",
+      type: "data",
+      wa: d.whatsappNonAgriCount,
+      as: d.ajrasakhaNonAgriCount,
+      manual: d.manualNonAgriCount,
+    },
+    {
+      key: "dynamic",
+      label: "Dynamic",
+      tooltip:
+        "Questions whose current reviewer-system status is Dynamic.",
+      type: "data",
+      wa: d.whatsappDynamicCount,
+      as: d.ajrasakhaDynamicCount,
+      manual: d.manualDynamicCount,
+    },
+    {
+      key: "duplicate",
+      label: "Duplicate",
+      tooltip:
+        "Questions whose current reviewer-system status is Duplicate.",
+      type: "data",
+      wa: d.whatsappDuplicateCount,
+      as: d.ajrasakhaDuplicateCount,
+      manual: d.manualDuplicateCount,
+    },
+    {
+      key: "hold",
+      label: "Hold",
+      tooltip:
+        "Questions currently placed on hold and awaiting further action.",
+      type: "data",
+      wa: d.whatsappHoldCount,
+      as: d.ajrasakhaHoldCount,
+      manual: d.manualHoldCount,
+    },
+    {
+      key: "paeSubmited",
+      label: "PAE Submitted",
+      tooltip:
+        "Questions whose current status indicates that they have been submitted to the PAE workflow.",
+      type: "data",
+      wa: d.whatsappPaeSubmitedCount,
+      as: d.ajrasakhaPaeSubmitedCount,
+      manual: d.manualPaeSubmitedCount,
+    },
+    {
+      key: "dynamicClosed",
+      label: "Dynamic Closed",
+      tooltip:
+        "Dynamic questions that have completed processing and reached Dynamic Closed status.",
+      type: "data",
+      wa: d.whatsappDynamicCLosedCount,
+      as: d.ajrasakhaDynamicCLosedCount,
+      manual: d.manualDynamicCLosedCount,
+    },
+    {
+      key: "rerouted",
+      label: "Rerouted",
+      tooltip:
+        "Questions rerouted to another workflow or processing path.",
+      type: "data",
+      wa: d.whatsappReroutedCount,
+      as: d.ajrasakhaReroutedCount,
+      manual: d.manualReroutedCount,
+    },
+    {
+      key: "pass",
+      label: "Pass",
+      tooltip:
+        "Questions whose current reviewer-system status is Pass.",
+      type: "data",
+      wa: d.whatsappPassCount,
+      as: d.ajrasakhaPassCount,
+      manual: d.manualPassCount,
+    },
+    {
+      key: "duplicateClosed",
+      label: "Duplicate Closed",
+      tooltip:
+        "Duplicate questions whose processing has been completed and whose current status is Duplicate Closed.",
+      type: "data",
+      wa: d.whatsappDuplicateClosedCount,
+      as: d.ajrasakhaDuplicateClosedCount,
+      manual: d.manualDuplicateClosedCount,
+    },
 
-                            {
-       key: "dynamic closed",
-       label: "Dynamic Closed",
-       type: "data",
-       wa: d.whatsappDynamicCLosedCount,
-       as: d.ajrasakhaDynamicCLosedCount,
-       manual: d.manualDynamicCLosedCount,
-     },
+    {
+      key: "summaryDelayReason",
+      label: "Summary of delay reason",
+      tooltip:
+        "Summary explaining why questions exceeded the expected response or processing time.",
+      type: "data",
+      wa: "—",
+      as: "—",
+      manual: "—",
+    },
 
-                                 {
-       key: "rerouted",
-       label: "Rerouted",
-       type: "data",
-       wa: d.whatsappReroutedCount,
-       as: d.ajrasakhaReroutedCount,
-       manual: d.manualReroutedCount,
-     },
-
-                                   {
-       key: "pass",
-       label: "Pass",
-       type: "data",
-       wa: d.whatsappPassCount,
-       as: d.ajrasakhaPassCount,
-       manual: d.manualPassCount,
-     },
-
-                                        {
-       key: "duplicate closed",
-       label: "Duplicate Closed",
-       type: "data",
-       wa: d.whatsappDuplicateClosedCount,
-       as: d.ajrasakhaDuplicateClosedCount,
-       manual: d.manualDuplicateClosedCount,
-     },
-
-     {
-       key: "summaryDelayReason",
-       label: "Summary of delay reason",
-       type: "data",
-       wa: "—",
-       as: "—",
-       manual: "—",
-     },
-     {
-       key: "avgResponse",
-       label: "Avg. Response Time",
-       type: "data",
-       wa: formatMinutes(d.whatsappAverageResponseMinutes),
-       as: formatMinutes(d.ajrasakhaAverageResponseMinutes),
-       manual: formatMinutes(d.manualAverageResponseMinutes),
-     },
-         {
-       key: "avgResponseGDB",
-       label: "Avg. Response Time of GDB",
-       type: "data",
-       wa: formatMinutes(d.whatsappAverageResponseGBDMinutes),
-       as: formatMinutes(d.ajrasakhaAverageResponseGBDMinutes),
-       manual: formatMinutes(d.manualAverageResponseGBDMinutes),
-     },
-     {
-       key: "avgResponseNonGDB",
-       label: "Avg. Response Time of Non GDB",
-       type: "data",
-       wa: formatMinutes(d.whatsappAverageResponseNonGBDMinutes),
-       as: formatMinutes(d.ajrasakhaAverageResponseNonGBDMinutes),
-       manual: formatMinutes(d.manualAverageResponseNonGBDMinutes),
-     },
-     {
-       key: "adherencePct",
-       label: "% Responded within 120 min",
-       type: "data",
-       wa:
-         d.whatsappAdherencePct != null
-           ? `${d.whatsappAdherencePct.toFixed(2)}%`
-           : "—",
-       as:
-         d.ajrasakhaAdherencePct != null
-           ? `${d.ajrasakhaAdherencePct.toFixed(2)}%`
-           : "—",
-       manual:
-         d.manualAdherencePct != null
-           ? `${d.manualAdherencePct.toFixed(2)}%`
-           : "—",
-       highlight: true,
-     },
-          {
-       key: "slaBreached",
-       label: "SLA Breached",
-       type: "data",
-       wa:
-         d.whatsappAdherencePct != null
-           ? `${(100.00 - d.whatsappAdherencePct).toFixed(2)}%`
-           : "—",
-       as:
-         d.ajrasakhaAdherencePct != null
-           ? `${(100 - d.ajrasakhaAdherencePct).toFixed(2)}%`
-           : "—",
-       manual:
-         d.manualAdherencePct != null
-           ? `${(100 - d.manualAdherencePct).toFixed(2)}%`
-           : "—",
-       highlight: true,
-     },
-   ];
+    {
+      key: "avgResponse",
+      label: "Avg. Response Time",
+      tooltip:
+        "Average time from question creation to operational completion across all completed question categories.",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageResponseMinutes),
+      as: formatMinutes(d.ajrasakhaAverageResponseMinutes),
+      manual: formatMinutes(d.manualAverageResponseMinutes),
+    },
+    {
+      key: "avgResponseGDB",
+      label: "Avg. Response Time of GDB",
+      tooltip:
+        "Average time from question creation to closure for GDB-based questions.",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageResponseGBDMinutes),
+      as: formatMinutes(d.ajrasakhaAverageResponseGBDMinutes),
+      manual: formatMinutes(d.manualAverageResponseGBDMinutes),
+    },
+    {
+      key: "avgResponseNonGDB",
+      label: "Avg. Response Time of Non GDB",
+      tooltip:
+        "Average time from question creation to operational completion for Non-GDB questions, including Pass, Dynamic Closed, and Duplicate Closed.",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageResponseNonGBDMinutes),
+      as: formatMinutes(d.ajrasakhaAverageResponseNonGBDMinutes),
+      manual: formatMinutes(d.manualAverageResponseNonGBDMinutes),
+    },
+    {
+      key: "slaBreached",
+      label: "SLA Breached",
+      tooltip:
+        "Percentage of completed questions that were not completed within the 120-minute SLA. Calculated as 100% minus the 120-minute adherence percentage.",
+      type: "data",
+      wa:
+        d.whatsappAdherencePct != null
+          ? `${(100 - d.whatsappAdherencePct).toFixed(2)}%`
+          : "—",
+      as:
+        d.ajrasakhaAdherencePct != null
+          ? `${(100 - d.ajrasakhaAdherencePct).toFixed(2)}%`
+          : "—",
+      manual:
+        d.manualAdherencePct != null
+          ? `${(100 - d.manualAdherencePct).toFixed(2)}%`
+          : "—",
+      highlight: false,
+    },
+    {
+      key: "adherencePct",
+      label: "% Responded within 120 min",
+      tooltip:
+        "Percentage of completed questions that were operationally completed within 120 minutes of creation.",
+      type: "data",
+      wa:
+        d.whatsappAdherencePct != null
+          ? `${d.whatsappAdherencePct.toFixed(2)}%`
+          : "—",
+      as:
+        d.ajrasakhaAdherencePct != null
+          ? `${d.ajrasakhaAdherencePct.toFixed(2)}%`
+          : "—",
+      manual:
+        d.manualAdherencePct != null
+          ? `${d.manualAdherencePct.toFixed(2)}%`
+          : "—",
+      highlight: true,
+    },
+  ];
 
 
   const hasSelectedRows = rowExportData.some((row) => checkedRows[row.id]);
@@ -1341,8 +1410,31 @@ export function ResponseAdherenceTableCard({
                             <td className="border-b border-r border-border/40 px-2 py-2.5 text-center w-10">
                               {rowCheck(row.key)}
                             </td>
-                            <td className="border-b border-r border-border/40 px-3 py-2.5 text-muted-foreground">
-                              {row.label}
+                            <td className="border-b border-r border-border/40 px-3 py-2.5 text-muted-foreground w-[300px] min-w-[300px]">
+                              <div className="flex w-full items-center justify-between gap-3">
+                                <span>{row.label}</span>
+
+                                {row.tooltip && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <InfoIcon className="h-4 w-4" />
+                                      </button>
+                                    </TooltipTrigger>
+
+                                    <TooltipContent
+                                      side="top"
+                                      className="max-w-xs text-sm"
+                                    >
+                                      <p>{row.tooltip}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
                             </td>
                             <td className="border-b border-r border-border/40 px-3 py-2.5 tabular-nums">
                               {row.wa ?? "—"}
