@@ -1,0 +1,62 @@
+.home-dash {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f7faf8;
+  color: #12241d;
+}
+
+.home-dash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.home-dash-brand {
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  color: #178a48;
+}
+
+.home-dash-login {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: none;
+  background: #178a48;
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.home-dash-login:hover {
+  background: #0f6b37;
+}
+
+.home-dash-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  padding: 24px;
+}
+
+.home-dash-title {
+  font-size: 48px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.home-dash-subtitle {
+  font-size: 16px;
+  color: #4b5563;
+  margin: 0;
+}
