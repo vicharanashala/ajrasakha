@@ -1,0 +1,31 @@
+scenario_id,scenario_name,domain,EN,HI,KN,TA,PA,TE
+S01,paddy_cultural_practices,Cultural Practices,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S02,wheat_pest_yellow_rust,Plant Protection,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S03,rice_nutrient_mgmt,Nutrient Management,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S04,cotton_variety_selection,Varieties,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S05,sugarcane_water_mgmt,Water Management,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S06,tomato_organic_farming,Organic Farming,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S07,mustard_seed_treatment,Seeds,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S08,mango_postharvest,Post Harvest Preservation,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S09,banana_field_prep,Field Preparation,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S10,maize_weed_mgmt,Weed Management,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S11,wheat_market_price,Market Prices,PASS,PASS,PASS,PASS,PASS,PASS
+S12,paddy_market_karnal,Market Prices,PASS,PASS,PASS,PASS,PASS,PASS
+S13,drip_irrigation_scheme,Government Schemes,PASS,PASS,PASS,PASS,PASS,PASS
+S14,pm_kisan_scheme,Government Schemes,PASS,PASS,PASS,PASS,PASS,PASS
+S15,soil_npk_paddy,Nutrient Management,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S16,weather_today_ropar,Weather,PASS,PASS,PASS,PASS,PASS,PASS
+S17,weather_forecast_ludhiana,Weather,PASS,PASS,PASS,PASS,PASS,PASS
+S18,non_agri_quick_money,General,PASS,PASS,PASS,PASS,PASS,PASS
+S19,greeting_hello,General,PASS,PASS,PASS,PASS,PASS,PASS
+S20,crop_insurance_wheat,Crop Insurance,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S21,bio_pesticide_cotton,Bio-Pesticides and Bio-Fertilizers,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S22,agri_mech_tractor,Agriculture Mechanization,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S23,horticulture_apple,Horticulture & Allied Agriculture,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S24,sowing_time_wheat,Sowing Time and Weather,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S25,fertilizer_urea_paddy,Fertilizer Use and Availability,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S26,storage_wheat_grains,Storage,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S27,soil_health_card,Soil Health Card,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S28,livestock_goat_feeding,Livestock & Animal Husbandry,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S29,fisheries_pond_mgmt,Fisheries & Aquaculture,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL
+S30,multi_tool_weather_pest,Plant Protection,FAIL,FAIL,FAIL,FAIL,FAIL,FAIL

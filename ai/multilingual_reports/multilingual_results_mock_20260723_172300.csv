@@ -1,0 +1,770 @@
+case_id,scenario_id,language_code,domain,query,expected_vocal,expected_script,stable,translation_review_status,translation_reviewer,status,http_status,graph_status,latency_seconds,error,routing_pass,plan_pass,plan_reason,language_pass,language_reason,testing_disclaimer_present,testing_disclaimer_at_bottom,two_hr_disclaimer_present,disclaimer_pass,disclaimer_reason,lang_switch_detected,lang_switch_reason,terminology_pass,terminology_reason,source_attribution_pass,source_attribution_reason,response_text
+ML-S01-EN,S01,EN,Cultural Practices,How do I grow paddy in Punjab? What are the main cultivation steps?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S01-EN] Domain: Cultural Practices. Query language: English. [Mock agri content covers: paddy, cultivation, transplanting, nursery]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠"
+ML-S01-HI,S01,HI,Cultural Practices,How do I grow paddy in Punjab? What are the main cultivation steps?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S01-HI] Domain: Cultural Practices. Query language: Hindi. [Mock agri content covers: paddy, cultivation, transplanting, nursery]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्"
+ML-S01-KN,S01,KN,Cultural Practices,How do I grow paddy in Punjab? What are the main cultivation steps?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S01-KN] Domain: Cultural Practices. Query language: Kannada. [Mock agri content covers: paddy, cultivation, transplanting, nursery]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳ"
+ML-S01-TA,S01,TA,Cultural Practices,How do I grow paddy in Punjab? What are the main cultivation steps?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S01-TA] Domain: Cultural Practices. Query language: Tamil. [Mock agri content covers: paddy, cultivation, transplanting, nursery]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி."
+ML-S01-PA,S01,PA,Cultural Practices,How do I grow paddy in Punjab? What are the main cultivation steps?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S01-PA] Domain: Cultural Practices. Query language: Punjabi. [Mock agri content covers: paddy, cultivation, transplanting, nursery]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ"
+ML-S01-TE,S01,TE,Cultural Practices,How do I grow paddy in Punjab? What are the main cultivation steps?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S01-TE] Domain: Cultural Practices. Query language: Telugu. [Mock agri content covers: paddy, cultivation, transplanting, nursery]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు "
+ML-S02-EN,S02,EN,Plant Protection,How do I treat yellow rust disease in wheat in Haryana?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S02-EN] Domain: Plant Protection. Query language: English. [Mock agri content covers: yellow rust, fungicide, wheat]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSak"
+ML-S02-HI,S02,HI,Plant Protection,How do I treat yellow rust disease in wheat in Haryana?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S02-HI] Domain: Plant Protection. Query language: Hindi. [Mock agri content covers: yellow rust, fungicide, wheat]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्ष"
+ML-S02-KN,S02,KN,Plant Protection,How do I treat yellow rust disease in wheat in Haryana?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S02-KN] Domain: Plant Protection. Query language: Kannada. [Mock agri content covers: yellow rust, fungicide, wheat]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂ"
+ML-S02-TA,S02,TA,Plant Protection,How do I treat yellow rust disease in wheat in Haryana?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S02-TA] Domain: Plant Protection. Query language: Tamil. [Mock agri content covers: yellow rust, fungicide, wheat]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான "
+ML-S02-PA,S02,PA,Plant Protection,How do I treat yellow rust disease in wheat in Haryana?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S02-PA] Domain: Plant Protection. Query language: Punjabi. [Mock agri content covers: yellow rust, fungicide, wheat]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ"
+ML-S02-TE,S02,TE,Plant Protection,How do I treat yellow rust disease in wheat in Haryana?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S02-TE] Domain: Plant Protection. Query language: Telugu. [Mock agri content covers: yellow rust, fungicide, wheat]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️"
+ML-S03-EN,S03,EN,Nutrient Management,What is the recommended fertilizer dose for rice in Andhra Pradesh?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S03-EN] Domain: Nutrient Management. Query language: English. [Mock agri content covers: nitrogen, fertilizer, rice]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSak"
+ML-S03-HI,S03,HI,Nutrient Management,What is the recommended fertilizer dose for rice in Andhra Pradesh?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S03-HI] Domain: Nutrient Management. Query language: Hindi. [Mock agri content covers: nitrogen, fertilizer, rice]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्ष"
+ML-S03-KN,S03,KN,Nutrient Management,What is the recommended fertilizer dose for rice in Andhra Pradesh?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S03-KN] Domain: Nutrient Management. Query language: Kannada. [Mock agri content covers: nitrogen, fertilizer, rice]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂ"
+ML-S03-TA,S03,TA,Nutrient Management,What is the recommended fertilizer dose for rice in Andhra Pradesh?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S03-TA] Domain: Nutrient Management. Query language: Tamil. [Mock agri content covers: nitrogen, fertilizer, rice]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான "
+ML-S03-PA,S03,PA,Nutrient Management,What is the recommended fertilizer dose for rice in Andhra Pradesh?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S03-PA] Domain: Nutrient Management. Query language: Punjabi. [Mock agri content covers: nitrogen, fertilizer, rice]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ"
+ML-S03-TE,S03,TE,Nutrient Management,What is the recommended fertilizer dose for rice in Andhra Pradesh?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S03-TE] Domain: Nutrient Management. Query language: Telugu. [Mock agri content covers: nitrogen, fertilizer, rice]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️"
+ML-S04-EN,S04,EN,Varieties,Which cotton varieties are best suited for Maharashtra?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S04-EN] Domain: Varieties. Query language: English. [Mock agri content covers: cotton, variety, hybrid]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha applicatio"
+ML-S04-HI,S04,HI,Varieties,Which cotton varieties are best suited for Maharashtra?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S04-HI] Domain: Varieties. Query language: Hindi. [Mock agri content covers: cotton, variety, hybrid]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+
+यह Ajr"
+ML-S04-KN,S04,KN,Varieties,Which cotton varieties are best suited for Maharashtra?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S04-KN] Domain: Varieties. Query language: Kannada. [Mock agri content covers: cotton, variety, hybrid]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀಕ್ಷಾ "
+ML-S04-TA,S04,TA,Varieties,Which cotton varieties are best suited for Maharashtra?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S04-TA] Domain: Varieties. Query language: Tamil. [Mock agri content covers: cotton, variety, hybrid]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான அறிவிப்பு (சோ"
+ML-S04-PA,S04,PA,Varieties,Which cotton varieties are best suited for Maharashtra?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S04-PA] Domain: Varieties. Query language: Punjabi. [Mock agri content covers: cotton, variety, hybrid]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+ਇਹ Ajra"
+ML-S04-TE,S04,TE,Varieties,Which cotton varieties are best suited for Maharashtra?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S04-TE] Domain: Varieties. Query language: Telugu. [Mock agri content covers: cotton, variety, hybrid]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ AjraSakha"
+ML-S05-EN,S05,EN,Water Management,What is the irrigation schedule for sugarcane in Tamil Nadu?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S05-EN] Domain: Water Management. Query language: English. [Mock agri content covers: sugarcane, irrigation, water]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakh"
+ML-S05-HI,S05,HI,Water Management,What is the irrigation schedule for sugarcane in Tamil Nadu?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S05-HI] Domain: Water Management. Query language: Hindi. [Mock agri content covers: sugarcane, irrigation, water]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्षण"
+ML-S05-KN,S05,KN,Water Management,What is the irrigation schedule for sugarcane in Tamil Nadu?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S05-KN] Domain: Water Management. Query language: Kannada. [Mock agri content covers: sugarcane, irrigation, water]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂಚ"
+ML-S05-TA,S05,TA,Water Management,What is the irrigation schedule for sugarcane in Tamil Nadu?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S05-TA] Domain: Water Management. Query language: Tamil. [Mock agri content covers: sugarcane, irrigation, water]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான அ"
+ML-S05-PA,S05,PA,Water Management,What is the irrigation schedule for sugarcane in Tamil Nadu?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S05-PA] Domain: Water Management. Query language: Punjabi. [Mock agri content covers: sugarcane, irrigation, water]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ)"
+ML-S05-TE,S05,TE,Water Management,What is the irrigation schedule for sugarcane in Tamil Nadu?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S05-TE] Domain: Water Management. Query language: Telugu. [Mock agri content covers: sugarcane, irrigation, water]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+"
+ML-S06-EN,S06,EN,Organic Farming,How to grow tomatoes using organic methods in Karnataka?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S06-EN] Domain: Organic Farming. Query language: English. [Mock agri content covers: tomato, organic, compost]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha app"
+ML-S06-HI,S06,HI,Organic Farming,How to grow tomatoes using organic methods in Karnataka?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S06-HI] Domain: Organic Farming. Query language: Hindi. [Mock agri content covers: tomato, organic, compost]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+"
+ML-S06-KN,S06,KN,Organic Farming,How to grow tomatoes using organic methods in Karnataka?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S06-KN] Domain: Organic Farming. Query language: Kannada. [Mock agri content covers: tomato, organic, compost]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪ"
+ML-S06-TA,S06,TA,Organic Farming,How to grow tomatoes using organic methods in Karnataka?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S06-TA] Domain: Organic Farming. Query language: Tamil. [Mock agri content covers: tomato, organic, compost]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான அறிவிப"
+ML-S06-PA,S06,PA,Organic Farming,How to grow tomatoes using organic methods in Karnataka?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S06-PA] Domain: Organic Farming. Query language: Punjabi. [Mock agri content covers: tomato, organic, compost]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+"
+ML-S06-TE,S06,TE,Organic Farming,How to grow tomatoes using organic methods in Karnataka?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S06-TE] Domain: Organic Farming. Query language: Telugu. [Mock agri content covers: tomato, organic, compost]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ Aj"
+ML-S07-EN,S07,EN,Seeds,What is the seed treatment procedure for mustard in Rajasthan?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S07-EN] Domain: Seeds. Query language: English. [Mock agri content covers: mustard, seed treatment, fungicide]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha app"
+ML-S07-HI,S07,HI,Seeds,What is the seed treatment procedure for mustard in Rajasthan?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S07-HI] Domain: Seeds. Query language: Hindi. [Mock agri content covers: mustard, seed treatment, fungicide]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+"
+ML-S07-KN,S07,KN,Seeds,What is the seed treatment procedure for mustard in Rajasthan?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S07-KN] Domain: Seeds. Query language: Kannada. [Mock agri content covers: mustard, seed treatment, fungicide]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪ"
+ML-S07-TA,S07,TA,Seeds,What is the seed treatment procedure for mustard in Rajasthan?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S07-TA] Domain: Seeds. Query language: Tamil. [Mock agri content covers: mustard, seed treatment, fungicide]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான அறிவிப"
+ML-S07-PA,S07,PA,Seeds,What is the seed treatment procedure for mustard in Rajasthan?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S07-PA] Domain: Seeds. Query language: Punjabi. [Mock agri content covers: mustard, seed treatment, fungicide]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+"
+ML-S07-TE,S07,TE,Seeds,What is the seed treatment procedure for mustard in Rajasthan?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S07-TE] Domain: Seeds. Query language: Telugu. [Mock agri content covers: mustard, seed treatment, fungicide]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ Aj"
+ML-S08-EN,S08,EN,Post Harvest Preservation,How do I store mangoes after harvest to keep them fresh longer?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S08-EN] Domain: Post Harvest Preservation. Query language: English. [Mock agri content covers: mango, storage, post-harvest]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This"
+ML-S08-HI,S08,HI,Post Harvest Preservation,How do I store mangoes after harvest to keep them fresh longer?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S08-HI] Domain: Post Harvest Preservation. Query language: Hindi. [Mock agri content covers: mango, storage, post-harvest]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना"
+ML-S08-KN,S08,KN,Post Harvest Preservation,How do I store mangoes after harvest to keep them fresh longer?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S08-KN] Domain: Post Harvest Preservation. Query language: Kannada. [Mock agri content covers: mango, storage, post-harvest]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮ"
+ML-S08-TA,S08,TA,Post Harvest Preservation,How do I store mangoes after harvest to keep them fresh longer?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S08-TA] Domain: Post Harvest Preservation. Query language: Tamil. [Mock agri content covers: mango, storage, post-harvest]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக"
+ML-S08-PA,S08,PA,Post Harvest Preservation,How do I store mangoes after harvest to keep them fresh longer?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S08-PA] Domain: Post Harvest Preservation. Query language: Punjabi. [Mock agri content covers: mango, storage, post-harvest]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ "
+ML-S08-TE,S08,TE,Post Harvest Preservation,How do I store mangoes after harvest to keep them fresh longer?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S08-TE] Domain: Post Harvest Preservation. Query language: Telugu. [Mock agri content covers: mango, storage, post-harvest]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్ష"
+ML-S09-EN,S09,EN,Field Preparation,How should I prepare the field before planting banana in Tamil Nadu?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S09-EN] Domain: Field Preparation. Query language: English. [Mock agri content covers: banana, field preparation, ploughing]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This"
+ML-S09-HI,S09,HI,Field Preparation,How should I prepare the field before planting banana in Tamil Nadu?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S09-HI] Domain: Field Preparation. Query language: Hindi. [Mock agri content covers: banana, field preparation, ploughing]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना"
+ML-S09-KN,S09,KN,Field Preparation,How should I prepare the field before planting banana in Tamil Nadu?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S09-KN] Domain: Field Preparation. Query language: Kannada. [Mock agri content covers: banana, field preparation, ploughing]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮ"
+ML-S09-TA,S09,TA,Field Preparation,How should I prepare the field before planting banana in Tamil Nadu?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S09-TA] Domain: Field Preparation. Query language: Tamil. [Mock agri content covers: banana, field preparation, ploughing]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக"
+ML-S09-PA,S09,PA,Field Preparation,How should I prepare the field before planting banana in Tamil Nadu?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S09-PA] Domain: Field Preparation. Query language: Punjabi. [Mock agri content covers: banana, field preparation, ploughing]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ "
+ML-S09-TE,S09,TE,Field Preparation,How should I prepare the field before planting banana in Tamil Nadu?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S09-TE] Domain: Field Preparation. Query language: Telugu. [Mock agri content covers: banana, field preparation, ploughing]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్ష"
+ML-S10-EN,S10,EN,Weed Management,What are the best methods for weed control in maize in Madhya Pradesh?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S10-EN] Domain: Weed Management. Query language: English. [Mock agri content covers: maize, weed, herbicide]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha appli"
+ML-S10-HI,S10,HI,Weed Management,What are the best methods for weed control in maize in Madhya Pradesh?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S10-HI] Domain: Weed Management. Query language: Hindi. [Mock agri content covers: maize, weed, herbicide]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+
+य"
+ML-S10-KN,S10,KN,Weed Management,What are the best methods for weed control in maize in Madhya Pradesh?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S10-KN] Domain: Weed Management. Query language: Kannada. [Mock agri content covers: maize, weed, herbicide]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀ"
+ML-S10-TA,S10,TA,Weed Management,What are the best methods for weed control in maize in Madhya Pradesh?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S10-TA] Domain: Weed Management. Query language: Tamil. [Mock agri content covers: maize, weed, herbicide]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான அறிவிப்ப"
+ML-S10-PA,S10,PA,Weed Management,What are the best methods for weed control in maize in Madhya Pradesh?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S10-PA] Domain: Weed Management. Query language: Punjabi. [Mock agri content covers: maize, weed, herbicide]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+ਇਹ"
+ML-S10-TE,S10,TE,Weed Management,What are the best methods for weed control in maize in Madhya Pradesh?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S10-TE] Domain: Weed Management. Query language: Telugu. [Mock agri content covers: maize, weed, herbicide]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ Ajra"
+ML-S11-EN,S11,EN,Market Prices,"What is the price of wheat in Sirsa mandi, Haryana today?",English,English,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S11-EN] Domain: Market Prices. Query language: English. [Mock agri content covers: wheat, mandi, price]
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha application is under development and intended only for testing and validation.
+Advisories are experimental and currently cove"
+ML-S11-HI,S11,HI,Market Prices,"What is the price of wheat in Sirsa mandi, Haryana today?",Hindi,Devanagari,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S11-HI] Domain: Market Prices. Query language: Hindi. [Mock agri content covers: wheat, mandi, price]
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+
+यह AjraSakha एप्लिकेशन विकास के अधीन है और केवल परीक्षण और सत्यापन के लिए है।
+सलाहें प्रयोगात्मक हैं और वर्तमान में चु"
+ML-S11-KN,S11,KN,Market Prices,"What is the price of wheat in Sirsa mandi, Haryana today?",Kannada,Kannada,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S11-KN] Domain: Market Prices. Query language: Kannada. [Mock agri content covers: wheat, mandi, price]
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀಕ್ಷಾ ಹಂತ) ⚠️
+
+ಈ AjraSakha ಅಪ್ಲಿಕೇಶನ್ ಅಭಿವೃದ್ಧಿ ಹಂತದಲ್ಲಿದ್ದು, ಕೇವಲ ಪರೀಕ್ಷೆ ಮತ್ತು ಮೌಲ್ಯಮಾಪನಕ್ಕಾಗಿ ಮಾತ್ರ ಉದ್ದೇಶಿಸಲಾಗಿದೆ.
+ಸಲಹೆಗಳು ಪ್ರಾ"
+ML-S11-TA,S11,TA,Market Prices,"What is the price of wheat in Sirsa mandi, Haryana today?",Tamil,Tamil,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S11-TA] Domain: Market Prices. Query language: Tamil. [Mock agri content covers: wheat, mandi, price]
+⚠️ முக்கியமான அறிவிப்பு (சோதனை) ⚠️
+
+இந்த AjraSakha பயன்பாடு மேம்பாட்டில் உள்ளது மற்றும் சோதனை மற்றும் சரிபார்ப்புக்காக மட்டுமே நோக்கப்பட்டுள்ளது.
+ஆலோசனைகள்"
+ML-S11-PA,S11,PA,Market Prices,"What is the price of wheat in Sirsa mandi, Haryana today?",Punjabi,Gurmukhi,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S11-PA] Domain: Market Prices. Query language: Punjabi. [Mock agri content covers: wheat, mandi, price]
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+ਇਹ AjraSakha ਐਪਲੀਕੇਸ਼ਨ ਵਿਕਾਸ ਅਧੀਨ ਹੈ ਅਤੇ ਸਿਰਫ਼ ਟੈਸਟਿੰਗ ਅਤੇ ਪ੍ਰਮਾਣਿਕਤਾ ਲਈ ਹੈ।
+ਸਲਾਹਾਂ ਪ੍ਰਯੋਗਾਤਮਕ ਹਨ ਅਤੇ ਇਸ ਵੇਲੇ ਚੁਣੇ ਹੋਏ ਰ"
+ML-S11-TE,S11,TE,Market Prices,"What is the price of wheat in Sirsa mandi, Haryana today?",Telugu,Telugu,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S11-TE] Domain: Market Prices. Query language: Telugu. [Mock agri content covers: wheat, mandi, price]
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ AjraSakha అప్లికేషన్ అభివృద్ధిలో ఉంది మరియు కేవలం పరీక్ష మరియు ధృవీకరణ కోసం మాత్రమే ఉద్దేశించబడింది.
+సలహాలు ప్రయోగ"
+ML-S12-EN,S12,EN,Market Prices,"What is the current price of paddy in Karnal mandi, Haryana?",English,English,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S12-EN] Domain: Market Prices. Query language: English. [Mock agri content covers: paddy, mandi, price]
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha application is under development and intended only for testing and validation.
+Advisories are experimental and currently cove"
+ML-S12-HI,S12,HI,Market Prices,"What is the current price of paddy in Karnal mandi, Haryana?",Hindi,Devanagari,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S12-HI] Domain: Market Prices. Query language: Hindi. [Mock agri content covers: paddy, mandi, price]
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+
+यह AjraSakha एप्लिकेशन विकास के अधीन है और केवल परीक्षण और सत्यापन के लिए है।
+सलाहें प्रयोगात्मक हैं और वर्तमान में चु"
+ML-S12-KN,S12,KN,Market Prices,"What is the current price of paddy in Karnal mandi, Haryana?",Kannada,Kannada,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S12-KN] Domain: Market Prices. Query language: Kannada. [Mock agri content covers: paddy, mandi, price]
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀಕ್ಷಾ ಹಂತ) ⚠️
+
+ಈ AjraSakha ಅಪ್ಲಿಕೇಶನ್ ಅಭಿವೃದ್ಧಿ ಹಂತದಲ್ಲಿದ್ದು, ಕೇವಲ ಪರೀಕ್ಷೆ ಮತ್ತು ಮೌಲ್ಯಮಾಪನಕ್ಕಾಗಿ ಮಾತ್ರ ಉದ್ದೇಶಿಸಲಾಗಿದೆ.
+ಸಲಹೆಗಳು ಪ್ರಾ"
+ML-S12-TA,S12,TA,Market Prices,"What is the current price of paddy in Karnal mandi, Haryana?",Tamil,Tamil,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S12-TA] Domain: Market Prices. Query language: Tamil. [Mock agri content covers: paddy, mandi, price]
+⚠️ முக்கியமான அறிவிப்பு (சோதனை) ⚠️
+
+இந்த AjraSakha பயன்பாடு மேம்பாட்டில் உள்ளது மற்றும் சோதனை மற்றும் சரிபார்ப்புக்காக மட்டுமே நோக்கப்பட்டுள்ளது.
+ஆலோசனைகள்"
+ML-S12-PA,S12,PA,Market Prices,"What is the current price of paddy in Karnal mandi, Haryana?",Punjabi,Gurmukhi,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S12-PA] Domain: Market Prices. Query language: Punjabi. [Mock agri content covers: paddy, mandi, price]
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+ਇਹ AjraSakha ਐਪਲੀਕੇਸ਼ਨ ਵਿਕਾਸ ਅਧੀਨ ਹੈ ਅਤੇ ਸਿਰਫ਼ ਟੈਸਟਿੰਗ ਅਤੇ ਪ੍ਰਮਾਣਿਕਤਾ ਲਈ ਹੈ।
+ਸਲਾਹਾਂ ਪ੍ਰਯੋਗਾਤਮਕ ਹਨ ਅਤੇ ਇਸ ਵੇਲੇ ਚੁਣੇ ਹੋਏ ਰ"
+ML-S12-TE,S12,TE,Market Prices,"What is the current price of paddy in Karnal mandi, Haryana?",Telugu,Telugu,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S12-TE] Domain: Market Prices. Query language: Telugu. [Mock agri content covers: paddy, mandi, price]
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ AjraSakha అప్లికేషన్ అభివృద్ధిలో ఉంది మరియు కేవలం పరీక్ష మరియు ధృవీకరణ కోసం మాత్రమే ఉద్దేశించబడింది.
+సలహాలు ప్రయోగ"
+ML-S13-EN,S13,EN,Government Schemes,How can I get a government subsidy for drip irrigation in Rajasthan?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S13-EN] Domain: Government Schemes. Query language: English. [Mock agri content covers: drip irrigation, subsidy, scheme]
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha application is under development and intended only for testing and validation.
+Advisories are experimental "
+ML-S13-HI,S13,HI,Government Schemes,How can I get a government subsidy for drip irrigation in Rajasthan?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S13-HI] Domain: Government Schemes. Query language: Hindi. [Mock agri content covers: drip irrigation, subsidy, scheme]
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+
+यह AjraSakha एप्लिकेशन विकास के अधीन है और केवल परीक्षण और सत्यापन के लिए है।
+सलाहें प्रयोगात्मक हैं"
+ML-S13-KN,S13,KN,Government Schemes,How can I get a government subsidy for drip irrigation in Rajasthan?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S13-KN] Domain: Government Schemes. Query language: Kannada. [Mock agri content covers: drip irrigation, subsidy, scheme]
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀಕ್ಷಾ ಹಂತ) ⚠️
+
+ಈ AjraSakha ಅಪ್ಲಿಕೇಶನ್ ಅಭಿವೃದ್ಧಿ ಹಂತದಲ್ಲಿದ್ದು, ಕೇವಲ ಪರೀಕ್ಷೆ ಮತ್ತು ಮೌಲ್ಯಮಾಪನಕ್ಕಾಗಿ ಮಾತ್ರ ಉದ್ದೇಶಿಸಲಾ"
+ML-S13-TA,S13,TA,Government Schemes,How can I get a government subsidy for drip irrigation in Rajasthan?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S13-TA] Domain: Government Schemes. Query language: Tamil. [Mock agri content covers: drip irrigation, subsidy, scheme]
+⚠️ முக்கியமான அறிவிப்பு (சோதனை) ⚠️
+
+இந்த AjraSakha பயன்பாடு மேம்பாட்டில் உள்ளது மற்றும் சோதனை மற்றும் சரிபார்ப்புக்காக மட்டுமே நோக்கப்பட்"
+ML-S13-PA,S13,PA,Government Schemes,How can I get a government subsidy for drip irrigation in Rajasthan?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S13-PA] Domain: Government Schemes. Query language: Punjabi. [Mock agri content covers: drip irrigation, subsidy, scheme]
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+ਇਹ AjraSakha ਐਪਲੀਕੇਸ਼ਨ ਵਿਕਾਸ ਅਧੀਨ ਹੈ ਅਤੇ ਸਿਰਫ਼ ਟੈਸਟਿੰਗ ਅਤੇ ਪ੍ਰਮਾਣਿਕਤਾ ਲਈ ਹੈ।
+ਸਲਾਹਾਂ ਪ੍ਰਯੋਗਾਤਮਕ ਹਨ ਅਤੇ "
+ML-S13-TE,S13,TE,Government Schemes,How can I get a government subsidy for drip irrigation in Rajasthan?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S13-TE] Domain: Government Schemes. Query language: Telugu. [Mock agri content covers: drip irrigation, subsidy, scheme]
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ AjraSakha అప్లికేషన్ అభివృద్ధిలో ఉంది మరియు కేవలం పరీక్ష మరియు ధృవీకరణ కోసం మాత్రమే ఉద్దేశించబడి"
+ML-S14-EN,S14,EN,Government Schemes,What is the PM-Kisan scheme and how do I register for it in Punjab?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S14-EN] Domain: Government Schemes. Query language: English. [Mock agri content covers: PM-Kisan, scheme, registration]
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha application is under development and intended only for testing and validation.
+Advisories are experimental an"
+ML-S14-HI,S14,HI,Government Schemes,What is the PM-Kisan scheme and how do I register for it in Punjab?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S14-HI] Domain: Government Schemes. Query language: Hindi. [Mock agri content covers: PM-Kisan, scheme, registration]
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+
+यह AjraSakha एप्लिकेशन विकास के अधीन है और केवल परीक्षण और सत्यापन के लिए है।
+सलाहें प्रयोगात्मक हैं औ"
+ML-S14-KN,S14,KN,Government Schemes,What is the PM-Kisan scheme and how do I register for it in Punjab?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S14-KN] Domain: Government Schemes. Query language: Kannada. [Mock agri content covers: PM-Kisan, scheme, registration]
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀಕ್ಷಾ ಹಂತ) ⚠️
+
+ಈ AjraSakha ಅಪ್ಲಿಕೇಶನ್ ಅಭಿವೃದ್ಧಿ ಹಂತದಲ್ಲಿದ್ದು, ಕೇವಲ ಪರೀಕ್ಷೆ ಮತ್ತು ಮೌಲ್ಯಮಾಪನಕ್ಕಾಗಿ ಮಾತ್ರ ಉದ್ದೇಶಿಸಲಾಗಿ"
+ML-S14-TA,S14,TA,Government Schemes,What is the PM-Kisan scheme and how do I register for it in Punjab?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S14-TA] Domain: Government Schemes. Query language: Tamil. [Mock agri content covers: PM-Kisan, scheme, registration]
+⚠️ முக்கியமான அறிவிப்பு (சோதனை) ⚠️
+
+இந்த AjraSakha பயன்பாடு மேம்பாட்டில் உள்ளது மற்றும் சோதனை மற்றும் சரிபார்ப்புக்காக மட்டுமே நோக்கப்பட்டு"
+ML-S14-PA,S14,PA,Government Schemes,What is the PM-Kisan scheme and how do I register for it in Punjab?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S14-PA] Domain: Government Schemes. Query language: Punjabi. [Mock agri content covers: PM-Kisan, scheme, registration]
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+ਇਹ AjraSakha ਐਪਲੀਕੇਸ਼ਨ ਵਿਕਾਸ ਅਧੀਨ ਹੈ ਅਤੇ ਸਿਰਫ਼ ਟੈਸਟਿੰਗ ਅਤੇ ਪ੍ਰਮਾਣਿਕਤਾ ਲਈ ਹੈ।
+ਸਲਾਹਾਂ ਪ੍ਰਯੋਗਾਤਮਕ ਹਨ ਅਤੇ ਇਸ"
+ML-S14-TE,S14,TE,Government Schemes,What is the PM-Kisan scheme and how do I register for it in Punjab?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S14-TE] Domain: Government Schemes. Query language: Telugu. [Mock agri content covers: PM-Kisan, scheme, registration]
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ AjraSakha అప్లికేషన్ అభివృద్ధిలో ఉంది మరియు కేవలం పరీక్ష మరియు ధృవీకరణ కోసం మాత్రమే ఉద్దేశించబడింద"
+ML-S15-EN,S15,EN,Nutrient Management,"My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S15-EN] Domain: Nutrient Management. Query language: English. [Mock agri content covers: nitrogen, phosphorus, potassium, paddy]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+"
+ML-S15-HI,S15,HI,Nutrient Management,"My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S15-HI] Domain: Nutrient Management. Query language: Hindi. [Mock agri content covers: nitrogen, phosphorus, potassium, paddy]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण स"
+ML-S15-KN,S15,KN,Nutrient Management,"My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S15-KN] Domain: Nutrient Management. Query language: Kannada. [Mock agri content covers: nitrogen, phosphorus, potassium, paddy]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+"
+ML-S15-TA,S15,TA,Nutrient Management,"My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S15-TA] Domain: Nutrient Management. Query language: Tamil. [Mock agri content covers: nitrogen, phosphorus, potassium, paddy]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️"
+ML-S15-PA,S15,PA,Nutrient Management,"My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S15-PA] Domain: Nutrient Management. Query language: Punjabi. [Mock agri content covers: nitrogen, phosphorus, potassium, paddy]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂ"
+ML-S15-TE,S15,TE,Nutrient Management,"My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S15-TE] Domain: Nutrient Management. Query language: Telugu. [Mock agri content covers: nitrogen, phosphorus, potassium, paddy]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పర"
+ML-S16-EN,S16,EN,Weather,What is the weather today in Ropar district of Punjab?,English,English,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S16-EN] Domain: Weather. Query language: English. [Mock agri content covers: weather, temperature]
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha application is under development and intended only for testing and validation.
+Advisories are experimental and currently cover maj"
+ML-S16-HI,S16,HI,Weather,What is the weather today in Ropar district of Punjab?,Hindi,Devanagari,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S16-HI] Domain: Weather. Query language: Hindi. [Mock agri content covers: weather, temperature]
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+
+यह AjraSakha एप्लिकेशन विकास के अधीन है और केवल परीक्षण और सत्यापन के लिए है।
+सलाहें प्रयोगात्मक हैं और वर्तमान में चुनिंदा"
+ML-S16-KN,S16,KN,Weather,What is the weather today in Ropar district of Punjab?,Kannada,Kannada,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S16-KN] Domain: Weather. Query language: Kannada. [Mock agri content covers: weather, temperature]
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀಕ್ಷಾ ಹಂತ) ⚠️
+
+ಈ AjraSakha ಅಪ್ಲಿಕೇಶನ್ ಅಭಿವೃದ್ಧಿ ಹಂತದಲ್ಲಿದ್ದು, ಕೇವಲ ಪರೀಕ್ಷೆ ಮತ್ತು ಮೌಲ್ಯಮಾಪನಕ್ಕಾಗಿ ಮಾತ್ರ ಉದ್ದೇಶಿಸಲಾಗಿದೆ.
+ಸಲಹೆಗಳು ಪ್ರಾಯೋಗಿಕ"
+ML-S16-TA,S16,TA,Weather,What is the weather today in Ropar district of Punjab?,Tamil,Tamil,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S16-TA] Domain: Weather. Query language: Tamil. [Mock agri content covers: weather, temperature]
+⚠️ முக்கியமான அறிவிப்பு (சோதனை) ⚠️
+
+இந்த AjraSakha பயன்பாடு மேம்பாட்டில் உள்ளது மற்றும் சோதனை மற்றும் சரிபார்ப்புக்காக மட்டுமே நோக்கப்பட்டுள்ளது.
+ஆலோசனைகள் சோதன"
+ML-S16-PA,S16,PA,Weather,What is the weather today in Ropar district of Punjab?,Punjabi,Gurmukhi,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S16-PA] Domain: Weather. Query language: Punjabi. [Mock agri content covers: weather, temperature]
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+ਇਹ AjraSakha ਐਪਲੀਕੇਸ਼ਨ ਵਿਕਾਸ ਅਧੀਨ ਹੈ ਅਤੇ ਸਿਰਫ਼ ਟੈਸਟਿੰਗ ਅਤੇ ਪ੍ਰਮਾਣਿਕਤਾ ਲਈ ਹੈ।
+ਸਲਾਹਾਂ ਪ੍ਰਯੋਗਾਤਮਕ ਹਨ ਅਤੇ ਇਸ ਵੇਲੇ ਚੁਣੇ ਹੋਏ ਰਾਜਾਂ "
+ML-S16-TE,S16,TE,Weather,What is the weather today in Ropar district of Punjab?,Telugu,Telugu,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S16-TE] Domain: Weather. Query language: Telugu. [Mock agri content covers: weather, temperature]
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ AjraSakha అప్లికేషన్ అభివృద్ధిలో ఉంది మరియు కేవలం పరీక్ష మరియు ధృవీకరణ కోసం మాత్రమే ఉద్దేశించబడింది.
+సలహాలు ప్రయోగాత్మక"
+ML-S17-EN,S17,EN,Weather,"What is the weather forecast for Ludhiana, Punjab for the next few days?",English,English,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S17-EN] Domain: Weather. Query language: English. [Mock agri content covers: weather, forecast, rain]
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha application is under development and intended only for testing and validation.
+Advisories are experimental and currently cover "
+ML-S17-HI,S17,HI,Weather,"What is the weather forecast for Ludhiana, Punjab for the next few days?",Hindi,Devanagari,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S17-HI] Domain: Weather. Query language: Hindi. [Mock agri content covers: weather, forecast, rain]
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+
+यह AjraSakha एप्लिकेशन विकास के अधीन है और केवल परीक्षण और सत्यापन के लिए है।
+सलाहें प्रयोगात्मक हैं और वर्तमान में चुनि"
+ML-S17-KN,S17,KN,Weather,"What is the weather forecast for Ludhiana, Punjab for the next few days?",Kannada,Kannada,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S17-KN] Domain: Weather. Query language: Kannada. [Mock agri content covers: weather, forecast, rain]
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀಕ್ಷಾ ಹಂತ) ⚠️
+
+ಈ AjraSakha ಅಪ್ಲಿಕೇಶನ್ ಅಭಿವೃದ್ಧಿ ಹಂತದಲ್ಲಿದ್ದು, ಕೇವಲ ಪರೀಕ್ಷೆ ಮತ್ತು ಮೌಲ್ಯಮಾಪನಕ್ಕಾಗಿ ಮಾತ್ರ ಉದ್ದೇಶಿಸಲಾಗಿದೆ.
+ಸಲಹೆಗಳು ಪ್ರಾಯೋ"
+ML-S17-TA,S17,TA,Weather,"What is the weather forecast for Ludhiana, Punjab for the next few days?",Tamil,Tamil,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S17-TA] Domain: Weather. Query language: Tamil. [Mock agri content covers: weather, forecast, rain]
+⚠️ முக்கியமான அறிவிப்பு (சோதனை) ⚠️
+
+இந்த AjraSakha பயன்பாடு மேம்பாட்டில் உள்ளது மற்றும் சோதனை மற்றும் சரிபார்ப்புக்காக மட்டுமே நோக்கப்பட்டுள்ளது.
+ஆலோசனைகள் ச"
+ML-S17-PA,S17,PA,Weather,"What is the weather forecast for Ludhiana, Punjab for the next few days?",Punjabi,Gurmukhi,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S17-PA] Domain: Weather. Query language: Punjabi. [Mock agri content covers: weather, forecast, rain]
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+ਇਹ AjraSakha ਐਪਲੀਕੇਸ਼ਨ ਵਿਕਾਸ ਅਧੀਨ ਹੈ ਅਤੇ ਸਿਰਫ਼ ਟੈਸਟਿੰਗ ਅਤੇ ਪ੍ਰਮਾਣਿਕਤਾ ਲਈ ਹੈ।
+ਸਲਾਹਾਂ ਪ੍ਰਯੋਗਾਤਮਕ ਹਨ ਅਤੇ ਇਸ ਵੇਲੇ ਚੁਣੇ ਹੋਏ ਰਾਜ"
+ML-S17-TE,S17,TE,Weather,"What is the weather forecast for Ludhiana, Punjab for the next few days?",Telugu,Telugu,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S17-TE] Domain: Weather. Query language: Telugu. [Mock agri content covers: weather, forecast, rain]
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ AjraSakha అప్లికేషన్ అభివృద్ధిలో ఉంది మరియు కేవలం పరీక్ష మరియు ధృవీకరణ కోసం మాత్రమే ఉద్దేశించబడింది.
+సలహాలు ప్రయోగాత"
+ML-S18-EN,S18,EN,General,How can I make money quickly?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,no terminology assertions defined,True,,"[MOCK RESPONSE for ML-S18-EN] Domain: General. Query language: English.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha application is under development and intended only for testing and validation.
+Advisories are experimental and currently cover major crops in selected states.
+____________________"
+ML-S18-HI,S18,HI,General,How can I make money quickly?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,no terminology assertions defined,True,,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S18-HI] Domain: General. Query language: Hindi.
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+
+यह AjraSakha एप्लिकेशन विकास के अधीन है और केवल परीक्षण और सत्यापन के लिए है।
+सलाहें प्रयोगात्मक हैं और वर्तमान में चुनिंदा राज्यों में प्रमुख फसलों को कवर करती हैं।
+______"
+ML-S18-KN,S18,KN,General,How can I make money quickly?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,no terminology assertions defined,True,,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S18-KN] Domain: General. Query language: Kannada.
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀಕ್ಷಾ ಹಂತ) ⚠️
+
+ಈ AjraSakha ಅಪ್ಲಿಕೇಶನ್ ಅಭಿವೃದ್ಧಿ ಹಂತದಲ್ಲಿದ್ದು, ಕೇವಲ ಪರೀಕ್ಷೆ ಮತ್ತು ಮೌಲ್ಯಮಾಪನಕ್ಕಾಗಿ ಮಾತ್ರ ಉದ್ದೇಶಿಸಲಾಗಿದೆ.
+ಸಲಹೆಗಳು ಪ್ರಾಯೋಗಿಕವಾಗಿದ್ದು, ಪ್ರಸ್ತುತ ಆಯ್ದ ರಾಜ್ಯಗಳಲ್ಲಿ ಪ್ರಮುಖ ಬೆಳೆಗಳ"
+ML-S18-TA,S18,TA,General,How can I make money quickly?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,no terminology assertions defined,True,,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S18-TA] Domain: General. Query language: Tamil.
+⚠️ முக்கியமான அறிவிப்பு (சோதனை) ⚠️
+
+இந்த AjraSakha பயன்பாடு மேம்பாட்டில் உள்ளது மற்றும் சோதனை மற்றும் சரிபார்ப்புக்காக மட்டுமே நோக்கப்பட்டுள்ளது.
+ஆலோசனைகள் சோதனை முறையிலானவை மற்றும் தற்போது தேர்ந்தெடுக்கப்பட்ட"
+ML-S18-PA,S18,PA,General,How can I make money quickly?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,no terminology assertions defined,True,,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S18-PA] Domain: General. Query language: Punjabi.
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+ਇਹ AjraSakha ਐਪਲੀਕੇਸ਼ਨ ਵਿਕਾਸ ਅਧੀਨ ਹੈ ਅਤੇ ਸਿਰਫ਼ ਟੈਸਟਿੰਗ ਅਤੇ ਪ੍ਰਮਾਣਿਕਤਾ ਲਈ ਹੈ।
+ਸਲਾਹਾਂ ਪ੍ਰਯੋਗਾਤਮਕ ਹਨ ਅਤੇ ਇਸ ਵੇਲੇ ਚੁਣੇ ਹੋਏ ਰਾਜਾਂ ਵਿੱਚ ਮੁੱਖ ਫ਼ਸਲਾਂ ਨੂੰ ਕਵਰ ਕਰਦੀਆਂ ਹਨ।
+_____________"
+ML-S18-TE,S18,TE,General,How can I make money quickly?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,no terminology assertions defined,True,,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S18-TE] Domain: General. Query language: Telugu.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ AjraSakha అప్లికేషన్ అభివృద్ధిలో ఉంది మరియు కేవలం పరీక్ష మరియు ధృవీకరణ కోసం మాత్రమే ఉద్దేశించబడింది.
+సలహాలు ప్రయోగాత్మకమైనవి మరియు ప్రస్తుతం ఎంచుకున్న రాష్ట్రాల్లో ప్రధ"
+ML-S19-EN,S19,EN,General,"Hello, who are you?",English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S19-EN] Domain: General. Query language: English. [Mock agri content covers: AjraSakha, agriculture]
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha application is under development and intended only for testing and validation.
+Advisories are experimental and currently cover m"
+ML-S19-HI,S19,HI,General,"Hello, who are you?",Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S19-HI] Domain: General. Query language: Hindi. [Mock agri content covers: AjraSakha, agriculture]
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+
+यह AjraSakha एप्लिकेशन विकास के अधीन है और केवल परीक्षण और सत्यापन के लिए है।
+सलाहें प्रयोगात्मक हैं और वर्तमान में चुनिं"
+ML-S19-KN,S19,KN,General,"Hello, who are you?",Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S19-KN] Domain: General. Query language: Kannada. [Mock agri content covers: AjraSakha, agriculture]
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀಕ್ಷಾ ಹಂತ) ⚠️
+
+ಈ AjraSakha ಅಪ್ಲಿಕೇಶನ್ ಅಭಿವೃದ್ಧಿ ಹಂತದಲ್ಲಿದ್ದು, ಕೇವಲ ಪರೀಕ್ಷೆ ಮತ್ತು ಮೌಲ್ಯಮಾಪನಕ್ಕಾಗಿ ಮಾತ್ರ ಉದ್ದೇಶಿಸಲಾಗಿದೆ.
+ಸಲಹೆಗಳು ಪ್ರಾಯೋಗ"
+ML-S19-TA,S19,TA,General,"Hello, who are you?",Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S19-TA] Domain: General. Query language: Tamil. [Mock agri content covers: AjraSakha, agriculture]
+⚠️ முக்கியமான அறிவிப்பு (சோதனை) ⚠️
+
+இந்த AjraSakha பயன்பாடு மேம்பாட்டில் உள்ளது மற்றும் சோதனை மற்றும் சரிபார்ப்புக்காக மட்டுமே நோக்கப்பட்டுள்ளது.
+ஆலோசனைகள் சோ"
+ML-S19-PA,S19,PA,General,"Hello, who are you?",Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S19-PA] Domain: General. Query language: Punjabi. [Mock agri content covers: AjraSakha, agriculture]
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+ਇਹ AjraSakha ਐਪਲੀਕੇਸ਼ਨ ਵਿਕਾਸ ਅਧੀਨ ਹੈ ਅਤੇ ਸਿਰਫ਼ ਟੈਸਟਿੰਗ ਅਤੇ ਪ੍ਰਮਾਣਿਕਤਾ ਲਈ ਹੈ।
+ਸਲਾਹਾਂ ਪ੍ਰਯੋਗਾਤਮਕ ਹਨ ਅਤੇ ਇਸ ਵੇਲੇ ਚੁਣੇ ਹੋਏ ਰਾਜਾ"
+ML-S19-TE,S19,TE,General,"Hello, who are you?",Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S19-TE] Domain: General. Query language: Telugu. [Mock agri content covers: AjraSakha, agriculture]
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ AjraSakha అప్లికేషన్ అభివృద్ధిలో ఉంది మరియు కేవలం పరీక్ష మరియు ధృవీకరణ కోసం మాత్రమే ఉద్దేశించబడింది.
+సలహాలు ప్రయోగాత్"
+ML-S20-EN,S20,EN,Crop Insurance,How do I enroll my wheat crop in crop insurance in Haryana?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S20-EN] Domain: Crop Insurance. Query language: English. [Mock agri content covers: insurance, wheat, premium]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha app"
+ML-S20-HI,S20,HI,Crop Insurance,How do I enroll my wheat crop in crop insurance in Haryana?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S20-HI] Domain: Crop Insurance. Query language: Hindi. [Mock agri content covers: insurance, wheat, premium]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+"
+ML-S20-KN,S20,KN,Crop Insurance,How do I enroll my wheat crop in crop insurance in Haryana?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S20-KN] Domain: Crop Insurance. Query language: Kannada. [Mock agri content covers: insurance, wheat, premium]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪ"
+ML-S20-TA,S20,TA,Crop Insurance,How do I enroll my wheat crop in crop insurance in Haryana?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S20-TA] Domain: Crop Insurance. Query language: Tamil. [Mock agri content covers: insurance, wheat, premium]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான அறிவிப"
+ML-S20-PA,S20,PA,Crop Insurance,How do I enroll my wheat crop in crop insurance in Haryana?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S20-PA] Domain: Crop Insurance. Query language: Punjabi. [Mock agri content covers: insurance, wheat, premium]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+"
+ML-S20-TE,S20,TE,Crop Insurance,How do I enroll my wheat crop in crop insurance in Haryana?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S20-TE] Domain: Crop Insurance. Query language: Telugu. [Mock agri content covers: insurance, wheat, premium]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ Aj"
+ML-S21-EN,S21,EN,Bio-Pesticides and Bio-Fertilizers,What bio-pesticides can I use for bollworm control in cotton in Maharashtra?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S21-EN] Domain: Bio-Pesticides and Bio-Fertilizers. Query language: English. [Mock agri content covers: cotton, bollworm, bio-pesticide]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testi"
+ML-S21-HI,S21,HI,Bio-Pesticides and Bio-Fertilizers,What bio-pesticides can I use for bollworm control in cotton in Maharashtra?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S21-HI] Domain: Bio-Pesticides and Bio-Fertilizers. Query language: Hindi. [Mock agri content covers: cotton, bollworm, bio-pesticide]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्"
+ML-S21-KN,S21,KN,Bio-Pesticides and Bio-Fertilizers,What bio-pesticides can I use for bollworm control in cotton in Maharashtra?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S21-KN] Domain: Bio-Pesticides and Bio-Fertilizers. Query language: Kannada. [Mock agri content covers: cotton, bollworm, bio-pesticide]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯ"
+ML-S21-TA,S21,TA,Bio-Pesticides and Bio-Fertilizers,What bio-pesticides can I use for bollworm control in cotton in Maharashtra?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S21-TA] Domain: Bio-Pesticides and Bio-Fertilizers. Query language: Tamil. [Mock agri content covers: cotton, bollworm, bio-pesticide]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். ந"
+ML-S21-PA,S21,PA,Bio-Pesticides and Bio-Fertilizers,What bio-pesticides can I use for bollworm control in cotton in Maharashtra?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S21-PA] Domain: Bio-Pesticides and Bio-Fertilizers. Query language: Punjabi. [Mock agri content covers: cotton, bollworm, bio-pesticide]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤ"
+ML-S21-TE,S21,TE,Bio-Pesticides and Bio-Fertilizers,What bio-pesticides can I use for bollworm control in cotton in Maharashtra?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S21-TE] Domain: Bio-Pesticides and Bio-Fertilizers. Query language: Telugu. [Mock agri content covers: cotton, bollworm, bio-pesticide]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నో"
+ML-S22-EN,S22,EN,Agriculture Mechanization,Which tractor is best for small farms in Uttar Pradesh?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S22-EN] Domain: Agriculture Mechanization. Query language: English. [Mock agri content covers: tractor, mechanization, farm]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This"
+ML-S22-HI,S22,HI,Agriculture Mechanization,Which tractor is best for small farms in Uttar Pradesh?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S22-HI] Domain: Agriculture Mechanization. Query language: Hindi. [Mock agri content covers: tractor, mechanization, farm]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना"
+ML-S22-KN,S22,KN,Agriculture Mechanization,Which tractor is best for small farms in Uttar Pradesh?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S22-KN] Domain: Agriculture Mechanization. Query language: Kannada. [Mock agri content covers: tractor, mechanization, farm]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮ"
+ML-S22-TA,S22,TA,Agriculture Mechanization,Which tractor is best for small farms in Uttar Pradesh?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S22-TA] Domain: Agriculture Mechanization. Query language: Tamil. [Mock agri content covers: tractor, mechanization, farm]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக"
+ML-S22-PA,S22,PA,Agriculture Mechanization,Which tractor is best for small farms in Uttar Pradesh?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S22-PA] Domain: Agriculture Mechanization. Query language: Punjabi. [Mock agri content covers: tractor, mechanization, farm]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ "
+ML-S22-TE,S22,TE,Agriculture Mechanization,Which tractor is best for small farms in Uttar Pradesh?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S22-TE] Domain: Agriculture Mechanization. Query language: Telugu. [Mock agri content covers: tractor, mechanization, farm]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్ష"
+ML-S23-EN,S23,EN,Horticulture & Allied Agriculture,What are the recommended practices for apple cultivation in Himachal Pradesh?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S23-EN] Domain: Horticulture & Allied Agriculture. Query language: English. [Mock agri content covers: apple, horticulture, pruning]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) "
+ML-S23-HI,S23,HI,Horticulture & Allied Agriculture,What are the recommended practices for apple cultivation in Himachal Pradesh?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S23-HI] Domain: Horticulture & Allied Agriculture. Query language: Hindi. [Mock agri content covers: apple, horticulture, pruning]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर"
+ML-S23-KN,S23,KN,Horticulture & Allied Agriculture,What are the recommended practices for apple cultivation in Himachal Pradesh?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S23-KN] Domain: Horticulture & Allied Agriculture. Query language: Kannada. [Mock agri content covers: apple, horticulture, pruning]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗ"
+ML-S23-TA,S23,TA,Horticulture & Allied Agriculture,What are the recommended practices for apple cultivation in Himachal Pradesh?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S23-TA] Domain: Horticulture & Allied Agriculture. Query language: Tamil. [Mock agri content covers: apple, horticulture, pruning]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி"
+ML-S23-PA,S23,PA,Horticulture & Allied Agriculture,What are the recommended practices for apple cultivation in Himachal Pradesh?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S23-PA] Domain: Horticulture & Allied Agriculture. Query language: Punjabi. [Mock agri content covers: apple, horticulture, pruning]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰ"
+ML-S23-TE,S23,TE,Horticulture & Allied Agriculture,What are the recommended practices for apple cultivation in Himachal Pradesh?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S23-TE] Domain: Horticulture & Allied Agriculture. Query language: Telugu. [Mock agri content covers: apple, horticulture, pruning]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు"
+ML-S24-EN,S24,EN,Sowing Time and Weather,What is the best sowing time for wheat in Punjab?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S24-EN] Domain: Sowing Time and Weather. Query language: English. [Mock agri content covers: wheat, sowing, October]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSak"
+ML-S24-HI,S24,HI,Sowing Time and Weather,What is the best sowing time for wheat in Punjab?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S24-HI] Domain: Sowing Time and Weather. Query language: Hindi. [Mock agri content covers: wheat, sowing, October]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्ष"
+ML-S24-KN,S24,KN,Sowing Time and Weather,What is the best sowing time for wheat in Punjab?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S24-KN] Domain: Sowing Time and Weather. Query language: Kannada. [Mock agri content covers: wheat, sowing, October]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂ"
+ML-S24-TA,S24,TA,Sowing Time and Weather,What is the best sowing time for wheat in Punjab?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S24-TA] Domain: Sowing Time and Weather. Query language: Tamil. [Mock agri content covers: wheat, sowing, October]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான "
+ML-S24-PA,S24,PA,Sowing Time and Weather,What is the best sowing time for wheat in Punjab?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S24-PA] Domain: Sowing Time and Weather. Query language: Punjabi. [Mock agri content covers: wheat, sowing, October]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ"
+ML-S24-TE,S24,TE,Sowing Time and Weather,What is the best sowing time for wheat in Punjab?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S24-TE] Domain: Sowing Time and Weather. Query language: Telugu. [Mock agri content covers: wheat, sowing, October]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️"
+ML-S25-EN,S25,EN,Fertilizer Use and Availability,How should I apply urea fertilizer to paddy crop in West Bengal?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S25-EN] Domain: Fertilizer Use and Availability. Query language: English. [Mock agri content covers: urea, fertilizer, paddy]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+Thi"
+ML-S25-HI,S25,HI,Fertilizer Use and Availability,How should I apply urea fertilizer to paddy crop in West Bengal?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S25-HI] Domain: Fertilizer Use and Availability. Query language: Hindi. [Mock agri content covers: urea, fertilizer, paddy]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचन"
+ML-S25-KN,S25,KN,Fertilizer Use and Availability,How should I apply urea fertilizer to paddy crop in West Bengal?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S25-KN] Domain: Fertilizer Use and Availability. Query language: Kannada. [Mock agri content covers: urea, fertilizer, paddy]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ "
+ML-S25-TA,S25,TA,Fertilizer Use and Availability,How should I apply urea fertilizer to paddy crop in West Bengal?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S25-TA] Domain: Fertilizer Use and Availability. Query language: Tamil. [Mock agri content covers: urea, fertilizer, paddy]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ மு"
+ML-S25-PA,S25,PA,Fertilizer Use and Availability,How should I apply urea fertilizer to paddy crop in West Bengal?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S25-PA] Domain: Fertilizer Use and Availability. Query language: Punjabi. [Mock agri content covers: urea, fertilizer, paddy]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ"
+ML-S25-TE,S25,TE,Fertilizer Use and Availability,How should I apply urea fertilizer to paddy crop in West Bengal?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S25-TE] Domain: Fertilizer Use and Availability. Query language: Telugu. [Mock agri content covers: urea, fertilizer, paddy]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్"
+ML-S26-EN,S26,EN,Storage,How do I properly store wheat grains to prevent pest damage?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S26-EN] Domain: Storage. Query language: English. [Mock agri content covers: wheat, storage, pest]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha application is "
+ML-S26-HI,S26,HI,Storage,How do I properly store wheat grains to prevent pest damage?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S26-HI] Domain: Storage. Query language: Hindi. [Mock agri content covers: wheat, storage, pest]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️
+
+यह AjraSakh"
+ML-S26-KN,S26,KN,Storage,How do I properly store wheat grains to prevent pest damage?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S26-KN] Domain: Storage. Query language: Kannada. [Mock agri content covers: wheat, storage, pest]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀಕ್ಷಾ ಹಂತ) "
+ML-S26-TA,S26,TA,Storage,How do I properly store wheat grains to prevent pest damage?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S26-TA] Domain: Storage. Query language: Tamil. [Mock agri content covers: wheat, storage, pest]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான அறிவிப்பு (சோதனை) "
+ML-S26-PA,S26,PA,Storage,How do I properly store wheat grains to prevent pest damage?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S26-PA] Domain: Storage. Query language: Punjabi. [Mock agri content covers: wheat, storage, pest]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️
+
+ਇਹ AjraSakha"
+ML-S26-TE,S26,TE,Storage,How do I properly store wheat grains to prevent pest damage?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S26-TE] Domain: Storage. Query language: Telugu. [Mock agri content covers: wheat, storage, pest]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+ఈ AjraSakha అప్ల"
+ML-S27-EN,S27,EN,Soil Health Card,How do I apply for a soil health card in Karnataka?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S27-EN] Domain: Soil Health Card. Query language: English. [Mock agri content covers: soil health card, soil test]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha"
+ML-S27-HI,S27,HI,Soil Health Card,How do I apply for a soil health card in Karnataka?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S27-HI] Domain: Soil Health Card. Query language: Hindi. [Mock agri content covers: soil health card, soil test]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्षण)"
+ML-S27-KN,S27,KN,Soil Health Card,How do I apply for a soil health card in Karnataka?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S27-KN] Domain: Soil Health Card. Query language: Kannada. [Mock agri content covers: soil health card, soil test]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂಚನ"
+ML-S27-TA,S27,TA,Soil Health Card,How do I apply for a soil health card in Karnataka?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S27-TA] Domain: Soil Health Card. Query language: Tamil. [Mock agri content covers: soil health card, soil test]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான அற"
+ML-S27-PA,S27,PA,Soil Health Card,How do I apply for a soil health card in Karnataka?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S27-PA] Domain: Soil Health Card. Query language: Punjabi. [Mock agri content covers: soil health card, soil test]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) "
+ML-S27-TE,S27,TE,Soil Health Card,How do I apply for a soil health card in Karnataka?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S27-TE] Domain: Soil Health Card. Query language: Telugu. [Mock agri content covers: soil health card, soil test]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+"
+ML-S28-EN,S28,EN,Livestock & Animal Husbandry,What is the recommended feeding schedule for goats in Rajasthan?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S28-EN] Domain: Livestock & Animal Husbandry. Query language: English. [Mock agri content covers: goat, feeding, livestock]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This "
+ML-S28-HI,S28,HI,Livestock & Animal Husbandry,What is the recommended feeding schedule for goats in Rajasthan?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S28-HI] Domain: Livestock & Animal Husbandry. Query language: Hindi. [Mock agri content covers: goat, feeding, livestock]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना "
+ML-S28-KN,S28,KN,Livestock & Animal Husbandry,What is the recommended feeding schedule for goats in Rajasthan?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S28-KN] Domain: Livestock & Animal Husbandry. Query language: Kannada. [Mock agri content covers: goat, feeding, livestock]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹ"
+ML-S28-TA,S28,TA,Livestock & Animal Husbandry,What is the recommended feeding schedule for goats in Rajasthan?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S28-TA] Domain: Livestock & Animal Husbandry. Query language: Tamil. [Mock agri content covers: goat, feeding, livestock]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்"
+ML-S28-PA,S28,PA,Livestock & Animal Husbandry,What is the recommended feeding schedule for goats in Rajasthan?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S28-PA] Domain: Livestock & Animal Husbandry. Query language: Punjabi. [Mock agri content covers: goat, feeding, livestock]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ ("
+ML-S28-TE,S28,TE,Livestock & Animal Husbandry,What is the recommended feeding schedule for goats in Rajasthan?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S28-TE] Domain: Livestock & Animal Husbandry. Query language: Telugu. [Mock agri content covers: goat, feeding, livestock]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా"
+ML-S29-EN,S29,EN,Fisheries & Aquaculture,How do I manage a fish pond for rohu and catla in Andhra Pradesh?,English,English,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S29-EN] Domain: Fisheries & Aquaculture. Query language: English. [Mock agri content covers: fish, pond, aquaculture]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSa"
+ML-S29-HI,S29,HI,Fisheries & Aquaculture,How do I manage a fish pond for rohu and catla in Andhra Pradesh?,Hindi,Devanagari,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S29-HI] Domain: Fisheries & Aquaculture. Query language: Hindi. [Mock agri content covers: fish, pond, aquaculture]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्"
+ML-S29-KN,S29,KN,Fisheries & Aquaculture,How do I manage a fish pond for rohu and catla in Andhra Pradesh?,Kannada,Kannada,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S29-KN] Domain: Fisheries & Aquaculture. Query language: Kannada. [Mock agri content covers: fish, pond, aquaculture]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸ"
+ML-S29-TA,S29,TA,Fisheries & Aquaculture,How do I manage a fish pond for rohu and catla in Andhra Pradesh?,Tamil,Tamil,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S29-TA] Domain: Fisheries & Aquaculture. Query language: Tamil. [Mock agri content covers: fish, pond, aquaculture]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான"
+ML-S29-PA,S29,PA,Fisheries & Aquaculture,How do I manage a fish pond for rohu and catla in Andhra Pradesh?,Punjabi,Gurmukhi,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S29-PA] Domain: Fisheries & Aquaculture. Query language: Punjabi. [Mock agri content covers: fish, pond, aquaculture]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰ"
+ML-S29-TE,S29,TE,Fisheries & Aquaculture,How do I manage a fish pond for rohu and catla in Andhra Pradesh?,Telugu,Telugu,True,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S29-TE] Domain: Fisheries & Aquaculture. Query language: Telugu. [Mock agri content covers: fish, pond, aquaculture]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠"
+ML-S30-EN,S30,EN,Plant Protection,What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?,English,English,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,True,,"[MOCK RESPONSE for ML-S30-EN] Domain: Plant Protection. Query language: English. [Mock agri content covers: wheat, yellow rust, weather]
+Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.
+Thank You.
+⚠️ Important Notice (Testing) ⚠️
+
+This AjraSakha"
+ML-S30-HI,S30,HI,Plant Protection,What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?,Hindi,Devanagari,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"यह एक परीक्षण उत्तर है। [MOCK RESPONSE for ML-S30-HI] Domain: Plant Protection. Query language: Hindi. [Mock agri content covers: wheat, yellow rust, weather]
+आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।
+⚠️ महत्वपूर्ण सूचना (परीक्षण)"
+ML-S30-KN,S30,KN,Plant Protection,What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?,Kannada,Kannada,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. [MOCK RESPONSE for ML-S30-KN] Domain: Plant Protection. Query language: Kannada. [Mock agri content covers: wheat, yellow rust, weather]
+ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.
+ಧನ್ಯವಾದಗಳು.
+⚠️ ಮಹತ್ವದ ಸೂಚನ"
+ML-S30-TA,S30,TA,Plant Protection,What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?,Tamil,Tamil,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"இது ஒரு சோதனை பதில். [MOCK RESPONSE for ML-S30-TA] Domain: Plant Protection. Query language: Tamil. [Mock agri content covers: wheat, yellow rust, weather]
+உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.
+⚠️ முக்கியமான அற"
+ML-S30-PA,S30,PA,Plant Protection,What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?,Punjabi,Gurmukhi,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। [MOCK RESPONSE for ML-S30-PA] Domain: Plant Protection. Query language: Punjabi. [Mock agri content covers: wheat, yellow rust, weather]
+ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।
+⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) "
+ML-S30-TE,S30,TE,Plant Protection,What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?,Telugu,Telugu,False,pending,,PASS,200,success,0.01,,True,True,,True,,True,True,True,True,,False,,True,,False,GDB response missing source attribution,"ఇది ఒక పరీక్ష సమాధానం. [MOCK RESPONSE for ML-S30-TE] Domain: Plant Protection. Query language: Telugu. [Mock agri content covers: wheat, yellow rust, weather]
+మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.
+ధన్యవాదాలు.
+⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️
+
+"

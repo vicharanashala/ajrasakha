@@ -1,0 +1,2887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AjraSakha Multilingual Test Suite — MOCK Report</title>
+  <style>
+body { font-family: Arial, sans-serif; margin: 24px; background: #f5f5f5; color: #222; }
+.summary { padding: 16px; border-radius: 8px; background: white; margin-bottom: 24px; border-left: 8px solid #178a3b; }
+.summary.has-failures { border-left-color: #c62828; }
+section { background: white; padding: 16px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto; }
+h1 { margin: 0 0 8px 0; }
+h2 { margin-top: 0; }
+table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 13px; }
+th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #efefef; font-size: 12px; }
+.pass   { color: #178a3b; font-weight: bold; }
+.fail   { color: #c62828; font-weight: bold; }
+.error  { color: #e65100; font-weight: bold; }
+.blocked { color: #6a1b9a; font-weight: bold; }
+.skipped { color: #888; }
+.info   { color: #1565c0; }
+.scenario-id { font-family: monospace; font-size: 12px; }
+.matrix-table td { text-align: center; min-width: 70px; }
+.detail { font-size: 11px; max-width: 300px; color: #555; }
+.rec-item { margin: 8px 0; padding: 10px; border-radius: 6px; background: #fafafa; border-left: 4px solid #ccc; }
+.pass-border { border-left-color: #178a3b; }
+.fail-border { border-left-color: #c62828; }
+.error-border { border-left-color: #e65100; }
+.blocked-border { border-left-color: #6a1b9a; }
+.info-border { border-left-color: #1565c0; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;
+         color: white; margin-right: 6px; }
+.badge.pass    { background: #178a3b; }
+.badge.fail    { background: #c62828; }
+.badge.error   { background: #e65100; }
+.badge.blocked { background: #6a1b9a; }
+.badge.info    { background: #1565c0; }
+</style>
+</head>
+<body>
+  <div class='summary has-failures'>
+    <h1>AjraSakha Multilingual Testing Suite</h1>
+    <h2>Mode: MOCK | Overall: <span class='fail'>FAIL</span></h2>
+    <p>Generated: 2026-07-23 17:22:19 | 
+       Total: 180 | 
+       <span class='pass'>Pass: 48</span> |
+       <span class='fail'>Fail: 132</span> |
+       <span class='error'>Error: 0</span> |
+       <span class='blocked'>Blocked: 0</span> |
+       <span class='skipped'>Skipped: 0</span> |
+       Pass rate: 26.7%
+    </p>
+    <p><em>Worst language: EN | 
+       Worst scenario: S01</em></p>
+  </div>
+
+  <section>
+    <h2>Language Quality Matrix (30 Scenarios × 6 Languages)</h2>
+    
+    <table class='matrix-table'>
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th>English<br><small>EN</small></th><th>Hindi<br><small>HI</small></th><th>Kannada<br><small>KN</small></th><th>Tamil<br><small>TA</small></th><th>Punjabi<br><small>PA</small></th><th>Telugu<br><small>TE</small></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class='scenario-id'>S01</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S02</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S03</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S04</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S05</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S06</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S07</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S08</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S09</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S10</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S11</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td></tr><tr><td class='scenario-id'>S12</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td></tr><tr><td class='scenario-id'>S13</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td></tr><tr><td class='scenario-id'>S14</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td></tr><tr><td class='scenario-id'>S15</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S16</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td></tr><tr><td class='scenario-id'>S17</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td></tr><tr><td class='scenario-id'>S18</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td></tr><tr><td class='scenario-id'>S19</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td><td class='pass'>PASS</td></tr><tr><td class='scenario-id'>S20</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S21</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S22</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S23</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S24</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S25</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S26</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S27</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S28</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S29</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr><tr><td class='scenario-id'>S30</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td><td class='fail'>FAIL</td></tr>
+      </tbody>
+    </table>
+    
+  </section>
+
+  <section>
+    <h2>Recommendations</h2>
+    
+        <div class='rec-item fail-border'>
+          <span class='badge fail'>CRITICAL</span>
+          <strong>Language Quality</strong><br>
+          <em>Finding:</em> Language EN: 8/30 pass (27% pass rate) — CRITICAL failure rate<br>
+          <em>Recommendation:</em> Investigate all FAIL/ERROR cases for EN. Check translation catalog entries, script pattern detection, and disclaimer placement for this language.<br>
+          <small><em>Evidence:</em> EN: 8 PASS / 30 eligible</small>
+        </div>
+        
+
+        <div class='rec-item fail-border'>
+          <span class='badge fail'>CRITICAL</span>
+          <strong>Language Quality</strong><br>
+          <em>Finding:</em> Language HI: 8/30 pass (27% pass rate) — CRITICAL failure rate<br>
+          <em>Recommendation:</em> Investigate all FAIL/ERROR cases for HI. Check translation catalog entries, script pattern detection, and disclaimer placement for this language.<br>
+          <small><em>Evidence:</em> HI: 8 PASS / 30 eligible</small>
+        </div>
+        
+
+        <div class='rec-item fail-border'>
+          <span class='badge fail'>CRITICAL</span>
+          <strong>Language Quality</strong><br>
+          <em>Finding:</em> Language KN: 8/30 pass (27% pass rate) — CRITICAL failure rate<br>
+          <em>Recommendation:</em> Investigate all FAIL/ERROR cases for KN. Check translation catalog entries, script pattern detection, and disclaimer placement for this language.<br>
+          <small><em>Evidence:</em> KN: 8 PASS / 30 eligible</small>
+        </div>
+        
+
+        <div class='rec-item fail-border'>
+          <span class='badge fail'>CRITICAL</span>
+          <strong>Language Quality</strong><br>
+          <em>Finding:</em> Language TA: 8/30 pass (27% pass rate) — CRITICAL failure rate<br>
+          <em>Recommendation:</em> Investigate all FAIL/ERROR cases for TA. Check translation catalog entries, script pattern detection, and disclaimer placement for this language.<br>
+          <small><em>Evidence:</em> TA: 8 PASS / 30 eligible</small>
+        </div>
+        
+
+        <div class='rec-item fail-border'>
+          <span class='badge fail'>CRITICAL</span>
+          <strong>Language Quality</strong><br>
+          <em>Finding:</em> Language PA: 8/30 pass (27% pass rate) — CRITICAL failure rate<br>
+          <em>Recommendation:</em> Investigate all FAIL/ERROR cases for PA. Check translation catalog entries, script pattern detection, and disclaimer placement for this language.<br>
+          <small><em>Evidence:</em> PA: 8 PASS / 30 eligible</small>
+        </div>
+        
+
+        <div class='rec-item fail-border'>
+          <span class='badge fail'>CRITICAL</span>
+          <strong>Language Quality</strong><br>
+          <em>Finding:</em> Language TE: 8/30 pass (27% pass rate) — CRITICAL failure rate<br>
+          <em>Recommendation:</em> Investigate all FAIL/ERROR cases for TE. Check translation catalog entries, script pattern detection, and disclaimer placement for this language.<br>
+          <small><em>Evidence:</em> TE: 8 PASS / 30 eligible</small>
+        </div>
+        
+
+        <div class='rec-item error-border'>
+          <span class='badge error'>HIGH</span>
+          <strong>Translation Review</strong><br>
+          <em>Finding:</em> 180 cases have translation_review_status=&#x27;pending&#x27;<br>
+          <em>Recommendation:</em> Assign agri-team reviewers to validate disclaimer and terminology translations for each of the 6 target languages. Update case.translation_reviewer and case.translation_review_status upon sign-off.<br>
+          <small><em>Evidence:</em> 180/180 cases pending review</small>
+        </div>
+        
+
+        <div class='rec-item error-border'>
+          <span class='badge error'>HIGH</span>
+          <strong>Disclaimer Validation</strong><br>
+          <em>Finding:</em> 132 cases failed disclaimer checks (languages: EN, HI, KN, TA, PA, TE)<br>
+          <em>Recommendation:</em> Verify that the translation catalog entries for testing_disclaimer and two_hour_disclaimer exactly match what the agent appends to responses. Ensure agent uses catalog strings, not hardcoded English.<br>
+          <small><em>Evidence:</em> Disclaimer fails: EN=22, HI=22, KN=22, TA=22, PA=22, TE=22</small>
+        </div>
+        
+
+        <div class='rec-item info-border'>
+          <span class='badge info'>INFO</span>
+          <strong>Overall</strong><br>
+          <em>Finding:</em> Overall pass rate: 48/180 (27%)<br>
+          <em>Recommendation:</em> Track this metric across runs. A baseline pass rate in mock mode should be 100% (all fixtures pass). Live mode pass rate reflects real agent quality.<br>
+          <small><em>Evidence:</em> total=180, pass=48, rate=26.67%</small>
+        </div>
+        
+  </section>
+
+  <section>
+    <h2>Full Results (180 cases)</h2>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>Case ID</th>
+          <th>Scenario</th>
+          <th>Lang</th>
+          <th>Domain</th>
+          <th>Status</th>
+          <th>Lang✓</th>
+          <th>Disclaimer✓</th>
+          <th>Switch?</th>
+          <th>Terms✓</th>
+          <th>Routing✓</th>
+          <th>Review</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td>ML-S01-EN</td>
+          <td>S01</td>
+          <td>EN</td>
+          <td>Cultural Practices</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S01-HI</td>
+          <td>S01</td>
+          <td>HI</td>
+          <td>Cultural Practices</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S01-KN</td>
+          <td>S01</td>
+          <td>KN</td>
+          <td>Cultural Practices</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S01-TA</td>
+          <td>S01</td>
+          <td>TA</td>
+          <td>Cultural Practices</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S01-PA</td>
+          <td>S01</td>
+          <td>PA</td>
+          <td>Cultural Practices</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S01-TE</td>
+          <td>S01</td>
+          <td>TE</td>
+          <td>Cultural Practices</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S02-EN</td>
+          <td>S02</td>
+          <td>EN</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S02-HI</td>
+          <td>S02</td>
+          <td>HI</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S02-KN</td>
+          <td>S02</td>
+          <td>KN</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S02-TA</td>
+          <td>S02</td>
+          <td>TA</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S02-PA</td>
+          <td>S02</td>
+          <td>PA</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S02-TE</td>
+          <td>S02</td>
+          <td>TE</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S03-EN</td>
+          <td>S03</td>
+          <td>EN</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S03-HI</td>
+          <td>S03</td>
+          <td>HI</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S03-KN</td>
+          <td>S03</td>
+          <td>KN</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S03-TA</td>
+          <td>S03</td>
+          <td>TA</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S03-PA</td>
+          <td>S03</td>
+          <td>PA</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S03-TE</td>
+          <td>S03</td>
+          <td>TE</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S04-EN</td>
+          <td>S04</td>
+          <td>EN</td>
+          <td>Varieties</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S04-HI</td>
+          <td>S04</td>
+          <td>HI</td>
+          <td>Varieties</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S04-KN</td>
+          <td>S04</td>
+          <td>KN</td>
+          <td>Varieties</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S04-TA</td>
+          <td>S04</td>
+          <td>TA</td>
+          <td>Varieties</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S04-PA</td>
+          <td>S04</td>
+          <td>PA</td>
+          <td>Varieties</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S04-TE</td>
+          <td>S04</td>
+          <td>TE</td>
+          <td>Varieties</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S05-EN</td>
+          <td>S05</td>
+          <td>EN</td>
+          <td>Water Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S05-HI</td>
+          <td>S05</td>
+          <td>HI</td>
+          <td>Water Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S05-KN</td>
+          <td>S05</td>
+          <td>KN</td>
+          <td>Water Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S05-TA</td>
+          <td>S05</td>
+          <td>TA</td>
+          <td>Water Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S05-PA</td>
+          <td>S05</td>
+          <td>PA</td>
+          <td>Water Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S05-TE</td>
+          <td>S05</td>
+          <td>TE</td>
+          <td>Water Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S06-EN</td>
+          <td>S06</td>
+          <td>EN</td>
+          <td>Organic Farming</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S06-HI</td>
+          <td>S06</td>
+          <td>HI</td>
+          <td>Organic Farming</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S06-KN</td>
+          <td>S06</td>
+          <td>KN</td>
+          <td>Organic Farming</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S06-TA</td>
+          <td>S06</td>
+          <td>TA</td>
+          <td>Organic Farming</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S06-PA</td>
+          <td>S06</td>
+          <td>PA</td>
+          <td>Organic Farming</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S06-TE</td>
+          <td>S06</td>
+          <td>TE</td>
+          <td>Organic Farming</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S07-EN</td>
+          <td>S07</td>
+          <td>EN</td>
+          <td>Seeds</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S07-HI</td>
+          <td>S07</td>
+          <td>HI</td>
+          <td>Seeds</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S07-KN</td>
+          <td>S07</td>
+          <td>KN</td>
+          <td>Seeds</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S07-TA</td>
+          <td>S07</td>
+          <td>TA</td>
+          <td>Seeds</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S07-PA</td>
+          <td>S07</td>
+          <td>PA</td>
+          <td>Seeds</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S07-TE</td>
+          <td>S07</td>
+          <td>TE</td>
+          <td>Seeds</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S08-EN</td>
+          <td>S08</td>
+          <td>EN</td>
+          <td>Post Harvest Preservation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S08-HI</td>
+          <td>S08</td>
+          <td>HI</td>
+          <td>Post Harvest Preservation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S08-KN</td>
+          <td>S08</td>
+          <td>KN</td>
+          <td>Post Harvest Preservation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S08-TA</td>
+          <td>S08</td>
+          <td>TA</td>
+          <td>Post Harvest Preservation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S08-PA</td>
+          <td>S08</td>
+          <td>PA</td>
+          <td>Post Harvest Preservation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S08-TE</td>
+          <td>S08</td>
+          <td>TE</td>
+          <td>Post Harvest Preservation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S09-EN</td>
+          <td>S09</td>
+          <td>EN</td>
+          <td>Field Preparation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S09-HI</td>
+          <td>S09</td>
+          <td>HI</td>
+          <td>Field Preparation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S09-KN</td>
+          <td>S09</td>
+          <td>KN</td>
+          <td>Field Preparation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S09-TA</td>
+          <td>S09</td>
+          <td>TA</td>
+          <td>Field Preparation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S09-PA</td>
+          <td>S09</td>
+          <td>PA</td>
+          <td>Field Preparation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S09-TE</td>
+          <td>S09</td>
+          <td>TE</td>
+          <td>Field Preparation</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S10-EN</td>
+          <td>S10</td>
+          <td>EN</td>
+          <td>Weed Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S10-HI</td>
+          <td>S10</td>
+          <td>HI</td>
+          <td>Weed Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S10-KN</td>
+          <td>S10</td>
+          <td>KN</td>
+          <td>Weed Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S10-TA</td>
+          <td>S10</td>
+          <td>TA</td>
+          <td>Weed Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S10-PA</td>
+          <td>S10</td>
+          <td>PA</td>
+          <td>Weed Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S10-TE</td>
+          <td>S10</td>
+          <td>TE</td>
+          <td>Weed Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S11-EN</td>
+          <td>S11</td>
+          <td>EN</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S11-HI</td>
+          <td>S11</td>
+          <td>HI</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S11-KN</td>
+          <td>S11</td>
+          <td>KN</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S11-TA</td>
+          <td>S11</td>
+          <td>TA</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S11-PA</td>
+          <td>S11</td>
+          <td>PA</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S11-TE</td>
+          <td>S11</td>
+          <td>TE</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S12-EN</td>
+          <td>S12</td>
+          <td>EN</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S12-HI</td>
+          <td>S12</td>
+          <td>HI</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S12-KN</td>
+          <td>S12</td>
+          <td>KN</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S12-TA</td>
+          <td>S12</td>
+          <td>TA</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S12-PA</td>
+          <td>S12</td>
+          <td>PA</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S12-TE</td>
+          <td>S12</td>
+          <td>TE</td>
+          <td>Market Prices</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S13-EN</td>
+          <td>S13</td>
+          <td>EN</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S13-HI</td>
+          <td>S13</td>
+          <td>HI</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S13-KN</td>
+          <td>S13</td>
+          <td>KN</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S13-TA</td>
+          <td>S13</td>
+          <td>TA</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S13-PA</td>
+          <td>S13</td>
+          <td>PA</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S13-TE</td>
+          <td>S13</td>
+          <td>TE</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S14-EN</td>
+          <td>S14</td>
+          <td>EN</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S14-HI</td>
+          <td>S14</td>
+          <td>HI</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S14-KN</td>
+          <td>S14</td>
+          <td>KN</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S14-TA</td>
+          <td>S14</td>
+          <td>TA</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S14-PA</td>
+          <td>S14</td>
+          <td>PA</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S14-TE</td>
+          <td>S14</td>
+          <td>TE</td>
+          <td>Government Schemes</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S15-EN</td>
+          <td>S15</td>
+          <td>EN</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S15-HI</td>
+          <td>S15</td>
+          <td>HI</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S15-KN</td>
+          <td>S15</td>
+          <td>KN</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S15-TA</td>
+          <td>S15</td>
+          <td>TA</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S15-PA</td>
+          <td>S15</td>
+          <td>PA</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S15-TE</td>
+          <td>S15</td>
+          <td>TE</td>
+          <td>Nutrient Management</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S16-EN</td>
+          <td>S16</td>
+          <td>EN</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S16-HI</td>
+          <td>S16</td>
+          <td>HI</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S16-KN</td>
+          <td>S16</td>
+          <td>KN</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S16-TA</td>
+          <td>S16</td>
+          <td>TA</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S16-PA</td>
+          <td>S16</td>
+          <td>PA</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S16-TE</td>
+          <td>S16</td>
+          <td>TE</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S17-EN</td>
+          <td>S17</td>
+          <td>EN</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S17-HI</td>
+          <td>S17</td>
+          <td>HI</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S17-KN</td>
+          <td>S17</td>
+          <td>KN</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S17-TA</td>
+          <td>S17</td>
+          <td>TA</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S17-PA</td>
+          <td>S17</td>
+          <td>PA</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S17-TE</td>
+          <td>S17</td>
+          <td>TE</td>
+          <td>Weather</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S18-EN</td>
+          <td>S18</td>
+          <td>EN</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S18-HI</td>
+          <td>S18</td>
+          <td>HI</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S18-KN</td>
+          <td>S18</td>
+          <td>KN</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S18-TA</td>
+          <td>S18</td>
+          <td>TA</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S18-PA</td>
+          <td>S18</td>
+          <td>PA</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S18-TE</td>
+          <td>S18</td>
+          <td>TE</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S19-EN</td>
+          <td>S19</td>
+          <td>EN</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S19-HI</td>
+          <td>S19</td>
+          <td>HI</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S19-KN</td>
+          <td>S19</td>
+          <td>KN</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S19-TA</td>
+          <td>S19</td>
+          <td>TA</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S19-PA</td>
+          <td>S19</td>
+          <td>PA</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S19-TE</td>
+          <td>S19</td>
+          <td>TE</td>
+          <td>General</td>
+          <td class='pass'>PASS</td>
+          <td>True</td>
+          <td>True</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'></td>
+        </tr>
+        
+        <tr>
+          <td>ML-S20-EN</td>
+          <td>S20</td>
+          <td>EN</td>
+          <td>Crop Insurance</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S20-HI</td>
+          <td>S20</td>
+          <td>HI</td>
+          <td>Crop Insurance</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S20-KN</td>
+          <td>S20</td>
+          <td>KN</td>
+          <td>Crop Insurance</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S20-TA</td>
+          <td>S20</td>
+          <td>TA</td>
+          <td>Crop Insurance</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S20-PA</td>
+          <td>S20</td>
+          <td>PA</td>
+          <td>Crop Insurance</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S20-TE</td>
+          <td>S20</td>
+          <td>TE</td>
+          <td>Crop Insurance</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S21-EN</td>
+          <td>S21</td>
+          <td>EN</td>
+          <td>Bio-Pesticides and Bio-Fertilizers</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S21-HI</td>
+          <td>S21</td>
+          <td>HI</td>
+          <td>Bio-Pesticides and Bio-Fertilizers</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S21-KN</td>
+          <td>S21</td>
+          <td>KN</td>
+          <td>Bio-Pesticides and Bio-Fertilizers</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S21-TA</td>
+          <td>S21</td>
+          <td>TA</td>
+          <td>Bio-Pesticides and Bio-Fertilizers</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S21-PA</td>
+          <td>S21</td>
+          <td>PA</td>
+          <td>Bio-Pesticides and Bio-Fertilizers</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S21-TE</td>
+          <td>S21</td>
+          <td>TE</td>
+          <td>Bio-Pesticides and Bio-Fertilizers</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S22-EN</td>
+          <td>S22</td>
+          <td>EN</td>
+          <td>Agriculture Mechanization</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S22-HI</td>
+          <td>S22</td>
+          <td>HI</td>
+          <td>Agriculture Mechanization</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S22-KN</td>
+          <td>S22</td>
+          <td>KN</td>
+          <td>Agriculture Mechanization</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S22-TA</td>
+          <td>S22</td>
+          <td>TA</td>
+          <td>Agriculture Mechanization</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S22-PA</td>
+          <td>S22</td>
+          <td>PA</td>
+          <td>Agriculture Mechanization</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S22-TE</td>
+          <td>S22</td>
+          <td>TE</td>
+          <td>Agriculture Mechanization</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S23-EN</td>
+          <td>S23</td>
+          <td>EN</td>
+          <td>Horticulture &amp; Allied Agriculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S23-HI</td>
+          <td>S23</td>
+          <td>HI</td>
+          <td>Horticulture &amp; Allied Agriculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S23-KN</td>
+          <td>S23</td>
+          <td>KN</td>
+          <td>Horticulture &amp; Allied Agriculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S23-TA</td>
+          <td>S23</td>
+          <td>TA</td>
+          <td>Horticulture &amp; Allied Agriculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S23-PA</td>
+          <td>S23</td>
+          <td>PA</td>
+          <td>Horticulture &amp; Allied Agriculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S23-TE</td>
+          <td>S23</td>
+          <td>TE</td>
+          <td>Horticulture &amp; Allied Agriculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S24-EN</td>
+          <td>S24</td>
+          <td>EN</td>
+          <td>Sowing Time and Weather</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S24-HI</td>
+          <td>S24</td>
+          <td>HI</td>
+          <td>Sowing Time and Weather</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S24-KN</td>
+          <td>S24</td>
+          <td>KN</td>
+          <td>Sowing Time and Weather</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S24-TA</td>
+          <td>S24</td>
+          <td>TA</td>
+          <td>Sowing Time and Weather</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S24-PA</td>
+          <td>S24</td>
+          <td>PA</td>
+          <td>Sowing Time and Weather</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S24-TE</td>
+          <td>S24</td>
+          <td>TE</td>
+          <td>Sowing Time and Weather</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S25-EN</td>
+          <td>S25</td>
+          <td>EN</td>
+          <td>Fertilizer Use and Availability</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S25-HI</td>
+          <td>S25</td>
+          <td>HI</td>
+          <td>Fertilizer Use and Availability</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S25-KN</td>
+          <td>S25</td>
+          <td>KN</td>
+          <td>Fertilizer Use and Availability</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S25-TA</td>
+          <td>S25</td>
+          <td>TA</td>
+          <td>Fertilizer Use and Availability</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S25-PA</td>
+          <td>S25</td>
+          <td>PA</td>
+          <td>Fertilizer Use and Availability</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S25-TE</td>
+          <td>S25</td>
+          <td>TE</td>
+          <td>Fertilizer Use and Availability</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S26-EN</td>
+          <td>S26</td>
+          <td>EN</td>
+          <td>Storage</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S26-HI</td>
+          <td>S26</td>
+          <td>HI</td>
+          <td>Storage</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S26-KN</td>
+          <td>S26</td>
+          <td>KN</td>
+          <td>Storage</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S26-TA</td>
+          <td>S26</td>
+          <td>TA</td>
+          <td>Storage</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S26-PA</td>
+          <td>S26</td>
+          <td>PA</td>
+          <td>Storage</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S26-TE</td>
+          <td>S26</td>
+          <td>TE</td>
+          <td>Storage</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S27-EN</td>
+          <td>S27</td>
+          <td>EN</td>
+          <td>Soil Health Card</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S27-HI</td>
+          <td>S27</td>
+          <td>HI</td>
+          <td>Soil Health Card</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S27-KN</td>
+          <td>S27</td>
+          <td>KN</td>
+          <td>Soil Health Card</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S27-TA</td>
+          <td>S27</td>
+          <td>TA</td>
+          <td>Soil Health Card</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S27-PA</td>
+          <td>S27</td>
+          <td>PA</td>
+          <td>Soil Health Card</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S27-TE</td>
+          <td>S27</td>
+          <td>TE</td>
+          <td>Soil Health Card</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S28-EN</td>
+          <td>S28</td>
+          <td>EN</td>
+          <td>Livestock &amp; Animal Husbandry</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S28-HI</td>
+          <td>S28</td>
+          <td>HI</td>
+          <td>Livestock &amp; Animal Husbandry</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S28-KN</td>
+          <td>S28</td>
+          <td>KN</td>
+          <td>Livestock &amp; Animal Husbandry</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S28-TA</td>
+          <td>S28</td>
+          <td>TA</td>
+          <td>Livestock &amp; Animal Husbandry</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S28-PA</td>
+          <td>S28</td>
+          <td>PA</td>
+          <td>Livestock &amp; Animal Husbandry</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S28-TE</td>
+          <td>S28</td>
+          <td>TE</td>
+          <td>Livestock &amp; Animal Husbandry</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S29-EN</td>
+          <td>S29</td>
+          <td>EN</td>
+          <td>Fisheries &amp; Aquaculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S29-HI</td>
+          <td>S29</td>
+          <td>HI</td>
+          <td>Fisheries &amp; Aquaculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S29-KN</td>
+          <td>S29</td>
+          <td>KN</td>
+          <td>Fisheries &amp; Aquaculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S29-TA</td>
+          <td>S29</td>
+          <td>TA</td>
+          <td>Fisheries &amp; Aquaculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S29-PA</td>
+          <td>S29</td>
+          <td>PA</td>
+          <td>Fisheries &amp; Aquaculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S29-TE</td>
+          <td>S29</td>
+          <td>TE</td>
+          <td>Fisheries &amp; Aquaculture</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S30-EN</td>
+          <td>S30</td>
+          <td>EN</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S30-HI</td>
+          <td>S30</td>
+          <td>HI</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S30-KN</td>
+          <td>S30</td>
+          <td>KN</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S30-TA</td>
+          <td>S30</td>
+          <td>TA</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S30-PA</td>
+          <td>S30</td>
+          <td>PA</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+        <tr>
+          <td>ML-S30-TE</td>
+          <td>S30</td>
+          <td>TE</td>
+          <td>Plant Protection</td>
+          <td class='fail'>FAIL</td>
+          <td>True</td>
+          <td>False</td>
+          <td>False</td>
+          <td>True</td>
+          <td>True</td>
+          <td>pending</td>
+          <td class='detail'>2-hour disclaimer missing</td>
+        </tr>
+        
+      </tbody>
+    </table>
+    
+  </section>
+
+</body>
+</html>
