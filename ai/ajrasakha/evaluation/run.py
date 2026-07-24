@@ -1,6 +1,7 @@
 import argparse
 
 from ajrasakha.evaluation.questions import TEST_CASES
+from ajrasakha.evaluation.multilingual_questions import MULTILINGUAL_TEST_CASES
 from ajrasakha.evaluation.executors import run_mock_case, run_live_case
 from ajrasakha.evaluation.tech import evaluate_technical
 from ajrasakha.evaluation.failure import classify_failure
@@ -87,11 +88,11 @@ def main():
 
     args = parser.parse_args()
 
-    selected_cases = TEST_CASES
+    selected_cases = TEST_CASES + MULTILINGUAL_TEST_CASES
 
     if args.stable_only:
         selected_cases = [
-            case for case in TEST_CASES
+            case for case in selected_cases
             if case.get("stable") is True
         ]
 
