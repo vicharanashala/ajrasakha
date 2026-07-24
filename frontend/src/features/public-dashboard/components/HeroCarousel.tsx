@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, /* useEffect, */ useRef, useState } from "react";
 import { AnimatedStatValue } from "./AnimatedStatValue";
 import { InlineLoader } from "./InlineLoader";
 import type { MediaItem } from "@/hooks/services/mediaService";
@@ -113,7 +113,7 @@ const buildSlides = (live: CarouselStats, loading = false): Slide[] => [
   },*/
 ];
 
-const INTERVAL = 5000;
+// const INTERVAL = 5000;
 
 /**
  * Full-bleed hero carousel shown below the header. Each slide carries a headline and a
@@ -128,13 +128,18 @@ export const HeroCarousel = ({
   stats,
   images = [],
   loading = false,
+  activeIndex,
+  setActiveIndex,
 }: {
   stats: CarouselStats;
   images?: MediaItem[];
   loading?: boolean;
+  activeIndex: number;
+  setActiveIndex: (index: number) => void;
 }) => {
-  const [index, setIndex] = useState(0);
-  const [progressKey, setProgressKey] = useState(0); // increments to restart the CSS animation
+  const index = activeIndex;
+  const setIndex = setActiveIndex;
+  // const [progressKey, setProgressKey] = useState(0); // increments to restart the CSS animation
   const paused = useRef(false);
 
   const slides = buildSlides(stats, loading);
@@ -148,11 +153,20 @@ export const HeroCarousel = ({
   const go = useCallback(
     (next: number) => {
       setIndex((next + slideCount) % slideCount);
-      setProgressKey((k) => k + 1); // restart progress bar
+      // setProgressKey((k) => k + 1); // restart progress bar
     },
     [slideCount],
   );
 
+  const handleTabClick = (idx: number, sectionId: string) => {
+    setIndex(idx);
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  /* Commented out auto-play useEffect to keep the carousel static and interactive via buttons only
   useEffect(() => {
     const id = setInterval(() => {
       if (!paused.current) {
@@ -162,6 +176,7 @@ export const HeroCarousel = ({
     }, INTERVAL);
     return () => clearInterval(id);
   }, [slideCount]);
+  */
 
   return (
     <div
@@ -170,13 +185,12 @@ export const HeroCarousel = ({
       onMouseLeave={() => (paused.current = false)}
       aria-roledescription="carousel"
     >
-      {effectiveSlides.map((s, i) => (
+      {/* Commented out carousel slide loop to keep hero static and support scroll anchors */}
+      {/* effectiveSlides.map((s, i) => ( */}
         <div
-          key={i}
-          className={`carousel-slide${i === index ? " active" : ""}`}
-          aria-hidden={i !== index}
+          className="carousel-slide active"
         >
-          {/* Background image layer — ken-burns animates this independently of content */}
+          {/* Commented out per-slide dynamic background to keep the 1st image only (prompt image which is the 3rd image)
           <div
             className="carousel-bg"
             style={{
@@ -185,10 +199,74 @@ export const HeroCarousel = ({
               backgroundPosition: "center",
             }}
           />
+          */}
+          {/* Commented out static background image layer to use video instead
+          <div
+            className="carousel-bg"
+            style={{
+              backgroundImage: `url(${effectiveSlides[0]?.image || SLIDE_IMAGES[0]})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
+          */}
+          {/* Static background video layer with matching green field poster fallback */}
+          <video
+            className="carousel-bg-video"
+            autoPlay
+            loop
+            muted
+            playsInline
+            poster="/greenland.png"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              pointerEvents: "none",
+            }}
+          >
+            <source src="/background.mp4" type="video/mp4" />
+            <source src="https://assets.mixkit.co/videos/preview/mixkit-farmer-walking-in-a-field-of-green-crops-42289-large.mp4" type="video/mp4" />
+          </video>
           <div className="carousel-overlay" />
           <div className="carousel-content">
-            <h2>{s.title}</h2>
-            <p className="tag">{s.tag}</p>
+            <h2> The Agricultural Cognitive Ecosystem</h2>
+            <p className="tag">India's public agricultural intelligence infrastructure. It turns Kisan Call Centre transcripts and expert-validated Q&A into a trusted, multilingual advisory layer for every farmer.</p>
+
+            {/* Three interactive animated buttons to view the different metric slices */}
+            <div className="metrics-toggle-container">
+              <button
+                className={`metrics-toggle-btn ${index === 0 ? "active" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTabClick(0, "sec-details-container");
+                }}
+              >
+                ⚡ Intelligence
+              </button>
+              <button
+                className={`metrics-toggle-btn ${index === 1 ? "active" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTabClick(1, "sec-details-container");
+                }}
+              >
+                👥 Expert Network
+              </button>
+              <button
+                className={`metrics-toggle-btn ${index === 2 ? "active" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTabClick(2, "sec-details-container");
+                }}
+              >
+                🌍 Outreach & Coverage
+              </button>
+            </div>
+
+            {/* Commented out transparent cards under tabs in the Hero Section for layout updates
             <div className="carousel-stats">
               {s.stats.map((st) => (
                 // AnimatedStatValue handles the numeric/free-text split ("22" counts up,
@@ -205,16 +283,21 @@ export const HeroCarousel = ({
                 </div>
               ))}
             </div>
+            */}
           </div>
         </div>
-      ))}
+      {/* ))} */}
 
+      {/* Commented out navigation arrows for the new static metrics toggle buttons UI
       <button className="carousel-arrow prev" onClick={() => go(index - 1)} aria-label="Previous slide" />
       <button className="carousel-arrow next" onClick={() => go(index + 1)} aria-label="Next slide" />
+      */}
 
-      {/* Progress bar — key forces remount (restarts animation) on every slide change */}
+      {/* Commented out progress bar for the static UI
       <div key={progressKey} className="carousel-progress running" />
+      */}
 
+      {/* Commented out carousel indicator dots in favor of the three interactive buttons
       <div className="carousel-dots">
         {slides.map((_, i) => (
           <button
@@ -225,6 +308,7 @@ export const HeroCarousel = ({
           />
         ))}
       </div>
+      */}
     </div>
   );
 };

@@ -423,6 +423,58 @@
   .ace-dash .cstat { padding: 10px 14px; min-width: 90px; }
 }
 
+/* ── Metrics Toggle Buttons (New UI) ── */
+.ace-dash .metrics-toggle-container {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin: 20px auto 5px;
+  background: rgba(18, 36, 29, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px;
+  border-radius: 30px;
+  backdrop-filter: blur(12px);
+  z-index: 10;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.ace-dash .metrics-toggle-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: inherit;
+  font-size: clamp(12px, 1.4vw, 14px);
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  outline: none;
+}
+
+.ace-dash .metrics-toggle-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ace-dash .metrics-toggle-btn.active {
+  color: #fff;
+  background: var(--green);
+  box-shadow: 0 0 14px rgba(34, 165, 90, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Staggered entry animation helper for container */
+.ace-dash .carousel-slide.active .metrics-toggle-container {
+  animation: slideUpFade 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.38s both;
+}
+
 /* ---------- HERO ---------- */
 .ace-dash .hero { padding: 56px 0 48px; }
 .ace-dash .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; flex-wrap: wrap; margin-bottom: 32px; }
@@ -1156,141 +1208,367 @@
 }
 
 /* ---------- OUTREACH MEDIA GALLERY ---------- */
-.ace-dash .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+
+.ace-dash .outreach-gallery-card {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 36px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  position: relative;
+  width: 100%;
+  margin-top: 14px;
+}
+
+.ace-dash .outreach-gallery-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
+}
+
+/* Filter Bar Selector */
+.ace-dash .media-filter-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 28px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.ace-dash .media-filter-btn {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.ace-dash .media-filter-btn:hover {
+  background: var(--green-soft);
+  color: var(--green-deep);
+  border-color: var(--green);
+  transform: translateY(-1px);
+}
+
+.ace-dash .media-filter-btn.active {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+  box-shadow: 0 4px 12px rgba(34, 165, 90, 0.25);
+}
+
+/* Carousel Wrapper & Track */
+.ace-dash .media-carousel-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+@keyframes card-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.ace-dash .media-carousel-track {
+  display: grid;
+  grid-template-rows: auto; /* Single horizontal row */
+  grid-auto-flow: column; /* horizontal grid flow */
+  grid-auto-columns: calc(33.333% - 14px); /* 3 cards visible on desktop */
+  gap: 20px;
+  overflow-x: auto;
+  scroll-behavior: auto; /* Handled smoothly by JS animator */
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none; /* Hide default scrollbar in Firefox */
+  -ms-overflow-style: none; /* Hide default scrollbar in IE */
+  padding: 10px 0;
+}
+
+.ace-dash .media-carousel-track::-webkit-scrollbar {
+  display: none; /* Hide default scrollbar in Chrome/Safari */
+}
+
 .ace-dash .media-card {
   margin: 0;
   background: var(--paper-raised);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+  border-radius: 16px; /* High-end rounded corners */
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
-  /* subtle lift on hover — shadow deepens, card tilts forward */
+  position: relative;
+  animation: card-slide-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 0.35s ease;
+              box-shadow 0.35s ease,
+              border-color 0.35s ease;
   will-change: transform;
-}
-.ace-dash .media-card:hover,
-/* Higher specificity so the lift wins over the entrance-stagger's `transform: none`
-   (which otherwise kills the hover lift once a card has revealed). This is what makes
-   YouTube video cards animate on hover — the embed itself can't zoom. */
-.ace-dash .card-grid-anim.in-view > .media-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 1px 2px rgba(18, 36, 29, 0.06), 0 18px 36px -16px rgba(18, 36, 29, 0.28);
+  display: flex;
+  flex-direction: column;
+  width: 100%; /* Fill the grid column width */
+  scroll-snap-align: start;
 }
 
-/* Media wrapper — a separate element holds the photo so we can scale the image
-   inside without distorting the card itself. `overflow: hidden` clips the zoom. */
+/* Floating Navigation Chevrons */
+.ace-dash .media-carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #ffffff; /* Solid high-contrast white background */
+  border: 2px solid var(--green); /* Thicker green border */
+  color: var(--green); /* Green chevron arrow */
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(18, 36, 29, 0.15); /* Slightly stronger shadow */
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+  z-index: 10;
+}
+
+.ace-dash .media-carousel-arrow .arrow-icon {
+  display: inline-block;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  line-height: 1;
+}
+
+@keyframes prev-arrow-swipe {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+  45% {
+    transform: translateX(10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes next-arrow-swipe {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(10px);
+    opacity: 0;
+  }
+  45% {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.ace-dash .media-carousel-arrow.prev:hover:not(:disabled) .arrow-icon {
+  animation: prev-arrow-swipe 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.ace-dash .media-carousel-arrow.next:hover:not(:disabled) .arrow-icon {
+  animation: next-arrow-swipe 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.ace-dash .media-carousel-arrow:hover:not(:disabled) {
+  background: var(--green);
+  border-color: var(--green);
+  color: #ffffff;
+  transform: translateY(-50%) scale(1.08); /* Scale slightly less to keep swipe prominent */
+  box-shadow: 0 6px 20px rgba(34, 165, 90, 0.35);
+}
+
+.ace-dash .media-carousel-arrow:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.ace-dash .media-carousel-arrow.prev {
+  left: -22px;
+}
+
+.ace-dash .media-carousel-arrow.next {
+  right: -22px;
+}
+
+.ace-dash .media-carousel-arrow:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .ace-dash .media-carousel-track {
+    grid-auto-columns: calc(50% - 10px); /* 2 columns visible on tablet */
+  }
+  .ace-dash .media-carousel-arrow.prev {
+    left: -10px;
+  }
+  .ace-dash .media-carousel-arrow.next {
+    right: -10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .ace-dash .media-carousel-track {
+    grid-auto-columns: 100%; /* 1 column visible on mobile */
+  }
+  .ace-dash .media-carousel-arrow {
+    display: none; /* Swipe only on mobile */
+  }
+}
+
+.ace-dash .media-card:hover,
+.ace-dash .card-grid-anim.in-view > .media-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 32px rgba(18, 36, 29, 0.12);
+  border-color: var(--green);
+}
+
 .ace-dash .media-card-media {
   position: relative;
   overflow: hidden;
   background: #000;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10; /* Clean horizontal proportions */
 }
 
-/* Always-on black gradient at the bottom — gives the caption legibility even on bright
-   photographs. Slightly deeper than the hover green tint above. */
+/* Glassmorphic Format Badge */
+.ace-dash .media-format-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(18, 36, 29, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  border-radius: 6px;
+  backdrop-filter: blur(8px);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Custom Play Button Overlay */
+.ace-dash .play-button-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(18, 36, 29, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  transition: background 0.3s ease;
+}
+
+.ace-dash .media-card:hover .play-button-overlay {
+  background: rgba(18, 36, 29, 0.3);
+}
+
+.ace-dash .play-button-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--green-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s ease, color 0.3s ease;
+}
+
+.ace-dash .play-button-icon svg {
+  width: 22px;
+  height: 22px;
+  transform: translateX(2px); /* Centering play triangle slightly */
+}
+
+.ace-dash .media-card:hover .play-button-icon {
+  transform: scale(1.12);
+  background: var(--green);
+  color: #fff;
+}
+
+/* Always-on black gradient at the bottom — gives the caption legibility */
 .ace-dash .media-card-shade {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  height: 55%;
+  height: 60%;
   pointer-events: none;
   background: linear-gradient(
     180deg,
     rgba(0, 0, 0, 0) 0%,
-    rgba(0, 0, 0, 0.45) 60%,
-    rgba(0, 0, 0, 0.78) 100%
+    rgba(0, 0, 0, 0.5) 55%,
+    rgba(0, 0, 0, 0.85) 100%
   );
 }
 
-.ace-dash .media-card img,
-.ace-dash .media-card video,
-.ace-dash .media-card iframe {
+.ace-dash .media-card img {
   display: block;
   width: 100%;
   height: 100%;
-  border: 0;
   object-fit: cover;
   background: #000;
-  /* Ken-Burns style slow zoom-in on hover for a more cinematic feel */
-  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-              filter 0.35s ease;
+  transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1), filter 0.35s ease;
 }
-/* Photos and uploaded videos zoom on hover; iframes (YouTube) are left alone so the
-   embed and its controls stay crisp. */
-.ace-dash .media-card:hover img,
-.ace-dash .media-card:hover video {
+
+.ace-dash .media-card:hover img {
   transform: scale(1.08);
-  filter: brightness(1.04) saturate(1.06);
+  filter: brightness(1.02) saturate(1.04);
 }
 
-/* Video framing is 16:9 (photos use 4:3). Overflow-hidden clips the hover zoom. */
-.ace-dash .media-card-media-video { aspect-ratio: 16 / 9; }
-
-/* Caption shown BELOW a video card (an overlay would cover the video's controls). */
+/* Card caption below the image container */
 .ace-dash .media-card-caption-below {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 12px 14px;
-}
-.ace-dash .media-card-caption-below strong {
-  font-size: 14px; font-weight: 700; color: var(--navy-deep);
-}
-.ace-dash .media-card-caption-below span {
-  font-size: 12px; color: var(--ink-soft); line-height: 1.5;
+  gap: 4px;
+  padding: 18px 20px;
+  background: var(--paper-raised);
+  flex-grow: 1;
 }
 
-/* Caption overlay — sits at the bottom-left of the photograph, white text on the
-   black gradient. Matches the Syngenta-style reference. */
-.ace-dash .media-card-caption {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  padding: 16px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  color: #fff;
-  pointer-events: none;
-  /* Subtle rise on hover for a more dynamic feel */
-  transform: translateY(2px);
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-  z-index: 2;
-}
-.ace-dash .media-card:hover .media-card-caption {
-  transform: translateY(0);
-}
-.ace-dash .media-card-caption strong {
+.ace-dash .media-card-caption-below strong {
   font-size: 15px;
   font-weight: 700;
-  line-height: 1.25;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
-  /* Keep titles to ~3 lines so they don't overflow the card */
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  color: var(--navy-deep);
+  line-height: 1.3;
 }
-.ace-dash .media-card-caption span {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.86);
-  line-height: 1.45;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+
+.ace-dash .media-card-caption-below span {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
 }
 
 /* Clickable card affordance */
 .ace-dash .media-card-clickable { cursor: pointer; }
 .ace-dash .media-card-clickable:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: -3px;
-  box-shadow: 0 0 0 4px rgba(34, 165, 90, 0.45);
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
 }
 
-/* Black fade overlay — fades to black when a card is clicked, before the lightbox opens.
-   Starts at opacity 0; the `media-card-fading` modifier triggers the fade-in. */
+/* Black fade overlay */
 .ace-dash .media-card-fade {
   position: absolute;
   inset: 0;
@@ -1301,17 +1579,13 @@
   transition: opacity 0.32s ease;
 }
 .ace-dash .media-card-fading .media-card-fade { opacity: 1; }
-.ace-dash .media-card-fading img,
-.ace-dash .media-card-fading .media-card-caption {
-  /* Pull the image + caption down a touch while fading — adds weight to the transition */
+.ace-dash .media-card-fading img {
   transform: scale(1.02) translateY(2px);
   filter: brightness(0.8);
   transition: transform 0.32s ease, filter 0.32s ease;
 }
 
 /* ---------- LIGHTBOX ---------- */
-/* Full-bleed black backdrop with a centred preview. Fades in on open; closes by
-   clicking the backdrop or pressing Esc (handled in OutreachGallery.tsx). */
 @keyframes lightboxIn {
   from { opacity: 0; }
   to   { opacity: 1; }
@@ -1324,8 +1598,9 @@
 .ace-dash .media-lightbox {
   position: fixed;
   inset: 0;
-  z-index: 1000;
-  background: rgba(0, 0, 0, 0.92);
+  z-index: 200000;
+  background: rgba(10, 20, 16, 0.94); /* Deep forest black shade */
+  backdrop-filter: blur(16px); /* High-end glass overlay blur */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1333,39 +1608,67 @@
   animation: lightboxIn 0.28s ease both;
   cursor: zoom-out;
 }
+
 .ace-dash .media-lightbox-figure {
   margin: 0;
-  max-width: min(1100px, 96vw);
-  max-height: 92vh;
+  width: 100%;
+  max-width: min(1000px, 92vw);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   cursor: default;
   animation: lightboxFigureIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
 }
+
 .ace-dash .media-lightbox-figure img {
   display: block;
   width: 100%;
-  max-height: 80vh;
+  max-height: 75vh;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   background: #000;
 }
+
+.ace-dash .media-lightbox-video-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.ace-dash .media-lightbox-video-container iframe,
+.ace-dash .media-lightbox-video-container video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
 .ace-dash .media-lightbox-caption {
   display: flex;
   flex-direction: column;
   gap: 4px;
   color: #fff;
-  padding: 4px 2px;
+  padding: 4px 8px;
 }
+
 .ace-dash .media-lightbox-caption strong {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.3;
 }
+
 .ace-dash .media-lightbox-caption span {
-  font-size: 13.5px;
-  color: rgba(255, 255, 255, 0.78);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
   line-height: 1.5;
 }
 
@@ -1903,12 +2206,15 @@
 .ace-dash .live-strip {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end; /* Align right side */
   gap: 10px;
   flex-wrap: wrap;
-  padding: 10px 16px;
-  background: var(--green-soft, #e4f6ea);
-  border-bottom: 1px solid rgba(34, 165, 90, 0.18);
+  padding: 16px 20px 0 20px;
+  background: transparent; /* Remove background color */
+  border-bottom: none; /* Remove border-bottom */
+  max-width: 1400px; /* Align with the dashboard wrap width */
+  margin: 0 auto;
+  width: 100%;
 }
 
 .ace-dash .live-badge {
@@ -2317,4 +2623,394 @@
   .sat-modal-crop { animation: none; }
   .sat-modal { opacity: 1; transform: none; }
   .sat-modal-crop { opacity: 1; transform: none; }
+/* ── Hero Description Panel (New UI) ── */
+.ace-dash .hero-ace-description {
+  max-width: 780px;
+  margin: 18px auto 24px;
+  background: rgba(18, 36, 29, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 16px 24px;
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  font-size: clamp(13px, 1.5vw, 15px);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  animation: slideUpFade 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+.ace-dash .hero-ace-description strong {
+  color: var(--green);
+  font-weight: 700;
+}
+/* ── Vertical Overview Split & Scrolling ── */
+html {
+  scroll-behavior: smooth;
+}
+
+.ace-dash .overview-split-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+  width: 100%;
+}
+
+/* ── Detailed Sections (New Premium UI) ── */
+.ace-dash .detail-section {
+  scroll-margin-top: 100px;
+  width: 100%;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 36px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  animation: fadeIn 0.8s ease both;
+}
+
+.ace-dash .detail-section:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
+}
+
+.ace-dash .detail-header {
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 20px;
+}
+
+.ace-dash .detail-header h3 {
+  font-size: 26px;
+  color: var(--navy-deep);
+  font-weight: 800;
+  margin-bottom: 8px;
+  letter-spacing: -0.015em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ace-dash .detail-header h3::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 24px;
+  background: var(--green);
+  border-radius: 3px;
+}
+
+.ace-dash .detail-header p {
+  color: var(--ink-soft);
+  font-size: 15.5px;
+  line-height: 1.5;
+}
+
+.ace-dash .detail-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.ace-dash .detail-metric-card {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 18px 22px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.ace-dash .detail-metric-card:hover {
+  transform: translateY(-2px);
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(18, 36, 29, 0.08);
+}
+
+.ace-dash .detail-metric-card .num {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--green-deep);
+  line-height: 1.2;
+}
+
+.ace-dash .detail-metric-card .label {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}
+
+.ace-dash .detail-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.ace-dash .detail-info-card {
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 26px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.ace-dash .detail-info-card:hover {
+  transform: translateY(-3px);
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(18, 36, 29, 0.08);
+}
+
+.ace-dash .detail-info-card h4 {
+  font-size: 19px;
+  color: var(--navy-deep);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.ace-dash .detail-info-card p {
+  font-size: 14.5px;
+  color: var(--ink-soft);
+  line-height: 1.65;
+  flex-grow: 1;
+}
+
+.ace-dash .detail-info-card .card-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.ace-dash .detail-info-card .card-fig {
+  flex: 1;
+  min-width: 80px;
+}
+
+.ace-dash .detail-info-card .card-fig .val {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--green-deep);
+}
+
+.ace-dash .detail-info-card .card-fig .lab {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+/* ── Wrap Wide Layout (Wider Detailing block) ── */
+.ace-dash .wrap-wide {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+/* ── Floating Navigation Arrows (Bilateral Prev/Next UI) ── */
+.ace-dash .detail-section {
+  position: relative;
+  padding: 36px 80px; /* extra left/right padding so arrows never overlap content */
+}
+
+.ace-dash .detail-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  color: var(--green-deep);
+  font-size: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+  outline: none;
+  user-select: none;
+}
+
+.ace-dash .detail-nav-arrow.prev {
+  left: 18px;
+}
+
+.ace-dash .detail-nav-arrow.next {
+  right: 18px;
+}
+
+.ace-dash .detail-nav-arrow:hover {
+  background: var(--green-soft);
+  border-color: var(--green);
+  box-shadow: 0 4px 14px rgba(23, 138, 72, 0.15);
+}
+
+.ace-dash .detail-nav-arrow.prev:hover {
+  transform: translateY(-50%) scale(1.08) translateX(-2px);
+}
+
+.ace-dash .detail-nav-arrow.next:hover {
+  transform: translateY(-50%) scale(1.08) translateX(2px);
+}
+
+.ace-dash .detail-nav-arrow:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+/* ── Simplified Count Cards Grid Layout ── */
+.ace-dash .detail-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin: 32px 0;
+}
+
+.ace-dash .detail-metrics-grid.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.ace-dash .detail-metric-card {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--green); /* Premium top-border highlight accent */
+  border-radius: var(--radius-sm);
+  padding: 28px 24px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease, background 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+}
+
+.ace-dash .detail-metric-card:hover {
+  transform: translateY(-4px);
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(18, 36, 29, 0.08);
+  border-top-color: var(--green-deep);
+}
+
+.ace-dash .detail-metric-card .num {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--green-deep);
+  line-height: 1.2;
+}
+
+.ace-dash .detail-metric-card .label {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  margin-top: 8px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+@media (max-width: 980px) {
+  .ace-dash .detail-metrics-grid,
+  .ace-dash .detail-metrics-grid.cols-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .ace-dash .detail-section {
+    padding: 36px 24px;
+  }
+  .ace-dash .detail-nav-arrow {
+    display: none; /* Hide arrows on smaller screens */
+  }
+}
+
+@media (max-width: 580px) {
+  .ace-dash .detail-metrics-grid,
+  .ace-dash .detail-metrics-grid.cols-3 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Glowing Live pulse dot next to titles ── */
+.ace-dash .live-pulse-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--green);
+  border-radius: 50%;
+  margin-left: 10px;
+  box-shadow: 0 0 0 rgba(34, 165, 90, 0.4);
+  animation: pulseLive 2s infinite;
+  vertical-align: middle;
+}
+
+@keyframes pulseLive {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 165, 90, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(34, 165, 90, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 165, 90, 0);
+  }
+}
+
+/* ── Page Indicator Progress Dots ── */
+.ace-dash .detail-progress-dots-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 24px;
+}
+
+.ace-dash .detail-progress-dots {
+  display: inline-flex;
+  gap: 8px;
+  background: rgba(240, 243, 241, 0.85);
+  border: 1px solid var(--line);
+  padding: 6px 14px;
+  border-radius: 20px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.ace-dash .detail-progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.15);
+  border: none;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+  outline: none;
+}
+
+.ace-dash .detail-progress-dot:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.ace-dash .detail-progress-dot.active {
+  background: var(--green);
+  width: 20px;
+  border-radius: 4px;
+}
+
+/* ── Content Tab Fade/Slide Animations ── */
+.ace-dash .tab-pane-content {
+  animation: tabSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes tabSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 }

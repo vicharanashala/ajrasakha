@@ -41,11 +41,6 @@ export const LiveBadge = ({
         <span className="live-dot" aria-hidden="true" />
         {LABELS[status]}
       </span>
-      <span className="live-strip-note">
-        {status === "live"
-          ? "Figures update automatically as questions arrive"
-          : "Reconnecting to the live feed…"}
-      </span>
     </div>
   );
 };
