@@ -72,7 +72,7 @@ async def test_assemble_answer_body_gdb_only_sets_expert_text():
 
 
 @pytest.mark.asyncio
-async def test_assemble_answer_body_mixed_gdb_and_weather_defer_empty():
+async def test_assemble_answer_body_mixed_gdb_and_weather_uses_weather_body():
     state: AjraSakhaState = {
         "messages": [
             HumanMessage(content="Wheat and weather?"),
@@ -82,6 +82,5 @@ async def test_assemble_answer_body_mixed_gdb_and_weather_defer_empty():
         "plan": {},
     }
     result = await assemble_answer_body_node(state, {})
-    assert result["messages"][0].content == ""
-    assert result["plan"].get("translate_path") == TRANSLATE_PATH_EMPTY_GDB
+    assert result["messages"][0].content == "Rain tomorrow"
     assert result["plan"].get("gdb_has_data") is False

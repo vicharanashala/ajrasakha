@@ -124,11 +124,18 @@ async def assemble_answer_body_node(
     has_gdb = _gdb_has_usable_data(messages)
     has_specialist = _turn_has_specialist_tool_message(messages)
 
-    if has_gdb and has_specialist:
-        logger.info(
-            "assemble_answer_body: GDB + specialist tools — expert-queue (no body)"
-        )
-        return defer_empty_gdb_to_translate(state, plan={**plan, "gdb_has_data": False})
+    if has_specialist:
+        tool_block = format_non_gdb_tool_results(messages)
+        if not tool_block.strip():
+            logger.info("assemble_answer_body: specialist tools empty — empty_gdb path")
+            return defer_empty_gdb_to_translate(state, plan=plan)
+
+        logger.info("assemble_answer_body: specialist tool body (len=%d)", len(tool_block))
+        return {
+            "messages": [AIMessage(content=tool_block)],
+            "location": state.get("location"),
+            "plan": {**plan, "gdb_has_data": False},
+        }
 
     if has_gdb:
         gdb_data = extract_gdb_from_messages(messages)
