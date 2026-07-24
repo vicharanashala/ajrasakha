@@ -1,5 +1,6 @@
 from fastmcp import FastMCP
 import aiohttp
+import os
 from playwright.async_api import async_playwright
 from get_data import parse_mandi_html
 
@@ -140,11 +141,15 @@ async def get_daily_market_prices(
     - arrival_date: Arrival Date in "dd/MM/yyyy" format (e.g. "18/06/2010")
     - limit: Number of records to return (default 10)
     """
+    api_key = os.getenv("DATA_GOV_API_KEY")
+    if not api_key:
+        return {"error": "DATA_GOV_API_KEY environment variable is required."}
+
     url = "https://api.data.gov.in/resource/35985678-0d79-46b4-9ed6-6f13308a1d24"
     import urllib.parse
     import yarl
     
-    query = f"api-key=579b464db66ec23bdd0000019caa65074d924b6d6b8473dc337b0bca&format=json&limit={limit}"
+    query = f"api-key={urllib.parse.quote(api_key)}&format=json&limit={limit}"
     
     if state:
         query += f"&filters[State]={urllib.parse.quote(state)}"
