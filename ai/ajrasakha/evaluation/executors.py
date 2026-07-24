@@ -108,9 +108,11 @@ def run_mock_case(case: dict) -> dict:
 
     expected_nodes = case.get("expected_nodes", [])
 
+    expected_plan = case.get("expected_plan", {})
+
     trace = {
     "nodes": expected_nodes,
-    "plan": case.get("expected_plan", {}),
+    "plan": expected_plan,
     "tools": expected_tools,
     "mcp_services": [f"mcp-{tool}" for tool in expected_tools],
     "errors": [],
@@ -121,6 +123,8 @@ def run_mock_case(case: dict) -> dict:
     return {
         "name": case.get("name"),
         "query": case.get("query"),
+        "script_language": expected_plan.get("script_language", "English"),
+        "vocal_language": expected_plan.get("vocal_language", "English"),
         "expected_tools": ",".join(expected_tools),
         "observed_tools": ",".join(expected_tools),
         "http_status": 200,

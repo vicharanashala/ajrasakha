@@ -17,6 +17,7 @@ from ajrasakha.evaluation.answer_eval import evaluate_response_quality
 from ajrasakha.evaluation.validators.source_check import evaluate_source_attribution
 from ajrasakha.evaluation.validators.disclaimer_language import evaluate_disclaimer_language
 from ajrasakha.evaluation.langsmith_trace import build_langsmith_trace_url
+from ajrasakha.evaluation.language_matrix import build_language_quality_matrix
 
 
 def run_case(case: dict, mode: str) -> dict:
@@ -105,8 +106,46 @@ def main():
     output_file = f"evaluation_report_{args.mode}.csv"
     write_csv_report(results, output_file=output_file)
     summary = build_summary(results)
-    print("Summary:", summary)
 
+    print("\nSummary")
+    print("-" * 40)
+
+    for key, value in summary.items():
+        print(f"{key:20}: {value}")
+
+    matrix = build_language_quality_matrix(results)
+
+    matrix_file = f"evaluation_language_matrix_{args.mode}.csv"
+
+    from ajrasakha.evaluation.language_matrix import write_language_matrix_csv
+
+    write_language_matrix_csv(matrix, matrix_file)
+
+    print(f"\nLanguage Quality Matrix written to: {matrix_file}")
+
+    print("\nLanguage Quality Matrix")
+    print("-" * 100)
+
+    print(
+        f"{'Domain':25}"
+        f"{'Language':12}"
+        f"{'Cases':8}"
+        f"{'Technical':18}"
+        f"{'Routing':18}"
+        f"{'Tools'}"
+    )
+
+    print("-" * 100)
+
+    for row in matrix:
+        print(
+        f"{row['domain']:25}"
+        f"{row['language']:12}"
+        f"{row['total_cases']:<8}"
+        + f"{row['technical_passed']}/{row['total_cases']} ({row['technical_pass_rate']}%)".ljust(18)
+        + f"{row['routing_passed']}/{row['total_cases']} ({row['routing_pass_rate']}%)".ljust(18)
+        + f"{row['tool_passed']}/{row['total_cases']} ({row['tool_pass_rate']}%)"
+    )
 
 if __name__ == "__main__":
     main()
