@@ -19,7 +19,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, Database, CheckCircle2, Users} from "lucide-react";
+import { TrendingUp, Database, CheckCircle2, Users, Clock} from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -63,7 +63,7 @@ export interface GoldenDataset {
   totalVerifiedByType: number;
   verifiedEntries: number;
   todayApproved?: number;
-  moderatorBreakdown?: { moderatorName: string; count: number }[];
+  moderatorBreakdown?: { moderatorName: string; count: number, moderatorHours?: number }[];
   questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
   questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
   averageResponseTime?: { whatsapp: number; ajrasakha: number };
@@ -265,7 +265,13 @@ export const GoldenDatasetOverview = ({
             
             <div className="mt-4 max-h-[320px] overflow-y-auto scrollbar-hiding space-y-2">
               {moderatorBreakdown.map((mod, idx) => {
-                
+                // Extract integer hours and calculate remaining minutes
+                const hours = Math.floor(mod.moderatorHours??0);
+                const minutes = Math.round(((mod.moderatorHours??0) - hours) * 60);
+
+                // Format the hours with commas using the Indian numbering system (en-IN)
+                const formattedHoursStr = new Intl.NumberFormat('en-IN').format(hours);
+                const timeDisplay = `${formattedHoursStr}h ${minutes}m`;
                 const percentage = totalApprovals ? (mod.count / totalApprovals) * 100 : 0;
                 return (
                   <div
@@ -279,9 +285,15 @@ export const GoldenDatasetOverview = ({
                             {mod.moderatorName.charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <p className="font-medium text-foreground text-sm">
+                       <div>
+                         <p className="font-medium text-foreground text-sm">
                           {mod.moderatorName}
                         </p>
+                        <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                          <Clock size={12} className="text-gray-400" />
+                          {timeDisplay} logged
+                        </p>
+                       </div>
                       </div>
                       <p className="text-lg font-bold text-primary">
                         {mod.count}
