@@ -61,6 +61,7 @@ from ajrasakha.evaluation.multilingual.validators.language_match import validate
 from ajrasakha.evaluation.multilingual.validators.disclaimer_check import validate_disclaimer
 from ajrasakha.evaluation.multilingual.validators.lang_switch import validate_lang_switch
 from ajrasakha.evaluation.multilingual.validators.terminology import validate_terminology
+from ajrasakha.evaluation.multilingual.validators.deepeval_multilingual import evaluate_deepeval
 from ajrasakha.evaluation.multilingual.reporters.matrix import (
     build_matrix,
     matrix_summary,
@@ -83,6 +84,18 @@ from ajrasakha.evaluation.tech import evaluate_technical
 def _run_single_case(case, mode: str) -> CaseResult:
     """Execute one multilingual case and return a populated CaseResult."""
     result = CaseResult(case=case)
+
+    # ── Early exit: missing translation sentinel ─────────────────────────────────
+    # The case generator sets query to "MISSING_TRANSLATION" when no Indic
+    # translation is present in the data artifact. We must NOT run this case
+    # against the live system or treat it as a language failure.
+    if case.query_translation_source == "missing_translation":
+        result.status = CaseStatus.SKIPPED_MISSING_TRANSLATION
+        result.error = (
+            f"No {case.expected_vocal} translation present in data artifact for "
+            f"scenario {case.scenario_id}. Case excluded from quality matrix denominator."
+        )
+        return result
 
     try:
         # ── Step 1: Get raw response ──────────────────────────────────────
@@ -156,7 +169,20 @@ def _run_single_case(case, mode: str) -> CaseResult:
         result.terminology_pass = term.get("terminology_pass", True)
         result.terminology_reason = term.get("terminology_reason", "")
 
-        # ── Step 11: Compute overall status ───────────────────────────────
+        # ── Step 11: DeepEval LLM judge (opt-in, credential-gated) ──────────
+        # evaluate_deepeval() returns SKIPPED when the env flag is absent,
+        # and BLOCKED when credentials are missing. Neither outcome fails
+        # the test case — they are purely informational.
+        deepeval = evaluate_deepeval(
+            query=case.query,
+            response_text=result.response_text,
+        )
+        result.deepeval_status = deepeval.get("deepeval_status", "SKIPPED")
+        result.deepeval_answer_relevancy = deepeval.get("deepeval_answer_relevancy")
+        result.deepeval_faithfulness = deepeval.get("deepeval_faithfulness")
+        result.deepeval_reason = deepeval.get("deepeval_reason", "")
+
+        # ── Step 12: Compute overall status ───────────────────────────────
         result.translation_review_status = case.translation_review_status
 
         all_pass = (

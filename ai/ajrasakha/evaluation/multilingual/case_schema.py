@@ -22,6 +22,7 @@ class CaseStatus(str, Enum):
     ERROR = "ERROR"
     BLOCKED = "BLOCKED"
     SKIPPED = "SKIPPED"
+    SKIPPED_MISSING_TRANSLATION = "SKIPPED_MISSING_TRANSLATION"
 
 
 @dataclass
@@ -160,10 +161,18 @@ class CaseResult:
     source_attribution_pass: Optional[bool] = None
     source_attribution_reason: str = ""
 
-    # ── translation review ─────────────────────────────────────────────────
+    # ── translation review ────────────────────────────────────────────────
     translation_review_status: str = "draft_pending_agri_validation"
 
-    # ── raw response ───────────────────────────────────────────────────────
+    # ── deepeval (opt-in LLM judge) ────────────────────────────────────
+    # All fields default to SKIPPED so the CSV row is always well-formed,
+    # whether or not DEEPEVAL_MULTILINGUAL is set.
+    deepeval_status: str = "SKIPPED"
+    deepeval_answer_relevancy: Optional[float] = None
+    deepeval_faithfulness: Optional[float] = None
+    deepeval_reason: str = ""
+
+    # ── raw response ───────────────────────────────────────────────
     response_text: str = ""
 
     def to_row(self) -> dict:
@@ -202,6 +211,11 @@ class CaseResult:
             "terminology_reason": self.terminology_reason,
             "source_attribution_pass": _fmt(self.source_attribution_pass),
             "source_attribution_reason": self.source_attribution_reason,
+            # deepeval columns (SKIPPED when opt-in flag is absent)
+            "deepeval_status": self.deepeval_status,
+            "deepeval_answer_relevancy": self.deepeval_answer_relevancy if self.deepeval_answer_relevancy is not None else "",
+            "deepeval_faithfulness": self.deepeval_faithfulness if self.deepeval_faithfulness is not None else "",
+            "deepeval_reason": self.deepeval_reason,
             "response_text": self.response_text[:300] if self.response_text else "",
         }
 

@@ -22,11 +22,11 @@ from ajrasakha.evaluation.multilingual.scenarios import _REQUIRED_DOMAIN_GROUPS
 _DOMAIN_GROUPS = sorted(_REQUIRED_DOMAIN_GROUPS)  # consistent sort
 _LANG_CODES = LANGUAGE_CODES
 
-_COUNT_KEYS = ["total", "PASS", "FAIL", "ERROR", "BLOCKED", "SKIPPED"]
+_COUNT_KEYS = ["total", "PASS", "FAIL", "ERROR", "BLOCKED", "SKIPPED", "SKIPPED_MISSING_TRANSLATION"]
 
 
 def _empty_cell() -> dict:
-    return {"total": 0, "PASS": 0, "FAIL": 0, "ERROR": 0, "BLOCKED": 0, "SKIPPED": 0}
+    return {"total": 0, "PASS": 0, "FAIL": 0, "ERROR": 0, "BLOCKED": 0, "SKIPPED": 0, "SKIPPED_MISSING_TRANSLATION": 0}
 
 
 def build_domain_matrix(results: list[CaseResult]) -> dict[str, dict[str, dict]]:
@@ -49,8 +49,12 @@ def build_domain_matrix(results: list[CaseResult]) -> dict[str, dict[str, dict]]
         if lang not in matrix[grp]:
             matrix[grp][lang] = _empty_cell()
 
-        matrix[grp][lang]["total"] += 1
         matrix[grp][lang][status] = matrix[grp][lang].get(status, 0) + 1
+        # Only count cases in the denominator when there is real data to evaluate.
+        # SKIPPED_MISSING_TRANSLATION cases lack a target-language query, so they
+        # must be excluded from 'total' to avoid deflating domain pass rates.
+        if status != "SKIPPED_MISSING_TRANSLATION":
+            matrix[grp][lang]["total"] += 1
 
     return matrix
 

@@ -46,6 +46,11 @@ from ajrasakha.agents.translation_catalog import (
     get_two_hour_disclaimer,
 )
 
+# Sentinel value used when a non-English translation is absent from the artifact.
+# The runner detects this and returns CaseStatus.SKIPPED_MISSING_TRANSLATION
+# so that blank English fallbacks never silently inflate Indic language metrics.
+_MISSING_TRANSLATION_SENTINEL = "MISSING_TRANSLATION"
+
 _SCHEMA_VERSION = "1.0.0"
 
 # Path to the multilingual query data artifact (Step 008)
@@ -137,14 +142,22 @@ def _make_case(scenario: Scenario, lang: LanguageRecord) -> MultilingualCase:
         for t in scenario.terminology_seeds
     )
 
-    # Determine query source and text
+    # Determine query source and text.
+    # For non-English languages: if the artifact translation is absent or empty,
+    # DO NOT silently fall back to English. Instead, flag the case with the
+    # _MISSING_TRANSLATION_SENTINEL so the runner can emit SKIPPED_MISSING_TRANSLATION.
+    # For English (EN): always use the scenario's canonical query.
     artifact_queries = _QUERY_ARTIFACT.get(scenario.id, {})
-    if lang.code in artifact_queries and artifact_queries[lang.code]:
+    if lang.code == "EN":
+        query = scenario.query
+        query_translation_source = "data_artifact"  # EN source is always canonical
+    elif lang.code in artifact_queries and artifact_queries[lang.code].strip():
         query = artifact_queries[lang.code]
         query_translation_source = "data_artifact"
     else:
-        query = scenario.query  # English fallback
-        query_translation_source = "en_fallback"
+        # Translation absent — mark as missing rather than falling back to English.
+        query = _MISSING_TRANSLATION_SENTINEL
+        query_translation_source = "missing_translation"
 
     # Derive domain_group and disclaimer_mode
     domain_group = _get_domain_group(scenario.domain)
