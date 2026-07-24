@@ -1,6 +1,6 @@
-# Step 010 — Disclaimer Policy (required / forbidden / optional)
+﻿# Step 010 — Disclaimer Policy (required / forbidden / optional)
 
-**Date:** 2026-07-23
+**Phase:** Phase 2
 **Status:** COMPLETE — immutable historical record
 
 ---

@@ -1,6 +1,6 @@
-# Step 002 — Scenario Corpus & Language Registry
+﻿# Step 002 — Scenario Corpus & Language Registry
 
-**Date:** 2026-07-23  
+**Phase:** Phase 1  
 **Author:** Lead Engineer (AI)  
 **Status:** ✅ Complete  
 
