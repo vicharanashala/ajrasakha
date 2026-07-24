@@ -14,6 +14,9 @@ import {
   Languages,
   Globe,
   ChevronDown,
+  Mic,
+  MicOff,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { plivoApi } from "@/hooks/api/plivo/api";
@@ -29,6 +32,7 @@ import {
   AccordionTrigger,
 } from "@radix-ui/react-accordion";
 import { translateService } from "@/hooks/services/translateService";
+import { transcribeAudioWithSarvam } from "@/hooks/services/sarvamSttService";
 
 const formatDomainField = (domainVal: any): string => {
   if (!domainVal) return "N/A";
@@ -267,6 +271,123 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("hi-IN");
   const [sendTranslated, setSendTranslated] = useState(false);
   const languageManuallyChangedRef = useRef(false);
+
+  // Voice-to-Text STT States
+  const [isSttRecording, setIsSttRecording] = useState(false);
+  const [isSttTranscribing, setIsSttTranscribing] = useState(false);
+  const sttMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const sttAudioChunksRef = useRef<Blob[]>([]);
+
+  // Voice-to-Text STT Handler with REAL-TIME Live Recognition
+  const sttSpeechRecognitionRef = useRef<any>(null);
+
+  const handleToggleSttRecording = async () => {
+    if (isSttRecording) {
+      if (sttSpeechRecognitionRef.current) {
+        try {
+          sttSpeechRecognitionRef.current.stop();
+        } catch (e) { }
+      }
+      if (sttMediaRecorderRef.current && sttMediaRecorderRef.current.state !== "inactive") {
+        sttMediaRecorderRef.current.stop();
+      }
+      setIsSttRecording(false);
+      return;
+    }
+
+    // 1. Try Web Speech API first for REAL-TIME Live Speech-to-Text as user speaks
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        sttSpeechRecognitionRef.current = recognition;
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = selectedLanguage || "en-IN";
+
+        const baseText = messageText ? messageText + " " : "";
+
+        recognition.onresult = (event: any) => {
+          let liveText = "";
+          for (let i = 0; i < event.results.length; i++) {
+            liveText += event.results[i][0].transcript;
+          }
+          setMessageText((baseText + liveText).trim().slice(0, MAX_MESSAGE_LENGTH));
+        };
+
+        recognition.onerror = (event: any) => {
+          console.warn("Speech recognition error:", event.error);
+          if (event.error === "not-allowed") {
+            toast.error("Microphone access denied.");
+            setIsSttRecording(false);
+          }
+        };
+
+        recognition.onend = () => {
+          setIsSttRecording(false);
+        };
+
+        recognition.start();
+        setIsSttRecording(true);
+        toast.info("Speak now...");
+        return;
+      } catch (err) {
+        console.warn("Web Speech API error, falling back to Sarvam STT:", err);
+      }
+    }
+
+    // 2. Fallback / Sarvam STT: Use MediaRecorder to capture complete valid audio stream
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rawMime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+      const mediaRecorder = new MediaRecorder(stream, rawMime ? { mimeType: rawMime } : undefined);
+      sttMediaRecorderRef.current = mediaRecorder;
+      sttAudioChunksRef.current = [];
+
+      const cleanMime = (mediaRecorder.mimeType || "audio/webm").split(";")[0].trim();
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          sttAudioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const fullAudioBlob = new Blob(sttAudioChunksRef.current, {
+          type: cleanMime || "audio/webm",
+        });
+
+        if (fullAudioBlob.size === 0) {
+          setIsSttRecording(false);
+          return;
+        }
+
+        setIsSttTranscribing(true);
+        try {
+          const text = await transcribeAudioWithSarvam(fullAudioBlob, selectedLanguage);
+          if (text && text.trim()) {
+            setMessageText((prev) => (prev ? `${prev} ${text.trim()}` : text.trim()).slice(0, MAX_MESSAGE_LENGTH));
+            toast.success("Voice transcribed successfully!");
+          }
+        } catch (err: any) {
+          console.error("STT Error:", err);
+          toast.error(err.message || "Failed to transcribe audio.");
+        } finally {
+          setIsSttTranscribing(false);
+          setIsSttRecording(false);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsSttRecording(true);
+      toast.info("Speak into your mic, click Mic again when finished.");
+    } catch (err) {
+      console.error("Microphone access error:", err);
+      toast.error("Microphone access denied or unavailable.");
+    }
+  };
 
   const SARVAM_LANGUAGES = [
     { code: "en-IN", name: "English" },
@@ -912,8 +1033,8 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                   .transcript &&
                                                   call.callDetails.caller
                                                     .transcript !==
-                                                    call.callDetails.caller
-                                                      .translation && (
+                                                  call.callDetails.caller
+                                                    .translation && (
                                                     <div className="mt-2.5 pt-2.5 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
                                                       <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-zinc-400">
                                                         <Globe className="h-3 w-3" />
@@ -956,8 +1077,8 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                   .transcript &&
                                                   call.callDetails.agent
                                                     .transcript !==
-                                                    call.callDetails.agent
-                                                      .translation && (
+                                                  call.callDetails.agent
+                                                    .translation && (
                                                     <div className="mt-2.5 pt-2.5 border-t border-white/20 text-xs text-white/80">
                                                       <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-white/75">
                                                         <Globe className="h-3 w-3" />
@@ -989,11 +1110,11 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                           call.callDetails.agent?.transcript ||
                                           call.callDetails.agent?.translation
                                         ) && (
-                                          <div className="text-sm text-muted-foreground text-center py-6">
-                                            No transcript data available for
-                                            this call
-                                          </div>
-                                        )}
+                                            <div className="text-sm text-muted-foreground text-center py-6">
+                                              No transcript data available for
+                                              this call
+                                            </div>
+                                          )}
                                       </div>
                                     ) : (
                                       <div className="text-sm text-muted-foreground text-center py-8 bg-white dark:bg-zinc-900 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
@@ -1139,6 +1260,35 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                         : messageText.length}
                                       /{MAX_MESSAGE_LENGTH} characters
                                     </span>
+                                    <Button
+                                      type="button"
+                                      onClick={handleToggleSttRecording}
+                                      disabled={isSttTranscribing}
+                                      size="sm"
+                                      variant="outline"
+                                      className={cn(
+                                        "h-7 text-xs gap-1 transition-all",
+                                        isSttRecording && "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse font-semibold"
+                                      )}
+                                      title={isSttRecording ? "Click to stop recording" : "Click to speak (Voice-to-Text)"}
+                                    >
+                                      {isSttTranscribing ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                          <span>Transcribing...</span>
+                                        </>
+                                      ) : isSttRecording ? (
+                                        <>
+                                          <MicOff className="h-3 w-3 text-red-500 animate-bounce" />
+                                          <span>Stop Mic</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Mic className="h-3 w-3 text-zinc-600 dark:text-zinc-400" />
+                                          <span>Voice to Text</span>
+                                        </>
+                                      )}
+                                    </Button>
                                   </div>
                                   <div className="mt-2">
                                     <label className="text-xs font-medium text-muted-foreground mb-1 block">

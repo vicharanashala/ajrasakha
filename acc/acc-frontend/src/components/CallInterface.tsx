@@ -22,6 +22,7 @@ import {
   PowerOff,
   Copy,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { plivoService } from "@/hooks/api/plivo/api";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
@@ -1109,9 +1110,10 @@ export const CallInterface = () => {
                   onClick={handleExtractWithHITL}
                   disabled={isExtracting || transcriptsList.length === 0}
                   size="sm"
-                  className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                  className="h-9 px-4 text-xs md:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  {isExtracting ? "Extracting..." : "Extract & Verify"}
+                  <Sparkles className="h-4 w-4 text-indigo-200" />
+                  <span>{isExtracting ? "Extracting..." : "Extract & Verify"}</span>
                 </Button>
 
                 <Button
@@ -1545,11 +1547,14 @@ export const CallInterface = () => {
                             !editableSeason
                           }
                           size="sm"
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                          className="h-10 px-5 text-xs md:text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25 border border-emerald-400/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
                         >
-                          {isResuming
-                            ? "Generating..."
-                            : "Approve & Generate Answer"}
+                          <Sparkles className="h-4 w-4 text-emerald-200" />
+                          <span>
+                            {isResuming
+                              ? "Generating..."
+                              : "Approve & Generate Answer"}
+                          </span>
                         </Button>
                       </div>
                     </div>
@@ -1573,11 +1578,14 @@ export const CallInterface = () => {
                           isGeneratingQuestions || !editableSummaryText.trim()
                         }
                         size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 transition-all font-medium h-9 px-4 rounded-lg"
+                        className="h-10 px-5 text-xs md:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/25 border border-indigo-400/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
                       >
-                        {isGeneratingQuestions
-                          ? "Generating..."
-                          : "Generate question"}
+                        <Lightbulb className="h-4 w-4 text-indigo-200" />
+                        <span>
+                          {isGeneratingQuestions
+                            ? "Generating..."
+                            : "Generate Question"}
+                        </span>
                       </Button>
                     </div>
                   )}
