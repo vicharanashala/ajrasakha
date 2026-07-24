@@ -2715,4 +2715,21 @@ export class QuestionController {
     await this.questionService.markQuestionOpened(questionId, user._id.toString());
     return { success: true };
   }
+
+  // ─── Migration endpoints (internal API key auth) ──────────────────────────
+
+  @Post('/background/process')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Background process for repo actions' })
+  async backgroundProcessAction(
+    @Body() body: { submissionId: string },
+  ) {
+    const { submissionId } = body;
+    if (!submissionId) {
+      throw new BadRequestError('submissionId is required');
+    }
+    const result = await this.questionService.backgroundProcessAction(submissionId);
+    return result;
+  }
 }
