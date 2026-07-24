@@ -101,8 +101,12 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
   // The moderator queue is visible to everyone (including experts) as read-only;
   // only moderators/admins get the management controls (auto-allocate toggle,
   // Select Moderator, Remove Moderator).
+  // Gate keepers and auditors assign moderators alongside moderators/admins.
   const canManageModerator =
-    currentUser.role === "moderator" || currentUser.role === "admin";
+    currentUser.role === "moderator" ||
+    currentUser.role === "admin" ||
+    currentUser.role === "gate_keeper" ||
+    currentUser.role === "auditor";
 
   // Dynamic / duplicate questions and anything in auditor review go through the
   // Gate Keeper → Auditor flow, not normal moderator allocation — hide all

@@ -39,7 +39,7 @@ permissions:
 
 env:
   DOCKER_IMAGE: reviewer-api
-  GCP_REGION: asia-south2
+  GCP_REGION: asia-south1
   GCP_SERVICE: reviewer-backend-staging
 
 jobs:
@@ -139,6 +139,7 @@ jobs:
             NODE_ENV=staging
             TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
             TAILSCALE_HOSTNAME=gcp-staging
+            GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
           env_vars_update_strategy: merge
 
           # ── The remaining app env vars are NOT set from here ───────────────────

@@ -111,10 +111,12 @@ export class QuestionController {
 
   @Get('/queue-details')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors get the same read-only queue visibility as moderators —
+  // they work the same queues and need to see who is holding what.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({
     summary:
-      'Queue details for moderators/admins. No params → all sections (counts + page 1). With ?section=&page= → one paginated section (exact count + that page of items).',
+      'Queue details for moderators/admins/gate keepers/auditors. No params → all sections (counts + page 1). With ?section=&page= → one paginated section (exact count + that page of items).',
   })
   async getQueueDetails(
     @QueryParams()
@@ -171,7 +173,7 @@ export class QuestionController {
   ): Promise<QuestionResponse[]> {
     const userId = user._id.toString();
     const canViewQueue =
-      user.role === 'admin' || user.role === 'moderator';
+      user.role === 'admin' || user.role === 'moderator' || user.role === 'gate_keeper' || user.role === 'auditor';
     const targetUserId =
       canViewQueue && query.user && query.user !== 'all'
         ? query.user
@@ -941,6 +943,9 @@ export class QuestionController {
       search?: string;
       userId?: string;
       role?: 'gate_keeper' | 'auditor';
+      startDate?: string;
+      endDate?: string;
+      dateFilterType?: 'assigned' | 'completed' | 'both';
     },
   ) {
     // Managers (admin / moderator) may view a specific gate keeper's / auditor's
@@ -964,12 +969,28 @@ export class QuestionController {
     }
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 11;
+
+    // Parse date range - ensure startDate has 00:00:00 and endDate has 23:59:59
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+    if (query.startDate) {
+      startDate = new Date(query.startDate);
+      startDate.setHours(0, 0, 0, 0);
+    }
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
     return this.questionService.getRoleAssigneeDashboard(
       targetUserId,
       role,
       page,
       limit,
       query.search,
+      startDate,
+      endDate,
+      query.dateFilterType || 'both',
     );
   }
 
@@ -1109,7 +1130,8 @@ export class QuestionController {
 
   @Patch('/:questionId/moderator')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors triage questions onward, so they assign moderators too.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({ summary: 'Change the moderator assigned to a question' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async changeModerator(
@@ -1193,7 +1215,8 @@ export class QuestionController {
 
   @Delete('/:questionId/moderator')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors triage questions onward, so they assign moderators too.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({ summary: 'Remove the moderator assigned to a question' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async removeModerator(
@@ -2691,5 +2714,22 @@ export class QuestionController {
   ) {
     await this.questionService.markQuestionOpened(questionId, user._id.toString());
     return { success: true };
+  }
+
+  // ─── Migration endpoints (internal API key auth) ──────────────────────────
+
+  @Post('/background/process')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Background process for repo actions' })
+  async backgroundProcessAction(
+    @Body() body: { submissionId: string },
+  ) {
+    const { submissionId } = body;
+    if (!submissionId) {
+      throw new BadRequestError('submissionId is required');
+    }
+    const result = await this.questionService.backgroundProcessAction(submissionId);
+    return result;
   }
 }

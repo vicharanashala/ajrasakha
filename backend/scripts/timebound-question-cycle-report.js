@@ -117,6 +117,21 @@ const humanDuration = hours => {
   return [d && `${d}d`, h && `${h}h`, `${m}m`].filter(Boolean).join(' ');
 };
 
+/**
+ * How the question entered the system, before any handling:
+ *   • a referenceQuestionId means it was matched to an existing question → Duplicate
+ *   • tag 'static_dynamic' / 'dynamic' carry through as-is
+ *   • anything else is a fresh, unmatched question → Unique
+ * static_dynamic is tested first: it contains "dynamic", so a loose check would
+ * misclassify it.
+ */
+const initialStatus = q => {
+  if (q.referenceQuestionId) return 'Duplicate';
+  if (q.tag === 'static_dynamic') return 'Static Dynamic';
+  if (q.tag === 'dynamic') return 'Dynamic';
+  return 'Unique';
+};
+
 const idStr = v => (v ? v.toString() : '');
 
 const oid = v => {
@@ -211,6 +226,19 @@ try {
     return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || '';
   };
 
+  /**
+   * What the reviewer did, read straight off their history entry: exactly one of
+   * approvedAnswer / modifiedAnswer / rejectedAnswer is set on a completed review.
+   * (Verified across 104,884 reviewer entries: never more than one, and only ~0.03%
+   * have none — those are reviews still in flight, which fall through to the status.)
+   */
+  const reviewAction = entry => {
+    if (entry.approvedAnswer) return 'approved';
+    if (entry.modifiedAnswer) return 'modified';
+    if (entry.rejectedAnswer) return 'rejected';
+    return entry.status ?? '';
+  };
+
   /* ─────────────────────────── build rows ─────────────────────────── */
 
   // The submission history IS the work log: entry [0] is the author's answer, entries
@@ -269,6 +297,7 @@ try {
       const h = r ? hoursBetween(r.createdAt, r.updatedAt) : null;
       const label = `Reviewer ${n + 1}`;
       reviewerBlock[label] = r ? nameOf(r.updatedBy) : '';
+      reviewerBlock[`${label} Action`] = r ? reviewAction(r) : '';
       reviewerBlock[`${label} Assigned At (IST)`] = asIST(r?.createdAt);
       reviewerBlock[`${label} Completed At (IST)`] = asIST(r?.updatedAt);
       reviewerBlock[`${label} Time`] = humanDuration(h);
@@ -306,6 +335,7 @@ try {
     return {
       'Question ID': key,
       Question: q.question ?? '',
+      'Initial Status': initialStatus(q),
       Status: q.status ?? '',
 
       'Answer Author': nameOf(authorEntry?.updatedBy),

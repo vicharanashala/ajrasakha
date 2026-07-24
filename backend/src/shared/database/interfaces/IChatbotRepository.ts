@@ -448,32 +448,49 @@ export interface ResponseAdherenceTable {
   timeWindow: string;
   whatsappQueriesAsked: number;
   ajrasakhaQueriesAsked: number;
+  manualQueriesAsked: number;
   whatsappPushedToReviewer: number;
   ajrasakhaPushedToReviewer: number;
+  manualPushedToReviewer: number;
   whatsappAnsweredWithin120Min: number;
   ajrasakhaAnsweredWithin120Min: number;
+  manualAnsweredWithin120Min: number;
   whatsappPassedQuestions: number;
   ajrasakhaPassedQuestions: number;
+  manualPassedQuestions: number;
   whatsappMarkedDuplicate: number;
   ajrasakhaMarkedDuplicate: number;
+  manualMarkedDuplicate: number;
   whatsappDynamicWeather: number;
   ajrasakhaDynamicWeather: number;
+  manualDynamicWeather: number;
   whatsappDynamicMarket: number;
   ajrasakhaDynamicMarket: number;
+  manualDynamicMarket: number;
   whatsappDynamicSchemes: number;
   ajrasakhaDynamicSchemes: number;
+  manualDynamicSchemes: number;
   whatsappNonGdbWithin120: number;
   ajrasakhaNonGdbWithin120: number;
+  manualNonGdbWithin120: number;
   whatsappInReview: number;
   ajrasakhaInReview: number;
+  manualInReview: number;
   whatsappOpen: number;
   ajrasakhaOpen: number;
+  manualOpen: number;
   whatsappDelayed: number;
   ajrasakhaDelayed: number;
+  manualDelayed: number;
   whatsappAverageResponseMinutes: number;
   ajrasakhaAverageResponseMinutes: number;
+  manualAverageResponseMinutes: number;
   whatsappAdherencePct: number;
   ajrasakhaAdherencePct: number;
+  manualAdherencePct: number;
+  manualTotal?: number;
+  agriexpertTotal?: number;
+  outreachTotal?: number;
 }
 
 // ─── Single consolidated interface ───────────────────────────────────────────
@@ -713,6 +730,7 @@ export interface IChatbotRepository {
     activeTodayByProfile?: boolean,
     missingDemographicField?: string,
     isVerified?: boolean,
+    fromMap?: boolean,
     loginStatus?: 'all' | 'loggedIn' | 'loggedOut',
   ): Promise<PaginatedUserDetails>;
 
@@ -1056,6 +1074,8 @@ export interface IChatbotRepository {
     isPassed?: string,
     tag?: string,
     userId?: string,
+    state?: string,
+    district?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -1176,6 +1196,8 @@ export interface IChatbotRepository {
       userId?: string,
       page?: number,
       limit?: number,
+      manualSource?: string,
+      effectiveDate?: string,
     ): Promise<any>
   
   getFeedbackByLocation(
@@ -1215,7 +1237,15 @@ export interface IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
   ): Promise<any>
-    
+  
+  getQuestionByManualSource(
+    manualSource: string, 
+    effectiveDate: string,
+    userType: string,
+    page: number,
+    limit: number,
+    search: string
+  ): Promise<any>
 }
 
 export interface ChatbotConversationData {

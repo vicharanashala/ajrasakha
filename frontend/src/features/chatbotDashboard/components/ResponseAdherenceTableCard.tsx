@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
+import { BreakdownTooltip } from "@/components/atoms/source-breakdown-tooltip";
 
 type ResponseAdherenceTableData = {
   date: string;
@@ -17,30 +18,46 @@ type ResponseAdherenceTableData = {
   timeWindow: string;
   whatsappQueriesAsked: number;
   ajrasakhaQueriesAsked: number;
+  manualQueriesAsked: number;
   whatsappPushedToReviewer: number;
   ajrasakhaPushedToReviewer: number;
+  manualPushedToReviewer: number;
   whatsappAnsweredWithin120Min: number;
   ajrasakhaAnsweredWithin120Min: number;
+  manualAnsweredWithin120Min: number;
   whatsappMarkedDuplicate: number;
   ajrasakhaMarkedDuplicate: number;
+  manualMarkedDuplicate: number;
   whatsappDynamicWeather: number;
   ajrasakhaDynamicWeather: number;
+  manualDynamicWeather: number;
   whatsappDynamicMarket: number;
   ajrasakhaDynamicMarket: number;
+  manualDynamicMarket: number;
   whatsappDynamicSchemes: number;
   ajrasakhaDynamicSchemes: number;
+  manualDynamicSchemes: number;
   whatsappNonGdbWithin120: number;
   ajrasakhaNonGdbWithin120: number;
+  manualNonGdbWithin120: number;
   whatsappInReview: number;
   ajrasakhaInReview: number;
+  manualInReview: number;
   whatsappOpen: number;
   ajrasakhaOpen: number;
+  manualOpen: number;
   whatsappDelayed: number;
   ajrasakhaDelayed: number;
+  manualDelayed: number;
   whatsappAverageResponseMinutes: number;
   ajrasakhaAverageResponseMinutes: number;
+  manualAverageResponseMinutes: number;
   whatsappAdherencePct: number;
   ajrasakhaAdherencePct: number;
+  manualAdherencePct: number;
+  manualTotal: number;
+  agriexpertTotal: number;
+  outreachTotal: number;
 };
 
 const DEFAULT_DATA: ResponseAdherenceTableData = {
@@ -49,30 +66,46 @@ const DEFAULT_DATA: ResponseAdherenceTableData = {
   timeWindow: "",
   whatsappQueriesAsked: 0,
   ajrasakhaQueriesAsked: 0,
+  manualQueriesAsked: 0,
   whatsappPushedToReviewer: 0,
   ajrasakhaPushedToReviewer: 0,
+  manualPushedToReviewer: 0,
   whatsappAnsweredWithin120Min: 0,
   ajrasakhaAnsweredWithin120Min: 0,
+  manualAnsweredWithin120Min: 0,
   whatsappMarkedDuplicate: 0,
   ajrasakhaMarkedDuplicate: 0,
+  manualMarkedDuplicate: 0,
   whatsappDynamicWeather: 0,
   ajrasakhaDynamicWeather: 0,
+  manualDynamicWeather: 0,
   whatsappDynamicMarket: 0,
   ajrasakhaDynamicMarket: 0,
+  manualDynamicMarket: 0,
   whatsappDynamicSchemes: 0,
   ajrasakhaDynamicSchemes: 0,
+  manualDynamicSchemes: 0,
   whatsappNonGdbWithin120: 0,
   ajrasakhaNonGdbWithin120: 0,
+  manualNonGdbWithin120: 0,
   whatsappInReview: 0,
   ajrasakhaInReview: 0,
+  manualInReview: 0,
   whatsappOpen: 0,
   ajrasakhaOpen: 0,
+  manualOpen: 0,
   whatsappDelayed: 0,
   ajrasakhaDelayed: 0,
+  manualDelayed: 0,
   whatsappAverageResponseMinutes: 0,
   ajrasakhaAverageResponseMinutes: 0,
+  manualAverageResponseMinutes: 0,
   whatsappAdherencePct: 0,
   ajrasakhaAdherencePct: 0,
+  manualAdherencePct: 0,
+  manualTotal: 0,
+  agriexpertTotal: 0,
+  outreachTotal: 0,
 };
 
 const ALL_ROW_IDS = [
@@ -119,6 +152,7 @@ type RowConfig =
       label: string;
       type: "header";
       wa: React.ReactNode;
+      manual: React.ReactNode;
       as: React.ReactNode;
       isHeader: true;
     }
@@ -127,6 +161,7 @@ type RowConfig =
       label: string;
       type: "data";
       wa: React.ReactNode;
+      manual: React.ReactNode;
       as: React.ReactNode;
       highlight?: boolean;
     };
@@ -159,15 +194,41 @@ export function ResponseAdherenceTableCard({
   selectedDate,
   onSelectedDateChange,
   isLoading = false,
+  userType,
 }: {
   data?: Partial<ResponseAdherenceTableData> | null;
   selectedDate?: string;
   onSelectedDateChange?: (date: string) => void;
   isLoading?: boolean;
+  userType: 'all' | 'external' | 'internal';
 }) {
+  type ExportColumn = "whatsapp" | "ajraSakha" | "manual";
+
+  const [checkedColumns, setCheckedColumns] = useState<
+    Record<ExportColumn, boolean>
+  >({
+    whatsapp: true,
+    ajraSakha: true,
+    manual: false,
+  });
+
+  const toggleColumn = (column: ExportColumn) => {
+    setCheckedColumns((prev) => ({
+      ...prev,
+      [column]: !prev[column],
+    }));
+  };
   const d = { ...DEFAULT_DATA, ...(data ?? {}) };
   const whatsappQueriesAskedDisplay =
     d.whatsappQueriesAsked > 0 ? d.whatsappQueriesAsked : "NIL";
+  const manualQueriesAskedDisplay = 
+    d.manualQueriesAsked > 0 ? d.manualQueriesAsked : "NIL";
+  const manualDynamicWeatherDisplay =
+    d.manualDynamicWeather > 0 ? d.manualDynamicWeather : "NIL";
+  const manualDynamicMarketDisplay =
+    d.manualDynamicMarket > 0 ? d.manualDynamicMarket : "NIL";
+  const manualDynamicSchemesDisplay =
+    d.manualDynamicSchemes > 0 ? d.manualDynamicSchemes : "NIL";
   const [internalDate, setInternalDate] = useState<string>(todayAsInputDate());
   const [checkedRows, setCheckedRows] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
@@ -195,23 +256,23 @@ export function ResponseAdherenceTableCard({
   };
 
   const rowExportData = [
-    { id: "date", field: "Date", whatsapp: d.date || effectiveDate || "", ajraSakha: "", notes: "" },
-    { id: "time", field: "Time", whatsapp: d.timeWindow, ajraSakha: "", notes: "" },
-    { id: "header", field: "Source", whatsapp: "Whatsapp", ajraSakha: "AjraSakha", notes: "" },
-    { id: "queriesAsked", field: "Queries Asked", whatsapp: whatsappQueriesAskedDisplay, ajraSakha: d.ajrasakhaQueriesAsked, notes: "" },
-    { id: "pushedReviewer", field: "Questions pushed into the review system", whatsapp: d.whatsappPushedToReviewer, ajraSakha: d.ajrasakhaPushedToReviewer, notes: "" },
-    { id: "answered120", field: "Questions answered within 120 minutes", whatsapp: d.whatsappAnsweredWithin120Min, ajraSakha: d.ajrasakhaAnsweredWithin120Min, notes: "" },
-    { id: "duplicate", field: "Marked Duplicate (Fetched from GDB)", whatsapp: d.whatsappMarkedDuplicate, ajraSakha: d.ajrasakhaMarkedDuplicate, notes: "" },
-    { id: "dynamicWeather", field: "Dynamic - Weather", whatsapp: d.whatsappDynamicWeather, ajraSakha: d.ajrasakhaDynamicWeather, notes: "" },
-    { id: "dynamicMarket", field: "Dynamic - Market", whatsapp: d.whatsappDynamicMarket, ajraSakha: d.ajrasakhaDynamicMarket, notes: "" },
-    { id: "dynamicSchemes", field: "Dynamic - Schemes", whatsapp: d.whatsappDynamicSchemes, ajraSakha: d.ajrasakhaDynamicSchemes, notes: "" },
-    { id: "nonGdb", field: "Non GDB Questions - Answer prepared in 120 Min by AEs", whatsapp: d.whatsappNonGdbWithin120, ajraSakha: d.ajrasakhaNonGdbWithin120, notes: "" },
-    { id: "inReview", field: "Question in Review", whatsapp: d.whatsappInReview, ajraSakha: d.ajrasakhaInReview, notes: "" },
-    { id: "open", field: "Questions are Open", whatsapp: d.whatsappOpen, ajraSakha: d.ajrasakhaOpen, notes: "" },
-    { id: "delayed", field: "Questions are delayed", whatsapp: d.whatsappDelayed, ajraSakha: d.ajrasakhaDelayed, notes: "" },
-    { id: "summaryDelayReason", field: "Summary of the reason for delay", whatsapp: "", ajraSakha: "", notes: "" },
-    { id: "avgResponse", field: "Average response time", whatsapp: formatMinutes(d.whatsappAverageResponseMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseMinutes), notes: "" },
-    { id: "adherencePct", field: "Percentage of questions completed within 120 minutes", whatsapp: `${d.whatsappAdherencePct.toFixed(2)}%`, ajraSakha: `${d.ajrasakhaAdherencePct.toFixed(2)}%`, notes: "" },
+    { id: "date", field: "Date", whatsapp: d.date || effectiveDate || "", ajraSakha: "", manual: "", notes: "" },
+    { id: "time", field: "Time", whatsapp: d.timeWindow, ajraSakha: "", manual: "", notes: "" },
+    { id: "header", field: "Source", whatsapp: "Whatsapp", ajraSakha: "AjraSakha", manual: "Manual", notes: "" },
+    { id: "queriesAsked", field: "Queries Asked", whatsapp: whatsappQueriesAskedDisplay, ajraSakha: d.ajrasakhaQueriesAsked, manual: manualQueriesAskedDisplay, notes: "" },
+    { id: "pushedReviewer", field: "Questions pushed into the review system", whatsapp: d.whatsappPushedToReviewer, ajraSakha: d.ajrasakhaPushedToReviewer, manual: d.manualPushedToReviewer, notes: "" },
+    { id: "answered120", field: "Questions answered within 120 minutes", whatsapp: d.whatsappAnsweredWithin120Min, ajraSakha: d.ajrasakhaAnsweredWithin120Min, manual: d.manualAnsweredWithin120Min, notes: "" },
+    { id: "duplicate", field: "Marked Duplicate (Fetched from GDB)", whatsapp: d.whatsappMarkedDuplicate, ajraSakha: d.ajrasakhaMarkedDuplicate, manual: d.manualMarkedDuplicate, notes: "" },
+    { id: "dynamicWeather", field: "Dynamic - Weather", whatsapp: d.whatsappDynamicWeather, ajraSakha: d.ajrasakhaDynamicWeather, manual: manualDynamicWeatherDisplay, notes: "" },
+    { id: "dynamicMarket", field: "Dynamic - Market", whatsapp: d.whatsappDynamicMarket, ajraSakha: d.ajrasakhaDynamicMarket, manual:manualDynamicMarketDisplay, notes: "" },
+    { id: "dynamicSchemes", field: "Dynamic - Schemes", whatsapp: d.whatsappDynamicSchemes, ajraSakha: d.ajrasakhaDynamicSchemes, manual: manualDynamicSchemesDisplay, notes: "" },
+    { id: "nonGdb", field: "Non GDB Questions - Answer prepared in 120 Min by AEs", whatsapp: d.whatsappNonGdbWithin120, ajraSakha: d.ajrasakhaNonGdbWithin120, manual: d.manualNonGdbWithin120, notes: "" },
+    { id: "inReview", field: "Question in Review", whatsapp: d.whatsappInReview, ajraSakha: d.ajrasakhaInReview, manual: d.manualInReview, notes: "" },
+    { id: "open", field: "Questions are Open", whatsapp: d.whatsappOpen, ajraSakha: d.ajrasakhaOpen, manual: d.manualOpen, notes: "" },
+    { id: "delayed", field: "Questions are delayed", whatsapp: d.whatsappDelayed, ajraSakha: d.ajrasakhaDelayed, manual: d.manualDelayed, notes: "" },
+    { id: "summaryDelayReason", field: "Summary of the reason for delay", whatsapp: "", ajraSakha: "", manual: "", notes: "" },
+    { id: "avgResponse", field: "Average response time", whatsapp: formatMinutes(d.whatsappAverageResponseMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseMinutes), manual: formatMinutes(d.manualAverageResponseMinutes), notes: "" },
+    { id: "adherencePct", field: "Percentage of questions completed within 120 minutes", whatsapp: `${d.whatsappAdherencePct.toFixed(2)}%`, ajraSakha: `${d.ajrasakhaAdherencePct.toFixed(2)}%`, manual: `${d.manualAdherencePct.toFixed(2)}%`, notes: "" },
   ] as const;
 
    const rows: RowConfig[] = [
@@ -234,6 +295,7 @@ export function ResponseAdherenceTableCard({
        type: "header",
        wa: "WhatsApp",
        as: "AjraSakha",
+       manual: "Manual",
        isHeader: true,
      },
      {
@@ -242,6 +304,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: whatsappQueriesAskedDisplay,
        as: d.ajrasakhaQueriesAsked,
+       manual: manualQueriesAskedDisplay,
      },
      {
        key: "pushedReviewer",
@@ -249,6 +312,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: d.whatsappPushedToReviewer,
        as: d.ajrasakhaPushedToReviewer,
+       manual: d.manualPushedToReviewer,
      },
      {
        key: "answered120",
@@ -256,6 +320,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: d.whatsappAnsweredWithin120Min,
        as: d.ajrasakhaAnsweredWithin120Min,
+       manual: d.manualAnsweredWithin120Min,
      },
      {
        key: "duplicate",
@@ -263,6 +328,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: d.whatsappMarkedDuplicate,
        as: d.ajrasakhaMarkedDuplicate,
+       manual: d.manualMarkedDuplicate,
      },
      {
        key: "dynamicWeather",
@@ -270,6 +336,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: d.whatsappDynamicWeather,
        as: d.ajrasakhaDynamicWeather,
+       manual: manualDynamicWeatherDisplay,
      },
      {
        key: "dynamicMarket",
@@ -277,6 +344,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: d.whatsappDynamicMarket,
        as: d.ajrasakhaDynamicMarket,
+       manual: manualDynamicMarketDisplay,
      },
      {
        key: "dynamicSchemes",
@@ -284,6 +352,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: d.whatsappDynamicSchemes,
        as: d.ajrasakhaDynamicSchemes,
+       manual: manualDynamicSchemesDisplay,
      },
      {
        key: "nonGdb",
@@ -291,6 +360,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: d.whatsappNonGdbWithin120,
        as: d.ajrasakhaNonGdbWithin120,
+       manual: d.manualNonGdbWithin120,
      },
      {
        key: "inReview",
@@ -298,6 +368,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: d.whatsappInReview,
        as: d.ajrasakhaInReview,
+       manual: d.manualInReview,
      },
      {
        key: "open",
@@ -305,6 +376,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: d.whatsappOpen,
        as: d.ajrasakhaOpen,
+       manual: d.manualOpen,
      },
      {
        key: "delayed",
@@ -312,6 +384,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: d.whatsappDelayed,
        as: d.ajrasakhaDelayed,
+       manual: d.manualDelayed,
      },
      {
        key: "summaryDelayReason",
@@ -319,6 +392,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: "—",
        as: "—",
+       manual: "—",
      },
      {
        key: "avgResponse",
@@ -326,6 +400,7 @@ export function ResponseAdherenceTableCard({
        type: "data",
        wa: formatMinutes(d.whatsappAverageResponseMinutes),
        as: formatMinutes(d.ajrasakhaAverageResponseMinutes),
+       manual: formatMinutes(d.manualAverageResponseMinutes),
      },
      {
        key: "adherencePct",
@@ -339,6 +414,10 @@ export function ResponseAdherenceTableCard({
          d.ajrasakhaAdherencePct != null
            ? `${d.ajrasakhaAdherencePct.toFixed(2)}%`
            : "—",
+       manual:
+         d.manualAdherencePct != null
+           ? `${d.manualAdherencePct.toFixed(2)}%`
+           : "—",
        highlight: true,
      },
    ];
@@ -350,15 +429,39 @@ export function ResponseAdherenceTableCard({
     const selectedRows = rowExportData.filter((row) => checkedRows[row.id]);
     if (!selectedRows.length) return;
 
-    const header = ["Field", "Whatsapp", "AjraSakha", "Notes"];
-    const lines = selectedRows.map((row) =>
-      [
-        csvEscape(row.field),
-        csvEscape(row.whatsapp),
-        csvEscape(row.ajraSakha),
-        csvEscape(row.notes),
-      ].join(","),
-    );
+    const header = ["Field"];
+    if (checkedColumns.whatsapp) {
+      header.push("Whatsapp");
+    }
+    if (checkedColumns.ajraSakha) {
+      header.push("AjraSakha");
+    }
+    if (checkedColumns.manual) {
+      header.push("Manual");
+    }
+    header.push("Notes");
+
+    const lines = selectedRows.map((row) => {
+      const values: (string | number)[] = [row.field];
+
+      if (checkedColumns.whatsapp) {
+        values.push(row.whatsapp);
+      }
+
+      if (checkedColumns.ajraSakha) {
+        values.push(row.ajraSakha);
+      }
+
+      if (checkedColumns.manual) {
+        values.push(row.manual);
+      }
+
+      values.push(row.notes);
+
+      return values
+        .map((value) => csvEscape(value))
+        .join(",");
+    });
 
     const csvContent = ["\uFEFF" + header.join(","), ...lines].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -726,7 +829,7 @@ export function ResponseAdherenceTableCard({
                                 {row.label}
                               </td>
                               <td
-                                colSpan={row.span ? 2 : 1}
+                                colSpan={row.span ? 3 : 2}
                                 className="border-b border-border/40 px-3 py-2.5 font-medium tabular-nums"
                               >
                                 {row.value}
@@ -752,10 +855,63 @@ export function ResponseAdherenceTableCard({
                                 {row.label}
                               </td>
                               <td className="border-b border-r border-border/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-foreground">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkedColumns.whatsapp}
+                                    onChange={() => toggleColumn("whatsapp")}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="h-4 w-4 cursor-pointer accent-primary"
+                                  />
                                 {row.wa}
+                                </div>
                               </td>
-                              <td className="border-b border-border/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-foreground">
+                              <td className="border-b border-r border-border/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-foreground">
+                                <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={checkedColumns.ajraSakha}
+                                  onChange={() => toggleColumn("ajraSakha")}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="h-4 w-4 cursor-pointer accent-primary"
+                                />
                                 {row.as}
+                                </div>
+                              </td>
+                              <td className="border-b border-r border-border/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-foreground">  
+                                <span className="flex gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={checkedColumns.manual}
+                                    onChange={() => toggleColumn("manual")}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="h-4 w-4 cursor-pointer accent-primary"
+                                  />
+                                  {row.manual}
+                                  <span className="flex items-center gap-1 ml-2">
+                                    <BreakdownTooltip
+                                      items={[
+                                        {
+                                          label: "Manual",
+                                          count: data?.manualTotal ?? 0,
+                                          key: "MANUAL",
+                                        },
+                                        {
+                                          label: "Agri Expert",
+                                          count: data?.agriexpertTotal ?? 0,
+                                          key: "AGRI_EXPERT",
+                                        },
+                                        {
+                                          label: "Outreach",
+                                          count: data?.outreachTotal ?? 0,
+                                          key: "OUTREACH",
+                                        },
+                                      ]}
+                                      effectiveDate = {effectiveDate}
+                                      userType={userType}
+                                  />
+                                </span>
+                                </span>
                               </td>
                             </motion.tr>
                           );
@@ -782,6 +938,9 @@ export function ResponseAdherenceTableCard({
                             </td>
                             <td className="border-b border-border/40 px-3 py-2.5 tabular-nums">
                               {row.as ?? "—"}
+                            </td>
+                            <td className="border-b border-l border-border/40 px-3 py-2.5 tabular-nums">
+                              {row.manual ?? "—"}
                             </td>
                           </motion.tr>
                         );

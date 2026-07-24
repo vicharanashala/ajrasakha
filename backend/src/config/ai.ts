@@ -31,4 +31,5 @@ export const aiConfig = {
   accAgentBaseUrl: env('ACC_AGENT_BASE_URL'),
   accAgentAssistantId: env('ACC_AGENT_ASSISTANT_ID'),
   accAgentTimeout: Number(env('ACC_AGENT_TIMEOUT')?.trim()) || 10000,
+   useTailnetProxy: env('USE_TAILNET_PROXY') !== 'false',
 };

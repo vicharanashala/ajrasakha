@@ -236,15 +236,9 @@ export function AnnamDashboard_dev({
     () => getISOStringsForDateRange(customerNotificationsDateRange),
     [customerNotificationsDateRange],
   );
-  const [closed2hSource, setClosed2hSource] = useState<
-    "both" | "annam" | "whatsapp"
-  >("both");
-  const [questionStatusSource, setQuestionStatusSource] = useState<
-    "both" | "annam" | "whatsapp"
-  >("both");
-  const [notificationsSource, setNotificationsSource] = useState<
-    "both" | "annam" | "whatsapp"
-  >("both");
+  const [closed2hSource, setClosed2hSource] = useState<string>("whatsapp,annam");
+  const [questionStatusSource, setQuestionStatusSource] = useState<string>("whatsapp,annam");
+  const [notificationsSource, setNotificationsSource] = useState<string>("whatsapp,annam");
   // Data queries with date ranges
   const { data: closed2hData, isLoading: isClosed2hLoading, isFetching: isClosed2hFetching } =
     useClosedAndNotifedData(
@@ -816,6 +810,7 @@ export function AnnamDashboard_dev({
                                 isResponseAdherenceLoading ||
                                 isResponseAdherenceFetching
                               }
+                              userType={filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[400px]" />

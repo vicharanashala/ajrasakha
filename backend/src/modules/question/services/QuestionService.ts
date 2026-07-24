@@ -4204,13 +4204,17 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   /** Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts
-   *  plus their paginated question list. "Submitted" = they finished it (finishedAt set). */
+   *  plus their paginated question list. "Submitted" = they finished it (finishedAt set).
+   *  Supports optional date range filtering by assigned date, completed date, or both. */
   async getRoleAssigneeDashboard(
     userId: string,
     role: 'gate_keeper' | 'auditor',
     page: number,
     limit: number,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
   ) {
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const finishedField =
@@ -4223,6 +4227,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       page,
       limit,
       search,
+      startDate,
+      endDate,
+      dateFilterType,
     );
   }
 
@@ -8530,5 +8537,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       openedIdleManual:
         openedIdleManual as QueueDetailsResponse['openedIdleManual'],
     };
+  }
+
+  /**
+   * Remove the second entry from history and queue arrays in a question submission.
+   * This is used for migration purposes to fix duplicate entries.
+   * @param submissionId - The submission document ID
+   */
+  async backgroundProcessAction(submissionId: string): Promise<{ modifiedCount: number }> {
+    return this.questionSubmissionRepo.backgroundProcessAction(submissionId);
   }
 }

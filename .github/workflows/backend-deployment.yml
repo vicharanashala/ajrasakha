@@ -10,7 +10,7 @@ permissions:
 
 env:
   DOCKER_IMAGE: reviewer-api
-  GCP_REGION: asia-south2
+  GCP_REGION: asia-south1
   GCP_SERVICE: reviewer-backend
 
 jobs:
@@ -62,10 +62,12 @@ jobs:
           image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
+          secrets: |
+            DB_URL=AJRASAKHA_REVIEWER_SYS_DB_URI_PROD:latest
+            
           env_vars: |
             NODE_ENV=production
             APP_PORT=${{ secrets.APP_PORT }}
-            DB_URL=${{ secrets.DB_URL }}
             DB_NAME=${{ secrets.DB_NAME }}
             VAPID_EMAIL=${{ secrets.VAPID_EMAIL }}
             VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
@@ -83,4 +85,5 @@ jobs:
             DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
             DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
             TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
+            GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
           flags: --allow-unauthenticated

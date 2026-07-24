@@ -423,6 +423,9 @@ export interface IQuestionService {
     page: number,
     limit: number,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
   ): Promise<{
     assignedCount: number;
     submittedCount: number;
@@ -562,4 +565,9 @@ export interface IQuestionService {
     startTime?: Date,
     endTime?: Date,
   ): Promise<QueueSectionResult>;
+
+  /**
+   * @param submissionId - The submission document ID
+   */
+  backgroundProcessAction(submissionId: string): Promise<{ modifiedCount: number }>;
 }
