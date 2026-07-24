@@ -173,7 +173,7 @@ export class QuestionController {
   ): Promise<QuestionResponse[]> {
     const userId = user._id.toString();
     const canViewQueue =
-      user.role === 'admin' || user.role === 'moderator';
+      user.role === 'admin' || user.role === 'moderator' || user.role === 'gate_keeper' || user.role === 'auditor';
     const targetUserId =
       canViewQueue && query.user && query.user !== 'all'
         ? query.user
