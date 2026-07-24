@@ -163,7 +163,7 @@ export function AnswerModeSwitcher({
             })}
 
             {/* Dedicated / My Assignment tab — shown only for moderators/admins */}
-            {!currentUserIsTrainingUser && showDedicated && (
+            { showDedicated && (
                 <>
                     <Tooltip delayDuration={1200}>
                         <TooltipTrigger asChild>
