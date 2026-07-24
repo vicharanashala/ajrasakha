@@ -9,75 +9,30 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WhatsappHistoryRouteImport } from './routes/whatsapp-history'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ProfileIndexRouteImport } from './routes/profile/index'
-import { Route as PaeExpertIndexRouteImport } from './routes/pae-expert/index'
-import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
-import { Route as HomeIndexRouteImport } from './routes/home/index'
-import { Route as HistoryIndexRouteImport } from './routes/history/index'
-import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/index'
-import { Route as CoordinatorIndexRouteImport } from './routes/coordinator/index'
-import { Route as ChatbotIndexRouteImport } from './routes/chatbot/index'
-import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as WhatsappHistoryRouteImport } from './routes/whatsapp-history'
 import { Route as AuditIndexRouteImport } from './routes/audit/index'
-import { Route as UserUserIdRouteImport } from './routes/user/$userId'
-import { Route as UserHistoryUserIdRouteImport } from './routes/user-history/$userId'
+import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as ChatbotIndexRouteImport } from './routes/chatbot/index'
+import { Route as CoordinatorIndexRouteImport } from './routes/coordinator/index'
 import { Route as CoordinatorProfileRouteImport } from './routes/coordinator/profile'
+import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/index'
+import { Route as HistoryIndexRouteImport } from './routes/history/index'
+import { Route as HomeIndexRouteImport } from './routes/home/index'
+import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
+import { Route as PaeExpertIndexRouteImport } from './routes/pae-expert/index'
+import { Route as ProfileIndexRouteImport } from './routes/profile/index'
+import { Route as UserHistoryUserIdRouteImport } from './routes/user-history/$userId'
+import { Route as UserUserIdRouteImport } from './routes/user/$userId'
 
-const WhatsappHistoryRoute = WhatsappHistoryRouteImport.update({
-  id: '/whatsapp-history',
-  path: '/whatsapp-history',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProfileIndexRoute = ProfileIndexRouteImport.update({
-  id: '/profile/',
-  path: '/profile/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PaeExpertIndexRoute = PaeExpertIndexRouteImport.update({
-  id: '/pae-expert/',
-  path: '/pae-expert/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotificationsIndexRoute = NotificationsIndexRouteImport.update({
-  id: '/notifications/',
-  path: '/notifications/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HomeIndexRoute = HomeIndexRouteImport.update({
-  id: '/home/',
-  path: '/home/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HistoryIndexRoute = HistoryIndexRouteImport.update({
-  id: '/history/',
-  path: '/history/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FlagsReportedIndexRoute = FlagsReportedIndexRouteImport.update({
-  id: '/flags-reported/',
-  path: '/flags-reported/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CoordinatorIndexRoute = CoordinatorIndexRouteImport.update({
-  id: '/coordinator/',
-  path: '/coordinator/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChatbotIndexRoute = ChatbotIndexRouteImport.update({
-  id: '/chatbot/',
-  path: '/chatbot/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthIndexRoute = AuthIndexRouteImport.update({
-  id: '/auth/',
-  path: '/auth/',
+const WhatsappHistoryRoute = WhatsappHistoryRouteImport.update({
+  id: '/whatsapp-history',
+  path: '/whatsapp-history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuditIndexRoute = AuditIndexRouteImport.update({
@@ -85,9 +40,54 @@ const AuditIndexRoute = AuditIndexRouteImport.update({
   path: '/audit/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const UserUserIdRoute = UserUserIdRouteImport.update({
-  id: '/user/$userId',
-  path: '/user/$userId',
+const AuthIndexRoute = AuthIndexRouteImport.update({
+  id: '/auth/',
+  path: '/auth/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatbotIndexRoute = ChatbotIndexRouteImport.update({
+  id: '/chatbot/',
+  path: '/chatbot/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoordinatorIndexRoute = CoordinatorIndexRouteImport.update({
+  id: '/coordinator/',
+  path: '/coordinator/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoordinatorProfileRoute = CoordinatorProfileRouteImport.update({
+  id: '/coordinator/profile',
+  path: '/coordinator/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FlagsReportedIndexRoute = FlagsReportedIndexRouteImport.update({
+  id: '/flags-reported/',
+  path: '/flags-reported/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryIndexRoute = HistoryIndexRouteImport.update({
+  id: '/history/',
+  path: '/history/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeIndexRoute = HomeIndexRouteImport.update({
+  id: '/home/',
+  path: '/home/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsIndexRoute = NotificationsIndexRouteImport.update({
+  id: '/notifications/',
+  path: '/notifications/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaeExpertIndexRoute = PaeExpertIndexRouteImport.update({
+  id: '/pae-expert/',
+  path: '/pae-expert/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileIndexRoute = ProfileIndexRouteImport.update({
+  id: '/profile/',
+  path: '/profile/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UserHistoryUserIdRoute = UserHistoryUserIdRouteImport.update({
@@ -95,9 +95,9 @@ const UserHistoryUserIdRoute = UserHistoryUserIdRouteImport.update({
   path: '/user-history/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CoordinatorProfileRoute = CoordinatorProfileRouteImport.update({
-  id: '/coordinator/profile',
-  path: '/coordinator/profile',
+const UserUserIdRoute = UserUserIdRouteImport.update({
+  id: '/user/$userId',
+  path: '/user/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -107,16 +107,16 @@ export interface FileRoutesByFullPath {
   '/coordinator/profile': typeof CoordinatorProfileRoute
   '/user-history/$userId': typeof UserHistoryUserIdRoute
   '/user/$userId': typeof UserUserIdRoute
-  '/audit': typeof AuditIndexRoute
-  '/auth': typeof AuthIndexRoute
-  '/chatbot': typeof ChatbotIndexRoute
-  '/coordinator': typeof CoordinatorIndexRoute
-  '/flags-reported': typeof FlagsReportedIndexRoute
-  '/history': typeof HistoryIndexRoute
-  '/home': typeof HomeIndexRoute
-  '/notifications': typeof NotificationsIndexRoute
-  '/pae-expert': typeof PaeExpertIndexRoute
-  '/profile': typeof ProfileIndexRoute
+  '/audit/': typeof AuditIndexRoute
+  '/auth/': typeof AuthIndexRoute
+  '/chatbot/': typeof ChatbotIndexRoute
+  '/coordinator/': typeof CoordinatorIndexRoute
+  '/flags-reported/': typeof FlagsReportedIndexRoute
+  '/history/': typeof HistoryIndexRoute
+  '/home/': typeof HomeIndexRoute
+  '/notifications/': typeof NotificationsIndexRoute
+  '/pae-expert/': typeof PaeExpertIndexRoute
+  '/profile/': typeof ProfileIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -161,16 +161,16 @@ export interface FileRouteTypes {
     | '/coordinator/profile'
     | '/user-history/$userId'
     | '/user/$userId'
-    | '/audit'
-    | '/auth'
-    | '/chatbot'
-    | '/coordinator'
-    | '/flags-reported'
-    | '/history'
-    | '/home'
-    | '/notifications'
-    | '/pae-expert'
-    | '/profile'
+    | '/audit/'
+    | '/auth/'
+    | '/chatbot/'
+    | '/coordinator/'
+    | '/flags-reported/'
+    | '/history/'
+    | '/home/'
+    | '/notifications/'
+    | '/pae-expert/'
+    | '/profile/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -227,13 +227,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/whatsapp-history': {
-      id: '/whatsapp-history'
-      path: '/whatsapp-history'
-      fullPath: '/whatsapp-history'
-      preLoaderRoute: typeof WhatsappHistoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -241,81 +234,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/profile/': {
-      id: '/profile/'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pae-expert/': {
-      id: '/pae-expert/'
-      path: '/pae-expert'
-      fullPath: '/pae-expert'
-      preLoaderRoute: typeof PaeExpertIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notifications/': {
-      id: '/notifications/'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof NotificationsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/home/': {
-      id: '/home/'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof HomeIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/history/': {
-      id: '/history/'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof HistoryIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/flags-reported/': {
-      id: '/flags-reported/'
-      path: '/flags-reported'
-      fullPath: '/flags-reported'
-      preLoaderRoute: typeof FlagsReportedIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/coordinator/': {
-      id: '/coordinator/'
-      path: '/coordinator'
-      fullPath: '/coordinator'
-      preLoaderRoute: typeof CoordinatorIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chatbot/': {
-      id: '/chatbot/'
-      path: '/chatbot'
-      fullPath: '/chatbot'
-      preLoaderRoute: typeof ChatbotIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/': {
-      id: '/auth/'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthIndexRouteImport
+    '/whatsapp-history': {
+      id: '/whatsapp-history'
+      path: '/whatsapp-history'
+      fullPath: '/whatsapp-history'
+      preLoaderRoute: typeof WhatsappHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/audit/': {
       id: '/audit/'
       path: '/audit'
-      fullPath: '/audit'
+      fullPath: '/audit/'
       preLoaderRoute: typeof AuditIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/user/$userId': {
-      id: '/user/$userId'
-      path: '/user/$userId'
-      fullPath: '/user/$userId'
-      preLoaderRoute: typeof UserUserIdRouteImport
+    '/auth/': {
+      id: '/auth/'
+      path: '/auth'
+      fullPath: '/auth/'
+      preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chatbot/': {
+      id: '/chatbot/'
+      path: '/chatbot'
+      fullPath: '/chatbot/'
+      preLoaderRoute: typeof ChatbotIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/coordinator/': {
+      id: '/coordinator/'
+      path: '/coordinator'
+      fullPath: '/coordinator/'
+      preLoaderRoute: typeof CoordinatorIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/coordinator/profile': {
+      id: '/coordinator/profile'
+      path: '/coordinator/profile'
+      fullPath: '/coordinator/profile'
+      preLoaderRoute: typeof CoordinatorProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/flags-reported/': {
+      id: '/flags-reported/'
+      path: '/flags-reported'
+      fullPath: '/flags-reported/'
+      preLoaderRoute: typeof FlagsReportedIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history/': {
+      id: '/history/'
+      path: '/history'
+      fullPath: '/history/'
+      preLoaderRoute: typeof HistoryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home/': {
+      id: '/home/'
+      path: '/home'
+      fullPath: '/home/'
+      preLoaderRoute: typeof HomeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications/': {
+      id: '/notifications/'
+      path: '/notifications'
+      fullPath: '/notifications/'
+      preLoaderRoute: typeof NotificationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pae-expert/': {
+      id: '/pae-expert/'
+      path: '/pae-expert'
+      fullPath: '/pae-expert/'
+      preLoaderRoute: typeof PaeExpertIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile/': {
+      id: '/profile/'
+      path: '/profile'
+      fullPath: '/profile/'
+      preLoaderRoute: typeof ProfileIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/user-history/$userId': {
@@ -325,11 +325,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserHistoryUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/coordinator/profile': {
-      id: '/coordinator/profile'
-      path: '/coordinator/profile'
-      fullPath: '/coordinator/profile'
-      preLoaderRoute: typeof CoordinatorProfileRouteImport
+    '/user/$userId': {
+      id: '/user/$userId'
+      path: '/user/$userId'
+      fullPath: '/user/$userId'
+      preLoaderRoute: typeof UserUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
