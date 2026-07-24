@@ -1,5 +1,6 @@
-import React, { Suspense } from "react";
-import { useDashboardData } from "../hooks/useDashboardData";
+import React, { Suspense, useState } from "react";
+import type { DateRange } from "react-day-picker";
+import { useDashboardData, useTopFaqs } from "../hooks/useDashboardData";
 import { AlertCard } from "../AlertCard";
 import { DuplicateQuestionsModal } from "./DuplicateQuestionsModal";
 import type { DashboardFilterValues } from "../DashboardFilters";
@@ -7,6 +8,8 @@ import { useQueryCategories } from "../hooks/useActiveUsersAnalytics";
 import { useTopCrops } from "../hooks/useTopCrops";
 import { QueryInsightsSection } from "./QueryInsightsSection";
 import { DashboardStateWiseAnalytics } from "../DashboardQueryState";
+import { TopFaqsLeaderboard } from "./TopFaqsLeaderboard";
+import { getTodayStart, getTodayEnd } from "../utils/dateUtils";
 
 const LazyUserGrowthChart = React.lazy(
   () => import("./UserGrowthChart"),
@@ -21,6 +24,11 @@ export function CoordinatorGrowthAndAlerts({
 }) {
   const source = "annam";
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = React.useState(false);
+
+  const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>({
+    from: getTodayStart(),
+    to: getTodayEnd(),
+  });
 
   const filters: DashboardFilterValues = {
     village: "all",
@@ -41,6 +49,16 @@ export function CoordinatorGrowthAndAlerts({
     isLoading: isLoadingTopCrops,
     error: errorLoadingtopCrops,
   } = useTopCrops(source, "all", true, userId);
+
+  // Fetch top FAQs specific to this coordinator
+  const { data: faqsData, isLoading: faqsLoading } = useTopFaqs(
+    source,
+    "all",
+    faqsDateRange?.from,
+    faqsDateRange?.to,
+    true,
+    userId,
+  );
 
   return (
     <div className="space-y-6">
@@ -91,9 +109,50 @@ export function CoordinatorGrowthAndAlerts({
         coordinatorId={userId}
       />
 
-      {isDistrictCoordinator && (
-        <div className="mt-6">
+      {isDistrictCoordinator ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-6">
           <DashboardStateWiseAnalytics
+            source={source}
+            userType="all"
+            coordinatorId={userId}
+          />
+          <TopFaqsLeaderboard
+            faqs={(faqsData as any)?.topFaqs}
+            topQuestionsFromCollection={
+              (faqsData as any)?.topQuestionsFromCollection
+            }
+            repeatQueryCount={(faqsData as any)?.repeatQueryCount}
+            repeatQueryRatePct={
+              (faqsData as any)?.repeatQueryRatePct
+            }
+            avgQuestionsPerUserDay={
+              (faqsData as any)?.avgQuestionsPerUserDay
+            }
+            dateRange={faqsDateRange}
+            onDateRangeChange={setFaqsDateRange}
+            isLoading={faqsLoading}
+            source={source}
+            userType="all"
+            coordinatorId={userId}
+          />
+        </div>
+      ) : (
+        <div className="mt-6">
+          <TopFaqsLeaderboard
+            faqs={(faqsData as any)?.topFaqs}
+            topQuestionsFromCollection={
+              (faqsData as any)?.topQuestionsFromCollection
+            }
+            repeatQueryCount={(faqsData as any)?.repeatQueryCount}
+            repeatQueryRatePct={
+              (faqsData as any)?.repeatQueryRatePct
+            }
+            avgQuestionsPerUserDay={
+              (faqsData as any)?.avgQuestionsPerUserDay
+            }
+            dateRange={faqsDateRange}
+            onDateRangeChange={setFaqsDateRange}
+            isLoading={faqsLoading}
             source={source}
             userType="all"
             coordinatorId={userId}

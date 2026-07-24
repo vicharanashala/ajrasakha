@@ -899,6 +899,7 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{question: string; count: number}>>;
 
   /** 10 most frequently asked questions from the questions collection. */
@@ -908,6 +909,7 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{questionId: string; question: string; count: number}>>;
 
   /** Get documents for a specific top question drill-down. */
@@ -920,6 +922,7 @@ export interface IChatbotRepository {
     page?: number,
     limit?: number,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>;
   getResponseAdherenceTable(
     session?: ClientSession,
@@ -1045,6 +1048,7 @@ export interface IChatbotRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<any>;
 
   /**

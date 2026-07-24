@@ -488,6 +488,7 @@ export const useTopQuestionInstances = ({
   page,
   limit,
   enabled = true,
+  coordinatorId,
 }: {
   questionId?: string;
   source?: string;
@@ -497,6 +498,7 @@ export const useTopQuestionInstances = ({
   page?: number;
   limit?: number;
   enabled?: boolean;
+  coordinatorId?: string;
 }) => {
   const stringStartDate = startDate?.toISOString();
   const stringEndDate = endDate?.toISOString();
@@ -511,6 +513,7 @@ export const useTopQuestionInstances = ({
       stringEndDate,
       page,
       limit,
+      coordinatorId,
     ],
     queryFn: () =>
       chatbotService.getTopQuestionInstances(questionId!, {
@@ -520,6 +523,7 @@ export const useTopQuestionInstances = ({
         endTime: stringEndDate,
         page,
         limit,
+        coordinatorId,
       }),
     enabled: enabled && Boolean(questionId),
   });

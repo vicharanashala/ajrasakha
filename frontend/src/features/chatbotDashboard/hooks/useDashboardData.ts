@@ -477,19 +477,22 @@ export const useTopFaqs = (
   startTime?: Date,
   endTime?: Date,
   enabled?: boolean,
+  coordinatorId?: string,
 ) => {
   const params = new URLSearchParams();
   params.append("source", source);
   params.append("userType", userType);
   if (startTime) params.append("startTime", startTime.toISOString());
   if (endTime) params.append("endTime", endTime.toISOString());
+  if (coordinatorId) params.append("coordinatorId", coordinatorId);
   return useQuery({
     queryKey: [
       "top-faqs",
       source,
       userType,
       startTime,
-      endTime
+      endTime,
+      coordinatorId,
     ],
     placeholderData: (prev) => prev,
     queryFn: async () => {

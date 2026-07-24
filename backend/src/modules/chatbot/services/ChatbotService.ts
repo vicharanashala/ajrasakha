@@ -3088,6 +3088,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ) {
     try {
       return await this.chatbotRepository.getTopFaqs(
@@ -3096,6 +3097,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startTime,
         endTime,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
@@ -3425,6 +3427,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       return await this.chatbotRepository.getTopQuestionsFromCollection(
@@ -3433,6 +3436,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startTime,
         endTime,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
@@ -3447,6 +3451,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     endTime?: string,
     page: number = 1,
     limit: number = 10,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       return await this.chatbotRepository.getTopQuestionInstances(
@@ -3457,6 +3462,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         endTime,
         page,
         limit,
+        undefined,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top question instances: ${error}`);
@@ -3468,6 +3475,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       return await this.chatbotRepository.getRepeatQueryCount(
@@ -3475,6 +3483,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startTime,
         endTime,
+        undefined,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(

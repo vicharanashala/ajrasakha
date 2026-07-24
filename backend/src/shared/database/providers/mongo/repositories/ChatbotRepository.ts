@@ -9884,6 +9884,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{question: string; count: number}>> {
     try {
       if (source === 'whatsapp') {
@@ -9897,6 +9898,17 @@ export class ChatbotRepository implements IChatbotRepository {
         isDeleted: {$ne: true},
         text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
+
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length > 0) {
+          queryMatch.user = {
+            $in: targetUserIds.map(id => id.toString()),
+          };
+        } else {
+          queryMatch.user = null;
+        }
+      }
 
       if (startTime || endTime) {
         queryMatch.createdAt = {};
@@ -9943,6 +9955,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{questionId: string; question: string; count: number}>> {
     try {
       await this.initReviewSystem();
@@ -9965,6 +9978,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
 
       // const userTypeLookupStages =
@@ -10040,6 +10060,7 @@ export class ChatbotRepository implements IChatbotRepository {
     page: number = 1,
     limit: number = 10,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{
     data: any[];
     total: number;
@@ -10069,6 +10090,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
 
       let qId;
@@ -13682,22 +13710,39 @@ export class ChatbotRepository implements IChatbotRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       await this.init(source);
-      const totalFarmerProfileUsers = Math.max(
-        await this.users.countDocuments(
-          {farmerProfile: {$exists: true, $ne: null}},
-          {session},
-        ),
-        1,
-      );
+      let totalFarmerProfileUsers = 1;
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        totalFarmerProfileUsers = Math.max(targetUserIds.length, 1);
+      } else {
+        totalFarmerProfileUsers = Math.max(
+          await this.users.countDocuments(
+            {farmerProfile: {$exists: true, $ne: null}},
+            {session},
+          ),
+          1,
+        );
+      }
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
       const queryMatch: any = {
         isCreatedByUser: true,
         isDeleted: {$ne: true},
         text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length > 0) {
+          queryMatch.user = {
+            $in: targetUserIds.map(id => id.toString()),
+          };
+        } else {
+          queryMatch.user = null;
+        }
+      }
       if (startTime || endTime) {
         queryMatch.createdAt = {};
         if (startTime) {

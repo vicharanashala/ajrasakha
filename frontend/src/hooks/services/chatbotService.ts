@@ -244,6 +244,7 @@ export class ChatbotService {
       endTime?: string;
       page?: number;
       limit?: number;
+      coordinatorId?: string;
     }
   ): Promise<any> {
     const params = new URLSearchParams();
@@ -253,6 +254,7 @@ export class ChatbotService {
     if (filters.endTime) params.append("endTime", filters.endTime);
     if (filters.page) params.append("page", filters.page.toString());
     if (filters.limit) params.append("limit", filters.limit.toString());
+    if (filters.coordinatorId) params.append("coordinatorId", filters.coordinatorId);
 
     return apiFetch<any>(
       `${this._baseUrl}/top-questions/${questionId}?${params.toString()}`

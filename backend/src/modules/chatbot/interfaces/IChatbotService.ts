@@ -219,6 +219,7 @@ export interface IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{question: string; count: number}>>;
   getDistrictAnalyticsByState(
     state: string,
@@ -352,6 +353,7 @@ export interface IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any>;
   getTopQuestionInstances(
     questionId: string,
@@ -361,12 +363,14 @@ export interface IChatbotService {
     endTime?: string,
     page?: number,
     limit?: number,
+    coordinatorId?: string,
   ): Promise<any>;
   getRepeatQueryCount(
     source?: string,
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any>;
   getAllUnverifiedUsers(
     page?: number,

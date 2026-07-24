@@ -1940,21 +1940,24 @@ export class ChatbotController {
       : undefined;
     const source = query.source;
     const userType = query.userType;
+    const coordinatorId = query.coordinatorId;
 
     const [topFaqs, topQuestionsFromCollection, repeatQueryCountData] =
       await Promise.all([
-        this.chatbotService.getTopFaqs(source, userType, startTime, endTime),
+        this.chatbotService.getTopFaqs(source, userType, startTime, endTime, coordinatorId),
         this.chatbotService.getTopQuestionsFromCollection(
           source,
           userType,
           startTime,
           endTime,
+          coordinatorId,
         ),
         this.chatbotService.getRepeatQueryCount(
           source,
           userType,
           startTime,
           endTime,
+          coordinatorId,
         ),
       ]);
 
@@ -1979,6 +1982,7 @@ export class ChatbotController {
       : undefined;
     const source = query.source;
     const userType = query.userType;
+    const coordinatorId = query.coordinatorId;
 
     return await this.chatbotService.getTopQuestionInstances(
       questionId,
@@ -1987,7 +1991,8 @@ export class ChatbotController {
       startTime,
       endTime,
       page,
-      limit
+      limit,
+      coordinatorId
     );
   }
 

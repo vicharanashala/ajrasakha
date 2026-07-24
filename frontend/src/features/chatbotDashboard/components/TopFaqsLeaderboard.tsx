@@ -33,6 +33,7 @@ interface TopFaqsLeaderboardProps {
   /** Dashboard-level filters forwarded to the drill-down modal */
   source?: string;
   userType?: string;
+  coordinatorId?: string;
 }
 
 export function TopFaqsLeaderboard({
@@ -46,6 +47,7 @@ export function TopFaqsLeaderboard({
   isLoading = false,
   source,
   userType,
+  coordinatorId,
 }: TopFaqsLeaderboardProps) {
   const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
 
@@ -403,6 +405,7 @@ export function TopFaqsLeaderboard({
           startDate={dateRange?.from}
           endDate={dateRange?.to}
           onClose={() => setSelectedQuestion(null)}
+          coordinatorId={coordinatorId}
         />
       )}
 
