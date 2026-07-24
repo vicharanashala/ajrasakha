@@ -37,6 +37,8 @@ TEST_CASES = [
             "is_complete": True,
             "state": "Punjab",
             "crop": "all",
+            "script_language": "English",
+            "vocal_language": "English",
         },
     },
     {
@@ -53,6 +55,8 @@ TEST_CASES = [
             "state": "Delhi",
             "crop": "all",
             "is_complete": True,
+            "script_language": "English",
+            "vocal_language": "English",
         },
     },
     {
@@ -69,6 +73,8 @@ TEST_CASES = [
             "stable": False,
             "crop": "all",
             "is_complete": True,
+            "script_language": "English",
+            "vocal_language": "English",
         },
     },
     {
