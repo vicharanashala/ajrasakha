@@ -126,6 +126,8 @@ TEST_CASES = [
     
             "crop": "Paddy",
             "is_complete": True,
+            "script_language": "English",
+            "vocal_language": "English",
         },
     },
     {
