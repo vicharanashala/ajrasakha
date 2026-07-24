@@ -213,6 +213,7 @@ export const Dashboard = () => {
   const [overviewEndTime, setOverviewEndTime] = useState("23:59");
 
   const { data: user } = useGetCurrentUser();
+  const isTrainingUser = user?.isTrainingUser === true;
 
   // Granular Hooks
   const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview({
@@ -376,7 +377,7 @@ export const Dashboard = () => {
         </div>
 
         {/* Question Source Charts Row */}
-        {goldenData?.questionSourceBreakdown && (
+        {!isTrainingUser && goldenData?.questionSourceBreakdown && (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <QuestionSourceCharts
               whatsappCount={goldenData.questionSourceBreakdown.whatsapp}
@@ -399,7 +400,7 @@ export const Dashboard = () => {
         )}
 
         {/* Response Adherence Row */}
-        {goldenData?.questionSourceBreakdown && goldenData?.questionsAnsweredWithin120Min && (
+        {!isTrainingUser && goldenData?.questionSourceBreakdown && goldenData?.questionsAnsweredWithin120Min && (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <ResponseAdherence
               totalWhatsapp={goldenData.questionSourceBreakdown.whatsapp}
