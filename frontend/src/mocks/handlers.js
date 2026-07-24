@@ -321,6 +321,118 @@ export const handlers = [
       ],
     );
   }),
+  http.get(`${baseURL}/api/users/me`, async () => {
+    return HttpResponse.json({
+      _id: "60d5ec49b3f1c8e4a8f8b8d1",
+      firebaseUID: "firebase-uid-123456",
+      email: "admin@example.com",
+      firstName: "Mock",
+      lastName: "Admin",
+      role: "admin",
+      isCallAgentActive: true,
+      status: "active",
+    }, { status: 200 });
+  }),
+  http.get(`${baseURL}/api/users/details/:email`, async ({ params }) => {
+    return HttpResponse.json({
+      _id: "60d5ec49b3f1c8e4a8f8b8d1",
+      firebaseUID: "firebase-uid-123456",
+      email: decodeURIComponent(params.email),
+      firstName: "Mock",
+      lastName: "Admin",
+      role: "admin",
+      isCallAgentActive: true,
+      status: "active",
+    }, { status: 200 });
+  }),
+  http.get(`${baseURL}/api/users/all`, async () => {
+    const mockUsers = {
+      myPreference: {
+        state: "Karnataka",
+        crop: "Rice",
+        domain: "Pest Management"
+      },
+      users: [
+        {
+          _id: "60d5ec49b3f1c8e4a8f8b8d1",
+          userName: "Mock Admin",
+          email: "admin@example.com",
+          role: "admin",
+          preference: { state: "Karnataka", crop: "Rice", domain: "Pest Management" },
+          isBlocked: false,
+          status: "active"
+        },
+        {
+          _id: "60d5ec49b3f1c8e4a8f8b8d2",
+          userName: "Expert Rajesh",
+          email: "rajesh@example.com",
+          role: "expert",
+          preference: { state: "Karnataka", crop: "Rice", domain: "Pest Management" },
+          isBlocked: false,
+          status: "active"
+        },
+        {
+          _id: "60d5ec49b3f1c8e4a8f8b8d3",
+          userName: "PAE Expert Kumar",
+          email: "kumar@example.com",
+          role: "pae_expert",
+          preference: { state: "Karnataka", crop: "Rice", domain: "Pest Management" },
+          isBlocked: false,
+          status: "active"
+        },
+        {
+          _id: "60d5ec49b3f1c8e4a8f8b8d4",
+          userName: "Moderator Priya",
+          email: "priya@example.com",
+          role: "moderator",
+          preference: { state: "Karnataka", crop: "Rice", domain: "Pest Management" },
+          isBlocked: false,
+          status: "active"
+        }
+      ],
+      totalUsers: 4,
+      totalPages: 1
+    };
+    return HttpResponse.json(mockUsers, { status: 200 });
+  }),
+  http.get(`${baseURL}/api/users/review-level`, async () => {
+    const mockReviewLevels = [
+      {
+        Review_level: 'Author',
+        pendingcount: 10,
+        completedcount: 5,
+        approvedCount: 3,
+        rejectedCount: 1,
+        modifiedCount: 1,
+        inReviewQuestions: 2,
+        delayedQuestion: 0,
+        count: 5
+      },
+      {
+        Review_level: 'Level 1',
+        pendingcount: 4,
+        completedcount: 12,
+        approvedCount: 8,
+        rejectedCount: 2,
+        modifiedCount: 2,
+        inReviewQuestions: 1,
+        delayedQuestion: 1,
+        count: 12
+      },
+      {
+        Review_level: 'Level 2',
+        pendingcount: 0,
+        completedcount: 20,
+        approvedCount: 15,
+        rejectedCount: 3,
+        modifiedCount: 2,
+        inReviewQuestions: 0,
+        delayedQuestion: 0,
+        count: 20
+      }
+    ];
+    return HttpResponse.json(mockReviewLevels, { status: 200 });
+  }),
   http.get(`${baseURL}/api/users/:userId`, async () => {
     const resultArray = [
       [getUserControllerGetUserById200Response(), { status: 200 }],

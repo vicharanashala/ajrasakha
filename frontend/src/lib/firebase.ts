@@ -17,6 +17,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { UserService } from "@/hooks/services/userService";
 import { AuthService } from "@/hooks/services/authService";
 import { isDevelopment } from "@/shared/app";
+import { env } from "@/config/env";
 const authService = new AuthService();
 
 
@@ -26,6 +27,29 @@ export const auth = getAuth(app);
 export const provider = new GoogleAuthProvider();
 const userService = new UserService()
 export const loginWithEmail = async (email: string, password: string) => {
+  if (env.enableMocks()) {
+    return {
+      user: {
+        uid: "firebase-uid-123456",
+        email: email,
+        displayName: "Mock User",
+        photoURL: "",
+        emailVerified: true,
+        getIdToken: async () => "mock-id-token",
+      },
+      appUser: {
+        _id: "60d5ec49b3f1c8e4a8f8b8d1",
+        firebaseUID: "firebase-uid-123456",
+        email: email,
+        firstName: "Mock",
+        lastName: "User",
+        role: "admin",
+        isCallAgentActive: true,
+        status: "active",
+      }
+    } as any;
+  }
+
   try {
     const user = await userService.Getuser(email)
     // Moderators and Experts are gated by activity status (isBlocked is their check-in/
