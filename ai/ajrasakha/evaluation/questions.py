@@ -144,6 +144,8 @@ TEST_CASES = [
             
             "crop": "all",
             "is_complete": True,
+            "script_language": "English",
+            "vocal_language": "English",
         },
     },
     {
@@ -160,6 +162,8 @@ TEST_CASES = [
           
             "crop": "all",
             "is_complete": True,
+            "script_language": "English",
+            "vocal_language": "English",
         },
     },
     {
