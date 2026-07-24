@@ -8342,4 +8342,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         availableAuditors as QueueDetailsResponse['availableAuditors'],
     };
   }
+
+  /**
+   * Remove the second entry from history and queue arrays in a question submission.
+   * This is used for migration purposes to fix duplicate entries.
+   * @param submissionId - The submission document ID
+   */
+  async backgroundProcessAction(submissionId: string): Promise<{ modifiedCount: number }> {
+    return this.questionSubmissionRepo.backgroundProcessAction(submissionId);
+  }
 }

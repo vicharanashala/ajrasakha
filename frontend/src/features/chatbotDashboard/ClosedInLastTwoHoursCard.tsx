@@ -32,8 +32,8 @@ import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 
 type ClosedInLastTwoHoursCardProps = {
-  source?: "both" | "annam" | "whatsapp";
-  onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
+  source?: string;
+  onSourceChange?: (source: string) => void;
   userType: string;
   closedInLastTwoHours: number;
   totalClosed: number;
@@ -89,10 +89,14 @@ export function ClosedInLastTwoHoursCard({
     setRefreshing(false);
   }, [queryClient]);
   const sourceOptions = [
-    { label: "Both", value: "both" },
     { label: "Web Application", value: "annam" },
     { label: "WhatsApp", value: "whatsapp" },
+    { label: "Agri Expert", value: "agri_expert" },
+    { label: "Outreach", value: "outreach" },
+    { label: "Manual", value: "manual" },
   ] as const;
+
+  const currentSources = typeof source === "string" && source !== "" ? source.split(",") : [];
   const [sourcePopoverOpen, setSourcePopoverOpen] = useState(false);
   const safeCount = closedInLastTwoHours ?? 0;
   const safeTotalClosed = totalClosed ?? 0;
@@ -225,28 +229,45 @@ export function ClosedInLastTwoHoursCard({
                         size="sm"
                         className="h-7 rounded-full border-border/50 bg-background/60 px-3 text-[11px] font-medium capitalize hover:bg-muted/50"
                       >
-                        {sourceOptions.find((s) => s.value === source)?.label ??
-                          "Both"}
+                        {currentSources.length === 0 ? "All Sources" : currentSources.length === 1 ? (sourceOptions.find((s) => s.value === currentSources[0])?.label ?? currentSources[0]) : `${currentSources.length} Selected`}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-40 p-1.5 z-[100]" align="end">
-                      <div className="space-y-0.5">
-                        {sourceOptions.map((item) => (
-                          <Button
-                            key={item.value}
-                            variant={
-                              source === item.value ? "secondary" : "ghost"
-                            }
-                            size="sm"
-                            className="h-7 w-full justify-start text-xs"
-                            onClick={() => {
-                              onSourceChange?.(item.value);
-                              setSourcePopoverOpen(false);
-                            }}
-                          >
-                            {item.label}
-                          </Button>
-                        ))}
+                    <PopoverContent className="w-48 p-1.5 z-[100]" align="end">
+                      <div className="space-y-0.5 max-h-64 overflow-y-auto">
+                        {sourceOptions.map((item) => {
+                          const isSelected = currentSources.includes(item.value);
+                          return (
+                            <Button
+                              key={item.value}
+                              variant={isSelected ? "secondary" : "ghost"}
+                              size="sm"
+                              className="h-7 w-full justify-start text-xs flex items-center gap-2"
+                              onClick={() => {
+                                let newSources = [];
+                                if (isSelected) {
+                                  newSources = currentSources.filter(s => s !== item.value);
+                                } else {
+                                  newSources = [...currentSources, item.value];
+                                }
+                                onSourceChange?.(newSources.join(','));
+                              }}
+                            >
+                              <div
+                                className={cn(
+                                  "h-3.5 w-3.5 rounded-sm border flex-shrink-0 flex items-center justify-center transition-colors",
+                                  isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30 bg-background"
+                                )}
+                              >
+                                {isSelected && (
+                                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </div>
+                              {item.label}
+                            </Button>
+                          );
+                        })}
                       </div>
                     </PopoverContent>
                   </Popover>

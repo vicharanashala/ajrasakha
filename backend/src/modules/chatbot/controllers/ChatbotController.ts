@@ -852,6 +852,7 @@ export class ChatbotController {
           ? false
           : undefined;
     const activeTodayByProfile = query.activeTodayByProfile === 'true';
+    const fromMap = query.fromMap === "true" ? true : false
     return this.chatbotService.getUserDetails(
       query.startDate,
       query.endDate,
@@ -876,6 +877,7 @@ export class ChatbotController {
       activeTodayByProfile,
       query.missingDemographicField,
       isVerified,
+      fromMap,
       query.loginStatus,
     );
   }
