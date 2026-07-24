@@ -1,11 +1,10 @@
 """Language match validator — deterministic Unicode script detection.
 
-Checks that the response text contains characters from the expected script.
+Checks that the response text contains characters from the expected script,
+and meets the minimum script character proportion threshold (≥ 30% native script).
+
 Re-uses the SCRIPT_PATTERNS already defined in the existing
 validators/disclaimer_language.py to avoid duplication.
-
-This is the primary "did the agent respond in the right language?" check.
-It is purely regex-based — no LLM, no network calls.
 """
 
 from __future__ import annotations
@@ -15,8 +14,11 @@ from typing import Optional
 
 from ajrasakha.evaluation.multilingual.case_schema import MultilingualCase
 
+# Constants for proportion checks (Step 015 boundary checks)
+NATIVE_PROPORTION_THRESHOLD = 0.30  # 30% native script characters required
+ENGLISH_LATIN_THRESHOLD = 0.60     # 60% Latin characters required for English
+
 # Mirror the patterns from the existing disclaimer_language.py.
-# We import them at runtime to stay in sync, with a local fallback.
 try:
     from ajrasakha.evaluation.validators.disclaimer_language import SCRIPT_PATTERNS
 except ImportError:
@@ -37,11 +39,7 @@ except ImportError:
 
 
 def _pattern_for_script(catalog_script: str, vocal_language: str) -> Optional[str]:
-    """Return regex pattern for the given catalog_script / vocal_language pair.
-
-    The SCRIPT_PATTERNS dict is keyed by vocal language name (e.g. "Hindi"),
-    not by catalog_script (e.g. "Devanagari"). We try both.
-    """
+    """Return regex pattern for the given catalog_script / vocal_language pair."""
     return (
         SCRIPT_PATTERNS.get(vocal_language)
         or SCRIPT_PATTERNS.get(catalog_script)
@@ -52,33 +50,42 @@ def validate_language_match(
     response_text: str,
     case: MultilingualCase,
 ) -> dict:
-    """Check that response_text contains the expected script characters.
+    """Check that response_text contains expected script characters and meets proportion threshold.
 
     Returns a dict with:
-        language_pass           bool
-        language_reason         str  (empty on pass)
-        language_script_found   bool
-        language_expected_vocal str
-        language_pattern_used   str
+        language_pass             bool
+        language_reason           str
+        language_script_found     bool
+        language_proportion       float
+        language_proportion_pass  bool
+        language_expected_vocal   str
+        language_pattern_used     str
     """
     text = str(response_text or "").strip()
+    clean_text = re.sub(r"\s+", "", text)
+    total_chars = len(clean_text)
 
-    # English is always present in any response (tool names, numbers, etc.).
-    # For English cases we just verify the response is non-empty.
+    # English is checked against ENGLISH_LATIN_THRESHOLD (0.60)
     if case.expected_vocal == "English":
-        if not text:
+        if not text or total_chars == 0:
             return {
                 "language_pass": False,
                 "language_reason": "response is empty",
                 "language_script_found": False,
+                "language_proportion": 0.0,
+                "language_proportion_pass": False,
                 "language_expected_vocal": case.expected_vocal,
-                "language_pattern_used": "",
+                "language_pattern_used": SCRIPT_PATTERNS.get("English", r"[A-Za-z]"),
             }
-        # Any non-empty response from an English query is a pass for script check
+        latin_chars = len(re.findall(r"[A-Za-z]", clean_text))
+        prop = round(latin_chars / total_chars, 4)
+        prop_pass = prop >= ENGLISH_LATIN_THRESHOLD
         return {
-            "language_pass": True,
-            "language_reason": "",
-            "language_script_found": True,
+            "language_pass": prop_pass,
+            "language_reason": "" if prop_pass else f"Latin character proportion ({prop:.1%}) below threshold ({ENGLISH_LATIN_THRESHOLD:.0%})",
+            "language_script_found": latin_chars > 0,
+            "language_proportion": prop,
+            "language_proportion_pass": prop_pass,
             "language_expected_vocal": case.expected_vocal,
             "language_pattern_used": SCRIPT_PATTERNS.get("English", r"[A-Za-z]"),
         }
@@ -94,29 +101,41 @@ def validate_language_match(
                 f"vocal={case.expected_vocal!r}"
             ),
             "language_script_found": False,
+            "language_proportion": 0.0,
+            "language_proportion_pass": False,
             "language_expected_vocal": case.expected_vocal,
             "language_pattern_used": "",
         }
 
-    if not text:
+    if not text or total_chars == 0:
         return {
             "language_pass": False,
             "language_reason": "response is empty",
             "language_script_found": False,
+            "language_proportion": 0.0,
+            "language_proportion_pass": False,
             "language_expected_vocal": case.expected_vocal,
             "language_pattern_used": pattern,
         }
 
-    found = bool(re.search(pattern, text))
-    reason = "" if found else (
-        f"expected {case.expected_vocal} script "
-        f"(pattern={pattern!r}) not found in response"
-    )
+    native_chars = len(re.findall(pattern, clean_text))
+    found = native_chars > 0
+    prop = round(native_chars / total_chars, 4)
+    prop_pass = prop >= NATIVE_PROPORTION_THRESHOLD
+
+    reasons = []
+    if not found:
+        reasons.append(f"expected {case.expected_vocal} script (pattern={pattern!r}) not found in response")
+    elif not prop_pass:
+        reasons.append(f"{case.expected_vocal} script proportion ({prop:.1%}) below threshold ({NATIVE_PROPORTION_THRESHOLD:.0%})")
 
     return {
-        "language_pass": found,
-        "language_reason": reason,
+        "language_pass": found and prop_pass,
+        "language_reason": "; ".join(reasons),
         "language_script_found": found,
+        "language_proportion": prop,
+        "language_proportion_pass": prop_pass,
         "language_expected_vocal": case.expected_vocal,
         "language_pattern_used": pattern,
     }
+

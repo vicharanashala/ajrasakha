@@ -95,7 +95,7 @@ class TestCaseContent:
     def test_translation_review_pending(self):
         cases = generate_cases()
         for c in cases:
-            assert c.translation_review_status == "pending", (
+            assert c.translation_review_status == "draft_pending_agri_validation", (
                 f"Case {c.case_id} has non-pending review status: "
                 f"{c.translation_review_status}"
             )
@@ -163,3 +163,15 @@ class TestDisclaimerPopulation:
         assert case.expected_2hr_disclaimer == "", (
             "2hr disclaimer should be empty when not required"
         )
+
+
+class TestDomainNormalization:
+    def test_scenario_domains_match_canonical_groups(self):
+        """All scenario domain labels must match the 5 canonical group names."""
+        canonical_groups = {"weather", "pest", "schemes", "soil", "market"}
+        for scenario in SCENARIOS:
+            assert scenario.domain in canonical_groups, (
+                f"Scenario {scenario.id} has non-canonical domain: {scenario.domain!r}"
+            )
+            assert scenario.domain == scenario.domain_group
+

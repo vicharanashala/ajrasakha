@@ -17,12 +17,14 @@ Design decisions
   query language. This is consistent with how the production pipeline works.
 - Location is taken from the scenario record; it is not varied per language
   (regional variation is covered by the 30 scenario locations, not 6×30).
-- All cases ship with translation_review_status="pending" until a human
-  agri-team member explicitly validates the disclaimers and terminology.
+- All cases ship with translation_review_status="draft_pending_agri_validation"
+  until a human agri-team member explicitly validates the disclaimers and
+  terminology.
 """
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -45,6 +47,72 @@ from ajrasakha.agents.translation_catalog import (
 )
 
 _SCHEMA_VERSION = "1.0.0"
+
+# Path to the multilingual query data artifact (Step 008)
+_QUERIES_PATH = Path(__file__).parent / "data" / "multilingual_queries.json"
+
+# ── Domain group mapping ──────────────────────────────────────────────────────
+# Maps Scenario.domain display labels to the 5 canonical domain_group values.
+_DOMAIN_GROUP_MAP: dict[str, str] = {
+    # Weather group
+    "Weather": "weather",
+    "Sowing Time and Weather": "weather",
+    # Pest / Plant Protection group
+    "Plant Protection": "pest",
+    "Bio-Pesticides and Bio-Fertilizers": "pest",
+    # Government Schemes group
+    "Government Schemes": "schemes",
+    "Crop Insurance": "schemes",
+    # Soil / Nutrient Management group
+    "Nutrient Management": "soil",
+    "Soil Health Card": "soil",
+    "Soil NPK": "soil",
+    # Market group
+    "Market Prices": "market",
+}
+
+
+def _get_domain_group(domain: str) -> str:
+    """Map a scenario domain display label to its canonical domain_group."""
+    return _DOMAIN_GROUP_MAP.get(domain, "soil")  # safe default
+
+
+def _get_disclaimer_mode(scenario: Scenario) -> str:
+    """Derive the disclaimer_mode from scenario properties.
+
+    - GDB-backed scenarios with disclaimer_2hr_required: "required"
+    - Weather/Market (no GDB, no 2hr): "forbidden"
+    - General/non-agri: "optional"
+    """
+    if scenario.disclaimer_2hr_required:
+        return "required"
+    if "weather" in scenario.expected_tools or "market" in scenario.expected_tools:
+        return "forbidden"
+    return "optional"
+
+
+# Load multilingual query data artifact once at module load
+def _load_query_artifact() -> dict[str, dict[str, str]]:
+    """Load multilingual queries from the data artifact.
+
+    Returns a dict mapping scenario_id -> {lang_code -> query_text}.
+    Falls back gracefully if the artifact is missing.
+    """
+    if not _QUERIES_PATH.exists():
+        return {}
+    try:
+        payload = json.loads(_QUERIES_PATH.read_text(encoding="utf-8"))
+        result: dict[str, dict[str, str]] = {}
+        for entry in payload.get("scenarios", []):
+            sid = entry.get("id", "")
+            if sid:
+                result[sid] = dict(entry.get("queries", {}))
+        return result
+    except Exception:
+        return {}
+
+
+_QUERY_ARTIFACT: dict[str, dict[str, str]] = _load_query_artifact()
 
 
 def _make_case(scenario: Scenario, lang: LanguageRecord) -> MultilingualCase:
@@ -69,12 +137,27 @@ def _make_case(scenario: Scenario, lang: LanguageRecord) -> MultilingualCase:
         for t in scenario.terminology_seeds
     )
 
+    # Determine query source and text
+    artifact_queries = _QUERY_ARTIFACT.get(scenario.id, {})
+    if lang.code in artifact_queries and artifact_queries[lang.code]:
+        query = artifact_queries[lang.code]
+        query_translation_source = "data_artifact"
+    else:
+        query = scenario.query  # English fallback
+        query_translation_source = "en_fallback"
+
+    # Derive domain_group and disclaimer_mode
+    domain_group = _get_domain_group(scenario.domain)
+    disclaimer_mode = _get_disclaimer_mode(scenario)
+
     return MultilingualCase(
         case_id=case_id,
         scenario_id=scenario.id,
         language_code=lang.code,
         domain=scenario.domain,
-        query=scenario.query,
+        domain_group=domain_group,
+        query=query,
+        query_translation_source=query_translation_source,
         location=scenario.location,
         expected_script=lang.catalog_script,
         expected_vocal=lang.catalog_vocal,
@@ -82,12 +165,14 @@ def _make_case(scenario: Scenario, lang: LanguageRecord) -> MultilingualCase:
         expected_tools=scenario.expected_tools,
         expected_nodes=scenario.expected_nodes,
         expected_plan=scenario.expected_plan,
+        disclaimer_mode=disclaimer_mode,
         disclaimer_2hr_required=scenario.disclaimer_2hr_required,
         expected_testing_disclaimer=testing_disclaimer,
         expected_2hr_disclaimer=two_hr_disclaimer if scenario.disclaimer_2hr_required else "",
+        expected_gdb_no_match=False,
         terminology_assertions=term_assertions,
         stable=scenario.stable,
-        translation_review_status="pending",
+        translation_review_status="draft_pending_agri_validation",
         translation_reviewer=None,
         provenance={
             "schema_version": _SCHEMA_VERSION,
@@ -97,6 +182,7 @@ def _make_case(scenario: Scenario, lang: LanguageRecord) -> MultilingualCase:
             "catalog_script": lang.catalog_script,
             "catalog_vocal": lang.catalog_vocal,
         },
+        expected_gdb_id=None,  # Populated only when live GDB fingerprints are available
     )
 
 
@@ -153,7 +239,7 @@ if __name__ == "__main__":
     assert_case_count(cases)
     print(f"Generated {len(cases)} cases")
     for case in cases[:6]:
-        print(f"  {case.case_id}: {case.domain} | {case.expected_vocal} | "
+        print(f"  {case.case_id}: {case.domain} ({case.domain_group}) | {case.expected_vocal} | "
               f"stable={case.stable} | review={case.translation_review_status}")
     print("  ...")
     print(f"  {cases[-1].case_id}")

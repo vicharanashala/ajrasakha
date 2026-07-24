@@ -89,6 +89,8 @@ def validate_lang_switch(
             "lang_switch_detected": False,
             "lang_switch_ratio": 0.0,
             "lang_switch_reason": "",
+            "language_segment_switch_detected": False,
+            "language_segment_switch_reason": "",
         }
 
     if not text:
@@ -96,6 +98,8 @@ def validate_lang_switch(
             "lang_switch_detected": False,
             "lang_switch_ratio": 0.0,
             "lang_switch_reason": "response is empty — cannot evaluate",
+            "language_segment_switch_detected": False,
+            "language_segment_switch_reason": "",
         }
 
     # Check if the response even contains native script characters
@@ -108,26 +112,42 @@ def validate_lang_switch(
             "lang_switch_reason": (
                 "no native script detected — deferred to language_match validator"
             ),
+            "language_segment_switch_detected": False,
+            "language_segment_switch_reason": "",
         }
+
+    # Segment-level switch detection (paragraph/sentence level)
+    segment_switch_detected = False
+    segment_switch_reason = ""
+    if case.expected_vocal != "English" and text:
+        # Strip URLs before splitting into paragraphs/segments
+        text_no_urls = re.sub(r"https?://\S+|www\.\S+", "", text)
+        paragraphs = [p.strip() for p in re.split(r"\n+", text_no_urls) if p.strip()]
+        for para in paragraphs:
+            p_latin, p_total = _count_latin_tokens(para)
+            if p_total >= 4 and (p_latin / p_total) > 0.70:
+                segment_switch_detected = True
+                segment_switch_reason = f"Segment contains {p_latin}/{p_total} Latin tokens in non-English case"
+                break
 
     latin_count, total = _count_latin_tokens(text)
     ratio = latin_count / total if total > 0 else 0.0
+    token_switch_detected = ratio > threshold
 
-    if ratio > threshold:
-        return {
-            "lang_switch_detected": True,
-            "lang_switch_ratio": round(ratio, 3),
-            "lang_switch_reason": (
-                f"{latin_count}/{total} tokens ({ratio:.0%}) are unexpected Latin — "
-                f"possible mid-answer language switch (threshold={threshold:.0%})"
-            ),
-        }
+    reasons = []
+    if token_switch_detected:
+        reasons.append(f"{latin_count}/{total} tokens ({ratio:.0%}) are unexpected Latin")
+    if segment_switch_detected:
+        reasons.append(segment_switch_reason)
 
     return {
-        "lang_switch_detected": False,
+        "lang_switch_detected": token_switch_detected or segment_switch_detected,
         "lang_switch_ratio": round(ratio, 3),
-        "lang_switch_reason": "",
+        "lang_switch_reason": "; ".join(reasons),
+        "language_segment_switch_detected": segment_switch_detected,
+        "language_segment_switch_reason": segment_switch_reason,
     }
+
 
 
 def _native_script_pattern(catalog_script: str) -> str | None:

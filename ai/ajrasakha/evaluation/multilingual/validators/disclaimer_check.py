@@ -34,21 +34,43 @@ def validate_disclaimer(
     Returns a superset of evaluate_disclaimer_language's output, with an
     added top-level 'disclaimer_pass' bool that combines all conditions.
     """
-    # Build the legacy-dict format expected by evaluate_disclaimer_language
     result_dict = {"response_text": response_text}
     case_dict = case.to_legacy_dict()
-
     raw = evaluate_disclaimer_language(result_dict, case_dict)
 
     # Compute combined pass — all required checks must pass
     combined_pass = raw.get("disclaimer_language_pass", True)
 
+    # Check forbidden mode: if mode is forbidden, 2hr disclaimer MUST NOT be present
+    two_hr_forbidden_violated = False
+    if getattr(case, "disclaimer_mode", "") == "forbidden":
+        try:
+            from ajrasakha.agents.translation_catalog import get_two_hour_disclaimer
+            expected_2hr = get_two_hour_disclaimer(case.expected_catalog_script, case.expected_vocal)
+        except Exception as err:
+            return {
+                "disclaimer_pass": False,
+                "disclaimer_reason": f"ERROR: Translation catalog lookup failed: {err}",
+                "testing_disclaimer_required": False,
+                "testing_disclaimer_present": False,
+                "testing_disclaimer_at_bottom": False,
+                "two_hr_disclaimer_required": False,
+                "two_hr_disclaimer_present": False,
+                "two_hr_disclaimer_forbidden_violated": None,
+            }
+        if expected_2hr and expected_2hr.strip() and expected_2hr.strip() in response_text:
+            two_hr_forbidden_violated = True
+            combined_pass = False
+
     return {
         "disclaimer_pass": combined_pass,
-        "disclaimer_reason": raw.get("disclaimer_language_reason", ""),
+        "disclaimer_reason": "2-hour disclaimer forbidden but present" if two_hr_forbidden_violated else raw.get("disclaimer_language_reason", ""),
         "testing_disclaimer_required": raw.get("disclaimer_required", False),
         "testing_disclaimer_present": raw.get("testing_disclaimer_present", True),
         "testing_disclaimer_at_bottom": raw.get("testing_disclaimer_at_bottom", True),
         "two_hr_disclaimer_required": raw.get("two_hr_disclaimer_required", False),
         "two_hr_disclaimer_present": raw.get("two_hr_disclaimer_present", True),
+        "two_hr_disclaimer_forbidden_violated": two_hr_forbidden_violated,
     }
+
+

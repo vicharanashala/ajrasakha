@@ -1,7 +1,11 @@
 """Case schema for the AjraSakha Multilingual Testing Suite.
 
-Defines MultilingualCase (the unit of work) and CaseStatus (the result
-vocabulary). These are the stable identifiers referenced by every reporter.
+v2 — Step 007/008/010/011/012/013 additions
+- domain_group: "weather" | "pest" | "schemes" | "soil" | "market"
+- disclaimer_mode: "required" | "forbidden" | "optional"
+- query_translation_source: "data_artifact" | "en_fallback"
+- expected_gdb_no_match: bool — True for scenarios expected to return no GDB result
+- expected_gdb_id: Optional[str] = None — real GDB fingerprint when available (BLOCKED if None)
 """
 
 from __future__ import annotations
@@ -39,7 +43,9 @@ class MultilingualCase:
     scenario_id         Parent canonical scenario, e.g. "S01".
     language_code       Two-letter code, e.g. "HI", "KN", "EN".
     domain              Canonical domain from domains.py ALLOWED_DOMAINS.
+    domain_group        "weather" | "pest" | "schemes" | "soil" | "market"
     query               The query string sent to the agent (English for mock mode).
+    query_translation_source "data_artifact" | "en_fallback"
     location            Optional location dict passed to the agent.
     expected_script     Script name matching SCRIPT_PATTERNS keys.
     expected_vocal      Vocal language name matching translation catalog.
@@ -47,36 +53,44 @@ class MultilingualCase:
     expected_tools      Tool names the planner must invoke.
     expected_nodes      LangGraph node names expected in the trace.
     expected_plan       Dict of plan keys → expected values.
+    disclaimer_mode     "required" | "forbidden" | "optional"
     disclaimer_2hr_required  Whether a 2-hour disclaimer must appear.
     expected_testing_disclaimer  Exact string from catalog (populated at generation).
     expected_2hr_disclaimer      Exact string from catalog (populated at generation).
+    expected_gdb_no_match    True if GDB expected to return no result
     terminology_assertions  Agri terms to assert in response.
     stable              False if response contains live dynamic data (weather/market).
-    translation_review_status  "pending" until a human agri-team member validates.
+    translation_review_status  "draft_pending_agri_validation" until validated.
     translation_reviewer       Name/ID of human reviewer (null until validated).
     provenance          Metadata: how this case was generated.
+    expected_gdb_id     Real GDB fingerprint; None = BLOCKED (no fingerprint yet).
     """
 
     case_id: str
     scenario_id: str
     language_code: str
     domain: str
+    domain_group: str
     query: str
+    query_translation_source: str
     location: Optional[dict]
-    expected_script: str          # e.g. "Devanagari"
-    expected_vocal: str           # e.g. "Hindi"
-    expected_catalog_script: str  # catalog key script (e.g. "Devanagari")
+    expected_script: str
+    expected_vocal: str
+    expected_catalog_script: str
     expected_tools: tuple[str, ...]
     expected_nodes: tuple[str, ...]
     expected_plan: dict
+    disclaimer_mode: str
     disclaimer_2hr_required: bool
     expected_testing_disclaimer: str
     expected_2hr_disclaimer: str
+    expected_gdb_no_match: bool
     terminology_assertions: tuple[TerminologyAssertion, ...]
     stable: bool
-    translation_review_status: str  # "pending" | "approved" | "rejected"
-    translation_reviewer: Optional[str]
-    provenance: dict
+    translation_review_status: str = "draft_pending_agri_validation"
+    translation_reviewer: Optional[str] = None
+    provenance: dict = field(default_factory=dict)
+    expected_gdb_id: Optional[str] = None
 
     def to_legacy_dict(self) -> dict:
         """Convert to the dict format expected by the existing run_case() evaluators."""
@@ -130,6 +144,7 @@ class CaseResult:
     testing_disclaimer_present: Optional[bool] = None
     testing_disclaimer_at_bottom: Optional[bool] = None
     two_hr_disclaimer_present: Optional[bool] = None
+    two_hr_disclaimer_forbidden_violated: Optional[bool] = None
     disclaimer_pass: Optional[bool] = None
     disclaimer_reason: str = ""
 
@@ -146,7 +161,7 @@ class CaseResult:
     source_attribution_reason: str = ""
 
     # ── translation review ─────────────────────────────────────────────────
-    translation_review_status: str = "pending"
+    translation_review_status: str = "draft_pending_agri_validation"
 
     # ── raw response ───────────────────────────────────────────────────────
     response_text: str = ""

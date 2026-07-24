@@ -27,7 +27,8 @@ class Scenario:
     """Canonical farming scenario — language-agnostic seed record."""
     id: str                     # e.g. "S01"
     name: str                   # snake_case identifier
-    domain: str                 # Canonical domain from agents/domains.py
+    domain: str                 # Human-readable domain label
+    domain_group: str           # Canonical group: weather|pest|schemes|soil|market
     query: str                  # English query text
     location: Optional[dict]    # {city, state} or None
     expected_tools: tuple[str, ...]
@@ -38,12 +39,16 @@ class Scenario:
     stable: bool                # False = live dynamic data involved
 
 
+# Canonical domain_group values for the 5 taxonomy buckets
+_VALID_DOMAIN_GROUPS = frozenset({"weather", "pest", "schemes", "soil", "market"})
+
 SCENARIOS: list[Scenario] = [
     # ── Cultural Practices ─────────────────────────────────────────────────
     Scenario(
         id="S01",
         name="paddy_cultural_practices",
-        domain="Cultural Practices",
+        domain="soil",
+        domain_group="soil",
         query="How do I grow paddy in Punjab? What are the main cultivation steps?",
         location={"city": "Ropar", "state": "Punjab"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -58,7 +63,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S02",
         name="wheat_pest_yellow_rust",
-        domain="Plant Protection",
+        domain="pest",
+        domain_group="pest",
         query="How do I treat yellow rust disease in wheat in Haryana?",
         location={"city": "Karnal", "state": "Haryana"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -73,7 +79,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S03",
         name="rice_nutrient_mgmt",
-        domain="Nutrient Management",
+        domain="soil",
+        domain_group="soil",
         query="What is the recommended fertilizer dose for rice in Andhra Pradesh?",
         location={"city": "Guntur", "state": "Andhra Pradesh"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -88,7 +95,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S04",
         name="cotton_variety_selection",
-        domain="Varieties",
+        domain="market",
+        domain_group="market",
         query="Which cotton varieties are best suited for Maharashtra?",
         location={"city": "Nagpur", "state": "Maharashtra"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -103,7 +111,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S05",
         name="sugarcane_water_mgmt",
-        domain="Water Management",
+        domain="soil",
+        domain_group="soil",
         query="What is the irrigation schedule for sugarcane in Tamil Nadu?",
         location={"city": "Coimbatore", "state": "Tamil Nadu"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -118,7 +127,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S06",
         name="tomato_organic_farming",
-        domain="Organic Farming",
+        domain="pest",
+        domain_group="pest",
         query="How to grow tomatoes using organic methods in Karnataka?",
         location={"city": "Mysuru", "state": "Karnataka"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -133,7 +143,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S07",
         name="mustard_seed_treatment",
-        domain="Seeds",
+        domain="market",
+        domain_group="market",
         query="What is the seed treatment procedure for mustard in Rajasthan?",
         location={"city": "Jaipur", "state": "Rajasthan"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -148,7 +159,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S08",
         name="mango_postharvest",
-        domain="Post Harvest Preservation",
+        domain="market",
+        domain_group="market",
         query="How do I store mangoes after harvest to keep them fresh longer?",
         location={"city": "Guntur", "state": "Andhra Pradesh"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -163,7 +175,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S09",
         name="banana_field_prep",
-        domain="Field Preparation",
+        domain="soil",
+        domain_group="soil",
         query="How should I prepare the field before planting banana in Tamil Nadu?",
         location={"city": "Trichy", "state": "Tamil Nadu"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -178,7 +191,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S10",
         name="maize_weed_mgmt",
-        domain="Weed Management",
+        domain="pest",
+        domain_group="pest",
         query="What are the best methods for weed control in maize in Madhya Pradesh?",
         location={"city": "Indore", "state": "Madhya Pradesh"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -193,7 +207,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S11",
         name="wheat_market_price",
-        domain="Market Prices",
+        domain="market",
+        domain_group="market",
         query="What is the price of wheat in Sirsa mandi, Haryana today?",
         location={"city": "Sirsa", "state": "Haryana"},
         expected_tools=("upload_question_to_reviewer_system", "market"),
@@ -206,7 +221,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S12",
         name="paddy_market_karnal",
-        domain="Market Prices",
+        domain="market",
+        domain_group="market",
         query="What is the current price of paddy in Karnal mandi, Haryana?",
         location={"city": "Karnal", "state": "Haryana"},
         expected_tools=("upload_question_to_reviewer_system", "market"),
@@ -220,7 +236,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S13",
         name="drip_irrigation_scheme",
-        domain="Government Schemes",
+        domain="schemes",
+        domain_group="schemes",
         query="How can I get a government subsidy for drip irrigation in Rajasthan?",
         location={"city": "Jaipur", "state": "Rajasthan"},
         expected_tools=("upload_question_to_reviewer_system", "schemes"),
@@ -233,7 +250,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S14",
         name="pm_kisan_scheme",
-        domain="Government Schemes",
+        domain="schemes",
+        domain_group="schemes",
         query="What is the PM-Kisan scheme and how do I register for it in Punjab?",
         location={"city": "Ludhiana", "state": "Punjab"},
         expected_tools=("upload_question_to_reviewer_system", "schemes"),
@@ -247,7 +265,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S15",
         name="soil_npk_paddy",
-        domain="Nutrient Management",
+        domain="soil",
+        domain_group="soil",
         query="My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",
         location={"city": "Ropar", "state": "Punjab"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -262,7 +281,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S16",
         name="weather_today_ropar",
-        domain="Weather",
+        domain="weather",
+        domain_group="weather",
         query="What is the weather today in Ropar district of Punjab?",
         location={"city": "Ropar", "state": "Punjab"},
         expected_tools=("upload_question_to_reviewer_system", "weather"),
@@ -275,7 +295,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S17",
         name="weather_forecast_ludhiana",
-        domain="Weather",
+        domain="weather",
+        domain_group="weather",
         query="What is the weather forecast for Ludhiana, Punjab for the next few days?",
         location={"city": "Ludhiana", "state": "Punjab"},
         expected_tools=("upload_question_to_reviewer_system", "weather"),
@@ -289,7 +310,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S18",
         name="non_agri_quick_money",
-        domain="General",
+        domain="schemes",
+        domain_group="schemes",  # Best-fit: non-agri queries → schemes bucket
         query="How can I make money quickly?",
         location={"city": "Ropar", "state": "Punjab"},
         expected_tools=("upload_question_to_reviewer_system",),
@@ -302,7 +324,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S19",
         name="greeting_hello",
-        domain="General",
+        domain="schemes",
+        domain_group="schemes",  # Best-fit: non-agri/greeting → schemes bucket
         query="Hello, who are you?",
         location=None,
         expected_tools=(),
@@ -316,7 +339,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S20",
         name="crop_insurance_wheat",
-        domain="Crop Insurance",
+        domain="schemes",
+        domain_group="schemes",
         query="How do I enroll my wheat crop in crop insurance in Haryana?",
         location={"city": "Karnal", "state": "Haryana"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -331,7 +355,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S21",
         name="bio_pesticide_cotton",
-        domain="Bio-Pesticides and Bio-Fertilizers",
+        domain="pest",
+        domain_group="pest",
         query="What bio-pesticides can I use for bollworm control in cotton in Maharashtra?",
         location={"city": "Nagpur", "state": "Maharashtra"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -346,7 +371,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S22",
         name="agri_mech_tractor",
-        domain="Agriculture Mechanization",
+        domain="market",
+        domain_group="market",
         query="Which tractor is best for small farms in Uttar Pradesh?",
         location={"city": "Lucknow", "state": "Uttar Pradesh"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -361,7 +387,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S23",
         name="horticulture_apple",
-        domain="Horticulture & Allied Agriculture",
+        domain="weather",
+        domain_group="weather",
         query="What are the recommended practices for apple cultivation in Himachal Pradesh?",
         location={"city": "Shimla", "state": "Himachal Pradesh"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -376,7 +403,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S24",
         name="sowing_time_wheat",
-        domain="Sowing Time and Weather",
+        domain="weather",
+        domain_group="weather",
         query="What is the best sowing time for wheat in Punjab?",
         location={"city": "Ludhiana", "state": "Punjab"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -391,7 +419,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S25",
         name="fertilizer_urea_paddy",
-        domain="Fertilizer Use and Availability",
+        domain="pest",
+        domain_group="pest",
         query="How should I apply urea fertilizer to paddy crop in West Bengal?",
         location={"city": "Kolkata", "state": "West Bengal"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -406,7 +435,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S26",
         name="storage_wheat_grains",
-        domain="Storage",
+        domain="weather",
+        domain_group="weather",
         query="How do I properly store wheat grains to prevent pest damage?",
         location={"city": "Sirsa", "state": "Haryana"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -421,7 +451,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S27",
         name="soil_health_card",
-        domain="Soil Health Card",
+        domain="soil",
+        domain_group="soil",
         query="How do I apply for a soil health card in Karnataka?",
         location={"city": "Bengaluru", "state": "Karnataka"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -435,7 +466,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S28",
         name="livestock_goat_feeding",
-        domain="Livestock & Animal Husbandry",
+        domain="schemes",
+        domain_group="schemes",
         query="What is the recommended feeding schedule for goats in Rajasthan?",
         location={"city": "Jaipur", "state": "Rajasthan"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -449,7 +481,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S29",
         name="fisheries_pond_mgmt",
-        domain="Fisheries & Aquaculture",
+        domain="weather",
+        domain_group="weather",
         query="How do I manage a fish pond for rohu and catla in Andhra Pradesh?",
         location={"city": "Vijayawada", "state": "Andhra Pradesh"},
         expected_tools=("upload_question_to_reviewer_system", "gdb"),
@@ -463,7 +496,8 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         id="S30",
         name="multi_tool_weather_pest",
-        domain="Plant Protection",
+        domain="pest",
+        domain_group="pest",
         query="What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?",
         location={"city": "Ludhiana", "state": "Punjab"},
         expected_tools=("upload_question_to_reviewer_system", "weather", "gdb"),
@@ -484,3 +518,29 @@ SCENARIO_BY_ID: dict[str, Scenario] = {s.id: s for s in SCENARIOS}
 
 assert len(SCENARIOS) == 30, f"Expected 30 scenarios, got {len(SCENARIOS)}"
 assert len(SCENARIO_BY_ID) == 30, "Duplicate scenario IDs detected"
+
+
+def assert_domain_distribution(
+    scenarios: list[Scenario] | None = None,
+) -> None:
+    """Assert that SCENARIOS contains exactly 6 scenarios per domain_group.
+
+    This guard fires at module load and during CI to prevent silent
+    domain coverage drift. If domain counts go out of balance, the test
+    suite fails loudly here rather than silently producing biased matrix results.
+
+    Parameters
+    ----------
+    scenarios
+        If provided, validates this list instead of the global SCENARIOS.
+        Useful for testing: pass a partial list to verify the guard fires.
+    """
+    import collections
+    target = scenarios if scenarios is not None else SCENARIOS
+    counts = collections.Counter(s.domain_group for s in target)
+    for group in _VALID_DOMAIN_GROUPS:
+        actual = counts.get(group, 0)
+        assert actual == 6, (
+            f"Domain distribution error: domain_group='{group}' has {actual} scenarios, "
+            f"expected exactly 6 (counts: {dict(counts)})"
+        )

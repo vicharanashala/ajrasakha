@@ -146,13 +146,33 @@ def matrix_summary(matrix: dict[str, dict[str, str]]) -> dict:
 def write_matrix_csv(
     matrix: dict[str, dict[str, str]],
     output_path: Path,
+    results: Optional[list[CaseResult]] = None,
 ) -> None:
-    """Write the Language Quality Matrix to a CSV file."""
+    """Write the Language Quality Matrix to a CSV file.
+
+    Includes per-metric pass rate columns (language, disclaimer, lang_switch,
+    terminology, GDB retrieval, DeepEval) when results list is supplied.
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Header: scenario_id, scenario_name, domain, EN, HI, KN, TA, PA, TE
+    # Index results per scenario if available
+    scenario_results: dict[str, list[CaseResult]] = {}
+    if results:
+        for r in results:
+            scenario_results.setdefault(r.case.scenario_id, []).append(r)
+
+    metric_cols = [
+        "language_pass_rate",
+        "disclaimer_pass_rate",
+        "lang_switch_pass_rate",
+        "terminology_pass_rate",
+        "gdb_pass_rate",
+        "deepeval_pass_rate",
+    ]
+
+    # Header: scenario_id, scenario_name, domain, EN, HI, KN, TA, PA, TE (+ metrics if results present)
     scenario_meta = {s.id: (s.name, s.domain) for s in SCENARIOS}
-    headers = ["scenario_id", "scenario_name", "domain"] + _LANG_CODES
+    headers = ["scenario_id", "scenario_name", "domain"] + _LANG_CODES + (metric_cols if results else [])
 
     with output_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=headers)
@@ -165,6 +185,22 @@ def write_matrix_csv(
                 "domain": domain,
             }
             row.update(lang_row)
+
+            if results:
+                c_list = scenario_results.get(scenario_id, [])
+                n = len(c_list)
+                if n > 0:
+                    row["language_pass_rate"] = f"{sum(1 for r in c_list if r.language_pass is True) / n:.1%}"
+                    row["disclaimer_pass_rate"] = f"{sum(1 for r in c_list if r.disclaimer_pass is True) / n:.1%}"
+                    row["lang_switch_pass_rate"] = f"{sum(1 for r in c_list if r.lang_switch_detected is False and r.language_segment_switch_detected is False) / n:.1%}"
+                    row["terminology_pass_rate"] = f"{sum(1 for r in c_list if r.terminology_pass is True) / n:.1%}"
+                    row["gdb_pass_rate"] = f"{sum(1 for r in c_list if r.gdb_retrieval_status == 'PASS') / n:.1%}"
+                    row["deepeval_pass_rate"] = f"{sum(1 for r in c_list if r.deepeval_status == 'PASS') / n:.1%}"
+                else:
+                    for col in metric_cols:
+                        row[col] = "0.0%"
+
             writer.writerow(row)
 
     print(f"Language Quality Matrix written to: {output_path.resolve()}")
+

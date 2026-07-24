@@ -45,3 +45,17 @@ backend_routes.txt
 endpoints.txt
 .clinerules/
 
+# Debug and scaffold script patterns
+fix_*.py
+update_*.py
+rebuild_*.py
+check_*.py
+append_*.py
+quick_fix.py
+skip_last.py
+fill_translations.py
+
+# Multilingual report output directories
+multilingual_reports/
+ai/multilingual_reports/
+

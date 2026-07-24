@@ -270,7 +270,7 @@ def main() -> int:
     matrix = build_matrix(results)
     summary = matrix_summary(matrix)
     matrix_path = out_dir / f"multilingual_matrix_{args.mode}_{ts}.csv"
-    write_matrix_csv(matrix, matrix_path)
+    write_matrix_csv(matrix, matrix_path, results=results)
 
     # Recommendations
     recs = generate_recommendations(results, summary)
