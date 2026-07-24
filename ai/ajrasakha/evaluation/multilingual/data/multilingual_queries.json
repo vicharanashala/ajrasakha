@@ -1,0 +1,589 @@
+{
+  "schema_version": 1,
+  "description": "Multilingual query translations for AjraSakha test suite. All non-English entries are draft translations pending formal agri-team review and approval.",
+  "languages": [
+    "EN",
+    "HI",
+    "KN",
+    "TA",
+    "PA",
+    "TE"
+  ],
+  "translation_review_status_vocab": {
+    "draft_pending_agri_validation": "Draft machine-assisted translation — not yet reviewed by agri team",
+    "approved": "Reviewed and approved by agri team",
+    "rejected": "Rejected — do not use"
+  },
+  "scenarios": [
+    {
+      "id": "S01",
+      "name": "weather_today_ropar",
+      "domain": "Weather",
+      "domain_group": "weather",
+      "source_query_en": "What is the weather today in Ropar district of Punjab?",
+      "queries": {
+        "EN": "What is the weather today in Ropar district of Punjab?",
+        "HI": "पंजाब के रोपड़ जिले में आज का मौसम कैसा है?",
+        "KN": "ಪಂಜಾಬ್‌ನ ರೋಪರ್ ಜಿಲ್ಲೆಯಲ್ಲಿ ಇಂದು ಹವಾಮಾನ ಹೇಗಿದೆ?",
+        "TA": "பஞ்சாபின் ரோபர் மாவட்டத்தில் இன்று வானிலை எப்படி உள்ளது?",
+        "PA": "ਪੰਜਾਬ ਦੇ ਰੋਪੜ ਜ਼ਿਲ੍ਹੇ ਵਿੱਚ ਅੱਜ ਮੌਸਮ ਕਿਹੋ ਜਿਹਾ ਹੈ?",
+        "TE": "పంజాబ్‌లోని రోపర్ జిల్లాలో ఈరోజు వాతావరణం ఎలా ఉంది?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S02",
+      "name": "weather_forecast_ludhiana",
+      "domain": "Weather",
+      "domain_group": "weather",
+      "source_query_en": "What is the 5-day weather forecast for Ludhiana, Punjab?",
+      "queries": {
+        "EN": "What is the 5-day weather forecast for Ludhiana, Punjab?",
+        "HI": "लुधियाना, पंजाब के लिए 5-दिन का मौसम पूर्वानुमान क्या है?",
+        "KN": "ಲುಧಿಯಾನಾ, ಪಂಜಾಬ್‌ಗೆ 5-ದಿನದ ಹವಾಮಾನ ಮುನ್ಸೂಚನೆ ಏನು?",
+        "TA": "லூதியானா, பஞ்சாபிற்கான 5 நாள் வானிலை முன்னறிவிப்பு என்ன?",
+        "PA": "ਲੁਧਿਆਣਾ, ਪੰਜਾਬ ਲਈ 5-ਦਿਨਾਂ ਦੇ ਮੌਸਮ ਦੀ ਭਵਿੱਖਬਾਣੀ ਕੀ ਹੈ?",
+        "TE": "లూధియానా, పంజాబ్ కోసం 5-రోజుల వాతావరణ సూచన ఏమిటి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S03",
+      "name": "sowing_time_wheat_weather",
+      "domain": "Sowing Time and Weather",
+      "domain_group": "weather",
+      "source_query_en": "What is the best sowing time for wheat in Punjab and what weather should I expect?",
+      "queries": {
+        "EN": "What is the best sowing time for wheat in Punjab and what weather should I expect?",
+        "HI": "पंजाब में गेहूं बोने का सबसे अच्छा समय क्या है और मुझे किस मौसम की उम्मीद करनी चाहिए?",
+        "KN": "ಪಂಜಾಬ್‌ನಲ್ಲಿ ಗೋಧಿ ಬಿತ್ತನೆಗೆ ಉತ್ತಮ ಸಮಯ ಯಾವುದು ಮತ್ತು ನಾನು ಯಾವ ಹವಾಮಾನವನ್ನು ನಿರೀಕ್ಷಿಸಬೇಕು?",
+        "TA": "பஞ்சாபில் கோதுமை விதைப்பதற்கான சிறந்த நேரம் எது மற்றும் நான் எந்த வானிலையை எதிர்பார்க்க வேண்டும்?",
+        "PA": "ਪੰਜਾਬ ਵਿੱਚ ਕਣਕ ਦੀ ਬਿਜਾਈ ਲਈ ਸਭ ਤੋਂ ਵਧੀਆ ਸਮਾਂ ਕਿਹੜਾ ਹੈ ਅਤੇ ਮੈਨੂੰ ਕਿਹੋ ਜਿਹੇ ਮੌਸਮ ਦੀ ਉਮੀਦ ਕਰਨੀ ਚਾਹੀਦੀ ਹੈ?",
+        "TE": "పంజాబ్‌లో గోధుమ విత్తడానికి ఉత్తమ సమయం ఏది మరియు నేను ఏ వాతావరణాన్ని ఆశించాలి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S04",
+      "name": "heatwave_advisory_cotton",
+      "domain": "Weather",
+      "domain_group": "weather",
+      "source_query_en": "Is there a heatwave warning in Nagpur Maharashtra? How should I protect my cotton?",
+      "queries": {
+        "EN": "Is there a heatwave warning in Nagpur Maharashtra? How should I protect my cotton?",
+        "HI": "क्या नागपुर महाराष्ट्र में हीटवेव की चेतावनी है? मुझे अपनी कपास की रक्षा कैसे करनी चाहिए?",
+        "KN": "ನಾಗ್ಪುರ ಮಹಾರಾಷ್ಟ್ರದಲ್ಲಿ ಶಾಖದ ಅಲೆಯ ಎಚ್ಚರಿಕೆ ಇದೆಯೇ? ನನ್ನ ಹತ್ತಿಯನ್ನು ನಾನು ಹೇಗೆ ರಕ್ಷಿಸಬೇಕು?",
+        "TA": "நாக்பூர் மகாராஷ்டிராவில் வெப்ப அலை எச்சரிக்கை உள்ளதா? எனது பருத்தியை நான் எவ்வாறு பாதுகாக்க வேண்டும்?",
+        "PA": "ਕੀ ਨਾਗਪੁਰ ਮਹਾਰਾਸ਼ਟਰ ਵਿੱਚ ਹੀਟਵੇਵ ਦੀ ਚਿਤਾਵਨੀ ਹੈ? ਮੈਨੂੰ ਆਪਣੀ ਕਪਾਹ ਦੀ ਰੱਖਿਆ ਕਿਵੇਂ ਕਰਨੀ ਚਾਹੀਦੀ ਹੈ?",
+        "TE": "నాగ్‌పూర్ మహారాష్ట్రలో వడగాల్పుల హెచ్చరిక ఉందా? నేను నా పత్తిని ఎలా రక్షించుకోవాలి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S05",
+      "name": "rainfall_paddy_season_karnataka",
+      "domain": "Weather",
+      "domain_group": "weather",
+      "source_query_en": "Will there be enough rainfall for paddy this kharif season in Mysuru Karnataka?",
+      "queries": {
+        "EN": "Will there be enough rainfall for paddy this kharif season in Mysuru Karnataka?",
+        "HI": "क्या मैसूर कर्नाटक में इस खरीफ मौसम में धान के लिए पर्याप्त बारिश होगी?",
+        "KN": "ಮೈಸೂರು ಕರ್ನಾಟಕದಲ್ಲಿ ಈ ಖಾರಿಫ್ ಋತುವಿನಲ್ಲಿ ಭತ್ತಕ್ಕೆ ಸಾಕಷ್ಟು ಮಳೆಯಾಗುತ್ತದೆಯೇ?",
+        "TA": "மைசூர் கர்நாடகாவில் இந்த காரீப் பருவத்தில் நெல்லுக்கு போதுமான மழை பெய்யுமா?",
+        "PA": "ਕੀ ਮੈਸੂਰ ਕਰਨਾਟਕ ਵਿੱਚ ਇਸ ਸਾਉਣੀ ਰੁੱਤ ਵਿੱਚ ਝੋਨੇ ਲਈ ਕਾਫ਼ੀ ਮੀਂਹ ਪਵੇਗਾ?",
+        "TE": "మైసూర్ కర్ణాటకలో ఈ ఖరీఫ్ సీజన్‌లో వరికి తగినంత వర్షం పడుతుందా?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S06",
+      "name": "weather_unavailable_no_match",
+      "domain": "Weather",
+      "domain_group": "weather",
+      "source_query_en": "What is the weather in ZZZ-invalid-place?",
+      "queries": {
+        "EN": "What is the weather in ZZZ-invalid-place?",
+        "HI": "ZZZ-अमान्य-स्थान में मौसम कैसा है?",
+        "KN": "ZZZ-ಅಮಾನ್ಯ-ಸ್ಥಳದಲ್ಲಿ ಹವಾಮಾನ ಹೇಗಿದೆ?",
+        "TA": "ZZZ-தவறான-இடத்தில் வானிலை எப்படி உள்ளது?",
+        "PA": "ZZZ-ਗਲਤ-ਥਾਂ ਵਿੱਚ ਮੌਸਮ ਕਿਹੋ ਜਿਹਾ ਹੈ?",
+        "TE": "ZZZ-చెల్లని-ప్రదేశంలో వాతావరణం ఎలా ఉంది?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "No-match test scenario. ZZZ prefix intentionally preserved across languages."
+    },
+    {
+      "id": "S07",
+      "name": "wheat_yellow_rust",
+      "domain": "Plant Protection",
+      "domain_group": "pest",
+      "source_query_en": "How do I treat yellow rust disease in wheat in Haryana?",
+      "queries": {
+        "EN": "How do I treat yellow rust disease in wheat in Haryana?",
+        "HI": "मैं हरियाणा में गेहूं में पीला रतुआ रोग का इलाज कैसे करूं?",
+        "KN": "ಹರಿಯಾಣದಲ್ಲಿ ಗೋಧಿಯಲ್ಲಿ ಹಳದಿ ತುಕ್ಕು ರೋಗವನ್ನು ನಾನು ಹೇಗೆ ಚಿಕಿತ್ಸೆ ನೀಡಬೇಕು?",
+        "TA": "அரியானாவில் கோதுமையில் மஞ்சள் துரு நோய்க்கு நான் எவ்வாறு சிகிச்சை அளிப்பது?",
+        "PA": "ਮੈਂ ਹਰਿਆਣਾ ਵਿੱਚ ਕਣਕ ਵਿੱਚ ਪੀਲੀ ਕੁੰਗੀ ਦੀ ਬਿਮਾਰੀ ਦਾ ਇਲਾਜ ਕਿਵੇਂ ਕਰਾਂ?",
+        "TE": "హర్యానాలో గోధుమలలో పసుపు తుప్పు వ్యాధికి నేను ఎలా చికిత్స చేయాలి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S08",
+      "name": "cotton_bollworm_bio_pesticide",
+      "domain": "Bio-Pesticides and Bio-Fertilizers",
+      "domain_group": "pest",
+      "source_query_en": "What bio-pesticides can I use for bollworm control in cotton in Maharashtra?",
+      "queries": {
+        "EN": "What bio-pesticides can I use for bollworm control in cotton in Maharashtra?",
+        "HI": "मैं महाराष्ट्र में कपास में बॉलवर्म नियंत्रण के लिए किन जैव-कीटनाशकों का उपयोग कर सकता हूं?",
+        "KN": "ಮಹಾರಾಷ್ಟ್ರದಲ್ಲಿ ಹತ್ತಿಯಲ್ಲಿ ಕಾಯಿಕೊರಕ ನಿಯಂತ್ರಣಕ್ಕೆ ನಾನು ಯಾವ ಜೈವಿಕ ಕೀಟನಾಶಕಗಳನ್ನು ಬಳಸಬಹುದು?",
+        "TA": "மகாராஷ்டிராவில் பருத்தியில் காய்ப்புழு கட்டுப்பாட்டுக்கு நான் எந்த உயிர் பூச்சிக்கொல்லிகளைப் பயன்படுத்தலாம்?",
+        "PA": "ਮੈਂ ਮਹਾਰਾਸ਼ਟਰ ਵਿੱਚ ਕਪਾਹ ਵਿੱਚ ਬੋਲਵਰਮ ਦੇ ਨਿਯੰਤਰਣ ਲਈ ਕਿਹੜੇ ਜੈਵਿਕ ਕੀਟਨਾਸ਼ਕਾਂ ਦੀ ਵਰਤੋਂ ਕਰ ਸਕਦਾ ਹਾਂ?",
+        "TE": "మహారాష్ట్రలో పత్తిలో కాయతొలుచు పురుగు నివారణకు నేను ఏ జీవ-పురుగుమందులను ఉపయోగించగలను?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S09",
+      "name": "maize_armyworm_control",
+      "domain": "Plant Protection",
+      "domain_group": "pest",
+      "source_query_en": "How do I control fall armyworm in maize in Karnataka?",
+      "queries": {
+        "EN": "How do I control fall armyworm in maize in Karnataka?",
+        "HI": "मैं कर्नाटक में मक्का में फॉल आर्मीवर्म को कैसे नियंत्रित करूं?",
+        "KN": "ಕರ್ನಾಟಕದಲ್ಲಿ ಮೆಕ್ಕೆಜೋಳದಲ್ಲಿ ಫಾಲ್ ಆರ್ಮಿವರ್ಮ್ ಅನ್ನು ನಾನು ಹೇಗೆ ನಿಯಂತ್ರಿಸಬೇಕು?",
+        "TA": "கர்நாடகாவில் மக்காச்சோளத்தில் ஃபால் ஆர்மிவர்ம் எனப்படும் படைப்புழுவை நான் எவ்வாறு கட்டுப்படுத்துவது?",
+        "PA": "ਮੈਂ ਕਰਨਾਟਕ ਵਿੱਚ ਮੱਕੀ ਵਿੱਚ ਫਾਲ ਆਰਮੀਵਰਮ ਨੂੰ ਕਿਵੇਂ ਕੰਟਰੋਲ ਕਰਾਂ?",
+        "TE": "కర్ణాటకలో మొక్కజొన్నలో ఫాల్ ఆర్మీవార్మ్ (కత్తెర పురుగు)ను నేను ఎలా నియంత్రించాలి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S10",
+      "name": "rice_blast_fungal",
+      "domain": "Plant Protection",
+      "domain_group": "pest",
+      "source_query_en": "My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?",
+      "queries": {
+        "EN": "My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?",
+        "HI": "मेरे धान के पत्तों पर भूरे धब्बे हैं — लगता है यह ब्लास्ट रोग है। तमिलनाडु में मुझे क्या करना चाहिए?",
+        "KN": "ನನ್ನ ಭತ್ತದ ಎಲೆಗಳ ಮೇಲೆ ಕಂದು ಚುಕ್ಕೆಗಳಿವೆ — ಇದು ಬ್ಲಾಸ್ಟ್ ರೋಗದಂತೆ ಕಾಣುತ್ತದೆ. ತಮಿಳುನಾಡಿನಲ್ಲಿ ನಾನು ಏನು ಮಾಡಬೇಕು?",
+        "TA": "என் நெற்பயிர் இலைகளில் பழுப்பு நிற புள்ளிகள் உள்ளன — இது கருகல் நோயாக தெரிகிறது. தமிழ்நாட்டில் நான் என்ன செய்ய வேண்டும்?",
+        "PA": "ਮੇਰੇ ਝੋਨੇ ਦੇ ਪੱਤਿਆਂ ਉੱਤੇ ਭੂਰੇ ਧੱਬੇ ਹਨ — ਲੱਗਦਾ ਹੈ ਇਹ ਝੁਲਸ ਰੋਗ ਹੈ। ਤਾਮਿਲਨਾਡੂ ਵਿੱਚ ਮੈਨੂੰ ਕੀ ਕਰਨਾ ਚਾਹੀਦਾ ਹੈ?",
+        "TE": "నా వరి ఆకులపై గోధుమ రంగు మచ్చలు ఉన్నాయి — బ్లాస్ట్ వ్యాధిలా కనిపిస్తుంది. తమిళనాడులో నేను ఏమి చేయాలి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S11",
+      "name": "whitefly_chilli_andhra",
+      "domain": "Plant Protection",
+      "domain_group": "pest",
+      "source_query_en": "Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?",
+      "queries": {
+        "EN": "Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?",
+        "HI": "गुंटूर में सफेद मक्खी मेरी मिर्च की फसल पर हमला कर रही है। मुझे कौन सा कीटनाशक उपयोग करना चाहिए?",
+        "KN": "ಗುಂಟೂರಿನಲ್ಲಿ ಬಿಳಿ ನೊಣ ನನ್ನ ಮೆಣಸಿನ ಬೆಳೆಯ ಮೇಲೆ ದಾಳಿ ಮಾಡುತ್ತಿದೆ. ನಾನು ಯಾವ ಕೀಟನಾಶಕ ಬಳಸಬೇಕು?",
+        "TA": "குண்டூரில் வெள்ளை ஈ என் மிளகாய் பயிரை தாக்குகிறது. நான் என்ன பூச்சிக்கொல்லி பயன்படுத்த வேண்டும்?",
+        "PA": "ਗੁੰਟੂਰ ਵਿੱਚ ਚਿੱਟੀ ਮੱਖੀ ਮੇਰੀ ਮਿਰਚ ਦੀ ਫਸਲ ਉੱਤੇ ਹਮਲਾ ਕਰ ਰਹੀ ਹੈ। ਮੈਨੂੰ ਕਿਹੜਾ ਕੀਟਨਾਸ਼ਕ ਵਰਤਣਾ ਚਾਹੀਦਾ ਹੈ?",
+        "TE": "గుంటూరులో నా మిర్చి పంటను తెల్ల దోమ ఆక్రమిస్తోంది. నేను ఏ పురుగుమందు ఉపయోగించాలి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S12",
+      "name": "pest_no_match_exotic_crop",
+      "domain": "Plant Protection",
+      "domain_group": "pest",
+      "source_query_en": "How do I treat thrips on dragon fruit in Rajasthan?",
+      "queries": {
+        "EN": "How do I treat thrips on dragon fruit in Rajasthan?",
+        "HI": "राजस्थान में ड्रैगन फ्रूट पर थ्रिप्स का इलाज कैसे करें?",
+        "KN": "ರಾಜಸ್ಥಾನದಲ್ಲಿ ಡ್ರ್ಯಾಗನ್ ಫ್ರೂಟ್ ಮೇಲೆ ಥ್ರಿಪ್ಸ್ ಅನ್ನು ಹೇಗೆ ಚಿಕಿತ್ಸೆ ನೀಡಬೇಕು?",
+        "TA": "ராஜஸ்தானில் டிராகன் பழத்தில் உள்ள த்ரிப்ஸ் பூச்சிகளை எவ்வாறு சிகிச்சையளிப்பது?",
+        "PA": "ਰਾਜਸਥਾਨ ਵਿੱਚ ਡਰੈਗਨ ਫਰੂਟ ਉੱਤੇ ਥਰਿੱਪਸ ਦਾ ਇਲਾਜ ਕਿਵੇਂ ਕਰੀਏ?",
+        "TE": "రాజస్థాన్‌లో డ్రాగన్ ఫ్రూట్‌పై థ్రిప్స్‌కు ఎలా చికిత్స చేయాలి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "No-match test — dragon fruit not in GDB. Draft translations pending agri-team review."
+    },
+    {
+      "id": "S13",
+      "name": "pm_kisan_registration",
+      "domain": "Government Schemes",
+      "domain_group": "schemes",
+      "source_query_en": "What is the PM-Kisan scheme and how do I register for it in Punjab?",
+      "queries": {
+        "EN": "What is the PM-Kisan scheme and how do I register for it in Punjab?",
+        "HI": "पीएम-किसान योजना क्या है और मैं पंजाब में इसके लिए पंजीकरण कैसे करूं?",
+        "KN": "ಪಿಎಂ-ಕಿಸಾನ್ ಯೋಜನೆ ಏನು ಮತ್ತು ನಾನು ಪಂಜಾಬ್‌ನಲ್ಲಿ ಅದಕ್ಕಾಗಿ ನೋಂದಣಿ ಹೇಗೆ ಮಾಡಿಕೊಳ್ಳಬೇಕು?",
+        "TA": "பிரதமர் கிசான் திட்டம் என்ன மற்றும் பஞ்சாபில் அதற்கு நான் எவ்வாறு பதிவு செய்வது?",
+        "PA": "ਪੀਐਮ-ਕਿਸਾਨ ਯੋਜਨਾ ਕੀ ਹੈ ਅਤੇ ਮੈਂ ਪੰਜਾਬ ਵਿੱਚ ਇਸ ਲਈ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਕਿਵੇਂ ਕਰਾਂ?",
+        "TE": "పిఎం-కిసాన్ పథకం అంటే ఏమిటి మరియు పంజాబ్‌లో దాని కోసం నేను ఎలా నమోదు చేసుకోవాలి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S14",
+      "name": "drip_irrigation_subsidy",
+      "domain": "Government Schemes",
+      "domain_group": "schemes",
+      "source_query_en": "How can I get a government subsidy for drip irrigation in Rajasthan?",
+      "queries": {
+        "EN": "How can I get a government subsidy for drip irrigation in Rajasthan?",
+        "HI": "तेलंगाना में ड्रिप सिंचाई प्रणाली स्थापित करने के लिए क्या सब्सिडी उपलब्ध है?",
+        "KN": "ತೆಲಂಗಾಣದಲ್ಲಿ ಹನಿ ನೀರಾವರಿ ವ್ಯವಸ್ಥೆಯನ್ನು ಅಳವಡಿಸಲು ಯಾವ ಸಬ್ಸಿಡಿ ಲಭ್ಯವಿದೆ?",
+        "TA": "தெலுங்கானாவில் சொட்டு நீர் பாசன அமைப்பை நிறுவ என்ன மானியம் கிடைக்கிறது?",
+        "PA": "ਤੇਲੰਗਾਨਾ ਵਿੱਚ ਤੁਪਕਾ ਸਿੰਚਾਈ ਪ੍ਰਣਾਲੀ ਸਥਾਪਤ ਕਰਨ ਲਈ ਕਿਹੜੀ ਸਬਸਿਡੀ ਉਪਲਬਧ ਹੈ?",
+        "TE": "తెలంగాణలో బిందు సేద్యం వ్యవస్థను ఏర్పాటు చేయడానికి ఏ సబ్సిడీ అందుబాటులో ఉంది?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S15",
+      "name": "crop_insurance_wheat",
+      "domain": "Crop Insurance",
+      "domain_group": "schemes",
+      "source_query_en": "How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?",
+      "queries": {
+        "EN": "How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?",
+        "HI": "मैं हरियाणा में अपनी गेहूं की फसल को फसल बीमा (पीएमएफबीवाई) में कैसे नामांकित करूं?",
+        "KN": "ಹರಿಯಾಣದಲ್ಲಿ ನಾನು ನನ್ನ ಗೋಧಿ ಬೆಳೆಯನ್ನು ಬೆಳೆ ವಿಮೆ (ಪಿಎಂಎಫ್‌ಬಿವೈ) ಯಲ್ಲಿ ಹೇಗೆ ದಾಖಲಿಸಬೇಕು?",
+        "TA": "ஹரியானாவில் என்னுடைய கோதுமை பயிரை பயிர் காப்பீட்டில் (பிஎம்எஃப்பிஒய்) எவ்வாறு சேர்ப்பது?",
+        "PA": "ਮੈਂ ਹਰਿਆਣਾ ਵਿੱਚ ਆਪਣੀ ਕਣਕ ਦੀ ਫਸਲ ਨੂੰ ਫਸਲ ਬੀਮੇ (ਪੀਐਮਐਫਬੀਵਾਈ) ਵਿੱਚ ਕਿਵੇਂ ਦਾਖਲ ਕਰਾਂ?",
+        "TE": "హర్యానాలో నా గోధుమ పంటను పంట బీమా (పిఎంఎఫ్‌బివై)లో ఎలా నమోదు చేయాలి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S16",
+      "name": "kcc_kisan_credit_card",
+      "domain": "Government Schemes",
+      "domain_group": "schemes",
+      "source_query_en": "How do I apply for a Kisan Credit Card (KCC) in Uttar Pradesh?",
+      "queries": {
+        "EN": "How do I apply for a Kisan Credit Card (KCC) in Uttar Pradesh?",
+        "HI": "राजस्थान में किसान क्रेडिट कार्ड ऋण के लिए ब्याज दर क्या है?",
+        "KN": "ರಾಜಸ್ಥಾನದಲ್ಲಿ ಕಿಸಾನ್ ಕ್ರೆಡಿಟ್ ಕಾರ್ಡ್ ಸಾಲದ ಬಡ್ಡಿ ದರ ಎಷ್ಟು?",
+        "TA": "ராஜஸ்தானில் கிசான் கிரெடிட் கார்டு கடனுக்கான வட்டி விகிதம் என்ன?",
+        "PA": "ਰਾਜਸਥਾਨ ਵਿੱਚ ਕਿਸਾਨ ਕ੍ਰੈਡਿਟ ਕਾਰਡ ਕਰਜ਼ੇ ਲਈ ਵਿਆਜ ਦਰ ਕੀ ਹੈ?",
+        "TE": "రాజస్థాన్‌లో కిసాన్ క్రెడిట్ కార్డ్ రుణం కోసం వడ్డీ రేటు ఎంత?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S17",
+      "name": "pm_kusum_solar_pump",
+      "domain": "Government Schemes",
+      "domain_group": "schemes",
+      "source_query_en": "What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?",
+      "queries": {
+        "EN": "What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?",
+        "HI": "सौर जल पंपों के लिए पीएम-कुसुम योजना क्या है और मैं कर्नाटक में कैसे आवेदन कर सकता हूं?",
+        "KN": "ಸೌರ ಜಲ ಪಂಪ್‌ಗಳಿಗಾಗಿ ಪಿಎಂ-ಕುಸುಮ್ ಯೋಜನೆ ಏನು ಮತ್ತು ನಾನು ಕರ್ನಾಟಕದಲ್ಲಿ ಅರ್ಜಿ ಹೇಗೆ ಸಲ್ಲಿಸಬಹುದು?",
+        "TA": "சூரிய நீர் பம்புகளுக்கான பிரதமர் குசும் திட்டம் என்ன மற்றும் கர்நாடகாவில் நான் எவ்வாறு விண்ணப்பிக்கலாம்?",
+        "PA": "ਸੂਰਜੀ ਪਾਣੀ ਦੇ ਪੰਪਾਂ ਲਈ ਪੀਐਮ-ਕੁਸੁਮ ਯੋਜਨਾ ਕੀ ਹੈ ਅਤੇ ਮੈਂ ਕਰਨਾਟਕ ਵਿੱਚ ਕਿਵੇਂ ਅਰਜ਼ੀ ਦੇ ਸਕਦਾ ਹਾਂ?",
+        "TE": "సౌర జల పంపులకు పిఎం-కుసుమ్ పథకం అంటే ఏమిటి మరియు కర్ణాటకలో నేను ఎలా దరఖాస్తు చేయగలను?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S18",
+      "name": "non_agri_no_scheme",
+      "domain": "General",
+      "domain_group": "schemes",
+      "source_query_en": "Is there a government scheme to help me start a restaurant?",
+      "queries": {
+        "EN": "Is there a government scheme to help me start a restaurant?",
+        "HI": "क्या रेस्तरां शुरू करने में मेरी मदद करने के लिए कोई सरकारी योजना है?",
+        "KN": "ರೆಸ್ಟೋರೆಂಟ್ ಪ್ರಾರಂಭಿಸಲು ನನಗೆ ಸಹಾಯ ಮಾಡಲು ಯಾವುದಾದರೂ ಸರ್ಕಾರಿ ಯೋಜನೆ ಇದೆಯೇ?",
+        "TA": "உணவகம் தொடங்க எனக்கு உதவ அரசாங்கத் திட்டம் ஏதாவது உள்ளதா?",
+        "PA": "ਕੀ ਕੋਈ ਸਰਕਾਰੀ ਯੋਜਨਾ ਹੈ ਜੋ ਮੈਨੂੰ ਰੈਸਟੋਰੈਂਟ ਸ਼ੁਰੂ ਕਰਨ ਵਿੱਚ ਮਦਦ ਕਰੇਗੀ?",
+        "TE": "రెస్టారెంట్ ప్రారంభించడానికి నాకు సహాయపడే ప్రభుత్వ పథకం ఏదైనా ఉందా?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Non-agriculture no-match test. Draft translations pending agri-team review."
+    },
+    {
+      "id": "S19",
+      "name": "npk_paddy_punjab",
+      "domain": "Nutrient Management",
+      "domain_group": "soil",
+      "source_query_en": "What is the recommended NPK fertilizer dose for paddy in Punjab?",
+      "queries": {
+        "EN": "What is the recommended NPK fertilizer dose for paddy in Punjab?",
+        "HI": "पंजाब में धान के लिए अनुशंसित एनपीके उर्वरक खुराक क्या है?",
+        "KN": "ಪಂಜಾಬ್‌ನಲ್ಲಿ ಭತ್ತಕ್ಕೆ ಶಿಫಾರಸು ಮಾಡಲಾದ ಎನ್‌ಪಿಕೆ ಗೊಬ್ಬರದ ಪ್ರಮಾಣ ಏನು?",
+        "TA": "பஞ்சாபில் நெல்லுக்கு பரிந்துரைக்கப்பட்ட என்பிகே உர அளவு என்ன?",
+        "PA": "ਪੰਜਾਬ ਵਿੱਚ ਝੋਨੇ ਲਈ ਸਿਫਾਰਿਸ਼ ਕੀਤੀ ਐਨਪੀਕੇ ਖਾਦ ਦੀ ਮਾਤਰਾ ਕੀ ਹੈ?",
+        "TE": "పంజాబ్‌లో వరికి సిఫార్సు చేయబడిన ఎన్‌పికె ఎరువు మోతాదు ఏమిటి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S20",
+      "name": "micronutrient_zinc_wheat",
+      "domain": "Nutrient Management",
+      "domain_group": "soil",
+      "source_query_en": "My wheat crop shows yellowing leaves — how do I correct zinc deficiency in Haryana?",
+      "queries": {
+        "EN": "My wheat crop shows yellowing leaves — how do I correct zinc deficiency in Haryana?",
+        "HI": "उत्तर प्रदेश में धान की फसल में जिंक की कमी के लक्षण क्या हैं?",
+        "KN": "ಉತ್ತರ ಪ್ರದೇಶದಲ್ಲಿ ಭತ್ತದ ಬೆಳೆಯಲ್ಲಿ ಸತುವಿನ ಕೊರತೆಯ ಲಕ್ಷಣಗಳು ಯಾವುವು?",
+        "TA": "உத்தரபிரதேசத்தில் நெற்பயிரில் துத்தநாக குறைபாட்டின் அறிகுறிகள் என்ன?",
+        "PA": "ਉੱਤਰ ਪ੍ਰਦੇਸ਼ ਵਿੱਚ ਝੋਨੇ ਦੀ ਫਸਲ ਵਿੱਚ ਜ਼ਿੰਕ ਦੀ ਘਾਟ ਦੇ ਕੀ ਲੱਛਣ ਹਨ?",
+        "TE": "ఉత్తర ప్రదేశ్‌లో వరి పంటలో జింక్ లోపం యొక్క లక్షణాలు ఏమిటి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S21",
+      "name": "soil_ph_cotton_maharashtra",
+      "domain": "Nutrient Management",
+      "domain_group": "soil",
+      "source_query_en": "My soil pH is 8.2 and I want to grow cotton in Maharashtra. What should I do?",
+      "queries": {
+        "EN": "My soil pH is 8.2 and I want to grow cotton in Maharashtra. What should I do?",
+        "HI": "मैं गुजरात में कपास के लिए अपनी मिट्टी के पीएच स्तर को कैसे सुधार सकता हूं?",
+        "KN": "ಗುಜರಾತ್‌ನಲ್ಲಿ ಹತ್ತಿಗಾಗಿ ನನ್ನ ಮಣ್ಣಿನ ಪಿಎಚ್ ಮಟ್ಟವನ್ನು ನಾನು ಹೇಗೆ ಸುಧಾರಿಸಬಹುದು?",
+        "TA": "குஜராத்தில் பருத்திக்கான எனது மண்ணின் பிஹெச் அளவை எவ்வாறு மேம்படுத்துவது?",
+        "PA": "ਮੈਂ ਗੁਜਰਾਤ ਵਿੱਚ ਕਪਾਹ ਲਈ ਆਪਣੀ ਮਿੱਟੀ ਦੇ ਪੀਐਚ ਪੱਧਰ ਨੂੰ ਕਿਵੇਂ ਸੁਧਾਰ ਸਕਦਾ ਹਾਂ?",
+        "TE": "గుజరాత్‌లో పత్తి కోసం నేను నా నేల యొక్క పిహెచ్ స్థాయిని ఎలా మెరుగుపరచగలను?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S22",
+      "name": "soil_health_card_karnataka",
+      "domain": "Soil Health Card",
+      "domain_group": "soil",
+      "source_query_en": "How do I apply for a soil health card in Karnataka?",
+      "queries": {
+        "EN": "How do I apply for a soil health card in Karnataka?",
+        "HI": "कर्नाटक में मृदा स्वास्थ्य कार्ड के लिए आवेदन कैसे करें?",
+        "KN": "ಕರ್ನಾಟಕದಲ್ಲಿ ಮಣ್ಣಿನ ಆರೋಗ್ಯ ಕಾರ್ಡ್‌ಗಾಗಿ ಹೇಗೆ ಅರ್ಜಿ ಸಲ್ಲಿಸಬೇಕು?",
+        "TA": "கர்நாடகாவில் மண் சுகாதார அட்டைக்கு எவ்வாறு விண்ணப்பிப்பது?",
+        "PA": "ਕਰਨਾਟਕ ਵਿੱਚ ਮਿੱਟੀ ਸਿਹਤ ਕਾਰਡ ਲਈ ਕਿਵੇਂ ਅਰਜ਼ੀ ਦੇਣੀ ਹੈ?",
+        "TE": "కర్ణాటకలో నేల ఆరోగ్య కార్డు కోసం ఎలా దరఖాస్తు చేయాలి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S23",
+      "name": "soil_test_npk_values",
+      "domain": "Nutrient Management",
+      "domain_group": "soil",
+      "source_query_en": "My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",
+      "queries": {
+        "EN": "My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",
+        "HI": "मेरे मिट्टी परीक्षण में N=120, P=40, K=30 दिखाया गया है। पंजाब में धान के लिए कौन सी उर्वरक खुराक की सिफारिश की जाती है?",
+        "KN": "ನನ್ನ ಮಣ್ಣಿನ ಪರೀಕ್ಷೆಯು N=120, P=40, K=30 ತೋರಿಸುತ್ತದೆ. ಪಂಜಾಬ್‌ನಲ್ಲಿ ಭತ್ತಕ್ಕೆ ಯಾವ ಗೊಬ್ಬರದ ಪ್ರಮಾಣ ಶಿಫಾರಸು ಮಾಡಲಾಗಿದೆ?",
+        "TA": "என் மண் பரிசோதனையில் N=120, P=40, K=30 காட்டுகிறது. பஞ்சாபில் நெல்லுக்கு என்ன உர அளவு பரிந்துரைக்கப்படுகிறது?",
+        "PA": "ਮੇਰੇ ਮਿੱਟੀ ਦੇ ਟੈਸਟ ਵਿੱਚ N=120, P=40, K=30 ਦਿਖਾਇਆ ਗਿਆ ਹੈ। ਪੰਜਾਬ ਵਿੱਚ ਝੋਨੇ ਲਈ ਕਿਹੜੀ ਖਾਦ ਦੀ ਮਾਤਰਾ ਦੀ ਸਿਫਾਰਿਸ਼ ਕੀਤੀ ਜਾਂਦੀ ਹੈ?",
+        "TE": "నా నేల పరీక్ష N=120, P=40, K=30 చూపిస్తుంది. పంజాబ్‌లో వరికి ఏ ఎరువు మోతాదు సిఫార్సు చేయబడింది?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S24",
+      "name": "organic_matter_sugarcane",
+      "domain": "Nutrient Management",
+      "domain_group": "soil",
+      "source_query_en": "How can I improve soil organic matter for sugarcane in Tamil Nadu?",
+      "queries": {
+        "EN": "How can I improve soil organic matter for sugarcane in Tamil Nadu?",
+        "HI": "तमिलनाडु में गन्ने के लिए मिट्टी की जैविक सामग्री कैसे सुधारें?",
+        "KN": "ತಮಿಳುನಾಡಿನಲ್ಲಿ ಕಬ್ಬಿಗಾಗಿ ಮಣ್ಣಿನ ಸಾವಯವ ವಸ್ತುವನ್ನು ಹೇಗೆ ಸುಧಾರಿಸಬಹುದು?",
+        "TA": "தமிழ்நாட்டில் கரும்புக்கு மண்ணின் கரிம பொருளை எவ்வாறு மேம்படுத்துவது?",
+        "PA": "ਤਾਮਿਲਨਾਡੂ ਵਿੱਚ ਗੰਨੇ ਲਈ ਮਿੱਟੀ ਦੀ ਜੈਵਿਕ ਸਮੱਗਰੀ ਕਿਵੇਂ ਸੁਧਾਰੀਏ?",
+        "TE": "తమిళనాడులో చెరకు కోసం నేల సేంద్రియ పదార్థాన్ని ఎలా మెరుగుపరచాలి?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S25",
+      "name": "wheat_price_sirsa",
+      "domain": "Market Prices",
+      "domain_group": "market",
+      "source_query_en": "What is the price of wheat in Sirsa mandi, Haryana today?",
+      "queries": {
+        "EN": "What is the price of wheat in Sirsa mandi, Haryana today?",
+        "HI": "आज हरियाणा के सिरसा मंडी में गेहूं का भाव क्या है?",
+        "KN": "ಇಂದು ಹರಿಯಾಣ ಸಿರ್ಸಾ ಮಾರುಕಟ್ಟೆಯಲ್ಲಿ ಗೋಧಿ ಬೆಲೆ ಎಷ್ಟು?",
+        "TA": "இன்று ஹரியானா சிர்சா மண்டியில் கோதுமை விலை என்ன?",
+        "PA": "ਅੱਜ ਹਰਿਆਣੇ ਦੀ ਸਿਰਸਾ ਮੰਡੀ ਵਿੱਚ ਕਣਕ ਦਾ ਭਾਅ ਕੀ ਹੈ?",
+        "TE": "ఈరోజు హర్యానా సిర్సా మండీలో గోధుమ ధర ఎంత?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S26",
+      "name": "paddy_price_karnal",
+      "domain": "Market Prices",
+      "domain_group": "market",
+      "source_query_en": "What is the current price of paddy in Karnal mandi, Haryana?",
+      "queries": {
+        "EN": "What is the current price of paddy in Karnal mandi, Haryana?",
+        "HI": "हरियाणा के करनाल मंडी में धान का मौजूदा भाव क्या है?",
+        "KN": "ಹರಿಯಾಣ ಕರ್ನಾಲ್ ಮಾರುಕಟ್ಟೆಯಲ್ಲಿ ಭತ್ತದ ಪ್ರಸ್ತುತ ಬೆಲೆ ಎಷ್ಟು?",
+        "TA": "ஹரியானா கர்னால் மண்டியில் நெல் தற்போதைய விலை என்ன?",
+        "PA": "ਹਰਿਆਣੇ ਦੀ ਕਰਨਾਲ ਮੰਡੀ ਵਿੱਚ ਝੋਨੇ ਦਾ ਮੌਜੂਦਾ ਭਾਅ ਕੀ ਹੈ?",
+        "TE": "హర్యానా కర్నాల్ మండీలో వరి ప్రస్తుత ధర ఎంత?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S27",
+      "name": "cotton_price_akola",
+      "domain": "Market Prices",
+      "domain_group": "market",
+      "source_query_en": "What is today's cotton price in Akola mandi in Maharashtra?",
+      "queries": {
+        "EN": "What is today's cotton price in Akola mandi in Maharashtra?",
+        "HI": "महाराष्ट्र के अकोला मंडी में आज कपास का भाव क्या है?",
+        "KN": "ಮಹಾರಾಷ್ಟ್ರದ ಅಕೋಲಾ ಮಾರ್ಕೆಟ್‌ನಲ್ಲಿ ಇಂದು ಹತ್ತಿ ಬೆಲೆ ಎಷ್ಟು?",
+        "TA": "மகாராஷ்டிரா அகோலா மண்டியில் இன்று பருத்தி விலை என்ன?",
+        "PA": "ਮਹਾਰਾਸ਼ਟਰ ਦੀ ਅਕੋਲਾ ਮੰਡੀ ਵਿੱਚ ਅੱਜ ਕਪਾਹ ਦਾ ਭਾਅ ਕੀ ਹੈ?",
+        "TE": "మహారాష్ట్ర అకోలా మండీలో ఈరోజు పత్తి ధర ఎంత?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S28",
+      "name": "tomato_price_kolar",
+      "domain": "Market Prices",
+      "domain_group": "market",
+      "source_query_en": "What is the wholesale price of tomato in Kolar mandi Karnataka?",
+      "queries": {
+        "EN": "What is the wholesale price of tomato in Kolar mandi Karnataka?",
+        "HI": "कर्नाटक के कोलार मंडी में टमाटर का थोक भाव क्या है?",
+        "KN": "ಕರ್ನಾಟಕದ ಕೋಲಾರ ಮಾರ್ಕೆಟ್‌ನಲ್ಲಿ ಟೊಮ್ಯಾಟೊ ಸಗಟು ಬೆಲೆ ಎಷ್ಟು?",
+        "TA": "கர்நாடகா கோலார் மண்டியில் தக்காளி மொத்த விலை என்ன?",
+        "PA": "ਕਰਨਾਟਕ ਦੀ ਕੋਲਾਰ ਮੰਡੀ ਵਿੱਚ ਟਮਾਟਰ ਦਾ ਥੋਕ ਭਾਅ ਕੀ ਹੈ?",
+        "TE": "కర్ణాటక కోలార్ మండీలో టమాటో టోకు ధర ఎంత?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S29",
+      "name": "banana_price_erode",
+      "domain": "Market Prices",
+      "domain_group": "market",
+      "source_query_en": "What is the price of banana in Erode market, Tamil Nadu?",
+      "queries": {
+        "EN": "What is the price of banana in Erode market, Tamil Nadu?",
+        "HI": "तमिलनाडु के इरोड बाजार में केले का भाव क्या है?",
+        "KN": "ತಮಿಳುನಾಡಿನ ಈರೋಡ್ ಮಾರ್ಕೆಟ್‌ನಲ್ಲಿ ಬಾಳೆಹಣ್ಣಿನ ಬೆಲೆ ಎಷ್ಟು?",
+        "TA": "தமிழ்நாட்டில் ஈரோடு சந்தையில் வாழைப்பழம் விலை என்ன?",
+        "PA": "ਤਾਮਿਲਨਾਡੂ ਦੇ ਈਰੋਡ ਬਾਜ਼ਾਰ ਵਿੱਚ ਕੇਲੇ ਦਾ ਭਾਅ ਕੀ ਹੈ?",
+        "TE": "తమిళనాడులో ఈరోడ్ మార్కెట్‌లో అరటి పళ్ళ ధర ఎంత?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "Draft machine-assisted translations. Must be reviewed and approved by agri-team before live use."
+    },
+    {
+      "id": "S30",
+      "name": "market_price_unavailable",
+      "domain": "Market Prices",
+      "domain_group": "market",
+      "source_query_en": "What is the price of saffron in Chandni Chowk market Delhi?",
+      "queries": {
+        "EN": "What is the price of saffron in Chandni Chowk market Delhi?",
+        "HI": "दिल्ली के चांदनी चौक बाजार में केसर का क्या भाव है?",
+        "KN": "ದೆಹಲಿ ಚಾಂದನಿ ಚೌಕ್ ಮಾರ್ಕೆಟ್‌ನಲ್ಲಿ ಕೇಸರಿ ಬೆಲೆ ಎಷ್ಟು?",
+        "TA": "டெல்லி சாந்தினி சௌக் சந்தையில் குங்குமப்பூ விலை என்ன?",
+        "PA": "ਦਿੱਲੀ ਦੇ ਚਾਂਦਨੀ ਚੌਕ ਬਾਜ਼ਾਰ ਵਿੱਚ ਕੇਸਰ ਦਾ ਕੀ ਭਾਅ ਹੈ?",
+        "TE": "ఢిల్లీ చాందినీ చౌక్ మార్కెట్‌లో కేసరి ధర ఎంత?"
+      },
+      "translation_review_status": "draft_pending_agri_validation",
+      "translation_reviewer": null,
+      "review_date": null,
+      "notes": "No-match test — saffron market price not in GDB. Draft translations pending agri-team review."
+    }
+  ]
+}

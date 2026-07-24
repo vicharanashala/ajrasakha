@@ -1,0 +1,31 @@
+scenario_id,scenario_name,domain,EN,HI,KN,TA,PA,TE
+S01,paddy_cultural_practices,Cultural Practices,PASS,PASS,PASS,PASS,PASS,PASS
+S02,wheat_pest_yellow_rust,Plant Protection,PASS,PASS,PASS,PASS,PASS,PASS
+S03,rice_nutrient_mgmt,Nutrient Management,PASS,PASS,PASS,PASS,PASS,PASS
+S04,cotton_variety_selection,Varieties,PASS,PASS,PASS,PASS,PASS,PASS
+S05,sugarcane_water_mgmt,Water Management,PASS,PASS,PASS,PASS,PASS,PASS
+S06,tomato_organic_farming,Organic Farming,PASS,PASS,PASS,PASS,PASS,PASS
+S07,mustard_seed_treatment,Seeds,PASS,PASS,PASS,PASS,PASS,PASS
+S08,mango_postharvest,Post Harvest Preservation,PASS,PASS,PASS,PASS,PASS,PASS
+S09,banana_field_prep,Field Preparation,PASS,PASS,PASS,PASS,PASS,PASS
+S10,maize_weed_mgmt,Weed Management,PASS,PASS,PASS,PASS,PASS,PASS
+S11,wheat_market_price,Market Prices,PASS,PASS,PASS,PASS,PASS,PASS
+S12,paddy_market_karnal,Market Prices,PASS,PASS,PASS,PASS,PASS,PASS
+S13,drip_irrigation_scheme,Government Schemes,PASS,PASS,PASS,PASS,PASS,PASS
+S14,pm_kisan_scheme,Government Schemes,PASS,PASS,PASS,PASS,PASS,PASS
+S15,soil_npk_paddy,Nutrient Management,PASS,PASS,PASS,PASS,PASS,PASS
+S16,weather_today_ropar,Weather,PASS,PASS,PASS,PASS,PASS,PASS
+S17,weather_forecast_ludhiana,Weather,PASS,PASS,PASS,PASS,PASS,PASS
+S18,non_agri_quick_money,General,PASS,PASS,PASS,PASS,PASS,PASS
+S19,greeting_hello,General,PASS,PASS,PASS,PASS,PASS,PASS
+S20,crop_insurance_wheat,Crop Insurance,PASS,PASS,PASS,PASS,PASS,PASS
+S21,bio_pesticide_cotton,Bio-Pesticides and Bio-Fertilizers,PASS,PASS,PASS,PASS,PASS,PASS
+S22,agri_mech_tractor,Agriculture Mechanization,PASS,PASS,PASS,PASS,PASS,PASS
+S23,horticulture_apple,Horticulture & Allied Agriculture,PASS,PASS,PASS,PASS,PASS,PASS
+S24,sowing_time_wheat,Sowing Time and Weather,PASS,PASS,PASS,PASS,PASS,PASS
+S25,fertilizer_urea_paddy,Fertilizer Use and Availability,PASS,PASS,PASS,PASS,PASS,PASS
+S26,storage_wheat_grains,Storage,PASS,PASS,PASS,PASS,PASS,PASS
+S27,soil_health_card,Soil Health Card,PASS,PASS,PASS,PASS,PASS,PASS
+S28,livestock_goat_feeding,Livestock & Animal Husbandry,PASS,PASS,PASS,PASS,PASS,PASS
+S29,fisheries_pond_mgmt,Fisheries & Aquaculture,PASS,PASS,PASS,PASS,PASS,PASS
+S30,multi_tool_weather_pest,Plant Protection,PASS,PASS,PASS,PASS,PASS,PASS
