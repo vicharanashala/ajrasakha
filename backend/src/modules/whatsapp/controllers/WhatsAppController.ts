@@ -10,7 +10,9 @@ import {
   CurrentUser,
   QueryParam,
   ForbiddenError,
+  UseBefore,
 } from 'routing-controllers';
+import { urlencoded } from 'express';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
 import { WHATSAPP_TYPES } from '../types.js';
@@ -160,6 +162,7 @@ export class WhatsAppController {
   })
   @Post('/webhook')
   @HttpCode(200)
+  @UseBefore(urlencoded({ extended: true }))
   async handleIncomingWebhook(
     @Body() body: any,
   ) {
