@@ -2256,6 +2256,9 @@ export class QuestionRepository implements IQuestionRepository {
               : aiApprovedAnswer,
           contextId: question.contextId?.toString(),
           isAutoAllocate: question.isAutoAllocate ?? true,
+          referenceQuestionId: question.referenceQuestionId
+            ? question.referenceQuestionId.toString()
+            : undefined,
         },
         _id: question._id?.toString(),
         userId: question.userId?.toString(),
