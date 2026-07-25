@@ -26,6 +26,7 @@ import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
+import { TestersDashboard } from "../features/testersDashboard/TestersDashboard";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";
 
@@ -475,6 +476,21 @@ export const PlaygroundPage = () => {
                   )}
                 >
                   <DataProcessingDashboard />
+                </TabsContent>
+              )}
+              {user && user.role === "admin" && (
+                <TabsContent
+                  value="testers_dashboard"
+                  className={cn(
+                    "mt-0 border-0 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <TestersDashboard />
                 </TabsContent>
               )}
 
