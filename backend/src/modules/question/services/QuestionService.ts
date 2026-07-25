@@ -8348,7 +8348,7 @@ export class QuestionService extends BaseService implements IQuestionService {
    * This is used for migration purposes to fix duplicate entries.
    * @param submissionId - The submission document ID
    */
-  async backgroundProcessAction(submissionId: string): Promise<{ modifiedCount: number }> {
-    return this.questionSubmissionRepo.backgroundProcessAction(submissionId);
+  async backgroundProcessAction(userId: string): Promise<{ modifiedCount: number }> {
+        return await this.userRepo.clearAssignedQuestions(userId);
   }
 }

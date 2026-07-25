@@ -2723,13 +2723,13 @@ export class QuestionController {
   @UseBefore(InternalApiAuth)
   @OpenAPI({ summary: 'Background process for repo actions' })
   async backgroundProcessAction(
-    @Body() body: { submissionId: string },
+    @Body() body: { userId: string },
   ) {
-    const { submissionId } = body;
-    if (!submissionId) {
-      throw new BadRequestError('submissionId is required');
+    const { userId } = body;
+    if (!userId) {
+      throw new BadRequestError('userId is required');
     }
-    const result = await this.questionService.backgroundProcessAction(submissionId);
+    const result = await this.questionService.backgroundProcessAction(userId);
     return result;
   }
 }

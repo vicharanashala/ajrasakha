@@ -363,4 +363,10 @@ export interface IUserRepository {
     query: { userId: string; startDateTime?: string; endDateTime?: string },
     session?: ClientSession,
   ): Promise<IUserHistory>;
+
+  /**
+   * Clears all assigned question IDs for a user by setting assignedQuestionIds to null.
+   * @param userId - The ID of the user whose assigned questions should be cleared
+   */
+  clearAssignedQuestions(userId: string): Promise<{ modifiedCount: number }>;
 }
