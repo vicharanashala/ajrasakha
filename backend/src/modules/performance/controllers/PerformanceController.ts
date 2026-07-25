@@ -131,8 +131,10 @@ export class PerformanceController {
   @OpenAPI({ summary: 'Get question contribution trends' })
   @Get('/contribution-trend')
   @Authorized()
-  async getContributionTrend(@QueryParams() query: GetContributionTrendQuery): Promise<QuestionContributionTrend[]> {
-    return this.performanceService.getContributionTrend(query.timeRange);
+  async getContributionTrend(@CurrentUser() user: IUser,@QueryParams() query: GetContributionTrendQuery): Promise<QuestionContributionTrend[]> {
+    const isAdmin = user.role === 'admin'
+    const isTrainingUser = user.isTrainingUser === true
+    return this.performanceService.getContributionTrend(query.timeRange,isTrainingUser,isAdmin);
   }
 
   @OpenAPI({ summary: 'Get status overview' })

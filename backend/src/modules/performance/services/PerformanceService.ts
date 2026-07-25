@@ -128,9 +128,9 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getContributionTrend(timeRange: string): Promise<QuestionContributionTrend[]> {
+  async getContributionTrend(timeRange: string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<QuestionContributionTrend[]> {
     return await this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getCountBySource(timeRange, session);
+      return await this.questionRepo.getCountBySource(timeRange, isTrainingUser, isAdmin, session);
     });
   }
 

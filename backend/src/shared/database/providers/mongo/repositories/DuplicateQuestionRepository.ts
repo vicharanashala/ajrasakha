@@ -92,12 +92,11 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
         },
       };
 
-      const trainingFilter =
-        !isAdmin && isTrainingUser === true
-          ? { isTrainingQuestion: true }
-          : !isAdmin && isTrainingUser === false
-            ? { isTrainingQuestion: false }
-            : {};
+      const trainingFilter = !isAdmin && isTrainingUser === true
+      ? { isTrainingQuestion: true }
+      : !isAdmin && isTrainingUser === false
+        ? { isTrainingQuestion: { $ne: true } }
+        : {}
 
       const duplicates = await this.DuplicateQuestionCollection.find(
         {

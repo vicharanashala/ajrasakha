@@ -3715,7 +3715,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           !isAdmin && isTrainingUser === true
             ? { 'question.isTrainingQuestion': true }
             : !isAdmin && isTrainingUser === false
-              ? { 'question.isTrainingQuestion': false }
+              ? { 'question.isTrainingQuestion': { $ne: true } }
               : {},
       },
 

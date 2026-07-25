@@ -50,7 +50,7 @@ export interface IPerformanceService {
 
   getGoldenDataset(query: GetGoldenDatasetQuery,isTrainingUser?: boolean, isAdmin?: boolean): Promise<GoldenDataset>;
 
-  getContributionTrend(timeRange: string): Promise<QuestionContributionTrend[]>;
+  getContributionTrend(timeRange: string,isTrainingUser?:boolean,isAdmin?:boolean): Promise<QuestionContributionTrend[]>;
 
   getStatusOverview(): Promise<StatusOverview>;
 

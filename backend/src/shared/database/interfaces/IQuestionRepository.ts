@@ -387,6 +387,8 @@ export interface IQuestionRepository {
    */
   getCountBySource(
     timeRange: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<DashboardResponse['questionContributionTrend']>;
 

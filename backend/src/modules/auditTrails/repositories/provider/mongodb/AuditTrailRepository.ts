@@ -291,9 +291,13 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
 
           {
             $match: {
-              ...(!isAdmin && {
-                "actorUser.isTrainingUser": isTrainingUser === true,
-              }),
+              ...(
+                !isAdmin && isTrainingUser === true
+                  ? { "actorUser.isTrainingUser": true }
+                  : !isAdmin && isTrainingUser === false
+                    ? { "actorUser.isTrainingUser": { $ne: true } }
+                    : {}
+              ),
             },
           },
 
