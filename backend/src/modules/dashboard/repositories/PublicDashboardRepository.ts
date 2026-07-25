@@ -1,10 +1,11 @@
 import {Collection} from 'mongodb';
 import {InternalServerError} from 'routing-controllers';
 import {MongoDatabase} from '#root/shared/database/providers/mongo/MongoDatabase.js';
-import {IQuestion} from '#root/shared/interfaces/models.js';
+import {IQuestion, IUser} from '#root/shared/interfaces/models.js';
 import {dbConfig} from '#root/config/db.js';
 import {
   IPublicDashboardRepository,
+  PublicUserItem,
   SaturatedCropStateItem,
 } from '../interfaces/IPublicDashboardRepository.js';
 
@@ -22,8 +23,8 @@ export class PublicDashboardRepository implements IPublicDashboardRepository {
 
   // ── Required collections ──
   private QuestionCollection!: Collection<IQuestion>;
+  private UsersCollection!: Collection<IUser>;
   // Add more as the public dashboard grows, e.g.:
-  // private UsersCollection!: Collection<IUser>;
   // private CropCollection!: Collection<ICrop>;
 
   constructor() {
@@ -34,7 +35,7 @@ export class PublicDashboardRepository implements IPublicDashboardRepository {
   private async init(): Promise<void> {
     if (this.initialized) return;
     this.QuestionCollection = await this.db.getCollection<IQuestion>('questions');
-    // this.UsersCollection = await this.db.getCollection<IUser>('users');
+    this.UsersCollection = await this.db.getCollection<IUser>('users');
     // this.CropCollection = await this.db.getCollection<ICrop>('crops');
     this.initialized = true;
   }
@@ -92,6 +93,38 @@ export class PublicDashboardRepository implements IPublicDashboardRepository {
     } catch (error) {
       throw new InternalServerError(
         `Error while fetching saturated crops by state: More info: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * All active users, projected to the public-facing fields only
+   * (firstName, lastName, preference, avatar, role, university, createdAt).
+   */
+  async getActiveUsers(): Promise<PublicUserItem[]> {
+    try {
+      await this.init();
+
+      const users = (await this.UsersCollection.find(
+        {status: 'active'},
+        {
+          projection: {
+            _id: 0,
+            firstName: 1,
+            lastName: 1,
+            preference: 1,
+            avatar: 1,
+            role: 1,
+            university: 1,
+            createdAt: 1,
+          },
+        },
+      ).toArray()) as PublicUserItem[];
+
+      return users;
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while fetching active users: More info: ${error}`,
       );
     }
   }

@@ -1,6 +1,9 @@
 import {injectable} from 'inversify';
 import {PublicDashboardRepository} from '../repositories/PublicDashboardRepository.js';
-import {IPublicDashboardRepository} from '../interfaces/IPublicDashboardRepository.js';
+import {
+  IPublicDashboardRepository,
+  PublicUserItem,
+} from '../interfaces/IPublicDashboardRepository.js';
 import {
   IPublicDashboardService,
   SaturatedCropsResult,
@@ -28,5 +31,10 @@ export class PublicDashboardService implements IPublicDashboardService {
       saturationLimit: SATURATED_CROP_LIMIT,
       states,
     };
+  }
+
+  /** All active users, projected to the public-facing fields. */
+  async getActiveUsers(): Promise<PublicUserItem[]> {
+    return this.repo.getActiveUsers();
   }
 }

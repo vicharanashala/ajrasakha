@@ -28,4 +28,16 @@ export class PublicDashboardController {
   async getSaturatedCrops() {
     return this.publicDashboardService.getSaturatedCrops();
   }
+
+  /**
+   * Public: all active users with their public-facing fields
+   * (firstName, lastName, preference, avatar, role, university, createdAt).
+   */
+  @Get('/users')
+  @OpenAPI({
+    summary: 'Active users with public-facing profile fields',
+  })
+  async getActiveUsers() {
+    return this.publicDashboardService.getActiveUsers();
+  }
 }

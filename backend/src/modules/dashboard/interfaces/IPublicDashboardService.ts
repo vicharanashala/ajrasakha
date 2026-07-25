@@ -1,4 +1,7 @@
-import {SaturatedCropStateItem} from './IPublicDashboardRepository.js';
+import {
+  PublicUserItem,
+  SaturatedCropStateItem,
+} from './IPublicDashboardRepository.js';
 
 export interface SaturatedCropsResult {
   saturationLimit: number;
@@ -14,4 +17,7 @@ export interface IPublicDashboardService {
    * along with the limit that was applied.
    */
   getSaturatedCrops(): Promise<SaturatedCropsResult>;
+
+  /** All active users, projected to the public-facing fields. */
+  getActiveUsers(): Promise<PublicUserItem[]>;
 }
