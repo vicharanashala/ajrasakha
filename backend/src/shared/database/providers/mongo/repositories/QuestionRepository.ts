@@ -4941,6 +4941,8 @@ export class QuestionRepository implements IQuestionRepository {
     state?: string[],
     source?: string[],
     crop?: string[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{analytics: Analytics}> {
     await this.init();
 
@@ -4948,7 +4950,12 @@ export class QuestionRepository implements IQuestionRepository {
     if (startTime) filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
     if (endTime) filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
 
-    const matchStage: any = {};
+    const matchStage: any = {
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
+    };
     if (status?.length) {
       matchStage.status = {$in: status};
     }
@@ -4958,6 +4965,7 @@ export class QuestionRepository implements IQuestionRepository {
     if (state?.length) {
       matchStage['details.state'] = {$in: state};
     }
+    console.log('source:',source)
     if (source?.length) {
       matchStage.source = {$in: source};
     }

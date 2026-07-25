@@ -1220,6 +1220,8 @@ export class AnswerRepository implements IAnswerRepository {
     state?: string[],
     source?: string[],
     status?: string[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<{analytics: Analytics}> {
     await this.init();
 
@@ -1239,7 +1241,16 @@ export class AnswerRepository implements IAnswerRepository {
     }
 
     // Post-lookup match applied after joining with the questions collection
-    const questionMatchStage: any = { 'questionDetails.details': { $exists: true } };
+    const questionMatchStage: any = {
+      'questionDetails.details': { $exists: true },
+      ...(
+        !isAdmin && isTrainingUser === true
+          ? { 'questionDetails.isTrainingQuestion': true }
+          : !isAdmin && isTrainingUser === false
+            ? { 'questionDetails.isTrainingQuestion': { $ne: true } }
+            : {}
+      ),
+    };
     if (state?.length) {
       questionMatchStage['questionDetails.details.state'] = { $in: state };
     }

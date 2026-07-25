@@ -151,14 +151,14 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
+  async getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery, isTrainingUser?:boolean,isAdmin?:boolean): Promise<Analytics> {
     return await this._withTransaction(async (session: ClientSession) => {
       const { type, startTime, endTime, status, state, source, crop } = query;
       if (type === 'question') {
-        const result = await this.questionRepo.getQuestionAnalytics(startTime, endTime, session, status, state, source, crop);
+        const result = await this.questionRepo.getQuestionAnalytics(startTime, endTime, session, status, state, source, crop, isTrainingUser, isAdmin);
         return result.analytics;
       } else {
-        const result = await this.answerRepo.getAnswerAnalytics(startTime, endTime, session, state, source, status);
+        const result = await this.answerRepo.getAnswerAnalytics(startTime, endTime, session, state, source, status, isTrainingUser, isAdmin);
         return result.analytics;
       }
     });

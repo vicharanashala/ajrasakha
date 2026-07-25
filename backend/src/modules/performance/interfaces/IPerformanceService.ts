@@ -56,7 +56,7 @@ export interface IPerformanceService {
 
   getExpertPerformance(): Promise<ExpertPerformance[]>;
 
-  getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<Analytics>;
+  getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery, isTrainingUser?:boolean,isAdmin?:boolean): Promise<Analytics>;
 
   updateCheckInTime(userId: string, time: Date): Promise<void>;
 

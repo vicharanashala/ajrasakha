@@ -217,6 +217,8 @@ export interface IAnswerRepository {
     state?: string[],
     source?: string[],
     status?: string[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<{analytics: Analytics}>;
 
 

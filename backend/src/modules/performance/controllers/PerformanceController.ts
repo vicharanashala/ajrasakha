@@ -156,8 +156,10 @@ export class PerformanceController {
   @OpenAPI({ summary: 'Get detailed questions/answers analytics' })
   @Post('/questions-analytics')
   @Authorized()
-  async getQuestionsAnalytics(@Body() query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
-    return this.performanceService.getQuestionsAnalytics(query);
+  async getQuestionsAnalytics(@CurrentUser() user: IUser, @Body() query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
+    const isAdmin = user.role === 'admin'
+    const isTrainingUser = user.isTrainingUser === true
+    return this.performanceService.getQuestionsAnalytics(query, isTrainingUser, isAdmin);
   }
 
   @OpenAPI({
