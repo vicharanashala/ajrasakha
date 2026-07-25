@@ -693,6 +693,16 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   </span>
                   <span>{question.referenceSource}</span>
                 </div>
+                {question.referenceQuestionId && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground font-medium">
+                      Reference Question ID:{" "}
+                    </span>
+                    <span className="font-mono text-xs break-all">
+                      {question.referenceQuestionId}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Question */}

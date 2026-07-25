@@ -173,7 +173,7 @@ export class QuestionController {
   ): Promise<QuestionResponse[]> {
     const userId = user._id.toString();
     const canViewQueue =
-      user.role === 'admin' || user.role === 'moderator';
+      user.role === 'admin' || user.role === 'moderator' || user.role === 'gate_keeper' || user.role === 'auditor';
     const targetUserId =
       canViewQueue && query.user && query.user !== 'all'
         ? query.user
@@ -2714,5 +2714,22 @@ export class QuestionController {
   ) {
     await this.questionService.markQuestionOpened(questionId, user._id.toString());
     return { success: true };
+  }
+
+  // ─── Migration endpoints (internal API key auth) ──────────────────────────
+
+  @Post('/background/process')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Background process for repo actions' })
+  async backgroundProcessAction(
+    @Body() body: { userId: string },
+  ) {
+    const { userId } = body;
+    if (!userId) {
+      throw new BadRequestError('userId is required');
+    }
+    const result = await this.questionService.backgroundProcessAction(userId);
+    return result;
   }
 }

@@ -197,6 +197,13 @@ export const QuestionsTable = ({
           ) {
             changed.details = updatedData.details;
           }
+          // Test-question toggle. When it changes, sync auto-allocation with it:
+          //   testing ON  → isTesting: true,  isAutoAllocate: false (stop auto allocation)
+          //   testing OFF → isTesting: false (server unsets it), isAutoAllocate: true
+          if (!!updatedData.isTesting !== !!original.isTesting) {
+            changed.isTesting = !!updatedData.isTesting;
+            changed.isAutoAllocate = !updatedData.isTesting;
+          }
         } else {
           // No original to diff against — fall back to sending the edited data.
           Object.assign(changed, updatedData);
