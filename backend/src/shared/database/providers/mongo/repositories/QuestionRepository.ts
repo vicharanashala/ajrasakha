@@ -4965,7 +4965,6 @@ export class QuestionRepository implements IQuestionRepository {
     if (state?.length) {
       matchStage['details.state'] = {$in: state};
     }
-    console.log('source:',source)
     if (source?.length) {
       matchStage.source = {$in: source};
     }

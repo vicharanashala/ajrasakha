@@ -114,10 +114,13 @@ export class UserController {
   @HttpCode(200)
   @Authorized()
   async getUserReviewLevel(
+    @CurrentUser() currentUser: IUser,
     @QueryParams() query: ExpertReviewLevelDto,
   ): Promise<any> {
     // const {userId }= params;
-    const result = await this.userService.getUserReviewLevel(query);
+    const isAdmin = currentUser.role === 'admin';
+    const isTrainingUser = currentUser.isTrainingUser === true;
+    const result = await this.userService.getUserReviewLevel(query,isTrainingUser,isAdmin);
     if (!result) {
       throw new NotFoundError('not able to find review_levvel odf user');
     }

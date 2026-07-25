@@ -147,8 +147,8 @@ export interface IQuestionSubmissionRepository {
     session?: ClientSession,
     selectedHistoryId?: string | undefined,
   );
-  getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any>;
-  getModeratorReviewLevel(query: ExpertReviewLevelDto): Promise<any>;
+  getUserReviewLevel(query: ExpertReviewLevelDto, isTrainingUser?: boolean, isAdmin?: boolean ): Promise<any>;
+  getModeratorReviewLevel(query: ExpertReviewLevelDto,isTrainingUser?: boolean, isAdmin?: boolean): Promise<any>;
 
   getAbsentSubmissions(
     absentExpertIds: string[],

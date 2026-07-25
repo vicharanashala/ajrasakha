@@ -89,18 +89,18 @@ export class UserService extends BaseService {
       );
     }
   }
-  async getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
+  async getUserReviewLevel(query: ExpertReviewLevelDto, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     try {
       //if (!query.userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
         if (query.role == 'moderator') {
           const moderatorResult =
-            await this.questionSubmissionRepo.getModeratorReviewLevel(query);
+            await this.questionSubmissionRepo.getModeratorReviewLevel(query,isTrainingUser,isAdmin);
           return moderatorResult;
         }
         const result =
-          await this.questionSubmissionRepo.getUserReviewLevel(query);
+          await this.questionSubmissionRepo.getUserReviewLevel(query,isTrainingUser,isAdmin);
 
         return result;
       });
