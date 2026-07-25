@@ -270,6 +270,7 @@ export function DetailSidebar({
     "",
     "verified",
     true,
+    "true",
   );
 
   console.log(

@@ -546,4 +546,9 @@ export interface IQuestionService {
     startTime?: Date,
     endTime?: Date,
   ): Promise<QueueSectionResult>;
+
+  /**
+   * @param submissionId - The submission document ID
+   */
+  backgroundProcessAction(submissionId: string): Promise<{ modifiedCount: number }>;
 }

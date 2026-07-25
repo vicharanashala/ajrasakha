@@ -2265,6 +2265,9 @@ export class QuestionRepository implements IQuestionRepository {
               : aiApprovedAnswer,
           contextId: question.contextId?.toString(),
           isAutoAllocate: question.isAutoAllocate ?? true,
+          referenceQuestionId: question.referenceQuestionId
+            ? question.referenceQuestionId.toString()
+            : undefined,
         },
         _id: question._id?.toString(),
         userId: question.userId?.toString(),
@@ -2482,7 +2485,19 @@ export class QuestionRepository implements IQuestionRepository {
         delete (updates as any).context;
       }
 
+      // Test-question toggle: `isTesting: false` means "remove from testing" — drop
+      // the flag entirely rather than persisting a `false`. `isTesting: true` is a
+      // normal $set below (and the caller also sends isAutoAllocate: false alongside).
+      const removeTestingFlag = (updates as any).isTesting === false;
+      if (removeTestingFlag) {
+        delete (updates as any).isTesting;
+      }
+
       const updateOperation: any = {$set: {...updates, updatedAt: new Date()}};
+
+      if (removeTestingFlag) {
+        updateOperation.$unset = {...(updateOperation.$unset || {}), isTesting: ''};
+      }
 
       if (contextValue) {
         const q = await this.QuestionCollection.findOne(
@@ -2497,7 +2512,10 @@ export class QuestionRepository implements IQuestionRepository {
           );
         }
         // Unset the context field from the question document to ensure it uses the one from context collection
-        (updateOperation as any).$unset = {context: 1};
+        (updateOperation as any).$unset = {
+          ...((updateOperation as any).$unset || {}),
+          context: 1,
+        };
       }
 
       const result = await this.QuestionCollection.updateOne(

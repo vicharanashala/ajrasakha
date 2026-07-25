@@ -421,6 +421,11 @@ export class UserDetailsQueryDto {
   @IsString()
   isVerified?: string;
 
+     @JSONSchema({ example: 'true', description: 'If true, return only users who are has state in farmer profile' })
+  @IsOptional()
+  @IsString()
+  fromMap?: string;
+
   @JSONSchema({ example: 'loggedIn', description: 'Filter by login status: all, loggedIn, or loggedOut' })
   @IsOptional()
   @IsIn(['all', 'loggedIn', 'loggedOut'])
