@@ -7,7 +7,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 from anthropic import APITimeoutError, APIConnectionError, APIStatusError
 from dotenv import load_dotenv
-from langchain_anthropic import ChatAnthropic
+from ajrasakha.agents.llm_factory import get_chat_model
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig, patch_config
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -83,18 +83,40 @@ async def _get_main_tools_legacy() -> list:
 
 async def _get_tools() -> list:
     global _tools_cache
+
     if _tools_cache is None:
         all_tools = []
         seen: set[str] = set()
+
         for server_name, config in MCP_SERVERS.items():
-            client = MultiServerMCPClient({server_name: config})
-            tools = await client.get_tools()
-            for t in tools:
-                if t.name in seen:
-                    t.name = f"{t.name}_{server_name}"
-                seen.add(t.name)
-                all_tools.append(t)
+            try:
+                logger.info("Loading MCP server: %s", server_name)
+
+                client = MultiServerMCPClient({server_name: config})
+                tools = await client.get_tools()
+
+                logger.info(
+                    "Loaded %d tools from %s",
+                    len(tools),
+                    server_name,
+                )
+
+                for t in tools:
+                    if t.name in seen:
+                        t.name = f"{t.name}_{server_name}"
+
+                    seen.add(t.name)
+                    all_tools.append(t)
+
+            except Exception as e:
+                logger.warning(
+                    "Skipping MCP server '%s' because it is unavailable: %s",
+                    server_name,
+                    e,
+                )
+
         _tools_cache = all_tools
+
     return _tools_cache
 
 
@@ -116,7 +138,7 @@ async def ajrasakha_node(
     merged_configurable = dict((config.get("configurable") or {}))
     merged_configurable["location"] = state.get("location")
     enriched_config = patch_config(config, configurable=merged_configurable)
-    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
+    llm = get_chat_model(model=CLAUDE_MODEL).bind_tools(main_tools)
     long_term_summary = await load_long_term_summary(store, config)
     summary_context = (
         f"Long-term memory from previous daily threads:\n{long_term_summary}"

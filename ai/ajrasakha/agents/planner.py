@@ -16,7 +16,7 @@ import re
 from typing import Optional
 
 from anthropic import APITimeoutError, APIConnectionError, APIStatusError
-from langchain_anthropic import ChatAnthropic
+from ajrasakha.agents.llm_factory import get_chat_model
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, patch_config
 from pydantic import BaseModel, Field
@@ -606,7 +606,7 @@ async def planner_node(
     )
 
     try:
-        llm = ChatAnthropic(model=PLANNER_MODEL).with_structured_output(PlannerOutput)
+        llm = get_chat_model(PLANNER_MODEL).with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=_planner_invoke_config(config))
         trace_llm_response(
             "planner",
