@@ -5,8 +5,8 @@ const userService = new UserService();
 
 export const useReviewerLifecycle = (
   userId: string,
-  startDate: Date,
-  endDate: Date,
+  startDate: string,
+  endDate: string,
 ) => {
   return useQuery({
     queryKey: ["reviewer-lifecycle", userId, startDate, endDate],

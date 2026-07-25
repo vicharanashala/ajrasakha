@@ -50,6 +50,9 @@ import { useDebounce } from "@/hooks/ui/useDebounce";
 import type { IQuestion } from "@/types";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 import { useReviewerLifecycle } from "@/hooks/api/user/useReviewerLifecycle";
+import { ReviewerLifecycle } from "./ReviewerTimeline";
+import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
+
 interface ExpertDashboardProps {
   expertId?: string | null;
   goBack?: () => void;
@@ -123,10 +126,29 @@ const date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     return date;
   }, []);
 
+const [dateRange, setDateRange] = useState<
+  import("react-day-picker").DateRange | undefined
+>(() => {
+  const to = new Date();
+  const from = new Date();
+
+  from.setMonth(from.getMonth() - 1);
+
+  return {
+    from,
+    to,
+  };
+});
+
+  const userTimelineRange = useMemo(
+    () => getISOStringsForDateRange(dateRange),
+    [dateRange],
+  );
+
   const { data: reviewerLifecycleData, isLoading: isReviewerLifecycle } = useReviewerLifecycle(
     userId ?? "" ,
-    startDate,
-    endDate,
+    userTimelineRange.startTime ?? "",
+    userTimelineRange.endTime ?? "",
   );
 
   console.log("reviewerLifecycleData----", reviewerLifecycleData);
@@ -376,7 +398,7 @@ const date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       [key]: value,
     }));
   };
-  console.log("questtions ", paginatedQuestions)
+  // console.log("questtions ", paginatedQuestions)
 
   // When a question is opened from the Questions tab, show its full details
   // (same view used across the app) instead of the dashboard.
@@ -644,6 +666,14 @@ const date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
             </CardContent>
           </Card>
         </div>
+    
+        <ReviewerLifecycle
+          data={reviewerLifecycleData}
+          isLoading={isReviewerLifecycle}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+        />
+
         {isViewerAdminOrModerator && userId && (
           <div className="mb-6 mt-8 p-6 rounded-xl border border-border bg-card/30 shadow-sm">
             <div className="flex items-center gap-2 mb-6">

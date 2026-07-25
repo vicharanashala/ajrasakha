@@ -123,9 +123,9 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   if (stfFilter !== "ALL") activeFiltersCount++;
 
 
-  console.log("Admin users ->", adminUsers?.users);
-  console.log("Expert details ->", expertDetails?.experts);
-  console.log("Table items ->", tableItems);
+  // console.log("Admin users ->", adminUsers?.users);
+  // console.log("Expert details ->", expertDetails?.experts);
+  // console.log("Table items ->", tableItems);
 
   const isLoading = isAdmin ? adminLoading : expertLoading;
 
@@ -142,7 +142,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
           );
           const selectedRole = selectedUser?.role;
           // Admin / moderator → the admin/moderator overview dashboard.
-          if (selectedRole === "admin" || selectedRole === "moderator") {
+          if (selectedRole === "admin") {
             return (
               <div className="space-y-2">
                 <div className="flex justify-end">

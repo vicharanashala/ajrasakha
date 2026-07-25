@@ -1222,11 +1222,11 @@ export class UserController {
     @QueryParam('endDate') endDate?: string,
   ): Promise<any> {
 
-    console.log("reviewer-lifecycle---", userId, startDate, endDate);
+    // console.log("reviewer-lifecycle---", userId, startDate, endDate);
     const result = await this.chatbotService.getReviewerLifecycle(
       userId, new Date(startDate), new Date(endDate)
     );
-    console.log("result----", result);
+    // console.log("result----", result);
     return result;
   }
 }
