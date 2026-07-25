@@ -211,6 +211,9 @@ export const Dashboard = () => {
   );
   const [overviewStartTime, setOverviewStartTime] = useState("00:00");
   const [overviewEndTime, setOverviewEndTime] = useState("23:59");
+  const [overviewUserTypeFilter, setOverviewUserTypeFilter] = useState<
+    "all" | "tmu" | "normal"
+  >("all");
 
   const { data: user } = useGetCurrentUser();
   const isTrainingUser = user?.isTrainingUser === true;
@@ -220,6 +223,7 @@ export const Dashboard = () => {
     selectedDate: overviewSelectedDate,
     startTime: overviewStartTime,
     endTime: overviewEndTime,
+    userType: overviewUserTypeFilter,
   });
   const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
     viewType,
@@ -321,9 +325,11 @@ export const Dashboard = () => {
               selectedDate={overviewSelectedDate}
               startTime={overviewStartTime}
               endTime={overviewEndTime}
+              userTypeFilter={overviewUserTypeFilter}
               onSelectedDateChange={setOverviewSelectedDate}
               onStartTimeChange={setOverviewStartTime}
               onEndTimeChange={setOverviewEndTime}
+              onUserTypeFilterChange={setOverviewUserTypeFilter}
             />
           </LoadingWrapper>
           <LoadingWrapper

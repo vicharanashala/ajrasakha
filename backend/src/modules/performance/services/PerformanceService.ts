@@ -79,7 +79,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     await this.userRepo.updateCheckInTime(userId, time);
   }
 
-  async getOverview(currentUserId: string, query: { startDateTime?: string; endDateTime?: string; }): Promise<{
+  async getOverview(currentUserId: string, query: { startDateTime?: string; endDateTime?: string; userType?: 'all' | 'tmu' | 'normal'; }, isTrainingUser?: boolean, isAdmin?: boolean): Promise<{
     userRoleOverview: UserRoleOverview[];
     stfExpertCount: number;
     stfModeratorCount: number;
@@ -89,6 +89,9 @@ export class PerformanceService extends BaseService implements IPerformanceServi
       const overviewCounts = await this.userRepo.getUserRoleCount(
         query.startDateTime,
         query.endDateTime,
+        isTrainingUser,
+        isAdmin,
+        query.userType,
         session,
       );
       const moderatorApprovalRate = await this.questionRepo.getModeratorApprovalRate(

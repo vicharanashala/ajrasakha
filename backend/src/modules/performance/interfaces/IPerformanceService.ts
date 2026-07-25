@@ -45,7 +45,7 @@ export interface IPerformanceService {
     data: DashboardResponse;
   }>;
 
-  getOverview(currentUserId: string, query: { startDateTime?: string; endDateTime?: string }): Promise<{
+  getOverview(currentUserId: string, query: { startDateTime?: string; endDateTime?: string; userType?: 'all' | 'tmu' | 'normal' }, isTrainingUser?: boolean, isAdmin?: boolean): Promise<{
     userRoleOverview: UserRoleOverview[];
     stfExpertCount: number;
     stfModeratorCount: number;

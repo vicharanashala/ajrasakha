@@ -1716,6 +1716,9 @@ export class UserRepository implements IUserRepository {
   async getUserRoleCount(
     startDateTime?:string,
     endDateTime?:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    userType?: 'all' | 'tmu' | 'normal',
     session?: ClientSession,
   ): Promise<{
     userRoleOverview: UserRoleOverview[];
@@ -1818,6 +1821,17 @@ export class UserRepository implements IUserRepository {
                 { status: null },
                 { status: { $exists: false } },
               ],
+              ...(
+                isAdmin
+                  ? userType === 'tmu'
+                    ? { isTrainingUser: true }
+                    : userType === 'normal'
+                      ? { isTrainingUser: { $ne: true } }
+                      : {}
+                  : (isTrainingUser
+                      ? { isTrainingUser: true }
+                      : { isTrainingUser: { $ne: true } })
+              ),
             },
           },
 

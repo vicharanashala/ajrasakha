@@ -271,6 +271,9 @@ export interface IUserRepository {
   getUserRoleCount(
     startDateTime?: string,
     endDateTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    userType?: 'all' | 'tmu' | 'normal',
     session?: ClientSession,
   ): Promise<{
     userRoleOverview: UserRoleOverview[];

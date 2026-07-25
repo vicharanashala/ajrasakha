@@ -115,13 +115,18 @@ export class PerformanceController {
   @OpenAPI({ summary: 'Get role overview and approval rates' })
   @Get('/overview')
   @Authorized()
-  async getOverview(@CurrentUser() user: IUser,@QueryParams() query: { startDateTime?: string; endDateTime?: string;}): Promise<{
+  async getOverview(@CurrentUser() user: IUser,@QueryParams() query: { startDateTime?: string; endDateTime?: string; userType?: 'all' | 'tmu' | 'normal';}): Promise<{
     userRoleOverview: UserRoleOverview[];
     stfExpertCount: number;
     stfModeratorCount: number;
     moderatorApprovalRate: ModeratorApprovalRate;
   }> {
-    return this.performanceService.getOverview(user._id.toString(),query);
+    return this.performanceService.getOverview(
+      user._id.toString(),
+      query,
+      user.isTrainingUser === true,
+      user.role === 'admin',
+    );
   }
 
   @OpenAPI({ summary: 'Get golden dataset analytics' })
