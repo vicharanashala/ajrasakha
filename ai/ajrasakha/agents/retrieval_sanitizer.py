@@ -7,7 +7,7 @@ import logging
 import re
 from typing import Any, Optional
 
-from langchain_anthropic import ChatAnthropic
+from ajrasakha.agents.config import ChatAnthropic
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 

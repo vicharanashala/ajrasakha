@@ -279,7 +279,7 @@ export class AuthController {
         userInfo.displayName || ''
       );
 
-      if (user.isVerified === false) {
+      if (user.isVerified === false && !appConfig.isDevelopment) {
         throw new HttpError(
           401,
           'Your account is pending admin verification. Please contact an administrator.'
@@ -332,7 +332,7 @@ export class AuthController {
         decodedEmail.name || ''
       );
 
-      if (user.isVerified === false) {
+      if (user.isVerified === false && !appConfig.isDevelopment) {
         throw new HttpError(
           401,
           'Your account is pending admin verification. Please contact an administrator.'

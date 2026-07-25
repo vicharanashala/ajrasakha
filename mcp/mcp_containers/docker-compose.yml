@@ -67,16 +67,9 @@ services:
       - COLLECTION_NAME=${COLLECTION_NAME:-questions}
       - ANSWERS_COLLECTION_NAME=${ANSWERS_COLLECTION_NAME:-answers}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-BAAI/bge-large-en-v1.5}
-      - DEVICE=${DEVICE:-cuda}
+      - DEVICE=${DEVICE:-cpu}
     volumes:
       - review_model_cache:/app/model_cache
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     restart: unless-stopped
 
 volumes:

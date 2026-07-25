@@ -14,15 +14,14 @@ RUN apt-get update \
         build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install poetry
-RUN pip install "poetry==$POETRY_VERSION"
+# Install poetry and pre-install CPU PyTorch to prevent downloading 3GB+ of CUDA dependencies from PyPI
+RUN pip install "poetry==$POETRY_VERSION" && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 
 # Copy pyproject.toml and poetry.lock
 COPY pyproject.toml poetry.lock ./
 
 # Install dependencies
 RUN poetry config virtualenvs.create false \
-    && poetry lock \
     && poetry install --no-interaction --no-ansi --no-root
 
 # Copy application code

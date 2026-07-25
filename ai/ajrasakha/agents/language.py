@@ -259,7 +259,7 @@ def _llm_detect_language(text: str, script_context: str = "Latin") -> str:
         script_hint = ""
     
     try:
-        from langchain_anthropic import ChatAnthropic
+        from ajrasakha.agents.config import ChatAnthropic
         from ajrasakha.agents.config import SANITIZER_MODEL
         llm = ChatAnthropic(model=SANITIZER_MODEL)
         
@@ -345,7 +345,7 @@ async def _allm_detect_language(text: str, script_context: str = "Latin") -> str
         script_hint = ""
     
     try:
-        from langchain_anthropic import ChatAnthropic
+        from ajrasakha.agents.config import ChatAnthropic
         from ajrasakha.agents.config import SANITIZER_MODEL
         llm = ChatAnthropic(model=SANITIZER_MODEL)
         

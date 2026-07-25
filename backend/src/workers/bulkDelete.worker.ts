@@ -68,8 +68,16 @@ async function _withTransaction<T>(operation: (session: ClientSession) => Promis
     const result = await operation(session);
     await session.commitTransaction();
     return result;
-  } catch (error) {
-    if (session.inTransaction()) await session.abortTransaction();
+  } catch (error: any) {
+    if (session.inTransaction()) await session.abortTransaction().catch(() => {});
+    const isStandalone =
+      error?.message?.includes?.('Transaction numbers are only allowed') ||
+      error?.message?.includes?.('replica set') ||
+      error?.code === 20 ||
+      error?.codeName === 'IllegalOperation';
+    if (isStandalone) {
+      return await operation(session);
+    }
     throw error;
   } finally {
     await session.endSession();

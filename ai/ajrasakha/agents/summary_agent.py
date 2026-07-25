@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from langchain_anthropic import ChatAnthropic
+from ajrasakha.agents.config import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages

@@ -37,6 +37,16 @@ export abstract class BaseService {
           await session.abortTransaction().catch(() => {});
         }
 
+        const isStandalone =
+          error?.message?.includes?.('Transaction numbers are only allowed') ||
+          error?.message?.includes?.('replica set') ||
+          error?.code === 20 ||
+          error?.codeName === 'IllegalOperation';
+
+        if (isStandalone) {
+          return await operation(session);
+        }
+
         const isTransient =
           error?.errorLabels?.includes?.('TransientTransactionError') ||
           error?.code === 112 || // WriteConflict

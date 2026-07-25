@@ -42,11 +42,20 @@ export class MongoDatabase implements IDatabase<Db> {
 
     console.log(`[${this.dbIdentifier}] Initializing database connection...`);
 
+    if (!uri) {
+      throw new Error(`[${this.dbIdentifier}] MongoDB connection URI is missing or null.`);
+    }
+
+    const isLocal = uri.includes('localhost') || uri.includes('127.0.0.1');
+    const useSsl = !isLocal && (uri.includes('mongodb+srv://') || uri.includes('ssl=true') || uri.includes('tls=true') || process.env.NODE_ENV === 'production');
+
     this.client = new MongoClient(uri, {
-      ssl: true,
-      tls: true,
-      tlsAllowInvalidCertificates: false,
-      tlsAllowInvalidHostnames: false,
+      ...(useSsl ? {
+        ssl: true,
+        tls: true,
+        tlsAllowInvalidCertificates: false,
+        tlsAllowInvalidHostnames: false,
+      } : {}),
       retryWrites: true,
       connectTimeoutMS: 30000,
       socketTimeoutMS: 30000

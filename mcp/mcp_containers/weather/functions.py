@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from typing import List
-from llama_cloud import TextNode
+from llama_index.core.schema import TextNode
 from llama_index.core import VectorStoreIndex
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.vector_stores.mongodb import MongoDBAtlasVectorSearch

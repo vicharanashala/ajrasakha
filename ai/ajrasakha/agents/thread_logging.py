@@ -257,10 +257,14 @@ def _append_to_file(thread_id: str, text: str) -> None:
     """Append text to the local thread log file only (fast path during request)."""
     block = text if text.endswith("\n") else f"{text}\n"
     path = _thread_log_path(thread_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with _turn_counts_lock:
-        with path.open("a", encoding="utf-8") as fh:
-            fh.write(block)
+    try:
+        if not path.parent.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+        with _turn_counts_lock:
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write(block)
+    except Exception:
+        pass
     _append_to_turn_buffer(block, thread_id=thread_id)
 
 
@@ -402,7 +406,11 @@ class ThreadFileLogHandler(logging.Handler):
     def __init__(self, log_dir: Path | None = None) -> None:
         super().__init__()
         self.log_dir = log_dir or thread_log_dir()
-        self.log_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            if not self.log_dir.exists():
+                self.log_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
         self._file_handlers: dict[str, logging.FileHandler] = {}
         self._fh_lock = threading.Lock()
 
@@ -441,7 +449,7 @@ class ThreadFileLogHandler(logging.Handler):
             fh.flush()
             _append_to_turn_buffer(line, thread_id=thread_id)
         except Exception:
-            self.handleError(record)
+            pass
 
 
 _file_handler_registry: ThreadFileLogHandler | None = None

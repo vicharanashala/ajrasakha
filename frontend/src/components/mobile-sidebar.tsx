@@ -59,7 +59,6 @@ const SidebarButton = ({
 export const MobileSidebar = ({
   user,
   setTab,
-  setChatbotSource,
 }: {
   user: IUser;
   setTab: (value: string) => void;
@@ -83,6 +82,8 @@ export const MobileSidebar = ({
       navigate({ to: "/chatbot" });
     } else if (value === "whatsapp_history") {
       navigate({ to: "/whatsapp-history" });
+    } else if (value === "farmer_feedback") {
+      navigate({ to: "/dashboard/feedback" });
     } else {
       setTab(value);
       setActiveTab(value);
@@ -159,18 +160,9 @@ export const MobileSidebar = ({
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
-    ...(user && !isCoordinator && user.role !== "call_agent"
-      ? [{ id: "history", label: "History", icon: History }]
-      : []),
-    ...(user && !isCoordinator && user.role !== "call_agent"
-      ? [
-          {
-            id: "whatsapp_history",
-            label: "WhatsApp History",
-            icon: MessageSquare,
-          },
-        ]
-      : []),
+    ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "history", label: "History", icon: History }] : []),
+    ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "whatsapp_history", label: "WhatsApp History", icon: MessageSquare }] : []),
+    ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "farmer_feedback", label: "Farmer Feedback", icon: BarChart3 }] : []),
   ];
 
   return (

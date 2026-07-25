@@ -364,7 +364,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         firstName: names[0] || email.split('@')[0],
         lastName: names.slice(1).join(' ') || '',
         role: 'pae_expert',
-        isVerified: false,
+        isVerified: appConfig.isDevelopment ? true : false,
       };
 
       await this._withTransaction(async (session) => {

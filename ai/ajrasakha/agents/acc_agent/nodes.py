@@ -1,8 +1,7 @@
 import json
 import re
 from typing import Optional
-
-from langchain_anthropic import ChatAnthropic
+from ajrasakha.agents.config import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from ajrasakha.agents.config import CLAUDE_MODEL, SANITIZER_MODEL

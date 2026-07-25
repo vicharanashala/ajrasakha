@@ -10,7 +10,9 @@ import {
   CurrentUser,
   QueryParam,
   ForbiddenError,
+  UseBefore,
 } from 'routing-controllers';
+import { urlencoded } from 'express';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
 import { WHATSAPP_TYPES } from '../types.js';
@@ -18,6 +20,7 @@ import type { IWhatsAppService } from '../interfaces/IWhatsAppService.js';
 import { IUser } from '#root/shared/index.js';
 import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
+import { FarmerFeedbackService } from '#root/modules/feedback/index.js';
 
 @OpenAPI({
   tags: ['whatsapp'],
@@ -29,6 +32,8 @@ export class WhatsAppController {
   constructor(
     @inject(WHATSAPP_TYPES.WhatsAppService)
     private readonly whatsappService: IWhatsAppService,
+    @inject(FarmerFeedbackService)
+    private readonly farmerFeedbackService: FarmerFeedbackService,
   ) { }
 
   @OpenAPI({
@@ -149,5 +154,39 @@ export class WhatsAppController {
         users: [],
       };
     }
+  }
+
+  @OpenAPI({
+    summary: 'WhatsApp Incoming Webhook',
+    description: 'Intercepts incoming messages from active farmer sessions. If a farmer replies 1 (Yes) or 2 (No) to a feedback prompt, records the telemetry in FarmerFeedbackService.',
+  })
+  @Post('/webhook')
+  @HttpCode(200)
+  @UseBefore(urlencoded({ extended: true }))
+  async handleIncomingWebhook(
+    @Body() body: any,
+  ) {
+    console.log('[WhatsAppController] Received incoming webhook:', body);
+
+    const text = (body.reply || body.text || body.Body || body.message || '').toString().trim();
+    const phoneNumber = body.phoneNumber || body.From || body.fromNumber || body.from || '';
+    const gdbEntryId = body.gdbEntryId || 'GDB-DEFAULT';
+
+    if (text === '1' || text === '2') {
+      console.log(`[WhatsAppController] Intercepted feedback reply "${text}" from ${phoneNumber} for GDB Entry ${gdbEntryId}`);
+      const result = await this.farmerFeedbackService.recordFeedback({
+        phoneNumber,
+        reply: text as '1' | '2',
+        gdbEntryId,
+        questionId: body.questionId,
+        domain: body.domain || 'General',
+        language: body.language || 'en',
+        state: body.state || 'Unknown',
+        userId: body.userId,
+      });
+      return { success: true, feedbackRecorded: true, data: result };
+    }
+
+    return { success: true, feedbackRecorded: false, message: 'Message received and processed' };
   }
 }

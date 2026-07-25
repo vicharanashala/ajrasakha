@@ -19,3 +19,15 @@ class ChatCompletionRequest(BaseModel):
     thinking: Optional[Dict[str, Any]] = None  # Extended thinking support
     # Thread GPS / resolved place fields merged into graph state `location` (e.g. latitude, longitude, city, state).
     location: Optional[Dict[str, Any]] = None
+    include_feedback_prompt: Optional[bool] = False
+
+    @staticmethod
+    def format_with_feedback_prompt(answer_text: str) -> str:
+        """Appends interactive post-answer feedback options for WhatsApp / Web loop."""
+        feedback_footer = (
+            "\n\n---\n"
+            "Was this answer helpful to your farming needs?\n"
+            "Reply 1 for Yes\n"
+            "Reply 2 for No"
+        )
+        return answer_text + feedback_footer
