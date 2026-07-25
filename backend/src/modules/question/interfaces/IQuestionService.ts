@@ -544,5 +544,5 @@ export interface IQuestionService {
   /**
    * @param submissionId - The submission document ID
    */
-  backgroundProcessAction(submissionId: string): Promise<{ modifiedCount: number }>;
+  backgroundProcessAction(userId: string): Promise<{ modifiedCount: number }>;
 }
