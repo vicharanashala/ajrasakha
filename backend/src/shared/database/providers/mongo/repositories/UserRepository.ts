@@ -1920,13 +1920,24 @@ export class UserRepository implements IUserRepository {
   }
 
   async getExpertPerformance(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<ExpertPerformance[]> {
     await this.init();
 
     const experts = await this.usersCollection
       .find(
-        { role: 'expert' },
+        {
+          role: 'expert',
+          ...(
+            !isAdmin && isTrainingUser === true
+              ? { isTrainingUser: true }
+              : !isAdmin && isTrainingUser === false
+                ? { isTrainingUser: { $ne: true } }
+                : {}
+          ),
+        },
         {
           session,
           projection: {

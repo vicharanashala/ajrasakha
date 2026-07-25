@@ -100,9 +100,13 @@ export class PerformanceController {
     @CurrentUser() user: IUser,
   ): Promise<DashboardResponse> {
     const currentUserId = user._id.toString();
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser === true
     const {data} = await this.performanceService.getDashboardData(
       currentUserId,
       query,
+      isTrainingUser,
+      isAdmin,
     );
 
     return data;
@@ -149,8 +153,10 @@ export class PerformanceController {
   @OpenAPI({ summary: 'Get expert performance metrics' })
   @Get('/expert-performance')
   @Authorized()
-  async getExpertPerformance(): Promise<ExpertPerformance[]> {
-    return this.performanceService.getExpertPerformance();
+  async getExpertPerformance(@CurrentUser() user: IUser): Promise<ExpertPerformance[]> {
+    const isAdmin = user.role === 'admin'
+    const isTrainingUser = user.isTrainingUser === true
+    return this.performanceService.getExpertPerformance(isTrainingUser,isAdmin);
   }
 
   @OpenAPI({ summary: 'Get detailed questions/answers analytics' })

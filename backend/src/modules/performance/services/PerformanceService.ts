@@ -145,9 +145,9 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getExpertPerformance(): Promise<ExpertPerformance[]> {
+  async getExpertPerformance(isTrainingUser?:boolean,isAdmin?:boolean): Promise<ExpertPerformance[]> {
     return await this._withTransaction(async (session: ClientSession) => {
-      return await this.userRepo.getExpertPerformance(session);
+      return await this.userRepo.getExpertPerformance(isTrainingUser,isAdmin,session);
     });
   }
 
@@ -167,6 +167,8 @@ export class PerformanceService extends BaseService implements IPerformanceServi
   async getDashboardData(
     currentUserId: string,
     query: GetDashboardQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<{data: DashboardResponse}> {
     return await this._withTransaction(async (session: ClientSession) => {
       const {
@@ -202,15 +204,21 @@ export class PerformanceService extends BaseService implements IPerformanceServi
           selectedMonth: goldenDataSelectedMonth,
           selectedWeek: goldenDataSelectedWeek,
           selectedDay: goldenDataSelectedDay
-        }),
-        this.getContributionTrend(sourceChartTimeRange),
-        this.getStatusOverview(),
-        this.getExpertPerformance(),
+        },
+        isTrainingUser,
+        isAdmin
+      ),
+        this.getContributionTrend(sourceChartTimeRange,isTrainingUser,isAdmin),
+        this.getStatusOverview(isTrainingUser,isAdmin),
+        this.getExpertPerformance(isTrainingUser,isAdmin),
         this.getQuestionsAnalytics({
           type: qnAnalyticsType,
           startTime: qnAnalyticsStartTime,
           endTime: qnAnalyticsEndTime
-        })
+        },
+        isTrainingUser,
+        isAdmin
+      )
       ]);
 
       const response: DashboardResponse = {

@@ -36,7 +36,9 @@ export interface IPerformanceService {
    */
   getDashboardData(
     currentUserId: string,
-    query: GetDashboardQuery
+    query: GetDashboardQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{
     data: DashboardResponse;
   }>;
@@ -54,7 +56,7 @@ export interface IPerformanceService {
 
   getStatusOverview(isTrainingUser?:boolean,isAdmin?:boolean): Promise<StatusOverview>;
 
-  getExpertPerformance(): Promise<ExpertPerformance[]>;
+  getExpertPerformance(isTrainingUser?:boolean,isAdmin?:boolean): Promise<ExpertPerformance[]>;
 
   getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery, isTrainingUser?:boolean,isAdmin?:boolean): Promise<Analytics>;
 

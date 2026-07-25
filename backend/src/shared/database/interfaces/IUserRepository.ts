@@ -281,7 +281,7 @@ export interface IUserRepository {
   /**
    * @param session
    */
-  getExpertPerformance(session?: ClientSession): Promise<ExpertPerformance[]>;
+  getExpertPerformance(isTrainingUser: boolean,isAdmin?: boolean,session?: ClientSession): Promise<ExpertPerformance[]>;
 
   /**
  * Updates the last check-in time for a user.
