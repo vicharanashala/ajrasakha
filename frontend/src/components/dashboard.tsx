@@ -474,6 +474,7 @@ export const Dashboard = () => {
             <QuestionsAnalytics
               date={date}
               setDate={setDate}
+              isTrainingUser={isTrainingUser}
               analyticsType={analyticsType}
               setAnalyticsType={setAnalyticsType}
               analyticsStatus={analyticsStatus}
