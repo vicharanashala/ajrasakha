@@ -200,6 +200,8 @@ export interface IAnswerRepository {
    * @param session
    */
   getAnswerOverviewByStatus(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<AnswerStatusOverview[]>;
 

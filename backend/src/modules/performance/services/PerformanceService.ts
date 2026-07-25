@@ -134,10 +134,10 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getStatusOverview(): Promise<StatusOverview> {
+  async getStatusOverview(isTrainingUser?: boolean, isAdmin?: boolean): Promise<StatusOverview> {
     return await this._withTransaction(async (session: ClientSession) => {
-      const questionsOverview = await this.questionRepo.getQuestionOverviewByStatus(session);
-      const answerOverView = await this.answerRepo.getAnswerOverviewByStatus(session);
+      const questionsOverview = await this.questionRepo.getQuestionOverviewByStatus(isTrainingUser, isAdmin, session);
+      const answerOverView = await this.answerRepo.getAnswerOverviewByStatus(isTrainingUser, isAdmin, session);
       return {
         questions: questionsOverview,
         answers: answerOverView,

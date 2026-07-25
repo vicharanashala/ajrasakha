@@ -4887,13 +4887,23 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   async getQuestionOverviewByStatus(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<QuestionStatusOverview[]> {
     await this.init();
 
     const results = await this.QuestionCollection.aggregate(
       [
-        {$match: {status: {$ne: 'pass'}}},
+        {
+          $match: {
+            status: { $ne: 'pass' },
+            ...(!isAdmin &&
+              (isTrainingUser
+                ? { isTrainingQuestion: true }
+                : { isTrainingQuestion: { $ne: true } })),
+          }
+        },
         {
           $group: {
             _id: '$status',

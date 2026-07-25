@@ -140,8 +140,10 @@ export class PerformanceController {
   @OpenAPI({ summary: 'Get status overview' })
   @Get('/status-overview')
   @Authorized()
-  async getStatusOverview(): Promise<StatusOverview> {
-    return this.performanceService.getStatusOverview();
+  async getStatusOverview(@CurrentUser() user: IUser): Promise<StatusOverview> {
+    const isAdmin = user.role === 'admin'
+    const isTrainingUser = user.isTrainingUser === true
+    return this.performanceService.getStatusOverview(isTrainingUser,isAdmin);
   }
 
   @OpenAPI({ summary: 'Get expert performance metrics' })

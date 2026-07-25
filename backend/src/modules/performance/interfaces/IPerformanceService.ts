@@ -52,7 +52,7 @@ export interface IPerformanceService {
 
   getContributionTrend(timeRange: string,isTrainingUser?:boolean,isAdmin?:boolean): Promise<QuestionContributionTrend[]>;
 
-  getStatusOverview(): Promise<StatusOverview>;
+  getStatusOverview(isTrainingUser?:boolean,isAdmin?:boolean): Promise<StatusOverview>;
 
   getExpertPerformance(): Promise<ExpertPerformance[]>;
 

@@ -1149,12 +1149,36 @@ export class AnswerRepository implements IAnswerRepository {
 
 
   async getAnswerOverviewByStatus(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<AnswerStatusOverview[]> {
     await this.init();
 
     const results = await this.AnswerCollection.aggregate(
       [
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+        {
+          $unwind: '$question',
+        },
+        {
+          $match: {
+            ...(
+              !isAdmin && isTrainingUser === true
+                ? { 'question.isTrainingQuestion': true }
+                : !isAdmin && isTrainingUser === false
+                  ? { 'question.isTrainingQuestion': { $ne: true } }
+                  : {}
+            ),
+          },
+        },
         {
           $group: {
             _id: '$status',

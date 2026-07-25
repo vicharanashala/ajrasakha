@@ -397,6 +397,8 @@ export interface IQuestionRepository {
    * @param session - Optional MongoDB client session for transactions.
    */
   getQuestionOverviewByStatus(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<QuestionStatusOverview[]>;
 
