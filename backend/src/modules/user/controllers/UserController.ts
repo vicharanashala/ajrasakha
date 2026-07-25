@@ -257,6 +257,8 @@ export class UserController {
       includeSelf,
     } = query;
     const userId = user._id.toString();
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser === true;
     return await this.userService.getAllUsersforManualSelect(
       userId,
       Number(page),
@@ -265,6 +267,8 @@ export class UserController {
       sort,
       filter,
       includeSelf === true || includeSelf === 'true',
+      isTrainingUser,
+      isAdmin
     );
   }
 

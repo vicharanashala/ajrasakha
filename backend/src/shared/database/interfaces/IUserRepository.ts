@@ -126,7 +126,7 @@ export interface IUserRepository {
    * Finds all users.
    * @returns A promise that resolves to an array of users.
    */
-  findAll(session?: ClientSession): Promise<IUser[]>;
+  findAll(session?: ClientSession, isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]>;
 
   /**
    * Finds all users.

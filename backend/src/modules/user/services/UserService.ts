@@ -259,11 +259,13 @@ export class UserService extends BaseService {
     sort: string,
     filter: string,
     includeSelf = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
-        const users = await this.userRepo.findAll(session);
+        const users = await this.userRepo.findAll(session,isTrainingUser,isAdmin);
         // The caller is excluded by default: most manual-select flows are handing work
         // to someone else (re-routing an answer, reallocating a question). Gate keepers /
         // auditors assigning a question to themselves pass includeSelf.
