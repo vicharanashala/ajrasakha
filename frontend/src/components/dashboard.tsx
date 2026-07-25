@@ -217,13 +217,14 @@ export const Dashboard = () => {
 
   const { data: user } = useGetCurrentUser();
   const isTrainingUser = user?.isTrainingUser === true;
+  const isAdmin = user?.role === "admin";
 
   // Granular Hooks
   const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview({
     selectedDate: overviewSelectedDate,
     startTime: overviewStartTime,
     endTime: overviewEndTime,
-    userType: overviewUserTypeFilter,
+    userType: isAdmin ? overviewUserTypeFilter : undefined,
   });
   const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
     viewType,
@@ -325,6 +326,7 @@ export const Dashboard = () => {
               selectedDate={overviewSelectedDate}
               startTime={overviewStartTime}
               endTime={overviewEndTime}
+              isAdmin={isAdmin}
               userTypeFilter={overviewUserTypeFilter}
               onSelectedDateChange={setOverviewSelectedDate}
               onStartTimeChange={setOverviewStartTime}

@@ -105,11 +105,12 @@ interface ModeratorsOverviewProps {
   selectedDate: string;
   startTime: string;
   endTime: string;
-  userTypeFilter: "all" | "tmu" | "normal";
+  isAdmin?: boolean;
+  userTypeFilter?: "all" | "tmu" | "normal";
   onSelectedDateChange: (value: string) => void;
   onStartTimeChange: (value: string) => void;
   onEndTimeChange: (value: string) => void;
-  onUserTypeFilterChange: (value: "all" | "tmu" | "normal") => void;
+  onUserTypeFilterChange?: (value: "all" | "tmu" | "normal") => void;
 }
 
 export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
@@ -119,7 +120,8 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
   selectedDate,
   startTime,
   endTime,
-  userTypeFilter,
+  isAdmin = false,
+  userTypeFilter = "all",
   onSelectedDateChange,
   onStartTimeChange,
   onEndTimeChange,
@@ -231,21 +233,23 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
                 Role Breakdown
               </h3>
               <div className="flex items-center gap-2">
-                <Select
-                  value={userTypeFilter}
-                  onValueChange={(value) =>
-                    onUserTypeFilterChange(value as "all" | "tmu" | "normal")
-                  }
-                >
-                  <SelectTrigger className="h-8 w-[110px] text-xs">
-                    <SelectValue placeholder="Filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="tmu">TMU</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                  </SelectContent>
-                </Select>
+                {isAdmin && onUserTypeFilterChange && (
+                  <Select
+                    value={userTypeFilter}
+                    onValueChange={(value) =>
+                      onUserTypeFilterChange(value as "all" | "tmu" | "normal")
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-[110px] text-xs">
+                      <SelectValue placeholder="Filter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="tmu">TMU</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
                 <Badge variant="outline" className="shrink-0 text-xs">
                   {roleRows.length} roles
                 </Badge>
