@@ -437,18 +437,21 @@ export const Dashboard = () => {
         )}
 
         {/* Sources Chart Row */}
-        <div className="mb-6">
-          <LoadingWrapper
-            loading={isContributionLoading}
-            text="Fetching sources chart..."
-          >
-            <SourcesChart
-              data={contributionData ?? []}
-              timeRange={timeRange}
-              setTimeRange={setTimeRange}
-            />
-          </LoadingWrapper>
-        </div>
+        {
+          !isTrainingUser && (
+            <div className="mb-6">
+              <LoadingWrapper
+                loading={isContributionLoading}
+                text="Fetching sources chart..."
+              >
+                <SourcesChart
+                  data={contributionData ?? []}
+                  timeRange={timeRange}
+                  setTimeRange={setTimeRange}
+                />
+              </LoadingWrapper>
+            </div>
+          )}
 
         {/* Question Status Row */}
         <div className="mb-6">
