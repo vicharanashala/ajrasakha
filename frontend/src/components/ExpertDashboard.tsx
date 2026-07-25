@@ -49,6 +49,7 @@ import { QuestionDetails } from "./question-details";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import type { IQuestion } from "@/types";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
+import { useReviewerLifecycle } from "@/hooks/api/user/useReviewerLifecycle";
 interface ExpertDashboardProps {
   expertId?: string | null;
   goBack?: () => void;
@@ -110,6 +111,25 @@ export const ExpertDashboard = ({
     weekStart.toISOString(),
     weekEnd.toISOString(),
   );
+
+  const startDate = useMemo(() => {
+const date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return date;
+  }, []);
+
+  const endDate = useMemo(() => {
+    const date = new Date();
+    date.setHours(23, 59, 59, 999);
+    return date;
+  }, []);
+
+  const { data: reviewerLifecycleData, isLoading: isReviewerLifecycle } = useReviewerLifecycle(
+    userId ?? "" ,
+    startDate,
+    endDate,
+  );
+
+  console.log("reviewerLifecycleData----", reviewerLifecycleData);
 
   const weeklyWorkingHours = weeklyWorkingHoursData?.workingHours ?? 0;
 

@@ -280,4 +280,25 @@ export class UserService {
       `${this._baseUrl}/working-hours?${params.toString()}`
     );
   }
+
+  async getReviewerLifecycle(
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<any> {
+    // console.log("getReviewerLifecycle---");
+
+    const params = new URLSearchParams();
+
+    params.append("userId", userId);
+    params.append("startDate", startDate.toISOString());
+    params.append("endDate", endDate.toISOString());
+
+    return apiFetch<any>(
+      `${this._baseUrl}/reviewer-lifecycle?${params.toString()}`,
+      {
+        method: "GET",
+      }
+    );
+  }
 }

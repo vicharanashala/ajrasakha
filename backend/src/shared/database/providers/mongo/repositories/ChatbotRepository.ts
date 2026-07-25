@@ -20561,4 +20561,69 @@ export class ChatbotRepository implements IChatbotRepository {
       );
     }
   }
+
+  async getReviewerLifecycle(
+    userId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    try {
+      await this.initReviewSystem();
+      await this.init('annam');
+
+      const matchQuery: any = {
+        $and: [],
+      };
+
+      // Date filter
+      if (startDate || endDate) {
+        matchQuery.createdAt = {};
+
+        if (startDate) {
+          matchQuery.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          const endOfDay = new Date(endDate);
+          endOfDay.setHours(23, 59, 59, 999);
+
+          matchQuery.createdAt.$lte = endOfDay;
+        }
+      }
+
+      // Questions associated with this reviewer
+      const userScope = await this.buildUserQuestionScope(userId);
+
+      if (userScope) {
+        matchQuery.$and.push(userScope);
+      }
+
+      const questionIds = await this.QuestionCollection.find(matchQuery, {
+        projection: {
+          _id: 1,
+        },
+      })
+        .map(question => question._id.toString())
+        .toArray();
+
+      if (!questionIds.length) {
+        return {
+          reviewerId: userId,
+          lifecycle: [],
+        };
+      }
+
+      // Reuse existing question lifecycle generation
+      const lifecycles =
+        await this.getQuestionLifecycleForSummary(questionIds);
+
+      return {
+        reviewerId: userId,
+        lifecycle: lifecycles,
+      };
+    } catch (err) {
+      console.log('error in getReviewerLifecycle:', err);
+      throw Error(err);
+    }
+  }
 }
