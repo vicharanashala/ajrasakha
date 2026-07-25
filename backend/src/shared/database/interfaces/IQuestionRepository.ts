@@ -427,6 +427,8 @@ export interface IQuestionRepository {
   getModeratorApprovalRate(
     currentUserId: string,
     session?: ClientSession,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ModeratorApprovalRate>;
   getAll(session?: ClientSession): Promise<IQuestion[]>;
 

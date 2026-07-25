@@ -5123,30 +5123,48 @@ export class QuestionRepository implements IQuestionRepository {
   async getModeratorApprovalRate(
     currentUserId: string,
     session?: ClientSession,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ModeratorApprovalRate> {
     try {
       await this.init();
 
       const pending = await this.QuestionCollection.countDocuments(
-        {status: 'in-review'},
-        {session},
+        {
+          status: 'in-review',
+          ...(
+            !isAdmin &&
+            (isTrainingUser
+              ? { isTrainingQuestion: true }
+              : { isTrainingQuestion: { $ne: true } })
+          ),
+        },
+        { session },
       );
 
       const approved = await this.QuestionCollection.countDocuments(
-        {status: 'closed'},
-        {session},
+        {
+          status: 'closed',
+          ...(
+            !isAdmin &&
+            (isTrainingUser
+              ? { isTrainingQuestion: true }
+              : { isTrainingQuestion: { $ne: true } })
+          ),
+        },
+        { session },
       );
 
       const totalReviews = pending + approved || 0;
 
-      const approvedCount = await this.QuestionCollection.countDocuments(
-        {status: 'closed'},
-        {session},
-      );
+      // const approvedCount = await this.QuestionCollection.countDocuments(
+      //   {status: 'closed'},
+      //   {session},
+      // );
 
       const approvalRate =
         totalReviews > 0
-          ? Number(((approvedCount / totalReviews) * 100).toFixed(2))
+          ? Number(((approved / totalReviews) * 100).toFixed(2))
           : 0;
 
       return {

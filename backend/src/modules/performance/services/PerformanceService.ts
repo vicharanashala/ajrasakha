@@ -97,6 +97,8 @@ export class PerformanceService extends BaseService implements IPerformanceServi
       const moderatorApprovalRate = await this.questionRepo.getModeratorApprovalRate(
         currentUserId,
         session,
+        isTrainingUser,
+        isAdmin,
       );
       return { ...overviewCounts, moderatorApprovalRate };
     });
