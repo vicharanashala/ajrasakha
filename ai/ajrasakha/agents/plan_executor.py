@@ -1364,7 +1364,7 @@ def route_after_execute(state: AjraSakhaState) -> str:
     if plan.get("is_greeting") or plan.get("reasoning") == "greeting":
         return "assemble_answer_body"
     if _gdb_has_usable_data(messages) and _turn_has_specialist_tool_message(messages):
-        return "empty_gdb_reply"
+        return "assemble_answer_body"
     if should_expert_queue_reply(state):
         return "empty_gdb_reply"
     if _gdb_has_usable_data(messages) or _turn_has_specialist_tool_message(messages):
