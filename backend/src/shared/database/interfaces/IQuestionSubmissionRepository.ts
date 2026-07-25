@@ -131,6 +131,8 @@ export interface IQuestionSubmissionRepository {
 
   heatMapResultsForReviewer(
     query: GetHeatMapQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IReviewerHeatmapResponse | null>;
 
   /**

@@ -61,8 +61,10 @@ export class PerformanceService extends BaseService implements IPerformanceServi
 
   async getHeatMapresults(
     query: GetHeatMapQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IReviewerHeatmapResponse | null> {
-    return await this.questionSubmissionRepo.heatMapResultsForReviewer(query);
+    return await this.questionSubmissionRepo.heatMapResultsForReviewer(query,isTrainingUser,isAdmin);
   }
 
   async getCurrentUserWorkLoad(currentUserId: string): Promise<{

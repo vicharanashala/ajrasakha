@@ -19,7 +19,9 @@ export interface IPerformanceService {
    * Reviewer heatmap data
    */
   getHeatMapresults(
-    query: GetHeatMapQuery
+    query: GetHeatMapQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IReviewerHeatmapResponse | null>;
 
   /**

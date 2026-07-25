@@ -188,10 +188,12 @@ export class PerformanceController {
   @HttpCode(200)
   @Authorized()
   async getHeatMapresults(
+    @CurrentUser() user: IUser,
     @QueryParams() query: GetHeatMapQuery,
   ): Promise<IReviewerHeatmapResponse | null> {
-    
-    const result = await this.performanceService.getHeatMapresults(query);
+    const isAdmin = user.role === 'admin'
+    const isTrainingUser = user.isTrainingUser === true
+    const result = await this.performanceService.getHeatMapresults(query,isTrainingUser,isAdmin);
 
     return result;
   }

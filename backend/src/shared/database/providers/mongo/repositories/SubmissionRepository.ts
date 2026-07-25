@@ -547,6 +547,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   async heatMapResultsForReviewer(
     query: GetHeatMapQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IReviewerHeatmapResponse | null> {
     try {
       await this.init();
@@ -628,6 +630,28 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         {
           $match: {
             'history.updatedBy': {$exists: true, $ne: null},
+          },
+        },
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+        {
+          $unwind: '$question',
+        },
+        {
+          $match: {
+            ...(
+              !isAdmin && isTrainingUser === true
+                ? { 'question.isTrainingQuestion': true }
+                : !isAdmin && isTrainingUser === false
+                  ? { 'question.isTrainingQuestion': { $ne: true } }
+                  : {}
+            ),
           },
         },
         {
