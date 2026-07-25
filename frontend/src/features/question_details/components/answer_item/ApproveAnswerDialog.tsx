@@ -10,7 +10,35 @@ import { Textarea } from "@/components/atoms/textarea";
 import { SourceUrlManager } from "@/components/source-url-manager";
 import type { SourceItem } from "@/types";
 import { CheckCircle2, Loader2, Pencil } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const APPROVE_ANSWER_DRAFTS_KEY = "approveAnswerDrafts";
+
+type ApproveAnswerDraft = {
+  answer: string;
+  sources: SourceItem[];
+};
+
+export const getApproveAnswerDrafts = (): Record<string, ApproveAnswerDraft> => {
+  try {
+    const saved = localStorage.getItem(APPROVE_ANSWER_DRAFTS_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+};
+
+export const clearApproveAnswerDraft = (questionId: string) => {
+  if (!questionId) return;
+
+  try {
+    const drafts = getApproveAnswerDrafts();
+    delete drafts[questionId];
+    localStorage.setItem(APPROVE_ANSWER_DRAFTS_KEY, JSON.stringify(drafts));
+  } catch {
+    // Ignore localStorage failures; saving the answer should not be blocked.
+  }
+};
 
 const focusTextareaAtEnd = (el: HTMLTextAreaElement | null) => {
   if (!el) return;
@@ -24,6 +52,7 @@ const focusTextareaAtEnd = (el: HTMLTextAreaElement | null) => {
 type DialogMode = "approve" | "edit";
 
 interface ApproveAnswerDialogProps {
+  questionId: string;
   editOpen: boolean;
   setEditOpen: (open: boolean) => void;
   editableAnswer: string;
@@ -40,6 +69,7 @@ interface ApproveAnswerDialogProps {
 }
 
 export const ApproveAnswerDialog = ({
+  questionId,
   editOpen,
   setEditOpen,
   editableAnswer,
@@ -63,6 +93,48 @@ export const ApproveAnswerDialog = ({
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [hasHydratedDraft, setHasHydratedDraft] = useState(false);
+
+  useEffect(() => {
+    if (!editOpen || !questionId) {
+      setHasHydratedDraft(false);
+      return;
+    }
+
+    const draft = getApproveAnswerDrafts()[questionId];
+    if (draft) {
+      setEditableAnswer(draft.answer);
+      setSources(draft.sources);
+    }
+
+    setHasHydratedDraft(true);
+  }, [editOpen, questionId, setEditableAnswer, setSources]);
+
+  useEffect(() => {
+    if (!editOpen || !questionId || !hasHydratedDraft) return;
+
+    const drafts = getApproveAnswerDrafts();
+    const existing = drafts[questionId];
+
+    if (
+      existing &&
+      existing.answer === editableAnswer &&
+      JSON.stringify(existing.sources) === JSON.stringify(sources)
+    ) {
+      return;
+    }
+
+    localStorage.setItem(
+      APPROVE_ANSWER_DRAFTS_KEY,
+      JSON.stringify({
+        ...drafts,
+        [questionId]: {
+          answer: editableAnswer,
+          sources,
+        },
+      })
+    );
+  }, [editableAnswer, sources, editOpen, questionId, hasHydratedDraft]);
 
   const debouncedHandleUpdateAnswer = () => {
     if (debounceRef.current) return;

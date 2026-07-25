@@ -33,12 +33,14 @@ import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTr
 import {
   DashboardQueryDto,
   DemographicUsersQueryDto,
+  PlatformUsersQueryDto,
   QueryAnalyticsQueryDto,
   QueryCategoryQuestionsQueryDto,
   SourceQueryDto,
   UserDetailsQueryDto,
   WeatherConcernAnalyticsQueryDto,
   WeatherConcernQueriesQueryDto,
+  FeedbackUsersQueryDto,
 } from '../classes/validators/ChatbotQueryValidators.js';
 import {
   ChatbotErrorResponse,
@@ -71,6 +73,7 @@ import {
   UserDemographics,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
+import { query } from 'winston';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -145,6 +148,29 @@ export class ChatbotController {
   }
 
   @OpenAPI({
+    summary: 'Get paginated feedback messages',
+    description:
+      'Returns a paginated list of feedback messages filtered by rating or tag.',
+  })
+  @Get('/feedback-users')
+  @HttpCode(200)
+  @Authorized()
+  async getFeedbackUsers(@QueryParams() query: FeedbackUsersQueryDto) {
+ 
+    return this.chatbotService.getFeedbackUsers(
+      query.source,
+      query.page,
+      query.limit,
+      query.search,
+      query.sortBy,
+      query.sortOrder,
+      query.userType,
+      query.rating,
+      query.tag,
+    );
+  }
+
+  @OpenAPI({
     summary: 'Get paginated total query analytics',
     description:
       'Returns filtered daily, weekly, or monthly total query analytics for the dashboard modal.',
@@ -193,13 +219,29 @@ export class ChatbotController {
 
     @QueryParam('userType')
     userType: string = 'all',
+
+    @QueryParam('startDate')
+    startDate: string,
+
+    @QueryParam('endDate')
+    endDate: string,
   ) {
     // console.log("Selected state code controller", selectedStateCode);
+    let convertedStartDate = undefined
+    let convertedEndDate = undefined
+    if(startDate){
+      convertedStartDate = new Date(startDate);
+    }
+    if(endDate){
+      convertedEndDate = new Date(endDate);
+    }
     return this.chatbotService.getDistrictAnalyticsByState(
       state,
       selectedStateCode,
       source,
       userType,
+      convertedStartDate,
+      convertedEndDate,
     );
   }
 
@@ -432,8 +474,18 @@ export class ChatbotController {
       endDate?: Date;
       isPassed?: string;
       tag?: string;
+      userId?: string;
+      manualSource?: string;
+      effectiveDate?: string;
     },
+    @QueryParam('userId') userId?: string,
   ) {
+    const scopedUserId = userId || query.userId;
+    let globalStartDate = undefined;
+    let globalEndDate = undefined;
+    if(query.startDate) globalStartDate = new Date(query.startDate);
+    if(query.endDate) globalEndDate = new Date (query.endDate)
+
     if (query.category) {
       return this.chatbotService.getQueryCategoryQuestions(
         query.category,
@@ -444,7 +496,8 @@ export class ChatbotController {
         query.userType,
         query.search,
       );
-    } else if (query.state && !query.district) {
+    } else if (query.state && !query.district && !query.closedWithInTwohours) {
+      console.log("Inside first else if.......")
       return this.chatbotService.getQuestionFromState(
         query.state,
         query.questionType,
@@ -453,9 +506,11 @@ export class ChatbotController {
         query.source,
         query.userType,
         query.search,
+        globalStartDate,
+        globalEndDate,
       );
     }
-    else if (query.district) {
+    else if (query.district && !query.closedWithInTwohours) {
       return this.chatbotService.getQuestionFromDistrict(
         query.district,
         query.state,
@@ -465,6 +520,9 @@ export class ChatbotController {
         query.source,
         query.userType,
         query.search,
+        globalStartDate,
+        globalEndDate,
+        undefined
       );
     } else if (query.crop) {
       return this.chatbotService.getQuestionsByCrop(
@@ -489,10 +547,14 @@ export class ChatbotController {
         query.search,
         startDate,
         endDate,
+        scopedUserId,
       );
     } else if (query.closedWithInTwohours) {
       const startDate = new Date(query.startDate);
       const endDate = new Date(query.endDate);
+      console.log("query object is", query)
+      console.log("State from frontend is", query.state)
+      console.log("District from frontend is coming", query.district)
       return this.chatbotService.getQuestionsClosedWithinTwoHours(
         query.page,
         query.limit,
@@ -503,7 +565,19 @@ export class ChatbotController {
         endDate,
         query.isPassed,
         query.tag,
+        scopedUserId,
+        query.state,
+        query.district
       );
+    } else if (query.manualSource){
+      return this.chatbotService.getQuestionByManualSource(
+        query.manualSource,
+        query.effectiveDate,
+        query.userType,
+        query.page,
+        query.limit,
+        query.search,
+      )
     } else {
       if(query.period){
         return this.chatbotService.getQueriesByPeriod(
@@ -527,6 +601,7 @@ export class ChatbotController {
         query.search,
         startDate,
         endDate,
+        scopedUserId,
       );
     }
   }
@@ -733,6 +808,39 @@ export class ChatbotController {
     );
   }
 
+  @OpenAPI({
+    summary: 'Get users by platform',
+    description:
+      'Returns paginated users filtered by the selected platform, with optional search and sorting.',
+  })
+  @ResponseSchema(PaginatedUserDetailsResponse, {
+    statusCode: 200,
+    description: 'Paginated users for the selected platform',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch users by platform',
+  })
+  @Get('/users-by-platform')
+  @HttpCode(200)
+  @Authorized()
+  async getUsersByPlatform(@QueryParams() query: PlatformUsersQueryDto) {
+    return this.chatbotService.getUsersByPlatform(
+      query.platform,
+      query.source,
+      query.page,
+      query.limit,
+      query.search,
+      query.sortBy,
+      query.sortOrder,
+      query.userType,
+    );
+  }
+
   @Get('/user-details')
   @HttpCode(200)
   @Authorized()
@@ -744,6 +852,7 @@ export class ChatbotController {
           ? false
           : undefined;
     const activeTodayByProfile = query.activeTodayByProfile === 'true';
+    const fromMap = query.fromMap === "true" ? true : false
     return this.chatbotService.getUserDetails(
       query.startDate,
       query.endDate,
@@ -768,6 +877,8 @@ export class ChatbotController {
       activeTodayByProfile,
       query.missingDemographicField,
       isVerified,
+      fromMap,
+      query.loginStatus,
     );
   }
 
@@ -1727,6 +1838,23 @@ export class ChatbotController {
     );
   }
 
+  @Get('/user-message-metric-details')
+  @HttpCode(200)
+  @Authorized()
+  async getUserMessageMetricDetails(
+    @QueryParam('userId') userId: string,
+    @QueryParam('metric') metric: string,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+  ): Promise<any> {
+    return await this.chatbotService.getUserMessageMetricDetails(
+      userId,
+      metric,
+      Number(page),
+      Number(limit),
+    );
+  }
+
   @Post('/notify-user')
   @HttpCode(200)
   @Authorized()
@@ -1750,12 +1878,15 @@ export class ChatbotController {
     startDate?: string,
     @QueryParam('endDate')
     endDate?: string,
+    @QueryParam('userId')
+    userId?: string,
   ): Promise<any> {
     return await this.chatbotService.getClosedAndNotifedData(
       source,
       userType,
       startDate,
       endDate,
+      userId,
     );
   }
 
@@ -1828,6 +1959,36 @@ export class ChatbotController {
     return {topFaqs, topQuestionsFromCollection, ...repeatQueryCountData};
   }
 
+  @Get('/top-questions/:questionId')
+  @HttpCode(200)
+  @Authorized()
+  async getTopQuestionInstances(
+    @Param('questionId') questionId: string,
+    @QueryParams() query: TopFaqsQuery,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+  ): Promise<any> {
+    const startTime = query.startTime
+      ? new Date(query.startTime).toString()
+      : undefined;
+
+    const endTime = query.endTime
+      ? new Date(query.endTime).toString()
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    return await this.chatbotService.getTopQuestionInstances(
+      questionId,
+      source,
+      userType,
+      startTime,
+      endTime,
+      page,
+      limit
+    );
+  }
+
   @Get('/daily-question-trends')
   @HttpCode(200)
   @Authorized()
@@ -1866,8 +2027,16 @@ export class ChatbotController {
   }> {
     const source = query.source;
     const userType = query.userType;
+    let startDate = undefined;
+    let endDate = undefined;
+    if(query.startDate){
+      startDate = new Date(query.startDate);
+    }
+    if(query.endDate){
+      endDate = new Date (query.endDate);
+    }
 
-    return await this.chatbotService.getUsersMetrics(source, userType);
+    return await this.chatbotService.getUsersMetrics(source, userType, startDate, endDate);
   }
 
   @Get('/response-adherence-table-data')
@@ -1902,9 +2071,15 @@ export class ChatbotController {
     query: {
       source: string,
       userType: string,
+      startDate: string,
+      endDate: string,
     }
   ): Promise<any>{
-    return this.chatbotService.getAllStatesQuestionsAndUsersData(query.source, query.userType)
+    let startDate = undefined
+    let endDate = undefined
+    if(query.startDate) startDate = new Date(query.startDate)
+    if(query.endDate) endDate =  new Date(query.endDate);
+    return this.chatbotService.getAllStatesQuestionsAndUsersData(query.source, query.userType, startDate, endDate);
   }
   
   @Get('/user-profile')
@@ -1915,6 +2090,8 @@ export class ChatbotController {
   ) {
     return await this.chatbotService.getUserProfile(
       query.userId,
+      query.startDate,
+      query.endDate,
     );
   }
 
@@ -2010,11 +2187,16 @@ export class ChatbotController {
       district?: string;
       state?: string;
       search?: string;
-
+      startDate?: string;
+      endDate?: string;
     },
 ) {
   const pageInNumber = Number(query.page)
   const limitInNumber = Number(query.limit)
+  let startDate = undefined;
+  let endDate = undefined;
+  if(query.startDate) startDate = new Date(query.startDate);
+  if(query.endDate) endDate = new Date(query.endDate)
   return this.chatbotService.getActiveUsersDetails(
     pageInNumber,
     limitInNumber,
@@ -2023,6 +2205,8 @@ export class ChatbotController {
     query.state,
     query.district,
     query.search,
+    startDate,
+    endDate
   );
 }
 
@@ -2069,6 +2253,11 @@ export class ChatbotController {
     @QueryParam('isPassed') isPassed?: string,
     @QueryParam('tag') tag?: string,
     @QueryParam('notificationType') notificationType?: string,
+    @QueryParam('userId') userId?: string,
+    @QueryParam('page') page?: number,
+    @QueryParam('limit') limit?: number,
+    @QueryParam('manualSource') manualSource?: string,
+    @QueryParam('effectiveDate') effectiveDate?: string,
   ): Promise<any> {
     const start= startDate
         ? new Date(startDate)
@@ -2084,7 +2273,79 @@ export class ChatbotController {
       end,
       isPassed,
       tag,
-      notificationType
+      notificationType,
+      userId,
+      page,
+      limit,
+      manualSource,
+      effectiveDate
     );
   }
+
+  @Get('/feedback-by-location')
+  @HttpCode(200)
+  @Authorized()
+  async getFeedbackByLocation(@QueryParams() query: any) {
+    const numberPage = Number(query.page)
+    const numberLimit = Number(query.limit)
+    let startDate = undefined;
+    let endDate = undefined;
+    if(query.startDate) startDate = new Date(query.startDate);
+    if(query.endDate) endDate = new Date(query.endDate);
+    return this.chatbotService.getFeedbackByLocation(
+      query.source,
+      numberPage,
+      numberLimit,
+      query.sortBy,
+      query.sortOrder,
+      query.userType,
+      query.rating,
+      query.state,
+      query.district,
+      query.search,
+      startDate,
+      endDate
+    );
+  }
+
+
+  @Get('/closed-question-by-location')
+  @HttpCode(200)
+  @Authorized()
+  async getClosedInLastTwoHoursByLocation(@QueryParams() query: any) {
+        let startDate = undefined;
+    let endDate = undefined;
+    if(query.startDate) startDate = new Date(query.startDate);
+    if(query.endDate) endDate = new Date(query.endDate);
+    return this.chatbotService.getClosedInLastTwoHoursByLocation(
+      query.source,
+      query.userType,
+      query.state,
+      query.district,
+      startDate,
+      endDate
+    );
+  }
+
+  @Get('/active-user-by-questions')
+  @HttpCode(200)
+  @Authorized()
+  async getActiveUsersDetailsByQuestions(@QueryParams() query: any){
+    let startDate = undefined;
+    let endDate = undefined;
+    if(query.startDate) startDate = new Date(query.startDate);
+    if(query.endDate) endDate = new Date(query.endDate);
+    return this.chatbotService.getActiveUsersDetailsByQuestions(
+      query.page,
+      query.limit,
+      query.source,
+      query.userType,
+      query.state,
+      query.district,
+      query.search,
+      startDate,
+      endDate
+    )
+  }
+
 }

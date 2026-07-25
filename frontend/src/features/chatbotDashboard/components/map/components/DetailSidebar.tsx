@@ -19,7 +19,7 @@ import {
   type PaginatedUserDetailsResponse,
 } from "@/features/chatbotDashboard/hooks/useUserDetails";
 import { Skeleton } from "@/components/atoms/skeleton";
-
+import { ScrollArea } from "@/components/atoms/scroll-area";
 import {
   Tooltip,
   TooltipContent,
@@ -31,6 +31,11 @@ import { InfoIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { QueryCategoryQuestionsModal } from "../../QueryCategoryQuestionsModal";
 import { ActiveUserDetailsModal } from "@/features/chatbotDashboard/ActiveUserDetailsTable";
+import { useUserMertices } from "@/features/chatbotDashboard/hooks/useDashboardData";
+import { FeedbackUsersModal } from "@/features/chatbotDashboard/FeedbackUsersModal";
+import { useClosedQuestionLocation } from "@/features/chatbotDashboard/hooks/useFeedbackUsers";
+import { ClosedInLastTwoHoursCard } from "@/features/chatbotDashboard/ClosedInLastTwoHoursCard";
+import type { DateRange } from "react-day-picker";
 interface MapFeatureBase {
   type: string;
   properties: Record<string, unknown>;
@@ -58,13 +63,18 @@ interface DetailSidebarProps {
   districtAnalytic?: any;
   metric: "questions" | "users" | "activeUsers";
   status: string | null;
-  handleClick: (value?: string)=>void;
-  setStatus: (value: string | null)=> void
-  isIndiaView: boolean
-  clickedState: string | null,
-  setClickedState:(value: string | null)=>void
-  clickedDistrict: string | null,
-  setClickedDistrict: (value: string | null)=> void
+  handleClick: (value?: string) => void;
+  setStatus: (value: string | null) => void;
+  isIndiaView: boolean;
+  clickedState: string | null;
+  setClickedState: (value: string | null) => void;
+  clickedDistrict: string | null;
+  setClickedDistrict: (value: string | null) => void;
+  analyticsData?: any;
+  weeklyAnalyticsData?: any;
+  monthlyAnalyticsData?: any;
+  questionStatusRange?: any;
+  questionStatusDateRange?: DateRange | undefined
 }
 
 export function DetailSidebar({
@@ -91,11 +101,42 @@ export function DetailSidebar({
   setClickedState,
   clickedDistrict,
   setClickedDistrict,
+  analyticsData,
+  weeklyAnalyticsData,
+  monthlyAnalyticsData,
+  questionStatusRange,
+  questionStatusDateRange
 }: DetailSidebarProps) {
   const [isPassed, setIsPassed] = useState(false);
   const [showActiveUsersModal, setShowActiveUsersModal] = useState(false);
   const [showModeratorsModal, setShowModeratorsModal] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
+  const [showFeedBackModal, setShowFeedBackModal] = useState(false);
+  const [rating, setRating] = useState<"all" | "positive" | "negative">("all");
+  const [showResolutionModal, setShowResolutionModal] = useState(false);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+
+  const { data: userMetricesData } = useUserMertices(
+    source as any,
+    userType as any,
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
+    true,
+  );
+
+  const {
+    data: closedQuestionLocationData,
+    isLoading: isClosedQuestionLoading,
+  } = useClosedQuestionLocation({
+    source,
+    userType,
+    state: selectedState ?? undefined,
+    district: selectedDistrict ?? undefined,
+    startDate: questionStatusRange.startTime,
+    endDate: questionStatusRange.endTime,
+    enabled: !isIndiaView,
+  });
 
   // Calculate aggregated analytics
 
@@ -145,7 +186,8 @@ export function DetailSidebar({
           const x = f.properties._analytics as Analytics;
           return {
             questions: acc.questions + x.questions,
-            answers: acc.answers + x.answers,
+            // answers: acc.answers + x.answers,
+            feedback: acc.feedback + x.feedback,
             users: acc.users + x.users,
             activeUsers: acc.activeUsers + x.activeUsers,
             coordinators: acc.coordinators + x.coordinators,
@@ -154,7 +196,8 @@ export function DetailSidebar({
         },
         {
           questions: 0,
-          answers: 0,
+          // answers: 0,
+          feedback: 0,
           users: 0,
           activeUsers: 0,
           coordinators: 0,
@@ -166,9 +209,45 @@ export function DetailSidebar({
   const activeAnalytics =
     districtAnalytics ?? stateAnalytics ?? countryAnalytics;
   // const isIndiaView = !selectedState && !selectedDistrict;
+
+  const closedData = isIndiaView
+    ? questionStatusData?.closedInLastTwoHours
+    : closedQuestionLocationData;
+
+  const safeCount = closedData?.closedInTwoHoursCount ?? 0;
+
+  const safeTotalClosed = closedData?.totalClosedCount ?? 0;
+
+  const totalPassed = closedData?.totalPassCount+closedData?.totalDuplicateClosedCount+closedData?.totalDynamicClosedCount;
+
+  const passedInLastTwoHours = closedData?.passInTwoHoursCount + closedData?.duplicateClosedInTwoHoursCount + closedData?.dynamicClosedInTwoHoursCount;
+
+  const closedWithInTwoHoursPct = safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
+
+    const passedPct =
+    totalPassed > 0 ? (passedInLastTwoHours / totalPassed) * 100 : 0;
+
+  const combinedPct = safeTotalClosed > 0 && totalPassed > 0 ? (closedWithInTwoHoursPct + passedPct) / 2
+    : (safeTotalClosed > 0 ? closedWithInTwoHoursPct : passedPct);
+
+  useEffect(() => {
+    if (
+      questionStatusRange.startTime !== undefined ||
+      questionStatusRange.endTime !== undefined
+    ) {
+      setStartDate(new Date(questionStatusRange.startTime));
+      setEndDate(new Date(questionStatusRange.endTime));
+      return;
+    } else {
+      setStartDate(undefined);
+      setEndDate(undefined);
+      return;
+    }
+  }, [questionStatusRange.startTime, questionStatusRange.endTime]);
+
   const { data: allUsers } = useUserDetails(
-    undefined,
-    undefined,
+    startDate,
+    endDate,
     1,
     10,
     "",
@@ -180,7 +259,7 @@ export function DetailSidebar({
     "",
     "",
     "",
-    "all",
+    "yes",
     false,
     false,
     userType as any,
@@ -191,8 +270,16 @@ export function DetailSidebar({
     "",
     "verified",
     true,
+    "true",
   );
 
+  console.log(
+    "All users data for date range",
+    startDate,
+    endDate,
+    " is",
+    allUsers,
+  );
   const getTitle = () => {
     if (level === "india") return "Country overview";
     if (level === "state" && !selectedDistrict) return "State details";
@@ -228,14 +315,14 @@ export function DetailSidebar({
       </div>
 
       {/* Content */}
-      <div className="flex-1 space-y-4 overflow-auto p-4">
+      <ScrollArea className="flex-1">
+      <div className="space-y-4 p-4 pr-5">
         {/* Stats Grid */}
         {activeAnalytics && (
           <div className="grid grid-cols-2 gap-2">
-             <StatCard
-             onClick={()=> handleClick("all")}
+            <StatCard
+              onClick={() => handleClick("all")}
               // label="Questions"
-
               label={
                 <div className="flex items-center gap-1">
                   <span>Questions</span>
@@ -268,184 +355,302 @@ export function DetailSidebar({
                 </div>
               }
               value={renderCardValue(
-                fmt(
-                  isIndiaView
-                    ? questionStatusData?.closedVsTotalQuestions.totalQuestions
-                    : activeAnalytics.questions,
-                ),
+                isIndiaView
+                  ? questionStatusData?.closedVsTotalQuestions.totalQuestions
+                  : activeAnalytics.questions,
               )}
               icon={<Activity className="h-3.5 w-3.5" />}
-            />
-
-            {status ? <QueryCategoryQuestionsModal  
-            status={status}
-          source={source}
-          userType={userType}
-          isPassed={isPassed}
-          onClose={() => {
-            setStatus(null);
-            setIsPassed(false);
-          }}
-        />: clickedState ? <QueryCategoryQuestionsModal
-              state= {selectedState}
-              source={source}
-              userType={userType}
-              isQueryCategory = {false}
-              onClose={()=>setClickedState(null)}
-        />: clickedDistrict ? <QueryCategoryQuestionsModal
-              district={selectedDistrict}
-              state= {selectedState}
-              source={source}
-              userType={userType}
-              isQueryCategory = {false}
-              onClose={() => setClickedDistrict(null)}
-        />: null}
-        {showActiveUsersModal && (
-  <ActiveUserDetailsModal
-    source={source}
-    userType={userType}
-    state={selectedState ?? undefined}
-    district={selectedDistrict ?? undefined}
-    onClose={() => setShowActiveUsersModal(false)}
-    type="activeUsers"
-  />
-)}
-            <StatCard
-            
-              label="Answers"
-              value={renderCardValue(
-                fmt(
-                  isIndiaView
-                    ? questionStatusData?.closedVsTotalQuestions.closed.count
-                    : activeAnalytics.answers,
-                ),
-              )}
-              icon={<Activity className="h-3.5 w-3.5" />}
-            />
-
-                    {showUsersModal && (
-  <ActiveUserDetailsModal
-    source={source}
-    userType={userType}
-    state={selectedState ?? undefined}
-    district={selectedDistrict ?? undefined}
-    onClose={() => setShowUsersModal(false)}
-    type="users"
-  />
-)}
-            <StatCard
-              onClick={()=> setShowUsersModal(true)}
-              label="Users"
-              value={renderCardValue(
-                fmt(isIndiaView ? allUsers.totalUsers : activeAnalytics.users),
-              )}
-              icon={<Users className="h-3.5 w-3.5" />}
-            />
-         <StatCard
-         onClick={()=> setShowActiveUsersModal(true)}
-  label={
-    <span>
-      Active
-    </span>
-  }
-  value={renderCardValue(
-    fmt(
-      isIndiaView
-        ? todayActiveFarmersData?.totalUsers
-        : activeAnalytics.activeUsers,
-    ),
-  )}
-  icon={<Users className="h-3.5 w-3.5" />}
-/>
-            {/* <StatCard
-  label="Coordinators"
-  value={fmt(
-    isIndiaView
-      ? todayActiveFarmersData?.userRoleCounts?.coordinator
-      : activeAnalytics.coordinators
-  )}
-  icon={<Building2 className="h-3.5 w-3.5" />}
-/> */}
-         {showModeratorsModal && (
-  <ActiveUserDetailsModal
-    source={source}
-    userType={userType}
-    state={selectedState ?? undefined}
-    district={selectedDistrict ?? undefined}
-    onClose={() => setShowModeratorsModal(false)}
-    type="moderators"
-  />
-)}
-            <StatCard
-            onClick={() => setShowModeratorsModal(true)}
-              label={
-                <div className="flex items-center gap-1">
-                  <span >Coordinators</span>
-
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
-                      </TooltipTrigger>
-
-                      <TooltipContent side="top">
-                        <div className="space-y-1 text-xs">
-                          <div>
-                            District Coordinators:{" "}
-                            {isIndiaView
-                              ? (allUsers?.userRoleCounts
-                                  ?.districtCoordinator ?? 0)
-                              : selectedState
-                                ? totalDistrictCoordinator
-                                : districtData?.districtCoordinator}
-                          </div>
-
-                          <div>
-                            Block Coordinators:{" "}
-                            {isIndiaView
-                              ? (allUsers?.userRoleCounts?.blockCoordinator ??
-                                0)
-                              : selectedState
-                                ? totalBlockCoordinator
-                                : districtData?.blockCoordinator}
-                          </div>
-
-                          <div>
-                            Village Volunteers:{" "}
-                            {isIndiaView
-                              ? (allUsers?.userRoleCounts?.villageVolunteer ??
-                                0)
-                              : selectedDistrict
-                                ? totalVillageVolunteer
-                                : districtData?.villageVolunteer}
-                          </div>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+              tooltip={
+                <div className="space-y-1 text-xs">
+                  <div>Total questions asked by users.</div>
                 </div>
               }
-              value={renderCardValue(
-                fmt(
+            />
+
+            {status ? (
+              <QueryCategoryQuestionsModal
+                status={status}
+                source={source}
+                userType={userType}
+                isPassed={isPassed}
+                onClose={() => {
+                  setStatus(null);
+                  setIsPassed(false);
+                }}
+                isIndiaView={isIndiaView}
+                startDate={questionStatusRange.startTime}
+                endDate={questionStatusRange.endTime}
+              />
+            ) : clickedState ? (
+              <QueryCategoryQuestionsModal
+                state={selectedState}
+                source={source}
+                userType={userType}
+                isQueryCategory={false}
+                onClose={() => setClickedState(null)}
+                startDate={questionStatusRange.startTime}
+                endDate={questionStatusRange.endTime}
+              />
+            ) : clickedDistrict ? (
+              <QueryCategoryQuestionsModal
+                district={selectedDistrict}
+                state={selectedState}
+                source={source}
+                userType={userType}
+                isQueryCategory={false}
+                onClose={() => setClickedDistrict(null)}
+                startDate={questionStatusRange.startTime}
+                endDate={questionStatusRange.endTime}
+              />
+            ) : null}
+            {showActiveUsersModal && (
+              <ActiveUserDetailsModal
+                source={source}
+                userType={userType}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+                onClose={() => setShowActiveUsersModal(false)}
+                type="activeUsers"
+                startDate={questionStatusRange.startTime}
+                endDate={questionStatusRange.endTime}
+              />
+            )}
+            {source !== "whatsapp" ? (
+              <StatCard
+                onClick={() => setShowFeedBackModal(true)}
+                label="Feedback"
+                value={renderCardValue(
                   isIndiaView
-                    ? allUsers?.userRoleCounts?.coordinator
-                    : activeAnalytics.coordinators,
-                ),
-              )}
-              icon={<Building2 className="h-3.5 w-3.5" />}
-            />
+                    ? (userMetricesData?.feedbackData?.stats?.positiveCount ??
+                        0) +
+                        (userMetricesData?.feedbackData?.stats?.negativeCount ??
+                          0)
+                    : activeAnalytics.feedback,
+                )}
+                icon={<Activity className="h-3.5 w-3.5" />}
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Total feedback given by users.</div>
+                  </div>
+                }
+              />
+            ) : (!startDate &&
+              <StatCard
+                label="Todays Questions"
+                value={
+                  isIndiaView
+                    ? analyticsData[analyticsData?.length - 1]?.totalQuestions
+                    : 0
+                }
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Total Question asked today</div>
+                  </div>
+                }
+              />
+            )}
+            {showFeedBackModal && (
+              <FeedbackUsersModal
+                source={source}
+                userType={userType}
+                onClose={() => setShowFeedBackModal(false)}
+                setRating={setRating}
+                rating={rating}
+                isMapComponent={true}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+                startDate={questionStatusRange.startTime}
+                endDate={questionStatusRange.endTime}
+              />
+            )}
+            {showUsersModal && (
+              <ActiveUserDetailsModal
+                source={source}
+                userType={userType}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+                onClose={() => setShowUsersModal(false)}
+                type="users"
+              />
+            )}
+            {source !== "whatsapp" && !startDate && !endDate && (
+              <StatCard
+                onClick={() => setShowUsersModal(true)}
+                label="Users"
+                value={renderCardValue(
+                  isIndiaView ? allUsers.totalUsers : activeAnalytics.users,
+                )}
+                icon={<Users className="h-3.5 w-3.5" />}
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Total registered users.</div>
+                  </div>
+                }
+              />
+            )}
+
+            {source === "whatsapp" && !startDate && (
+              <StatCard
+                label="Weekly Questions"
+                value={
+                  isIndiaView
+                    ? (weeklyAnalyticsData?.[weeklyAnalyticsData.length - 1]
+                        ?.totalQuestions ?? 0)
+                    : 0
+                }
+              />
+            )}
+            {source !== "whatsapp" && (
+              <StatCard
+                onClick={() => setShowActiveUsersModal(true)}
+                label={<span>Active</span>}
+                value={renderCardValue(
+                  isIndiaView
+                    ? !startDate
+                      ? todayActiveFarmersData?.totalUsers
+                      : allUsers.totalUsers
+                    : activeAnalytics.activeUsers,
+                )}
+                icon={<Users className="h-3.5 w-3.5" />}
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Total active users count right now.</div>
+                  </div>
+                }
+              />
+            )}
+            {showModeratorsModal && (
+              <ActiveUserDetailsModal
+                source={source}
+                userType={userType}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+                onClose={() => setShowModeratorsModal(false)}
+                type="moderators"
+              />
+            )}
+            {source !== "whatsapp" && !startDate && !endDate ? (
+              <StatCard
+                onClick={() => setShowModeratorsModal(true)}
+                label={
+                  <div className="flex items-center gap-1">
+                    <span>Coordinators</span>
+
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
+                        </TooltipTrigger>
+
+                        <TooltipContent side="top">
+                          <div className="space-y-1 text-xs">
+                            <div>
+                              District Coordinators:{" "}
+                              {isIndiaView
+                                ? (allUsers?.userRoleCounts
+                                    ?.districtCoordinator ?? 0)
+                                : selectedState
+                                  ? totalDistrictCoordinator
+                                  : districtData?.districtCoordinator}
+                            </div>
+
+                            <div>
+                              Block Coordinators:{" "}
+                              {isIndiaView
+                                ? (allUsers?.userRoleCounts?.blockCoordinator ??
+                                  0)
+                                : selectedState
+                                  ? totalBlockCoordinator
+                                  : districtData?.blockCoordinator}
+                            </div>
+
+                            <div>
+                              Village Volunteers:{" "}
+                              {isIndiaView
+                                ? (allUsers?.userRoleCounts?.villageVolunteer ??
+                                  0)
+                                : selectedDistrict
+                                  ? totalVillageVolunteer
+                                  : districtData?.villageVolunteer}
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                }
+                value={renderCardValue(
+                  fmt(
+                    isIndiaView
+                      ? allUsers?.userRoleCounts?.coordinator
+                      : activeAnalytics.coordinators,
+                  ),
+                )}
+                icon={<Building2 className="h-3.5 w-3.5" />}
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Coordinators Count.</div>
+                  </div>
+                }
+              />
+            ) : source === "whatsapp" && !startDate ?  (
+              <StatCard
+                label="Monthly Questions"
+                value={
+                  isIndiaView
+                    ? (monthlyAnalyticsData?.[monthlyAnalyticsData.length - 1]
+                        ?.totalQuestions ?? 0)
+                    : 0
+                }
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Monthly Questions Asked</div>
+                  </div>
+                }
+              />
+            ) : null}
+
             <StatCard
-              label="Avg closure"
-              value={`${
-                districtAnalytics || stateAnalytics
-                  ? (activeAnalytics.closureHrs / 60).toFixed(2)
-                  : (
-                      questionStatusData?.closedVsTotalQuestions.closed
-                        .avgTimeMinutes / 60
-                    ).toFixed(2)
-              }h`}
+              onClick={() => setShowResolutionModal(true)}
+              label="Resolution Rate"
+              value={
+                isLoading || isClosedQuestionLoading ? (
+                  <Skeleton className="h-6 w-16" />
+                ) : (
+                  `${combinedPct.toFixed(1)}%`
+                )
+              }
               icon={<Activity className="h-3.5 w-3.5" />}
+              tooltip={
+                <div className="space-y-1 text-xs">
+                  <div>Resolution Rate of Questions</div>
+                </div>
+              }
             />
+            {showResolutionModal && (
+              <div
+                className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                onClick={() => setShowResolutionModal(false)}
+              >
+                <div
+                  className="w-[900px] max-w-[95vw]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ClosedInLastTwoHoursCard
+                    source={source}
+                    userType={userType}
+                    closedInLastTwoHours={safeCount}
+                    totalClosed={safeTotalClosed}
+                    passedInLastTwoHours={passedInLastTwoHours}
+                    totalPassed={totalPassed}
+                    isMapComponent={true}
+                    dateRange={questionStatusDateRange}
+                    state= {selectedState ?? undefined}
+                    district= {selectedDistrict ?? undefined}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -459,6 +664,7 @@ export function DetailSidebar({
             isLoading={isLoading}
             renderCardValue={renderCardValue}
             metric={metric}
+            questionStatusRnage = {questionStatusRange}
           />
         )}
 
@@ -470,6 +676,7 @@ export function DetailSidebar({
             }
             selectedState={selectedState}
             onSelectDistrict={onSelectDistrict}
+            questionStatusRnage = {questionStatusRange}
           />
         )}
 
@@ -481,9 +688,11 @@ export function DetailSidebar({
             state={selectedState}
             source={source}
             userType={userType}
+            districtAnalytic={districtAnalytic}
           />
         )}
       </div>
+    </ScrollArea>
     </aside>
   );
 }

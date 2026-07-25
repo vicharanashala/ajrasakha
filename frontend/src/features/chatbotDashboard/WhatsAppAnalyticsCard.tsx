@@ -16,6 +16,10 @@ type AnalyticsItem = {
   closedQuestions: number;
   period: string;
   averageCloseTimeMinutes?: number;
+  averagePassTimeMinutes?: number;
+  averageDynamicCloseTimeMinutes?: number;
+  averageDuplicateCloseTimeMinutes?: number;
+  combinedAverageTimeMinutes?: number;
   closedInPeriod?: number;
   delayed?: number;
   draft?: number;
@@ -298,16 +302,70 @@ export function WhatsAppAnalyticsCard({
                                 </div>
                               ))}
 
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Avg Closure Time
-                              </span>
-
-                              <span className="font-medium">
-                                {formatCloseTime(
+                            <div className="border-t border-border/40 pt-2 space-y-1.5">
+                              <div className="text-[11px] font-semibold text-foreground">
+                                Resolution Time Breakdown
+                              </div>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-muted-foreground text-xs">
+                                  Closed ({item.statuses?.closed ?? 0})
+                                </span>
+                                <span className="font-medium text-xs">
+                                  {formatCloseTime(
+                                    item.averageCloseTimeMinutes ?? 0,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-muted-foreground text-xs">
+                                  Dynamic Closed ({item.statuses?.dynamic_closed ?? 0})
+                                </span>
+                                <span className="font-medium text-xs">
+                                  {formatCloseTime(
+                                    item.averageDynamicCloseTimeMinutes ?? 0,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-muted-foreground text-xs">
+                                  Duplicate Closed ({item.statuses?.duplicate_closed ?? 0})
+                                </span>
+                                <span className="font-medium text-xs">
+                                  {formatCloseTime(
+                                    item.averageDuplicateCloseTimeMinutes ?? 0,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-muted-foreground text-xs">
+                                  Passed ({item.statuses?.pass ?? 0})
+                                </span>
+                                <span className="font-medium text-xs">
+                                  {formatCloseTime(
+                                    item.averagePassTimeMinutes ?? 0,
+                                  )}
+                                </span>
+                              </div>
+                              {(() => {
+                                const averages = [
                                   item.averageCloseTimeMinutes ?? 0,
-                                )}
-                              </span>
+                                  item.averageDynamicCloseTimeMinutes ?? 0,
+                                  item.averageDuplicateCloseTimeMinutes ?? 0,
+                                  item.averagePassTimeMinutes ?? 0,
+                                ].filter((v) => v > 0);
+                                const normalAvg =
+                                  averages.length > 0
+                                    ? averages.reduce((a, b) => a + b, 0) / averages.length
+                                    : 0;
+                                return (
+                                  <div className="flex justify-between gap-6 border-t border-border/20 pt-1.5 font-medium">
+                                    <span className="text-xs">Average</span>
+                                    <span className="font-medium text-xs">
+                                      {formatCloseTime(normalAvg)}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
                             </div>
 
                             <div className="flex justify-between gap-6">

@@ -23,6 +23,8 @@ GOLDEN_TIE_BREAK_MIN = int(os.getenv("GOLDEN_TIE_BREAK_MIN", "2"))
 
 ANSWER_ELIGIBLE_CLASSES = frozenset({"SAME_INTENT", "COVERED_BY_CONTEXT"})
 
+
+
 IntentClass = Literal[
     "SAME_INTENT",
     "COVERED_BY_CONTEXT",
@@ -248,6 +250,20 @@ def _parse_pending_duplicate_response(
     return defaults
 
 
+def _decision_to_score(decision: str) -> float:
+    """Convert relevance decision to numerical score (0-1 scale)."""
+    if decision == "SAME":
+        return 1.0
+    elif decision == "KEEP":
+        return 0.7
+    elif decision == "REJECT":
+        return 0.2
+    elif decision == "NOT_SAME":
+        return 0.1
+    else:
+        return 0.5  # Unknown defaults to middle score
+
+
 def _parse_batch_relevance_response(
     content: str,
     num_candidates: int,
@@ -255,12 +271,18 @@ def _parse_batch_relevance_response(
     """
     Return one result dict per candidate (1..num_candidates).
     Missing or unparseable entries default to KEEP (lenient).
+    
+    Each result now includes numerical scoring for combined ranking:
+    - SAME: 1.0
+    - KEEP: 0.7
+    - REJECT: 0.2
     """
     defaults = [
         {
             "relevance_decision": "KEEP",
             "relevance_reason": "No filter entry — kept by default (lenient)",
             "llm_parse_ok": False,
+            "relevance_score": 0.7,  # Default numerical score
         }
         for _ in range(num_candidates)
     ]

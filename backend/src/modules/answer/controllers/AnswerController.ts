@@ -412,6 +412,74 @@ export class AnswerController {
     return result;
   }
 
+  @OpenAPI({
+    summary:
+      'Gate keeper confirms a queue-duplicate question. Closes it (replicating the reference answer + webhook) if the reference is already closed, otherwise moves it to duplicate_confirmed.',
+  })
+  @Post('/:questionId/confirm-duplicate')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async confirmDuplicate(
+    @Param('questionId') questionId: string,
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    const {_id: userId} = user;
+    let questionData;
+    let result;
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.QUESTION,
+      action: AuditAction.CONFIRM_DUPLICATE,
+      actor: {
+        id: userId,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {questionId},
+      changes: {},
+      outcome: {status: OutComeStatus.SUCCESS},
+    };
+    try {
+      questionData = await this.questionService.getQuestionDataById(questionId);
+      result = await this.answerService.confirmDuplicate(
+        userId.toString(),
+        questionId,
+      );
+      auditPayload = {
+        ...auditPayload,
+        context: {...auditPayload.context, question: questionData?.question},
+        changes: {
+          before: {status: questionData?.status},
+          after: {status: result.status},
+        },
+      };
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        context: {...auditPayload.context, question: questionData?.question},
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to confirm duplicate',
+          errorName: err?.name || 'Error',
+          errorStack:
+            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to confirm duplicate');
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
+    return result;
+  }
+
 
   @OpenAPI({summary: 'Delete an answer and update the related question state'})
   @Delete('/:questionId/:answerId')

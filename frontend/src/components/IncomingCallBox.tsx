@@ -31,7 +31,6 @@ import { UserService } from "@/hooks/services/userService";
 const userService = new UserService();
 
 interface IncomingCall {
-
   uuid: string;
   number: string;
   timestamp: string;
@@ -52,6 +51,7 @@ export interface IncomingCallBoxProps {
   onTranscriptsListChange?: (transcripts: CallTranscript[]) => void;
   onCallStateChange?: (isActive: boolean) => void;
   onCallUuidChange?: (callUuid: string | null) => void;
+  onPhoneNumberChange?: (phoneNumber: string | null) => void;
 }
 
 declare global {
@@ -68,12 +68,22 @@ export const IncomingCallBox = ({
   onTranscriptsListChange,
   onCallStateChange,
   onCallUuidChange,
+  onPhoneNumberChange,
 }: IncomingCallBoxProps) => {
   console.log(" [IncomingCallBox] Component mounting...");
 
-  const { data: currentUser, isLoading: isUserLoading, refetch: refetchCurrentUser } = useGetCurrentUser();
+  const {
+    data: currentUser,
+    isLoading: isUserLoading,
+    refetch: refetchCurrentUser,
+  } = useGetCurrentUser();
 
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+
+  // Notify parent of active phone number change
+  useEffect(() => {
+    onPhoneNumberChange?.(incomingCall?.number || null);
+  }, [incomingCall?.number, onPhoneNumberChange]);
   const [callStatus, setCallStatus] = useState<
     "idle" | "incoming" | "connected" | "held" | "ended"
   >("idle");
@@ -83,9 +93,12 @@ export const IncomingCallBox = ({
   const [messageText, setMessageText] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [lastCallNumber, setLastCallNumber] = useState<string | null>(null);
+  const MAX_MESSAGE_LENGTH = 150;
 
   // Translation
-  const [farmerDetectedLanguage, setFarmerDetectedLanguage] = useState<string | null>(null);
+  const [farmerDetectedLanguage, setFarmerDetectedLanguage] = useState<
+    string | null
+  >(null);
   const [selectedLanguage, setSelectedLanguage] = useState<string>("hi-IN");
   const [translatedText, setTranslatedText] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
@@ -127,10 +140,12 @@ export const IncomingCallBox = ({
     try {
       await userService.markAgentAsAvailable();
     } catch (error) {
-      console.error("❌ [IncomingCallBox] Failed to mark agent as available:", error);
+      console.error(
+        "❌ [IncomingCallBox] Failed to mark agent as available:",
+        error,
+      );
     }
   };
-
 
   // Sync callbacks to refs to avoid effect dependencies
   const callbacksRef = useRef({
@@ -142,14 +157,41 @@ export const IncomingCallBox = ({
   // Helper function to get agent-specific Plivo credentials
   const getAgentCredentials = () => {
     const agentNumber = currentUser?.agent;
-    if (!agentNumber || agentNumber === 'not_available') {
+    if (!agentNumber || agentNumber === "not_available") {
       // Fallback to old credentials if no agent assigned
       return {
         username: env.plivo.endpointUsername(),
         password: env.plivo.endpointPassword(),
       };
     }
-    return env.plivo.getAgentCredentials(agentNumber);
+
+    switch (agentNumber.toLowerCase()) {
+      case "agent_1":
+        return {
+          username: env.plivo.agent1Username(),
+          password: env.plivo.agent1Password(),
+        };
+      case "agent_2":
+        return {
+          username: env.plivo.agent2Username(),
+          password: env.plivo.agent2Password(),
+        };
+      case "agent_3":
+        return {
+          username: env.plivo.agent3Username(),
+          password: env.plivo.agent3Password(),
+        };
+      case "agent_4":
+        return {
+          username: env.plivo.agent4Username(),
+          password: env.plivo.agent4Password(),
+        };
+      default:
+        return {
+          username: "",
+          password: "",
+        };
+    }
   };
 
   useEffect(() => {
@@ -211,7 +253,12 @@ export const IncomingCallBox = ({
     if (farmerDetectedLanguage) return; // Already locked
     if (languageManuallyChangedRef.current) return; // User manually changed language
 
-    const firstInboundTranscript = transcripts.find(t => t.track === "inbound" && t.detectedLanguage && t.detectedLanguage !== "unknown");
+    const firstInboundTranscript = transcripts.find(
+      (t) =>
+        t.track === "inbound" &&
+        t.detectedLanguage &&
+        t.detectedLanguage !== "unknown",
+    );
     if (firstInboundTranscript) {
       setFarmerDetectedLanguage(firstInboundTranscript.detectedLanguage);
       setSelectedLanguage(firstInboundTranscript.detectedLanguage);
@@ -243,7 +290,8 @@ export const IncomingCallBox = ({
     }
 
     // Get agent-specific Plivo credentials
-    const { username: endpointUsername, password: endpointPassword } = getAgentCredentials();
+    const { username: endpointUsername, password: endpointPassword } =
+      getAgentCredentials();
 
     // Check if Plivo credentials are configured (not dummy values)
     if (
@@ -294,7 +342,8 @@ export const IncomingCallBox = ({
     plivoClientRef.current = client;
 
     // Get agent-specific Plivo credentials
-    const { username: endpointUsername, password: endpointPassword } = getAgentCredentials();
+    const { username: endpointUsername, password: endpointPassword } =
+      getAgentCredentials();
 
     console.log("🔑 Attempting Plivo login with username:", endpointUsername);
     console.log("🌐 Plivo SDK loaded successfully");
@@ -332,7 +381,8 @@ export const IncomingCallBox = ({
         // console.log('📞 Incoming call from:', callerName);
         alert("Incoming call from " + callerName);
 
-        let actualCallUuid = callInfo?.callUUID || callInfo?.calluuid || callerID;
+        let actualCallUuid =
+          callInfo?.callUUID || callInfo?.calluuid || callerID;
 
         setIncomingCall({
           uuid: callerID,
@@ -344,18 +394,23 @@ export const IncomingCallBox = ({
         activeCallUuidRef.current = actualCallUuid;
 
         // Try to get the assigned call UUID from backend user document
-        refetchCurrentUser().then((res: any) => {
-          const backendCallUuid = res.data?.currentCallUuid;
-          if (backendCallUuid) {
-            actualCallUuid = backendCallUuid;
-            activeCallUuidRef.current = backendCallUuid;
-          }
-          // console.log(`📞 [IncomingCallBox] Resolved call UUID for incoming: ${actualCallUuid}`);
-          onCallUuidChange?.(actualCallUuid);
-        }).catch((err) => {
-          console.error("❌ [IncomingCallBox] Error refetching user on incoming call:", err);
-          onCallUuidChange?.(actualCallUuid);
-        });
+        refetchCurrentUser()
+          .then((res: any) => {
+            const backendCallUuid = res.data?.currentCallUuid;
+            if (backendCallUuid) {
+              actualCallUuid = backendCallUuid;
+              activeCallUuidRef.current = backendCallUuid;
+            }
+            // console.log(`📞 [IncomingCallBox] Resolved call UUID for incoming: ${actualCallUuid}`);
+            onCallUuidChange?.(actualCallUuid);
+          })
+          .catch((err) => {
+            console.error(
+              "❌ [IncomingCallBox] Error refetching user on incoming call:",
+              err,
+            );
+            onCallUuidChange?.(actualCallUuid);
+          });
       },
     );
 
@@ -370,22 +425,27 @@ export const IncomingCallBox = ({
         activeCallUuidRef.current = actualCallUuid;
       }
 
-      refetchCurrentUser().then((res: any) => {
-        const backendCallUuid = res.data?.currentCallUuid;
-        if (backendCallUuid) {
-          actualCallUuid = backendCallUuid;
-          activeCallUuidRef.current = backendCallUuid;
-        }
-        if (actualCallUuid) {
-          // console.log(`📞 [IncomingCallBox] Resolved call UUID for answered: ${actualCallUuid}`);
-          onCallUuidChange?.(actualCallUuid);
-        }
-      }).catch((err) => {
-        console.error("❌ [IncomingCallBox] Error refetching user on call answered:", err);
-        if (actualCallUuid) {
-          onCallUuidChange?.(actualCallUuid);
-        }
-      });
+      refetchCurrentUser()
+        .then((res: any) => {
+          const backendCallUuid = res.data?.currentCallUuid;
+          if (backendCallUuid) {
+            actualCallUuid = backendCallUuid;
+            activeCallUuidRef.current = backendCallUuid;
+          }
+          if (actualCallUuid) {
+            // console.log(`📞 [IncomingCallBox] Resolved call UUID for answered: ${actualCallUuid}`);
+            onCallUuidChange?.(actualCallUuid);
+          }
+        })
+        .catch((err) => {
+          console.error(
+            "❌ [IncomingCallBox] Error refetching user on call answered:",
+            err,
+          );
+          if (actualCallUuid) {
+            onCallUuidChange?.(actualCallUuid);
+          }
+        });
     });
 
     client.client.on("onCallTerminated", () => {
@@ -443,7 +503,6 @@ export const IncomingCallBox = ({
       handleMarkAgentAsAvailable();
     });
 
-
     client.client.on("onMediaConnected", () => {
       // console.log('🎧 Media connected');
     });
@@ -479,8 +538,12 @@ export const IncomingCallBox = ({
       return;
     }
 
-    // Clear transcripts from previous call
-    setTranscripts([]);
+    // Clear transcripts from previous call only if call UUID changed
+    const currentCallUuid = incomingCall?.uuid || null;
+    if (currentCallUuid && currentCallUuid !== lastCallUuidRef.current) {
+      setTranscripts([]);
+      lastCallUuidRef.current = currentCallUuid;
+    }
 
     // console.log('🔌 Initializing WebSocket connection...');
     const ws = new PlivoWebSocketService();
@@ -489,7 +552,11 @@ export const IncomingCallBox = ({
     // Setup message handlers
     ws.onMessage("transcript", (message: PlivoTranscriptMessage) => {
       // console.log('📝 [IncomingCallBox] Received transcript:', message);
-      if (message.callId && activeCallUuidRef.current && message.callId !== activeCallUuidRef.current) {
+      if (
+        message.callId &&
+        activeCallUuidRef.current &&
+        message.callId !== activeCallUuidRef.current
+      ) {
         // Ignore transcripts for other concurrent calls
         return;
       }
@@ -512,7 +579,11 @@ export const IncomingCallBox = ({
 
     ws.onMessage("call_end", (message: any) => {
       // console.log('📴 Call ended from WebSocket:', message);
-      if (message.callId && activeCallUuidRef.current && message.callId !== activeCallUuidRef.current) {
+      if (
+        message.callId &&
+        activeCallUuidRef.current &&
+        message.callId !== activeCallUuidRef.current
+      ) {
         // Ignore call end for other concurrent calls
         return;
       }
@@ -693,7 +764,8 @@ export const IncomingCallBox = ({
 
   const handleSendMessage = async () => {
     const phoneNumber = incomingCall?.number || lastCallNumber;
-    const textToSend = sendTranslated && translatedText ? translatedText : messageText;
+    const textToSend =
+      sendTranslated && translatedText ? translatedText : messageText;
 
     if (!textToSend.trim() || !phoneNumber) {
       return;
@@ -728,23 +800,43 @@ export const IncomingCallBox = ({
 
     // Check if source and target languages are the same
     if (targetLanguage === "en-IN") {
-      toast.error("Cannot translate to the same language (English). Please select a different target language.");
+      toast.error(
+        "Cannot translate to the same language (English). Please select a different target language.",
+      );
       return;
     }
 
     setTranslating(true);
     try {
-      const translated = await translateService(messageText, targetLanguage, "en-IN");
+      const translated = await translateService(
+        messageText,
+        targetLanguage,
+        "en-IN",
+      );
       setTranslatedText(translated);
+      setSendTranslated(true);
       toast.success("Text translated successfully!");
     } catch (err: any) {
       console.error("Translation error:", err);
-      if (err.message?.includes("timeout") || err.message?.includes("504") || err.name === "AbortError") {
+      if (
+        err.message?.includes("timeout") ||
+        err.message?.includes("504") ||
+        err.name === "AbortError"
+      ) {
         toast.error("Translation request timed out. Please try again.");
-      } else if (err.message?.includes("fetch") || err.message?.includes("network")) {
-        toast.error("Network error. Please check your connection and try again.");
-      } else if (err.message?.includes("Source and target languages must be different")) {
-        toast.error("Source and target languages must be different. Please select a different target language.");
+      } else if (
+        err.message?.includes("fetch") ||
+        err.message?.includes("network")
+      ) {
+        toast.error(
+          "Network error. Please check your connection and try again.",
+        );
+      } else if (
+        err.message?.includes("Source and target languages must be different")
+      ) {
+        toast.error(
+          "Source and target languages must be different. Please select a different target language.",
+        );
       } else {
         toast.error(`Failed to translate: ${err.message || "Unknown error"}`);
       }
@@ -832,8 +924,7 @@ export const IncomingCallBox = ({
           </CardTitle>
         </CardHeader>
 
-        {(callStatus === "idle" || callStatus === "ended") &&
-          !incomingCall ? (
+        {(callStatus === "idle" || callStatus === "ended") && !incomingCall ? (
           <CardContent className="p-4">
             {lastCallNumber ? (
               <div className="space-y-4">
@@ -864,30 +955,42 @@ export const IncomingCallBox = ({
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={sendTranslated && translatedText ? translatedText : messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      placeholder="Type your SMS..."
-                      className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      disabled={isSendingMessage || !!(sendTranslated && translatedText)}
-                      readOnly={!!(sendTranslated && translatedText)}
-                    />
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || isSendingMessage}
-                      size="sm"
-                      className="px-3 h-9 bg-primary hover:bg-primary/90 text-white"
+                  <textarea
+                    value={
+                      sendTranslated && translatedText
+                        ? translatedText
+                        : messageText
+                    }
+                    onChange={(e) => {
+                      if (e.target.value.length <= MAX_MESSAGE_LENGTH) {
+                        setMessageText(e.target.value);
+                      }
+                    }}
+                    placeholder="Type your SMS..."
+                    className="w-full p-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    disabled={
+                      isSendingMessage || !!(sendTranslated && translatedText)
+                    }
+                    readOnly={!!(sendTranslated && translatedText)}
+                    rows={3}
+                    maxLength={MAX_MESSAGE_LENGTH}
+                  />
+                  <div className="flex justify-between items-center mt-1">
+                    <span
+                      className={cn(
+                        "text-xs",
+                        (sendTranslated && translatedText
+                          ? translatedText.length
+                          : messageText.length) >= MAX_MESSAGE_LENGTH
+                          ? "text-red-500 font-semibold"
+                          : "text-muted-foreground",
+                      )}
                     >
-                      <Send className="h-4 w-4" />
-                    </Button>
+                      {sendTranslated && translatedText
+                        ? translatedText.length
+                        : messageText.length}
+                      /{MAX_MESSAGE_LENGTH} characters
+                    </span>
                   </div>
                   <div className="mt-2">
                     <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">
@@ -898,6 +1001,8 @@ export const IncomingCallBox = ({
                       onChange={(e) => {
                         setSelectedLanguage(e.target.value);
                         languageManuallyChangedRef.current = true;
+                        setTranslatedText(null);
+                        setSendTranslated(false);
                       }}
                       className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
                     >
@@ -913,7 +1018,13 @@ export const IncomingCallBox = ({
                       size="sm"
                       variant="outline"
                       onClick={handleTranslate}
-                      disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || translating}
+                      disabled={
+                        !(
+                          sendTranslated && translatedText
+                            ? translatedText
+                            : messageText
+                        ).trim() || translating
+                      }
                       className="gap-2"
                     >
                       {translating && (
@@ -921,6 +1032,29 @@ export const IncomingCallBox = ({
                       )}
                       <Languages className="h-3 w-3" />
                       Translate
+                    </Button>
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={
+                        !(
+                          sendTranslated && translatedText
+                            ? translatedText
+                            : messageText
+                        ).trim() ||
+                        isSendingMessage ||
+                        (sendTranslated && translatedText
+                          ? translatedText
+                          : messageText
+                        ).length > MAX_MESSAGE_LENGTH
+                      }
+                      size="sm"
+                      className="gap-2 bg-primary hover:bg-primary/90 text-white"
+                    >
+                      {isSendingMessage && (
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                      )}
+                      <Send className="h-3.5 w-3.5" />
+                      Send SMS
                     </Button>
                   </div>
                 </div>
@@ -1078,7 +1212,7 @@ export const IncomingCallBox = ({
                         className={cn(
                           "col-span-2 flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50",
                           isMuted &&
-                          "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 dark:bg-orange-500/20 border-orange-500/30 font-semibold",
+                            "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 dark:bg-orange-500/20 border-orange-500/30 font-semibold",
                         )}
                       >
                         {isMuted ? (
@@ -1109,89 +1243,137 @@ export const IncomingCallBox = ({
                 )}
 
                 {/* Message Input - Available during and after call */}
-                {(callStatus === "connected" || callStatus === "held" || callStatus === "ended" || (callStatus === "idle" && lastCallNumber)) && (incomingCall || lastCallNumber) && (
-                  <div className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10 p-4 rounded-xl">
-                    <div className="flex items-center gap-2 justify-between mb-2">
-                      <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                        Send SMS to {incomingCall?.number || lastCallNumber}
-                      </p>
-                      {translatedText && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <Switch
-                            id="show-translated"
-                            checked={sendTranslated}
-                            onCheckedChange={setSendTranslated}
-                          />
-                          <label
-                            htmlFor="show-translated"
-                            className="text-xs font-medium text-zinc-500 dark:text-zinc-400 cursor-pointer"
-                          >
-                            Show translated text
-                          </label>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={sendTranslated && translatedText ? translatedText : messageText}
-                        onChange={(e) => setMessageText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendMessage();
+                {(callStatus === "connected" ||
+                  callStatus === "held" ||
+                  callStatus === "ended" ||
+                  (callStatus === "idle" && lastCallNumber)) &&
+                  (incomingCall || lastCallNumber) && (
+                    <div className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10 p-4 rounded-xl">
+                      <div className="flex items-center gap-2 justify-between mb-2">
+                        <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                          Send SMS to {incomingCall?.number || lastCallNumber}
+                        </p>
+                        {translatedText && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <Switch
+                              id="show-translated"
+                              checked={sendTranslated}
+                              onCheckedChange={setSendTranslated}
+                            />
+                            <label
+                              htmlFor="show-translated"
+                              className="text-xs font-medium text-zinc-500 dark:text-zinc-400 cursor-pointer"
+                            >
+                              Show translated text
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                      <textarea
+                        value={
+                          sendTranslated && translatedText
+                            ? translatedText
+                            : messageText
+                        }
+                        onChange={(e) => {
+                          if (e.target.value.length <= MAX_MESSAGE_LENGTH) {
+                            setMessageText(e.target.value);
                           }
                         }}
                         placeholder="Type your SMS..."
-                        className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                        disabled={isSendingMessage || !!(sendTranslated && translatedText)}
+                        className="w-full p-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        disabled={
+                          isSendingMessage ||
+                          !!(sendTranslated && translatedText)
+                        }
                         readOnly={!!(sendTranslated && translatedText)}
+                        rows={3}
+                        maxLength={MAX_MESSAGE_LENGTH}
                       />
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || isSendingMessage}
-                        size="sm"
-                        className="px-3 h-9 bg-primary hover:bg-primary/90 text-white"
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-between items-center mt-1">
+                        <span
+                          className={cn(
+                            "text-xs",
+                            (sendTranslated && translatedText
+                              ? translatedText.length
+                              : messageText.length) >= MAX_MESSAGE_LENGTH
+                              ? "text-red-500 font-semibold"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {sendTranslated && translatedText
+                            ? translatedText.length
+                            : messageText.length}
+                          /{MAX_MESSAGE_LENGTH} characters
+                        </span>
+                      </div>
+                      <div className="mt-2">
+                        <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">
+                          Select Target Language:
+                        </label>
+                        <select
+                          value={selectedLanguage}
+                          onChange={(e) => {
+                            setSelectedLanguage(e.target.value);
+                            languageManuallyChangedRef.current = true;
+                            setTranslatedText(null);
+                            setSendTranslated(false);
+                          }}
+                          className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        >
+                          {SARVAM_LANGUAGES.map((lang) => (
+                            <option key={lang.code} value={lang.code}>
+                              {lang.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex justify-end gap-2 mt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleTranslate}
+                          disabled={
+                            !(
+                              sendTranslated && translatedText
+                                ? translatedText
+                                : messageText
+                            ).trim() || translating
+                          }
+                          className="gap-2"
+                        >
+                          {translating && (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          )}
+                          <Languages className="h-3 w-3" />
+                          Translate
+                        </Button>
+                        <Button
+                          onClick={handleSendMessage}
+                          disabled={
+                            !(
+                              sendTranslated && translatedText
+                                ? translatedText
+                                : messageText
+                            ).trim() ||
+                            isSendingMessage ||
+                            (sendTranslated && translatedText
+                              ? translatedText
+                              : messageText
+                            ).length > MAX_MESSAGE_LENGTH
+                          }
+                          size="sm"
+                          className="gap-2 bg-primary hover:bg-primary/90 text-white"
+                        >
+                          {isSendingMessage && (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          )}
+                          <Send className="h-3.5 w-3.5" />
+                          Send SMS
+                        </Button>
+                      </div>
                     </div>
-                    <div className="mt-2">
-                      <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">
-                        Select Target Language:
-                      </label>
-                      <select
-                        value={selectedLanguage}
-                        onChange={(e) => {
-                          setSelectedLanguage(e.target.value);
-                          languageManuallyChangedRef.current = true;
-                        }}
-                        className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      >
-                        {SARVAM_LANGUAGES.map((lang) => (
-                          <option key={lang.code} value={lang.code}>
-                            {lang.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex justify-end gap-2 mt-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleTranslate}
-                        disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || translating}
-                        className="gap-2"
-                      >
-                        {translating && (
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                        )}
-                        <Languages className="h-3 w-3" />
-                        Translate
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </CardContent>

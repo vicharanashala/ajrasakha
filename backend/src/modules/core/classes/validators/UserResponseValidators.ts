@@ -220,6 +220,85 @@ export class UserNotificationCountResponse {
   count: number;
 }
 
+// ─── User History Response ─────────────────────────────────────────────────────
+
+export class UserHistoryItem {
+  @JSONSchema({
+    description: 'Unique identifier for the history item',
+    example: '64adf92e9e7c3b1234567890',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsString()
+  _id?: string;
+
+  @JSONSchema({
+    description: 'Role held during the history window',
+    example: 'expert',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsString()
+  role: string;
+}
+
+export class UserHistoryUserDetailsResponse {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsString()
+  email: string;
+
+  @IsString()
+  firstName: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  role?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isBlocked?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  special_task_force?: boolean;
+}
+
+export class UserHistoryResponse {
+  @JSONSchema({
+    description: 'Current user details snapshot',
+    type: 'object',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => UserHistoryUserDetailsResponse)
+  userDetails?: UserHistoryUserDetailsResponse;
+
+  @JSONSchema({
+    description: 'Array of user role-history items',
+    type: 'array',
+    items: { type: 'object' },
+    readOnly: true,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UserHistoryItem)
+  roleHistory: UserHistoryItem[];
+}
+
 // ─── Export all validators ────────────────────────────────────────────────────
 
 export const USER_RESPONSE_VALIDATORS = [
@@ -230,4 +309,5 @@ export const USER_RESPONSE_VALIDATORS = [
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserNotificationCountResponse,
+  UserHistoryResponse,
 ];

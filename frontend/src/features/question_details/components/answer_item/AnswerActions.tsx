@@ -136,6 +136,7 @@ export const AnswerActions = ({
       {
         showAprroveButton && (
           <ApproveAnswerDialog
+            questionId={questionId}
             editOpen={editOpen}
             setEditOpen={setEditOpen}
             editableAnswer={editableAnswer}

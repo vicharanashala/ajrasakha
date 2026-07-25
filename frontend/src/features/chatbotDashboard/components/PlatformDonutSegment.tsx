@@ -6,6 +6,7 @@ import { useUserMertices } from "../hooks/useDashboardData";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import { LazySectionSkeleton } from "../AnnamDashboard_dev";
+import { UsersListModal } from "./UsersListModal";
 
 // interface PlatformData {
 //   // count: number;
@@ -89,6 +90,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
     null,
   );
   const [isMaximized, setIsMaximized] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<null | { label: string; count: number }>(null);
 
   const PLATFORM_COLORS: Record<string, string> = {
     Android: "#22c55e",
@@ -284,6 +286,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
                       setActive({ label: s.label, count: s.count })
                     }
                     onMouseLeave={() => setActive(null)}
+                    onClick={() => setSelectedPlatform({ label: s.label, count: s.count })}
                     className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-all ${
                       isActive ? "bg-muted/60" : "hover:bg-muted/40"
                     }`}
@@ -316,6 +319,21 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
         )}
         </>)}
       </div>
+
+      {selectedPlatform && (
+        <UsersListModal
+          isOpen={Boolean(selectedPlatform)}
+          onClose={() => setSelectedPlatform(null)}
+          title={`Users on ${selectedPlatform.label}`}
+          source={source as "vicharanashala" | "annam" | "whatsapp"}
+          userType={userType as "all" | "external" | "internal"}
+          dynamicFieldLabel="Platform"
+          dynamicFieldKey="platform"
+          initialFilterValue={selectedPlatform.label}
+          category="platform"
+          value={selectedPlatform.label}
+        />
+      )}
 
       {/* Maximized Modal */}
       {isMaximized &&
@@ -389,6 +407,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
                           setActive({ label: s.label, count: s.count })
                         }
                         onMouseLeave={() => setActive(null)}
+                        onClick={() => setSelectedPlatform({ label: s.label, count: s.count })}
                         className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
                           isActive
                             ? "bg-muted/70 ring-1 ring-border"

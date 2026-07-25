@@ -13,8 +13,10 @@ import { TranslatableText } from "./TranslatableText";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
+import { TopQuestionInstancesModal } from "./TopQuestionInstancesModal";
 
 interface TopFaqEntry {
+  questionId?: string;
   question: string;
   count: number;
 }
@@ -28,6 +30,9 @@ interface TopFaqsLeaderboardProps {
   dateRange?: DateRange;
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
+  /** Dashboard-level filters forwarded to the drill-down modal */
+  source?: string;
+  userType?: string;
 }
 
 export function TopFaqsLeaderboard({
@@ -39,8 +44,16 @@ export function TopFaqsLeaderboard({
   dateRange,
   onDateRangeChange,
   isLoading = false,
+  source,
+  userType,
 }: TopFaqsLeaderboardProps) {
   const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
+
+  // State for the drill-down modal
+  const [selectedQuestion, setSelectedQuestion] = useState<{
+    questionId: string;
+    questionText: string;
+  } | null>(null);
 
   const leaderboardList = topQuestionsFromCollection;
   // Find the maximum count to calculate relative intensities
@@ -265,7 +278,9 @@ export function TopFaqsLeaderboard({
                 className={`text-base font-bold leading-tight ${avgQuestionsPerUserDay > 0 ? "text-emerald-400" : "text-muted-foreground/50"}`}
               >
                 {avgQuestionsPerUserDay > 0
-                  ? Math.round(Number(avgQuestionsPerUserDay))
+                  ? Number(avgQuestionsPerUserDay) < 1
+                    ? Number(avgQuestionsPerUserDay).toFixed(2)
+                    : Number(avgQuestionsPerUserDay).toFixed(1).replace(/\.0$/, "")
                   : "—"}
               </span>
 
@@ -306,17 +321,33 @@ export function TopFaqsLeaderboard({
                   0.04,
                   (item.count / maxCount) * 0.15,
                 );
+                const isClickable = Boolean(item.questionId);
                 return (
                   <div
                     key={index}
-                    className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-white/[0.03] transition-colors duration-200 group"
+                    className={`flex items-start gap-2 p-1.5 rounded-lg transition-colors duration-200 group ${
+                      isClickable
+                        ? "hover:bg-white/[0.06] cursor-pointer"
+                        : "hover:bg-white/[0.03]"
+                    }`}
+                    onClick={() => {
+                      if (isClickable) {
+                        setSelectedQuestion({
+                          questionId: item.questionId!,
+                          questionText: item.question,
+                        });
+                      }
+                    }}
+                    title={isClickable ? "Click to view all instances" : undefined}
                   >
                     {getRankBadge(index)}
 
                     <div className="flex-1 min-w-0">
                       {/* Chat bubble */}
                       <div
-                        className="relative rounded-xl rounded-tl-sm px-3 py-1.5 border border-border/30"
+                        className={`relative rounded-xl rounded-tl-sm px-3 py-1.5 border border-border/30 ${
+                          isClickable ? "group-hover:border-[#378ADD]/40" : ""
+                        }`}
                         style={{
                           backgroundColor: `rgba(55, 138, 221, ${intensity})`,
                         }}
@@ -325,7 +356,7 @@ export function TopFaqsLeaderboard({
                           <TranslatableText
                             text={item.question}
                             showTooltip
-                            textClassName="text-xs line-clamp-2"
+                            textClassName={`text-xs line-clamp-2 ${isClickable ? "group-hover:underline" : ""}`}
                           />
 
                           <span
@@ -361,6 +392,19 @@ export function TopFaqsLeaderboard({
           </ScrollArea>
         )}
       </CardContent>
+
+      {/* Drill-down modal for a single top question */}
+      {selectedQuestion && (
+        <TopQuestionInstancesModal
+          questionId={selectedQuestion.questionId}
+          questionText={selectedQuestion.questionText}
+          source={source}
+          userType={userType}
+          startDate={dateRange?.from}
+          endDate={dateRange?.to}
+          onClose={() => setSelectedQuestion(null)}
+        />
+      )}
 
       {isFaqModalOpen &&
         // createPortal(

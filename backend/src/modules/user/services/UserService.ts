@@ -5,6 +5,7 @@ import {
   INotificationType,
   NotificationRetentionType,
   UserRole,
+  IUserHistory,
 } from '#root/shared/interfaces/models.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import {
@@ -20,12 +21,12 @@ import {
   UsersNameResponseDto,
   ExpertReviewLevelDto,
 } from '#root/modules/user/validators/UserValidators.js';
-import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
-import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
-import {getFromContainer} from 'class-validator';
-import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthService.js';
-import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
-import {sendEmailNotification} from '#root/utils/mailer.js';
+import { INotificationRepository } from '#root/shared/database/interfaces/INotificationRepository.js';
+import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
+import { getFromContainer } from 'class-validator';
+import { FirebaseAuthService } from '#root/modules/auth/services/FirebaseAuthService.js';
+import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { sendEmailNotification } from '#root/utils/mailer.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 
 @injectable()
@@ -257,14 +258,18 @@ export class UserService extends BaseService {
     search: string,
     sort: string,
     filter: string,
+    includeSelf = false,
   ): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
         const users = await this.userRepo.findAll(session);
-        const usersExceptMe = users.filter(
-          user => user._id.toString() !== userId,
-        );
+        // The caller is excluded by default: most manual-select flows are handing work
+        // to someone else (re-routing an answer, reallocating a question). Gate keepers /
+        // auditors assigning a question to themselves pass includeSelf.
+        const usersExceptMe = includeSelf
+          ? users
+          : users.filter(user => user._id.toString() !== userId);
 
         const myPreference: PreferenceDto = {
           state: me?.preference?.state ?? null,
@@ -287,6 +292,7 @@ export class UserService extends BaseService {
             penaltyPercentage: u.penalty ?? 0,
             createdAt: u.createdAt ?? null,
             isBlocked: u.isBlocked,
+            status: u.status ?? 'active',
             special_task_force: u.special_task_force,
             special_task_force_moderator: u.special_task_force_moderator,
             mobile: u.mobile ?? '',
@@ -359,11 +365,11 @@ export class UserService extends BaseService {
           const nonBlockedExpertsCount =
             await this.userRepo.countNonBlockedExperts(session);
 
-         /* if (nonBlockedExpertsCount <= 10) {
-            throw new BadRequestError(
-              'Minimum 10 active experts required. Cannot block more experts.',
-            );
-          }*/
+          /* if (nonBlockedExpertsCount <= 10) {
+             throw new BadRequestError(
+               'Minimum 10 active experts required. Cannot block more experts.',
+             );
+           }*/
         }
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
@@ -381,11 +387,11 @@ export class UserService extends BaseService {
       if (status === 'in-active') {
         const activeExpertsCount =
           await this.userRepo.countActiveExperts(session);
-      /*  if (activeExpertsCount <= 10) {
-          throw new BadRequestError(
-            'Minimum 10 active experts required. Cannot mark more experts inactive.',
-          );
-        }*/
+        /*  if (activeExpertsCount <= 10) {
+            throw new BadRequestError(
+              'Minimum 10 active experts required. Cannot mark more experts inactive.',
+            );
+          }*/
       }
       return await this.userRepo.updateActivityStatus(userId, status, session);
     });
@@ -549,7 +555,7 @@ export class UserService extends BaseService {
               ? question.question.substring(0, 50) + '...'
               : question.question
             : 'Question';
-          
+
           await this.notificationService.saveTheNotifications(
             `You have been removed from the allocation. All your allocations have been cleared by an administrator.`,
             'Allocation Removed',
@@ -661,7 +667,7 @@ export class UserService extends BaseService {
                                     <td style="padding-right: 32px;">
                                       <p style="margin: 0 0 2px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">Request Date</p>
                                       <p style="margin: 0; font-size: 14px; color: #3a3a35; font-family: 'Outfit', sans-serif;">
-                                        ${new Date().toLocaleDateString('en-IN', {day: 'numeric', month: 'long', year: 'numeric'})}
+                                        ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
                                       </p>
                                     </td>
                                     <td>

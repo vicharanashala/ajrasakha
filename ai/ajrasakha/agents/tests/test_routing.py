@@ -118,7 +118,7 @@ async def test_soil_intent_routing(base_config):
 @pytest.mark.asyncio
 async def test_market_intent_routing(base_config):
     """
-    Test if a mandi price query successfully triggers the market tool.
+    Test if a mandi price query successfully triggers the daily_price tool.
     Provides crop (wheat), district/mandi (Sirsa), and state (Haryana) 
     to fulfill the tool's requirements.
     """
@@ -134,9 +134,9 @@ async def test_market_intent_routing(base_config):
     
     tool_names = [call["name"] for call in response_message.tool_calls]
     
-    market_tool_called = any("market" in name for name in tool_names)
+    daily_price_tool_called = any("daily_price" in name or "market" in name for name in tool_names)
     
-    assert market_tool_called, f"Expected the market tool to be called, but got: {tool_names}"
+    assert daily_price_tool_called, f"Expected the daily_price tool to be called, but got: {tool_names}"
 
 @pytest.mark.asyncio
 async def test_schemes_intent_routing(base_config):

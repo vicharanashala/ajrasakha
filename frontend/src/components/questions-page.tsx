@@ -84,6 +84,7 @@ export const QuestionsPage = ({
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
   const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
   const [isNonAgri, setIsNonAgri] = useState<boolean | undefined>(undefined);
+  const [isTesting, setIsTesting] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
@@ -187,8 +188,22 @@ export const QuestionsPage = ({
         unallocatedQuestions,
         pae_review: paeReview,
         is_non_agri: isNonAgri,
+        is_testing: isTesting,
         // Dedicated tab: filter to questions assigned to the current moderator
-        moderatorId: isDedicated ? (currentUser?._id?.toString() ?? undefined) : undefined,
+        // Dedicated ("My Assignment") tab: filter to questions assigned to the current
+        // user, by their role — moderator, gate keeper, or auditor.
+        moderatorId:
+          isDedicated && currentUser?.role === "moderator"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
+        gateKeeperId:
+          isDedicated && currentUser?.role === "gate_keeper"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
+        auditorId:
+          isDedicated && currentUser?.role === "auditor"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
       };
     },
     [
@@ -219,7 +234,13 @@ export const QuestionsPage = ({
       unallocatedQuestions,
       paeReview,
       isNonAgri,
+      isTesting,
       viewMode,
+      // Only the id and role are read above. Depending on the whole `currentUser` object
+      // rebuilt this filter on every window-focus refetch (react-query returns a new
+      // object identity even when the data is unchanged).
+      currentUser?._id,
+      currentUser?.role,
     ],
   );
 
@@ -270,11 +291,23 @@ export const QuestionsPage = ({
     }
   }, [autoOpenQuestionId, selectedQuestionId]);
 
+  // Close the open question when the LIST's filters change, so the detail view never
+  // shows a question that's no longer in the result set.
+  //
+  // Keyed on a serialised snapshot rather than the `filter` object: `filter` is memoised
+  // on `currentUser`, a react-query value that gets a new identity on every window-focus
+  // refetch. Depending on the object meant that simply switching browser tabs and coming
+  // back re-ran this effect and slammed the moderator's open question shut, losing edits.
+  const filterSignature = useMemo(
+    () => JSON.stringify(filter),
+    [filter],
+  );
+
   useEffect(() => {
     if (selectedQuestionId && !autoOpenQuestionId) {
       setSelectedQuestionId("");
     }
-  }, [filter, debouncedSearch]);
+  }, [filterSignature, debouncedSearch]);
 
   useEffect(() => {
     if (debouncedSearch === "") return;
@@ -390,6 +423,7 @@ export const QuestionsPage = ({
     unallocatedQuestions?: boolean;
     pae_review?: boolean;
     is_non_agri?: boolean;
+    is_testing?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -428,6 +462,8 @@ export const QuestionsPage = ({
       setPaeReview(next.pae_review);
     if ("is_non_agri" in next)
       setIsNonAgri(next.is_non_agri);
+    if ("is_testing" in next)
+      setIsTesting(next.is_testing);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);

@@ -25,8 +25,10 @@ export function useStateWiseAnalytics(
   selectedStateCode: number,
   source: "vicharanashala" | "annam" | "whatsapp"= "annam",
   userType: "all" | "external" | "internal" = "all",
+  startDate?: string,
+  endDate?: string,
 ) {
-  const { data, isLoading, error } = useQuery<
+  const { data, isLoading,  isFetching, error } = useQuery<
     DistrictAnalyticsResponse,
     Error
   >({
@@ -36,6 +38,8 @@ export function useStateWiseAnalytics(
       selectedStateCode,
       source,
       userType,
+      startDate,
+      endDate,
     ],
 
     enabled: !!state,
@@ -60,6 +64,13 @@ export function useStateWiseAnalytics(
         params.set("userType", userType);
       }
 
+      if(startDate){
+        params.set("startDate", startDate)
+      }
+      if(endDate){
+        params.set("endDate", endDate)
+      }
+
       const queryString = params.toString();
 
       const result =
@@ -76,6 +87,7 @@ export function useStateWiseAnalytics(
   return {
     data,
     isLoading,
+    isFetching,
     error: error ?? null,
   };
 }
