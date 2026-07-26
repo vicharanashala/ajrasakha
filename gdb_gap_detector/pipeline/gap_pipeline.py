@@ -28,6 +28,65 @@ class GapPipeline:
         print("Initializing Overlap Checker...")
         self.checker = OverlapChecker(self.client)
 
+    def _create_cluster_summary(self, rep_query, cluster_queries, state, domain, is_misc=False):
+        cluster_size = len(cluster_queries)
+        
+        # Calculate velocity/trend
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        recent_count = sum(1 for q in cluster_queries if q["timestamp"] >= seven_days_ago)
+        older_count = cluster_size - recent_count
+        growth_rate = float(recent_count / max(1, older_count))
+        
+        priority_score = float(cluster_size * (1.0 + min(growth_rate, 2.0)))
+        
+        priority_level = "LOW"
+        if priority_score >= 15:
+            priority_level = "CRITICAL"
+        elif priority_score >= 8:
+            priority_level = "HIGH"
+        elif priority_score >= 4:
+            priority_level = "MEDIUM"
+
+        # Keyword extraction
+        stopwords = {"how", "to", "control", "what", "is", "the", "in", "for", "on", "of", "a", "an", "and", "leaves", "crop", "medicine"}
+        words = []
+        for q in cluster_queries:
+            words.extend([w.lower() for w in q["query"].split() if w.isalnum() and w.lower() not in stopwords])
+            
+        unique_words = sorted(set(words), key=words.count, reverse=True)[:5]
+        
+        if is_misc:
+            cluster_name = f"Miscellaneous Questions ({state} / {domain})"
+            keywords = ["misc"] + unique_words[:2]
+            action = "MEDIUM - Review individual query topics for custom Q&A addition."
+            priority_level = "MEDIUM" if cluster_size >= 3 else "LOW"
+        else:
+            cluster_name = " / ".join(unique_words[:3]) or "unresolved topic"
+            keywords = unique_words
+            action = f"{priority_level} - Allocate expert content writing for this gap."
+
+        self.cluster_global_id += 1
+        summary = {
+            "cluster_id": str(self.cluster_global_id),
+            "cluster_name": cluster_name,
+            "size": cluster_size,
+            "keywords": keywords,
+            "sample_queries": list(set([q["query"] for q in cluster_queries]))[:8],
+            "domains": [domain],
+            "states": [state],
+            "growth_rate": growth_rate,
+            "priority_score": priority_score,
+            "farmer_demand": cluster_size,
+            "recommended_action": action,
+            "priority_level": priority_level,
+            "crop_distribution": {"General": cluster_size},
+            "state_distribution": {state: cluster_size},
+            "domain_distribution": {domain: cluster_size},
+            "language_distribution": {"en": cluster_size},
+            "created_at": datetime.utcnow()
+        }
+        self.all_clusters_summary.append(summary)
+
     def run(self):
         print("\n=== STARTING GDB COVERAGE GAP PIPELINE ===")
         
@@ -90,101 +149,70 @@ class GapPipeline:
 
         # 4. Perform Clustering within each partition
         print(f"Clustering within {len(partitions)} partitions...")
-        all_clusters_summary = []
-        cluster_global_id = 0
+        self.all_clusters_summary = []
+        self.cluster_global_id = 0
 
         for (state, domain), partition_queries in partitions.items():
-            count = len(partition_queries)
-            if count < self.min_cluster_size:
-                # Too few queries to form a cluster
+            # Check overlap on all partition queries first to filter duplicates
+            gap_queries = []
+            for q in partition_queries:
+                is_duplicate, best_match_id, score, explanation = self.checker.check_overlap(q["query"])
+                if not is_duplicate:
+                    gap_queries.append(q)
+            
+            if not gap_queries:
                 continue
                 
-            # Extract embeddings for clustering
-            embeddings = np.array([q["embedding"] for q in partition_queries]).astype("float32")
+            gap_count = len(gap_queries)
+            unclustered_gaps = []
             
-            # Run HDBSCAN
-            hdb = HDBSCAN(min_cluster_size=self.min_cluster_size, metric='euclidean')
-            labels = hdb.fit_predict(embeddings)
-            
-            # Process clusters found (ignore noise label -1)
-            unique_labels = set(labels)
-            for label in unique_labels:
-                if label == -1:
-                    continue
+            if gap_count >= self.min_cluster_size:
+                # Extract embeddings for clustering
+                embeddings = np.array([q["embedding"] for q in gap_queries]).astype("float32")
+                
+                # Run HDBSCAN
+                hdb = HDBSCAN(min_cluster_size=self.min_cluster_size, metric='euclidean')
+                labels = hdb.fit_predict(embeddings)
+                
+                unique_labels = set(labels)
+                for label in unique_labels:
+                    if label == -1:
+                        continue
                     
-                # Collect member queries
-                cluster_queries = [partition_queries[i] for i, l in enumerate(labels) if l == label]
-                cluster_size = len(cluster_queries)
-                
-                # Compute Centroid
-                cluster_embeddings = np.array([q["embedding"] for q in cluster_queries])
-                centroid = np.mean(cluster_embeddings, axis=0)
-                
-                # Find Representative (closest to centroid)
-                distances = np.linalg.norm(cluster_embeddings - centroid, axis=1)
-                best_idx = np.argmin(distances)
-                rep_query = cluster_queries[best_idx]["query"]
-                
-                # 5. Overlap check with GDB
-                is_duplicate, best_match_id, score, explanation = self.checker.check_overlap(rep_query)
-                if is_duplicate:
-                    # Skip duplicate clusters since GDB already covers it
-                    continue
+                    # Collect member queries for this cluster
+                    cluster_queries = [gap_queries[i] for i, l in enumerate(labels) if l == label]
+                    cluster_size = len(cluster_queries)
                     
-                # We found a gap! Calculate priority score and metadata
-                # Calculate simple velocity/trend (queries in last 7 days vs previous 23 days)
-                seven_days_ago = datetime.utcnow() - timedelta(days=7)
-                recent_count = sum(1 for q in cluster_queries if q["timestamp"] >= seven_days_ago)
-                older_count = cluster_size - recent_count
-                
-                # Growth rate: simple ratio or score
-                growth_rate = float(recent_count / max(1, older_count))
-                
-                # Priority Score formula: size * (1 + growth_rate)
-                priority_score = float(cluster_size * (1.0 + min(growth_rate, 2.0)))
-                
-                priority_level = "LOW"
-                if priority_score >= 15:
-                    priority_level = "CRITICAL"
-                elif priority_score >= 8:
-                    priority_level = "HIGH"
-                elif priority_score >= 4:
-                    priority_level = "MEDIUM"
+                    # Compute Centroid
+                    cluster_embeddings = np.array([q["embedding"] for q in cluster_queries])
+                    centroid = np.mean(cluster_embeddings, axis=0)
                     
-                # Extract key terms/keywords (simplistic keyword extraction)
-                stopwords = {"how", "to", "control", "what", "is", "the", "in", "for", "on", "of", "a", "an", "and", "in", "leaves", "crop", "medicine"}
-                words = []
-                for q in cluster_queries:
-                    words.extend([w.lower() for w in q["query"].split() if w.isalnum() and w.lower() not in stopwords])
+                    # Find Representative
+                    distances = np.linalg.norm(cluster_embeddings - centroid, axis=1)
+                    best_idx = np.argmin(distances)
+                    rep_query = cluster_queries[best_idx]["query"]
+                    
+                    # Process dense cluster
+                    self._create_cluster_summary(rep_query, cluster_queries, state, domain, is_misc=False)
+                    
+                # Collect queries labeled as noise
+                unclustered_gaps = [gap_queries[i] for i, l in enumerate(labels) if l == -1]
+            else:
+                unclustered_gaps = gap_queries
                 
-                # Top 5 unique keywords
-                unique_words = sorted(set(words), key=words.count, reverse=True)[:5]
-
-                # Map state, domain, and crop distributions
-                # (For simplicity we assume crop is parsed from query or logs. disclaimer_logs does not have explicit crop in the sample schema, but we can match from GDB keywords if needed, or default to general/crop-agnostic)
-                crop_distribution = {"General": cluster_size}
+            # Group unclustered or noise queries into a single Miscellaneous cluster
+            if unclustered_gaps:
+                rep_query = unclustered_gaps[0]["query"]
+                self._create_cluster_summary(
+                    rep_query=f"Miscellaneous Questions ({len(unclustered_gaps)} distinct topics)",
+                    cluster_queries=unclustered_gaps,
+                    state=state,
+                    domain=domain,
+                    is_misc=True
+                )
                 
-                cluster_global_id += 1
-                cluster_summary = {
-                    "cluster_id": str(cluster_global_id),
-                    "cluster_name": " / ".join(unique_words[:3]),
-                    "size": cluster_size,
-                    "keywords": unique_words,
-                    "sample_queries": list(set([q["query"] for q in cluster_queries]))[:5],
-                    "domains": [domain],
-                    "states": [state],
-                    "growth_rate": growth_rate,
-                    "priority_score": priority_score,
-                    "farmer_demand": cluster_size,
-                    "recommended_action": f"{priority_level} - Allocate expert content writing for this gap.",
-                    "priority_level": priority_level,
-                    "crop_distribution": crop_distribution,
-                    "state_distribution": {state: cluster_size},
-                    "domain_distribution": {domain: cluster_size},
-                    "language_distribution": {"en": cluster_size},
-                    "created_at": datetime.utcnow()
-                }
-                all_clusters_summary.append(cluster_summary)
+        # Re-assign back to local variable for report generation compatibility
+        all_clusters_summary = self.all_clusters_summary
 
         # 6. Calculate Heatmap Statistics
         print("Calculating coverage heatmap...")
