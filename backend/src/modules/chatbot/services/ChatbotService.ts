@@ -3813,6 +3813,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getCoordinatorFarmerGeoData(coordinatorId: string) {
+    return this.chatbotRepository.getCoordinatorFarmerGeoData(coordinatorId);
+  }
+
   async getVillageUserCounts(state: string, district: string, source: string, userType: string): Promise<any> {
     try {
       return this.chatbotRepository.getVillageUserCounts(state, district, source, userType, undefined);
