@@ -15,6 +15,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Alpine.js for interactive state -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- jsPDF & jsPDF-AutoTable CDNs for client-side PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
     <style>
         [x-cloak] { display: none !important; }
         .glassmorphism {
@@ -48,6 +51,11 @@
                 <!-- Theme Toggle Button -->
                 <button @click="toggleTheme()" class="h-9 w-9 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition border border-slate-200 dark:border-slate-700" title="Toggle Theme">
                     <i class="fa-solid text-slate-600 dark:text-slate-300 text-xs" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i>
+                </button>
+
+                <!-- Export PDF Report Button -->
+                <button @click="exportPDF()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition text-xs font-semibold flex items-center gap-2 text-white shadow-sm shadow-emerald-500/10">
+                    <i class="fa-solid fa-file-pdf"></i> Export PDF Report
                 </button>
 
                 <!-- Refresh Button -->
@@ -97,7 +105,7 @@
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gap Clusters Found</p>
                         <h3 class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1" x-text="reportData.clusters_found">0</h3>
                     </div>
-                    <div class="h-11 w-11 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 dark:text-amber-400">
+                    <div class="h-11 w-11 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400">
                         <i class="fa-solid fa-network-wired text-lg"></i>
                     </div>
                 </div>
@@ -154,7 +162,7 @@
                                                 <!-- Tooltip -->
                                                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-2xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition duration-200 pointer-events-none z-30">
                                                     <p class="font-bold text-slate-900 dark:text-slate-100 mb-1" x-text="state"></p>
-                                                    <p class="text-slate-400 dark:text-slate-500 uppercase tracking-wider text-[9px] mb-1.5" x-text="domain"></p>
+                                                    <p class="text-slate-400 dark:text-slate-505 uppercase tracking-wider text-[9px] mb-1.5" x-text="domain"></p>
                                                     <div class="grid grid-cols-2 gap-1 text-[10px]">
                                                         <span>GDB Entries:</span><span class="text-right font-semibold" x-text="cell.gdb_count"></span>
                                                         <span>Disclaimers:</span><span class="text-right font-semibold" x-text="cell.disclaimer_count"></span>
@@ -208,7 +216,7 @@
                             </thead>
                             <tbody>
                                 <template x-for="(gap, index) in filteredGaps()" :key="gap.cluster_id">
-                                    <tr class="border-b border-slate-105 dark:border-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900/30 transition duration-150 cursor-pointer" 
+                                    <tr class="border-b border-slate-100 dark:border-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900/30 transition duration-150 cursor-pointer" 
                                         @click="toggleExpand(index)">
                                         <td class="py-4 px-4 text-center font-bold text-slate-400 dark:text-slate-500" x-text="index + 1"></td>
                                         <td class="py-4 px-4">
@@ -281,8 +289,8 @@
                                               x-text="rec.priority"></span>
                                     </div>
                                     <div class="text-xs text-slate-500 dark:text-slate-400 font-bold mt-0.5" x-text="`Focus Domain: ${rec.focus_domain}`"></div>
-                                    <p class="text-xs text-slate-600 dark:text-slate-300 mt-2 font-medium leading-relaxed" x-text="rec.recommendation"></p>
-                                    <div class="text-[10px] text-rose-655 dark:text-rose-450 font-bold mt-2.5 flex items-center gap-1.5">
+                                    <p class="text-xs text-slate-650 dark:text-slate-300 mt-2 font-medium leading-relaxed" x-text="rec.recommendation"></p>
+                                    <div class="text-[10px] text-rose-600 dark:text-rose-400 font-bold mt-2.5 flex items-center gap-1.5">
                                         <i class="fa-solid fa-circle-exclamation text-[9px]"></i> <span x-text="`${rec.gap_questions} unaddressed gaps`"></span>
                                     </div>
                                 </div>
@@ -387,7 +395,7 @@
                     }
                     if (cell.status === 'partial') {
                         return this.darkMode
-                            ? 'bg-amber-950/40 border border-amber-800/60 text-amber-300'
+                            ? 'bg-amber-950/40 border border-emerald-800/60 text-amber-350'
                             : 'bg-amber-50 border border-amber-200 text-amber-700';
                     }
                     return this.darkMode
@@ -423,6 +431,114 @@
                     if (!stats || !stats.total_combinations) return '0%';
                     const ratio = (stats.covered / stats.total_combinations) * 100;
                     return Math.round(ratio) + '%';
+                },
+
+                exportPDF() {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF('p', 'mm', 'a4');
+
+                    // Document Header Banner
+                    doc.setFillColor(16, 185, 129); // Emerald Banner
+                    doc.rect(0, 0, 210, 30, 'F');
+                    
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(18);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text("AJRASAKHA ANALYTICS", 14, 18);
+                    
+                    doc.setFontSize(10);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text("GDB Coverage Gap Detector Report", 14, 24);
+                    
+                    const dateStr = new Date().toLocaleString();
+                    doc.text(`Generated: ${dateStr}`, 196, 24, { align: 'right' });
+
+                    // 1. Executive Summary Statistics
+                    doc.setTextColor(20, 25, 40);
+                    doc.setFontSize(12);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text("1. Executive Summary Statistics", 14, 45);
+                    
+                    doc.setFont('helvetica', 'normal');
+                    const stats = [
+                        ["Total Unanswered Disclaimers Ingested", this.reportData.total_disclaimers],
+                        ["Unique Gap Queries (DBSCAN Clusters)", this.reportData.unique_queries],
+                        ["Identified Gap Clusters", this.reportData.clusters_found],
+                        ["Growth Database (GDB) Coverage Ratio", this.coverageRatio]
+                    ];
+                    
+                    doc.autoTable({
+                        startY: 50,
+                        head: [['Metric / Key Performance Indicator', 'Value']],
+                        body: stats,
+                        theme: 'striped',
+                        styles: { fontSize: 9.5, cellPadding: 3.5 },
+                        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] }
+                    });
+
+                    // 2. Recommended Focus Outreach Targets
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(12);
+                    doc.text("2. Actionable Focus Outreach Targets", 14, doc.lastAutoTable.finalY + 12);
+                    
+                    const recsBody = (this.reportData.outreach_recommendations || []).map(r => [
+                        r.target_state,
+                        r.focus_domain,
+                        r.gap_questions,
+                        r.recommendation
+                    ]);
+
+                    doc.autoTable({
+                        startY: doc.lastAutoTable.finalY + 17,
+                        head: [['Target State', 'Focus Domain', 'Gap Count', 'Actionable Outreach Plan']],
+                        body: recsBody,
+                        theme: 'grid',
+                        styles: { fontSize: 9, cellPadding: 3 },
+                        columnStyles: {
+                            0: { cellWidth: 30, fontStyle: 'bold' },
+                            1: { cellWidth: 35 },
+                            2: { cellWidth: 20, halign: 'center' },
+                            3: { cellWidth: 105 }
+                        },
+                        headStyles: { fillColor: [79, 70, 229] } // Indigo theme
+                    });
+
+                    // 3. Prioritized GDB Gap Clusters (Page 2)
+                    doc.addPage();
+                    
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(12);
+                    doc.text("3. Prioritized GDB Coverage Gap Clusters (Top 20)", 14, 15);
+                    
+                    const gapsBody = (this.reportData.top_gaps || []).map((g, idx) => [
+                        idx + 1,
+                        g.sample_queries[0],
+                        g.states[0],
+                        g.domains[0],
+                        g.farmer_demand,
+                        g.priority_level
+                    ]);
+
+                    doc.autoTable({
+                        startY: 21,
+                        head: [['Rank', 'Cluster Intent Query', 'State', 'Domain', 'Demand', 'Priority']],
+                        body: gapsBody,
+                        theme: 'striped',
+                        styles: { fontSize: 8.5, cellPadding: 2.5 },
+                        columnStyles: {
+                            0: { cellWidth: 12, halign: 'center' },
+                            1: { cellWidth: 85 },
+                            2: { cellWidth: 25 },
+                            3: { cellWidth: 28 },
+                            4: { cellWidth: 15, halign: 'center' },
+                            5: { cellWidth: 25 }
+                        },
+                        headStyles: { fillColor: [16, 185, 129] }
+                    });
+
+                    // Save file
+                    const fileDate = new Date().toISOString().split('T')[0];
+                    doc.save(`GDB_Gap_Report_${fileDate}.pdf`);
                 }
             }
         }
