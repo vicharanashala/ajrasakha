@@ -361,7 +361,9 @@ export type INotificationType =
   | 'delayed_question'
   | 'moderator_approval'
   | 'allocation_removal'
-  | 'coordinator_message';
+  | 'coordinator_message'
+  | 'weather_alert'
+  | 'scheme_eligibility';
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
