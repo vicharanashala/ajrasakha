@@ -186,21 +186,31 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <!-- Left/Middle: Top 20 Gap Reports -->
                 <section class="lg:col-span-2 p-6 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none flex flex-col gap-5">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                             <h2 class="text-lg font-black text-slate-800 dark:text-slate-100">Top Gap Clusters</h2>
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Top unanswered intent groups clustered by semantic similarity</p>
                         </div>
                         
-                        <!-- Active Filter Indicator -->
-                        <template x-if="selectedFilter">
-                            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                                <span x-text="`${selectedFilter.state} / ${selectedFilter.domain}`"></span>
-                                <button @click="clearFilter()" class="hover:text-rose-500 transition-colors ml-1" title="Clear Filter">
-                                    <i class="fa-solid fa-circle-xmark"></i>
-                                </button>
+                        <div class="flex items-center gap-3">
+                            <!-- Search Bar -->
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400">
+                                    <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
+                                </span>
+                                <input type="text" x-model="searchQuery" placeholder="Filter keywords..." class="pl-7 pr-3 py-1.5 rounded-lg border text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-44">
                             </div>
-                        </template>
+
+                            <!-- Active Filter Indicator -->
+                            <template x-if="selectedFilter">
+                                <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                    <span x-text="`${selectedFilter.state} / ${selectedFilter.domain}`"></span>
+                                    <button @click="clearFilter()" class="hover:text-rose-500 transition-colors ml-1" title="Clear Filter">
+                                        <i class="fa-solid fa-circle-xmark"></i>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                     
                     <div class="overflow-auto flex-1 max-h-[500px]">
@@ -312,6 +322,7 @@
                 expandedRow: null,
                 darkMode: true,
                 selectedFilter: null,
+                searchQuery: '',
 
                 initTheme() {
                     this.darkMode = localStorage.getItem('theme') !== 'light';
@@ -337,16 +348,30 @@
 
                 clearFilter() {
                     this.selectedFilter = null;
+                    this.searchQuery = '';
                     this.expandedRow = null;
                 },
 
                 filteredGaps() {
-                    if (!this.selectedFilter) return this.reportData.top_gaps || [];
-                    const gaps = this.reportData.all_gaps || this.reportData.top_gaps || [];
-                    const { state, domain } = this.selectedFilter;
-                    return gaps.filter(gap => 
-                        gap.states.includes(state) && gap.domains.includes(domain)
-                    );
+                    let gaps = [];
+                    if (!this.selectedFilter) {
+                        gaps = this.reportData.top_gaps || [];
+                    } else {
+                        const { state, domain } = this.selectedFilter;
+                        const allGaps = this.reportData.all_gaps || this.reportData.top_gaps || [];
+                        gaps = allGaps.filter(gap => 
+                            gap.states.includes(state) && gap.domains.includes(domain)
+                        );
+                    }
+                    if (this.searchQuery) {
+                        const q = this.searchQuery.toLowerCase();
+                        gaps = gaps.filter(gap => 
+                            gap.cluster_name.toLowerCase().includes(q) ||
+                            gap.keywords.some(kw => kw.toLowerCase().includes(q)) ||
+                            gap.sample_queries.some(sq => sq.toLowerCase().includes(q))
+                        );
+                    }
+                    return gaps;
                 },
 
                 fetchData() {
