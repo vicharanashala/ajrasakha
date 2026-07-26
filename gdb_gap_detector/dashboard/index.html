@@ -26,9 +26,8 @@
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .heatmap-cell:hover {
-            transform: scale(1.1);
+            transform: scale(1.08);
             z-index: 10;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
@@ -75,7 +74,7 @@
         <div x-show="!loading" class="contents">
             <!-- KPI Section -->
             <section class="grid grid-cols-1 md:grid-cols-4 gap-5">
-                <div class="p-5 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none flex items-center justify-between">
+                <div class="p-5 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none flex items-center justify-between animate-fade-in">
                     <div>
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Disclaimers Ingested</p>
                         <h3 class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1" x-text="reportData.total_disclaimers">0</h3>
@@ -107,7 +106,7 @@
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">GDB Coverage Ratio</p>
                         <h3 class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1" x-text="coverageRatio">0%</h3>
                     </div>
-                    <div class="h-11 w-11 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 dark:text-emerald-400">
+                    <div class="h-11 w-11 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
                         <i class="fa-solid fa-shield-halved text-lg"></i>
                     </div>
                 </div>
@@ -118,7 +117,7 @@
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div>
                         <h2 class="text-lg font-black text-slate-800 dark:text-slate-100">Coverage Heatmap Matrix</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Coverage percentage by State and Domain (Green = Strong, Orange = Partial, Red = Gap)</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Coverage percentage by State and Domain. Click a cell to filter top gaps.</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600 dark:text-slate-400">
                         <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-emerald-500"></span> Strong (≥80%)</span>
@@ -147,14 +146,15 @@
                                 <template x-for="domain in heatmapDomains">
                                     <div class="h-10 flex items-center justify-center p-0.5 border-b border-slate-100 dark:border-slate-900">
                                         <template x-data="{ cell: getHeatmapCell(state, domain) }" x-if="cell">
-                                            <div class="w-full h-full rounded flex items-center justify-center cursor-pointer heatmap-cell relative group"
-                                                 :class="getCellClass(cell)">
+                                            <div class="w-full h-full rounded flex items-center justify-center cursor-pointer heatmap-cell relative group transition-all"
+                                                 :class="getCellClass(cell) + (isFilterActive(state, domain) ? ' ring-2 ring-emerald-500 scale-105 shadow-md z-10' : '')"
+                                                 @click="toggleOutreachFilter(state, domain)">
                                                 <span class="text-[10px] font-black" x-text="Math.round(cell.coverage_score) + '%'"></span>
                                                 
                                                 <!-- Tooltip -->
                                                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-2xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition duration-200 pointer-events-none z-30">
                                                     <p class="font-bold text-slate-900 dark:text-slate-100 mb-1" x-text="state"></p>
-                                                    <p class="text-slate-450 dark:text-slate-500 uppercase tracking-wider text-[9px] mb-1.5" x-text="domain"></p>
+                                                    <p class="text-slate-400 dark:text-slate-500 uppercase tracking-wider text-[9px] mb-1.5" x-text="domain"></p>
                                                     <div class="grid grid-cols-2 gap-1 text-[10px]">
                                                         <span>GDB Entries:</span><span class="text-right font-semibold" x-text="cell.gdb_count"></span>
                                                         <span>Disclaimers:</span><span class="text-right font-semibold" x-text="cell.disclaimer_count"></span>
@@ -178,9 +178,21 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <!-- Left/Middle: Top 20 Gap Reports -->
                 <section class="lg:col-span-2 p-6 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none flex flex-col gap-5">
-                    <div>
-                        <h2 class="text-lg font-black text-slate-800 dark:text-slate-100">Top Gap Clusters</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Top unanswered intent groups clustered by semantic similarity, ranked by priority score</p>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-lg font-black text-slate-800 dark:text-slate-100">Top Gap Clusters</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Top unanswered intent groups clustered by semantic similarity</p>
+                        </div>
+                        
+                        <!-- Active Filter Indicator -->
+                        <template x-if="selectedFilter">
+                            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                <span x-text="`${selectedFilter.state} / ${selectedFilter.domain}`"></span>
+                                <button @click="clearFilter()" class="hover:text-rose-500 transition-colors ml-1" title="Clear Filter">
+                                    <i class="fa-solid fa-circle-xmark"></i>
+                                </button>
+                            </div>
+                        </template>
                     </div>
                     
                     <div class="overflow-x-auto flex-1">
@@ -195,8 +207,8 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <template x-for="(gap, index) in reportData.top_gaps">
-                                    <tr class="border-b border-slate-100 dark:border-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900/30 transition duration-150 cursor-pointer" 
+                                <template x-for="(gap, index) in filteredGaps()" :key="gap.cluster_id">
+                                    <tr class="border-b border-slate-105 dark:border-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900/30 transition duration-150 cursor-pointer" 
                                         @click="toggleExpand(index)">
                                         <td class="py-4 px-4 text-center font-bold text-slate-400 dark:text-slate-500" x-text="index + 1"></td>
                                         <td class="py-4 px-4">
@@ -230,7 +242,13 @@
                                                   :class="getPriorityClass(gap.priority_level)"
                                                   x-text="gap.priority_level"></span>
                                         </td>
-                                        <td class="py-4 px-4 text-2xs font-semibold text-slate-505 dark:text-slate-400" x-text="gap.recommended_action"></td>
+                                        <td class="py-4 px-4 text-2xs font-semibold text-slate-500 dark:text-slate-400" x-text="gap.recommended_action"></td>
+                                    </tr>
+                                </template>
+                                <!-- Empty state when filtered and no results -->
+                                <template x-if="filteredGaps().length === 0">
+                                    <tr>
+                                        <td colspan="5" class="py-8 text-center text-sm font-medium text-slate-400">No unanswered gaps fit the selected Outreach Target criteria.</td>
                                     </tr>
                                 </template>
                             </tbody>
@@ -242,12 +260,16 @@
                 <section class="p-6 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none flex flex-col gap-5">
                     <div>
                         <h2 class="text-lg font-black text-slate-800 dark:text-slate-100">Focus Outreach Targets</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Target regions and domains for outreach team planning based on disclaimer volumes</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Click a target card below to isolate and view its related gap questions.</p>
                     </div>
 
                     <div class="flex-1 flex flex-col gap-4 overflow-y-auto max-h-[500px]">
                         <template x-for="rec in reportData.outreach_recommendations">
-                            <div class="p-4 rounded-xl border transition flex gap-3.5 bg-slate-50 dark:bg-slate-900/60 border-slate-100 hover:border-slate-200 dark:border-slate-800 dark:hover:border-slate-700">
+                            <div class="p-4 rounded-xl border transition duration-150 flex gap-3.5 cursor-pointer"
+                                 :class="isFilterActive(rec.target_state, rec.focus_domain) 
+                                    ? 'border-emerald-500 bg-emerald-500/5 dark:bg-emerald-500/10 shadow-sm ring-1 ring-emerald-500/30' 
+                                    : 'bg-slate-50 dark:bg-slate-900/60 border-slate-100 hover:border-slate-200 dark:border-slate-800 dark:hover:border-slate-700'"
+                                 @click="toggleOutreachFilter(rec.target_state, rec.focus_domain)">
                                 <div class="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 self-start">
                                     <i class="fa-solid fa-map-location-dot"></i>
                                 </div>
@@ -259,8 +281,8 @@
                                               x-text="rec.priority"></span>
                                     </div>
                                     <div class="text-xs text-slate-500 dark:text-slate-400 font-bold mt-0.5" x-text="`Focus Domain: ${rec.focus_domain}`"></div>
-                                    <p class="text-xs text-slate-650 dark:text-slate-300 mt-2 font-medium leading-relaxed" x-text="rec.recommendation"></p>
-                                    <div class="text-[10px] text-rose-600 dark:text-rose-400 font-bold mt-2.5 flex items-center gap-1.5">
+                                    <p class="text-xs text-slate-600 dark:text-slate-300 mt-2 font-medium leading-relaxed" x-text="rec.recommendation"></p>
+                                    <div class="text-[10px] text-rose-655 dark:text-rose-450 font-bold mt-2.5 flex items-center gap-1.5">
                                         <i class="fa-solid fa-circle-exclamation text-[9px]"></i> <span x-text="`${rec.gap_questions} unaddressed gaps`"></span>
                                     </div>
                                 </div>
@@ -281,6 +303,7 @@
                 heatmapDomains: [],
                 expandedRow: null,
                 darkMode: true,
+                selectedFilter: null,
 
                 initTheme() {
                     this.darkMode = localStorage.getItem('theme') !== 'light';
@@ -291,9 +314,37 @@
                     localStorage.setItem('theme', this.darkMode ? 'dark' : 'light');
                 },
 
+                toggleOutreachFilter(state, domain) {
+                    if (this.selectedFilter && this.selectedFilter.state === state && this.selectedFilter.domain === domain) {
+                        this.selectedFilter = null;
+                    } else {
+                        this.selectedFilter = { state, domain };
+                    }
+                    this.expandedRow = null;
+                },
+
+                isFilterActive(state, domain) {
+                    return this.selectedFilter && this.selectedFilter.state === state && this.selectedFilter.domain === domain;
+                },
+
+                clearFilter() {
+                    this.selectedFilter = null;
+                    this.expandedRow = null;
+                },
+
+                filteredGaps() {
+                    const gaps = this.reportData.top_gaps || [];
+                    if (!this.selectedFilter) return gaps;
+                    const { state, domain } = this.selectedFilter;
+                    return gaps.filter(gap => 
+                        gap.states.includes(state) && gap.domains.includes(domain)
+                    );
+                },
+
                 fetchData() {
                     this.loading = true;
                     this.expandedRow = null;
+                    this.selectedFilter = null;
                     fetch('/api/gdb/gap-report')
                         .then(res => res.json())
                         .then(data => {
