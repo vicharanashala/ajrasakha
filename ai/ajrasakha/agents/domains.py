@@ -23,6 +23,7 @@ CROP_REQUIRED_DOMAINS: frozenset[str] = frozenset({
     "Water Management",
     "Weed Management",
     "Market Information",
+    "Market Prices",
     "Horticulture & Allied Agriculture",
 })
 
@@ -38,7 +39,6 @@ CROP_ALL_DOMAINS: frozenset[str] = frozenset({
     "Infrastructure & Utilities",
     "Government Schemes",
     "Weather",
-    "Market Prices",
     "General",
 })
 

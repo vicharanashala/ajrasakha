@@ -4,6 +4,7 @@ import { XCircle, Clock, UserCheck } from "lucide-react";
 import { ApproveAnswerDialog } from "./ApproveAnswerDialog";
 
 interface AnswerItemHeaderProps {
+  questionId: string;
   answer: IAnswer;
   isMine: boolean;
   isRejected: boolean|undefined;
@@ -22,6 +23,7 @@ interface AnswerItemHeaderProps {
 }
 
 export const AnswerItemHeader = ({
+  questionId,
   answer,
   isMine,
   isRejected,
@@ -68,6 +70,7 @@ export const AnswerItemHeader = ({
               handleEditFinalAnswer && (
                 <ApproveAnswerDialog
                   mode="edit"
+                  questionId={questionId}
                   editOpen={!!editFinalOpen}
                   setEditOpen={setEditFinalOpen}
                   editableAnswer={editFinalAnswer ?? ""}

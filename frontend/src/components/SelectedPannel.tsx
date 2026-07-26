@@ -3,7 +3,10 @@ import type { ReRouteStatus, SourceItem } from "@/types";
 import { useState } from "react";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
 import { toast } from "sonner";
-import { ApproveAnswerDialog } from "@/features/question_details/components/answer_item/ApproveAnswerDialog";
+import {
+  ApproveAnswerDialog,
+  clearApproveAnswerDraft,
+} from "@/features/question_details/components/answer_item/ApproveAnswerDialog";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { useGetReRouteAllocation } from "@/hooks/api/question/useGetReRouteAllocation";
 import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRoutedQuestionFullData";
@@ -86,6 +89,7 @@ export default function SelectedAnswerPanel({
       toast.success(
         "Answer approved successfully! The question is now closed. Thank you!",
       );
+      clearApproveAnswerDraft(question._id);
       setEditOpen(false);
     } catch (error: any) {
       console.error("Failed to edit answer:", error);
@@ -359,6 +363,7 @@ export default function SelectedAnswerPanel({
       <div className="flex gap-3">
         {answer.approvalCount >= 3 && question.status === "in-review" && (
           <ApproveAnswerDialog
+            questionId={question._id}
             editOpen={editOpen}
             setEditOpen={setEditOpen}
             editableAnswer={editableAnswer}

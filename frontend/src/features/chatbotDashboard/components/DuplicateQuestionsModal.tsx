@@ -41,7 +41,8 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   inactiveOnly: false,
   lowFeedbackOnly: false,
   userType: 'all',
-  isVerified: true,
+  verificationStatus: 'all',
+  loginStatus: 'all',
 };
 
 export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }: DuplicateQuestionsModalProps) {
@@ -252,7 +253,7 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }:
             <UserDetailsPreferenceFilter
               filters={filters}
               onApply={setFilters}
-              hideFields={["crop", "inactive", "profile", "roles"]}
+              hideFields={["crop", "inactive", "profile", "roles", "loginStatus"]}
             />
             <button
               onClick={onClose}

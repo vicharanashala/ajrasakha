@@ -22,6 +22,7 @@ import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
+  IUserHistory,
   NotificationRetentionType,
   UserRole,
 } from '#root/shared/interfaces/models.js';
@@ -49,6 +50,7 @@ import {
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserEntryResponse,
+  UserHistoryResponse,
 } from '../../core/classes/validators/UserResponseValidators.js';
 
 @OpenAPI({
@@ -240,6 +242,7 @@ export class UserController {
       search?: string;
       sort: string;
       filter: string;
+      includeSelf?: string | boolean;
     },
   ): Promise<UsersNameResponseDto> {
     const {
@@ -248,6 +251,7 @@ export class UserController {
       search = '',
       sort = '',
       filter = '',
+      includeSelf,
     } = query;
     const userId = user._id.toString();
     return await this.userService.getAllUsersforManualSelect(
@@ -257,6 +261,7 @@ export class UserController {
       search,
       sort,
       filter,
+      includeSelf === true || includeSelf === 'true',
     );
   }
 
@@ -274,7 +279,8 @@ export class UserController {
   })
   @Get('/stf-moderators')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors pick moderators from this list when assigning.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   async getStfModerators() {
     const { users } = await this.userService.getAllUsers(
       1,
@@ -930,12 +936,12 @@ export class UserController {
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
     // manual admin check
-  if (currentUser.role !== 'admin') {
-    throw new ForbiddenError(
-      'Only admins can verify users',
-    );
-  }
-    const {isVerified} = body;
+    if (currentUser.role !== 'admin') {
+      throw new ForbiddenError(
+        'Only admins can verify users',
+      );
+    }
+    const { isVerified } = body;
     const targetUser = await this.userService.getUserById(userId);
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.USER_MANAGEMENT,
@@ -1006,5 +1012,43 @@ export class UserController {
     const { identifier } = body;
     await this.userService.requestVerification(identifier);
     return { message: 'Verification request sent to administrators.' };
+  }
+
+  //get user history
+  @OpenAPI({
+    summary: 'Get user history by userId',
+    description: 'Retrieves the user history for the specified user ID.',
+  })
+  @ResponseSchema(UserHistoryResponse, {
+    statusCode: 200,
+    description: 'User history retrieved successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - User not found',
+  })
+  @Get('/user-history')
+  @HttpCode(200)
+  @Authorized()
+  async getUserHistoryById(@QueryParams() query: { userId: string; startDateTime?: string; endDateTime?: string; }): Promise<IUserHistory> {
+
+    return await this.userService.getUserHistoryById(query);
+  }
+
+  @OpenAPI({
+    summary: 'Get user working hours',
+    description: 'Calculates the total working hours for a user in a given time period.',
+  })
+  @Get('/working-hours')
+  @HttpCode(200)
+  @Authorized()
+  async getWorkingHours(
+    @QueryParams() query: { userId: string; startDateTime: string; endDateTime: string; }
+  ): Promise<{ workingHours: number }> {
+    return await this.userService.getWorkingHours(query);
   }
 }

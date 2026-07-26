@@ -45,6 +45,7 @@ def test_apply_tool_flags_schemes():
 
 def test_domain_requires_crop_buckets():
     assert domain_requires_crop("Plant Protection") is True
+    assert domain_requires_crop("Market Prices") is True
     assert domain_requires_crop("Government Schemes") is False
     assert domain_requires_crop("General") is False
 

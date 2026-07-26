@@ -369,6 +369,7 @@ import {
 
 import {
   useActiveUserDetails,
+  useActiveUserDetailsByQuestion,
   useCoordinatorsDetails,
 } from "./hooks/useActiveUsersAnalytics";
 
@@ -383,8 +384,9 @@ interface ActiveUserDetailsModalProps {
   district?: string;
   state?: string;
   onClose: () => void;
-
   type: "users" | "activeUsers" | "moderators";
+  startDate?: string
+  endDate?: string
 }
 
 interface ActiveUserEntry {
@@ -428,6 +430,8 @@ export function ActiveUserDetailsModal({
   state,
   onClose,
   type,
+  startDate,
+  endDate,
 }: ActiveUserDetailsModalProps) {
   const [page, setPage] = useState(1);
 
@@ -488,17 +492,34 @@ export function ActiveUserDetailsModal({
   /* Active Users                     */
   /* -------------------------------- */
 
-  const activeUsersQuery =
-    useActiveUserDetails({
-      page,
-      limit: PAGE_SIZE,
-      source,
-      userType,
-      district,
-      state,
-      search: debouncedSearch,
-      enabled: type === "activeUsers",
-    });
+const activeUsersQuery = useActiveUserDetails({
+  page,
+  limit: PAGE_SIZE,
+  source,
+  userType,
+  district,
+  state,
+  search: debouncedSearch,
+  enabled: type === "activeUsers" && !startDate && !endDate,
+});
+
+const activeUsersByQuestionQuery = useActiveUserDetailsByQuestion({
+  page,
+  limit: PAGE_SIZE,
+  source,
+  userType,
+  district,
+  state,
+  search: debouncedSearch,
+  startDate,
+  endDate,
+  enabled: type === "activeUsers" && !!(startDate || endDate),
+});
+
+const selectedActiveUsersQuery =
+  startDate || endDate
+    ? activeUsersByQuestionQuery
+    : activeUsersQuery;
 
   /* -------------------------------- */
   /* Moderators                       */
@@ -528,31 +549,57 @@ export function ActiveUserDetailsModal({
   const isModerators =
     type === "moderators";
 
+  // const data = isUsers
+  //   ? usersQuery.data
+  //   : isActiveUsers
+  //     ? activeUsersQuery.data
+  //     : moderatorsQuery.data;
+
+  // const isLoading = isUsers
+  //   ? usersQuery.isLoading
+  //   : isActiveUsers
+  //     ? activeUsersQuery.isLoading
+  //     : moderatorsQuery.isLoading;
+
+  // const isFetching = isUsers
+  //   ? false
+  //   : isActiveUsers
+  //     ? activeUsersQuery.isFetching
+  //     : moderatorsQuery.isFetching;
+
+  // const isError = isUsers
+  //   ? !!usersQuery.error
+  //   : isActiveUsers
+  //     ? activeUsersQuery.isError
+  //     : moderatorsQuery.isError;
+
+
+
   const data = isUsers
-    ? usersQuery.data
-    : isActiveUsers
-      ? activeUsersQuery.data
-      : moderatorsQuery.data;
+  ? usersQuery.data
+  : isActiveUsers
+    ? selectedActiveUsersQuery.data
+    : moderatorsQuery.data;
 
-  const isLoading = isUsers
-    ? usersQuery.isLoading
-    : isActiveUsers
-      ? activeUsersQuery.isLoading
-      : moderatorsQuery.isLoading;
+const isLoading = isUsers
+  ? usersQuery.isLoading
+  : isActiveUsers
+    ? selectedActiveUsersQuery.isLoading
+    : moderatorsQuery.isLoading;
 
-  const isFetching = isUsers
-    ? false
-    : isActiveUsers
-      ? activeUsersQuery.isFetching
-      : moderatorsQuery.isFetching;
+const isFetching = isUsers
+  ? false
+  : isActiveUsers
+    ? selectedActiveUsersQuery.isFetching
+    : moderatorsQuery.isFetching;
 
-  const isError = isUsers
-    ? !!usersQuery.error
-    : isActiveUsers
-      ? activeUsersQuery.isError
-      : moderatorsQuery.isError;
-
-  const total = isUsers
+const isError = isUsers
+  ? !!usersQuery.error
+  : isActiveUsers
+    ? selectedActiveUsersQuery.isError
+    : moderatorsQuery.isError;
+  
+      const total = isUsers
     ? usersQuery.data.totalUsers
     : data?.total ?? 0;
 

@@ -4,7 +4,7 @@ A LangGraph-based agent for handling agricultural queries from farmers via call 
 
 ## Overview
 
-The ACC Agent processes farmer transcripts, extracts key information, routes queries to appropriate sub-agents (GDB, Weather, Market), and generates structured JSON responses for call center agents.
+The ACC Agent processes farmer transcripts, extracts key information, routes queries to appropriate sub-agents (GDB, Weather, Market, Schemes), and generates structured JSON responses for call center agents.
 
 ## Architecture
 
@@ -71,12 +71,13 @@ class AccAgentState(TypedDict):
     verified_by_human: bool            # HITL approval flag
     
     # Tool execution - multi-tool routing
-    selected_tools: list[str]          # Tools to call (gdb, weather, market)
+    selected_tools: list[str]          # Tools to call (gdb, weather, market, schemes)
     
     # Individual tool responses
     gdb_response: Optional[str]        # Raw GDB response
     weather_response: Optional[str]    # Raw Weather response
     market_response: Optional[str]     # Raw Market response
+    schemes_response: Optional[str]    # Raw Schemes response
     
     # Final output
     final_answer: Optional[str]        # JSON output with all sections
@@ -105,6 +106,7 @@ class AccAgentState(TypedDict):
   - `gdb`: Farming practices, diseases, pests, fertilizers
   - `weather`: Weather forecasts, rainfall
   - `market`: Market prices, MSP
+  - `schemes`: Government schemes, subsidies, yojanas, farmer benefits
 - Returns `selected_tools` array (can be multiple)
 
 ### 4. Tool Execution Node

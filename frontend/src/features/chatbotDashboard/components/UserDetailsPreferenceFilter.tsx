@@ -34,6 +34,7 @@ import {
   MessageSquareOff,
   Info,
   UserCheck2,
+  LogIn,
   ChevronDown,
   Check,
 } from "lucide-react";
@@ -64,6 +65,7 @@ export interface UserDetailsFilters {
   lowFeedbackOnly: boolean;
   userType: "all" | "internal" | "external";
   verificationStatus: "all" | "verified" | "unverified";
+  loginStatus: "all" | "loggedIn" | "loggedOut";
 }
 
 interface UserDetailsPreferenceFilterProps {
@@ -71,7 +73,13 @@ interface UserDetailsPreferenceFilterProps {
   onApply: (filters: UserDetailsFilters) => void;
   /** Fields to hide from the filter dialog */
   hideFields?: Array<
-    "crop" | "inactive" | "profile" | "userType" | "roles" | "lowFeedback"
+    | "crop"
+    | "inactive"
+    | "profile"
+    | "userType"
+    | "roles"
+    | "lowFeedback"
+    | "loginStatus"
   >;
 }
 
@@ -108,10 +116,10 @@ function defaultInactiveEnd(): Date {
 }
 
 const inputClass =
-  "w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#1e1e1e] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:ring-2 focus:ring-[#3AAA5A]/30 focus:border-[#3AAA5A] transition-all";
+  "w-full h-9 px-3 text-sm rounded-lg border border-border/60 bg-background text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all";
 
 const selectTriggerClass =
-  "h-10 w-full min-w-0 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1e1e1e] [&>span]:truncate";
+  "h-9 w-full min-w-0 text-sm rounded-lg border-border/60 bg-background/60 [&>span]:truncate";
 
 const ROLE_OPTIONS = ["Farmer", "Internal","district_coordinator","block_coordinator","village_volunteer",
 ];
@@ -126,9 +134,9 @@ function FilterSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4 space-y-2">
-      <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
-        <span className="flex items-center justify-center w-6 h-6 rounded-md bg-[#3AAA5A]/10 text-[#3AAA5A]">
+    <div className="space-y-2.5">
+      <Label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="flex items-center justify-center w-5 h-5 rounded-md bg-primary/10 text-primary">
           {icon}
         </span>
         {label}
@@ -208,6 +216,7 @@ export function UserDetailsPreferenceFilter({
       lowFeedbackOnly: false,
       userType: "all",
       verificationStatus: "all",
+      loginStatus: "all",
     });
   };
 
@@ -225,7 +234,8 @@ export function UserDetailsPreferenceFilter({
     (filters.inactiveOnly ? 1 : 0) +
     (filters.lowFeedbackOnly ? 1 : 0) +
     (filters.userType !== "all" ? 1 : 0) +
-    (filters.verificationStatus !== "all" ? 1 : 0);
+    (filters.verificationStatus !== "all" ? 1 : 0) +
+    (filters.loginStatus !== "all" ? 1 : 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -233,12 +243,12 @@ export function UserDetailsPreferenceFilter({
         <Button
           variant="outline"
           size="sm"
-          className="h-9 flex items-center gap-2 border-gray-200 dark:border-gray-700 hover:border-[#3AAA5A] hover:text-[#3AAA5A] transition-colors"
+          className="h-9 flex items-center gap-2 border-border/60 hover:border-primary hover:text-primary transition-colors"
         >
           <Filter className="h-4 w-4" />
           Preferences
           {activeCount > 0 && (
-            <Badge className="ml-0.5 h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-[#3AAA5A] hover:bg-[#3AAA5A] text-white">
+            <Badge className="ml-0.5 h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-primary hover:bg-primary text-primary-foreground">
               {activeCount}
             </Badge>
           )}
@@ -246,7 +256,7 @@ export function UserDetailsPreferenceFilter({
       </DialogTrigger>
 
       <DialogContent
-        className="sm:max-w-3xl w-full p-0 gap-0 overflow-hidden z-[10001] bg-white dark:bg-[#0f0f0f] border-gray-200 dark:border-gray-800 shadow-2xl"
+        className="sm:max-w-3xl w-full p-0 gap-0 overflow-hidden z-[10001] bg-card border-border shadow-2xl"
         overlayClassName="z-[10000] bg-black/60 backdrop-blur-sm"
       >
         <motion.div
@@ -255,22 +265,24 @@ export function UserDetailsPreferenceFilter({
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
           className="flex flex-col"
         >
-          {/* Header — filled gradient strip */}
-          <DialogHeader className="relative px-6 pt-5 pb-5 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-br from-[#3AAA5A]/10 via-white to-white dark:from-[#3AAA5A]/10 dark:via-[#141414] dark:to-[#0f0f0f]">
+          {/* Header */}
+          <DialogHeader className="relative px-6 pt-5 pb-5 border-b border-border/60 bg-gradient-to-br from-primary/8 via-card to-card">
+            {/* Decorative top accent */}
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
             <div className="flex items-center gap-3">
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.05, duration: 0.2 }}
-                className="flex items-center justify-center w-11 h-11 rounded-xl bg-[#3AAA5A] text-white shadow-lg shadow-[#3AAA5A]/30 shrink-0"
+                className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 ring-1 ring-primary/20 text-primary shrink-0"
               >
-                <Filter className="h-5 w-5" />
+                <Filter className="h-4.5 w-4.5" />
               </motion.div>
               <div className="min-w-0">
-                <DialogTitle className="text-base font-semibold tracking-tight">
+                <DialogTitle className="text-sm font-semibold tracking-tight text-foreground">
                   Filter Preferences
                 </DialogTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-[11px] text-muted-foreground mt-0.5">
                   Refine the farmer list with one or more filters
                 </p>
               </div>
@@ -278,7 +290,7 @@ export function UserDetailsPreferenceFilter({
                 <motion.span
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="ml-auto text-xs font-semibold text-white bg-[#3AAA5A] px-3 py-1.5 rounded-full shadow-sm"
+                  className="ml-auto text-[11px] font-semibold text-primary-foreground bg-primary px-3 py-1 rounded-full"
                 >
                   {activeCount} active
                 </motion.span>
@@ -286,16 +298,16 @@ export function UserDetailsPreferenceFilter({
             </div>
           </DialogHeader>
 
-          {/* Body — filled panels, no wasted space */}
-          <div className="px-6 py-5 max-h-[65vh] overflow-y-auto bg-gray-50/60 dark:bg-[#0d0d0d]">
-            <div className="grid grid-cols-2 gap-3">
-              {/* Row 1: User Type + Crop */}
+          {/* Body */}
+          <div className="px-6 py-5 max-h-[65vh] overflow-y-auto bg-background/50">
+            <div className="space-y-3">
+              {/* User Type */}
               {!hideFields.includes("userType") && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.07 }}
-                  className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                  className="rounded-xl bg-card ring-1 ring-border/60 p-4"
                 >
                   <FilterSection
                     icon={<UserCheck className="h-3.5 w-3.5" />}
@@ -323,12 +335,13 @@ export function UserDetailsPreferenceFilter({
                 </motion.div>
               )}
 
+              {/* Roles */}
               {!hideFields.includes("roles") && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.08 }}
-                  className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                  className="rounded-xl bg-card ring-1 ring-border/60 p-4"
                 >
                   <FilterSection
                     icon={<UserCheck className="h-3.5 w-3.5" />}
@@ -355,12 +368,13 @@ export function UserDetailsPreferenceFilter({
                 </motion.div>
               )}
 
+              {/* Crop */}
               {!hideFields.includes("crop") && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.09 }}
-                  className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                  className="rounded-xl bg-card ring-1 ring-border/60 p-4"
                 >
                   <FilterSection
                     icon={<Sprout className="h-3.5 w-3.5" />}
@@ -398,18 +412,18 @@ export function UserDetailsPreferenceFilter({
                 </motion.div>
               )}
 
-              {/* Location — full width filled panel */}
+              {/* Location */}
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.11 }}
-                className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                className="rounded-xl bg-card ring-1 ring-border/60 p-4"
               >
                 <FilterSection
                   icon={<MapPin className="h-3.5 w-3.5" />}
                   label="Location"
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 [&>*]:min-w-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 [&>*]:min-w-0">
                     <Select
                       value={draft.state || "all"}
                       onValueChange={(value) =>
@@ -492,7 +506,7 @@ export function UserDetailsPreferenceFilter({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.13 }}
-                className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                className="rounded-xl bg-card ring-1 ring-border/60 p-4"
               >
                 <FilterSection
                   icon={<Calendar className="h-3.5 w-3.5" />}
@@ -500,7 +514,7 @@ export function UserDetailsPreferenceFilter({
                 >
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <span className="text-xs text-muted-foreground font-medium">
+                      <span className="text-[11px] text-muted-foreground font-medium">
                         From
                       </span>
                       <input
@@ -520,7 +534,7 @@ export function UserDetailsPreferenceFilter({
                       />
                     </div>
                     <div className="space-y-1">
-                      <span className="text-xs text-muted-foreground font-medium">
+                      <span className="text-[11px] text-muted-foreground font-medium">
                         To
                       </span>
                       <input
@@ -551,20 +565,20 @@ export function UserDetailsPreferenceFilter({
                 </FilterSection>
               </motion.div>
 
-              {/* Toggle row — filled, 3-up */}
+              {/* Toggle row */}
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
-                className="col-span-2 grid grid-cols-3 gap-3"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3"
               >
                 {!hideFields.includes("inactive") && (
                   <ToggleCard
                     id="inactive-only"
                     icon={<UserX className="h-3.5 w-3.5" />}
-                    iconBg="bg-[#3AAA5A]/10"
-                    iconColor="text-[#3AAA5A]"
-                    activeColor="bg-[#3AAA5A]"
+                    iconBg="bg-primary/10"
+                    iconColor="text-primary"
+                    activeColor="bg-primary"
                     label="Inactive Users"
                     tooltip="Shows users who have not asked any questions in the selected date range"
                     checked={draft.inactiveOnly}
@@ -584,7 +598,7 @@ export function UserDetailsPreferenceFilter({
                     }
                   />
                 )}
-                <div className="rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5">
+                <div className="rounded-xl bg-card ring-1 ring-border/60 p-3.5">
                   <FilterSection
                     icon={<UserCheck2 className="h-3.5 w-3.5" />}
                     label="Verification"
@@ -612,6 +626,38 @@ export function UserDetailsPreferenceFilter({
                     </Select>
                   </FilterSection>
                 </div>
+                {!hideFields.includes("loginStatus") && (
+                  <div className="rounded-xl bg-card ring-1 ring-border/60 p-3.5">
+                    <FilterSection
+                      icon={<LogIn className="h-3.5 w-3.5" />}
+                      label="Login Status"
+                    >
+                      <Select
+                        value={draft.loginStatus}
+                        onValueChange={(value) =>
+                          setDraft((d) => ({
+                            ...d,
+                            loginStatus: value as
+                              | "all"
+                              | "loggedIn"
+                              | "loggedOut",
+                          }))
+                        }
+                      >
+                        <SelectTrigger className={selectTriggerClass}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10002]">
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="loggedIn">
+                            Currently logged in
+                          </SelectItem>
+                          <SelectItem value="loggedOut">Not logged in</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FilterSection>
+                  </div>
+                )}
                 {!hideFields.includes("lowFeedback") && (
                   <ToggleCard
                     id="low-feedback-only"
@@ -638,7 +684,7 @@ export function UserDetailsPreferenceFilter({
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.17 }}
-                  className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                  className="rounded-xl bg-card ring-1 ring-border/60 p-4"
                 >
                   <FilterSection
                     icon={<UserCheck className="h-3.5 w-3.5" />}
@@ -671,7 +717,7 @@ export function UserDetailsPreferenceFilter({
           </div>
 
           {/* Footer */}
-          <DialogFooter className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex justify-between sm:justify-between gap-2 bg-white dark:bg-[#0f0f0f]">
+          <DialogFooter className="px-6 py-3.5 border-t border-border/60 flex justify-between sm:justify-between gap-2 bg-card">
             <Button
               variant="ghost"
               size="sm"
@@ -683,7 +729,7 @@ export function UserDetailsPreferenceFilter({
             </Button>
             <div className="flex gap-2">
               <DialogClose asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="border-border/60">
                   Cancel
                 </Button>
               </DialogClose>
@@ -691,7 +737,7 @@ export function UserDetailsPreferenceFilter({
                 size="sm"
                 onClick={handleApply}
                 disabled={draft.inactiveOnly && !!inactiveDateError}
-                className="bg-[#3AAA5A] hover:bg-[#2e9449] text-white px-6 shadow-md shadow-[#3AAA5A]/25 disabled:opacity-50 disabled:shadow-none"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 shadow-md shadow-primary/20 disabled:opacity-50 disabled:shadow-none"
               >
                 Apply Filters
               </Button>
@@ -741,13 +787,13 @@ function SearchableSingleSelect({
         className={cn(inputClass, disabled && "cursor-not-allowed opacity-60")}
       />
       {open && !disabled && (
-        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-[#1e1e1e]">
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-hidden rounded-lg border border-border bg-card shadow-xl">
           {filteredOptions.length > 0 ? (
             filteredOptions.map((option) => (
               <button
                 key={option}
                 type="button"
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-[#3AAA5A]/10"
+                className="block w-full px-3 py-2 text-left text-sm text-foreground hover:bg-primary/10 transition-colors"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   onChange(option);
@@ -813,7 +859,7 @@ function SearchableMultiSelect({
         }
       }}
     >
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
       <div className="relative">
         <input
           ref={inputRef}
@@ -828,14 +874,14 @@ function SearchableMultiSelect({
           className={cn(inputClass, "pr-10")}
         />
         {selectedSummary && !query && (
-          <span className="pointer-events-none absolute inset-y-0 left-3 right-10 flex items-center truncate text-sm text-(--foreground)">
+          <span className="pointer-events-none absolute inset-y-0 left-3 right-10 flex items-center truncate text-sm text-foreground">
             {selectedSummary}
           </span>
         )}
         <button
           type="button"
           aria-label={open ? "Close crop dropdown" : "Open crop dropdown"}
-          className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-gray-100 hover:text-foreground dark:hover:bg-gray-800"
+          className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           onMouseDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -850,7 +896,7 @@ function SearchableMultiSelect({
           />
         </button>
         {open && (
-          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-[#1e1e1e]">
+          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-hidden rounded-lg border border-border bg-card shadow-xl">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => {
                 const isSelected = selectedSet.has(option);
@@ -860,8 +906,8 @@ function SearchableMultiSelect({
                     key={option}
                     type="button"
                     className={cn(
-                      "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-[#3AAA5A]/10",
-                      isSelected && "bg-[#3AAA5A]/10 font-medium text-[#26783d]",
+                      "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-primary/10",
+                      isSelected && "bg-primary/10 font-medium text-primary",
                     )}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
@@ -873,7 +919,7 @@ function SearchableMultiSelect({
                   >
                     <span className="truncate">{option}</span>
                     {isSelected && (
-                      <Check className="h-4 w-4 shrink-0 text-[#26783d]" />
+                      <Check className="h-4 w-4 shrink-0 text-primary" />
                     )}
                   </button>
                 );
@@ -891,13 +937,13 @@ function SearchableMultiSelect({
           {selected.map((option) => (
             <span
               key={option}
-              className="inline-flex max-w-full items-center gap-1 rounded-md border border-[#3AAA5A]/30 bg-[#3AAA5A]/10 px-2 py-1 text-xs font-medium text-[#26783d]"
+              className="inline-flex max-w-full items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
             >
               <span className="truncate">{option}</span>
               <button
                 type="button"
                 aria-label={`Remove ${option}`}
-                className="rounded-sm px-0.5 text-[#26783d] hover:bg-[#3AAA5A]/20"
+                className="rounded-sm px-0.5 text-primary hover:bg-primary/20 transition-colors"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => remove(option)}
               >
@@ -933,23 +979,23 @@ function ToggleCard({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
-    <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-3.5 flex flex-col gap-3">
+    <div className="rounded-xl bg-card ring-1 ring-border/60 p-3.5 flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <span
           className={cn(
-            "flex items-center justify-center w-6 h-6 rounded-md shrink-0",
+            "flex items-center justify-center w-5 h-5 rounded-md shrink-0",
             iconBg,
             iconColor,
           )}
         >
           {icon}
         </span>
-        <span className="text-sm font-semibold text-foreground leading-tight">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground leading-tight">
           {label}
         </span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help shrink-0" />
+            <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0 transition-colors" />
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-[200px] text-xs">
             {tooltip}
@@ -960,7 +1006,7 @@ function ToggleCard({
         htmlFor={id}
         className={cn(
           "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
-          checked ? activeColor : "bg-gray-300 dark:bg-gray-600",
+          checked ? activeColor : "bg-muted-foreground/30",
         )}
       >
         <input

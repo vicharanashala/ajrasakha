@@ -1,5 +1,4 @@
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import MemorySaver
 
 from ajrasakha.agents.acc_agent.state import AccAgentState
 from ajrasakha.agents.acc_agent.nodes import extract_node, planner_node, tool_execution_node, assembler_node
@@ -20,9 +19,7 @@ def build_graph():
     builder.add_edge("tool_execution", "assembler")
     builder.add_edge("assembler", END)
     
-    checkpointer = MemorySaver()
     graph = builder.compile(
-        checkpointer=checkpointer,
         interrupt_after=["extract"]
     )
     

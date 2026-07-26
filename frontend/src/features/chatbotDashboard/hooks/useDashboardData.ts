@@ -543,18 +543,24 @@ interface UsermetricsResponse {
 export const useUserMertices = (
   source: string = 'vicharanashala',
   userType: string = 'all',
+  startDate?: string,
+  endDate?: string,
   shouldLoadUserDemographics: boolean = false,
 ) => {
   const params = new URLSearchParams();
   params.append("source", source);
   params.append("userType", userType);
+  if (startDate) params.append("startDate", startDate);
+  if(endDate) params.append("endDate", endDate)
   return useQuery({
     queryKey: [
       "user-metrices",
       source,
       userType,
+      startDate,
+      endDate,
     ],
-    placeholderData: (prev) => prev,
+    // placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
       const result = await apiFetch(
@@ -562,7 +568,7 @@ export const useUserMertices = (
       );
       return result as UsermetricsResponse;
     }, 
-    enabled: shouldLoadUserDemographics,
+    enabled: true,
   });
 }
 

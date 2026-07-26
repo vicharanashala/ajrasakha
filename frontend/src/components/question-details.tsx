@@ -25,10 +25,12 @@ import { AnswerTimeline } from "@/features/question_details/components/AnswerTim
 import { RerouteTimeline } from "@/features/question_details/components/RerouteTimeline";
 import { AllocationTimeline } from "@/features/question_details/components/AllocationTimeline";
 import { ModeratorQueue } from "@/features/question_details/components/ModeratorQueue";
+import { RoleAssigneeQueue } from "@/features/question_details/components/RoleAssigneeQueue";
 import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers";
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
 import MessageDetail from "./MessageDetail";
+import UserFeedbackDetail from "./UserFeedbackDetail";
 import { AiGeneratedAnswerCard } from "./AiGeneratedAnswerCard";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer";
@@ -138,7 +140,45 @@ export const QuestionDetails = ({
   };
 
   useEffect(() => {
+    /** Arrow keys belong to the field the user is typing in, not to question navigation. */
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      const el = target as HTMLElement | null;
+      if (!el || typeof el.closest !== "function") return false;
+      const tag = el.tagName;
+      return (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        el.isContentEditable ||
+        !!el.closest('[contenteditable="true"]')
+      );
+    };
+
+    /**
+     * True while any modal (approve / view more / edit) or floating layer (select,
+     * dropdown, popover, combobox) is open. Radix marks open overlays with
+     * data-state="open" and portals floating content into a popper wrapper.
+     */
+    const hasOpenOverlay = (): boolean =>
+      !!document.querySelector(
+        '[role="dialog"][data-state="open"],' +
+          '[role="alertdialog"][data-state="open"],' +
+          "[data-radix-popper-content-wrapper]",
+      );
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      // Previously unguarded: a moderator pressing an arrow inside an open modal or
+      // while editing an answer was silently moved to the next/previous question,
+      // losing their work. Ignore the key in those contexts.
+      if (
+        e.defaultPrevented ||
+        isEditableTarget(e.target) ||
+        hasOpenOverlay()
+      ) {
+        return;
+      }
+
       if (e.key === "ArrowRight" && hasNext && onNext) {
         onNext();
       } else if (e.key === "ArrowLeft" && hasPrev && onPrev) {
@@ -259,23 +299,49 @@ export const QuestionDetails = ({
             (question.source == "AJRASAKHA" || question.source == "WHATSAPP") &&
             currentUser &&
             currentUser.role != "expert" && (
-              <MessageDetail
-                question={question}
-                isQuestionAllocatedToExpert={
-                  question?.submission?.history?.length > 0
-                }
-                navigateToQuestionPage={navigateToQuestionPage}
-              />
+              <>
+                <MessageDetail
+                  question={question}
+                  isQuestionAllocatedToExpert={
+                    question?.submission?.history?.length > 0
+                  }
+                  navigateToQuestionPage={navigateToQuestionPage}
+                />
+                <UserFeedbackDetail questionId={question._id || null} />
+              </>
             )}
 
-          {/* {currentUser.role !== "expert" && ( */}
+          {/* Queue order: Gate Keeper → Auditor → Expert → Moderator → Re-route */}
+
+          {/* 1. Gate keeper / auditor role queues — always shown (read-only unless the
+                viewer is a moderator/admin who can manage). */}
+          <RoleAssigneeQueue
+            title="Gate Keeper Queue"
+            noun="gate keeper"
+            role="gate_keeper"
+            question={question}
+            currentUser={currentUser}
+          />
+          <RoleAssigneeQueue
+            title="Auditor Queue"
+            noun="auditor"
+            role="auditor"
+            question={question}
+            currentUser={currentUser}
+          />
+
+          {/* 2. Expert allocation queue */}
           <AllocationTimeline
             history={question.submission.history}
             queue={question.submission.queue}
             currentUser={currentUser}
             question={question}
           />
+
+          {/* 3. Moderator queue */}
           <ModeratorQueue question={question} currentUser={currentUser} />
+
+          {/* 4. Re-route queue */}
           {reroutequestionDetails && reroutequestionDetails.length >= 1 && (
             <RerouteTimeline
               currentUser={currentUser}

@@ -14,6 +14,7 @@ import {
   Languages,
   Globe,
   ChevronDown,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { plivoApi } from "@/hooks/api/plivo/api";
@@ -236,6 +237,169 @@ const renderMarkdown = (text: string) => {
   });
 };
 
+const renderWeatherInsights = (weather: any) => {
+  if (!weather || typeof weather !== "object") {
+    return typeof weather === "string" ? <p>{weather}</p> : null;
+  }
+
+  const { result } = weather;
+  if (!result) {
+    // Fallback if structure is flat or result key is missing
+    return (
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        {Object.entries(weather).map(([key, val]) => {
+          if (val === null || val === undefined || typeof val === "function")
+            return null;
+          return (
+            <div key={key} className="flex gap-1.5">
+              <span className="font-semibold capitalize text-sky-900 dark:text-sky-400">
+                {key.replace(/_/g, " ")}:
+              </span>
+              <span className="text-sky-850 dark:text-sky-300">
+                {typeof val === "object" ? JSON.stringify(val) : String(val)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const today = result.today || {};
+  const forecastList = result.forecast || [];
+
+  return (
+    <div className="space-y-4 text-sky-900 dark:text-sky-300">
+      {/* Location / Station Info */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-sky-200/50 dark:border-sky-800/50 pb-2 mb-2 gap-1">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
+            Weather Station:{" "}
+          </span>
+          <span className="text-sm font-bold text-sky-950 dark:text-sky-100">
+            {today.station || "Unknown"}
+          </span>
+          {today.distance_to_station_km && (
+            <span className="text-xs text-sky-600 dark:text-sky-400 ml-1.5 font-medium">
+              ({Number(today.distance_to_station_km).toFixed(1)} km away)
+            </span>
+          )}
+        </div>
+        {today.date && (
+          <span className="text-xs font-medium text-sky-600 dark:text-sky-400">
+            As of {today.date}
+          </span>
+        )}
+      </div>
+
+      {/* Today's Stats & Forecast Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Today's Condition Card */}
+        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-3 border border-sky-100/50 dark:border-sky-900/30">
+          <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider mb-2">
+            Today's Forecast
+          </p>
+          <div className="space-y-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
+                Condition:
+              </span>
+              <span className="font-semibold text-sky-950 dark:text-sky-100">
+                {today.forecast || "N/A"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
+                Temperature:
+              </span>
+              <span className="font-semibold text-sky-950 dark:text-sky-100">
+                {today.observed_min_temp || today.forecast_min_temp || "--"}°C
+                to {today.observed_max_temp || today.forecast_max_temp || "--"}
+                °C
+              </span>
+            </div>
+            {today.past_24hrs_rainfall && (
+              <div className="flex justify-between">
+                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
+                  Rain (Last 24h):
+                </span>
+                <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                  {today.past_24hrs_rainfall}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Today's Climate details Card */}
+        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-3 border border-sky-100/50 dark:border-sky-900/30">
+          <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider mb-2">
+            Humidity & Solar
+          </p>
+          <div className="space-y-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
+                Humidity (08:30 / 17:30):
+              </span>
+              <span className="font-semibold text-sky-950 dark:text-sky-100">
+                {today.humidity_0830 || "--"}% / {today.humidity_1730 || "--"}%
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">
+                Sunrise / Sunset:
+              </span>
+              <span className="font-semibold text-sky-950 dark:text-sky-100">
+                🌅 {today.sunrise || "--"} / 🌇 {today.sunset || "--"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Multi-Day Forecast */}
+      {forecastList.length > 0 && (
+        <div className="space-y-2 pt-2">
+          <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider">
+            Upcoming Forecast
+          </p>
+          <div className="overflow-x-auto rounded-lg border border-sky-100/50 dark:border-sky-900/30 bg-white/30 dark:bg-zinc-950/20">
+            <table className="min-w-full text-xs text-left divide-y divide-sky-100/30 dark:divide-sky-900/30">
+              <thead className="bg-sky-100/40 dark:bg-sky-950/40 text-sky-850 dark:text-sky-350">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Day</th>
+                  <th className="px-3 py-2 font-semibold">Temp (Min/Max)</th>
+                  <th className="px-3 py-2 font-semibold">
+                    Forecast Condition
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-sky-100/20 dark:divide-sky-900/20">
+                {forecastList.map((f: any, idx: number) => (
+                  <tr
+                    key={idx}
+                    className="hover:bg-sky-50/20 dark:hover:bg-sky-950/10"
+                  >
+                    <td className="px-3 py-2 font-semibold text-sky-900 dark:text-sky-300">
+                      Day {f.day || idx + 2}
+                    </td>
+                    <td className="px-3 py-2 font-medium text-sky-950 dark:text-sky-200">
+                      {f.min_temp}°C - {f.max_temp}°C
+                    </td>
+                    <td className="px-3 py-2 text-sky-850 dark:text-sky-300">
+                      {f.forecast}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface CallHistoryProps {
   onRedial?: (phoneNumber: string) => void;
 }
@@ -446,6 +610,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
         "en-IN",
       );
       setTranslatedText(translated);
+      setSendTranslated(true);
       toast.success("Text translated successfully!");
     } catch (err: any) {
       console.error("Translation error:", err);
@@ -912,8 +1077,8 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                   .transcript &&
                                                   call.callDetails.caller
                                                     .transcript !==
-                                                    call.callDetails.caller
-                                                      .translation && (
+                                                  call.callDetails.caller
+                                                    .translation && (
                                                     <div className="mt-2.5 pt-2.5 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
                                                       <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-zinc-400">
                                                         <Globe className="h-3 w-3" />
@@ -956,8 +1121,8 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                   .transcript &&
                                                   call.callDetails.agent
                                                     .transcript !==
-                                                    call.callDetails.agent
-                                                      .translation && (
+                                                  call.callDetails.agent
+                                                    .translation && (
                                                     <div className="mt-2.5 pt-2.5 border-t border-white/20 text-xs text-white/80">
                                                       <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-white/75">
                                                         <Globe className="h-3 w-3" />
@@ -989,11 +1154,11 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                           call.callDetails.agent?.transcript ||
                                           call.callDetails.agent?.translation
                                         ) && (
-                                          <div className="text-sm text-muted-foreground text-center py-6">
-                                            No transcript data available for
-                                            this call
-                                          </div>
-                                        )}
+                                            <div className="text-sm text-muted-foreground text-center py-6">
+                                              No transcript data available for
+                                              this call
+                                            </div>
+                                          )}
                                       </div>
                                     ) : (
                                       <div className="text-sm text-muted-foreground text-center py-8 bg-white dark:bg-zinc-900 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
@@ -1031,7 +1196,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                     </span>
                                                     <div className="font-semibold text-[13.5px] text-zinc-800 dark:text-zinc-100 leading-normal flex-1">
                                                       {renderMarkdown(
-                                                        qa.question,
+                                                qa.question,
                                                       )}
                                                     </div>
                                                   </div>
@@ -1046,6 +1211,84 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                         )}
                                                       </div>
                                                     </div>
+
+                                                    {/* Weather Insights */}
+                                                    {qa.weather && (
+                                                      <div className="bg-sky-50 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-900/50 rounded-xl p-4 space-y-2">
+                                                        <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-semibold text-xs tracking-wider uppercase">
+                                                          <svg
+                                                            className="w-3.5 h-3.5"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                          >
+                                                            <path
+                                                              strokeLinecap="round"
+                                                              strokeLinejoin="round"
+                                                              strokeWidth={2}
+                                                              d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+                                                            />
+                                                          </svg>
+                                                          <span>Weather Insights</span>
+                                                        </div>
+                                                        <div className="text-[13px] text-sky-850 dark:text-sky-300 leading-relaxed">
+                                                          {renderWeatherInsights(qa.weather)}
+                                                        </div>
+                                                      </div>
+                                                    )}
+
+                                                    {/* Author & Reference Document */}
+                                                    {(qa.authorName || qa.sourceName) && (
+                                                      <div className="bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50 rounded-xl p-4 space-y-2">
+                                                        <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-400 font-semibold text-xs tracking-wider uppercase">
+                                                          <User className="w-3.5 h-3.5" />
+                                                          <span>Author & Reference Document</span>
+                                                        </div>
+                                                        <div className="text-[13px] text-zinc-805 dark:text-zinc-305 leading-relaxed space-y-1">
+                                                          {qa.authorName && (
+                                                            <p>
+                                                              <span className="font-semibold text-zinc-900 dark:text-zinc-400">
+                                                                Author Name:
+                                                              </span>{" "}
+                                                              {qa.authorName}
+                                                            </p>
+                                                          )}
+                                                          {qa.sourceName && (
+                                                            <p>
+                                                              <span className="font-semibold text-zinc-900 dark:text-zinc-400">
+                                                                Source:
+                                                              </span>{" "}
+                                                              {qa.sourceLink ? (
+                                                                <a
+                                                                  href={qa.sourceLink}
+                                                                  target="_blank"
+                                                                  rel="noopener noreferrer"
+                                                                  className="text-indigo-650 dark:text-indigo-400 hover:underline font-semibold inline-flex items-center gap-1"
+                                                                >
+                                                                  {qa.sourceName}
+                                                                  <svg
+                                                                    className="w-3.5 h-3.5"
+                                                                    fill="none"
+                                                                    stroke="currentColor"
+                                                                    viewBox="0 0 24 24"
+                                                                  >
+                                                                    <path
+                                                                      strokeLinecap="round"
+                                                                      strokeLinejoin="round"
+                                                                      strokeWidth={2}
+                                                                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                                                    />
+                                                                  </svg>
+                                                                </a>
+                                                              ) : (
+                                                                qa.sourceName
+                                                              )}
+                                                            </p>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                    )}
+
                                                     <div className="flex items-center gap-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider pl-1 mt-1.5">
                                                       <Badge
                                                         variant="outline"
@@ -1149,6 +1392,8 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       onChange={(e) => {
                                         setSelectedLanguage(e.target.value);
                                         languageManuallyChangedRef.current = true;
+                                        setTranslatedText(null);
+                                        setSendTranslated(false);
                                       }}
                                       className="w-full px-2 py-1.5 text-sm border rounded-md bg-background"
                                     >

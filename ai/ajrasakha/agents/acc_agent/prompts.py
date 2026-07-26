@@ -33,14 +33,22 @@ Your job is to extract the following information:
 1. "query": A concise agricultural question that captures the farmer's core problem or query. Keep it short and searchable.
 2. "state": The Indian state where the farmer is located (e.g. "Punjab", "West Bengal"). Use "All" if unclear.
 3. "district": The district where the farmer is located. Use "All" if unclear.
-4. "crop": The crop the farmer is asking about (e.g. "Wheat", "Rice"). Use "All" if unclear.
+4. "crop": The crop the farmer is asking about in this query (e.g. "Wheat", "Rice"). Use "All" if unclear.
 5. "standardized_domains": An array of domain names that best classify this query. Can be one or more domains.
+6. "name": Farmer's name if stated in the transcript. Use null if not mentioned.
+7. "phone": Farmer's phone number if stated in the transcript. Use null if not mentioned.
+8. "age": Farmer's age as an integer if stated. Use null if not mentioned.
+9. "gender": Farmer's gender if stated (e.g. "Male", "Female", "Other"). Use null if not mentioned.
+10. "village": Village name if stated. Use null if not mentioned.
+11. "block": Block / tehsil name if stated. Use null if not mentioned.
+12. "primary_crop": Farmer's main/primary crop if stated as their usual crop (may differ from query crop). Use null if not mentioned; if only one crop is discussed, you may use that crop.
 
 """ + DOMAIN_TAXONOMY + """
 
 CRITICAL INSTRUCTIONS:
-- You MUST output ONLY a valid JSON object with the keys "query", "state", "district", "crop", and "standardized_domains".
+- You MUST output ONLY a valid JSON object with the keys "query", "state", "district", "crop", "standardized_domains", "name", "phone", "age", "gender", "village", "block", and "primary_crop".
 - The "standardized_domains" field MUST be an array of strings, even if only one domain applies.
+- For profile fields (name, phone, age, gender, village, block, primary_crop): use null when not clearly present — do NOT invent values.
 - DO NOT output any markdown formatting, preamble, conversational text, or reasoning.
 - START your response immediately with the `{` character.
 """
@@ -51,6 +59,7 @@ You have access to specific sub-agent tools that can fetch agricultural data.
 Your job is to look at the user's verified query and decide WHICH tool(s) to use.
 If the query is about weather, include "weather" in your output.
 If the query is about market prices or mandi rates, include "market" in your output.
+If the query is about government schemes, subsidies, yojanas, or farmer benefits, include "schemes" in your output.
 If the query is about farming practices, diseases, pests, fertilizers, or general agricultural advice, include "gdb" in your output.
 
 IMPORTANT: A query may require multiple tools. If so, include ALL relevant tools.

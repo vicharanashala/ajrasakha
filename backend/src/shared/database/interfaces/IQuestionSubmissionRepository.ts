@@ -235,4 +235,11 @@ export interface IQuestionSubmissionRepository {
   /** Single aggregation: returns a Map<expertId, count> of active time-bound
    *  questions per expert. Used to enforce the 3-question hard cap. */
   getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>>;
+
+  /**
+   * Remove the second entry from history and queue arrays in a question submission.
+   * This is used for migration purposes to fix duplicate entries.
+   * @param submissionId - The submission document ID
+   */
+  backgroundProcessAction(submissionId: string): Promise<{ modifiedCount: number }>;
 }
