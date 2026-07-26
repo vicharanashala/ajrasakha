@@ -5,9 +5,20 @@ import {IQuestion, IUser} from '#root/shared/interfaces/models.js';
 import {dbConfig} from '#root/config/db.js';
 import {
   IPublicDashboardRepository,
+  PublicDashboardItem,
   PublicUserItem,
   SaturatedCropStateItem,
 } from '../interfaces/IPublicDashboardRepository.js';
+
+/** Stable identifier for the single config document in the `public_dashboard` collection. */
+const CONFIG_KEY = 'config';
+
+/** Stored shape of the config document (adds the internal key + updatedAt). */
+interface StoredConfig {
+  key: string;
+  items: PublicDashboardItem[];
+  updatedAt?: Date;
+}
 
 /**
  * Self-contained data-access layer for the public (no-auth) dashboard.
@@ -24,6 +35,7 @@ export class PublicDashboardRepository implements IPublicDashboardRepository {
   // ── Required collections ──
   private QuestionCollection!: Collection<IQuestion>;
   private UsersCollection!: Collection<IUser>;
+  private ConfigCollection!: Collection<StoredConfig>;
   // Add more as the public dashboard grows, e.g.:
   // private CropCollection!: Collection<ICrop>;
 
@@ -36,6 +48,8 @@ export class PublicDashboardRepository implements IPublicDashboardRepository {
     if (this.initialized) return;
     this.QuestionCollection = await this.db.getCollection<IQuestion>('questions');
     this.UsersCollection = await this.db.getCollection<IUser>('users');
+    this.ConfigCollection =
+      await this.db.getCollection<StoredConfig>('public_dashboard');
     // this.CropCollection = await this.db.getCollection<ICrop>('crops');
     this.initialized = true;
   }
@@ -125,6 +139,44 @@ export class PublicDashboardRepository implements IPublicDashboardRepository {
     } catch (error) {
       throw new InternalServerError(
         `Error while fetching active users: More info: ${error}`,
+      );
+    }
+  }
+
+  /** All stored public-dashboard items (empty array if none). */
+  async getItems(): Promise<PublicDashboardItem[]> {
+    try {
+      await this.init();
+      const doc = await this.ConfigCollection.findOne({key: CONFIG_KEY});
+      return Array.isArray(doc?.items) ? doc!.items : [];
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while fetching public dashboard items: More info: ${error}`,
+      );
+    }
+  }
+
+  /** Replace the stored items array with the given one; returns the new list. */
+  async saveItems(
+    items: PublicDashboardItem[],
+  ): Promise<PublicDashboardItem[]> {
+    try {
+      await this.init();
+      await this.ConfigCollection.updateOne(
+        {key: CONFIG_KEY},
+        {
+          $set: {
+            items,
+            key: CONFIG_KEY,
+            updatedAt: new Date(),
+          } as Partial<StoredConfig>,
+        },
+        {upsert: true},
+      );
+      return this.getItems();
+    } catch (error) {
+      throw new InternalServerError(
+        `Error while updating public dashboard items: More info: ${error}`,
       );
     }
   }

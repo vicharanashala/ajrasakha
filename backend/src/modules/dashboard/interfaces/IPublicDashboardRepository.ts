@@ -20,6 +20,18 @@ export interface PublicUserItem {
 }
 
 /**
+ * A single entry in the public dashboard's `items` array — the one shape used for every
+ * admin-editable value (saturation limit, outreach video URLs, future images/tunables).
+ * `id` lets admins update/delete individual entries; `value` is open-ended.
+ */
+export interface PublicDashboardItem {
+  id: string;
+  name: string;
+  value: unknown;
+  createdAt?: Date;
+}
+
+/**
  * Data-access contract for the public (no-auth) dashboard.
  * Implementations own their own DB access — every operation lives in the module.
  */
@@ -37,4 +49,10 @@ export interface IPublicDashboardRepository {
    * (firstName, lastName, preference, avatar, role, university, createdAt).
    */
   getActiveUsers(): Promise<PublicUserItem[]>;
+
+  /** All stored public-dashboard items (empty array if none). */
+  getItems(): Promise<PublicDashboardItem[]>;
+
+  /** Replace the stored items array with the given one; returns the new list. */
+  saveItems(items: PublicDashboardItem[]): Promise<PublicDashboardItem[]>;
 }
