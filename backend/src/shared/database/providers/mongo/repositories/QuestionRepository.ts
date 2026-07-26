@@ -7415,6 +7415,25 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** "Leaked" role assignments: a question still points to a gate keeper / auditor
+   *  (assigneeField set) and hasn't been marked finished (finishedAtField null/missing),
+   *  yet its status has moved OUT of that role's handling scope (e.g. pushed to auditor).
+   *  Used by the queue cron to free assignees whose post-commit release was missed. */
+  async findLeakedRoleAssignments(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    statuses: QuestionStatus[],
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection.find({
+      [assigneeField]: { $ne: null, $exists: true },
+      // `{ field: null }` matches both an explicit null and a missing field.
+      [finishedAtField]: null,
+      status: { $nin: statuses },
+    } as any)
+      .toArray();
+  }
+
   /** Dashboard data for a gate keeper / auditor: the total questions ever assigned to
    *  them (assigneeField == userId), how many they've submitted (finishedAt set), and a
    *  paginated list of those questions (newest assignment first, optional text search).
@@ -7557,11 +7576,13 @@ export class QuestionRepository implements IQuestionRepository {
     questionId: string,
     finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
     finishedAt: Date,
+    session?: ClientSession,
   ): Promise<void> {
     await this.init();
     await this.QuestionCollection.updateOne(
       { _id: new ObjectId(questionId) },
       { $set: { [finishedAtField]: finishedAt, updatedAt: new Date() } },
+      { session },
     );
   }
   /** One page (skip/limit) + exact total for a Queue-Details question section.

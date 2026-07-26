@@ -1035,7 +1035,11 @@ export class UserRepository implements IUserRepository {
   /** Removes a single question's entry from a moderator's assigned-questions array.
    *  Called when the moderator acts on the question (answers/closes), or when the
    *  question is manually removed/reassigned. */
-  async removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void> {
+  async removeAssignedQuestion(
+    moderatorId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
     await this.init();
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
@@ -1043,6 +1047,7 @@ export class UserRepository implements IUserRepository {
         $pull: { assignedQuestionIds: { questionId: new ObjectId(questionId) } },
         $set: { updatedAt: new Date() },
       },
+      { session },
     );
   }
 

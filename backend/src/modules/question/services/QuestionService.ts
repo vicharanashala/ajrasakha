@@ -2321,15 +2321,28 @@ export class QuestionService extends BaseService implements IQuestionService {
           updates.isClosed = true;
           if (!updates.closedAt) updates.closedAt = new Date();
         }
-        return this.questionRepo.updateQuestion(questionId, updates, session);
+        const updateResult = await this.questionRepo.updateQuestion(
+          questionId,
+          updates,
+          session,
+        );
+
+        // In-transaction: if the status changed, free any gate keeper / auditor whose
+        // handling scope the question has now left (pass / push-to-auditor / close, etc.)
+        // so the status change and the release commit atomically — a failure here rolls
+        // back the whole update, preventing a stuck assignee. (The queue cron still
+        // reconciles as a backstop for any release missed by other paths.)
+        if (!threadUpdate && updates.status) {
+          await this.freeRoleAssigneeOnStatusChange(
+            questionId,
+            updates.status,
+            session,
+          );
+        }
+
+        return updateResult;
       });
 
-      // After commit: if the status changed, free any gate keeper / auditor whose
-      // handling scope the question has now left (pass / push-to-auditor / close, etc.)
-      // so the role queue cron can hand them another question.
-      if (!threadUpdate && updates.status) {
-        await this.freeRoleAssigneeOnStatusChange(questionId, updates.status);
-      }
       return result;
     } catch (error) {
       throw new InternalServerError(`Failed to update question: ${error}`);
@@ -6905,6 +6918,22 @@ export class QuestionService extends BaseService implements IQuestionService {
     gateKeeperAssigned: number;
     auditorAssigned: number;
   }> {
+    // Self-heal first: free any gate keeper / auditor still holding a question whose status
+    // has left their scope (e.g. pushed to auditor) but whose post-commit release was
+    // missed. Without this, that user stays "busy" forever and never gets new work.
+    await this.reconcileRoleAssignees({
+      label: 'GateKeeper',
+      assigneeField: 'gateKeeperId',
+      finishedAtField: 'gateKeeperFinishedAt',
+      statuses: QuestionService.GATE_KEEPER_STATUSES,
+    });
+    await this.reconcileRoleAssignees({
+      label: 'Auditor',
+      assigneeField: 'auditorId',
+      finishedAtField: 'auditorFinishedAt',
+      statuses: QuestionService.AUDITOR_STATUSES,
+    });
+
     const gateKeeperAssigned = await this.assignRoleQueue({
       label: 'GateKeeper',
       role: 'gate_keeper',
@@ -6926,6 +6955,55 @@ export class QuestionService extends BaseService implements IQuestionService {
       notificationMessage: 'A question has been assigned to you for audit',
     });
     return { gateKeeperAssigned, auditorAssigned };
+  }
+
+  /** Frees role assignees (gate keeper / auditor) still holding a question that has left
+   *  their status scope but was never marked finished — the durable backstop for a missed
+   *  post-commit release (see freeRoleAssigneeOnStatusChange). Best-effort per question. */
+  private async reconcileRoleAssignees(cfg: {
+    label: string;
+    assigneeField: 'gateKeeperId' | 'auditorId';
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt';
+    statuses: QuestionStatus[];
+  }): Promise<number> {
+    try {
+      const leaked = await this.questionRepo.findLeakedRoleAssignments(
+        cfg.assigneeField,
+        cfg.finishedAtField,
+        cfg.statuses,
+      );
+      let freed = 0;
+      for (const q of leaked) {
+        const questionId = q._id!.toString();
+        const userId = (q as any)[cfg.assigneeField]?.toString();
+        try {
+          if (userId) {
+            await this.userRepo.removeAssignedQuestion(userId, questionId);
+          }
+          await this.questionRepo.markRoleFinished(
+            questionId,
+            cfg.finishedAtField,
+            new Date(),
+          );
+          freed++;
+        } catch (err: any) {
+          console.error(
+            `[${cfg.label}] Failed to reconcile leaked assignment ${questionId}:`,
+            err?.message,
+          );
+        }
+      }
+      if (freed) {
+        console.log(`[${cfg.label}] Reconciled ${freed} leaked assignment(s).`);
+      }
+      return freed;
+    } catch (err: any) {
+      console.error(
+        `[${cfg.label}] Failed to reconcile leaked assignments:`,
+        err?.message,
+      );
+      return 0;
+    }
   }
 
   /** Assigns one unassigned question (in the given statuses) to each free user of a
@@ -7016,12 +7094,16 @@ export class QuestionService extends BaseService implements IQuestionService {
   async freeRoleAssigneeOnStatusChange(
     questionId: string,
     newStatus?: QuestionStatus,
+    session?: ClientSession,
   ): Promise<void> {
-    try {
-      const question = await this.questionRepo.getById(questionId);
+    // When a session is supplied, the caller wants this to run inside their transaction —
+    // let failures propagate so the status change and the release roll back together.
+    // Without a session it stays best-effort (post-commit / other callers) and never throws.
+    const run = async () => {
+      const question = await this.questionRepo.getById(questionId, session);
       if (!question) return;
-      // Fall back to the question's current (already-committed) status when the caller
-      // doesn't pass one — e.g. after an answer approval/close.
+      // Fall back to the question's current status when the caller doesn't pass one —
+      // e.g. after an answer approval/close.
       const status = newStatus ?? question.status;
 
       // When the question leaves the role's handling statuses, the assignee has acted:
@@ -7030,30 +7112,38 @@ export class QuestionService extends BaseService implements IQuestionService {
       // change doesn't overwrite the original finish time.
       const gkId = (question as any).gateKeeperId?.toString();
       if (gkId && !QuestionService.GATE_KEEPER_STATUSES.includes(status)) {
-        // Always pull the question from the gate keeper's assigned list so they're
-        // freed (e.g. on cancel duplicate → open). Only stamp finishedAt once so a
-        // later status change doesn't overwrite the original finish time.
-        await this.userRepo.removeAssignedQuestion(gkId, questionId);
+        await this.userRepo.removeAssignedQuestion(gkId, questionId, session);
         if (!(question as any).gateKeeperFinishedAt) {
           await this.questionRepo.markRoleFinished(
             questionId,
             'gateKeeperFinishedAt',
             new Date(),
+            session,
           );
         }
       }
 
       const audId = (question as any).auditorId?.toString();
       if (audId && !QuestionService.AUDITOR_STATUSES.includes(status)) {
-        await this.userRepo.removeAssignedQuestion(audId, questionId);
+        await this.userRepo.removeAssignedQuestion(audId, questionId, session);
         if (!(question as any).auditorFinishedAt) {
           await this.questionRepo.markRoleFinished(
             questionId,
             'auditorFinishedAt',
             new Date(),
+            session,
           );
         }
       }
+    };
+
+    if (session) {
+      await run();
+      return;
+    }
+
+    try {
+      await run();
     } catch (err: any) {
       console.error(
         `[RoleAssignee] Failed to free assignee for ${questionId}:`,
