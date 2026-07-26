@@ -214,6 +214,7 @@ class GapPipeline:
             "unique_queries": len(queries_data),
             "clusters_found": len(all_clusters_summary),
             "top_gaps": top_gaps,
+            "all_gaps": all_clusters_summary,
             "coverage_stats": heatmap_data,
             "outreach_recommendations": outreach_recs,
             "domains_with_gaps": self._get_breakdown(heatmap_data, "domain"),

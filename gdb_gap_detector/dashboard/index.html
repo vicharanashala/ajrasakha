@@ -341,8 +341,8 @@
                 },
 
                 filteredGaps() {
-                    const gaps = this.reportData.top_gaps || [];
-                    if (!this.selectedFilter) return gaps;
+                    if (!this.selectedFilter) return this.reportData.top_gaps || [];
+                    const gaps = this.reportData.all_gaps || this.reportData.top_gaps || [];
                     const { state, domain } = this.selectedFilter;
                     return gaps.filter(gap => 
                         gap.states.includes(state) && gap.domains.includes(domain)

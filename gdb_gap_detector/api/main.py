@@ -59,6 +59,12 @@ def get_latest_gap_report():
             if "created_at" in gap:
                 gap["created_at"] = gap["created_at"].isoformat()
         
+        for gap in report.get("all_gaps", []):
+            if "_id" in gap:
+                gap["_id"] = str(gap["_id"])
+            if "created_at" in gap:
+                gap["created_at"] = gap["created_at"].isoformat()
+        
         # Serialize datetime fields
         if "start_date" in report:
             report["start_date"] = report["start_date"].isoformat()
