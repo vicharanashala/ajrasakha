@@ -13,7 +13,7 @@ import axios from 'axios';
 import { AccAgentService } from '../services/AccAgentService.js';
 import { PLIVO_TYPES } from '../../plivo/types.js';
 import { GLOBAL_TYPES } from '#root/types.js';
-import type { ICallDetailsRepository, QAMetadata, QAPairs } from '#shared/database/interfaces/ICallDetailsRepository.js';
+import type { ICallDetailsRepository, CallQuery } from '#shared/database/interfaces/ICallDetailsRepository.js';
 
 @OpenAPI({
   tags: ['acc-agent'],
@@ -103,7 +103,7 @@ export class AccAgentController {
   @Authorized()
   @OpenAPI({ summary: 'Resume ACC Agent and get final answer' })
   async resumeAccAgentAndGetAnswer(
-    @Body() body: { threadId: string; callUuid?: string; metadata?: QAMetadata }
+    @Body() body: { threadId: string; callUuid?: string; metadata?: CallQuery['metadata'] }
   ): Promise<any> {
     try {
       // 1. Resume the agent
@@ -123,41 +123,39 @@ export class AccAgentController {
         const sourceName = similarPair?.details?.[0]?.source_name || "";
         const sourceLink = similarPair?.details?.[0]?.source_link || "";
 
-        const qaPairs: QAPairs = {
-          metadata: body.metadata,
-          QnA: [
-            {
-              question: body.metadata.extracted_query,
-              answer: finalAnswerMarkdown,
-              agri_specialist: 'ACC_AGENT',
-              referenceSource: 'acc_agent_hitl',
-              id: new ObjectId().toString(),
-              ...(weather ? { weather } : {}),
-              ...(authorName ? { authorName } : {}),
-              ...(sourceName ? { sourceName } : {}),
-              ...(sourceLink ? { sourceLink } : {})
-            } as any
-          ]
-        };
-
-        // Check if call_details document exists
-        const existingCallDetails = await this.callDetailsRepository.getByCallUuid(body.callUuid);
-
-        if (existingCallDetails) {
-          // Update existing document
-          await this.callDetailsRepository.updateQA_Pairs(body.callUuid, qaPairs);
-        } else {
+        // Ensure call_details document exists
+        let existingCallDetails = await this.callDetailsRepository.getByCallUuid(body.callUuid);
+        if (!existingCallDetails) {
           console.warn(`[AccAgentController] Call details document not found for callUuid: ${body.callUuid}. Creating new document.`);
-          // Create a new call_details document with the Q/A pairs
           await this.callDetailsRepository.create({
             callUuid: body.callUuid,
-            QA_pairs: qaPairs,
             status: 'completed',
             direction: 'inbound',
             caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
             agent: { transcript: '', translation: '', detectedLanguage: 'unknown' }
           });
         }
+
+        // Add individual query with its own metadata to call_queries collection
+        await this.callDetailsRepository.addQueryToCall(body.callUuid, {
+          metadata: {
+            extracted_query: body.metadata.extracted_query || '',
+            extracted_crop: body.metadata.extracted_crop || '',
+            extracted_state: body.metadata.extracted_state || '',
+            extracted_district: body.metadata.extracted_district || '',
+            extracted_domain: body.metadata.extracted_domain || '',
+            extracted_season: body.metadata.extracted_season || '',
+            standardized_domains: body.metadata.standardized_domains || []
+          },
+          question: body.metadata.extracted_query,
+          answer: finalAnswerMarkdown,
+          agri_specialist: 'ACC_AGENT',
+          referenceSource: 'acc_agent_hitl',
+          authorName,
+          sourceName,
+          sourceLink,
+          weather
+        });
       }
 
       // 4. Return the full thread state

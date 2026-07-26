@@ -11,6 +11,7 @@ import {
   CurrentUser,
   NotFoundError,
   Patch,
+  QueryParams,
   BadRequestError,
 } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
@@ -127,5 +128,18 @@ export class UserController {
       throw new NotFoundError('User not found');
     }
     return updatedUser;
+  }
+
+  @Get('/list')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  @OpenAPI({ summary: 'List all experts / users for agent assignment' })
+  async getAllExperts(
+    @QueryParams() query: { page?: number; limit?: number; search?: string; sort?: string; filter?: string },
+  ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }> {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 100;
+    const search = query.search || '';
+    return await this.userService.getAllExpertsList(page, limit, search);
   }
 }

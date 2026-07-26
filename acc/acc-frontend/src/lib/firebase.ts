@@ -28,7 +28,7 @@ export const loginWithEmail = async (email: string, password: string) => {
   try {
     const result = await signInWithEmailAndPassword(auth, email, password);
 
-    if (!result.user.emailVerified && !isDevelopment) {
+    if (!result.user.emailVerified) {
       try {
         await authService.resendVerification(email);
       } catch (resendError) {
@@ -36,7 +36,7 @@ export const loginWithEmail = async (email: string, password: string) => {
       }
 
       await signOut(auth);
-      throw new Error("Please verify your email before logging in. A new verification link has been sent to your email.");
+      throw new Error("Please verify your email before logging in. A new verification link has been printed in the backend console log.");
     }
 
     const idToken = await result.user.getIdToken();

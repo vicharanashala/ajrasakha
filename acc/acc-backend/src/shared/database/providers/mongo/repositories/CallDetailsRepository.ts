@@ -6,7 +6,7 @@ import { GLOBAL_TYPES } from '#root/types.js';
 import type {
   ICallDetailsRepository,
   CallDetails,
-  QAPairs,
+  CallQuery,
   AgentAnalytics,
   ACCAnalytics,
 } from '#shared/database/interfaces/ICallDetailsRepository.js';
@@ -14,6 +14,7 @@ import type {
 @injectable()
 export class CallDetailsRepository implements ICallDetailsRepository {
   private callDetailsCollection!: Collection<CallDetails>;
+  private callQueriesCollection!: Collection<CallQuery>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -23,6 +24,9 @@ export class CallDetailsRepository implements ICallDetailsRepository {
   private async init() {
     this.callDetailsCollection = await this.db.getCollection<CallDetails>(
       'call_details',
+    );
+    this.callQueriesCollection = await this.db.getCollection<CallQuery>(
+      'call_queries',
     );
   }
 
@@ -46,6 +50,64 @@ export class CallDetailsRepository implements ICallDetailsRepository {
     }
   }
 
+  async getQueriesByCallUuid(callUuid: string, session?: ClientSession): Promise<CallQuery[]> {
+    try {
+      await this.init();
+      return await this.callQueriesCollection
+        .find({ callUuid }, { session })
+        .sort({ createdAt: 1 })
+        .toArray();
+    } catch (error: any) {
+      console.error(`[CallDetailsRepository] getQueriesByCallUuid error for ${callUuid}:`, error.stack || error);
+      return [];
+    }
+  }
+
+  async addQueryToCall(callUuid: string, queryData: Partial<CallQuery>, session?: ClientSession): Promise<string> {
+    try {
+      await this.init();
+      const now = new Date();
+      const queryDoc: CallQuery = {
+        callUuid,
+        metadata: queryData.metadata || {
+          extracted_query: '',
+          extracted_crop: '',
+          extracted_state: '',
+          extracted_district: '',
+          extracted_domain: '',
+          extracted_season: '',
+        },
+        question: queryData.question || '',
+        answer: queryData.answer || '',
+        agri_specialist: queryData.agri_specialist || 'ACC_AGENT',
+        referenceSource: queryData.referenceSource || 'acc_agent_hitl',
+        authorName: queryData.authorName || '',
+        sourceName: queryData.sourceName || '',
+        sourceLink: queryData.sourceLink || '',
+        weather: queryData.weather || null,
+        createdAt: queryData.createdAt || now,
+        updatedAt: now,
+      };
+
+      const result = await this.callQueriesCollection.insertOne(queryDoc, { session });
+      const queryId = result.insertedId;
+
+      await this.callDetailsCollection.updateOne(
+        { callUuid },
+        {
+          $addToSet: { queryIds: queryId as any },
+          $set: { updatedAt: now }
+        },
+        { session }
+      );
+
+      return queryId.toString();
+    } catch (error: any) {
+      console.error(`[CallDetailsRepository] addQueryToCall error for ${callUuid}:`, error.stack || error);
+      throw new InternalServerError(`Failed to add query to call: ${error}`);
+    }
+  }
+
   async getByCallUuid(
     callUuid: string,
     session?: ClientSession,
@@ -56,6 +118,10 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         { callUuid },
         { session },
       );
+      if (result) {
+        const queries = await this.getQueriesByCallUuid(callUuid, session);
+        result.queries = queries;
+      }
       return result;
     } catch (error: any) {
       console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.getByCallUuid: Error querying callUuid ${callUuid}:`, error.stack || error);
@@ -72,52 +138,14 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         .find({}, { session })
         .sort({ createdAt: -1 })
         .toArray();
+
+      for (const call of result) {
+        call.queries = await this.getQueriesByCallUuid(call.callUuid, session);
+      }
       return result;
     } catch (error: any) {
       console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.getAll: Error retrieving all records:`, error.stack || error);
       throw new InternalServerError(`Failed to get all call details: ${error}`);
-    }
-  }
-
-  async updateQA_Pairs(callUuid: string, qaPairs: QAPairs, session?: ClientSession): Promise<void> {
-    try {
-      await this.init();
-      const existing = await this.callDetailsCollection.findOne({ callUuid }, { session });
-
-      let result;
-      if (!existing || !existing.QA_pairs) {
-        result = await this.callDetailsCollection.updateOne(
-          { callUuid },
-          {
-            $set: {
-              QA_pairs: qaPairs,
-              updatedAt: new Date()
-            }
-          },
-          { session }
-        );
-      } else {
-        result = await this.callDetailsCollection.updateOne(
-          { callUuid },
-          {
-            $set: {
-              "QA_pairs.metadata": qaPairs.metadata,
-              updatedAt: new Date()
-            },
-            $push: {
-              "QA_pairs.QnA": { $each: qaPairs.QnA }
-            }
-          },
-          { session }
-        );
-      }
-
-      if (result.matchedCount === 0) {
-        console.warn(`[CallDetailsRepository] updateQA_Pairs - No document found with callUuid: ${callUuid}`);
-      }
-    } catch (error: any) {
-      console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.updateQA_Pairs: Error updating Q/A pairs for callUuid ${callUuid}:`, error.stack || error);
-      throw new InternalServerError(`Failed to update Q/A pairs: ${error}`);
     }
   }
 
@@ -208,12 +236,16 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       };
       const callsThisMonth = await this.callDetailsCollection.countDocuments(monthMatch, { session });
 
-      const domainsResult = await this.callDetailsCollection.aggregate([
-        { $match: baseMatch },
-        { $unwind: '$QA_pairs' },
+      const agentCallDocs = await this.callDetailsCollection
+        .find(baseMatch, { projection: { callUuid: 1 }, session })
+        .toArray();
+      const agentCallUuids = agentCallDocs.map(c => c.callUuid).filter(Boolean);
+
+      const domainsResult = await this.callQueriesCollection.aggregate([
+        { $match: { callUuid: { $in: agentCallUuids }, ...dateFilter } },
         {
           $group: {
-            _id: '$QA_pairs.metadata.extracted_domain',
+            _id: '$metadata.extracted_domain',
             count: { $sum: 1 }
           }
         },
@@ -320,12 +352,11 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       const monthMatch = { createdAt: { $gte: monthAgo }, ...dateFilter.createdAt };
       const callsThisMonth = await this.callDetailsCollection.countDocuments(monthMatch, { session });
 
-      const domainsResult = await this.callDetailsCollection.aggregate([
+      const domainsResult = await this.callQueriesCollection.aggregate([
         { $match: baseMatch },
-        { $unwind: '$QA_pairs' },
         {
           $group: {
-            _id: '$QA_pairs.metadata.extracted_domain',
+            _id: '$metadata.extracted_domain',
             count: { $sum: 1 },
             today: {
               $sum: {
@@ -363,7 +394,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       const domains = domainsResult
         .filter(d => d._id && d._id !== '')
         .map(d => ({ 
-          domain: d._id, 
+          domain: Array.isArray(d._id) ? d._id.join('; ') : d._id, 
           count: d.count,
           today: d.today,
           thisWeek: d.thisWeek,
@@ -447,70 +478,67 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       endDate?: Date;
       search?: string;
       domain?: string;
+      state?: string;
+      district?: string;
+      crop?: string;
+      season?: string;
       limit?: number;
       offset?: number;
     },
     session?: ClientSession
-  ): Promise<{ queries: CallDetails[]; total: number }> {
+  ): Promise<{ queries: any[]; total: number }> {
     try {
       await this.init();
-      const { startDate, endDate, search, domain, limit, offset } = params;
+      const { startDate, endDate, search, domain, state, district, crop, season, limit, offset } = params;
 
-      const dateFilter: any = {};
+      const matchCriteria: any = {};
       if (startDate || endDate) {
-        dateFilter.createdAt = {};
-        if (startDate) dateFilter.createdAt.$gte = startDate;
-        if (endDate) dateFilter.createdAt.$lte = endDate;
+        matchCriteria.createdAt = {};
+        if (startDate) matchCriteria.createdAt.$gte = startDate;
+        if (endDate) matchCriteria.createdAt.$lte = endDate;
       }
 
-      const matchCriteria: any = {
-        QA_pairs: { $exists: true, $ne: null },
-        ...dateFilter
-      };
-
-      // 1. Handle Domain filter if specified and not 'All'
       if (domain && domain.trim() && domain !== 'All') {
         matchCriteria.$and = matchCriteria.$and || [];
         matchCriteria.$and.push({
           $or: [
-            { 'QA_pairs.metadata.extracted_domain': domain },
-            { 'QA_pairs.metadata.standardized_domains': domain }
+            { 'metadata.extracted_domain': domain },
+            { 'metadata.standardized_domains': domain }
           ]
         });
       }
 
-      // 2. Handle search (with farmer name lookup matching)
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      if (state && state.trim() && state !== 'All') {
+        matchCriteria['metadata.extracted_state'] = new RegExp(`^${escapeRegExp(state.trim())}$`, 'i');
+      }
+
+      if (district && district.trim() && district !== 'All') {
+        matchCriteria['metadata.extracted_district'] = new RegExp(`^${escapeRegExp(district.trim())}$`, 'i');
+      }
+
+      if (crop && crop.trim() && crop !== 'All') {
+        matchCriteria['metadata.extracted_crop'] = new RegExp(escapeRegExp(crop.trim()), 'i');
+      }
+
+      if (season && season.trim() && season !== 'All') {
+        matchCriteria['metadata.extracted_season'] = new RegExp(escapeRegExp(season.trim()), 'i');
+      }
+
       if (search && search.trim()) {
-        const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const escapedSearch = escapeRegExp(search.trim());
         const searchRegex = new RegExp(escapedSearch, 'i');
-        
-        let matchingPhoneNumbers: string[] = [];
-        try {
-          const farmersCollection = await this.db.getCollection('Farmers_info');
-          const matchingFarmers = await farmersCollection.find({
-            $or: [
-              { 'profile.farmerName': searchRegex },
-              { phoneNo: searchRegex }
-            ]
-          }).project({ phoneNo: 1 }).toArray();
-          matchingPhoneNumbers = matchingFarmers.map(f => f.phoneNo).filter(Boolean);
-        } catch (err) {
-          console.warn('[CallDetailsRepository] Failed to look up farmers for search:', err);
-        }
 
         const orConditions: any[] = [
           { callUuid: searchRegex },
-          { from: searchRegex },
-          { 'QA_pairs.metadata.extracted_crop': searchRegex },
-          { 'QA_pairs.metadata.extracted_domain': searchRegex },
-          { 'QA_pairs.QnA.question': searchRegex },
-          { 'QA_pairs.QnA.answer': searchRegex }
+          { question: searchRegex },
+          { answer: searchRegex },
+          { 'metadata.extracted_crop': searchRegex },
+          { 'metadata.extracted_domain': searchRegex },
+          { 'metadata.extracted_state': searchRegex },
+          { 'metadata.extracted_district': searchRegex }
         ];
-
-        if (matchingPhoneNumbers.length > 0) {
-          orConditions.push({ from: { $in: matchingPhoneNumbers } });
-        }
 
         if (matchCriteria.$and) {
           matchCriteria.$and.push({ $or: orConditions });
@@ -519,19 +547,36 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         }
       }
 
-      const total = await this.callDetailsCollection.countDocuments(matchCriteria, { session });
+      const total = await this.callQueriesCollection.countDocuments(matchCriteria, { session });
 
-      let cursor = this.callDetailsCollection.find(matchCriteria, { session }).sort({ createdAt: -1 });
+      let cursor = this.callQueriesCollection.find(matchCriteria, { session }).sort({ createdAt: -1 });
 
-      if (offset !== undefined) {
-        cursor = cursor.skip(offset);
+      if (offset !== undefined) cursor = cursor.skip(offset);
+      if (limit !== undefined) cursor = cursor.limit(limit);
+
+      const queryDocs = await cursor.toArray();
+
+      const callUuidSet = [...new Set(queryDocs.map(q => q.callUuid).filter(Boolean))];
+      const callDocs = await this.callDetailsCollection.find(
+        { callUuid: { $in: callUuidSet } },
+        { projection: { callUuid: 1, from: 1, createdAt: 1 }, session }
+      ).toArray();
+
+      const callMap = new Map<string, any>();
+      for (const call of callDocs) {
+        callMap.set(call.callUuid, call);
       }
-      if (limit !== undefined) {
-        cursor = cursor.limit(limit);
-      }
 
-      const queries = await cursor.toArray();
-      return { queries, total };
+      const enrichedQueries = queryDocs.map(qDoc => {
+        const parentCall = callMap.get(qDoc.callUuid);
+        return {
+          ...qDoc,
+          from: parentCall?.from || '',
+          createdAt: qDoc.createdAt || parentCall?.createdAt
+        };
+      });
+
+      return { queries: enrichedQueries, total };
     } catch (error: any) {
       console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.getQueriesByPeriod: Error retrieving queries:`, error.stack || error);
       throw new InternalServerError(`Failed to get queries by period: ${error}`);

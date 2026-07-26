@@ -6,8 +6,6 @@ import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Check, X } from "lucide-
 import { Input } from "./atoms/input";
 import { UserService } from "@/hooks/services/userService";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { env } from "@/config/env";
-
 const userService = new UserService();
 
 export const ManageCallAgents = () => {
@@ -20,9 +18,8 @@ export const ManageCallAgents = () => {
   const [addingAgents, setAddingAgents] = useState(false);
 
   const { data: currentUser } = useGetCurrentUser({ enabled: true });
-  const allowedManagerIds = env.callAgentManagerUserIds();
 
-  const canManageCallAgents = currentUser?._id && allowedManagerIds.includes(String(currentUser._id));
+  const canManageCallAgents = currentUser?.role === "admin" && !!currentUser?.Call_centre_manager;
 
   useEffect(() => {
     fetchCallAgents();
@@ -155,20 +152,19 @@ export const ManageCallAgents = () => {
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        agent.role === "call_agent"
+                      className={`text-xs px-2 py-1 rounded-full ${agent.role === "call_agent"
                           ? "bg-green-100 text-green-700"
                           : agent.role === "moderator"
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-blue-100 text-blue-700"
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-blue-100 text-blue-700"
                         }`}
                     >
                       {agent.role}
                     </span>
                     <span
                       className={`text-xs px-2 py-1 rounded-full ${agent.isCallAgentActive
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-700"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-100 text-gray-700"
                         }`}
                     >
                       {agent.isCallAgentActive ? "Active" : "Inactive"}
@@ -264,16 +260,16 @@ export const ManageCallAgents = () => {
                     <div
                       key={u._id}
                       className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all border ${isSelected
-                          ? "bg-primary/10 border-primary/30 hover:bg-primary/15"
-                          : "bg-card border-border hover:bg-accent hover:border-accent"
+                        ? "bg-primary/10 border-primary/30 hover:bg-primary/15"
+                        : "bg-card border-border hover:bg-accent hover:border-accent"
                         }`}
                       onClick={() => handleToggleSelection(String(u._id))}
                     >
                       <div className="flex items-center gap-3 flex-1">
                         <div
                           className={`flex items-center justify-center w-5 h-5 rounded-full border transition-colors ${isSelected
-                              ? "border-primary bg-background"
-                              : "border-input bg-background hover:border-primary"
+                            ? "border-primary bg-background"
+                            : "border-input bg-background hover:border-primary"
                             }`}
                         >
                           {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}

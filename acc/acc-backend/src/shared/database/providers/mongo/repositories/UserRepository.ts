@@ -162,4 +162,32 @@ export class UserRepository implements IUserRepository {
       _id: result._id.toString(),
     } as IUser;
   }
+
+  async findAllUsers(
+    page: number = 1,
+    limit: number = 100,
+    search: string = '',
+    session?: ClientSession,
+  ): Promise<{ users: IUser[]; total: number }> {
+    await this.init();
+    const matchCriteria: any = {};
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      matchCriteria.$or = [
+        { firstName: searchRegex },
+        { lastName: searchRegex },
+        { email: searchRegex },
+      ];
+    }
+    const total = await this.usersCollection.countDocuments(matchCriteria, { session });
+    const skip = (page - 1) * limit;
+    const rawUsers = await this.usersCollection
+      .find(matchCriteria, { session })
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    const users = rawUsers.map((u: any) => ({ ...u, _id: u._id.toString() }));
+    return { users, total };
+  }
 }

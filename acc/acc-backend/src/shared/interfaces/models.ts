@@ -26,6 +26,7 @@ export interface IUser {
   avatar?: string;
   mobile?: string;
   isCallAgentActive?: boolean;
+  Call_centre_manager?: boolean;
   agent?: string; // "not_available" or "agent_1", "agent_2", etc.
   isBusy?: boolean; // true if agent is currently in a call
   currentCallUuid?: string | null; // UUID of the current call being handled

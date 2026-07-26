@@ -30,6 +30,7 @@ import { getCurrentUser } from "../hooks/api/api-fetch";
 import { getIdToken } from "firebase/auth";
 
 import { env } from "../config/env";
+import { QueryFilterBar } from "./QueryFilterBar";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
@@ -140,15 +141,21 @@ export const ACCAnalyticsDashboard = () => {
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
   
-  // Search, Domain Filter & Pagination State
+  // Search, Domain, State, District, Crop, Season & Pagination State
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("All");
+  const [selectedState, setSelectedState] = useState("All");
+  const [selectedDistrict, setSelectedDistrict] = useState("");
+  const [debouncedDistrict, setDebouncedDistrict] = useState("");
+  const [selectedCrop, setSelectedCrop] = useState("");
+  const [debouncedCrop, setDebouncedCrop] = useState("");
+  const [selectedSeason, setSelectedSeason] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Debounce search term changes
+  // Debounce text inputs (search, crop, district)
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
@@ -157,27 +164,55 @@ export const ACCAnalyticsDashboard = () => {
     return () => clearTimeout(handler);
   }, [search]);
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedCrop(selectedCrop);
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [selectedCrop]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedDistrict(selectedDistrict);
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [selectedDistrict]);
+
   const { data: analytics, isLoading, error, refetch } = useACCAnalytics({
     startDate: customStartDate ? new Date(customStartDate).toISOString() : undefined,
     endDate: customEndDate ? new Date(customEndDate).toISOString() : undefined,
   });
 
-  const { data: queriesData, isLoading: isLoadingQueries, error: queriesError, refetch: refetchQueries } = useQuery({
-    queryKey: ["acc-queries", customStartDate, customEndDate, debouncedSearch, selectedDomain, currentPage, pageSize],
+  const { data: queriesData, isLoading: isLoadingQueries, isFetching: isFetchingQueries, error: queriesError, refetch: refetchQueries } = useQuery({
+    queryKey: [
+      "acc-queries",
+      customStartDate,
+      customEndDate,
+      debouncedSearch,
+      selectedDomain,
+      selectedState,
+      debouncedDistrict,
+      debouncedCrop,
+      selectedSeason,
+      currentPage,
+      pageSize
+    ],
     queryFn: async () => {
-      console.log("🔍 [ACC-QUERIES-UI] Fetching queries with params:", {
-        customStartDate, customEndDate, debouncedSearch, selectedDomain, currentPage, pageSize
-      });
       try {
         const res = await plivoService.getQueries({
           startDate: customStartDate ? new Date(customStartDate).toISOString() : undefined,
           endDate: customEndDate ? new Date(customEndDate).toISOString() : undefined,
           search: debouncedSearch,
           domain: selectedDomain !== "All" ? selectedDomain : undefined,
+          state: selectedState !== "All" ? selectedState : undefined,
+          district: debouncedDistrict || undefined,
+          crop: debouncedCrop || undefined,
+          season: selectedSeason !== "All" ? selectedSeason : undefined,
           limit: pageSize,
           page: currentPage,
         });
-        console.log("✅ [ACC-QUERIES-UI] Fetched queries result:", res);
         return res;
       } catch (err) {
         console.error("❌ [ACC-QUERIES-UI] Error fetching queries:", err);
@@ -186,6 +221,7 @@ export const ACCAnalyticsDashboard = () => {
     },
     enabled: user?.role === "admin" || user?.role === "moderator",
     refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
   });
 
   useEffect(() => {
@@ -298,16 +334,6 @@ export const ACCAnalyticsDashboard = () => {
           <Button variant="outline" size="sm" onClick={handleRefreshAll}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleDownloadQueries} 
-            disabled={isDownloading}
-            className="border-emerald-200 hover:bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:hover:bg-emerald-950/20"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            {isDownloading ? "Downloading..." : "Download Queries"}
           </Button>
         </div>
       </div>
@@ -555,90 +581,50 @@ export const ACCAnalyticsDashboard = () => {
           {/* Queries List Table Card */}
           <Card className="mt-6 border-zinc-200 dark:border-zinc-800 shadow-lg">
             <CardHeader className="border-b border-zinc-100 dark:border-zinc-900 pb-4">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div>
-                  <CardTitle className="text-lg font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-                    <Phone className="h-5 w-5 text-indigo-500" />
-                    Agricultural Queries List
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    List of all queries asked with domain metadata, crops, and specialist responses
-                  </CardDescription>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                  {/* Search Input */}
-                  <div className="relative flex-1 sm:w-64">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder="Search crop, domain, question, or phone..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="w-full pl-9 pr-4 py-1.5 text-sm border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-
-                  {/* Domain Filter */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">Domain:</span>
-                    <select
-                      value={selectedDomain}
-                      onChange={(e) => {
-                        setSelectedDomain(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="px-2 py-1 text-sm border border-input rounded-lg bg-background text-foreground max-w-[180px] focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="All">All Domains</option>
-                      <option value="Soil Health and Nutrient Management">Nutrient Management</option>
-                      <option value="Irrigation and Water Management">Irrigation & Water</option>
-                      <option value="Insect - Pest Management">Insect - Pest Management</option>
-                      <option value="Disease Management">Disease Management</option>
-                      <option value="Seed and Variety Selection">Seed & Variety Selection</option>
-                      <option value="Cultural and Crop Management Practices">Crop Management</option>
-                      <option value="Organic and Natural Farming">Organic Farming</option>
-                      <option value="Weed Management">Weed Management</option>
-                      <option value="Climate, Weather & Stress Management">Climate & Weather</option>
-                      <option value="Farm Tools & Mechanisation">Farm Tools & Mech</option>
-                      <option value="Post-Harvest Management & Storage">Post-Harvest & Storage</option>
-                      <option value="Market Prices, MSP & Marketing">Market Prices & MSP</option>
-                      <option value="Agricultural Schemes & Subsidies">Schemes & Subsidies</option>
-                      <option value="Credit, Loan & Insurance">Credit, Loan & Insurance</option>
-                      <option value="Capacity Building & Extension">Capacity Building</option>
-                      <option value="Rural Infrastructure">Rural Infrastructure</option>
-                      <option value="Animal Husbandry & Livestock">Animal Husbandry</option>
-                      <option value="Fisheries & Aquaculture">Fisheries & Aquaculture</option>
-                      <option value="Horticulture & Landscaping">Horticulture</option>
-                      <option value="Allied Agricultural Activities">Allied Activities</option>
-                      <option value="Others">Others</option>
-                      <option value="NA / Invalid Data">NA / Invalid</option>
-                    </select>
-                  </div>
-
-                  {/* Page Size Select */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">Page Size:</span>
-                    <select
-                      value={pageSize}
-                      onChange={(e) => {
-                        setPageSize(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                      className="px-2 py-1 text-sm border border-input rounded-lg bg-background text-foreground"
-                    >
-                      <option value={5}>5</option>
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+              <QueryFilterBar
+                filters={{
+                  domain: selectedDomain,
+                  state: selectedState,
+                  district: selectedDistrict,
+                  crop: selectedCrop,
+                  season: selectedSeason,
+                  startDate: customStartDate,
+                  endDate: customEndDate,
+                  search: search
+                }}
+                onFilterChange={(newFilters) => {
+                  if (newFilters.domain !== undefined) setSelectedDomain(newFilters.domain);
+                  if (newFilters.state !== undefined) setSelectedState(newFilters.state);
+                  if (newFilters.district !== undefined) setSelectedDistrict(newFilters.district);
+                  if (newFilters.crop !== undefined) setSelectedCrop(newFilters.crop);
+                  if (newFilters.season !== undefined) setSelectedSeason(newFilters.season);
+                  if (newFilters.startDate !== undefined) setCustomStartDate(newFilters.startDate);
+                  if (newFilters.endDate !== undefined) setCustomEndDate(newFilters.endDate);
+                  if (newFilters.search !== undefined) setSearch(newFilters.search);
+                  setCurrentPage(1);
+                }}
+                onResetFilters={() => {
+                  setSelectedDomain("All");
+                  setSelectedState("All");
+                  setSelectedDistrict("");
+                  setSelectedCrop("");
+                  setSelectedSeason("All");
+                  setCustomStartDate("");
+                  setCustomEndDate("");
+                  setSearch("");
+                  setCurrentPage(1);
+                }}
+                pageSize={pageSize}
+                onPageSizeChange={(newSize) => {
+                  setPageSize(newSize);
+                  setCurrentPage(1);
+                }}
+                totalCount={queriesData?.total}
+              />
             </CardHeader>
 
             <CardContent className="pt-6">
-              {isLoadingQueries ? (
+              {isLoadingQueries && !queriesData ? (
                 <div className="flex justify-center items-center py-12">
                   <Spinner text="Loading queries..." />
                 </div>

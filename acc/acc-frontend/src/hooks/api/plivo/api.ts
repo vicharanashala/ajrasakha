@@ -1,4 +1,5 @@
-import { apiFetch } from "../../api/api-fetch";
+import { apiFetch, getCurrentUser } from "../../api/api-fetch";
+import { getIdToken } from "firebase/auth";
 import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();
@@ -29,6 +30,29 @@ export interface QAPairs {
   QnA: QAItem[];
 }
 
+export interface CallQuery {
+  _id?: string;
+  callUuid: string;
+  metadata: {
+    extracted_query?: string;
+    extracted_crop?: string;
+    extracted_state?: string;
+    extracted_district?: string;
+    extracted_domain?: string | string[];
+    extracted_season?: string;
+    standardized_domains?: string[];
+  };
+  question: string;
+  answer: string;
+  agri_specialist?: string;
+  referenceSource?: string;
+  authorName?: string;
+  sourceName?: string;
+  sourceLink?: string;
+  weather?: any;
+  createdAt?: string;
+}
+
 export interface CallHistoryItem {
   uuid: string;
   from: string;
@@ -40,6 +64,7 @@ export interface CallHistoryItem {
   callDetails?: {
     caller?: { transcript: string; translation: string; detectedLanguage: string };
     agent?: { transcript: string; translation: string; detectedLanguage: string; userid?: string };
+    queries?: CallQuery[];
     QA_pairs?: QAPairs;
   };
 }
@@ -282,6 +307,10 @@ export class PlivoService {
     endDate?: string;
     search?: string;
     domain?: string;
+    state?: string;
+    district?: string;
+    crop?: string;
+    season?: string;
     limit?: number;
     page?: number;
   }): Promise<{ queries: any[]; total: number }> {
@@ -291,6 +320,10 @@ export class PlivoService {
     if (params?.endDate) queryParams.append('endDate', params.endDate);
     if (params?.search) queryParams.append('search', params.search);
     if (params?.domain) queryParams.append('domain', params.domain);
+    if (params?.state) queryParams.append('state', params.state);
+    if (params?.district) queryParams.append('district', params.district);
+    if (params?.crop) queryParams.append('crop', params.crop);
+    if (params?.season) queryParams.append('season', params.season);
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.page) queryParams.append('page', params.page.toString());
 
@@ -303,6 +336,61 @@ export class PlivoService {
       console.error(`PlivoService.getQueries: Error fetching queries:`, error);
       throw error;
     }
+  }
+
+  async downloadQueries(params?: {
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+    domain?: string;
+    state?: string;
+    district?: string;
+    crop?: string;
+    season?: string;
+  }): Promise<void> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.domain) queryParams.append('domain', params.domain);
+    if (params?.state) queryParams.append('state', params.state);
+    if (params?.district) queryParams.append('district', params.district);
+    if (params?.crop) queryParams.append('crop', params.crop);
+    if (params?.season) queryParams.append('season', params.season);
+
+    const rawUrl = `${this._baseUrl}/download-acc-queries${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = rawUrl.includes('localhost:4000') ? rawUrl.replace('localhost:4000', 'localhost:4001') : rawUrl;
+
+    const firebaseUser = await getCurrentUser();
+    let token: string | null = null;
+    if (firebaseUser) {
+      try {
+        token = await getIdToken(firebaseUser);
+      } catch (err) {
+        console.error("Failed to get Firebase token for CSV download:", err);
+      }
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download queries CSV: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `acc_queries_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(blobUrl);
   }
 }
 

@@ -22,6 +22,7 @@ export interface IUser {
   updatedAt?: string | Date;
   isBlocked?: boolean;
   isCallAgentActive?: boolean;
+  Call_centre_manager?: boolean;
   agent?: string;
   isBusy?: boolean;
   currentCallUuid?: string | null;

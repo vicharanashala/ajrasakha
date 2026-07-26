@@ -53,4 +53,8 @@ export class UserService {
       body: JSON.stringify({ ...user }),
     });
   }
+
+  async useGetAllExperts(page: number = 1, limit: number = 100, search: string = '', sort: string = '', filter: string = ''): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number } | null> {
+    return apiFetch<{ experts: IUser[]; totalExperts: number; totalPages: number }>(`${this._baseUrl}/list?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}`);
+  }
 }

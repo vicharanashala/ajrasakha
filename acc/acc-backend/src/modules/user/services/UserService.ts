@@ -294,4 +294,16 @@ export class UserService extends BaseService {
       );
     }
   }
+
+  async getAllExpertsList(
+    page: number = 1,
+    limit: number = 100,
+    search: string = '',
+  ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const { users, total } = await this.userRepo.findAllUsers(page, limit, search, session);
+      const totalPages = Math.ceil(total / limit) || 1;
+      return { experts: users, totalExperts: total, totalPages };
+    });
+  }
 }

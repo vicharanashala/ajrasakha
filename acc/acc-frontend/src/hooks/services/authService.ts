@@ -1,5 +1,7 @@
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api';
+
 export class AuthService {
-  private _baseUrl = `http://localhost:4000/api/auth`;
+  private _baseUrl = `${API_BASE}/auth`;
 
   async loginWithGoogle(firebaseLoginRes: any) {
     try {

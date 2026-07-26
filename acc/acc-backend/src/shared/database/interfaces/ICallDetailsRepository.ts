@@ -7,31 +7,28 @@ export interface CallParticipant {
   userid?: ObjectId;
 }
 
-export interface QAMetadata {
-  extracted_query: string;
-  extracted_crop: string;
-  extracted_state: string;
-  extracted_district: string;
-  extracted_domain: string;
-  extracted_season: string;
-  standardized_domains?: string[];
-}
-
-export interface QAItem {
+export interface CallQuery {
+  _id?: string | ObjectId;
+  callUuid: string;
+  metadata: {
+    extracted_query?: string;
+    extracted_crop?: string;
+    extracted_state?: string;
+    extracted_district?: string;
+    extracted_domain?: string | string[];
+    extracted_season?: string;
+    standardized_domains?: string[];
+  };
   question: string;
   answer: string;
-  agri_specialist: string;
-  referenceSource: string;
-  id: string;
-  weather?: any;
+  agri_specialist?: string;
+  referenceSource?: string;
   authorName?: string;
   sourceName?: string;
   sourceLink?: string;
-}
-
-export interface QAPairs {
-  metadata: QAMetadata;
-  QnA: QAItem[];
+  weather?: any;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface CallDetails {
@@ -44,7 +41,8 @@ export interface CallDetails {
   direction?: string;
   caller: CallParticipant;
   agent: CallParticipant;
-  QA_pairs?: QAPairs;
+  queryIds?: (string | ObjectId)[];
+  queries?: CallQuery[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -74,7 +72,8 @@ export interface ICallDetailsRepository {
   create(details: CallDetails, session?: ClientSession): Promise<string>;
   getByCallUuid(callUuid: string, session?: ClientSession): Promise<CallDetails | null>;
   getAll(session?: ClientSession): Promise<CallDetails[]>;
-  updateQA_Pairs(callUuid: string, qaPairs: QAPairs, session?: ClientSession): Promise<void>;
+  addQueryToCall(callUuid: string, queryData: Partial<CallQuery>, session?: ClientSession): Promise<string>;
+  getQueriesByCallUuid(callUuid: string, session?: ClientSession): Promise<CallQuery[]>;
   updateCallDetails(callUuid: string, details: Partial<CallDetails>, session?: ClientSession): Promise<void>;
   getAgentAnalytics(
     agentUserId: string,
@@ -93,9 +92,14 @@ export interface ICallDetailsRepository {
       endDate?: Date;
       search?: string;
       domain?: string;
+      state?: string;
+      district?: string;
+      crop?: string;
+      season?: string;
       limit?: number;
       offset?: number;
     },
     session?: ClientSession
-  ): Promise<{ queries: CallDetails[]; total: number }>;
+  ): Promise<{ queries: any[]; total: number }>;
 }
+

@@ -385,6 +385,10 @@ export class PlivoController {
     @QueryParam('endDate') endDate?: string,
     @QueryParam('search') search?: string,
     @QueryParam('domain') domain?: string,
+    @QueryParam('state') state?: string,
+    @QueryParam('district') district?: string,
+    @QueryParam('crop') crop?: string,
+    @QueryParam('season') season?: string,
     @QueryParam('limit') limitStr?: string,
     @QueryParam('page') pageStr?: string,
     @CurrentUser() user?: IUser
@@ -393,10 +397,6 @@ export class PlivoController {
       if (user?.role !== 'admin' && user?.role !== 'moderator') {
         throw new BadRequestError('Only admins/moderators can access ACC queries');
       }
-
-      // console.log('📬 [ACC-BACKEND] GET /acc-queries parameters received:', {
-      //   startDate, endDate, search, domain, limitStr, pageStr, userRole: user?.role
-      // });
 
       let start: Date | undefined;
       let end: Date | undefined;
@@ -419,18 +419,19 @@ export class PlivoController {
         endDate: end,
         search,
         domain,
+        state,
+        district,
+        crop,
+        season,
         limit,
         offset
       });
 
-      // console.log(`📊 [ACC-BACKEND] Found ${queries.length} calls from DB (total match count: ${total})`);
-
       const phoneToFarmerNameCache = new Map<string, string>();
       const enrichedQueries = [];
 
-      for (const call of queries) {
-        if (!call.QA_pairs) continue;
-        const phone = call.from || '';
+      for (const qItem of queries) {
+        const phone = qItem.from || '';
         let farmerName = '';
 
         if (phone) {
@@ -447,31 +448,27 @@ export class PlivoController {
           }
         }
 
-        const metadata = call.QA_pairs.metadata;
-        const qnas = call.QA_pairs.QnA || [];
-        for (const qna of qnas) {
-          enrichedQueries.push({
-            id: qna.id,
-            callUuid: call.callUuid,
-            createdAt: call.createdAt,
-            phone,
-            farmerName,
-            crop: metadata.extracted_crop,
-            state: metadata.extracted_state,
-            district: metadata.extracted_district,
-            domain: metadata.standardized_domains || metadata.extracted_domain || [],
-            season: metadata.extracted_season,
-            question: qna.question,
-            answer: qna.answer,
-            agri_specialist: qna.agri_specialist,
-            authorName: qna.authorName || '',
-            sourceName: qna.sourceName || '',
-            sourceLink: qna.sourceLink || ''
-          });
-        }
+        const metadata = qItem.metadata || {};
+        enrichedQueries.push({
+          id: qItem._id ? qItem._id.toString() : '',
+          callUuid: qItem.callUuid,
+          createdAt: qItem.createdAt,
+          phone,
+          farmerName,
+          crop: metadata.extracted_crop || '',
+          state: metadata.extracted_state || '',
+          district: metadata.extracted_district || '',
+          domain: metadata.standardized_domains?.length ? metadata.standardized_domains : (metadata.extracted_domain || []),
+          season: metadata.extracted_season || '',
+          question: qItem.question || '',
+          answer: qItem.answer || '',
+          agri_specialist: qItem.agri_specialist || 'ACC_AGENT',
+          authorName: qItem.authorName || '',
+          sourceName: qItem.sourceName || '',
+          sourceLink: qItem.sourceLink || ''
+        });
       }
 
-      // console.log(`✅ [ACC-BACKEND] Returning ${enrichedQueries.length} enriched QnA pairs to frontend`);
       return { queries: enrichedQueries, total };
     } catch (error: any) {
       console.error('❌ [PLIVO-CONTROLLER] Error getting ACC queries:', error);
@@ -489,6 +486,10 @@ export class PlivoController {
     @QueryParam('endDate') endDate?: string,
     @QueryParam('search') search?: string,
     @QueryParam('domain') domain?: string,
+    @QueryParam('state') state?: string,
+    @QueryParam('district') district?: string,
+    @QueryParam('crop') crop?: string,
+    @QueryParam('season') season?: string,
     @CurrentUser() user?: IUser
   ): Promise<any> {
     try {
@@ -512,7 +513,11 @@ export class PlivoController {
         startDate: start,
         endDate: end,
         search,
-        domain
+        domain,
+        state,
+        district,
+        crop,
+        season
       });
 
       const csvHeaders = [
@@ -525,17 +530,16 @@ export class PlivoController {
         'District',
         'Domain',
         'Season',
-        'Question Asked',
-        'Specialist/AI Answer',
-        'Reference Author',
+        'Question',
+        'Answer',
+        'Author Name',
         'Source Name',
         'Source Link'
       ];
 
-      const escapeCSV = (val: any) => {
-        if (val === null || val === undefined) return '';
-        let str = String(val);
-        str = str.replace(/"/g, '""');
+      const escapeCSV = (field: any) => {
+        if (field === null || field === undefined) return '""';
+        let str = String(field).replace(/"/g, '""');
         if (/[",\n\r]/.test(str)) {
           str = `"${str}"`;
         }
@@ -545,9 +549,8 @@ export class PlivoController {
       const csvRows = [csvHeaders.join(',')];
       const phoneToFarmerNameCache = new Map<string, string>();
 
-      for (const call of queries) {
-        if (!call.QA_pairs) continue;
-        const phone = call.from || '';
+      for (const qItem of queries) {
+        const phone = qItem.from || '';
         let farmerName = '';
 
         if (phone) {
@@ -564,28 +567,28 @@ export class PlivoController {
           }
         }
 
-        const metadata = call.QA_pairs.metadata;
-        const qnas = call.QA_pairs.QnA || [];
+        const metadata = qItem.metadata || {};
+        const domainStr = Array.isArray(metadata.extracted_domain)
+          ? metadata.extracted_domain.join('; ')
+          : (metadata.extracted_domain || (Array.isArray(metadata.standardized_domains) ? metadata.standardized_domains.join('; ') : ''));
 
-        for (const qna of qnas) {
-          const row = [
-            escapeCSV(call.callUuid),
-            escapeCSV(call.createdAt ? call.createdAt.toISOString() : ''),
-            escapeCSV(phone),
-            escapeCSV(farmerName),
-            escapeCSV(metadata.extracted_crop),
-            escapeCSV(metadata.extracted_state),
-            escapeCSV(metadata.extracted_district),
-            escapeCSV(Array.isArray(metadata.extracted_domain) ? metadata.extracted_domain.join('; ') : metadata.extracted_domain),
-            escapeCSV(metadata.extracted_season),
-            escapeCSV(qna.question),
-            escapeCSV(qna.answer),
-            escapeCSV(qna.authorName),
-            escapeCSV(qna.sourceName),
-            escapeCSV(qna.sourceLink)
-          ];
-          csvRows.push(row.join(','));
-        }
+        const row = [
+          escapeCSV(qItem.callUuid),
+          escapeCSV(qItem.createdAt ? (qItem.createdAt instanceof Date ? qItem.createdAt.toISOString() : new Date(qItem.createdAt).toISOString()) : ''),
+          escapeCSV(phone),
+          escapeCSV(farmerName),
+          escapeCSV(metadata.extracted_crop || ''),
+          escapeCSV(metadata.extracted_state || ''),
+          escapeCSV(metadata.extracted_district || ''),
+          escapeCSV(domainStr),
+          escapeCSV(metadata.extracted_season || ''),
+          escapeCSV(qItem.question || ''),
+          escapeCSV(qItem.answer || ''),
+          escapeCSV(qItem.authorName || ''),
+          escapeCSV(qItem.sourceName || ''),
+          escapeCSV(qItem.sourceLink || '')
+        ];
+        csvRows.push(row.join(','));
       }
 
       const csvString = csvRows.join('\n');
