@@ -116,27 +116,28 @@
                 </div>
 
                 <!-- Matrix Container -->
-                <div class="overflow-x-auto">
-                    <div class="min-w-[800px] grid" :style="`grid-template-columns: 180px repeat(${heatmapDomains.length}, minmax(0, 1-fr))`">
+                <div class="w-full">
+                    <div class="grid" :style="`grid-template-columns: 140px repeat(${heatmapDomains.length}, minmax(0, 1fr))`">
                         <!-- Header Row -->
-                        <div class="h-10"></div>
+                        <div class="h-28 flex items-end pb-2"></div>
                         <template x-for="domain in heatmapDomains">
-                            <div class="text-center text-xs font-bold text-slate-400 truncate px-2 self-center uppercase tracking-wider" x-text="domain"></div>
+                            <div class="h-28 flex items-end justify-start relative px-1">
+                                <span class="absolute bottom-2 left-2 -rotate-45 origin-bottom-left whitespace-nowrap text-[10px] font-extrabold text-slate-400 uppercase tracking-wider" x-text="domain"></span>
+                            </div>
                         </template>
 
                         <!-- Data Rows -->
                         <template x-for="state in heatmapStates">
                             <div class="contents">
                                 <!-- Row Name -->
-                                <div class="h-14 font-bold text-xs text-slate-300 flex items-center border-b border-slate-900 pr-4" x-text="state"></div>
+                                <div class="h-10 font-bold text-xs text-slate-300 flex items-center border-b border-slate-900 pr-2" x-text="state"></div>
                                 <!-- Cells -->
                                 <template x-for="domain in heatmapDomains">
-                                    <div class="h-14 flex items-center justify-center p-1.5 border-b border-slate-900">
+                                    <div class="h-10 flex items-center justify-center p-0.5 border-b border-slate-900">
                                         <template x-data="{ cell: getHeatmapCell(state, domain) }" x-if="cell">
-                                            <div class="w-full h-full rounded-lg flex flex-col justify-center items-center cursor-pointer heatmap-cell relative group"
+                                            <div class="w-full h-full rounded flex items-center justify-center cursor-pointer heatmap-cell relative group"
                                                  :class="getCellClass(cell)">
-                                                <span class="text-xs font-black" x-text="Math.round(cell.coverage_score) + '%'"></span>
-                                                <span class="text-[9px] opacity-75 font-semibold" x-text="`GDB: ${cell.gdb_count} | Logs: ${cell.disclaimer_count}`"></span>
+                                                <span class="text-[10px] font-black" x-text="Math.round(cell.coverage_score) + '%'"></span>
                                                 
                                                 <!-- Tooltip -->
                                                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 border border-slate-700 text-slate-200 text-2xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition duration-200 pointer-events-none z-30">
@@ -151,7 +152,7 @@
                                             </div>
                                         </template>
                                         <template x-if="!getHeatmapCell(state, domain)">
-                                            <div class="w-full h-full rounded-lg bg-slate-900/20 border border-dashed border-slate-800 flex items-center justify-center text-2xs text-slate-600 font-bold">N/A</div>
+                                            <div class="w-full h-full rounded bg-slate-900/20 border border-dashed border-slate-800/60 flex items-center justify-center text-3xs text-slate-600 font-bold">N/A</div>
                                         </template>
                                     </div>
                                 </template>
