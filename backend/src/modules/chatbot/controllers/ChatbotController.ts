@@ -2053,6 +2053,17 @@ export class ChatbotController {
     }
   }
 
+  @Get('/coordinator-farmers-geo/:userId')
+  @HttpCode(200)
+  @Authorized(['admin', ...COORDINATOR_ROLES])
+  async getCoordinatorFarmerGeoData(
+    @Param('userId') userId: string,
+    @CurrentUser() currentUser: IUser,
+  ) {
+    await this.assertCoordinatorOwnDashboard(userId, currentUser);
+    return this.chatbotService.getCoordinatorFarmerGeoData(userId);
+  }
+
   @Get('/village-data')
   @HttpCode(200)
   @Authorized()
