@@ -1014,20 +1014,30 @@ export class UserRepository implements IUserRepository {
   ): Promise<void> {
     await this.init();
     const qid = new ObjectId(questionId);
+    // Aggregation-pipeline update so it's null-safe: `$ifNull` coerces a null/missing
+    // `assignedQuestionIds` to [] (a plain $push/$pull throws on a non-array/null field),
+    // `$filter` de-dupes any existing entry for this question, then we append the new one.
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
-      {
-        $pull: { assignedQuestionIds: { questionId: qid } },
-        $set: { updatedAt: new Date() },
-      },
-      { session },
-    );
-    await this.usersCollection.updateOne(
-      { _id: new ObjectId(moderatorId) },
-      {
-        $push: { assignedQuestionIds: { questionId: qid, status, source } },
-        $set: { updatedAt: new Date() },
-      },
+      [
+        {
+          $set: {
+            assignedQuestionIds: {
+              $concatArrays: [
+                {
+                  $filter: {
+                    input: { $ifNull: ['$assignedQuestionIds', []] },
+                    as: 'a',
+                    cond: { $ne: ['$$a.questionId', qid] },
+                  },
+                },
+                [{ questionId: qid, status, source: source ?? null }],
+              ],
+            },
+            updatedAt: new Date(),
+          },
+        },
+      ],
       { session },
     );
   }
@@ -2325,7 +2335,9 @@ export class UserRepository implements IUserRepository {
       { _id: new ObjectId(userId) },
       {
         $set: {
-          assignedQuestionIds: null,
+          // Empty array, NOT null — a null field can't be $push/$pull-ed, which would
+          // make the user look "available" but block every future auto-assignment.
+          assignedQuestionIds: [],
           updatedAt: new Date(),
         },
       },
