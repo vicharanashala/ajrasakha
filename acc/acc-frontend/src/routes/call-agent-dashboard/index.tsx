@@ -105,7 +105,7 @@ function DashboardComponent() {
                 className="h-10 w-auto md:h-14"
               />
               <span className="font-bold text-sm bg-gradient-to-r from-green-300 to-emerald-400 bg-clip-text text-transparent hidden sm:inline">
-                ACC Call Center
+                Annam Call Center
               </span>
             </div>
 

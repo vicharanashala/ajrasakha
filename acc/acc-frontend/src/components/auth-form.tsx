@@ -117,7 +117,7 @@ export const AuthForm = ({
             className="w-12 h-12 object-contain mx-auto"
           />
           <CardTitle className="text-2xl font-bold bg-gradient-to-r from-green-300 to-emerald-400 bg-clip-text text-transparent whitespace-nowrap">
-            ACC Call Center Login
+            Annam Call Center Login
           </CardTitle>
         </CardHeader>
 

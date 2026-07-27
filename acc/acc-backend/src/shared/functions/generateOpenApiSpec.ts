@@ -152,9 +152,9 @@ export function generateOpenAPISpec(
   const spec = routingControllersToSpec(storage, routingControllersOptions, {
     openapi: '3.0.3',
     info: {
-      title: 'ACC Call Center API Documentation',
+      title: 'Annam Call Center (ACC) API Documentation',
       version: '1.0.0',
-      description: 'API documentation for the Agricultural Call Center standalone microservice',
+      description: 'API documentation for the Annam Call Center standalone microservice',
       contact: {
         name: 'Annam support',
         email: 'support@annam.ai',
