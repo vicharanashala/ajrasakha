@@ -318,18 +318,7 @@ export const IncomingCallBox = ({
     onTranscriptsListChange,
   });
 
-  // Helper function to get agent-specific Plivo credentials
-  const getAgentCredentials = () => {
-    const agentNumber = currentUser?.agent;
-    if (!agentNumber || agentNumber === 'not_available') {
-      // Fallback to old credentials if no agent assigned
-      return {
-        username: env.plivo.endpointUsername(),
-        password: env.plivo.endpointPassword(),
-      };
-    }
-    return env.plivo.getAgentCredentials(agentNumber);
-  };
+
 
   useEffect(() => {
     callbacksRef.current = {
@@ -421,20 +410,6 @@ export const IncomingCallBox = ({
       return;
     }
 
-    // Get agent-specific Plivo credentials
-    const { username: endpointUsername, password: endpointPassword } = getAgentCredentials();
-
-    // Check if Plivo credentials are configured (not dummy values)
-    if (
-      endpointUsername?.includes("dummy") ||
-      endpointPassword?.includes("dummy")
-    ) {
-      console.warn(
-        "⚠️ Plivo credentials not configured (using dummy values). Skipping Plivo initialization.",
-      );
-      return;
-    }
-
     // Prevent multiple initializations
     if (plivoClientRef.current) {
       console.log("⚠️ Plivo client already exists, skipping initialization...");
@@ -455,14 +430,40 @@ export const IncomingCallBox = ({
     };
   }, [agentId, isAgentActive, userRole, isUserLoading]);
 
-  const initializePlivoClient = () => {
+  const initializePlivoClient = async () => {
     // Prevent multiple initializations
     if (plivoClientRef.current) {
       console.log("⚠️ Plivo client already initialized, skipping...");
       return;
     }
 
-    console.log("🔧 Initializing Plivo client from NPM package...");
+    console.log("🔧 Initializing Plivo client from NPM package with DB credentials...");
+
+    let endpointUsername = "";
+    let endpointPassword = "";
+
+    try {
+      const creds = await plivoApi.getAgentCredentials();
+      endpointUsername = creds?.username || "";
+      endpointPassword = creds?.password || "";
+    } catch (err) {
+      console.warn("⚠️ Failed to fetch Plivo credentials from DB API, attempting env fallback:", err);
+      endpointUsername = env.plivo.endpointUsername();
+      endpointPassword = env.plivo.endpointPassword();
+    }
+
+    if (
+      !endpointUsername ||
+      !endpointPassword ||
+      endpointUsername.includes("dummy") ||
+      endpointPassword.includes("dummy")
+    ) {
+      console.warn(
+        "⚠️ Plivo agent credentials not configured in DB or env. Skipping Plivo initialization.",
+      );
+      return;
+    }
+
     const options = {
       debug: "DEBUG" as const,
       permOnClick: true,
@@ -471,9 +472,6 @@ export const IncomingCallBox = ({
 
     const client = new Plivo(options);
     plivoClientRef.current = client;
-
-    // Get agent-specific Plivo credentials
-    const { username: endpointUsername, password: endpointPassword } = getAgentCredentials();
 
     console.log("🔑 Attempting Plivo login with username:", endpointUsername);
     console.log("🌐 Plivo SDK loaded successfully");

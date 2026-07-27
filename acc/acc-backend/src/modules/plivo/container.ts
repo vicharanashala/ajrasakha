@@ -7,6 +7,7 @@ import { AgentAssignmentService } from './services/AgentAssignmentService.js';
 import { CallFarmerRepository } from '#shared/database/providers/mongo/repositories/CallFarmerRepository.js';
 import { CallDetailsRepository } from '#shared/database/providers/mongo/repositories/CallDetailsRepository.js';
 import { UserRepository } from '#shared/database/providers/mongo/repositories/UserRepository.js';
+import { PlivoCredentialsRepository } from '#shared/database/providers/mongo/repositories/PlivoCredentialsRepository.js';
 import { PLIVO_TYPES } from './types.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 
@@ -19,6 +20,7 @@ export const plivoContainerModule = new ContainerModule(options => {
   options.bind(PLIVO_TYPES.CallFarmerRepository).to(CallFarmerRepository).inSingletonScope();
   options.bind(PLIVO_TYPES.CallDetailsRepository).to(CallDetailsRepository).inSingletonScope();
   options.bind(GLOBAL_TYPES.UserRepository).to(UserRepository).inSingletonScope();
+  options.bind(GLOBAL_TYPES.PlivoCredentialsRepository).to(PlivoCredentialsRepository).inSingletonScope();
 });
 
 export const plivoContainerModules = [plivoContainerModule];

@@ -1,13 +1,15 @@
 import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
 import type { IUserRepository } from '#shared/database/interfaces/IUserRepository.js';
+import type { IPlivoCredentialsRepository } from '#shared/database/interfaces/IPlivoCredentialsRepository.js';
 import type { IUser } from '#shared/interfaces/models.js';
 import { ClientSession } from 'mongodb';
 
 @injectable()
 export class AgentAssignmentService {
   constructor(
-    @inject(GLOBAL_TYPES.UserRepository) private userRepository: IUserRepository
+    @inject(GLOBAL_TYPES.UserRepository) private userRepository: IUserRepository,
+    @inject(GLOBAL_TYPES.PlivoCredentialsRepository) private plivoCredentialsRepository: IPlivoCredentialsRepository
   ) {}
 
   async assignAgentNumber(userId: string, session?: ClientSession): Promise<string> {
@@ -88,12 +90,18 @@ export class AgentAssignmentService {
     return await this.userRepository.findAndMarkAvailableAgent(callUuid, session);
   }
 
-  getAgentCredentials(agentNumber: string): { username: string} {
+  async getAgentCredentials(agentNumber: string): Promise<{ username: string }> {
+    const cred = await this.plivoCredentialsRepository.findByAgentNumber(agentNumber);
+    if (cred) {
+      const sipUsername = cred.sipUri || (cred.username.startsWith('sip:') ? cred.username : `sip:${cred.username}@phone.plivo.com`);
+      return { username: sipUsername };
+    }
+
     const env = process.env;
     const username = env[`PLIVO_ENDPOINT_USERNAME_${agentNumber.toUpperCase()}`];
 
     if (!username) {
-      throw new Error(`Credentials not found for ${agentNumber}. Please set PLIVO_ENDPOINT_USERNAME_${agentNumber.toUpperCase()} in environment variables.`);
+      throw new Error(`Credentials not found for ${agentNumber} in database or environment variables.`);
     }
 
     return { username };

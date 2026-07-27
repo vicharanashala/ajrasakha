@@ -8,6 +8,7 @@ const TYPES = {
 
   // Repositories
   UserRepository: Symbol.for('userRepository'),
+  PlivoCredentialsRepository: Symbol.for('PlivoCredentialsRepository'),
 
   // Constants
   uri: Symbol.for('dbURI'),

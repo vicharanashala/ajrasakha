@@ -392,6 +392,10 @@ export class PlivoService {
     link.remove();
     window.URL.revokeObjectURL(blobUrl);
   }
+
+  async getAgentCredentials(): Promise<{ username: string; password: string; streamUrl: string } | null> {
+    return apiFetch<{ username: string; password: string; streamUrl: string }>(`${this._baseUrl}/agent-credentials`);
+  }
 }
 
 export const plivoService = new PlivoService();

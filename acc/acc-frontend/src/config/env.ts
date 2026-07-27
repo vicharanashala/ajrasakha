@@ -38,13 +38,8 @@ export const env = {
   },
   sarvamApiKey: () => getEnv("VITE_SARVAM_API_KEY", true, "dummy-sarvam-api-key"),
   plivo: {
-    endpointUsername: () => getEnv("VITE_PLIVO_ENDPOINT_USERNAME", false, ""),
-    endpointPassword: () => getEnv("VITE_PLIVO_ENDPOINT_PASSWORD", false, ""),
+    endpointUsername: () => getEnv("VITE_PLIVO_ENDPOINT_USERNAME", false, "annamuser1293525305518427216"),
+    endpointPassword: () => getEnv("VITE_PLIVO_ENDPOINT_PASSWORD", false, "testing@annam26"),
     streamUrl: () => getEnv("VITE_PLIVO_STREAM_URL", false, "wss://dummy-stream-url.plivo.com"),
-    getAgentCredentials: (agentNumber: string) => {
-      const username = getEnv(`VITE_PLIVO_${agentNumber.toUpperCase()}_USERNAME`, false, "");
-      const password = getEnv(`VITE_PLIVO_${agentNumber.toUpperCase()}_PASSWORD`, false, "");
-      return { username, password };
-    },
   },
 };

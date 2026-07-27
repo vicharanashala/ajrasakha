@@ -24,6 +24,7 @@ import { PLIVO_TYPES } from '../types.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import type { ICallDetailsRepository, AgentAnalytics, ACCAnalytics } from '#shared/database/interfaces/ICallDetailsRepository.js';
 import type { ICallFarmerRepository } from '#shared/database/interfaces/IFarmerRepository.js';
+import type { IPlivoCredentialsRepository } from '#shared/database/interfaces/IPlivoCredentialsRepository.js';
 import type { IUser } from '#shared/interfaces/models.js';
 import { PlivoService } from '../services/PlivoService.js';
 
@@ -41,7 +42,8 @@ export class PlivoController {
     @inject(GLOBAL_TYPES.UserRepository) private userRepository: any,
     @inject(PLIVO_TYPES.AgentAssignmentService) private agentAssignmentService: any,
     @inject(PLIVO_TYPES.PlivoService) private plivoService: PlivoService,
-    @inject(PLIVO_TYPES.CallFarmerRepository) private callFarmerRepository: ICallFarmerRepository
+    @inject(PLIVO_TYPES.CallFarmerRepository) private callFarmerRepository: ICallFarmerRepository,
+    @inject(GLOBAL_TYPES.PlivoCredentialsRepository) private plivoCredentialsRepository: IPlivoCredentialsRepository
   ) { }
 
   @Post('/answer')
@@ -65,7 +67,7 @@ export class PlivoController {
 
       if (availableAgent && availableAgent.agent) {
         const agentNumber = availableAgent.agent;
-        const credentials = this.agentAssignmentService.getAgentCredentials(agentNumber);
+        const credentials = await this.agentAssignmentService.getAgentCredentials(agentNumber);
         endpointUser = credentials.username;
 
         this.plivoService.setCallAgent(callUuid, availableAgent._id.toString());
@@ -601,5 +603,39 @@ export class PlivoController {
       if (error instanceof BadRequestError) throw error;
       throw new InternalServerError('Failed to export ACC queries');
     }
+  }
+
+  @Get('/agent-credentials')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get current call agent Plivo SIP endpoint credentials from database' })
+  async getAgentCredentials(@CurrentUser() currentUser: IUser) {
+    const latestUser = currentUser?._id
+      ? await this.userRepository.findById(currentUser._id.toString())
+      : currentUser;
+
+    let agentNumber = latestUser?.agent || currentUser?.agent;
+
+    if (!agentNumber || agentNumber === 'not_available') {
+      if (latestUser?.role === 'call_agent' || currentUser?.role === 'call_agent') {
+        agentNumber = 'agent_1';
+      } else {
+        return {
+          username: '',
+          password: '',
+          streamUrl: appConfig.plivo.streamUrl,
+        };
+      }
+    }
+
+    const cred = await this.plivoCredentialsRepository.findByAgentNumber(agentNumber);
+    const fallbackUsername = process.env.VITE_PLIVO_ENDPOINT_USERNAME || process.env.PLIVO_ENDPOINT_USERNAME || 'annamuser1293525305518427216';
+    const fallbackPassword = process.env.VITE_PLIVO_ENDPOINT_PASSWORD || process.env.PLIVO_ENDPOINT_PASSWORD || 'testing@annam26';
+
+    return {
+      username: cred?.username || fallbackUsername,
+      password: cred?.password || fallbackPassword,
+      streamUrl: appConfig.plivo.streamUrl,
+    };
   }
 }
