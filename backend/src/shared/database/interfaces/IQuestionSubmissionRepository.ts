@@ -81,6 +81,13 @@ export interface IQuestionSubmissionRepository {
     session?: ClientSession,
   ): Promise<IQuestionSubmission | null>;
 
+  /** Admin utility: remove a single submission history entry by its 0-based index. */
+  removeHistoryEntryByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null>;
+
   /**
    * allocateExperts (push expertIds to queue)
    * @param questionId

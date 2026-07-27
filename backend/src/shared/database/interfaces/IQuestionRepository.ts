@@ -640,5 +640,6 @@ export interface IQuestionRepository {
     questionId: string,
     finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
     finishedAt: Date,
+    session?: ClientSession,
   ): Promise<void>;
 }

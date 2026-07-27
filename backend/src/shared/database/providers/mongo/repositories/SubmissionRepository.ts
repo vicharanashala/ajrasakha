@@ -231,6 +231,54 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       );
     }
   }
+
+  /** Admin utility: remove a single history entry from a question's submission by its
+   *  array index (0-based). Read-modify-write so out-of-range indexes fail loudly and the
+   *  rest of the history keeps its order. Does NOT touch the queue. */
+  async removeHistoryEntryByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null> {
+    try {
+      await this.init();
+      const submission = await this.getByQuestionId(questionId, session);
+      if (!submission) {
+        throw new NotFoundError(
+          `No submission found for questionId: ${questionId}`,
+        );
+      }
+
+      const history = submission.history || [];
+      if (!Number.isInteger(index) || index < 0 || index >= history.length) {
+        throw new BadRequestError(
+          `Invalid history index ${index}; submission has ${history.length} entr${history.length === 1 ? 'y' : 'ies'}`,
+        );
+      }
+
+      const nextHistory = [...history];
+      nextHistory.splice(index, 1);
+
+      await this.QuestionSubmissionCollection.updateOne(
+        {questionId: new ObjectId(questionId)},
+        {$set: {history: nextHistory, updatedAt: new Date()}},
+        {session},
+      );
+
+      return this.getByQuestionId(questionId, session);
+    } catch (error) {
+      if (
+        error instanceof BadRequestError ||
+        error instanceof NotFoundError
+      ) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to remove history entry: ${error}`,
+      );
+    }
+  }
+
   async updateQueue(
     questionId: string,
     queue: ObjectId[],

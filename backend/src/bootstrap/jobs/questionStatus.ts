@@ -7,7 +7,7 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 // import { QuestionService } from '#root/modules/core/index.js';
 
 // Schedule every 1 minutes
-const start =false
+const start =true
 if(start){
 if(!appConfig.isDevelopment){
 cron.schedule('*/1 * * * *', async () => {
