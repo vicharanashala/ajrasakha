@@ -503,6 +503,7 @@ export class ChatbotRepository implements IChatbotRepository {
   private QuestionSubmissionsCollection: Collection<IQuestionSubmission>;
   private Reroutes: Collection<any>;
   private ReviewUsers: Collection<any>;
+  private UserRoleHistoryCollection: Collection<any>;
   private async initReviewSystem() {
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
@@ -513,6 +514,7 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.Reroutes = await this.db.getCollection<any>('reroutes');
     this.ReviewUsers = await this.db.getCollection<any>('users');
+    this.UserRoleHistoryCollection = await this.db.getCollection<any>('user_role_history');
   }
 
   private buildActiveSessionFilter(userIds: ObjectId[], now = new Date()) {
@@ -20579,6 +20581,27 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userObjectId = new ObjectId(userId);
 
+      const roleHistory = await this.UserRoleHistoryCollection.find({
+        userId: userObjectId,
+        ...(start || end
+          ? {
+              from: {
+                ...(end ? { $lte: end } : {}),
+              },
+              $or: [
+                { to: null },
+                {
+                  to: {
+                    ...(start ? { $gte: start } : {}),
+                  },
+                },
+              ],
+            }
+          : {}),
+      })
+        .sort({ from: 1 })
+        .toArray();
+
       const submissions = await this.QuestionSubmissionsCollection.find({
         history: {
           $elemMatch: {
@@ -20601,7 +20624,6 @@ export class ChatbotRepository implements IChatbotRepository {
         reroutes: {
           $elemMatch: {
             reroutedTo: userObjectId,
-
             ...(start || end
               ? {
                   reroutedAt: {
@@ -20762,6 +20784,11 @@ export class ChatbotRepository implements IChatbotRepository {
         reviewerId: userId,
         startDate: start,
         endDate: end,
+        roleHistory: roleHistory.map(role => ({
+          role: role.role,
+          from: role.from,
+          to: role.to,
+        })),
         lifecycle: groupedLifecycle,
       };
     } catch (err) {

@@ -151,7 +151,7 @@ const [dateRange, setDateRange] = useState<
     userTimelineRange.endTime ?? "",
   );
 
-  console.log("reviewerLifecycleData----", reviewerLifecycleData);
+  // console.log("reviewerLifecycleData----", reviewerLifecycleData);
 
   const weeklyWorkingHours = weeklyWorkingHoursData?.workingHours ?? 0;
 
