@@ -4284,7 +4284,7 @@ export class QuestionRepository implements IQuestionRepository {
     };
 
     const closedMatchCondition: any = {
-      status: 'closed',
+      // status: 'closed',
       closedAt: {
         $gte: startDate,
         $lt: endDate,
@@ -4477,21 +4477,21 @@ export class QuestionRepository implements IQuestionRepository {
     {
       $match: closedMatchCondition,
     },
-    // {
-    //   $addFields: {
-    //     dayOfWeek: {
-    //       $dayOfWeek: {
-    //         date: '$closedAt',
-    //         timezone: 'Asia/Kolkata',
-    //       },
-    //     },
-    //   },
-    // },
-    // {
-    //   $match: {
-    //     dayOfWeek: selectedDayNum + 1,
-    //   },
-    // },
+    {
+      $addFields: {
+        dayOfWeek: {
+          $dayOfWeek: {
+            date: '$closedAt',
+            timezone: 'Asia/Kolkata',
+          },
+        },
+      },
+    },
+    {
+      $match: {
+        dayOfWeek: selectedDayNum + 1,
+      },
+    },
     {
       $count: 'totalVerified',
     },

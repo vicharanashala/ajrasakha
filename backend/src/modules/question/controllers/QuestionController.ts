@@ -2732,4 +2732,26 @@ export class QuestionController {
     const result = await this.questionService.backgroundProcessAction(userId);
     return result;
   }
+
+  @Post('/background/remove-history-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Remove a submission history entry by index (internal data fix)',
+  })
+  async removeSubmissionHistoryEntry(
+    @Body() body: { questionId: string; index: number },
+  ) {
+    const { questionId, index } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (index === undefined || index === null) {
+      throw new BadRequestError('index is required');
+    }
+    return await this.questionService.removeSubmissionHistoryEntry(
+      questionId,
+      Number(index),
+    );
+  }
 }
