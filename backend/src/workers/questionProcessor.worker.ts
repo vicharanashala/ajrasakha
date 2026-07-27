@@ -312,7 +312,7 @@ const {checkDuplicateQuestionHelper} =
         console.log(`👤 PAE Expert mode — assigned question ${qId} to ${paeUserRef.email}`);
       } else {
         // Default 'expert' mode: auto-allocate to experts by reputation score
-        const users = await userRepo.findExpertsByReputationScore(
+      /*  const users = await userRepo.findExpertsByReputationScore(
           details as any,
         );
         const intialUsersToAllocate = users.slice(
@@ -328,7 +328,7 @@ const {checkDuplicateQuestionHelper} =
           await userRepo.updateReputationScore(firstUserId, IS_INCREMENT);
           notificationRecipient = firstUserId;
         }
-        console.log(`✅ Experts allocated for question ${qId}`);
+        console.log(`✅ Experts allocated for question ${qId}`);*/
       }
 
       if (queue.length > 0) {
