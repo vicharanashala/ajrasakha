@@ -20569,6 +20569,7 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
   ): Promise<any> {
+    // console.log("getReviewerLifecycle---", userId, startDate, endDate);
     try {
       await this.initReviewSystem();
 
@@ -20676,30 +20677,93 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
+      const questionIds = submissions
+        .map((submission) => submission.questionId)
+        .filter(Boolean);
+
+      const questions = await this.QuestionCollection.find(
+        {
+          _id: { $in: questionIds },
+        },
+        {
+          projection: {
+            _id: 1,
+            firstAllocationAt: 1,
+          },
+        },
+      ).toArray();
+
+      const questionMap = new Map(
+        questions.map((question) => [
+          question._id.toString(),
+          question,
+        ]),
+      );
+
       for (const submission of submissions) {
-        for (const history of submission.history ?? []) {
+        const question = questionMap.get(
+          submission.questionId?.toString(),
+        );
+
+        const userHistories = (submission.history ?? []).filter((history) => {
           if (history.updatedBy?.toString() !== userId) {
+            return false;
+          }
+
+          const historyCreatedAt = new Date(history.createdAt);
+
+          if (start && historyCreatedAt < start) {
+            return false;
+          }
+
+          if (end && historyCreatedAt > end) {
+            return false;
+          }
+
+          return true;
+        });
+
+        for (let index = 0; index < userHistories.length; index++) {
+          const history = userHistories[index];
+
+          const historyCreatedAt = new Date(history.createdAt);
+          const historyUpdatedAt = history.updatedAt
+            ? new Date(history.updatedAt)
+            : null;
+
+          let activityStart = historyCreatedAt;
+
+          // Only user's first activity can use firstAllocationAt
+          if (index === 0 && question?.firstAllocationAt) {
+            const firstAllocationAt = new Date(question.firstAllocationAt);
+
+            const isValidAllocation =
+              historyUpdatedAt &&
+              firstAllocationAt <= historyUpdatedAt &&
+              (!start || firstAllocationAt >= start) &&
+              (!end || firstAllocationAt <= end);
+
+            if (isValidAllocation) {
+              activityStart = firstAllocationAt;
+            }
+          }
+
+          if (!historyUpdatedAt) {
             continue;
           }
 
-          const activityStart = new Date(history.createdAt);
-          const isInReview = history.status === 'in-review';
-
-          const activityEnd =
-            !isInReview && history.updatedAt
-              ? new Date(history.updatedAt)
-              : null;
+          // Safety: reject invalid intervals
+          if (activityStart >= historyUpdatedAt) {
+            continue;
+          }
 
           activities.push({
             questionId: submission.questionId?.toString(),
-
             startAt: activityStart,
-            endAt: activityEnd,
-
-            durationMs: activityEnd
-              ? activityEnd.getTime() - activityStart.getTime()
-              : null,
-
+            endAt: historyUpdatedAt,
+            durationMs:
+              historyUpdatedAt.getTime() -
+              activityStart.getTime(),
             status: history.status,
           });
         }
@@ -20778,7 +20842,41 @@ export class ChatbotRepository implements IChatbotRepository {
         });
       }
 
-      const groupedLifecycle = this.groupReviewerLifecycleByHour(activities);
+      const filteredActivities = activities
+        .filter((activity) => activity.endAt)
+        .map((activity) => {
+          let activityStart = new Date(activity.startAt);
+          let activityEnd = new Date(activity.endAt);
+
+          // No overlap
+          if (start && activityEnd < start) return null;
+          if (end && activityStart > end) return null;
+
+          // Clip to requested range
+          if (start && activityStart < start) {
+            activityStart = new Date(start);
+          }
+
+          if (end && activityEnd > end) {
+            activityEnd = new Date(end);
+          }
+
+          if (activityStart >= activityEnd) {
+            return null;
+          }
+
+          return {
+            ...activity,
+            startAt: activityStart,
+            endAt: activityEnd,
+            durationMs:
+              activityEnd.getTime() - activityStart.getTime(),
+          };
+        })
+        .filter(Boolean);
+
+      const groupedLifecycle =
+        this.groupReviewerLifecycleByHour(filteredActivities);
 
       return {
         reviewerId: userId,
