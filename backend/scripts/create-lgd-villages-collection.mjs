@@ -53,9 +53,6 @@ import 'dotenv/config';
 import axios from 'axios';
 import { MongoClient } from 'mongodb';
 
-/* -------------------------------------------------------------------------- */
-/* Configuration                                                              */
-/* -------------------------------------------------------------------------- */
 
 const APPLY = process.argv.includes('--apply');
 
