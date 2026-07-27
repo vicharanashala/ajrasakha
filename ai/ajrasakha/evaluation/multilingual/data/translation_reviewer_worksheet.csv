@@ -1,151 +1,661 @@
-Scenario ID,Domain,Language,English Query,Translated Query,Review Status,Reviewer,Review Date,Notes
-S01,Weather,HI,What is the weather today in Ropar district of Punjab?,पंजाब के रोपड़ जिले में आज का मौसम कैसा है?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S01,Weather,KN,What is the weather today in Ropar district of Punjab?,ಪಂಜಾಬ್‌ನ ರೋಪರ್ ಜಿಲ್ಲೆಯಲ್ಲಿ ಇಂದು ಹವಾಮಾನ ಹೇಗಿದೆ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S01,Weather,TA,What is the weather today in Ropar district of Punjab?,பஞ்சாபின் ரோபர் மாவட்டத்தில் இன்று வானிலை எப்படி உள்ளது?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S01,Weather,PA,What is the weather today in Ropar district of Punjab?,ਪੰਜਾਬ ਦੇ ਰੋਪੜ ਜ਼ਿਲ੍ਹੇ ਵਿੱਚ ਅੱਜ ਮੌਸਮ ਕਿਹੋ ਜਿਹਾ ਹੈ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S01,Weather,TE,What is the weather today in Ropar district of Punjab?,పంజాబ్‌లోని రోపర్ జిల్లాలో ఈరోజు వాతావరణం ఎలా ఉంది?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S02,Weather,HI,"What is the 5-day weather forecast for Ludhiana, Punjab?","लुधियाना, पंजाब के लिए 5-दिन का मौसम पूर्वानुमान क्या है?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S02,Weather,KN,"What is the 5-day weather forecast for Ludhiana, Punjab?","ಲುಧಿಯಾನಾ, ಪಂಜಾಬ್‌ಗೆ 5-ದಿನದ ಹವಾಮಾನ ಮುನ್ಸೂಚನೆ ಏನು?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S02,Weather,TA,"What is the 5-day weather forecast for Ludhiana, Punjab?","லூதியானா, பஞ்சாபிற்கான 5 நாள் வானிலை முன்னறிவிப்பு என்ன?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S02,Weather,PA,"What is the 5-day weather forecast for Ludhiana, Punjab?","ਲੁਧਿਆਣਾ, ਪੰਜਾਬ ਲਈ 5-ਦਿਨਾਂ ਦੇ ਮੌਸਮ ਦੀ ਭਵਿੱਖਬਾਣੀ ਕੀ ਹੈ?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S02,Weather,TE,"What is the 5-day weather forecast for Ludhiana, Punjab?","లూధియానా, పంజాబ్ కోసం 5-రోజుల వాతావరణ సూచన ఏమిటి?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S03,Sowing Time and Weather,HI,What is the best sowing time for wheat in Punjab and what weather should I expect?,पंजाब में गेहूं बोने का सबसे अच्छा समय क्या है और मुझे किस मौसम की उम्मीद करनी चाहिए?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S03,Sowing Time and Weather,KN,What is the best sowing time for wheat in Punjab and what weather should I expect?,ಪಂಜಾಬ್‌ನಲ್ಲಿ ಗೋಧಿ ಬಿತ್ತನೆಗೆ ಉತ್ತಮ ಸಮಯ ಯಾವುದು ಮತ್ತು ನಾನು ಯಾವ ಹವಾಮಾನವನ್ನು ನಿರೀಕ್ಷಿಸಬೇಕು?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S03,Sowing Time and Weather,TA,What is the best sowing time for wheat in Punjab and what weather should I expect?,பஞ்சாபில் கோதுமை விதைப்பதற்கான சிறந்த நேரம் எது மற்றும் நான் எந்த வானிலையை எதிர்பார்க்க வேண்டும்?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S03,Sowing Time and Weather,PA,What is the best sowing time for wheat in Punjab and what weather should I expect?,ਪੰਜਾਬ ਵਿੱਚ ਕਣਕ ਦੀ ਬਿਜਾਈ ਲਈ ਸਭ ਤੋਂ ਵਧੀਆ ਸਮਾਂ ਕਿਹੜਾ ਹੈ ਅਤੇ ਮੈਨੂੰ ਕਿਹੋ ਜਿਹੇ ਮੌਸਮ ਦੀ ਉਮੀਦ ਕਰਨੀ ਚਾਹੀਦੀ ਹੈ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S03,Sowing Time and Weather,TE,What is the best sowing time for wheat in Punjab and what weather should I expect?,పంజాబ్‌లో గోధుమ విత్తడానికి ఉత్తమ సమయం ఏది మరియు నేను ఏ వాతావరణాన్ని ఆశించాలి?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S04,Weather,HI,Is there a heatwave warning in Nagpur Maharashtra? How should I protect my cotton?,क्या नागपुर महाराष्ट्र में हीटवेव की चेतावनी है? मुझे अपनी कपास की रक्षा कैसे करनी चाहिए?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S04,Weather,KN,Is there a heatwave warning in Nagpur Maharashtra? How should I protect my cotton?,ನಾಗ್ಪುರ ಮಹಾರಾಷ್ಟ್ರದಲ್ಲಿ ಶಾಖದ ಅಲೆಯ ಎಚ್ಚರಿಕೆ ಇದೆಯೇ? ನನ್ನ ಹತ್ತಿಯನ್ನು ನಾನು ಹೇಗೆ ರಕ್ಷಿಸಬೇಕು?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S04,Weather,TA,Is there a heatwave warning in Nagpur Maharashtra? How should I protect my cotton?,நாக்பூர் மகாராஷ்டிராவில் வெப்ப அலை எச்சரிக்கை உள்ளதா? எனது பருத்தியை நான் எவ்வாறு பாதுகாக்க வேண்டும்?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S04,Weather,PA,Is there a heatwave warning in Nagpur Maharashtra? How should I protect my cotton?,ਕੀ ਨਾਗਪੁਰ ਮਹਾਰਾਸ਼ਟਰ ਵਿੱਚ ਹੀਟਵੇਵ ਦੀ ਚਿਤਾਵਨੀ ਹੈ? ਮੈਨੂੰ ਆਪਣੀ ਕਪਾਹ ਦੀ ਰੱਖਿਆ ਕਿਵੇਂ ਕਰਨੀ ਚਾਹੀਦੀ ਹੈ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S04,Weather,TE,Is there a heatwave warning in Nagpur Maharashtra? How should I protect my cotton?,నాగ్‌పూర్ మహారాష్ట్రలో వడగాల్పుల హెచ్చరిక ఉందా? నేను నా పత్తిని ఎలా రక్షించుకోవాలి?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S05,Weather,HI,Will there be enough rainfall for paddy this kharif season in Mysuru Karnataka?,क्या मैसूर कर्नाटक में इस खरीफ मौसम में धान के लिए पर्याप्त बारिश होगी?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S05,Weather,KN,Will there be enough rainfall for paddy this kharif season in Mysuru Karnataka?,ಮೈಸೂರು ಕರ್ನಾಟಕದಲ್ಲಿ ಈ ಖಾರಿಫ್ ಋತುವಿನಲ್ಲಿ ಭತ್ತಕ್ಕೆ ಸಾಕಷ್ಟು ಮಳೆಯಾಗುತ್ತದೆಯೇ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S05,Weather,TA,Will there be enough rainfall for paddy this kharif season in Mysuru Karnataka?,மைசூர் கர்நாடகாவில் இந்த காரீப் பருவத்தில் நெல்லுக்கு போதுமான மழை பெய்யுமா?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S05,Weather,PA,Will there be enough rainfall for paddy this kharif season in Mysuru Karnataka?,ਕੀ ਮੈਸੂਰ ਕਰਨਾਟਕ ਵਿੱਚ ਇਸ ਸਾਉਣੀ ਰੁੱਤ ਵਿੱਚ ਝੋਨੇ ਲਈ ਕਾਫ਼ੀ ਮੀਂਹ ਪਵੇਗਾ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S05,Weather,TE,Will there be enough rainfall for paddy this kharif season in Mysuru Karnataka?,మైసూర్ కర్ణాటకలో ఈ ఖరీఫ్ సీజన్‌లో వరికి తగినంత వర్షం పడుతుందా?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S06,Weather,HI,What is the weather in ZZZ-invalid-place?,[HI] What is the weather in ZZZ-invalid-place?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S06,Weather,KN,What is the weather in ZZZ-invalid-place?,[KN] What is the weather in ZZZ-invalid-place?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S06,Weather,TA,What is the weather in ZZZ-invalid-place?,[TA] What is the weather in ZZZ-invalid-place?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S06,Weather,PA,What is the weather in ZZZ-invalid-place?,[PA] What is the weather in ZZZ-invalid-place?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S06,Weather,TE,What is the weather in ZZZ-invalid-place?,[TE] What is the weather in ZZZ-invalid-place?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S07,Plant Protection,HI,How do I treat yellow rust disease in wheat in Haryana?,मैं हरियाणा में गेहूं में पीला रतुआ रोग का इलाज कैसे करूं?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S07,Plant Protection,KN,How do I treat yellow rust disease in wheat in Haryana?,ಹರಿಯಾಣದಲ್ಲಿ ಗೋಧಿಯಲ್ಲಿ ಹಳದಿ ತುಕ್ಕು ರೋಗವನ್ನು ನಾನು ಹೇಗೆ ಚಿಕಿತ್ಸೆ ನೀಡಬೇಕು?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S07,Plant Protection,TA,How do I treat yellow rust disease in wheat in Haryana?,அரியானாவில் கோதுமையில் மஞ்சள் துரு நோய்க்கு நான் எவ்வாறு சிகிச்சை அளிப்பது?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S07,Plant Protection,PA,How do I treat yellow rust disease in wheat in Haryana?,ਮੈਂ ਹਰਿਆਣਾ ਵਿੱਚ ਕਣਕ ਵਿੱਚ ਪੀਲੀ ਕੁੰਗੀ ਦੀ ਬਿਮਾਰੀ ਦਾ ਇਲਾਜ ਕਿਵੇਂ ਕਰਾਂ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S07,Plant Protection,TE,How do I treat yellow rust disease in wheat in Haryana?,హర్యానాలో గోధుమలలో పసుపు తుప్పు వ్యాధికి నేను ఎలా చికిత్స చేయాలి?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S08,Bio-Pesticides and Bio-Fertilizers,HI,What bio-pesticides can I use for bollworm control in cotton in Maharashtra?,मैं महाराष्ट्र में कपास में बॉलवर्म नियंत्रण के लिए किन जैव-कीटनाशकों का उपयोग कर सकता हूं?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S08,Bio-Pesticides and Bio-Fertilizers,KN,What bio-pesticides can I use for bollworm control in cotton in Maharashtra?,ಮಹಾರಾಷ್ಟ್ರದಲ್ಲಿ ಹತ್ತಿಯಲ್ಲಿ ಕಾಯಿಕೊರಕ ನಿಯಂತ್ರಣಕ್ಕೆ ನಾನು ಯಾವ ಜೈವಿಕ ಕೀಟನಾಶಕಗಳನ್ನು ಬಳಸಬಹುದು?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S08,Bio-Pesticides and Bio-Fertilizers,TA,What bio-pesticides can I use for bollworm control in cotton in Maharashtra?,மகாராஷ்டிராவில் பருத்தியில் காய்ப்புழு கட்டுப்பாட்டுக்கு நான் எந்த உயிர் பூச்சிக்கொல்லிகளைப் பயன்படுத்தலாம்?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S08,Bio-Pesticides and Bio-Fertilizers,PA,What bio-pesticides can I use for bollworm control in cotton in Maharashtra?,ਮੈਂ ਮਹਾਰਾਸ਼ਟਰ ਵਿੱਚ ਕਪਾਹ ਵਿੱਚ ਬੋਲਵਰਮ ਦੇ ਨਿਯੰਤਰਣ ਲਈ ਕਿਹੜੇ ਜੈਵਿਕ ਕੀਟਨਾਸ਼ਕਾਂ ਦੀ ਵਰਤੋਂ ਕਰ ਸਕਦਾ ਹਾਂ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S08,Bio-Pesticides and Bio-Fertilizers,TE,What bio-pesticides can I use for bollworm control in cotton in Maharashtra?,మహారాష్ట్రలో పత్తిలో కాయతొలుచు పురుగు నివారణకు నేను ఏ జీవ-పురుగుమందులను ఉపయోగించగలను?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S09,Plant Protection,HI,How do I control fall armyworm in maize in Karnataka?,मैं कर्नाटक में मक्का में फॉल आर्मीवर्म को कैसे नियंत्रित करूं?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S09,Plant Protection,KN,How do I control fall armyworm in maize in Karnataka?,ಕರ್ನಾಟಕದಲ್ಲಿ ಮೆಕ್ಕೆಜೋಳದಲ್ಲಿ ಫಾಲ್ ಆರ್ಮಿವರ್ಮ್ ಅನ್ನು ನಾನು ಹೇಗೆ ನಿಯಂತ್ರಿಸಬೇಕು?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S09,Plant Protection,TA,How do I control fall armyworm in maize in Karnataka?,கர்நாடகாவில் மக்காச்சோளத்தில் ஃபால் ஆர்மிவர்ம் எனப்படும் படைப்புழுவை நான் எவ்வாறு கட்டுப்படுத்துவது?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S09,Plant Protection,PA,How do I control fall armyworm in maize in Karnataka?,ਮੈਂ ਕਰਨਾਟਕ ਵਿੱਚ ਮੱਕੀ ਵਿੱਚ ਫਾਲ ਆਰਮੀਵਰਮ ਨੂੰ ਕਿਵੇਂ ਕੰਟਰੋਲ ਕਰਾਂ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S09,Plant Protection,TE,How do I control fall armyworm in maize in Karnataka?,కర్ణాటకలో మొక్కజొన్నలో ఫాల్ ఆర్మీవార్మ్ (కత్తెర పురుగు)ను నేను ఎలా నియంత్రించాలి?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S10,Plant Protection,HI,My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?,[HI] My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S10,Plant Protection,KN,My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?,[KN] My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S10,Plant Protection,TA,My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?,[TA] My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S10,Plant Protection,PA,My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?,[PA] My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S10,Plant Protection,TE,My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?,[TE] My paddy leaves have brown spots — looks like blast disease. What should I do in Tamil Nadu?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S11,Plant Protection,HI,Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?,[HI] Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S11,Plant Protection,KN,Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?,[KN] Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S11,Plant Protection,TA,Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?,[TA] Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S11,Plant Protection,PA,Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?,[PA] Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S11,Plant Protection,TE,Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?,[TE] Whitefly is attacking my chilli crop in Guntur. What pesticide should I use?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S12,Plant Protection,HI,How do I treat thrips on dragon fruit in Rajasthan?,[HI] How do I treat thrips on dragon fruit in Rajasthan?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S12,Plant Protection,KN,How do I treat thrips on dragon fruit in Rajasthan?,[KN] How do I treat thrips on dragon fruit in Rajasthan?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S12,Plant Protection,TA,How do I treat thrips on dragon fruit in Rajasthan?,[TA] How do I treat thrips on dragon fruit in Rajasthan?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S12,Plant Protection,PA,How do I treat thrips on dragon fruit in Rajasthan?,[PA] How do I treat thrips on dragon fruit in Rajasthan?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S12,Plant Protection,TE,How do I treat thrips on dragon fruit in Rajasthan?,[TE] How do I treat thrips on dragon fruit in Rajasthan?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S13,Government Schemes,HI,What is the PM-Kisan scheme and how do I register for it in Punjab?,[HI] What is the PM-Kisan scheme and how do I register for it in Punjab?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S13,Government Schemes,KN,What is the PM-Kisan scheme and how do I register for it in Punjab?,[KN] What is the PM-Kisan scheme and how do I register for it in Punjab?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S13,Government Schemes,TA,What is the PM-Kisan scheme and how do I register for it in Punjab?,[TA] What is the PM-Kisan scheme and how do I register for it in Punjab?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S13,Government Schemes,PA,What is the PM-Kisan scheme and how do I register for it in Punjab?,[PA] What is the PM-Kisan scheme and how do I register for it in Punjab?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S13,Government Schemes,TE,What is the PM-Kisan scheme and how do I register for it in Punjab?,[TE] What is the PM-Kisan scheme and how do I register for it in Punjab?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S14,Government Schemes,HI,How can I get a government subsidy for drip irrigation in Rajasthan?,तेलंगाना में ड्रिप सिंचाई प्रणाली स्थापित करने के लिए क्या सब्सिडी उपलब्ध है?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S14,Government Schemes,KN,How can I get a government subsidy for drip irrigation in Rajasthan?,ತೆಲಂಗಾಣದಲ್ಲಿ ಹನಿ ನೀರಾವರಿ ವ್ಯವಸ್ಥೆಯನ್ನು ಅಳವಡಿಸಲು ಯಾವ ಸಬ್ಸಿಡಿ ಲಭ್ಯವಿದೆ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S14,Government Schemes,TA,How can I get a government subsidy for drip irrigation in Rajasthan?,தெலுங்கானாவில் சொட்டு நீர் பாசன அமைப்பை நிறுவ என்ன மானியம் கிடைக்கிறது?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S14,Government Schemes,PA,How can I get a government subsidy for drip irrigation in Rajasthan?,ਤੇਲੰਗਾਨਾ ਵਿੱਚ ਤੁਪਕਾ ਸਿੰਚਾਈ ਪ੍ਰਣਾਲੀ ਸਥਾਪਤ ਕਰਨ ਲਈ ਕਿਹੜੀ ਸਬਸਿਡੀ ਉਪਲਬਧ ਹੈ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S14,Government Schemes,TE,How can I get a government subsidy for drip irrigation in Rajasthan?,తెలంగాణలో బిందు సేద్యం వ్యవస్థను ఏర్పాటు చేయడానికి ఏ సబ్సిడీ అందుబాటులో ఉంది?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S15,Crop Insurance,HI,How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?,[HI] How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S15,Crop Insurance,KN,How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?,[KN] How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S15,Crop Insurance,TA,How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?,[TA] How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S15,Crop Insurance,PA,How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?,[PA] How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S15,Crop Insurance,TE,How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?,[TE] How do I enroll my wheat crop in crop insurance (PMFBY) in Haryana?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S16,Government Schemes,HI,How do I apply for a Kisan Credit Card (KCC) in Uttar Pradesh?,राजस्थान में किसान क्रेडिट कार्ड ऋण के लिए ब्याज दर क्या है?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S16,Government Schemes,KN,How do I apply for a Kisan Credit Card (KCC) in Uttar Pradesh?,ರಾಜಸ್ಥಾನದಲ್ಲಿ ಕಿಸಾನ್ ಕ್ರೆಡಿಟ್ ಕಾರ್ಡ್ ಸಾಲದ ಬಡ್ಡಿ ದರ ಎಷ್ಟು?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S16,Government Schemes,TA,How do I apply for a Kisan Credit Card (KCC) in Uttar Pradesh?,ராஜஸ்தானில் கிசான் கிரெடிட் கார்டு கடனுக்கான வட்டி விகிதம் என்ன?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S16,Government Schemes,PA,How do I apply for a Kisan Credit Card (KCC) in Uttar Pradesh?,ਰਾਜਸਥਾਨ ਵਿੱਚ ਕਿਸਾਨ ਕ੍ਰੈਡਿਟ ਕਾਰਡ ਕਰਜ਼ੇ ਲਈ ਵਿਆਜ ਦਰ ਕੀ ਹੈ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S16,Government Schemes,TE,How do I apply for a Kisan Credit Card (KCC) in Uttar Pradesh?,రాజస్థాన్‌లో కిసాన్ క్రెడిట్ కార్డ్ రుణం కోసం వడ్డీ రేటు ఎంత?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S17,Government Schemes,HI,What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?,[HI] What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S17,Government Schemes,KN,What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?,[KN] What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S17,Government Schemes,TA,What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?,[TA] What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S17,Government Schemes,PA,What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?,[PA] What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S17,Government Schemes,TE,What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?,[TE] What is the PM-KUSUM scheme for solar water pumps and how can I apply in Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S18,General,HI,Is there a government scheme to help me start a restaurant?,[HI] Is there a government scheme to help me start a restaurant?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S18,General,KN,Is there a government scheme to help me start a restaurant?,[KN] Is there a government scheme to help me start a restaurant?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S18,General,TA,Is there a government scheme to help me start a restaurant?,[TA] Is there a government scheme to help me start a restaurant?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S18,General,PA,Is there a government scheme to help me start a restaurant?,[PA] Is there a government scheme to help me start a restaurant?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S18,General,TE,Is there a government scheme to help me start a restaurant?,[TE] Is there a government scheme to help me start a restaurant?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S19,Nutrient Management,HI,What is the recommended NPK fertilizer dose for paddy in Punjab?,[HI] What is the recommended NPK fertilizer dose for paddy in Punjab?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S19,Nutrient Management,KN,What is the recommended NPK fertilizer dose for paddy in Punjab?,[KN] What is the recommended NPK fertilizer dose for paddy in Punjab?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S19,Nutrient Management,TA,What is the recommended NPK fertilizer dose for paddy in Punjab?,[TA] What is the recommended NPK fertilizer dose for paddy in Punjab?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S19,Nutrient Management,PA,What is the recommended NPK fertilizer dose for paddy in Punjab?,[PA] What is the recommended NPK fertilizer dose for paddy in Punjab?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S19,Nutrient Management,TE,What is the recommended NPK fertilizer dose for paddy in Punjab?,[TE] What is the recommended NPK fertilizer dose for paddy in Punjab?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S20,Nutrient Management,HI,My wheat crop shows yellowing leaves — how do I correct zinc deficiency in Haryana?,उत्तर प्रदेश में धान की फसल में जिंक की कमी के लक्षण क्या हैं?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S20,Nutrient Management,KN,My wheat crop shows yellowing leaves — how do I correct zinc deficiency in Haryana?,ಉತ್ತರ ಪ್ರದೇಶದಲ್ಲಿ ಭತ್ತದ ಬೆಳೆಯಲ್ಲಿ ಸತುವಿನ ಕೊರತೆಯ ಲಕ್ಷಣಗಳು ಯಾವುವು?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S20,Nutrient Management,TA,My wheat crop shows yellowing leaves — how do I correct zinc deficiency in Haryana?,உத்தரபிரதேசத்தில் நெற்பயிரில் துத்தநாக குறைபாட்டின் அறிகுறிகள் என்ன?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S20,Nutrient Management,PA,My wheat crop shows yellowing leaves — how do I correct zinc deficiency in Haryana?,ਉੱਤਰ ਪ੍ਰਦੇਸ਼ ਵਿੱਚ ਝੋਨੇ ਦੀ ਫਸਲ ਵਿੱਚ ਜ਼ਿੰਕ ਦੀ ਘਾਟ ਦੇ ਕੀ ਲੱਛਣ ਹਨ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S20,Nutrient Management,TE,My wheat crop shows yellowing leaves — how do I correct zinc deficiency in Haryana?,ఉత్తర ప్రదేశ్‌లో వరి పంటలో జింక్ లోపం యొక్క లక్షణాలు ఏమిటి?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S21,Nutrient Management,HI,My soil pH is 8.2 and I want to grow cotton in Maharashtra. What should I do?,मैं गुजरात में कपास के लिए अपनी मिट्टी के पीएच स्तर को कैसे सुधार सकता हूं?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S21,Nutrient Management,KN,My soil pH is 8.2 and I want to grow cotton in Maharashtra. What should I do?,ಗುಜರಾತ್‌ನಲ್ಲಿ ಹತ್ತಿಗಾಗಿ ನನ್ನ ಮಣ್ಣಿನ ಪಿಎಚ್ ಮಟ್ಟವನ್ನು ನಾನು ಹೇಗೆ ಸುಧಾರಿಸಬಹುದು?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S21,Nutrient Management,TA,My soil pH is 8.2 and I want to grow cotton in Maharashtra. What should I do?,குஜராத்தில் பருத்திக்கான எனது மண்ணின் பிஹெச் அளவை எவ்வாறு மேம்படுத்துவது?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S21,Nutrient Management,PA,My soil pH is 8.2 and I want to grow cotton in Maharashtra. What should I do?,ਮੈਂ ਗੁਜਰਾਤ ਵਿੱਚ ਕਪਾਹ ਲਈ ਆਪਣੀ ਮਿੱਟੀ ਦੇ ਪੀਐਚ ਪੱਧਰ ਨੂੰ ਕਿਵੇਂ ਸੁਧਾਰ ਸਕਦਾ ਹਾਂ?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S21,Nutrient Management,TE,My soil pH is 8.2 and I want to grow cotton in Maharashtra. What should I do?,గుజరాత్‌లో పత్తి కోసం నేను నా నేల యొక్క పిహెచ్ స్థాయిని ఎలా మెరుగుపరచగలను?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S22,Soil Health Card,HI,How do I apply for a soil health card in Karnataka?,[HI] How do I apply for a soil health card in Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S22,Soil Health Card,KN,How do I apply for a soil health card in Karnataka?,[KN] How do I apply for a soil health card in Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S22,Soil Health Card,TA,How do I apply for a soil health card in Karnataka?,[TA] How do I apply for a soil health card in Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S22,Soil Health Card,PA,How do I apply for a soil health card in Karnataka?,[PA] How do I apply for a soil health card in Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S22,Soil Health Card,TE,How do I apply for a soil health card in Karnataka?,[TE] How do I apply for a soil health card in Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S23,Nutrient Management,HI,"My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?","[HI] My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S23,Nutrient Management,KN,"My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?","[KN] My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S23,Nutrient Management,TA,"My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?","[TA] My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S23,Nutrient Management,PA,"My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?","[PA] My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S23,Nutrient Management,TE,"My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?","[TE] My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S24,Nutrient Management,HI,How can I improve soil organic matter for sugarcane in Tamil Nadu?,[HI] How can I improve soil organic matter for sugarcane in Tamil Nadu?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S24,Nutrient Management,KN,How can I improve soil organic matter for sugarcane in Tamil Nadu?,[KN] How can I improve soil organic matter for sugarcane in Tamil Nadu?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S24,Nutrient Management,TA,How can I improve soil organic matter for sugarcane in Tamil Nadu?,[TA] How can I improve soil organic matter for sugarcane in Tamil Nadu?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S24,Nutrient Management,PA,How can I improve soil organic matter for sugarcane in Tamil Nadu?,[PA] How can I improve soil organic matter for sugarcane in Tamil Nadu?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S24,Nutrient Management,TE,How can I improve soil organic matter for sugarcane in Tamil Nadu?,[TE] How can I improve soil organic matter for sugarcane in Tamil Nadu?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S25,Market Prices,HI,"What is the price of wheat in Sirsa mandi, Haryana today?","[HI] What is the price of wheat in Sirsa mandi, Haryana today?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S25,Market Prices,KN,"What is the price of wheat in Sirsa mandi, Haryana today?","[KN] What is the price of wheat in Sirsa mandi, Haryana today?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S25,Market Prices,TA,"What is the price of wheat in Sirsa mandi, Haryana today?","[TA] What is the price of wheat in Sirsa mandi, Haryana today?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S25,Market Prices,PA,"What is the price of wheat in Sirsa mandi, Haryana today?","[PA] What is the price of wheat in Sirsa mandi, Haryana today?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S25,Market Prices,TE,"What is the price of wheat in Sirsa mandi, Haryana today?","[TE] What is the price of wheat in Sirsa mandi, Haryana today?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S26,Market Prices,HI,"What is the current price of paddy in Karnal mandi, Haryana?","[HI] What is the current price of paddy in Karnal mandi, Haryana?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S26,Market Prices,KN,"What is the current price of paddy in Karnal mandi, Haryana?","[KN] What is the current price of paddy in Karnal mandi, Haryana?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S26,Market Prices,TA,"What is the current price of paddy in Karnal mandi, Haryana?","[TA] What is the current price of paddy in Karnal mandi, Haryana?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S26,Market Prices,PA,"What is the current price of paddy in Karnal mandi, Haryana?","[PA] What is the current price of paddy in Karnal mandi, Haryana?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S26,Market Prices,TE,"What is the current price of paddy in Karnal mandi, Haryana?","[TE] What is the current price of paddy in Karnal mandi, Haryana?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S27,Market Prices,HI,What is today's cotton price in Akola mandi in Maharashtra?,[HI] What is today's cotton price in Akola mandi in Maharashtra?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S27,Market Prices,KN,What is today's cotton price in Akola mandi in Maharashtra?,[KN] What is today's cotton price in Akola mandi in Maharashtra?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S27,Market Prices,TA,What is today's cotton price in Akola mandi in Maharashtra?,[TA] What is today's cotton price in Akola mandi in Maharashtra?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S27,Market Prices,PA,What is today's cotton price in Akola mandi in Maharashtra?,[PA] What is today's cotton price in Akola mandi in Maharashtra?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S27,Market Prices,TE,What is today's cotton price in Akola mandi in Maharashtra?,[TE] What is today's cotton price in Akola mandi in Maharashtra?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S28,Market Prices,HI,What is the wholesale price of tomato in Kolar mandi Karnataka?,[HI] What is the wholesale price of tomato in Kolar mandi Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S28,Market Prices,KN,What is the wholesale price of tomato in Kolar mandi Karnataka?,[KN] What is the wholesale price of tomato in Kolar mandi Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S28,Market Prices,TA,What is the wholesale price of tomato in Kolar mandi Karnataka?,[TA] What is the wholesale price of tomato in Kolar mandi Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S28,Market Prices,PA,What is the wholesale price of tomato in Kolar mandi Karnataka?,[PA] What is the wholesale price of tomato in Kolar mandi Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S28,Market Prices,TE,What is the wholesale price of tomato in Kolar mandi Karnataka?,[TE] What is the wholesale price of tomato in Kolar mandi Karnataka?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S29,Market Prices,HI,"What is the price of banana in Erode market, Tamil Nadu?","[HI] What is the price of banana in Erode market, Tamil Nadu?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S29,Market Prices,KN,"What is the price of banana in Erode market, Tamil Nadu?","[KN] What is the price of banana in Erode market, Tamil Nadu?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S29,Market Prices,TA,"What is the price of banana in Erode market, Tamil Nadu?","[TA] What is the price of banana in Erode market, Tamil Nadu?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S29,Market Prices,PA,"What is the price of banana in Erode market, Tamil Nadu?","[PA] What is the price of banana in Erode market, Tamil Nadu?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S29,Market Prices,TE,"What is the price of banana in Erode market, Tamil Nadu?","[TE] What is the price of banana in Erode market, Tamil Nadu?",draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S30,Market Prices,HI,What is the price of saffron in Chandni Chowk market Delhi?,[HI] What is the price of saffron in Chandni Chowk market Delhi?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S30,Market Prices,KN,What is the price of saffron in Chandni Chowk market Delhi?,[KN] What is the price of saffron in Chandni Chowk market Delhi?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S30,Market Prices,TA,What is the price of saffron in Chandni Chowk market Delhi?,[TA] What is the price of saffron in Chandni Chowk market Delhi?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S30,Market Prices,PA,What is the price of saffron in Chandni Chowk market Delhi?,[PA] What is the price of saffron in Chandni Chowk market Delhi?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
-S30,Market Prices,TE,What is the price of saffron in Chandni Chowk market Delhi?,[TE] What is the price of saffron in Chandni Chowk market Delhi?,draft_pending_agri_validation,,,Machine-assisted translation populated. Pending agri-team review.
+scenario_id|domain_group|language_code|language_name|query_en|query_native|review_status|reviewed_by|review_date|notes
+S01|soil|HI|Hindi|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|KN|Kannada|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|TA|Tamil|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|PA|Punjabi|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|TE|Telugu|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|AS|Assamese|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|BN|Bengali|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|BRX|Bodo|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|DOI|Dogri|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|GU|Gujarati|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|KS|Kashmiri|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|KOK|Konkani|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|MAI|Maithili|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|ML|Malayalam|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|MNI|Manipuri (Meitei)|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|MR|Marathi|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|NE|Nepali|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|OR|Odia|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|SA|Sanskrit|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|SAT|Santali|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|SD|Sindhi|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S01|soil|UR|Urdu|How do I grow paddy in Punjab? What are the main cultivation steps?||draft_pending_agri_validation|||
+S02|pest|HI|Hindi|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|KN|Kannada|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|TA|Tamil|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|PA|Punjabi|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|TE|Telugu|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|AS|Assamese|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|BN|Bengali|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|BRX|Bodo|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|DOI|Dogri|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|GU|Gujarati|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|KS|Kashmiri|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|KOK|Konkani|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|MAI|Maithili|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|ML|Malayalam|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|MNI|Manipuri (Meitei)|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|MR|Marathi|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|NE|Nepali|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|OR|Odia|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|SA|Sanskrit|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|SAT|Santali|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|SD|Sindhi|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S02|pest|UR|Urdu|How do I treat yellow rust disease in wheat in Haryana?||draft_pending_agri_validation|||
+S03|soil|HI|Hindi|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|KN|Kannada|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|TA|Tamil|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|PA|Punjabi|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|TE|Telugu|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|AS|Assamese|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|BN|Bengali|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|BRX|Bodo|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|DOI|Dogri|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|GU|Gujarati|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|KS|Kashmiri|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|KOK|Konkani|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|MAI|Maithili|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|ML|Malayalam|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|MNI|Manipuri (Meitei)|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|MR|Marathi|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|NE|Nepali|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|OR|Odia|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|SA|Sanskrit|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|SAT|Santali|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|SD|Sindhi|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S03|soil|UR|Urdu|What is the recommended fertilizer dose for rice in Andhra Pradesh?||draft_pending_agri_validation|||
+S04|market|HI|Hindi|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|KN|Kannada|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|TA|Tamil|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|PA|Punjabi|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|TE|Telugu|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|AS|Assamese|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|BN|Bengali|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|BRX|Bodo|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|DOI|Dogri|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|GU|Gujarati|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|KS|Kashmiri|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|KOK|Konkani|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|MAI|Maithili|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|ML|Malayalam|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|MNI|Manipuri (Meitei)|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|MR|Marathi|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|NE|Nepali|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|OR|Odia|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|SA|Sanskrit|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|SAT|Santali|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|SD|Sindhi|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S04|market|UR|Urdu|Which cotton varieties are best suited for Maharashtra?||draft_pending_agri_validation|||
+S05|soil|HI|Hindi|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|KN|Kannada|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|TA|Tamil|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|PA|Punjabi|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|TE|Telugu|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|AS|Assamese|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|BN|Bengali|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|BRX|Bodo|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|DOI|Dogri|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|GU|Gujarati|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|KS|Kashmiri|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|KOK|Konkani|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|MAI|Maithili|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|ML|Malayalam|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|MNI|Manipuri (Meitei)|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|MR|Marathi|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|NE|Nepali|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|OR|Odia|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|SA|Sanskrit|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|SAT|Santali|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|SD|Sindhi|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S05|soil|UR|Urdu|What is the irrigation schedule for sugarcane in Tamil Nadu?||draft_pending_agri_validation|||
+S06|pest|HI|Hindi|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|KN|Kannada|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|TA|Tamil|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|PA|Punjabi|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|TE|Telugu|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|AS|Assamese|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|BN|Bengali|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|BRX|Bodo|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|DOI|Dogri|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|GU|Gujarati|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|KS|Kashmiri|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|KOK|Konkani|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|MAI|Maithili|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|ML|Malayalam|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|MNI|Manipuri (Meitei)|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|MR|Marathi|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|NE|Nepali|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|OR|Odia|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|SA|Sanskrit|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|SAT|Santali|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|SD|Sindhi|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S06|pest|UR|Urdu|How to grow tomatoes using organic methods in Karnataka?||draft_pending_agri_validation|||
+S07|market|HI|Hindi|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|KN|Kannada|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|TA|Tamil|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|PA|Punjabi|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|TE|Telugu|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|AS|Assamese|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|BN|Bengali|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|BRX|Bodo|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|DOI|Dogri|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|GU|Gujarati|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|KS|Kashmiri|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|KOK|Konkani|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|MAI|Maithili|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|ML|Malayalam|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|MNI|Manipuri (Meitei)|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|MR|Marathi|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|NE|Nepali|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|OR|Odia|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|SA|Sanskrit|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|SAT|Santali|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|SD|Sindhi|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S07|market|UR|Urdu|What is the seed treatment procedure for mustard in Rajasthan?||draft_pending_agri_validation|||
+S08|market|HI|Hindi|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|KN|Kannada|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|TA|Tamil|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|PA|Punjabi|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|TE|Telugu|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|AS|Assamese|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|BN|Bengali|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|BRX|Bodo|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|DOI|Dogri|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|GU|Gujarati|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|KS|Kashmiri|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|KOK|Konkani|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|MAI|Maithili|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|ML|Malayalam|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|MNI|Manipuri (Meitei)|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|MR|Marathi|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|NE|Nepali|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|OR|Odia|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|SA|Sanskrit|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|SAT|Santali|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|SD|Sindhi|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S08|market|UR|Urdu|How do I store mangoes after harvest to keep them fresh longer?||draft_pending_agri_validation|||
+S09|soil|HI|Hindi|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|KN|Kannada|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|TA|Tamil|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|PA|Punjabi|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|TE|Telugu|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|AS|Assamese|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|BN|Bengali|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|BRX|Bodo|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|DOI|Dogri|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|GU|Gujarati|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|KS|Kashmiri|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|KOK|Konkani|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|MAI|Maithili|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|ML|Malayalam|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|MNI|Manipuri (Meitei)|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|MR|Marathi|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|NE|Nepali|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|OR|Odia|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|SA|Sanskrit|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|SAT|Santali|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|SD|Sindhi|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S09|soil|UR|Urdu|How should I prepare the field before planting banana in Tamil Nadu?||draft_pending_agri_validation|||
+S10|pest|HI|Hindi|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|KN|Kannada|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|TA|Tamil|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|PA|Punjabi|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|TE|Telugu|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|AS|Assamese|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|BN|Bengali|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|BRX|Bodo|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|DOI|Dogri|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|GU|Gujarati|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|KS|Kashmiri|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|KOK|Konkani|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|MAI|Maithili|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|ML|Malayalam|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|MNI|Manipuri (Meitei)|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|MR|Marathi|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|NE|Nepali|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|OR|Odia|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|SA|Sanskrit|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|SAT|Santali|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|SD|Sindhi|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S10|pest|UR|Urdu|What are the best methods for weed control in maize in Madhya Pradesh?||draft_pending_agri_validation|||
+S11|market|HI|Hindi|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|KN|Kannada|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|TA|Tamil|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|PA|Punjabi|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|TE|Telugu|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|AS|Assamese|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|BN|Bengali|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|BRX|Bodo|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|DOI|Dogri|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|GU|Gujarati|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|KS|Kashmiri|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|KOK|Konkani|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|MAI|Maithili|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|ML|Malayalam|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|MNI|Manipuri (Meitei)|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|MR|Marathi|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|NE|Nepali|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|OR|Odia|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|SA|Sanskrit|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|SAT|Santali|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|SD|Sindhi|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S11|market|UR|Urdu|What is the price of wheat in Sirsa mandi, Haryana today?||draft_pending_agri_validation|||
+S12|market|HI|Hindi|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|KN|Kannada|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|TA|Tamil|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|PA|Punjabi|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|TE|Telugu|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|AS|Assamese|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|BN|Bengali|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|BRX|Bodo|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|DOI|Dogri|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|GU|Gujarati|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|KS|Kashmiri|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|KOK|Konkani|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|MAI|Maithili|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|ML|Malayalam|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|MNI|Manipuri (Meitei)|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|MR|Marathi|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|NE|Nepali|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|OR|Odia|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|SA|Sanskrit|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|SAT|Santali|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|SD|Sindhi|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S12|market|UR|Urdu|What is the current price of paddy in Karnal mandi, Haryana?||draft_pending_agri_validation|||
+S13|schemes|HI|Hindi|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|KN|Kannada|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|TA|Tamil|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|PA|Punjabi|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|TE|Telugu|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|AS|Assamese|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|BN|Bengali|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|BRX|Bodo|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|DOI|Dogri|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|GU|Gujarati|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|KS|Kashmiri|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|KOK|Konkani|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|MAI|Maithili|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|ML|Malayalam|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|MNI|Manipuri (Meitei)|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|MR|Marathi|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|NE|Nepali|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|OR|Odia|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|SA|Sanskrit|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|SAT|Santali|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|SD|Sindhi|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S13|schemes|UR|Urdu|How can I get a government subsidy for drip irrigation in Rajasthan?||draft_pending_agri_validation|||
+S14|schemes|HI|Hindi|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|KN|Kannada|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|TA|Tamil|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|PA|Punjabi|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|TE|Telugu|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|AS|Assamese|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|BN|Bengali|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|BRX|Bodo|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|DOI|Dogri|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|GU|Gujarati|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|KS|Kashmiri|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|KOK|Konkani|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|MAI|Maithili|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|ML|Malayalam|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|MNI|Manipuri (Meitei)|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|MR|Marathi|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|NE|Nepali|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|OR|Odia|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|SA|Sanskrit|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|SAT|Santali|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|SD|Sindhi|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S14|schemes|UR|Urdu|What is the PM-Kisan scheme and how do I register for it in Punjab?||draft_pending_agri_validation|||
+S15|soil|HI|Hindi|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|KN|Kannada|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|TA|Tamil|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|PA|Punjabi|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|TE|Telugu|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|AS|Assamese|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|BN|Bengali|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|BRX|Bodo|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|DOI|Dogri|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|GU|Gujarati|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|KS|Kashmiri|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|KOK|Konkani|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|MAI|Maithili|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|ML|Malayalam|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|MNI|Manipuri (Meitei)|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|MR|Marathi|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|NE|Nepali|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|OR|Odia|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|SA|Sanskrit|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|SAT|Santali|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|SD|Sindhi|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S15|soil|UR|Urdu|My soil test shows N=120, P=40, K=30. What fertilizer dose is recommended for paddy in Punjab?||draft_pending_agri_validation|||
+S16|weather|HI|Hindi|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|KN|Kannada|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|TA|Tamil|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|PA|Punjabi|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|TE|Telugu|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|AS|Assamese|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|BN|Bengali|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|BRX|Bodo|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|DOI|Dogri|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|GU|Gujarati|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|KS|Kashmiri|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|KOK|Konkani|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|MAI|Maithili|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|ML|Malayalam|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|MNI|Manipuri (Meitei)|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|MR|Marathi|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|NE|Nepali|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|OR|Odia|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|SA|Sanskrit|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|SAT|Santali|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|SD|Sindhi|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S16|weather|UR|Urdu|What is the weather today in Ropar district of Punjab?||draft_pending_agri_validation|||
+S17|weather|HI|Hindi|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|KN|Kannada|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|TA|Tamil|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|PA|Punjabi|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|TE|Telugu|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|AS|Assamese|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|BN|Bengali|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|BRX|Bodo|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|DOI|Dogri|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|GU|Gujarati|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|KS|Kashmiri|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|KOK|Konkani|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|MAI|Maithili|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|ML|Malayalam|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|MNI|Manipuri (Meitei)|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|MR|Marathi|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|NE|Nepali|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|OR|Odia|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|SA|Sanskrit|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|SAT|Santali|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|SD|Sindhi|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S17|weather|UR|Urdu|What is the weather forecast for Ludhiana, Punjab for the next few days?||draft_pending_agri_validation|||
+S18|schemes|HI|Hindi|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|KN|Kannada|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|TA|Tamil|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|PA|Punjabi|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|TE|Telugu|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|AS|Assamese|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|BN|Bengali|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|BRX|Bodo|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|DOI|Dogri|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|GU|Gujarati|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|KS|Kashmiri|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|KOK|Konkani|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|MAI|Maithili|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|ML|Malayalam|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|MNI|Manipuri (Meitei)|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|MR|Marathi|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|NE|Nepali|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|OR|Odia|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|SA|Sanskrit|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|SAT|Santali|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|SD|Sindhi|How can I make money quickly?||draft_pending_agri_validation|||
+S18|schemes|UR|Urdu|How can I make money quickly?||draft_pending_agri_validation|||
+S19|schemes|HI|Hindi|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|KN|Kannada|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|TA|Tamil|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|PA|Punjabi|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|TE|Telugu|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|AS|Assamese|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|BN|Bengali|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|BRX|Bodo|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|DOI|Dogri|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|GU|Gujarati|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|KS|Kashmiri|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|KOK|Konkani|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|MAI|Maithili|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|ML|Malayalam|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|MNI|Manipuri (Meitei)|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|MR|Marathi|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|NE|Nepali|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|OR|Odia|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|SA|Sanskrit|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|SAT|Santali|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|SD|Sindhi|Hello, who are you?||draft_pending_agri_validation|||
+S19|schemes|UR|Urdu|Hello, who are you?||draft_pending_agri_validation|||
+S20|schemes|HI|Hindi|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|KN|Kannada|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|TA|Tamil|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|PA|Punjabi|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|TE|Telugu|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|AS|Assamese|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|BN|Bengali|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|BRX|Bodo|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|DOI|Dogri|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|GU|Gujarati|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|KS|Kashmiri|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|KOK|Konkani|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|MAI|Maithili|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|ML|Malayalam|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|MNI|Manipuri (Meitei)|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|MR|Marathi|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|NE|Nepali|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|OR|Odia|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|SA|Sanskrit|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|SAT|Santali|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|SD|Sindhi|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S20|schemes|UR|Urdu|How do I enroll my wheat crop in crop insurance in Haryana?||draft_pending_agri_validation|||
+S21|pest|HI|Hindi|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|KN|Kannada|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|TA|Tamil|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|PA|Punjabi|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|TE|Telugu|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|AS|Assamese|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|BN|Bengali|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|BRX|Bodo|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|DOI|Dogri|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|GU|Gujarati|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|KS|Kashmiri|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|KOK|Konkani|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|MAI|Maithili|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|ML|Malayalam|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|MNI|Manipuri (Meitei)|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|MR|Marathi|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|NE|Nepali|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|OR|Odia|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|SA|Sanskrit|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|SAT|Santali|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|SD|Sindhi|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S21|pest|UR|Urdu|What bio-pesticides can I use for bollworm control in cotton in Maharashtra?||draft_pending_agri_validation|||
+S22|market|HI|Hindi|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|KN|Kannada|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|TA|Tamil|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|PA|Punjabi|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|TE|Telugu|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|AS|Assamese|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|BN|Bengali|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|BRX|Bodo|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|DOI|Dogri|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|GU|Gujarati|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|KS|Kashmiri|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|KOK|Konkani|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|MAI|Maithili|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|ML|Malayalam|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|MNI|Manipuri (Meitei)|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|MR|Marathi|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|NE|Nepali|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|OR|Odia|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|SA|Sanskrit|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|SAT|Santali|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|SD|Sindhi|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S22|market|UR|Urdu|Which tractor is best for small farms in Uttar Pradesh?||draft_pending_agri_validation|||
+S23|weather|HI|Hindi|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|KN|Kannada|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|TA|Tamil|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|PA|Punjabi|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|TE|Telugu|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|AS|Assamese|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|BN|Bengali|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|BRX|Bodo|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|DOI|Dogri|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|GU|Gujarati|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|KS|Kashmiri|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|KOK|Konkani|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|MAI|Maithili|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|ML|Malayalam|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|MNI|Manipuri (Meitei)|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|MR|Marathi|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|NE|Nepali|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|OR|Odia|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|SA|Sanskrit|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|SAT|Santali|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|SD|Sindhi|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S23|weather|UR|Urdu|What are the recommended practices for apple cultivation in Himachal Pradesh?||draft_pending_agri_validation|||
+S24|weather|HI|Hindi|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|KN|Kannada|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|TA|Tamil|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|PA|Punjabi|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|TE|Telugu|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|AS|Assamese|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|BN|Bengali|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|BRX|Bodo|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|DOI|Dogri|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|GU|Gujarati|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|KS|Kashmiri|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|KOK|Konkani|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|MAI|Maithili|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|ML|Malayalam|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|MNI|Manipuri (Meitei)|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|MR|Marathi|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|NE|Nepali|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|OR|Odia|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|SA|Sanskrit|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|SAT|Santali|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|SD|Sindhi|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S24|weather|UR|Urdu|What is the best sowing time for wheat in Punjab?||draft_pending_agri_validation|||
+S25|pest|HI|Hindi|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|KN|Kannada|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|TA|Tamil|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|PA|Punjabi|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|TE|Telugu|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|AS|Assamese|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|BN|Bengali|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|BRX|Bodo|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|DOI|Dogri|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|GU|Gujarati|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|KS|Kashmiri|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|KOK|Konkani|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|MAI|Maithili|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|ML|Malayalam|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|MNI|Manipuri (Meitei)|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|MR|Marathi|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|NE|Nepali|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|OR|Odia|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|SA|Sanskrit|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|SAT|Santali|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|SD|Sindhi|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S25|pest|UR|Urdu|How should I apply urea fertilizer to paddy crop in West Bengal?||draft_pending_agri_validation|||
+S26|weather|HI|Hindi|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|KN|Kannada|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|TA|Tamil|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|PA|Punjabi|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|TE|Telugu|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|AS|Assamese|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|BN|Bengali|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|BRX|Bodo|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|DOI|Dogri|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|GU|Gujarati|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|KS|Kashmiri|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|KOK|Konkani|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|MAI|Maithili|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|ML|Malayalam|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|MNI|Manipuri (Meitei)|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|MR|Marathi|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|NE|Nepali|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|OR|Odia|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|SA|Sanskrit|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|SAT|Santali|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|SD|Sindhi|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S26|weather|UR|Urdu|How do I properly store wheat grains to prevent pest damage?||draft_pending_agri_validation|||
+S27|soil|HI|Hindi|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|KN|Kannada|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|TA|Tamil|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|PA|Punjabi|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|TE|Telugu|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|AS|Assamese|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|BN|Bengali|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|BRX|Bodo|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|DOI|Dogri|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|GU|Gujarati|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|KS|Kashmiri|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|KOK|Konkani|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|MAI|Maithili|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|ML|Malayalam|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|MNI|Manipuri (Meitei)|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|MR|Marathi|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|NE|Nepali|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|OR|Odia|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|SA|Sanskrit|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|SAT|Santali|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|SD|Sindhi|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S27|soil|UR|Urdu|How do I apply for a soil health card in Karnataka?||draft_pending_agri_validation|||
+S28|schemes|HI|Hindi|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|KN|Kannada|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|TA|Tamil|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|PA|Punjabi|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|TE|Telugu|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|AS|Assamese|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|BN|Bengali|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|BRX|Bodo|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|DOI|Dogri|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|GU|Gujarati|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|KS|Kashmiri|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|KOK|Konkani|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|MAI|Maithili|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|ML|Malayalam|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|MNI|Manipuri (Meitei)|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|MR|Marathi|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|NE|Nepali|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|OR|Odia|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|SA|Sanskrit|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|SAT|Santali|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|SD|Sindhi|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S28|schemes|UR|Urdu|What is the recommended feeding schedule for goats in Rajasthan?||draft_pending_agri_validation|||
+S29|weather|HI|Hindi|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|KN|Kannada|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|TA|Tamil|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|PA|Punjabi|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|TE|Telugu|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|AS|Assamese|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|BN|Bengali|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|BRX|Bodo|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|DOI|Dogri|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|GU|Gujarati|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|KS|Kashmiri|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|KOK|Konkani|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|MAI|Maithili|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|ML|Malayalam|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|MNI|Manipuri (Meitei)|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|MR|Marathi|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|NE|Nepali|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|OR|Odia|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|SA|Sanskrit|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|SAT|Santali|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|SD|Sindhi|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S29|weather|UR|Urdu|How do I manage a fish pond for rohu and catla in Andhra Pradesh?||draft_pending_agri_validation|||
+S30|pest|HI|Hindi|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|KN|Kannada|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|TA|Tamil|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|PA|Punjabi|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|TE|Telugu|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|AS|Assamese|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|BN|Bengali|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|BRX|Bodo|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|DOI|Dogri|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|GU|Gujarati|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|KS|Kashmiri|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|KOK|Konkani|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|MAI|Maithili|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|ML|Malayalam|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|MNI|Manipuri (Meitei)|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|MR|Marathi|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|NE|Nepali|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|OR|Odia|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|SA|Sanskrit|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|SAT|Santali|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|SD|Sindhi|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||
+S30|pest|UR|Urdu|What is the weather forecast for Ludhiana and what should I do for yellow rust in wheat?||draft_pending_agri_validation|||

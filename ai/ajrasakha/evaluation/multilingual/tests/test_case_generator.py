@@ -1,7 +1,7 @@
 """Unit tests for the case generator.
 
 Tests:
-  1. Total case count = 30 × 6 = 180
+  1. Total case count = 30 × 23 = 690 (30 scenarios × 23 target languages)
   2. All case IDs are unique
   3. All case IDs follow the ML-SXX-YY format
   4. Filtering by language_codes works
@@ -23,7 +23,7 @@ from ajrasakha.evaluation.multilingual.scenarios import SCENARIOS
 from ajrasakha.evaluation.multilingual.languages import LANGUAGES, LANGUAGE_CODES
 
 
-EXPECTED_TOTAL = 30 * 6  # 180
+EXPECTED_TOTAL = len(SCENARIOS) * len(LANGUAGES)  # 30 * 23 = 690
 
 
 class TestCaseCount:
@@ -46,7 +46,7 @@ class TestCaseCount:
 class TestCaseIdFormat:
     def test_case_id_format(self):
         cases = generate_cases()
-        pattern = re.compile(r"^ML-S\d{2}-[A-Z]{2}$")
+        pattern = re.compile(r"^ML-S\d{2}-[A-Z]{2,3}$")
         for c in cases:
             assert pattern.match(c.case_id), (
                 f"Case ID {c.case_id!r} does not match pattern ML-SXX-YY"
@@ -68,20 +68,20 @@ class TestCaseIdFormat:
 class TestFiltering:
     def test_language_filter(self):
         cases = generate_cases(language_codes=["EN", "HI"])
-        assert len(cases) == 30 * 2
+        assert len(cases) == len(SCENARIOS) * 2
         for c in cases:
             assert c.language_code in {"EN", "HI"}
 
     def test_scenario_filter(self):
         cases = generate_cases(scenario_ids=["S01", "S02"])
-        assert len(cases) == 2 * 6
+        assert len(cases) == 2 * len(LANGUAGES)
         for c in cases:
             assert c.scenario_id in {"S01", "S02"}
 
     def test_stable_only_filter(self):
         stable_scenarios = [s for s in SCENARIOS if s.stable]
         cases = generate_cases(stable_only=True)
-        assert len(cases) == len(stable_scenarios) * 6
+        assert len(cases) == len(stable_scenarios) * len(LANGUAGES)
         for c in cases:
             assert c.stable is True
 
@@ -174,4 +174,3 @@ class TestDomainNormalization:
                 f"Scenario {scenario.id} has non-canonical domain: {scenario.domain!r}"
             )
             assert scenario.domain == scenario.domain_group
-

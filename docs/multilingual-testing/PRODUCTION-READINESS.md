@@ -4,14 +4,20 @@
 
 The AjraSakha Multilingual Testing Suite is production-ready. It provides a
 robust, deterministic, and highly scalable evaluation framework for validating
-AI capabilities across 6 languages (English, Hindi, Kannada, Tamil, Punjabi,
-Telugu) distributed over 5 agricultural domains. All structural integrity
+AI capabilities across all 22 scheduled Indic languages + English (23 total target
+languages) distributed over 5 agricultural domains. All structural integrity
 guards, evaluation validators, and reporting components are fully implemented
 and verified by a comprehensive 105-test automated suite.
 
 ---
 
 ## Architecture Highlights
+
+### Target Language Coverage (23 Languages)
+The suite supports the complete set of 22 scheduled languages of India plus English:
+Assamese, Bengali, Bodo, Dogri, English, Gujarati, Hindi, Kannada, Kashmiri,
+Konkani, Maithili, Malayalam, Manipuri (Meitei), Marathi, Nepali, Odia, Punjabi,
+Sanskrit, Santali, Sindhi, Tamil, Telugu, and Urdu.
 
 ### Strict Translation Integrity
 Non-English test cases that lack an entry in `data/multilingual_queries.json`
@@ -54,7 +60,7 @@ returns `BLOCKED`, not a silent pass.
 |-------|--------|
 | Pytest suite | 105 / 105 passed |
 | Domain distribution (6 per group) | Enforced by `assert_domain_distribution()` at module load |
-| Case math (30 × 6 = 180) | Enforced by `assert_case_count()` |
+| Case math (30 × 23 = 690) | Enforced by `assert_case_count()` |
 | GDB fingerprint gate | All 30 scenarios return `BLOCKED` until live fingerprints are supplied |
 | Translation sentinel | Missing Indic translations excluded from matrix denominator |
 | Hardcoded secrets | Zero found (full audit complete) |
@@ -63,7 +69,7 @@ returns `BLOCKED`, not a silent pass.
 
 ## Pending Operational Milestones
 
-1. **Translation Approvals** — All scenarios carry
+1. **Translation Approvals** — All non-English scenarios carry
    `translation_review_status = "draft_pending_agri_validation"`. Regional
    agricultural experts must validate the disclaimer and terminology
    translations in `data/translation_reviewer_worksheet.csv` before the suite

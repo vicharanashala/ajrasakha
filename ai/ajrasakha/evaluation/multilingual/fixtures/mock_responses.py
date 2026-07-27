@@ -2,7 +2,7 @@
 
 These fixtures simulate what the live agent would return, keyed by
 (scenario_id, language_code). They are used in mock/CI mode to allow
-all 180 cases to run without credentials or a live API endpoint.
+all test cases to run without credentials or a live API endpoint.
 
 Design rules
 ------------
@@ -28,14 +28,31 @@ from __future__ import annotations
 from ajrasakha.evaluation.multilingual.case_schema import MultilingualCase
 
 # Script seed strings — minimal native-script text to satisfy pattern checks.
-# These are sample sentences in each language (translation of "This is a test").
+# Sample sentences in each language ("This is a test answer").
 _SCRIPT_SEEDS: dict[str, str] = {
-    "EN": "",  # No seed needed — English is always in the response
-    "HI": "यह एक परीक्षण उत्तर है। ",      # Devanagari seed
-    "KN": "ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. ",      # Kannada seed
-    "TA": "இது ஒரு சோதனை பதில். ",           # Tamil seed
-    "PA": "ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। ",          # Gurmukhi seed
-    "TE": "ఇది ఒక పరీక్ష సమాధానం. ",         # Telugu seed
+    "EN": "",                              # English (Latin)
+    "HI": "यह एक परीक्षण उत्तर है। ",      # Devanagari (Hindi)
+    "KN": "ಇದು ಒಂದು ಪರೀಕ್ಷಾ ಉತ್ತರ. ",      # Kannada
+    "TA": "இது ஒரு சோதனை பதில். ",           # Tamil
+    "PA": "ਇਹ ਇੱਕ ਟੈਸਟ ਜਵਾਬ ਹੈ। ",          # Gurmukhi (Punjabi)
+    "TE": "ఇది ఒక పరీక్ష సమాధానం. ",         # Telugu
+    "AS": "এইটো এটা পৰীক্ষামূলক উত্তৰ। ",      # Bengali-Assamese (Assamese)
+    "BN": "এটি একটি পরীক্ষা উত্তর। ",        # Bengali-Assamese (Bengali)
+    "BRX": "बेयो मोनसे आनजादनि फिननाय। ",    # Devanagari (Bodo)
+    "DOI": "एह इक तजरबा उत्तर ऐ। ",          # Devanagari (Dogri)
+    "GU": "આ એક પરીક્ષણ જવાબ છે. ",         # Gujarati
+    "KS": "یہِ چُھ اَکھ ٹیسਟ جَواب۔ ",          # Perso-Arabic (Kashmiri)
+    "KOK": "हे एक परिक्षा उतर आसा. ",        # Devanagari (Konkani)
+    "MAI": "ई एकटा परीक्षण उत्तर अछि। ",      # Devanagari (Maithili)
+    "ML": "ഇതൊരു പരീക്ഷണ മറുപടിയാണ്. ",      # Malayalam
+    "MNI": "অসি পরিখা পাউখুমনি। ",           # Meitei Mayek (Manipuri)
+    "MR": "हे एक चाचणी उत्तर आहे. ",         # Devanagari (Marathi)
+    "NE": "यो एउटा परीक्षण उत्तर हो। ",        # Devanagari (Nepali)
+    "OR": "ଏହା ଏକ ପରୀକ୍ଷଣ ଉତ୍ତର। ",          # Odia
+    "SA": "एतत् एकम् परीक्षणम् उत्तरम् अस्ति। ", # Devanagari (Sanskrit)
+    "SAT": "ᱱᱚᱣᱟ ᱫᱚ ᱢᱤᱫᱴᱟᱝ ᱴᱮᱥᱴ ᱞᱟᱹᱱᱟᱹᱭ ᱠᱟᱱᱟ᱾ ", # Ol Chiki (Santali)
+    "SD": "هي هڪ تجرباتي جواب آهي. ",        # Perso-Arabic (Sindhi)
+    "UR": "یہ ایک ٹیسٹ جواب ہے۔ ",          # Perso-Arabic (Urdu)
 }
 
 
