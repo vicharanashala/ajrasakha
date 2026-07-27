@@ -10,7 +10,7 @@ export interface OverlapResult {
   stagingCount: number;
   productionCount: number;
   overlappingCount: number;
-  sampleOverlappingIds?: ObjectId[];
+  overlappingIds: ObjectId[];
   message: string;
 }
 
@@ -184,6 +184,7 @@ export class CheckOverlapsService {
           stagingCount: 0,
           productionCount: 0,
           overlappingCount: 0,
+          overlappingIds: [],
           message: 'No non-migrated staging documents found.',
         };
       }
@@ -191,7 +192,14 @@ export class CheckOverlapsService {
       const stagingIds = stagingDocs.map(doc => doc._id);
       log(`   📊 Found ${stagingIds.length} non-migrated staging documents (migratedToProd: false/not set)`);
 
-      // 2. Use $in operator to efficiently find overlapping documents in production
+      // 2. Get actual production count (documents where staging is false or not set)
+      const productionCount = await prodDb
+        .collection(collectionName)
+        .countDocuments(
+          { $or: [{ staging: { $exists: false } }, { staging: false }] }
+        );
+
+      // 3. Use $in operator to efficiently find overlapping documents in production
       // This pushes the filtering to MongoDB instead of fetching all and filtering in memory
       const overlappingDocs = await prodDb
         .collection(collectionName)
@@ -206,20 +214,20 @@ export class CheckOverlapsService {
 
       const overlappingIds = overlappingDocs.map(doc => doc._id);
       log(`   📊 Found ${overlappingDocs.length} overlapping documents in production`);
+      log(`   📊 Production has ${productionCount} non-staging documents`);
 
       // 4. Report findings
       if (overlappingIds.length > 0) {
         log(`   ❌ FOUND OVERLAPS! Total overlapping _ids: ${overlappingIds.length}`);
         log(`   These documents exist in both staging and production with the same _id but are not marked as migrated.`);
-        log(`   Sample overlapping IDs:`, overlappingIds.slice(0, 5).map(id => id.toString()));
         
         return {
           collection: collectionName,
           status: 'overlap',
           stagingCount: stagingIds.length,
-          productionCount: overlappingIds.length,
+          productionCount: productionCount,
           overlappingCount: overlappingIds.length,
-          sampleOverlappingIds: overlappingIds.slice(0, 5),
+          overlappingIds: overlappingIds,
           message: `Found ${overlappingIds.length} overlapping documents out of ${stagingIds.length} non-migrated staging documents. These need to be resolved before migration.`,
         };
       } else {
@@ -230,8 +238,9 @@ export class CheckOverlapsService {
           collection: collectionName,
           status: 'clean',
           stagingCount: stagingIds.length,
-          productionCount: 0,
+          productionCount: productionCount,
           overlappingCount: 0,
+          overlappingIds: [],
           message: `No overlaps found. ${stagingIds.length} staging documents are safe for migration.`,
         };
       }
@@ -245,6 +254,7 @@ export class CheckOverlapsService {
         stagingCount: 0,
         productionCount: 0,
         overlappingCount: 0,
+        overlappingIds: [],
         message: `Error: ${errorMessage}`,
       };
     }
@@ -281,6 +291,7 @@ export class CheckOverlapsService {
           stagingCount: 0,
           productionCount: 0,
           overlappingCount: 0,
+          overlappingIds: [],
           message: 'No non-migrated documents found.',
         };
       }
@@ -295,13 +306,25 @@ export class CheckOverlapsService {
         const duplicates = idStrings.length - uniqueIds.size;
         log(`   ❌ FOUND ${duplicates} DUPLICATE _ids within the same collection!`);
         
+        // Find the duplicate IDs
+        const seen = new Set<string>();
+        const duplicateIds: ObjectId[] = [];
+        for (const doc of nonMigratedDocs) {
+          const idStr = doc._id.toString();
+          if (seen.has(idStr)) {
+            duplicateIds.push(doc._id);
+          } else {
+            seen.add(idStr);
+          }
+        }
+        
         return {
           collection: collectionName,
           status: 'overlap',
           stagingCount: nonMigratedDocs.length,
           productionCount: nonMigratedDocs.length,
           overlappingCount: duplicates,
-          sampleOverlappingIds: nonMigratedDocs.slice(0, 5).map(d => d._id),
+          overlappingIds: duplicateIds,
           message: `Found ${duplicates} duplicate _ids within the collection.`,
         };
       }
@@ -314,6 +337,7 @@ export class CheckOverlapsService {
         stagingCount: nonMigratedDocs.length,
         productionCount: nonMigratedDocs.length,
         overlappingCount: 0,
+        overlappingIds: [],
         message: `No overlaps found. ${nonMigratedDocs.length} documents are safe.`,
       };
     } catch (error) {
@@ -326,6 +350,7 @@ export class CheckOverlapsService {
         stagingCount: 0,
         productionCount: 0,
         overlappingCount: 0,
+        overlappingIds: [],
         message: `Error: ${errorMessage}`,
       };
     }
