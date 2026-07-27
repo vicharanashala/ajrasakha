@@ -2770,4 +2770,16 @@ export class QuestionController {
     const result = await this.checkOverlapsService.checkOverlaps();
     return result;
   }
+
+  // ─── Run migration endpoint (internal API key auth) ──────────────────────
+
+  @Post('/run-migration')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Run migration from staging to production database' })
+  async runMigration() {
+    console.log('[QuestionController] runMigration: Starting migration...');
+    const result = await this.checkOverlapsService.runMigration();
+    return result;
+  }
 }

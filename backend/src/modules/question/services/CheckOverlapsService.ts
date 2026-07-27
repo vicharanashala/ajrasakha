@@ -25,6 +25,19 @@ export interface CheckOverlapsResponse {
   };
 }
 
+export interface MigrationResponse {
+  success: boolean;
+  timestamp: string;
+  logs: string[];
+  summary: {
+    usersProcessed: number;
+    questionsMigrated: number;
+    answersMigrated: number;
+    reviewsMigrated: number;
+    submissionsMigrated: number;
+  };
+}
+
 @injectable()
 export class CheckOverlapsService {
   constructor(
@@ -353,6 +366,376 @@ export class CheckOverlapsService {
         overlappingIds: [],
         message: `Error: ${errorMessage}`,
       };
+    }
+  }
+
+  /**
+   * Run the migration from staging to production database.
+   * This replicates the logic from backend/scripts/migrate-data.mjs
+   * Only migrates documents that are not yet migrated:
+   * - Staging: migratedToProd is false or not set
+   * - Production: staging is false or not set
+   */
+  async runMigration(): Promise<MigrationResponse> {
+    const logs: string[] = [];
+
+    const log = (message: string, ...args: any[]) => {
+      const fullMessage = args.length > 0 ? `${message} ${args.map(a => JSON.stringify(a)).join(' ')}` : message;
+      logs.push(fullMessage);
+      console.log(fullMessage);
+    };
+
+    // Summary counters
+    const summary = {
+      usersProcessed: 0,
+      questionsMigrated: 0,
+      answersMigrated: 0,
+      reviewsMigrated: 0,
+      submissionsMigrated: 0,
+    };
+
+    // Identity Translation Maps (Old Staging ID String -> New Prod ObjectId)
+    const maps = {
+      users: new Map<string, ObjectId>(),
+      questions: new Map<string, ObjectId>(),
+      answers: new Map<string, ObjectId>(),
+      question_submissions: new Map<string, ObjectId>(),
+      reviews: new Map<string, ObjectId>(),
+    };
+
+    // Helper function to cleanly swap IDs using the generated map
+    const mapId = (oldId: any, idMap: Map<string, ObjectId>): any => {
+      if (!oldId) return oldId;
+      const oldStr = oldId.toString();
+      return idMap.has(oldStr) ? idMap.get(oldStr) : oldId;
+    };
+
+    // Get environment variables
+    const stagingUri = process.env.STAGING_DB_URI;
+    const stagingDbName = process.env.STAGING_DB_NAME;
+    const prodDbName = process.env.DB_NAME;
+
+    if (!stagingUri || !stagingDbName || !prodDbName) {
+      log('🔴 CRITICAL ERROR: STAGING_DB_URI, STAGING_DB_NAME, or PROD_DB_NAME not configured.');
+      return {
+        success: false,
+        timestamp: new Date().toISOString(),
+        logs,
+        summary,
+      };
+    }
+
+    const stagingClient = new MongoClient(stagingUri, {
+      ssl: true,
+      tls: true,
+      tlsAllowInvalidCertificates: false,
+      tlsAllowInvalidHostnames: false,
+      retryWrites: true,
+      connectTimeoutMS: 30000,
+      socketTimeoutMS: 30000,
+    });
+
+    let prodSession: any = null;
+
+    try {
+      // Get production database from the injected MongoDatabase
+      const prodDb = await this.db.init();
+
+      // Connect to staging
+      log('🔄 Connecting to Atlas clusters...');
+      await stagingClient.connect();
+      log('🚀 Connected successfully.\n');
+
+      const stagingDb = stagingClient.db(stagingDbName);
+
+      // Start the Production Transaction Session
+      prodSession = prodDb.client.startSession();
+      prodSession.startTransaction({
+        readPreference: 'primary',
+        readConcern: { level: 'local' },
+        writeConcern: { w: 'majority' },
+      });
+      log('🛡️  Production database transaction started. Safeguards active.');
+
+      // ==========================================
+      // 1. USERS PHASE (Map existing or create new)
+      // Only migrate users where migratedToProd is not true/not set in staging
+      // and staging is not true/not set in production
+      // ==========================================
+      log('\n👥 Migrating Users (only non-migrated)...');
+      
+      // Get staging users that are NOT yet migrated
+      const stagingUsers = await stagingDb
+        .collection('users')
+        .find({ $or: [{ migratedToProd: { $exists: false } }, { migratedToProd: false }] })
+        .toArray();
+
+      log(`   Found ${stagingUsers.length} non-migrated staging users`);
+
+      for (const user of stagingUsers) {
+        const oldIdStr = user._id.toString();
+        let existingProdUser = null;
+
+        if (user.email) {
+          existingProdUser = await prodDb.collection('users').findOne({ email: user.email }, { session: prodSession });
+        }
+
+        if (existingProdUser) {
+          maps.users.set(oldIdStr, existingProdUser._id);
+        } else {
+          const newId = new ObjectId();
+          maps.users.set(oldIdStr, newId);
+          // Set isBlocked: true for newly created users
+          const migratedUser = { ...user, _id: newId, staging: true, isBlocked: true };
+          await prodDb.collection('users').insertOne(migratedUser, { session: prodSession });
+        }
+      }
+      summary.usersProcessed = maps.users.size;
+      log(`✅ Users mapped/migrated: ${maps.users.size}`);
+
+      // ==========================================
+      // 2. QUESTIONS PHASE (CLOSED ONLY, NOT YET MIGRATED)
+      // ==========================================
+      log('❓ Migrating Questions (Targeting status: "closed" only, non-migrated)...');
+
+      // Get closed questions that are NOT yet migrated (migratedToProd not true/not set)
+      const stagingQuestions = await stagingDb
+        .collection('questions')
+        .find({ 
+          status: 'closed',
+          $or: [{ migratedToProd: { $exists: false } }, { migratedToProd: false }]
+        })
+        .toArray();
+
+      if (stagingQuestions.length > 0) {
+        const questionOps = stagingQuestions.map((q: any) => {
+          const newId = new ObjectId();
+          maps.questions.set(q._id.toString(), newId);
+
+          q.userId = mapId(q.userId, maps.users);
+          q.moderatorId = mapId(q.moderatorId, maps.users);
+          q.passedBy = mapId(q.passedBy, maps.users);
+          q.referenceQuestionId = mapId(q.referenceQuestionId, maps.questions);
+
+          if (Array.isArray(q.authors_history)) {
+            q.authors_history = q.authors_history.map((hist: any) => ({
+              ...hist,
+              authorId: mapId(hist.authorId, maps.users),
+              newAuthorId: mapId(hist.newAuthorId, maps.users),
+            }));
+          }
+
+          if (Array.isArray(q.referenceQuestionDetails)) {
+            q.referenceQuestionDetails = q.referenceQuestionDetails.map((ref: any) => ({
+              ...ref,
+              _id: mapId(ref._id, maps.questions),
+            }));
+          }
+
+          return { ...q, _id: newId, staging: true };
+        });
+
+        await prodDb.collection('questions').insertMany(questionOps, { session: prodSession });
+      }
+      summary.questionsMigrated = stagingQuestions.length;
+      log(`✅ Questions migrated to Production: ${stagingQuestions.length}`);
+
+      // ==========================================
+      // 3. ANSWERS PHASE (CASCADING FILTER, NON-MIGRATED)
+      // ==========================================
+      log('💬 Migrating Answers (Cascading Filter, non-migrated)...');
+      
+      // Get answers that are NOT yet migrated
+      const stagingAnswers = await stagingDb
+        .collection('answers')
+        .find({ $or: [{ migratedToProd: { $exists: false } }, { migratedToProd: false }] })
+        .toArray();
+
+      const filteredAnswers = stagingAnswers.filter(
+        (ans: any) => ans.questionId && maps.questions.has(ans.questionId.toString())
+      );
+
+      if (filteredAnswers.length > 0) {
+        const answerOps = filteredAnswers.map((ans: any) => {
+          const newId = new ObjectId();
+          maps.answers.set(ans._id.toString(), newId);
+
+          ans.questionId = mapId(ans.questionId, maps.questions);
+          ans.authorId = mapId(ans.authorId, maps.users);
+          ans.approvedBy = mapId(ans.approvedBy, maps.users);
+
+          if (Array.isArray(ans.modifications)) {
+            ans.modifications = ans.modifications.map((mod: any) => ({
+              ...mod,
+              modifiedBy: mapId(mod.modifiedBy, maps.users),
+            }));
+          }
+
+          return { ...ans, _id: newId, staging: true };
+        });
+
+        await prodDb.collection('answers').insertMany(answerOps, { session: prodSession });
+      }
+      summary.answersMigrated = filteredAnswers.length;
+      log(`✅ Answers migrated to Production: ${filteredAnswers.length} (Skipped ${stagingAnswers.length - filteredAnswers.length})`);
+
+      // ==========================================
+      // 4. REVIEWS PHASE (CASCADING FILTER, NON-MIGRATED)
+      // ==========================================
+      log('⭐ Migrating Reviews (Cascading Filter, non-migrated)...');
+      
+      // Get reviews that are NOT yet migrated
+      const stagingReviews = await stagingDb
+        .collection('reviews')
+        .find({ $or: [{ migratedToProd: { $exists: false } }, { migratedToProd: false }] })
+        .toArray();
+
+      const filteredReviews = stagingReviews.filter(
+        (rev: any) => rev.questionId && maps.questions.has(rev.questionId.toString())
+      );
+
+      if (filteredReviews.length > 0) {
+        const reviewOps = filteredReviews.map((rev: any) => {
+          const newId = new ObjectId();
+          maps.reviews.set(rev._id.toString(), newId);
+
+          rev.questionId = mapId(rev.questionId, maps.questions);
+          rev.answerId = mapId(rev.answerId, maps.answers);
+          rev.reviewerId = mapId(rev.reviewerId, maps.users);
+
+          return { ...rev, _id: newId, staging: true };
+        });
+
+        await prodDb.collection('reviews').insertMany(reviewOps, { session: prodSession });
+      }
+      summary.reviewsMigrated = filteredReviews.length;
+      log(`✅ Reviews migrated to Production: ${filteredReviews.length} (Skipped ${stagingReviews.length - filteredReviews.length})`);
+
+      // ==========================================
+      // 5. QUESTION SUBMISSIONS PHASE (CASCADING FILTER, NON-MIGRATED)
+      // ==========================================
+      log('📝 Migrating Question Submissions (Cascading Filter, non-migrated)...');
+      
+      // Get question submissions that are NOT yet migrated
+      const stagingSubmissions = await stagingDb
+        .collection('question_submissions')
+        .find({ $or: [{ migratedToProd: { $exists: false } }, { migratedToProd: false }] })
+        .toArray();
+
+      const filteredSubmissions = stagingSubmissions.filter(
+        (sub: any) => sub.questionId && maps.questions.has(sub.questionId.toString())
+      );
+
+      if (filteredSubmissions.length > 0) {
+        const submissionOps = filteredSubmissions.map((sub: any) => {
+          const newId = new ObjectId();
+          maps.question_submissions.set(sub._id.toString(), newId);
+
+          sub.questionId = mapId(sub.questionId, maps.questions);
+          sub.lastRespondedBy = mapId(sub.lastRespondedBy, maps.users);
+
+          if (Array.isArray(sub.queue)) {
+            sub.queue = sub.queue.map((queueUser: any) => mapId(queueUser, maps.users));
+          }
+
+          if (Array.isArray(sub.history)) {
+            sub.history = sub.history.map((hist: any) => {
+              hist.updatedBy = mapId(hist.updatedBy, maps.users);
+              hist.answer = mapId(hist.answer, maps.answers);
+              hist.reviewId = mapId(hist.reviewId, maps.reviews);
+              hist.rejectedBy = mapId(hist.rejectedBy, maps.users);
+              hist.rejectedAnswer = mapId(hist.rejectedAnswer, maps.answers);
+              hist.lastModifiedBy = mapId(hist.lastModifiedBy, maps.users);
+              hist.modifiedAnswer = mapId(hist.modifiedAnswer, maps.answers);
+              hist.approvedAnswer = mapId(hist.approvedAnswer, maps.answers);
+
+              if (Array.isArray(hist.previousAllocations)) {
+                hist.previousAllocations = hist.previousAllocations.map((alloc: any) => ({
+                  ...alloc,
+                  reviewerId: mapId(alloc.reviewerId, maps.users),
+                }));
+              }
+              return hist;
+            });
+          }
+
+          return { ...sub, _id: newId, staging: true };
+        });
+
+        await prodDb.collection('question_submissions').insertMany(submissionOps, { session: prodSession });
+      }
+      summary.submissionsMigrated = filteredSubmissions.length;
+      log(`✅ Submissions migrated to Production: ${filteredSubmissions.length} (Skipped ${stagingSubmissions.length - filteredSubmissions.length})`);
+
+      // ==========================================
+      // 6. COMMIT ALL PRODUCTION OPERATIONS
+      // ==========================================
+      log('\n🚀 Committing transaction to Production Atlas...');
+      await prodSession.commitTransaction();
+      log('🎉 MIGRATION SUCCESSFULLY COMPLETED & COMMITTED TO PRODUCTION!');
+
+      // ==========================================
+      // 7. MARK STAGING RECORDS AS MIGRATED
+      // ==========================================
+      log('\n🏷️  Marking successfully migrated documents in the Staging database...');
+
+      const migratedQuestionIds = Array.from(maps.questions.keys()).map((id) => new ObjectId(id));
+      const migratedAnswerIds = Array.from(maps.answers.keys()).map((id) => new ObjectId(id));
+      const migratedReviewIds = Array.from(maps.reviews.keys()).map((id) => new ObjectId(id));
+      const migratedSubmissionIds = Array.from(maps.question_submissions.keys()).map((id) => new ObjectId(id));
+
+      if (migratedQuestionIds.length > 0) {
+        await stagingDb
+          .collection('questions')
+          .updateMany({ _id: { $in: migratedQuestionIds } }, { $set: { migratedToProd: true } });
+      }
+      if (migratedAnswerIds.length > 0) {
+        await stagingDb
+          .collection('answers')
+          .updateMany({ _id: { $in: migratedAnswerIds } }, { $set: { migratedToProd: true } });
+      }
+      if (migratedReviewIds.length > 0) {
+        await stagingDb
+          .collection('reviews')
+          .updateMany({ _id: { $in: migratedReviewIds } }, { $set: { migratedToProd: true } });
+      }
+      if (migratedSubmissionIds.length > 0) {
+        await stagingDb
+          .collection('question_submissions')
+          .updateMany({ _id: { $in: migratedSubmissionIds } }, { $set: { migratedToProd: true } });
+      }
+
+      log('✅ Staging database successfully tagged with `migratedToProd: true` state flags.');
+
+      return {
+        success: true,
+        timestamp: new Date().toISOString(),
+        logs,
+        summary,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log('\n🔴 CRITICAL ERROR DURING MIGRATION:', errorMessage);
+      if (prodSession) {
+        log('🚨 Aborting transaction... Rolling back all writes on Production!');
+        try {
+          await prodSession.abortTransaction();
+          log('🗑️  Rollback successful. Production database remains untouched.');
+        } catch (abortError: any) {
+          log('⚠️  Failed to cleanly abort:', abortError.message);
+        }
+      }
+
+      return {
+        success: false,
+        timestamp: new Date().toISOString(),
+        logs,
+        summary,
+      };
+    } finally {
+      if (prodSession) await prodSession.endSession();
+      await stagingClient.close();
+      log('🔌 Connections safely closed.');
     }
   }
 }
