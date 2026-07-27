@@ -62,6 +62,8 @@ from ajrasakha.evaluation.multilingual.validators.disclaimer_check import valida
 from ajrasakha.evaluation.multilingual.validators.lang_switch import validate_lang_switch
 from ajrasakha.evaluation.multilingual.validators.terminology import validate_terminology
 from ajrasakha.evaluation.multilingual.validators.deepeval_multilingual import evaluate_deepeval
+from ajrasakha.evaluation.multilingual.validators.gdb_verification import validate_gdb_retrieval
+from ajrasakha.evaluation.multilingual.transports.whatsapp_transport import run_whatsapp_case
 from ajrasakha.evaluation.multilingual.reporters.matrix import (
     build_matrix,
     matrix_summary,
@@ -81,7 +83,7 @@ from ajrasakha.evaluation.plan import evaluate_plan
 from ajrasakha.evaluation.tech import evaluate_technical
 
 
-def _run_single_case(case, mode: str) -> CaseResult:
+def _run_single_case(case, mode: str, transport: str = "http") -> CaseResult:
     """Execute one multilingual case and return a populated CaseResult."""
     result = CaseResult(case=case)
 
@@ -99,7 +101,9 @@ def _run_single_case(case, mode: str) -> CaseResult:
 
     try:
         # ── Step 1: Get raw response ──────────────────────────────────────
-        if mode == "mock":
+        if transport == "whatsapp":
+            raw = run_whatsapp_case(case.to_legacy_dict())
+        elif mode == "mock":
             raw = build_mock_response(case)
         elif mode == "live":
             live_api = os.getenv("LIVE_API_URL", "")
@@ -163,6 +167,12 @@ def _run_single_case(case, mode: str) -> CaseResult:
         sw = validate_lang_switch(result.response_text, case)
         result.lang_switch_detected = sw.get("lang_switch_detected", False)
         result.lang_switch_reason = sw.get("lang_switch_reason", "")
+        result.language_segment_switch_detected = sw.get("language_segment_switch_detected", False)
+        result.language_segment_switch_reason = sw.get("language_segment_switch_reason", "")
+
+        gdb = validate_gdb_retrieval({"trace": raw.get("trace", {})}, case)
+        result.gdb_retrieval_status = gdb.get("gdb_retrieval_status", "BLOCKED")
+        result.gdb_retrieval_reason = gdb.get("gdb_retrieval_reason", "")
 
         # ── Step 10: Terminology check (deterministic) ────────────────────
         term = validate_terminology(result.response_text, case)
@@ -238,6 +248,12 @@ def main() -> int:
         help="Execution mode. Use 'mock' for CI; 'live' requires API credentials.",
     )
     parser.add_argument(
+        "--transport",
+        choices=["http", "whatsapp"],
+        default="http",
+        help="Transport mechanism for test execution",
+    )
+    parser.add_argument(
         "--stable-only",
         action="store_true",
         help="Run only stable cases (exclude weather/market dynamic scenarios).",
@@ -278,7 +294,7 @@ def main() -> int:
     for i, case in enumerate(cases, 1):
         print(f"[{i:3d}/{len(cases)}] {case.case_id} ({case.expected_vocal})", end=" ... ")
         start = time.monotonic()
-        r = _run_single_case(case, args.mode)
+        r = _run_single_case(case, args.mode, getattr(args, "transport", "http"))
         elapsed = time.monotonic() - start
         print(f"{r.status.value} ({elapsed:.2f}s)")
         results.append(r)

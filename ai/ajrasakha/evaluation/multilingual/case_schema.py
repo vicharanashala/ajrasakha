@@ -152,6 +152,12 @@ class CaseResult:
     # ── language switch ────────────────────────────────────────────────────
     lang_switch_detected: Optional[bool] = None
     lang_switch_reason: str = ""
+    language_segment_switch_detected: Optional[bool] = None
+    language_segment_switch_reason: str = ""
+
+    # ── GDB retrieval ──────────────────────────────────────────────────────
+    gdb_retrieval_status: str = "BLOCKED"
+    gdb_retrieval_reason: str = ""
 
     # ── terminology ────────────────────────────────────────────────────────
     terminology_pass: Optional[bool] = None
@@ -207,6 +213,10 @@ class CaseResult:
             "disclaimer_reason": self.disclaimer_reason,
             "lang_switch_detected": _fmt(self.lang_switch_detected),
             "lang_switch_reason": self.lang_switch_reason,
+            "language_segment_switch_detected": _fmt(self.language_segment_switch_detected),
+            "language_segment_switch_reason": self.language_segment_switch_reason,
+            "gdb_retrieval_status": self.gdb_retrieval_status,
+            "gdb_retrieval_reason": self.gdb_retrieval_reason,
             "terminology_pass": _fmt(self.terminology_pass),
             "terminology_reason": self.terminology_reason,
             "source_attribution_pass": _fmt(self.source_attribution_pass),

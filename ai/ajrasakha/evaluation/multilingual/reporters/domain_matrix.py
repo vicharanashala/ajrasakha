@@ -17,9 +17,9 @@ from pathlib import Path
 
 from ajrasakha.evaluation.multilingual.case_schema import CaseResult, CaseStatus
 from ajrasakha.evaluation.multilingual.languages import LANGUAGE_CODES
-from ajrasakha.evaluation.multilingual.scenarios import _REQUIRED_DOMAIN_GROUPS
+from ajrasakha.evaluation.multilingual.scenarios import _VALID_DOMAIN_GROUPS
 
-_DOMAIN_GROUPS = sorted(_REQUIRED_DOMAIN_GROUPS)  # consistent sort
+_DOMAIN_GROUPS = sorted(_VALID_DOMAIN_GROUPS)  # consistent sort
 _LANG_CODES = LANGUAGE_CODES
 
 _COUNT_KEYS = ["total", "PASS", "FAIL", "ERROR", "BLOCKED", "SKIPPED", "SKIPPED_MISSING_TRANSLATION"]

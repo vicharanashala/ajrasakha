@@ -216,7 +216,7 @@ def write_html_report(
 </head>
 <body>
   <div class='summary {has_failures_class}'>
-    <h1>AjraSakha Multilingual Testing Suite</h1>
+    <h1>AjraSakha Multilingual Testing Suite { "— FIXTURE VERIFICATION ONLY (mock mode)" if mode == "mock" else "" }</h1>
     <h2>Mode: {_e(mode.upper())} | Overall: <span class='{overall.lower()}'>{_e(overall)}</span></h2>
     <p>Generated: {_e(generated_at)} | 
        Total: {total} | 

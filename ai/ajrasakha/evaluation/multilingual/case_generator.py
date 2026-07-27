@@ -77,9 +77,9 @@ _DOMAIN_GROUP_MAP: dict[str, str] = {
 }
 
 
-def _get_domain_group(domain: str) -> str:
-    """Map a scenario domain display label to its canonical domain_group."""
-    return _DOMAIN_GROUP_MAP.get(domain, "soil")  # safe default
+def _get_domain_group(scenario: Scenario) -> str:
+    """Return the canonical domain_group directly from the scenario."""
+    return scenario.domain_group
 
 
 def _get_disclaimer_mode(scenario: Scenario) -> str:
@@ -160,7 +160,7 @@ def _make_case(scenario: Scenario, lang: LanguageRecord) -> MultilingualCase:
         query_translation_source = "missing_translation"
 
     # Derive domain_group and disclaimer_mode
-    domain_group = _get_domain_group(scenario.domain)
+    domain_group = _get_domain_group(scenario)
     disclaimer_mode = _get_disclaimer_mode(scenario)
 
     return MultilingualCase(

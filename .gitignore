@@ -58,4 +58,4 @@ fill_translations.py
 # Multilingual report output directories
 multilingual_reports/
 ai/multilingual_reports/
-
+ai/multilingual_reports_demo
