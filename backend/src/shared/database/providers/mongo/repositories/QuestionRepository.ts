@@ -4284,7 +4284,7 @@ export class QuestionRepository implements IQuestionRepository {
     };
 
     const closedMatchCondition: any = {
-      status: 'closed',
+      // status: 'closed',
       closedAt: {
         $gte: startDate,
         $lt: endDate,
