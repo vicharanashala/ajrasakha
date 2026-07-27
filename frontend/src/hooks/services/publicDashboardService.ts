@@ -6,6 +6,7 @@ const API_BASE_URL = env.apiBaseUrl();
 /** Well-known item names (must match the backend). */
 export const SATURATION_LIMIT_NAME = "saturation limit crop";
 export const OUTREACH_VIDEO_NAME = "outreach video";
+export const OUTREACH_IMAGE_NAME = "outreach image";
 
 /**
  * A single public dashboard item. Every admin-editable value (saturation limit, outreach

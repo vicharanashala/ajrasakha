@@ -11,7 +11,7 @@ import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import { toast } from "sonner";
-import { Check, LayoutDashboard, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { Check, ImagePlus, LayoutDashboard, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import {
   useAddPublicDashboardItem,
   useDeletePublicDashboardItem,
@@ -19,6 +19,7 @@ import {
   useUpdatePublicDashboardItem,
 } from "@/hooks/api/public-dashboard/usePublicDashboardConfig";
 import {
+  OUTREACH_IMAGE_NAME,
   OUTREACH_VIDEO_NAME,
   SATURATION_LIMIT_NAME,
 } from "@/hooks/services/publicDashboardService";
@@ -50,9 +51,14 @@ export const EditPublicDashboardModal = ({
     () => items?.filter((i) => i.name === OUTREACH_VIDEO_NAME) ?? [],
     [items],
   );
+  const images = useMemo(
+    () => items?.filter((i) => i.name === OUTREACH_IMAGE_NAME) ?? [],
+    [items],
+  );
 
   const [saturationLimit, setSaturationLimit] = useState<string>("");
   const [newVideoUrl, setNewVideoUrl] = useState("");
+  const [newImageUrl, setNewImageUrl] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingUrl, setEditingUrl] = useState("");
 
@@ -107,9 +113,9 @@ export const EditPublicDashboardModal = ({
       await updateItem({ id, patch: { value: url } });
       setEditingId(null);
       setEditingUrl("");
-      toast.success("Outreach video updated.");
+      toast.success("Updated.");
     } catch (error: any) {
-      toast.error(error?.message || "Failed to update video.");
+      toast.error(error?.message || "Failed to update.");
     }
   };
 
@@ -119,6 +125,30 @@ export const EditPublicDashboardModal = ({
       toast.success("Outreach video deleted.");
     } catch (error: any) {
       toast.error(error?.message || "Failed to delete video.");
+    }
+  };
+
+  const handleAddImage = async () => {
+    const url = newImageUrl.trim();
+    if (!url) {
+      toast.error("Enter an image URL.");
+      return;
+    }
+    try {
+      await addItem({ name: OUTREACH_IMAGE_NAME, value: url });
+      setNewImageUrl("");
+      toast.success("Outreach image added.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to add image.");
+    }
+  };
+
+  const handleDeleteImage = async (id: string) => {
+    try {
+      await deleteItem(id);
+      toast.success("Outreach image deleted.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete image.");
     }
   };
 
@@ -260,6 +290,125 @@ export const EditPublicDashboardModal = ({
                           size="icon"
                           variant="ghost"
                           onClick={() => handleDeleteVideo(video.id)}
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Outreach Images */}
+          <div className="space-y-2">
+            <Label>Outreach Images</Label>
+            <p className="text-xs text-muted-foreground">
+              Add outreach image URLs to feature on the public dashboard. You can
+              edit or delete them anytime.
+            </p>
+
+            {/* Add new */}
+            <div className="flex items-center gap-2">
+              <Input
+                value={newImageUrl}
+                onChange={(e) => setNewImageUrl(e.target.value)}
+                placeholder="https://...(image URL)"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddImage();
+                }}
+                className="flex-1"
+              />
+              <Button
+                variant="outline"
+                onClick={handleAddImage}
+                disabled={adding || !newImageUrl.trim()}
+              >
+                <ImagePlus className="mr-1 h-4 w-4" /> Add
+              </Button>
+            </div>
+
+            {/* List */}
+            <div className="space-y-2 pt-1">
+              {isLoading ? (
+                <p className="text-sm text-muted-foreground">
+                  Loading outreach images...
+                </p>
+              ) : images.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No outreach images yet.
+                </p>
+              ) : (
+                images.map((image) => (
+                  <div
+                    key={image.id}
+                    className="flex items-center gap-2 rounded-md border border-border p-2"
+                  >
+                    {editingId === image.id ? (
+                      <>
+                        <Input
+                          value={editingUrl}
+                          onChange={(e) => setEditingUrl(e.target.value)}
+                          className="flex-1"
+                          autoFocus
+                        />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleSaveEdit(image.id)}
+                          aria-label="Save"
+                        >
+                          <Check className="h-4 w-4 text-green-600" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditingUrl("");
+                          }}
+                          aria-label="Cancel"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <img
+                          src={String(image.value)}
+                          alt=""
+                          className="h-10 w-10 flex-shrink-0 rounded object-cover border border-border"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.visibility =
+                              "hidden";
+                          }}
+                        />
+                        <a
+                          href={String(image.value)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 truncate text-sm text-primary hover:underline"
+                          title={String(image.value)}
+                        >
+                          {String(image.value)}
+                        </a>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingId(image.id);
+                            setEditingUrl(String(image.value));
+                          }}
+                          aria-label="Edit"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDeleteImage(image.id)}
                           aria-label="Delete"
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />

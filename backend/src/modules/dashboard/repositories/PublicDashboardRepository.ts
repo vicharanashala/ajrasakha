@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 import {Collection} from 'mongodb';
 import {InternalServerError} from 'routing-controllers';
 import {MongoDatabase} from '#root/shared/database/providers/mongo/MongoDatabase.js';
@@ -13,10 +14,17 @@ import {
 /** Stable identifier for the single config document in the `public_dashboard` collection. */
 const CONFIG_KEY = 'config';
 
-/** Stored shape of the config document (adds the internal key + updatedAt). */
+/** Legacy well-known name for outreach video items (pre-unified-`items` schema). */
+const OUTREACH_VIDEO_NAME = 'outreach video';
+
+/** Stored shape of the config document (adds the internal key + updatedAt). Legacy
+ *  fields (`values`, `outreachVideos`) may still exist on older docs and are migrated
+ *  into `items` on read — see getItems. */
 interface StoredConfig {
   key: string;
-  items: PublicDashboardItem[];
+  items?: PublicDashboardItem[];
+  values?: {name: string; value: unknown}[];
+  outreachVideos?: {id?: string; url: string; createdAt?: Date}[];
   updatedAt?: Date;
 }
 
@@ -148,7 +156,46 @@ export class PublicDashboardRepository implements IPublicDashboardRepository {
     try {
       await this.init();
       const doc = await this.ConfigCollection.findOne({key: CONFIG_KEY});
-      return Array.isArray(doc?.items) ? doc!.items : [];
+      if (!doc) return [];
+
+      // New schema: the `items` array is present (even if empty) — use it as-is.
+      if (Array.isArray(doc.items)) return doc.items;
+
+      // Legacy doc (no `items`): map the old `values` + `outreachVideos` fields into the
+      // unified item shape, then persist the migration once so ids stay stable for
+      // edit/delete and subsequent reads hit the fast path above.
+      const migrated: PublicDashboardItem[] = [];
+
+      if (Array.isArray(doc.values)) {
+        for (const v of doc.values) {
+          if (v && typeof v.name === 'string') {
+            migrated.push({id: randomUUID(), name: v.name, value: v.value});
+          }
+        }
+      }
+
+      if (Array.isArray(doc.outreachVideos)) {
+        for (const vid of doc.outreachVideos) {
+          if (vid && vid.url) {
+            migrated.push({
+              id: vid.id ?? randomUUID(),
+              name: OUTREACH_VIDEO_NAME,
+              value: vid.url,
+              createdAt: vid.createdAt,
+            });
+          }
+        }
+      }
+
+      await this.ConfigCollection.updateOne(
+        {key: CONFIG_KEY},
+        {
+          $set: {items: migrated, updatedAt: new Date()},
+          $unset: {values: '', outreachVideos: ''},
+        },
+      );
+
+      return migrated;
     } catch (error) {
       throw new InternalServerError(
         `Error while fetching public dashboard items: More info: ${error}`,

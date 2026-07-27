@@ -15,6 +15,7 @@ import {
 /** Well-known item names. Used for value validation and reading typed values back out. */
 export const SATURATION_LIMIT_NAME = 'saturation limit crop';
 export const OUTREACH_VIDEO_NAME = 'outreach video';
+export const OUTREACH_IMAGE_NAME = 'outreach image';
 
 /** Fallback used until an admin sets the saturation limit item. */
 const DEFAULT_SATURATION_LIMIT = 50;
@@ -123,7 +124,7 @@ export class PublicDashboardService implements IPublicDashboardService {
       return n;
     }
 
-    if (name === OUTREACH_VIDEO_NAME) {
+    if (name === OUTREACH_VIDEO_NAME || name === OUTREACH_IMAGE_NAME) {
       return this.validateUrl(value);
     }
 
