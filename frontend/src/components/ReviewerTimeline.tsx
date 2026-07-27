@@ -133,6 +133,7 @@ interface ReviewerActivity {
   isSplit: boolean;
   originalStartAt: string;
   originalEndAt: string;
+  activityType?: string;
 }
 
 export const ReviewerLifecycle = ({
@@ -173,15 +174,15 @@ export const ReviewerLifecycle = ({
           questions: questionIds.size,
 
           authored: activities.filter(
-            (activity) => activity.status === "approved",
+            (activity) => activity.activityType === "authored",
           ).length,
 
           reviewed: activities.filter(
-            (activity) => activity.status === "reviewed",
+            (activity) => activity.activityType === "reviewed",
           ).length,
 
           moderated: activities.filter(
-            (activity) => activity.status === "moderated",
+            (activity) => activity.activityType === "moderated",
           ).length,
 
           activities,
@@ -206,15 +207,15 @@ export const ReviewerLifecycle = ({
         questions: hour.totalQuestions,
 
         authored: hour.activities.filter(
-          (activity) => activity.status === "approved",
+          (activity) => activity.activityType === "authored",
         ).length,
 
         reviewed: hour.activities.filter(
-          (activity) => activity.status === "reviewed",
+          (activity) => activity.activityType === "reviewed",
         ).length,
 
         moderated: hour.activities.filter(
-          (activity) => activity.status === "moderated",
+          (activity) => activity.activityType === "moderated",
         ).length,
 
         activities: hour.activities,

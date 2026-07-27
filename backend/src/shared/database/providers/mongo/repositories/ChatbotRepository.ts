@@ -20667,6 +20667,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
             // Main lifecycle classification
             status: 'moderated',
+            activityType: "moderated",
 
             // Preserve what moderator actually did
             outcome: reroute.status,
@@ -20705,68 +20706,66 @@ export class ChatbotRepository implements IChatbotRepository {
           submission.questionId?.toString(),
         );
 
-        const userHistories = (submission.history ?? []).filter((history) => {
-          if (history.updatedBy?.toString() !== userId) {
-            return false;
-          }
-
-          const historyCreatedAt = new Date(history.createdAt);
-
-          if (start && historyCreatedAt < start) {
-            return false;
-          }
-
-          if (end && historyCreatedAt > end) {
-            return false;
-          }
-
-          return true;
-        });
-
-        for (let index = 0; index < userHistories.length; index++) {
-          const history = userHistories[index];
-
-          const historyCreatedAt = new Date(history.createdAt);
-          const historyUpdatedAt = history.updatedAt
-            ? new Date(history.updatedAt)
-            : null;
-
-          let activityStart = historyCreatedAt;
-
-          // Only user's first activity can use firstAllocationAt
-          if (index === 0 && question?.firstAllocationAt) {
-            const firstAllocationAt = new Date(question.firstAllocationAt);
-
-            const isValidAllocation =
-              historyUpdatedAt &&
-              firstAllocationAt <= historyUpdatedAt &&
-              (!start || firstAllocationAt >= start) &&
-              (!end || firstAllocationAt <= end);
-
-            if (isValidAllocation) {
-              activityStart = firstAllocationAt;
+        const userHistories = (submission.history ?? [])
+          .map((history, originalIndex) => ({
+            history,
+            originalIndex,
+          }))
+          .filter(({ history }) => {
+            if (history.updatedBy?.toString() !== userId) {
+              return false;
             }
-          }
 
-          if (!historyUpdatedAt) {
-            continue;
-          }
+            const historyCreatedAt = new Date(history.createdAt);
 
-          // Safety: reject invalid intervals
-          if (activityStart >= historyUpdatedAt) {
-            continue;
-          }
+            if (start && historyCreatedAt < start) return false;
+            if (end && historyCreatedAt > end) return false;
 
-          activities.push({
-            questionId: submission.questionId?.toString(),
-            startAt: activityStart,
-            endAt: historyUpdatedAt,
-            durationMs:
-              historyUpdatedAt.getTime() -
-              activityStart.getTime(),
-            status: history.status,
+            return true;
           });
-        }
+
+          for (const { history, originalIndex } of userHistories) {
+            const historyCreatedAt = new Date(history.createdAt);
+
+            const historyUpdatedAt = history.updatedAt
+              ? new Date(history.updatedAt)
+              : null;
+
+            if (!historyUpdatedAt) continue;
+
+            let activityStart = historyCreatedAt;
+
+            // firstAllocationAt ONLY for actual first submission activity
+            if (originalIndex === 0 && question?.firstAllocationAt) {
+              const firstAllocationAt = new Date(question.firstAllocationAt);
+
+              if (
+                firstAllocationAt <= historyUpdatedAt &&
+                (!start || firstAllocationAt >= start) &&
+                (!end || firstAllocationAt <= end)
+              ) {
+                activityStart = firstAllocationAt;
+              }
+            }
+
+            if (activityStart >= historyUpdatedAt) continue;
+
+            const activityType =
+              originalIndex === 0
+                ? "authored"
+                : "reviewed";
+
+            activities.push({
+              questionId: submission.questionId?.toString(),
+              startAt: activityStart,
+              endAt: historyUpdatedAt,
+              durationMs:
+                historyUpdatedAt.getTime() -
+                activityStart.getTime(),
+              status: history.status,
+              activityType,
+            });
+          }
       }
 
       activities.sort(
@@ -20834,6 +20833,7 @@ export class ChatbotRepository implements IChatbotRepository {
             endAt.getTime() - startAt.getTime(),
 
           status: 'moderated',
+          activityType: "moderated",
 
           // Optional: useful for UI/debugging
           outcome: question.closedAt
@@ -20984,22 +20984,26 @@ export class ChatbotRepository implements IChatbotRepository {
           });
         }
 
-        dayGroup.get(hourKey)!.activities.push({
-          questionId: activity.questionId,
-          startAt: currentStart,
-          endAt: segmentEnd,
-          durationMs,
-          status: activity.status,
-          // Moderator-specific metadata
-          outcome: activity.outcome,
-          reroutedBy: activity.reroutedBy,
-          comment: activity.comment,
-          isSplit:
-            originalStart.getTime() !== currentStart.getTime() ||
-            originalEnd.getTime() !== segmentEnd.getTime(),
-          originalStartAt: originalStart,
-          originalEndAt: originalEnd,
-        });
+      dayGroup.get(hourKey)!.activities.push({
+        questionId: activity.questionId,
+        startAt: currentStart,
+        endAt: segmentEnd,
+        durationMs,
+
+        status: activity.status,
+        activityType: activity.activityType,
+
+        outcome: activity.outcome,
+        reroutedBy: activity.reroutedBy,
+        comment: activity.comment,
+
+        isSplit:
+          originalStart.getTime() !== currentStart.getTime() ||
+          originalEnd.getTime() !== segmentEnd.getTime(),
+
+        originalStartAt: originalStart,
+        originalEndAt: originalEnd,
+      });
 
         currentStart = segmentEnd;
       }
