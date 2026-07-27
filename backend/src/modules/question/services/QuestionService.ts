@@ -8351,4 +8351,19 @@ export class QuestionService extends BaseService implements IQuestionService {
   async backgroundProcessAction(userId: string): Promise<{ modifiedCount: number }> {
         return await this.userRepo.clearAssignedQuestions(userId);
   }
+
+  /** Admin utility: remove a submission history entry (by 0-based index) for a question. */
+  async removeSubmissionHistoryEntry(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: boolean; historyLength: number }> {
+    const updated = await this.questionSubmissionRepo.removeHistoryEntryByIndex(
+      questionId,
+      index,
+    );
+    return {
+      success: true,
+      historyLength: updated?.history?.length ?? 0,
+    };
+  }
 }
