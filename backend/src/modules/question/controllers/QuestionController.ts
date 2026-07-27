@@ -74,6 +74,8 @@ import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAudit
 import { UserService } from '#root/modules/user/index.js';
 import { IContextService } from '#root/modules/context/interfaces/index.js';
 import { restoreBackupBson } from '#root/utils/DBMigration.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
+import { CheckOverlapsService } from '../services/CheckOverlapsService.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -95,6 +97,9 @@ export class QuestionController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(CORE_TYPES.CheckOverlapsService)
+    private readonly checkOverlapsService: CheckOverlapsService,
   ) { }
 
   @Post('/status-summary')
@@ -2753,5 +2758,16 @@ export class QuestionController {
       questionId,
       Number(index),
     );
+  }
+  // ─── Check overlaps endpoint (internal API key auth) ──────────────────────
+
+  @Post('/check-overlaps')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Check for overlapping documents between staging and production databases' })
+  async checkOverlaps() {
+    console.log('[QuestionController] checkOverlaps: Starting overlap check...');
+    const result = await this.checkOverlapsService.checkOverlaps();
+    return result;
   }
 }
