@@ -7315,6 +7315,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       const allExperts = await this.userRepo.findExpertsByReputationScore(
         {} as any,
       );
+      const TMU_experts = [];
+      const Normal_experts = [];
+      for (const expert of allExperts) {
+        if (expert.isTrainingUser === true) {
+          TMU_experts.push(expert);
+        } else {
+          Normal_experts.push(expert);
+        }
+      }
       if (!allExperts.length) {
         return {
           message: 'No experts available',
@@ -7322,6 +7331,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           skipped: totalWork,
         };
       }
+
+
+      const getEligibleExpertsForQuestion = (question?: IQuestion | null) => {
+        return question?.isTrainingQuestion === true
+          ? TMU_experts
+          : Normal_experts;
+      };
 
       // Audit a system (cron) allocation so it shows in the question's audit trail
       // tagged "System Allocated". Fire-and-forget — never blocks the allocation.
@@ -7515,7 +7531,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
 
           let assignedExpert: string | null = null;
-          for (const expert of allExperts) {
+          for (const expert of getEligibleExpertsForQuestion(question)) {
             const expertId = expert._id.toString();
             if (expertId === currentExpertId) continue;
             if (historyExpertIds.has(expertId)) continue;
@@ -7563,7 +7579,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           });
         } else if (type === 'unallocated') {
           let assignedExpert: string | null = null;
-          for (const expert of allExperts) {
+          for (const expert of getEligibleExpertsForQuestion(question)) {
             if (expert?.special_task_force !== true) continue;
             const expertId = expert._id.toString();
             const currentCount = provisionalCounts.get(expertId) ?? 0;
@@ -7650,7 +7666,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
 
           let assignedReviewer: string | null = null;
-          for (const expert of allExperts) {
+          for (const expert of getEligibleExpertsForQuestion(question)) {
             const expertId = expert._id.toString();
             if (historyExpertIds.has(expertId)) continue;
             if (queueExpertIds.has(expertId)) continue;
