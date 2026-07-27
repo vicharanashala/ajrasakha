@@ -1955,8 +1955,12 @@ export class QuestionService extends BaseService implements IQuestionService {
             ? 'question_from_ajrasakha'
             : 'question_from_whatsapp';
 
+        const moderators = [...allModerators, ...taskForceModerators].filter(
+          (moderator) => moderator.isTrainingUser !== true,
+        );
+
         await Promise.all(
-          [...allModerators, ...taskForceModerators].map((moderator: any) =>
+          moderators.map((moderator: any) =>
             this.notificationService.saveTheNotifications(
               message,
               'New Question Received',
