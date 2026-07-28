@@ -245,6 +245,10 @@ async function fetchVillagesForBlock(blockCode) {
     villageCode: Number(record.villageCode),
     villageNameEnglish: record.villageNameEnglish,
     blockCode: Number(blockCode),
+    stateCode: Number(record.stateCode),
+    districtCode: Number(record.districtCode),
+    districtNameLocal: record.districtNameLocal,
+    dataLastUpdated: new Date(record.data_gov_update_date)
   }));
 }
 

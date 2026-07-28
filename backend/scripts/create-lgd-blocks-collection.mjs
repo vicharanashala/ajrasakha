@@ -382,6 +382,9 @@ async function fetchBlocksForDistrict(districtCode) {
     blockNameEnglish:
       record.subdistrict_name_english,
     districtCode: Number(record.district_code),
+    stateCode: Number(record.state_code),
+    dataLastUpdated: new Date(record.last_updated),
+    blockNameLocal: record.subdistrict_name_local,
   }));
 }
 

@@ -109,6 +109,7 @@ async function fetchDistrictsForState(stateCode) {
     districtCode: Number(record.district_code),
     districtNameEnglish: record.district_name_english,
     stateCode: Number(record.state_code),
+    districtNameLocal: record.district_name_local,
   }));
 }
 
