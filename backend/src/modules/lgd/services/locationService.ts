@@ -1,7 +1,8 @@
 import 'reflect-metadata';
-import axios from 'axios';
-import {injectable} from 'inversify';
-import {BadRequestError, InternalServerError} from 'routing-controllers';
+import {inject, injectable} from 'inversify';
+import {BadRequestError} from 'routing-controllers';
+import {MongoDatabase} from '#shared/database/providers/mongo/MongoDatabase.js';
+import {GLOBAL_TYPES} from '#root/types.js';
 import type {
   ILocationService,
   ILocationState,
@@ -12,12 +13,18 @@ import type {
 
 @injectable()
 export class LocationService implements ILocationService {
+  constructor(
+    @inject(GLOBAL_TYPES.Database)
+    private readonly db: MongoDatabase,
+  ) {}
+
   public async getStates(): Promise<ILocationState[]> {
-    const records = await this.fetchStates();
+    const collection = await this.db.getCollection<any>('states');
+    const records = await collection.find({}).sort({ stateCode: 1 }).toArray();
 
     return records.map((record: any) => ({
-      stateCode: record.state_code,
-      stateNameEnglish: record.state_name_english,
+      stateCode: record.stateCode,
+      stateNameEnglish: record.stateNameEnglish,
     }));
   }
 
@@ -26,12 +33,16 @@ export class LocationService implements ILocationService {
       throw new BadRequestError('stateCode is required');
     }
 
-    const records = await this.fetchDistricts({ state_code: stateCode });
+    const collection = await this.db.getCollection<any>('districts');
+    const records = await collection
+      .find({ stateCode: Number(stateCode) })
+      .sort({ districtCode: 1 })
+      .toArray();
 
     return records.map((record: any) => ({
-      districtCode: record.district_code,
-      districtNameEnglish: record.district_name_english,
-      stateCode: record.state_code,
+      districtCode: record.districtCode,
+      districtNameEnglish: record.districtNameEnglish,
+      stateCode: record.stateCode,
     }));
   }
 
@@ -40,12 +51,16 @@ export class LocationService implements ILocationService {
       throw new BadRequestError('districtCode is required');
     }
 
-    const records = await this.fetchSubDistricts({ district_code: districtCode });
+    const collection = await this.db.getCollection<any>('blocks');
+    const records = await collection
+      .find({ districtCode: Number(districtCode) })
+      .sort({ blockCode: 1 })
+      .toArray();
 
     return records.map((record: any) => ({
-      blockCode: record.subdistrict_code,
-      blockNameEnglish: record.subdistrict_name_english,
-      districtCode: record.district_code,
+      blockCode: record.blockCode,
+      blockNameEnglish: record.blockNameEnglish,
+      districtCode: record.districtCode,
     }));
   }
 
@@ -54,80 +69,17 @@ export class LocationService implements ILocationService {
       throw new BadRequestError('blockCode is required');
     }
 
-    const records = await this.fetchVillages({ subdistrictCode: blockCode });
+    const collection = await this.db.getCollection<any>('villages');
+    const records = await collection
+      .find({ blockCode: Number(blockCode) })
+      .sort({ villageCode: 1 })
+      .toArray();
 
     return records.map((record: any) => ({
       villageCode: record.villageCode,
       villageNameEnglish: record.villageNameEnglish,
-      blockCode: blockCode,
-      pincode: record.pincode,
+      blockCode: record.blockCode,
+      pincode: record.pincode || 0, // Fallback since it might not be in DB
     }));
-  }
-
-  private async fetchStates(): Promise<any[]> {
-    const apiUrl = process.env.LGD_STATES_API_URL;
-    if (!apiUrl) throw new InternalServerError('LGD_STATES_API_URL is not configured');
-    return this.makeLGDRequest(apiUrl);
-  }
-
-  private async fetchDistricts(filters?: Record<string, string | number>): Promise<any[]> {
-    const apiUrl = process.env.LGD_DISTRICTS_API_URL;
-    if (!apiUrl) throw new InternalServerError('LGD_DISTRICTS_API_URL is not configured');
-    return this.makeLGDRequest(apiUrl, filters);
-  }
-
-  private async fetchSubDistricts(filters?: Record<string, string | number>): Promise<any[]> {
-    const apiUrl = process.env.LGD_SUBDISTRICTS_API_URL;
-    if (!apiUrl) throw new InternalServerError('LGD_SUBDISTRICTS_API_URL is not configured');
-    return this.makeLGDRequest(apiUrl, filters);
-  }
-
-  private async fetchVillages(filters?: Record<string, string | number>): Promise<any[]> {
-    const apiUrl = process.env.LGD_VILLAGES_API_URL;
-    if (!apiUrl) throw new InternalServerError('LGD_VILLAGES_API_URL is not configured');
-    return this.makeLGDRequest(apiUrl, filters);
-  }
-
-  private async makeLGDRequest(apiUrl: string, filters?: Record<string, string | number>): Promise<any[]> {
-    const apiKey = process.env.LGD_API_KEY;
-
-    if (!apiKey) {
-      throw new InternalServerError('LGD_API_KEY is not configured');
-    }
-
-    const params: Record<string, string | number> = {
-      'api-key': apiKey,
-      format: 'json',
-      limit: 10000,
-      offset: 0,
-    };
-
-    if (filters) {
-      for (const [key, value] of Object.entries(filters)) {
-        params[`filters[${key}]`] = value;
-      }
-    }
-
-    try {
-      const response = await axios.get(apiUrl, {
-        params,
-        timeout: 30000,
-      });
-
-      if (!response?.data?.records) {
-        throw new InternalServerError('Invalid LGD API response: records missing');
-      }
-
-      return response.data.records;
-    } catch (error: any) {
-      if (error instanceof InternalServerError) {
-        throw error;
-      }
-
-      const message =
-        error?.response?.data?.message || error?.message || 'Failed to fetch LGD locations';
-
-      throw new InternalServerError(`LGD service error: ${message}`);
-    }
   }
 }
