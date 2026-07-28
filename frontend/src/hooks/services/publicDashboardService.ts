@@ -8,6 +8,39 @@ export const SATURATION_LIMIT_NAME = "saturation limit crop";
 export const OUTREACH_VIDEO_NAME = "outreach video";
 export const OUTREACH_IMAGE_NAME = "outreach image";
 
+export interface SaturatedCrop {
+  crop: string;
+  count: number;
+}
+
+export interface SaturatedCropStateItem {
+  state: string;
+  total: number;
+  crops: SaturatedCrop[];
+}
+
+export interface SaturatedCropsApiResponse {
+  saturationLimit?: number;
+  states?: SaturatedCropStateItem[];
+}
+
+/** Public-facing subset of an active user for the public dashboard. */
+export interface PublicUserItem {
+  firstName: string;
+  lastName?: string;
+  preference?: {
+    state?: string;
+    district?: string;
+    language?: string;
+    role?: string;
+    crops?: string[];
+  } | null;
+  avatar?: string;
+  role: string;
+  university?: string;
+  createdAt?: string;
+}
+
 /**
  * A single public dashboard item. Every admin-editable value (saturation limit, outreach
  * video URLs, future images/tunables) is stored in one `items` array with this shape.
@@ -20,6 +53,15 @@ export interface PublicDashboardItem {
 }
 
 export class PublicDashboardService {
+  private _baseUrl = `${API_BASE_URL}/public-dashboard`;
+
+  /** Public read of active users. */
+  async getUsers(): Promise<PublicUserItem[] | null> {
+    return apiFetch<PublicUserItem[]>(
+      `${API_BASE_URL}/public-dashboard/users`,
+    );
+  }
+
   /** Public read of all items. */
   async getItems(): Promise<PublicDashboardItem[] | null> {
     return apiFetch<PublicDashboardItem[]>(
@@ -56,4 +98,16 @@ export class PublicDashboardService {
       { method: "DELETE" },
     );
   }
+
+  async getSaturatedCrops(): Promise<SaturatedCropsApiResponse | SaturatedCropStateItem[] | null> {
+    try {
+      const data = await apiFetch<SaturatedCropsApiResponse | SaturatedCropStateItem[]>(`${this._baseUrl}/saturated-crops`);
+      return data;
+    } catch (err) {
+      console.warn("Could not fetch saturated crops from backend API:", err);
+      return null;
+    }
+  }
 }
+
+export const publicDashboardService = new PublicDashboardService();

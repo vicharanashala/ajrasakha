@@ -4,12 +4,21 @@ import { PublicDashboardService } from "../../services/publicDashboardService";
 const service = new PublicDashboardService();
 
 const ITEMS_KEY = ["public-dashboard-items"];
+const USERS_KEY = ["public-dashboard-users"];
 
 /** Read all public dashboard items (saturation limit, outreach videos, …). */
 export const usePublicDashboardItems = () =>
   useQuery({
     queryKey: ITEMS_KEY,
     queryFn: () => service.getItems(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+/** Read active users with public-facing profile fields. */
+export const usePublicDashboardUsers = () =>
+  useQuery({
+    queryKey: USERS_KEY,
+    queryFn: () => service.getUsers(),
     staleTime: 5 * 60 * 1000,
   });
 
