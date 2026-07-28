@@ -1027,6 +1027,9 @@ export const CallInterface = () => {
           // Reset lastCallUuid when a new call comes in
           if (uuid !== null) {
             setLastCallUuid(null);
+            if (isHumanVerificationMode) {
+              toast.info("New call connected. Resetting previous review draft.");
+            }
             // Clear transcripts, questions, summary and translation states for new calls
             setTranscriptsList([]);
             setQuestions([]);

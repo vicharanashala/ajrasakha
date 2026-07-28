@@ -42,8 +42,12 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         createdAt: now,
         updatedAt: now,
       };
-      const result = await this.callDetailsCollection.insertOne(doc, { session });
-      return result.insertedId.toString();
+      const result = await this.callDetailsCollection.updateOne(
+        { callUuid: details.callUuid },
+        { $setOnInsert: doc },
+        { upsert: true, session }
+      );
+      return result.upsertedId ? result.upsertedId.toString() : details.callUuid;
     } catch (error: any) {
       console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.create: Error creating call details record:`, error.stack || error);
       throw new InternalServerError(`Failed to create call details: ${error}`);

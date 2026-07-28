@@ -22,6 +22,8 @@ export class PlivoWebSocketService {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
   private messageHandlers: Map<string, ((message: PlivoTranscriptMessage) => void)[]> = new Map();
+  private currentToken: string | undefined = undefined;
+  private isIntentionalDisconnect = false;
 
   constructor() {
     this.setupEventHandlers();
@@ -36,10 +38,19 @@ export class PlivoWebSocketService {
 
   connect(token?: string): Promise<void> {
     this.reconnectAttempts = 0;
+    this.isIntentionalDisconnect = false;
+    if (token) {
+      this.currentToken = token;
+    }
 
     return new Promise((resolve, reject) => {
       try {
-        const wsUrl = env.plivo.streamUrl();
+        let wsUrl = env.plivo.streamUrl();
+        const activeToken = token || this.currentToken;
+        if (activeToken) {
+          const separator = wsUrl.includes('?') ? '&' : '?';
+          wsUrl = `${wsUrl}${separator}token=${encodeURIComponent(activeToken)}`;
+        }
 
         if (typeof window !== 'undefined') {
           (window as any).frontendWsLog = '🔌 [FRONTEND] WebSocket connection initiated';
@@ -66,7 +77,9 @@ export class PlivoWebSocketService {
         };
 
         this.ws.onclose = () => {
-          this.handleReconnect();
+          if (!this.isIntentionalDisconnect) {
+            this.handleReconnect();
+          }
         };
 
         this.ws.onerror = (error) => {
@@ -95,7 +108,7 @@ export class PlivoWebSocketService {
       const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
       setTimeout(() => {
-        this.connect();
+        this.connect(this.currentToken);
       }, delay);
     } else {
       console.error('❌ Max reconnection attempts reached');
@@ -103,11 +116,11 @@ export class PlivoWebSocketService {
   }
 
   disconnect() {
+    this.isIntentionalDisconnect = true;
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
-    this.reconnectAttempts = this.maxReconnectAttempts;
   }
 
   isConnected(): boolean {

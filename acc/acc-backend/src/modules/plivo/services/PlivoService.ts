@@ -39,18 +39,37 @@ export class PlivoService {
   private plivoClient: plivo.Client;
   private callAgentMapping: Map<string, string> = new Map();
 
+  private lastActivityMap: Map<string, number> = new Map();
+
   constructor(
     @inject(PLIVO_TYPES.CallDetailsRepository)
     private readonly callDetailsRepository: ICallDetailsRepository
   ) {
     this.sarvamApiKey = appConfig.sarvamAPI;
     this.plivoClient = new plivo.Client(process.env.PLIVO_AUTH_ID, process.env.PLIVO_AUTH_TOKEN, { timeout: 30000 });
+
+    // Periodic GC sweep every 15 minutes to clear stale call sessions older than 1 hour
+    setInterval(() => {
+      this.cleanupStaleSessions();
+    }, 15 * 60 * 1000);
+  }
+
+  cleanupStaleSessions(): void {
+    const now = Date.now();
+    const oneHourMs = 60 * 60 * 1000;
+    for (const [callId, lastTime] of this.lastActivityMap.entries()) {
+      if (now - lastTime > oneHourMs) {
+        console.log(`[PLIVO-SERVICE GC] Purging stale in-memory call session for ${callId}`);
+        this.clearTranscript(callId);
+      }
+    }
   }
 
   initializeStreams(
     callId: string,
     onTranscript: (result: { track: 'inbound' | 'outbound'; originalText: string; translatedText: string; detectedLanguage: string }) => void
   ): void {
+    this.lastActivityMap.set(callId, Date.now());
     this.initializeTrackStream(callId, 'inbound', onTranscript);
     this.initializeTrackStream(callId, 'outbound', onTranscript);
   }
@@ -141,6 +160,16 @@ export class PlivoService {
 
     transcribeWs.on('close', (code, reason) => {
       console.log(`🔌 [PLIVO-SERVICE] Transcribe WS closed for call ${callId} (${track}). Code: ${code}, Reason: ${reason}`);
+      transcribeWsSession.isOpen = false;
+      // Auto-reconnect if call stream session is still active
+      if (this.activeStreams.has(key)) {
+        console.warn(`[PLIVO-SERVICE] Reconnecting Sarvam transcribe WS for ${key}...`);
+        setTimeout(() => {
+          if (this.activeStreams.has(key)) {
+            this.reconnectTrackWs(callId, track, 'transcribe');
+          }
+        }, 2000);
+      }
     });
 
     translateWs.on('open', () => {
@@ -180,6 +209,70 @@ export class PlivoService {
 
     translateWs.on('close', (code, reason) => {
       console.log(`🔌 [PLIVO-SERVICE] Translate WS closed for call ${callId} (${track}). Code: ${code}, Reason: ${reason}`);
+      translateWsSession.isOpen = false;
+      // Auto-reconnect if call stream session is still active
+      if (this.activeStreams.has(key)) {
+        console.warn(`[PLIVO-SERVICE] Reconnecting Sarvam translate WS for ${key}...`);
+        setTimeout(() => {
+          if (this.activeStreams.has(key)) {
+            this.reconnectTrackWs(callId, track, 'translate');
+          }
+        }, 2000);
+      }
+    });
+  }
+
+  private reconnectTrackWs(callId: string, track: 'inbound' | 'outbound', mode: 'transcribe' | 'translate'): void {
+    const key = `${callId}_${track}`;
+    const session = this.activeStreams.get(key);
+    if (!session) return;
+
+    const url = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=${mode}&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
+    const headers = { 'Api-Subscription-Key': this.sarvamApiKey };
+    const newWs = new WebSocket(url, { headers });
+
+    const wsSession = mode === 'transcribe' ? session.transcribeWsSession : session.translateWsSession;
+    wsSession.ws = newWs;
+    wsSession.isOpen = false;
+
+    newWs.on('open', () => {
+      wsSession.isOpen = true;
+      this.flushQueue(wsSession);
+      console.log(`[PLIVO-SERVICE] Reconnected Sarvam ${mode} WS for ${key}`);
+    });
+
+    newWs.on('message', (data) => {
+      try {
+        const response = JSON.parse(data.toString());
+        if (response.type === 'data') {
+          const current = response.data.transcript || '';
+          const prev = mode === 'transcribe' ? session.lastOriginal : session.lastTranslate;
+          let delta = '';
+          if (current.startsWith(prev)) {
+            delta = current.substring(prev.length).trim();
+          } else {
+            delta = current.trim();
+          }
+
+          if (mode === 'transcribe' && response.data.language_code) {
+            session.detectedLanguage = response.data.language_code;
+            this.detectedLanguages.set(key, response.data.language_code);
+          }
+
+          if (delta) {
+            if (mode === 'transcribe') {
+              session.lastOriginal = current;
+              session.pendingOriginal = (session.pendingOriginal + ' ' + delta).trim();
+            } else {
+              session.lastTranslate = current;
+              session.pendingTranslate = (session.pendingTranslate + ' ' + delta).trim();
+            }
+            this.triggerDebounce(callId, track);
+          }
+        }
+      } catch (err) {
+        console.error(`[PLIVO-SERVICE] Error parsing reconnected ${mode} WS message for ${key}:`, err);
+      }
     });
   }
 
@@ -316,6 +409,7 @@ export class PlivoService {
     callId: string,
     track: 'inbound' | 'outbound' = 'inbound'
   ): Promise<{ originalText: string; translatedText: string }> {
+    this.lastActivityMap.set(callId, Date.now());
     const key = `${callId}_${track}`;
     const session = this.activeStreams.get(key);
     if (session) {
@@ -341,6 +435,7 @@ export class PlivoService {
   }
 
   clearTranscript(callId: string): void {
+    this.lastActivityMap.delete(callId);
     for (const track of ['inbound', 'outbound'] as const) {
       const key = `${callId}_${track}`;
       this.activeTranscriptions.delete(key);

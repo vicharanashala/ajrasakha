@@ -54,6 +54,46 @@ export class MongoDatabase implements IDatabase<Db> {
         try {
           await this.client?.connect();
           this.database = this.client?.db(this.dbName);
+          if (this.database) {
+            const db = this.database;
+            db.collection('call_details').createIndex({ callUuid: 1 }, { unique: true }).catch(async (err) => {
+              if (err.message && err.message.includes('E11000')) {
+                console.warn(`[${this.dbIdentifier}] Legacy duplicate callUuid found in call_details. Deduplicating...`);
+                try {
+                  const col = db.collection('call_details');
+                  const duplicates = await col.aggregate([
+                    { $group: { _id: "$callUuid", count: { $sum: 1 }, ids: { $push: "$_id" } } },
+                    { $match: { count: { $gt: 1 }, _id: { $ne: null } } }
+                  ]).toArray();
+
+                  for (const dup of duplicates) {
+                    const docs = await col.find({ _id: { $in: dup.ids } }).sort({ updatedAt: -1, createdAt: -1 }).toArray();
+                    if (docs.length > 1) {
+                      const keepDoc = docs[0];
+                      const deleteIds = docs.slice(1).map(d => d._id);
+                      const mergedQueryIds = Array.from(new Set(docs.flatMap(d => d.queryIds || [])));
+
+                      await col.updateOne(
+                        { _id: keepDoc._id },
+                        { $set: { queryIds: mergedQueryIds } }
+                      );
+                      await col.deleteMany({ _id: { $in: deleteIds } });
+                      console.log(`Safely merged & cleaned up ${deleteIds.length} legacy duplicate call_details for callUuid: ${dup._id}`);
+                    }
+                  }
+                  await col.createIndex({ callUuid: 1 }, { unique: true });
+                  console.log(`[${this.dbIdentifier}] Unique index callUuid_1 created on call_details after deduplication.`);
+                } catch (dedupErr: any) {
+                  console.warn(`[${this.dbIdentifier}] Deduplication warning:`, dedupErr.message);
+                }
+              } else {
+                console.warn(`[${this.dbIdentifier}] Index create warning for call_details:`, err.message);
+              }
+            });
+            db.collection('call_queries').createIndex({ callUuid: 1 }).catch((err) => {
+              console.warn(`[${this.dbIdentifier}] Index create warning for call_queries:`, err.message);
+            });
+          }
           return this.database!;
         } catch (err) {
           this.connectingPromise = null;

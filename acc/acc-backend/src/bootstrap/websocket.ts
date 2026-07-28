@@ -5,6 +5,8 @@ import type { PlivoService } from '../modules/plivo/services/PlivoService.js';
 import { getContainer } from './loadModules.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import type { UserService } from '#root/modules/user/services/UserService.js';
+import { getFromContainer } from 'routing-controllers';
+import { FirebaseAuthService } from '#root/modules/auth/services/FirebaseAuthService.js';
 
 export const initWebSocket = (server: Server) => {
   const wss = new WebSocketServer({
@@ -15,6 +17,25 @@ export const initWebSocket = (server: Server) => {
   const plivoService = getContainer().get<PlivoService>(PLIVO_TYPES.PlivoService);
   const userService = getContainer().get<UserService>(GLOBAL_TYPES.UserService);
 
+  const sendTargeted = (targetCallId: string, payload: any) => {
+    const assignedAgentId = plivoService.getCallAgent(targetCallId);
+    let recipientCount = 0;
+
+    Array.from(wss.clients).forEach((client: any) => {
+      if (client.readyState === 1) {
+        const isTargetAgent = assignedAgentId && client.userId === assignedAgentId;
+        const isAdminOrMod = client.userRole === 'admin' || client.userRole === 'moderator';
+
+        if (!assignedAgentId || isTargetAgent || isAdminOrMod) {
+          client.send(JSON.stringify(payload));
+          recipientCount++;
+        }
+      }
+    });
+
+    return recipientCount;
+  };
+
   wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
     console.log('🔌 Plivo stream connected');
 
@@ -22,6 +43,24 @@ export const initWebSocket = (server: Server) => {
     let isMediaStream = false;
     let isCallEnded = false;
     const audioChunks: Buffer[] = [];
+
+    // Authenticate client if token query param is provided
+    try {
+      const reqUrl = req.url || '';
+      const tokenMatch = reqUrl.match(/[?&]token=([^&]+)/);
+      if (tokenMatch && tokenMatch[1]) {
+        const rawToken = decodeURIComponent(tokenMatch[1]);
+        const firebaseAuthService = getFromContainer(FirebaseAuthService);
+        const decodedUser = await firebaseAuthService.getCurrentUserFromToken(rawToken);
+        if (decodedUser) {
+          (ws as any).userId = decodedUser._id?.toString() || null;
+          (ws as any).userRole = decodedUser.role || null;
+          console.log(`[WEBSOCKET] Client authenticated: userId=${(ws as any).userId}, role=${(ws as any).userRole}`);
+        }
+      }
+    } catch (authError: any) {
+      console.warn('[WEBSOCKET] Token authentication skipped/failed:', authError.message || authError);
+    }
 
     const handleCallEnd = async () => {
       if (!isMediaStream || isCallEnded) return;
@@ -32,18 +71,14 @@ export const initWebSocket = (server: Server) => {
         for (const track of ['inbound', 'outbound'] as const) {
           const res = finalChunkResults[track];
           if (res.originalText.trim() || res.translatedText.trim()) {
-            Array.from(wss.clients).forEach((client: any) => {
-              if (client.readyState === 1) {
-                client.send(JSON.stringify({
-                  type: 'transcript',
-                  callId,
-                  text: res.originalText || res.translatedText || '',
-                  originalText: res.originalText,
-                  translatedText: res.translatedText,
-                  track,
-                  timestamp: new Date().toISOString()
-                }));
-              }
+            sendTargeted(callId.toString(), {
+              type: 'transcript',
+              callId,
+              text: res.originalText || res.translatedText || '',
+              originalText: res.originalText,
+              translatedText: res.translatedText,
+              track,
+              timestamp: new Date().toISOString()
             });
           }
         }
@@ -61,27 +96,23 @@ export const initWebSocket = (server: Server) => {
         console.log(`Farmer: ${finalInboundTranscript} [Translation: ${finalInboundTranslation}]`);
         console.log(`Expert: ${finalOutboundTranscript} [Translation: ${finalOutboundTranslation}]`);
 
-        Array.from(wss.clients).forEach((client: any) => {
-          if (client.readyState === 1) {
-            client.send(JSON.stringify({
-              type: 'call_end',
-              callId,
-              finalTranscript: `Farmer: ${finalInboundTranscript}\nExpert: ${finalOutboundTranscript}`,
-              originalText: `Farmer: ${finalInboundTranscript}\nExpert: ${finalOutboundTranscript}`,
-              translatedText: `Farmer: ${finalInboundTranslation}\nExpert: ${finalOutboundTranslation}`,
-              caller: {
-                transcript: finalInboundTranscript,
-                translation: finalInboundTranslation,
-                detectedLanguage: plivoService.getDetectedLanguage(callId.toString(), 'inbound')
-              },
-              agent: {
-                transcript: finalOutboundTranscript,
-                translation: finalOutboundTranslation,
-                detectedLanguage: plivoService.getDetectedLanguage(callId.toString(), 'outbound')
-              },
-              timestamp: new Date().toISOString()
-            }));
-          }
+        sendTargeted(callId.toString(), {
+          type: 'call_end',
+          callId,
+          finalTranscript: `Farmer: ${finalInboundTranscript}\nExpert: ${finalOutboundTranscript}`,
+          originalText: `Farmer: ${finalInboundTranscript}\nExpert: ${finalOutboundTranscript}`,
+          translatedText: `Farmer: ${finalInboundTranslation}\nExpert: ${finalOutboundTranslation}`,
+          caller: {
+            transcript: finalInboundTranscript,
+            translation: finalInboundTranslation,
+            detectedLanguage: plivoService.getDetectedLanguage(callId.toString(), 'inbound')
+          },
+          agent: {
+            transcript: finalOutboundTranscript,
+            translation: finalOutboundTranslation,
+            detectedLanguage: plivoService.getDetectedLanguage(callId.toString(), 'outbound')
+          },
+          timestamp: new Date().toISOString()
         });
       } catch (finalError) {
         console.error('Final transcript failed:', finalError);
@@ -134,24 +165,14 @@ export const initWebSocket = (server: Server) => {
               timestamp: new Date().toISOString()
             };
 
-            let clientCount = 0;
-            Array.from(wss.clients).forEach((client: any) => {
-              if (client.readyState === 1) {
-                clientCount++;
-                client.send(JSON.stringify(transcriptMessage));
-              }
-            });
-            console.log(`📤 [BACKEND] Transcript sent to ${clientCount} frontend clients`);
+            const clientCount = sendTargeted(callId, transcriptMessage);
+            console.log(`[BACKEND] Transcript sent to ${clientCount} targeted frontend clients`);
           });
 
-          Array.from(wss.clients).forEach((client: any) => {
-            if (client !== ws && client.readyState === 1) {
-              client.send(JSON.stringify({
-                type: 'call_start',
-                callId,
-                data: msg.start
-              }));
-            }
+          sendTargeted(callId, {
+            type: 'call_start',
+            callId,
+            data: msg.start
           });
         }
 
@@ -160,15 +181,11 @@ export const initWebSocket = (server: Server) => {
           audioChunks.push(audioBuffer);
           const track = msg.media.track || 'inbound';
           plivoService.transcribeAudio(audioBuffer, callId, track).catch((transcribeError) => {
-            console.error('❌ [BACKEND] transcribeAudio failed:', transcribeError);
-            Array.from(wss.clients).forEach((client: any) => {
-              if (client.readyState === 1) {
-                client.send(JSON.stringify({
-                  type: 'transcription_error',
-                  callId,
-                  error: transcribeError.message
-                }));
-              }
+            console.error('[BACKEND] transcribeAudio failed:', transcribeError);
+            sendTargeted(callId, {
+              type: 'transcription_error',
+              callId,
+              error: transcribeError.message
             });
           });
         }
@@ -190,19 +207,15 @@ export const initWebSocket = (server: Server) => {
         plivoService.clearTranscript(callId.toString());
       }
 
-      Array.from(wss.clients).forEach((client: any) => {
-        if (client.readyState === 1) {
-          client.send(JSON.stringify({
-            type: 'call_disconnected',
-            callId,
-            timestamp: new Date().toISOString()
-          }));
-        }
+      sendTargeted(callId.toString(), {
+        type: 'call_disconnected',
+        callId,
+        timestamp: new Date().toISOString()
       });
     });
 
     ws.on('error', (err) => {
-      console.error('🔥 WS Error:', err);
+      console.error('WS Error:', err);
     });
   });
 };

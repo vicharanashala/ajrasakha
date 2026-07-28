@@ -16,7 +16,6 @@ export class AccAgentService {
   async createThread(): Promise<{ thread_id: string }> {
     const startTime = Date.now();
     try {
-      console.log(`🔄 [AccAgentService] Creating new thread...`);
       const response = await axios.post(
         `${this.BASE_URL}/threads`,
         {},
@@ -30,10 +29,10 @@ export class AccAgentService {
         throw new InternalServerError('Invalid response from ACC Agent API: missing thread_id');
       }
 
-      console.log(`✅ [AccAgentService] Thread created: ${response.data.thread_id} (${Date.now() - startTime}ms)`);
+      console.log(`[AccAgentService] Thread created: ${response.data.thread_id} (${Date.now() - startTime}ms)`);
       return response.data;
     } catch (error) {
-      console.error(`❌ [AccAgentService] createThread failed after ${Date.now() - startTime}ms:`, error);
+      console.error(`[AccAgentService] createThread failed after ${Date.now() - startTime}ms:`, error);
       throw new InternalServerError('Failed to create ACC Agent thread');
     }
   }
@@ -60,7 +59,7 @@ export class AccAgentService {
   }> {
     const startTime = Date.now();
     try {
-      console.log(`🔄 [AccAgentService] Extracting data from transcript for thread ${threadId} (transcript length: ${transcript.length})`);
+      console.log(`[AccAgentService] Extracting data from transcript for thread ${threadId} (transcript length: ${transcript.length})`);
       const response = await axios.post(
         `${this.BASE_URL}/threads/${threadId}/runs/wait`,
         {

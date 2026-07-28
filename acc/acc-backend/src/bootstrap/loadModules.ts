@@ -11,6 +11,14 @@ const __dirname = path.dirname(__filename);
 
 let container: Container | null = null;
 
+/**
+ * Convert a hyphenated directory name to camelCase for matching export names.
+ * e.g. 'acc-agent' -> 'accAgent', 'plivo' -> 'plivo'
+ */
+function toCamelCase(str: string): string {
+  return str.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
+}
+
 interface LoadedModuleResult {
   controllers: Function[];
   validators: Function[];
@@ -40,11 +48,14 @@ export async function loadAppModules(
     const modulePath = `../modules/${file}/index.js`;
     const moduleExports = await import(modulePath);
 
-    const controllerExportKey = `${file}ModuleControllers`;
-    const validatorExportKey = `${file}ModuleValidators`;
-    const containerModulesKey = `${file}ContainerModules`;
+    // Convert hyphenated directory names to camelCase for export key matching
+    // e.g. 'acc-agent' -> 'accAgent' so keys become 'accAgentModuleControllers'
+    const camelName = toCamelCase(file);
+    const controllerExportKey = `${camelName}ModuleControllers`;
+    const validatorExportKey = `${camelName}ModuleValidators`;
+    const containerModulesKey = `${camelName}ContainerModules`;
 
-    const setupFunctionKey = `setup${file[0].toUpperCase()}${file.slice(
+    const setupFunctionKey = `setup${camelName[0].toUpperCase()}${camelName.slice(
       1,
     )}Container`;
 

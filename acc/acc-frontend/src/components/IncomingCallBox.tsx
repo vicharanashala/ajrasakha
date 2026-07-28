@@ -78,7 +78,7 @@ export const IncomingCallBox = ({
   onCallUuidChange,
   onPhoneNumberChange,
 }: IncomingCallBoxProps) => {
-  console.log(" [IncomingCallBox] Component mounting...");
+  // console.log(" [IncomingCallBox] Component mounting...");
 
   const { data: currentUser, isLoading: isUserLoading, refetch: refetchCurrentUser } = useGetCurrentUser();
 
@@ -86,8 +86,8 @@ export const IncomingCallBox = ({
 
   // Notify parent of active phone number change
   useEffect(() => {
-    onPhoneNumberChange?.(incomingCall?.number || null);
-  }, [incomingCall?.number, onPhoneNumberChange]);
+    callbacksRef.current.onPhoneNumberChange?.(incomingCall?.number || null);
+  }, [incomingCall?.number]);
   const [callStatus, setCallStatus] = useState<
     "idle" | "incoming" | "connected" | "held" | "ended"
   >("idle");
@@ -316,15 +316,19 @@ export const IncomingCallBox = ({
     onOriginalTranscriptChange,
     onTranscriptChange,
     onTranscriptsListChange,
+    onCallStateChange,
+    onCallUuidChange,
+    onPhoneNumberChange,
   });
-
-
 
   useEffect(() => {
     callbacksRef.current = {
       onOriginalTranscriptChange,
       onTranscriptChange,
       onTranscriptsListChange,
+      onCallStateChange,
+      onCallUuidChange,
+      onPhoneNumberChange,
     };
   });
 
@@ -774,27 +778,29 @@ export const IncomingCallBox = ({
       disconnectWebSocket();
     });
 
-    // Connect to WebSocket
-    const token = localStorage.getItem("token");
-    console.log("🔑 [IncomingCallBox] Using token:", token ? "✅" : "❌ None");
+    // Connect to WebSocket using Firebase Auth Token
+    (async () => {
+      let activeToken: string | undefined = undefined;
+      try {
+        const { getCurrentUser } = await import("@/hooks/api/api-fetch");
+        const { getIdToken } = await import("firebase/auth");
+        const user = await getCurrentUser();
+        if (user) {
+          activeToken = await getIdToken(user);
+        }
+      } catch (err) {
+        console.warn("⚠️ Could not fetch Firebase ID token for WS:", err);
+      }
 
-    if (token) {
-      ws.connect(token).catch((error) => {
-        console.error(
-          "❌ [IncomingCallBox] WebSocket connection failed with token:",
-          error,
-        );
-        alert("WebSocket connection failed: " + error);
+      if (!activeToken) {
+        activeToken = localStorage.getItem("firebase-auth-token") || localStorage.getItem("token") || undefined;
+      }
+
+      console.log("🔑 [IncomingCallBox] Connecting WebSocket with token:", activeToken ? "✅ Present" : "⚠️ None");
+      ws.connect(activeToken).catch((error) => {
+        console.error("❌ [IncomingCallBox] WebSocket connection failed:", error);
       });
-    } else {
-      ws.connect().catch((error) => {
-        console.error(
-          "❌ [IncomingCallBox] WebSocket connection failed without token:",
-          error,
-        );
-        alert("WebSocket connection failed: " + error);
-      });
-    }
+    })();
   };
 
   const disconnectWebSocket = () => {

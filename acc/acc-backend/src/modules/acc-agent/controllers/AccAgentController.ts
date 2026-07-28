@@ -27,7 +27,7 @@ export class AccAgentController {
     private readonly accAgentService: AccAgentService,
     @inject(PLIVO_TYPES.CallDetailsRepository)
     private readonly callDetailsRepository: ICallDetailsRepository,
-  ) {}
+  ) { }
 
   @Post('/acc-agent/thread')
   @HttpCode(200)
