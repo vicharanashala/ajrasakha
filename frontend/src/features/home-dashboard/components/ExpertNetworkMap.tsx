@@ -29,6 +29,49 @@ export const getAvatarUrl = (avatar?: string | null, name?: string) => {
   return getInitialsAvatarUrl(name || "Expert");
 };
 
+const normalizeState = (state: string): string => {
+  const s = state.trim().toLowerCase();
+
+  // Clean up common spelling mistakes / variations
+  if (s.includes("andhra") && (s.includes("padesh") || s.includes("pradesh") || s.includes("prades") || s.includes("andra"))) {
+    return "andhra pradesh";
+  }
+  if (s.includes("arunachal") && (s.includes("padesh") || s.includes("pradesh"))) {
+    return "arunachal pradesh";
+  }
+  if (s.includes("himachal") && (s.includes("padesh") || s.includes("pradesh"))) {
+    return "himachal pradesh";
+  }
+  if (s.includes("madhya") && (s.includes("padesh") || s.includes("pradesh"))) {
+    return "madhya pradesh";
+  }
+  if (s.includes("uttar") && (s.includes("padesh") || s.includes("pradesh") || s.includes("prad"))) {
+    if (s.includes("uttaranchal") || s.includes("uttarakhand")) {
+      return "uttarakhand";
+    }
+    return "uttar pradesh";
+  }
+  if (s === "orissa" || s === "odisa" || s === "odisaa" || s === "odisha") {
+    return "odisha";
+  }
+  if (s === "uttaranchal" || s === "uttrakhand") {
+    return "uttarakhand";
+  }
+  if (s === "telengana" || s === "telangana") {
+    return "telangana";
+  }
+  if (s.includes("jammu") && s.includes("kashmir")) {
+    return "jammu & kashmir";
+  }
+  if (s.includes("andaman") && s.includes("nicobar")) {
+    return "andaman & nicobar";
+  }
+  if (s.includes("daman") && s.includes("diu")) {
+    return "dadra and nagar haveli and daman and diu";
+  }
+  return s;
+};
+
 interface ExpertNetworkMapProps {
   publicUsers?: PublicUserItem[] | null;
   className?: string;
@@ -69,12 +112,13 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
         `Agri Professional #${idx + 1}`;
 
       const rawState = safeString(u.preference?.state);
+      const normalizedStateName = rawState ? normalizeState(rawState) : "";
       let matchStateObj =
-        rawState && rawState.toLowerCase() !== "all"
+        normalizedStateName && normalizedStateName !== "all"
           ? REAL_OFFICIAL_INDIA_MAP.find(
               (st) =>
-                st.name.toLowerCase() === rawState.toLowerCase() ||
-                st.id.toLowerCase() === rawState.toLowerCase()
+                st.name.toLowerCase() === normalizedStateName ||
+                st.id.toLowerCase() === normalizedStateName
             )
           : undefined;
 
