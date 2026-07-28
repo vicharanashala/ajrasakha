@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { IUser } from "@/types";
 import { useDebounce } from "@/hooks/ui/useDebounce";
+import { canManageUsers } from "@/lib/roles";
 import {
   Filter,
   MapPin,
@@ -25,6 +26,9 @@ import {
   SelectValue,
 } from "./atoms/select";
 import { ExpertDashboard } from "./ExpertDashboard";
+import { GateKeeperAuditorDashboard } from "./GateKeeperAuditorDashboard";
+import { Dashboard } from "./dashboard";
+import { Button } from "./atoms/button";
 import { UserFiltersDialog } from "./UserFiltersDialog";
 
 export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
@@ -43,7 +47,9 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [limit, setLimit] = useState(12);
   const [showSensitive, setShowSensitive] = useState(false);
   const isAdmin = currentUser?.role === "admin";
-  const isModerator = currentUser?.role === "moderator" || currentUser?.role === "tester";
+  // Every non-admin role with management access (moderator, tester, gate keeper, auditor)
+  // gets the same Expert Management view, so this can't drift from the tab's allowlist.
+  const isModerator = !isAdmin && canManageUsers(currentUser?.role);
 
   const { data: adminUsers, isLoading: adminLoading } = useAdminGetAllUsers(
   page,
@@ -123,29 +129,83 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
 
   const isLoading = isAdmin ? adminLoading : expertLoading;
 
-  const totalPages = isAdmin ? 1 : expertDetails?.totalPages || 0;
+  const totalPages = isAdmin
+    ? adminUsers?.totalPages || 1
+    : expertDetails?.totalPages || 0;
 
 
 
   return (
     <main className="mx-auto w-full p-4 md:p-6 space-y-6 ">
       {selectExpertId ? (
-        <ExpertDashboard
-          expertId={selectExpertId}
-          goBack={goBack}
-          rankPosition={rankPostion}
-          expertDetailsList={expertDetails}
-          currentUserRole={currentUser?.role}
-          selectedUserRole={
-            (tableItems as any[]).find((u) => u._id === selectExpertId)?.role
+        (() => {
+          const selectedUser = (tableItems as any[]).find(
+            (u) => u._id === selectExpertId,
+          );
+          const selectedRole = selectedUser?.role;
+          // Admin / moderator → the admin/moderator overview dashboard.
+          if (selectedRole === "admin" || selectedRole === "moderator") {
+            return (
+              <div className="space-y-2">
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+                    onClick={goBack}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                      className="w-4 h-4"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M17 8l4 4m0 0l-4 4m4-4H3"
+                      />
+                    </svg>
+                    <span className="leading-none">Exit</span>
+                  </Button>
+                </div>
+                <Dashboard />
+              </div>
+            );
           }
-        />
+          // Gate keeper / auditor get their own dashboard; everyone else keeps the
+          // expert performance view.
+          if (selectedRole === "gate_keeper" || selectedRole === "auditor") {
+            return (
+              <GateKeeperAuditorDashboard
+                userId={selectExpertId}
+                role={selectedRole}
+                userName={
+                  `${selectedUser?.firstName ?? selectedUser?.userName ?? ""} ${selectedUser?.lastName ?? ""}`.trim()
+                }
+                goBack={goBack}
+              />
+            );
+          }
+          return (
+            <ExpertDashboard
+              expertId={selectExpertId}
+              goBack={goBack}
+              rankPosition={rankPostion}
+              expertDetailsList={expertDetails}
+              currentUserRole={currentUser?.role}
+              selectedUserRole={selectedRole}
+            />
+          );
+        })()
       ) : (
         <>
           <div className="flex flex-wrap items-start justify-between gap-4 w-full bg-card py-4 px-2 rounded">
-            {/* LEFT — Search */}
-            <div className="flex items-center gap-3 flex-1 min-w-[250px] max-w-[500px] order-1">
-              <div className="relative w-full">
+            {/* LEFT — Search & Buttons */}
+            <div className="flex items-center gap-3 flex-1 min-w-[250px] max-w-[750px] order-1">
+              <div className="relative flex-1 min-w-[180px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 
                 <Input
@@ -182,6 +242,36 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                   {showSensitive ? "Hide Info" : "Show Info"}
                 </button>
               )}
+
+              {/* Internal Button */}
+              <button
+                onClick={() => {
+                  setRoleFilter((prev) => (prev === "INTERNAL" ? "ALL" : "INTERNAL"));
+                  setPage(1);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${
+                  roleFilter === "INTERNAL"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-input hover:text-foreground"
+                }`}
+              >
+                Internal
+              </button>
+
+              {/* External Button */}
+              <button
+                onClick={() => {
+                  setRoleFilter((prev) => (prev === "pae_expert" ? "ALL" : "pae_expert"));
+                  setPage(1);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${
+                  roleFilter === "pae_expert"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-input hover:text-foreground"
+                }`}
+              >
+                External
+              </button>
             </div>
 
             {/* RIGHT — Sort + Filter Group */}

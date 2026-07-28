@@ -11,6 +11,15 @@ class AccAgentState(TypedDict):
     extracted_district: Optional[str]
     extracted_crop: Optional[str]
     standardized_domains: list[str]  # NEW: Domain classification by LLM
+
+    # Farmer profile fields (from transcript when mentioned)
+    extracted_name: Optional[str]
+    extracted_phone: Optional[str]
+    extracted_age: Optional[int]
+    extracted_gender: Optional[str]
+    extracted_village: Optional[str]
+    extracted_block: Optional[str]
+    extracted_primary_crop: Optional[str]
     
     # Verified and merged location structure
     location: Optional[Location]

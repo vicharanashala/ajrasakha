@@ -190,7 +190,20 @@ export const QuestionsPage = ({
         is_non_agri: isNonAgri,
         is_testing: isTesting,
         // Dedicated tab: filter to questions assigned to the current moderator
-        moderatorId: isDedicated ? (currentUser?._id?.toString() ?? undefined) : undefined,
+        // Dedicated ("My Assignment") tab: filter to questions assigned to the current
+        // user, by their role — moderator, gate keeper, or auditor.
+        moderatorId:
+          isDedicated && currentUser?.role === "moderator"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
+        gateKeeperId:
+          isDedicated && currentUser?.role === "gate_keeper"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
+        auditorId:
+          isDedicated && currentUser?.role === "auditor"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
       };
     },
     [
@@ -223,6 +236,11 @@ export const QuestionsPage = ({
       isNonAgri,
       isTesting,
       viewMode,
+      // Only the id and role are read above. Depending on the whole `currentUser` object
+      // rebuilt this filter on every window-focus refetch (react-query returns a new
+      // object identity even when the data is unchanged).
+      currentUser?._id,
+      currentUser?.role,
     ],
   );
 
@@ -273,11 +291,23 @@ export const QuestionsPage = ({
     }
   }, [autoOpenQuestionId, selectedQuestionId]);
 
+  // Close the open question when the LIST's filters change, so the detail view never
+  // shows a question that's no longer in the result set.
+  //
+  // Keyed on a serialised snapshot rather than the `filter` object: `filter` is memoised
+  // on `currentUser`, a react-query value that gets a new identity on every window-focus
+  // refetch. Depending on the object meant that simply switching browser tabs and coming
+  // back re-ran this effect and slammed the moderator's open question shut, losing edits.
+  const filterSignature = useMemo(
+    () => JSON.stringify(filter),
+    [filter],
+  );
+
   useEffect(() => {
     if (selectedQuestionId && !autoOpenQuestionId) {
       setSelectedQuestionId("");
     }
-  }, [filter, debouncedSearch]);
+  }, [filterSignature, debouncedSearch]);
 
   useEffect(() => {
     if (debouncedSearch === "") return;

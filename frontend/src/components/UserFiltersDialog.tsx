@@ -153,6 +153,8 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
                     <SelectItem value="moderator">Moderator</SelectItem>
                     <SelectItem value="expert">Expert</SelectItem>
                     <SelectItem value="pae_expert">PAE Expert</SelectItem>
+                    <SelectItem value="gate_keeper">Gate Keeper</SelectItem>
+                    <SelectItem value="auditor">Auditor</SelectItem>
                     <SelectItem value="tester">Tester</SelectItem>
                   </SelectContent>
                 </Select>

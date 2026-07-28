@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { UserService } from "../../services/userService";
+import type { AssignedQuestion } from "../../services/userService";
 import type { IMyPreference, IUser } from "@/types";
 
 const userService = new UserService();
@@ -18,6 +19,8 @@ interface BasicUser {
   domain?:string | null;
   mobile?: string;
   university?: string;
+  /** Questions this user currently holds — used to show availability in select modals. */
+  assignedQuestionIds?: AssignedQuestion[] | null;
 }
 export interface IUsersNameResponse {
   myPreference: IMyPreference;
@@ -28,11 +31,13 @@ export interface IUsersNameResponse {
 
 
 export const useGetAllUsers = (
-  options: { enabled?: boolean } = {}
+  options: { enabled?: boolean; includeSelf?: boolean } = {}
 ) => {
+  const includeSelf = options.includeSelf ?? false;
   const { data, isLoading, error } = useQuery<IUsersNameResponse| null>({
-    queryKey: ["users"],
-    queryFn:()=> userService.useGetAllUsers(),
+    // includeSelf is part of the key so the two variants don't share a cache entry.
+    queryKey: ["users", includeSelf],
+    queryFn:()=> userService.useGetAllUsers(includeSelf),
     enabled: options.enabled,
   });
 

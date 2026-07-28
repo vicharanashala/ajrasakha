@@ -710,10 +710,16 @@ async def build_specialist_tool_calls_from_plan(
         })
 
     if plan.get("mandi"):
+        # Prefer planner rephrased query so location follow-ups are not treated as the mandi question.
+        mandi_query = (
+            (plan.get("rephrased_query") or "").strip()
+            or (plan.get("original_query_en") or "").strip()
+            or user_query
+        )
         calls.append({
             "name": "daily_price",
             "args": {
-                "query": user_query,
+                "query": mandi_query,
                 "latitude": lat,
                 "longitude": lon,
                 "crop": crop if crop != "General" else "all",

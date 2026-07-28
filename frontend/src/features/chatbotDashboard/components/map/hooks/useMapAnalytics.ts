@@ -18,6 +18,8 @@ interface UseMapAnalyticsProps {
   allStatesData?: any[];
   districtAnalytics?: DistrictAnalyticsResponse;
   metric: "questions" | "users" | "activeUsers";
+    startDate?: Date;
+  endDate?: Date;
 }
 
 // const normalizeState = (state: string) => {
@@ -41,7 +43,9 @@ export function useMapAnalytics({
   selectedDistrict,
   allStatesData,
   districtAnalytics,
-  metric
+  metric,
+  startDate,
+  endDate
 }: UseMapAnalyticsProps) {
   // Attach analytics to states
   // const statesWithData = useMemo(() => {
@@ -64,6 +68,8 @@ export function useMapAnalytics({
   //   };
   // }, [statesGeo]);
 
+  const hasDateFilter = !!startDate || !!endDate;
+
   const analyticsMap = useMemo(() => {
     if (!allStatesData) return new Map();
 
@@ -77,8 +83,10 @@ export function useMapAnalytics({
 
   const sorted = [...allStatesData].sort((a, b) => {
     switch (metric) {
-      case "users":
-        return b.totalUsers - a.totalUsers;
+case "users":
+  return hasDateFilter
+    ? b.activeUsers - a.activeUsers
+    : b.totalUsers - a.totalUsers;
 
       case "activeUsers":
         return b.activeUsers - a.activeUsers;
@@ -129,7 +137,9 @@ export function useMapAnalytics({
               questions: analytics?.totalQuestions ?? 0,
               // answers: analytics?.closedQuestions ?? 0,
                feedback: analytics?.totalFeedbacks ?? 0,
-              users: analytics?.totalUsers ?? 0,
+              users: hasDateFilter
+  ? analytics?.activeUsers ?? 0
+  : analytics?.totalUsers ?? 0,
               activeUsers: analytics?.activeUsers ?? 0,
               coordinators: analytics?.coordinators ?? 0,
                 rank: stateRankMap.get(
@@ -157,8 +167,10 @@ export function useMapAnalytics({
     .filter((d) => d.district.toLowerCase() !== "others")
     .sort((a, b) => {
       switch (metric) {
-        case "users":
-          return b.totalUsers - a.totalUsers;
+case "users":
+  return hasDateFilter
+    ? b.activeUsers - a.activeUsers
+    : b.totalUsers - a.totalUsers;
 
         case "activeUsers":
           return b.activeUsers - a.activeUsers;
@@ -230,7 +242,9 @@ export function useMapAnalytics({
     questions: analytics?.totalQuestions ?? 0,
     // answers: analytics?.closedQuestions ?? 0,
       feedback: analytics?.totalFeedbacks ?? 0,
-    users: analytics?.totalUsers ?? 0,
+    users: hasDateFilter
+  ? analytics?.activeUsers ?? 0
+  : analytics?.totalUsers ?? 0,
     activeUsers: analytics?.activeUsers ?? 0,
     coordinators: analytics?.coordinators ?? 0,
     // closureHrs: analytics?.avgClosingMsTime ?? 0,
@@ -310,8 +324,10 @@ arr = geo.features.map((f) => {
   const analytics = f.properties._analytics;
 
   switch (metric) {
-    case "users":
-      return analytics.users;
+case "users":
+  return hasDateFilter
+    ? analytics.activeUsers
+    : analytics.users;
 
     case "activeUsers":
       return analytics.activeUsers;
@@ -386,84 +402,33 @@ arr = geo.features.map((f) => {
 const chatbotService = new ChatbotService();
 
 export const useAllStatesandUserData = ({
-  // category,
-  // district,
-  // state,
-  // crop,
-  // crops,
-  // status,
-  // closedWithInTwohours,
-  // notificationType,
-  // period,
-  // questionType,
-  // page,
-  // limit,
   source,
   userType,
-  // startDate,
-  // endDate,
-  // search = "",
+  startDate,
+  endDate,
   enabled = true,
 }: {
-  // category?: string;
-  // district?: string;
-  // state: string
-  // crop?: string
-  // crops?: string[]
-  // status?: string
-  // closedWithInTwohours?: boolean
-  // notificationType?: string
-  // period?: string
-  // questionType: QueryCategoryQuestionType;
-  // page: number;
-  // limit: number;
+
   source: string;
   userType: string;
-  // startDate?: Date;
-  // endDate?: Date;
-  // search?: string;
+  startDate?: string;
+  endDate?: string;
   enabled: boolean;
 }) => {
   return useQuery<any>({
     queryKey: [
       "get-user-and-map-data",
-      // category,
-      // district,
-      // state,
-      // crop,
-      // crops?.join(","),
-      // status,
-      // closedWithInTwohours,
-      // notificationType,
-      // period,
-      // questionType,
-      // page,
-      // limit,
       source,
       userType,
-      // stringStartDate,
-      // stringEndDate,
-      // search,
+      startDate,
+      endDate
     ],
     queryFn: () =>
       chatbotService.getAllStatesQuestionsAndUsersData({
-        // category: category ?? "",
-        // district: district ?? "",
-        // state: state ?? "",
-        // crop: crop ?? "",
-        // crops: crops ?? [],
-        // status: status,
-        // closedWithInTwohours: closedWithInTwohours,
-        // notificationType: notificationType ?? "",
-        // period: period,
-        // questionType,
-        // page,
-        // limit,
         source,
         userType,
-        // stringStartDate,
-        // stringEndDate,
-        // search
+        startDate,
+        endDate
       }),
     enabled: enabled && Boolean(true),
   });

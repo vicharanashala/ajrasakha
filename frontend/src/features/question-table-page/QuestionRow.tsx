@@ -286,7 +286,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           onViewMore(q._id?.toString() || "");
                         }}
                       >
-                        {q.tag === "dynamic" && (
+                        {(q.tag === "dynamic" || q.auditorReviewType === "dynamic") && (
                           <span className='text-xs text-green-600 mr-1'>(DYNAMIC)</span>
                         )}
                         {truncate(q.question, 50)}
@@ -360,7 +360,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           onViewMore(q._id?.toString() || "");
                         }}
                       >
-                        {q.tag === "dynamic" && (
+                        {(q.tag === "dynamic" || q.auditorReviewType === "dynamic") && (
                           <span className='text-xs text-green-600 mr-1'>(DYNAMIC)</span>
                         )}
                         {q.tag === "static_dynamic" && (
@@ -372,7 +372,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                         q?.referenceQuestion&&
                         q?.referenceSource&&
                         (
-                          <span className='text-xs text-red-600 mr-1'>(DUPLICATE)</span>
+                          q?.isDuplicateCancelled
+                            ? <span className='text-xs text-amber-600 mr-1'>(DUPLICATE_CANCELED)</span>
+                            : <span className='text-xs text-red-600 mr-1'>(DUPLICATE)</span>
                         )
                         }
                         {truncate(q.question, 50)}

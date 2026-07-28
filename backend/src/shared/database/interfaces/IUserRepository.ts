@@ -4,7 +4,7 @@ import {
   UserRoleOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
-import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource, IUserHistory } from '#shared/interfaces/models.js';
+import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource, IUserHistory,UserRole } from '#shared/interfaces/models.js';
 import { MongoClient, ClientSession, ObjectId } from 'mongodb';
 
 /**
@@ -351,8 +351,9 @@ export interface IUserRepository {
   findAvailableModerators(): Promise<IUser[]>;
   findAvailableStfModerators(): Promise<IUser[]>;
   findAvailableStfModeratorsForSources(sources: QuestionSource[]): Promise<IUser[]>;
-  addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource): Promise<void>;
-  removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void>;
+  findAvailableUsersByRole(role: UserRole): Promise<IUser[]>;
+  addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<void>;
+  removeAssignedQuestion(moderatorId: string, questionId: string, session?: ClientSession): Promise<void>;
   removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
 
    /**
@@ -362,4 +363,10 @@ export interface IUserRepository {
     query: { userId: string; startDateTime?: string; endDateTime?: string },
     session?: ClientSession,
   ): Promise<IUserHistory>;
+
+  /**
+   * Clears all assigned question IDs for a user by setting assignedQuestionIds to null.
+   * @param userId - The ID of the user whose assigned questions should be cleared
+   */
+  clearAssignedQuestions(userId: string): Promise<{ modifiedCount: number }>;
 }

@@ -15,6 +15,7 @@ import {
   ReviewType,
   SourceItem,
   IQuestionSubmission,
+  QuestionStatus,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -1756,7 +1757,7 @@ export class AnswerService extends BaseService implements IAnswerService {
     userId: string,
     updates: UpdateAnswerBody,
   ): Promise<{ modifiedCount: number } | { insertedId: string }> {
-    return this._withTransaction(async (session: ClientSession) => {
+    const approveResult = await this._withTransaction(async (session: ClientSession) => {
       let questionId = updates.questionId;
       if (!questionId && updates.answerId) {
         const answer = await this.answerRepo.getById(updates.answerId, session);
@@ -1913,9 +1914,36 @@ answer: ${updates.answer}`;
 
       let answerId = updates.answerId;
 
-      // DUPLICATE QUESTION FLOW
+      // Dynamic questions (raised via the chatbot, routed to the Auditor and closed
+      // through "Notify User") close as `dynamic_closed` rather than `closed`, so they
+      // stay distinguishable downstream. The customer webhook carries the same status.
+      // `tag === 'static_dynamic'` questions are also closed this way.
+      const isDynamicClose =
+        question.status === 'dynamic' ||
+        question.tag === 'static_dynamic' ||
+        (question.status === 'auditor_review' &&
+          question.auditorReviewType === 'dynamic');
+      // Duplicate questions finalised via the Auditor "Notify User" flow close as
+      // `duplicate_closed` (same handling as dynamic's `dynamic_closed`). The customer
+      // webhook carries this status too (via notifyCustomerOnClose(..., closeStatus)).
+      const isDuplicateClose =
+        question.status === 'duplicate' ||
+        (question.status === 'auditor_review' &&
+          question.auditorReviewType === 'duplicate');
+      const closeStatus: QuestionStatus = isDuplicateClose
+        ? 'duplicate_closed'
+        : isDynamicClose
+          ? 'dynamic_closed'
+          : 'closed';
+
+      // DUPLICATE / DYNAMIC QUESTION FLOW
       // Create final approved answer directly from LLM answer
-      if (question.status === 'duplicate' && !answerId) {
+      if (
+        question.status === 'duplicate' ||
+        ((question.status === 'auditor_review' ||
+          question.status === 'dynamic') &&
+          !answerId)
+      ) {
         const [answerEmbedding, questionEmbedding] = await Promise.all([
           generateEmbedding(text),
           generateEmbedding(text),
@@ -1931,7 +1959,9 @@ answer: ${updates.answer}`;
           1, // answerIteration
           session,
           'approved',
-          'LLM generated answer approved as final answer by moderator since the question is marked as duplicate',
+          isDynamicClose
+            ? 'LLM generated answer approved as final answer by auditor since the question is dynamic'
+            : 'LLM generated answer approved as final answer by moderator .',
           undefined,
         );
 
@@ -1942,7 +1972,7 @@ answer: ${updates.answer}`;
           {
             text,
             embedding: questionEmbedding,
-            status: 'closed',
+            status: closeStatus,
             closedAt: new Date(),
           },
           session,
@@ -1999,7 +2029,7 @@ answer: ${updates.answer}`;
         {
           text,
           embedding: questionEmbedding,
-          status: question?.tag === 'static_dynamic'?'dynamic_closed':'closed',
+          status: closeStatus,
           closedAt: new Date(),
         },
         session,
@@ -2033,10 +2063,13 @@ answer: ${updates.answer}`;
         session,
       );
 
+      // Author display name reused for the parent + every replicated child notification.
+      const authorName =
+        `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() || 'Expert';
       //  WEBHOOK HANDLERS
       const webhookPayload = {
         question_id: questionId,
-        status: question?.tag === 'static_dynamic'?'dynamic_closed':'closed',
+        status: isDuplicateApproval ? 'duplicate_closed' : (question?.tag === 'static_dynamic' ? 'dynamic_closed' : 'closed'),
         answer: updates.answer ?? '',
         author:
           `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
@@ -2044,69 +2077,292 @@ answer: ${updates.answer}`;
         sources: updates.sources ?? [],
       };
 
-      let isCustomerNotified = false;
-      if (question.source === 'WHATSAPP') {
-        try {
-          await triggerWebhook(
-            appConfig.WA_WEBHOOK_API_URL,
-            appConfig.WA_WEBHOOK_API_KEY,
-            webhookPayload,
-            'WhatsApp',
-          );
-          isCustomerNotified = true;
-        } catch (err) {
-          isCustomerNotified = false;
-          console.log(
-            'Error occured while notifying customer(WHATSAPP): ',
-            err,
-          );
-        }
-      }
-
-      if (question.source === 'AJRASAKHA') {
-        try {
-          await triggerWebhook(
-            appConfig.WEB_WEBHOOK_API_URL,
-            appConfig.WEB_WEBHOOK_API_KEY,
-            {
-              ...webhookPayload,
-              question: question.question,
-              messageId: question.messageId,
-              threadId:question.threadId
-            },
-            'Browser',
-          );
-          isCustomerNotified = true;
-        } catch (err) {
-          isCustomerNotified = false;
-          console.log(
-            'Error occured while notifying customer(AJRASAKHA): ',
-            err,
-          );
-        }
-      }
-
-      if(question.source === 'AJRASAKHA' || question.source === "WHATSAPP"){
-        await this.questionRepo.updateQuestion(
+      // ── Propagate the close to confirmed-duplicate children ───────────────────
+      // Any question a gate keeper has confirmed as a duplicate of this one
+      // (referenceQuestionId === this question, status 'duplicate_confirmed') is closed
+      // too: the same final answer is replicated onto it and it's stamped closedBy
+      // 'System'. Unconfirmed 'queue_duplicate' children are left in the gate-keeper
+      // queue until a gate keeper acts on them.
+      try {
+        const childQuestions = await this.questionRepo.findByReferenceQuestionId(
           questionId,
-          {
-            isCustomerNotified,
-          },
+          'duplicate_confirmed',
           session,
-          false,
+        );
+        for (const child of childQuestions) {
+          const childId = child._id!.toString();
+          // Replicate the parent's final answer onto the child. The same actor is
+          // recorded as both author and approver (the question is system-closed).
+          await this.answerRepo.addAnswer(
+            childId,
+            userId,
+            updates.answer ?? '',
+            updates.sources ?? [],
+            answerEmbedding,
+            true, // isFinalAnswer
+            1, // answerIteration
+            session,
+            'approved',
+            'Answer replicated from the parent question on close',
+            undefined, // type
+            userId, // approvedBy — same id as author
+          );
+          // Close the child question, marking it system-closed.
+          await this.questionRepo.updateQuestion(
+            childId,
+            { status: 'closed', closedAt: new Date(), closedBy: 'System' },
+            session,
+          );
+          // Free any moderator holding the child.
+          await this.userRepo
+            .removeAssignedQuestionFromAllModerators(childId, session)
+            .catch((e: any) =>
+              console.error(`[approveAnswer] Failed to clear moderators for child ${childId}:`, e?.message),
+            );
+
+          // Notify the child question's customer as well — it was closed with the
+          // same replicated answer, so it must fire its own source-appropriate
+          // webhook (using the child's own messageId/threadId), not just the parent's.
+          await this.notifyCustomerOnClose(
+            child,
+            updates.answer ?? '',
+            updates.sources ?? [],
+            authorName,
+            session,
+          );
+        }
+        if (childQuestions.length) {
+          console.log(
+            `[approveAnswer] Closed ${childQuestions.length} queue_duplicate child question(s) of ${questionId} and replicated the answer (closedBy: System).`,
+          );
+        }
+      } catch (childErr: any) {
+        console.error(
+          '[approveAnswer] Failed to propagate close to queue_duplicate children:',
+          childErr?.message,
         );
       }
 
+      //  WEBHOOK HANDLERS — notify the parent question's customer.
+      await this.notifyCustomerOnClose(
+        question,
+        updates.answer ?? '',
+        updates.sources ?? [],
+        authorName,
+        session,
+        closeStatus,
+      );
 
       return result;
     });
+
+    // After commit: the question is now closed — free the auditor (and any gate
+    // keeper) assigned to it so the role queue cron can give them another.
+    if (updates.questionId) {
+      await this.questionService.freeRoleAssigneeOnStatusChange(updates.questionId);
+    }
+    return approveResult;
+  }
+
+  /**
+   * Gate keeper confirms a queue-duplicate question is a genuine duplicate of its
+   * reference question.
+   *
+   *  - If the reference question is already closed, the reference's final answer is
+   *    replicated onto this question, the question is system-closed and the customer
+   *    webhook is fired immediately (same behaviour as approveAnswer's child close).
+   *  - Otherwise the question is moved to `duplicate_confirmed` and waits for the
+   *    reference question to close, at which point approveAnswer propagates the
+   *    answer to it (findByReferenceQuestionId(..., 'duplicate_confirmed')).
+   *
+   * Either way the gate keeper is freed (assignedQuestionIds) once the status leaves
+   * the gate-keeper handling statuses.
+   */
+  async confirmDuplicate(
+    userId: string,
+    questionId: string,
+  ): Promise<{ status: QuestionStatus; closed: boolean }> {
+    const result = await this._withTransaction(
+      async (session: ClientSession) => {
+        const question = await this.questionRepo.getById(questionId);
+        if (!question) {
+          throw new NotFoundError(`Question with ID ${questionId} not found`);
+        }
+        if (question.status !== 'queue_duplicate') {
+          throw new BadRequestError(
+            `Only queue-duplicate questions can be confirmed (current status: ${question.status}).`,
+          );
+        }
+        const referenceId = (question as any).referenceQuestionId?.toString();
+        if (!referenceId) {
+          throw new BadRequestError(
+            'This duplicate question has no reference question.',
+          );
+        }
+        const reference = await this.questionRepo.getById(referenceId);
+        if (!reference) {
+          throw new BadRequestError('Reference question not found.');
+        }
+
+        const referenceClosed =
+          reference.status === 'closed' ||
+          reference.status === 'dynamic_closed' ||
+          reference.status === 'duplicate_closed';
+
+        // CASE A — reference already closed: replicate its final answer onto this
+        // question, system-close it and notify the customer.
+        if (referenceClosed) {
+          const [refAnswer] =
+            await this.answerRepo.getFinalAnswersByQuestionIds(
+              [referenceId],
+              session,
+            );
+          if (!refAnswer) {
+            throw new BadRequestError(
+              'Reference question is closed but has no final answer to replicate.',
+            );
+          }
+          const answerText = refAnswer.answer ?? '';
+          const sources = refAnswer.sources ?? [];
+          const embedding = refAnswer.embedding ?? [];
+
+          await this.answerRepo.addAnswer(
+            questionId,
+            userId,
+            answerText,
+            sources,
+            embedding,
+            true, // isFinalAnswer
+            1, // answerIteration
+            session,
+            'approved',
+            'Answer replicated from the reference question on duplicate confirm',
+            undefined, // type
+            userId, // approvedBy — same id as author (system close)
+          );
+
+          await this.questionRepo.updateQuestion(
+            questionId,
+            { status: 'closed', closedAt: new Date(), closedBy: 'System' },
+            session,
+          );
+
+          const author = await this.userRepo.findById(userId, session);
+          const authorName =
+            `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
+            'Expert';
+
+          await this.notifyCustomerOnClose(
+            question,
+            answerText,
+            sources,
+            authorName,
+            session,
+          );
+
+          return { status: 'closed' as QuestionStatus, closed: true };
+        }
+
+        // CASE B — reference still open: mark this question duplicate_confirmed so
+        // the parent's later close propagates the answer to it (see approveAnswer).
+        await this.questionRepo.updateQuestion(
+          questionId,
+          { status: 'duplicate_confirmed' },
+          session,
+        );
+        return {
+          status: 'duplicate_confirmed' as QuestionStatus,
+          closed: false,
+        };
+      },
+    );
+
+    // The status has left the gate-keeper handling statuses — free the gate keeper
+    // holding this question so the role queue cron can hand them another.
+    await this.questionService.freeRoleAssigneeOnStatusChange(questionId);
+    return result;
+  }
+
+  /**
+   * Notify the end customer that their question was closed/answered, via the
+   * source-appropriate webhook (WhatsApp for WHATSAPP, Browser for AJRASAKHA), and
+   * persist the outcome on the question (`isCustomerNotified`).
+   *
+   * Best-effort: a webhook failure is logged and recorded, never thrown, so it can
+   * never abort the surrounding close/transaction. No-op for non-chatbot sources
+   * (AGRI_EXPERT / OUTREACH), which have no end customer to notify. Used for both the
+   * approved parent question and each replicated queue_duplicate child question.
+   */
+  private async notifyCustomerOnClose(
+    q: {
+      _id?: string | ObjectId;
+      source: string;
+      question?: string;
+      messageId?: string;
+      threadId?: string;
+    },
+    answer: string,
+    sources: SourceItem[],
+    authorName: string,
+    session?: ClientSession,
+    status: QuestionStatus = 'closed',
+  ): Promise<boolean> {
+    if (q.source !== 'WHATSAPP' && q.source !== 'AJRASAKHA') return false;
+
+    const qId = q._id!.toString();
+    const webhookPayload = {
+      question_id: qId,
+      status,
+      answer: answer ?? '',
+      author: authorName || 'Expert',
+      sources: sources ?? [],
+    };
+
+    let isCustomerNotified = false;
+    try {
+      if (q.source === 'WHATSAPP') {
+        await triggerWebhook(
+          appConfig.WA_WEBHOOK_API_URL,
+          appConfig.WA_WEBHOOK_API_KEY,
+          webhookPayload,
+          'WhatsApp',
+        );
+      } else {
+        await triggerWebhook(
+          appConfig.WEB_WEBHOOK_API_URL,
+          appConfig.WEB_WEBHOOK_API_KEY,
+          {
+            ...webhookPayload,
+            question: q.question,
+            messageId: q.messageId,
+            threadId: q.threadId,
+          },
+          'Browser',
+        );
+      }
+      isCustomerNotified = true;
+    } catch (err) {
+      isCustomerNotified = false;
+      console.log(
+        `Error occured while notifying customer(${q.source}) for question ${qId}: `,
+        err,
+      );
+    }
+
+    await this.questionRepo.updateQuestion(
+      qId,
+      { isCustomerNotified },
+      session,
+      false,
+    );
+    return isCustomerNotified;
   }
 
   async approveLLMAnswer(
     userId: string,
     updates: UpdateAnswerBody,
   ): Promise<{ modifiedCount: number }> {
-    return this._withTransaction(async (session: ClientSession) => {
+    const llmResult = await this._withTransaction(async (session: ClientSession) => {
       const isAjrasakha = updates.source === 'AJRASAKHA';
       const isWhatsApp = updates.source === 'WHATSAPP';
 
@@ -2286,6 +2542,13 @@ answer: ${updates.answer}`;
 
       return { modifiedCount: 1 };
     });
+
+    // "Allocate Experts" moved the question to `open` — free the gate keeper who was
+    // assigned to it so the role queue cron can hand them another.
+    if (updates.questionId) {
+      await this.questionService.freeRoleAssigneeOnStatusChange(updates.questionId);
+    }
+    return llmResult;
   }
 
   async deleteAnswer(

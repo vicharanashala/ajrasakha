@@ -81,6 +81,27 @@ export interface IQuestionSubmissionRepository {
     session?: ClientSession,
   ): Promise<IQuestionSubmission | null>;
 
+  /** Admin utility: remove a single submission history entry by its 0-based index. */
+  removeHistoryEntryByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null>;
+
+  /** Admin utility: append an expert to a submission's queue. */
+  addQueueEntry(
+    questionId: string,
+    expertId: string,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null>;
+
+  /** Admin utility: append a pre-built history entry to a submission's history. */
+  addHistoryEntry(
+    questionId: string,
+    entry: ISubmissionHistory,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null>;
+
   /**
    * allocateExperts (push expertIds to queue)
    * @param questionId
@@ -235,4 +256,11 @@ export interface IQuestionSubmissionRepository {
   /** Single aggregation: returns a Map<expertId, count> of active time-bound
    *  questions per expert. Used to enforce the 3-question hard cap. */
   getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>>;
+
+  /**
+   * Remove the second entry from history and queue arrays in a question submission.
+   * This is used for migration purposes to fix duplicate entries.
+   * @param submissionId - The submission document ID
+   */
+  backgroundProcessAction(submissionId: string): Promise<{ modifiedCount: number }>;
 }

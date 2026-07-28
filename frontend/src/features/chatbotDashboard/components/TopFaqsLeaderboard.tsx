@@ -33,6 +33,7 @@ interface TopFaqsLeaderboardProps {
   /** Dashboard-level filters forwarded to the drill-down modal */
   source?: string;
   userType?: string;
+  coordinatorId?: string;
 }
 
 export function TopFaqsLeaderboard({
@@ -46,6 +47,7 @@ export function TopFaqsLeaderboard({
   isLoading = false,
   source,
   userType,
+  coordinatorId,
 }: TopFaqsLeaderboardProps) {
   const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
 
@@ -278,7 +280,9 @@ export function TopFaqsLeaderboard({
                 className={`text-base font-bold leading-tight ${avgQuestionsPerUserDay > 0 ? "text-emerald-400" : "text-muted-foreground/50"}`}
               >
                 {avgQuestionsPerUserDay > 0
-                  ? Math.round(Number(avgQuestionsPerUserDay))
+                  ? Number(avgQuestionsPerUserDay) < 1
+                    ? Number(avgQuestionsPerUserDay).toFixed(2)
+                    : Number(avgQuestionsPerUserDay).toFixed(1).replace(/\.0$/, "")
                   : "—"}
               </span>
 
@@ -401,6 +405,7 @@ export function TopFaqsLeaderboard({
           startDate={dateRange?.from}
           endDate={dateRange?.to}
           onClose={() => setSelectedQuestion(null)}
+          coordinatorId={coordinatorId}
         />
       )}
 
