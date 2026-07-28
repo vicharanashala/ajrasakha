@@ -2235,6 +2235,16 @@ export class QuestionService extends BaseService implements IQuestionService {
           throw new BadRequestError(`Question with ID ${questionId} not found`);
         }
 
+        // Block changing status to 'open' or 'delayed' when the question is re-routed
+        if (
+          (updates.status === 'open' || updates.status === 'delayed') &&
+          existingQuestion.status === 're-routed'
+        ) {
+          throw new BadRequestError(
+            `Cannot change the status, this question is currently re-routed.`,
+          );
+        }
+
         // if (existingQuestion.status == 'closed')
         //   throw new BadRequestError(
         //     'You cannot modify a question that has already been closed.',
