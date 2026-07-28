@@ -545,4 +545,10 @@ export interface IQuestionService {
    * @param submissionId - The submission document ID
    */
   backgroundProcessAction(userId: string): Promise<{ modifiedCount: number }>;
+
+  /** Admin utility: remove a submission history entry (by 0-based index) for a question. */
+  removeSubmissionHistoryEntry(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: boolean; historyLength: number }>;
 }

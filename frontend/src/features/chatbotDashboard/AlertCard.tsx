@@ -25,6 +25,8 @@ interface AlertCardProps {
   source: "vicharanashala" | "annam" | "whatsapp";
   onInactiveWhatsAppUsersClick?: () => void;
   isFetching?: boolean;
+  hideLowFeedback?: boolean;
+  coordinatorId?: string;
 }
 
 export function AlertCard({
@@ -38,6 +40,8 @@ export function AlertCard({
   source,
   onInactiveWhatsAppUsersClick,
   isFetching,
+  hideLowFeedback = false,
+  coordinatorId,
 }: AlertCardProps) {
   const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
 
@@ -184,7 +188,7 @@ export function AlertCard({
       </div>
 
       {/* Low Feedback Users Row */}
-      {source !== "whatsapp" && (
+      {source !== "whatsapp" && !hideLowFeedback && (
         <div
           className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-950/30 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
           onClick={() => onLowFeedbackClick?.()}
@@ -284,7 +288,10 @@ export function AlertCard({
       <div className="flex-1" />
 
       {isSpikesModalOpen && (
-        <DomainSpikesModal onClose={() => setIsSpikesModalOpen(false)} />
+        <DomainSpikesModal
+          onClose={() => setIsSpikesModalOpen(false)}
+          coordinatorId={coordinatorId}
+        />
       )}
     </div>
   );

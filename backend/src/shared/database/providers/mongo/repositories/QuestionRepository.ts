@@ -7560,11 +7560,13 @@ export class QuestionRepository implements IQuestionRepository {
     questionId: string,
     finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
     finishedAt: Date,
+    session?: ClientSession,
   ): Promise<void> {
     await this.init();
     await this.QuestionCollection.updateOne(
       { _id: new ObjectId(questionId) },
       { $set: { [finishedAtField]: finishedAt, updatedAt: new Date() } },
+      { session },
     );
   }
   /** One page (skip/limit) + exact total for a Queue-Details question section.
