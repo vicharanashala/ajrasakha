@@ -551,4 +551,16 @@ export interface IQuestionService {
     questionId: string,
     index: number,
   ): Promise<{ success: boolean; historyLength: number }>;
+
+  /** Admin utility: append an expert to a question's submission queue. */
+  addSubmissionQueueEntry(
+    questionId: string,
+    expertId: string,
+  ): Promise<{ success: boolean; queueLength: number }>;
+
+  /** Admin utility: append a history entry to a question's submission history. */
+  addSubmissionHistoryEntry(
+    questionId: string,
+    rawEntry: Record<string, any>,
+  ): Promise<{ success: boolean; historyLength: number }>;
 }

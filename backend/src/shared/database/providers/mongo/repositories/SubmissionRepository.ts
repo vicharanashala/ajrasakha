@@ -279,6 +279,68 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }
   }
 
+  /** Admin utility: append an expert to a question's submission queue. */
+  async addQueueEntry(
+    questionId: string,
+    expertId: string,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null> {
+    try {
+      await this.init();
+      const submission = await this.getByQuestionId(questionId, session);
+      if (!submission) {
+        throw new NotFoundError(
+          `No submission found for questionId: ${questionId}`,
+        );
+      }
+      await this.QuestionSubmissionCollection.updateOne(
+        {questionId: new ObjectId(questionId)},
+        {
+          $push: {queue: new ObjectId(expertId)},
+          $set: {updatedAt: new Date()},
+        } as any,
+        {session},
+      );
+      return this.getByQuestionId(questionId, session);
+    } catch (error) {
+      if (error instanceof BadRequestError || error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to add queue entry: ${error}`);
+    }
+  }
+
+  /** Admin utility: append a pre-built history entry to a question's submission history. */
+  async addHistoryEntry(
+    questionId: string,
+    entry: ISubmissionHistory,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null> {
+    try {
+      await this.init();
+      const submission = await this.getByQuestionId(questionId, session);
+      if (!submission) {
+        throw new NotFoundError(
+          `No submission found for questionId: ${questionId}`,
+        );
+      }
+      await this.QuestionSubmissionCollection.updateOne(
+        {questionId: new ObjectId(questionId)},
+        {
+          $push: {history: entry},
+          $set: {updatedAt: new Date()},
+        } as any,
+        {session},
+      );
+      return this.getByQuestionId(questionId, session);
+    } catch (error) {
+      if (error instanceof BadRequestError || error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to add history entry: ${error}`);
+    }
+  }
+
   async updateQueue(
     questionId: string,
     queue: ObjectId[],

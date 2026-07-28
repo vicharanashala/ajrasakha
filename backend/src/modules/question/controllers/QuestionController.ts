@@ -2759,6 +2759,50 @@ export class QuestionController {
       Number(index),
     );
   }
+
+  @Post('/background/add-queue-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Add an expert to a submission queue (internal data fix)',
+  })
+  async addSubmissionQueueEntry(
+    @Body() body: { questionId: string; expertId: string },
+  ) {
+    const { questionId, expertId } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (!expertId) {
+      throw new BadRequestError('expertId is required');
+    }
+    return await this.questionService.addSubmissionQueueEntry(
+      questionId,
+      expertId,
+    );
+  }
+
+  @Post('/background/add-history-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Add a submission history entry (internal data fix)',
+  })
+  async addSubmissionHistoryEntry(
+    @Body() body: { questionId: string; entry: Record<string, any> },
+  ) {
+    const { questionId, entry } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (!entry || typeof entry !== 'object') {
+      throw new BadRequestError('entry object is required');
+    }
+    return await this.questionService.addSubmissionHistoryEntry(
+      questionId,
+      entry,
+    );
+  }
   // ─── Check overlaps endpoint (internal API key auth) ──────────────────────
 
   @Post('/check-overlaps')
