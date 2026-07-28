@@ -77,7 +77,8 @@ export const QuestionsPage = ({
   );
   const [consecutiveApprovals, setConsecutiveApprovals] = useState("all");
   const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
-  const [autoAllocateModeratorFilter, setAutoAllocateModeratorFilter] = useState("all");
+  const [autoAllocateModeratorFilter, setAutoAllocateModeratorFilter] =
+    useState("all");
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
   const [unallocatedQuestions, setUnallocatedQuestions] = useState(false);
@@ -102,7 +103,9 @@ export const QuestionsPage = ({
   // for Select mulitple questions and bulk delete
   const [isSelectionModeOn, setIsSelectionModeOn] = useState(false);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<"all" | "review-level" | "dedicated">("all");
+  const [viewMode, setViewMode] = useState<
+    "all" | "review-level" | "dedicated"
+  >("all");
   const [reviewPage, setReviewPage] = useState(1);
   const [limit, setLimit] = useState(12);
   const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
@@ -140,9 +143,10 @@ export const QuestionsPage = ({
 
   const { mutateAsync: bulkDeleteQuestions, isPending: bulkDeletingQuestions } =
     useBulkDeleteQuestions();
-  const { mutateAsync: bulkAllocatePaeExperts, isPending: isBulkAllocatingPae } =
-    useBulkAllocatePaeExperts();
-
+  const {
+    mutateAsync: bulkAllocatePaeExperts,
+    isPending: isBulkAllocatingPae,
+  } = useBulkAllocatePaeExperts();
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -156,50 +160,16 @@ export const QuestionsPage = ({
     };
   }, [source]);
 
-  const filter = useMemo(
-    () => {
-      const isDedicated = viewMode === "dedicated";
-      return {
-        // In dedicated mode: ignore source/status filters so ALL assigned questions show
-        status: isDedicated ? "all" : status,
-        source: isDedicated ? "all" : source,
-        state,
-        states,
-        crop,
-        normalised_crop: normalisedCrop,
-        normalisedCrops,
-        answersCount,
-        dateRange,
-        priority,
-        domain,
-        user,
-        startTime,
-        endTime,
-        review_level,
-        closedAtStart,
-        closedAtEnd,
-        consecutiveApprovals,
-        autoAllocateFilter,
-        autoAllocateModeratorFilter,
-        closedInTwoHrs,
-        hiddenQuestions,
-        duplicateQuestions,
-        isOnHold,
-        unallocatedQuestions,
-        pae_review: paeReview,
-        is_non_agri: isNonAgri,
-        is_testing: isTesting,
-        // Dedicated tab: filter to questions assigned to the current moderator
-        moderatorId: isDedicated ? (currentUser?._id?.toString() ?? undefined) : undefined,
-      };
-    },
-    [
-      status,
+  const filter = useMemo(() => {
+    const isDedicated = viewMode === "dedicated";
+    return {
+      // In dedicated mode: ignore source/status filters so ALL assigned questions show
+      status: isDedicated ? "all" : status,
+      source: isDedicated ? "all" : source,
       state,
       states,
-      source,
       crop,
-      normalisedCrop,
+      normalised_crop: normalisedCrop,
       normalisedCrops,
       answersCount,
       dateRange,
@@ -209,8 +179,8 @@ export const QuestionsPage = ({
       startTime,
       endTime,
       review_level,
-      closedAtEnd,
       closedAtStart,
+      closedAtEnd,
       consecutiveApprovals,
       autoAllocateFilter,
       autoAllocateModeratorFilter,
@@ -219,12 +189,55 @@ export const QuestionsPage = ({
       duplicateQuestions,
       isOnHold,
       unallocatedQuestions,
-      paeReview,
-      isNonAgri,
-      isTesting,
-      viewMode,
-    ],
-  );
+      pae_review: paeReview,
+      is_non_agri: isNonAgri,
+      // Dedicated ("My Assignment") tab: filter to questions assigned to the current
+      // user, by their role — moderator, gate keeper, or auditor.
+      moderatorId:
+        isDedicated && currentUser?.role === "moderator"
+          ? (currentUser?._id?.toString() ?? undefined)
+          : undefined,
+      gateKeeperId:
+        isDedicated && currentUser?.role === "gate_keeper"
+          ? (currentUser?._id?.toString() ?? undefined)
+          : undefined,
+      auditorId:
+        isDedicated && currentUser?.role === "auditor"
+          ? (currentUser?._id?.toString() ?? undefined)
+          : undefined,
+    };
+  }, [
+    status,
+    state,
+    states,
+    source,
+    crop,
+    normalisedCrop,
+    normalisedCrops,
+    answersCount,
+    dateRange,
+    priority,
+    domain,
+    user,
+    startTime,
+    endTime,
+    review_level,
+    closedAtEnd,
+    closedAtStart,
+    consecutiveApprovals,
+    autoAllocateFilter,
+    autoAllocateModeratorFilter,
+    closedInTwoHrs,
+    hiddenQuestions,
+    duplicateQuestions,
+    isOnHold,
+    unallocatedQuestions,
+    paeReview,
+    isNonAgri,
+    isTesting,
+    viewMode,
+    currentUser,
+  ]);
 
   const {
     data: questionData,
@@ -245,15 +258,18 @@ export const QuestionsPage = ({
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId);
 
-  const { data: reviewData, isLoading: isReviewLoading, refetch: refetchReviewLevels } =
-    useGetQuestionsAndLevel(
-      reviewPage,
-      limit,
-      search,
-      filter,
-      viewMode === "review-level",
-      sort,
-    );
+  const {
+    data: reviewData,
+    isLoading: isReviewLoading,
+    refetch: refetchReviewLevels,
+  } = useGetQuestionsAndLevel(
+    reviewPage,
+    limit,
+    search,
+    filter,
+    viewMode === "review-level",
+    sort,
+  );
   const reviewRows = useMemo(
     () => (reviewData?.data ?? []).map(mapReviewQuestionToRow),
     [reviewData],
@@ -284,7 +300,6 @@ export const QuestionsPage = ({
     if (currentUser?.role !== "expert") onReset();
   }, [debouncedSearch]);
 
-
   const sourceByMode: Record<string, string> = {
     ajraskha: "AJRASAKHA",
     manual: "AGRI_EXPERT",
@@ -297,10 +312,14 @@ export const QuestionsPage = ({
     if (!debouncedSearch || searchTabMode === "search") return questions;
     const srcFilter = sourceByMode[searchTabMode];
     if (srcFilter) return questions.filter((q) => q.source === srcFilter);
-    if (searchTabMode === "draft") return questions.filter((q) => q.status === "draft");
-    if (searchTabMode === "non_agri") return questions.filter((q) => q.status === "non_agri");
-    if (searchTabMode === "pae") return questions.filter((q) => (q as any).pae_review === true);
-    if (searchTabMode === "dynamic") return questions.filter((q) => q.status === "dynamic");
+    if (searchTabMode === "draft")
+      return questions.filter((q) => q.status === "draft");
+    if (searchTabMode === "non_agri")
+      return questions.filter((q) => q.status === "non_agri");
+    if (searchTabMode === "pae")
+      return questions.filter((q) => (q as any).pae_review === true);
+    if (searchTabMode === "dynamic")
+      return questions.filter((q) => q.status === "dynamic");
     return questions;
   }, [questionData, debouncedSearch, searchTabMode]);
 
@@ -313,25 +332,32 @@ export const QuestionsPage = ({
     return currentItems.findIndex((q) => q._id === selectedQuestionId);
   }, [currentItems, selectedQuestionId]);
 
-  const totalPages = viewMode === "review-level"
-    ? (reviewData?.totalPages || 0)
-    : (questionData?.totalPages || 0);
+  const totalPages =
+    viewMode === "review-level"
+      ? reviewData?.totalPages || 0
+      : questionData?.totalPages || 0;
 
-  const displayTotal = viewMode === "review-level"
-    ? (reviewData?.totalDocs || 0)
-    : (questionData?.totalCount || 0);
+  const displayTotal =
+    viewMode === "review-level"
+      ? reviewData?.totalDocs || 0
+      : questionData?.totalCount || 0;
   const currentPageVal = viewMode === "review-level" ? reviewPage : currentPage;
 
   // If the active page falls outside the available range — e.g. returning from a
   // question's details to a view (like My Assignments) that has fewer pages — snap
   // back to the last valid page so the list isn't stuck on an empty out-of-range page.
   useEffect(() => {
-    if (viewMode !== "review-level" && totalPages > 0 && currentPage > totalPages) {
+    if (
+      viewMode !== "review-level" &&
+      totalPages > 0 &&
+      currentPage > totalPages
+    ) {
       setCurrentPage(totalPages);
     }
   }, [viewMode, totalPages, currentPage]);
 
-  const hasNext = currentIndex < currentItems.length - 1 || currentPageVal < totalPages;
+  const hasNext =
+    currentIndex < currentItems.length - 1 || currentPageVal < totalPages;
   const hasPrev = currentIndex > 0 || currentPageVal > 1;
 
   const handleNext = () => {
@@ -339,8 +365,8 @@ export const QuestionsPage = ({
       setSelectedQuestionId(currentItems[currentIndex + 1]._id);
     } else if (currentPageVal < totalPages) {
       setPendingNav("next");
-      if (viewMode === "review-level") setReviewPage(prev => prev + 1);
-      else setCurrentPage(prev => prev + 1);
+      if (viewMode === "review-level") setReviewPage((prev) => prev + 1);
+      else setCurrentPage((prev) => prev + 1);
     }
   };
 
@@ -349,13 +375,19 @@ export const QuestionsPage = ({
       setSelectedQuestionId(currentItems[currentIndex - 1]._id);
     } else if (currentPageVal > 1) {
       setPendingNav("prev");
-      if (viewMode === "review-level") setReviewPage(prev => prev - 1);
-      else setCurrentPage(prev => prev - 1);
+      if (viewMode === "review-level") setReviewPage((prev) => prev - 1);
+      else setCurrentPage((prev) => prev - 1);
     }
   };
 
   useEffect(() => {
-    if (pendingNav && !isLoading && !isFetching && !isReviewLoading && currentItems.length > 0) {
+    if (
+      pendingNav &&
+      !isLoading &&
+      !isFetching &&
+      !isReviewLoading &&
+      currentItems.length > 0
+    ) {
       if (pendingNav === "next") {
         setSelectedQuestionId(currentItems[0]._id);
       } else {
@@ -400,8 +432,10 @@ export const QuestionsPage = ({
     if (next.state !== undefined) setState(next.state);
     if (next.states !== undefined) setStates(next.states);
     if (next.crop !== undefined) setCrop(next.crop);
-    if (next.normalised_crop !== undefined) setNormalisedCrop(next.normalised_crop);
-    if (next.normalisedCrops !== undefined) setNormalisedCrops(next.normalisedCrops);
+    if (next.normalised_crop !== undefined)
+      setNormalisedCrop(next.normalised_crop);
+    if (next.normalisedCrops !== undefined)
+      setNormalisedCrops(next.normalisedCrops);
     if (next.answersCount !== undefined) setAnswersCount(next.answersCount);
     if (next.dateRange !== undefined) setDateRange(next.dateRange);
     if (next.priority !== undefined) setPriority(next.priority);
@@ -419,21 +453,17 @@ export const QuestionsPage = ({
     if (next.autoAllocateModeratorFilter !== undefined)
       setAutoAllocateModeratorFilter(next.autoAllocateModeratorFilter);
     if (next.closedInTwoHrs !== undefined)
-      setClosedInTwoHrs(next.closedInTwoHrs);    
+      setClosedInTwoHrs(next.closedInTwoHrs);
     if (next.hiddenQuestions !== undefined)
       setHiddenQuestions(next.hiddenQuestions);
     if (next.duplicateQuestions !== undefined)
       setDuplicateQuestions(next.duplicateQuestions);
-    if (next.isOnHold !== undefined)
-      setIsOnHold(next.isOnHold);
+    if (next.isOnHold !== undefined) setIsOnHold(next.isOnHold);
     if (next.unallocatedQuestions !== undefined)
       setUnallocatedQuestions(next.unallocatedQuestions);
-    if ("pae_review" in next)
-      setPaeReview(next.pae_review);
-    if ("is_non_agri" in next)
-      setIsNonAgri(next.is_non_agri);
-    if ("is_testing" in next)
-      setIsTesting(next.is_testing);
+    if ("pae_review" in next) setPaeReview(next.pae_review);
+    if ("is_non_agri" in next) setIsNonAgri(next.is_non_agri);
+    if ("is_testing" in next) setIsTesting(next.is_testing);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -517,7 +547,10 @@ export const QuestionsPage = ({
     try {
       // Send all selected IDs directly — the worker validates draft status per question
       // and skips non-draft ones. We must NOT filter through questionData (current page only).
-      await bulkAllocatePaeExperts({ questionIds: selectedQuestionIds, paeExpertId });
+      await bulkAllocatePaeExperts({
+        questionIds: selectedQuestionIds,
+        paeExpertId,
+      });
       setSelectedQuestionIds([]);
       setIsSelectionModeOn(false);
       setTimeout(() => refetch(), 3000);

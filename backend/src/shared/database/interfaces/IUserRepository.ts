@@ -3,9 +3,15 @@ import {
   ModeratorApprovalRate,
   UserRoleOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
-import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
-import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource, IUserHistory } from '#shared/interfaces/models.js';
-import { MongoClient, ClientSession, ObjectId } from 'mongodb';
+import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
+import {
+  IUser,
+  NotificationRetentionType,
+  QuestionStatus,
+  QuestionSource,
+  IUserHistory,
+} from '#shared/interfaces/models.js';
+import {MongoClient, ClientSession, ObjectId} from 'mongodb';
 
 /**
  * Interface representing a repository for user-related operations.
@@ -86,9 +92,7 @@ export interface IUserRepository {
     session?: ClientSession,
   ): Promise<IUser[]>;
 
-  getSpecialTaskForceModerators(
-    session?: ClientSession,
-  ): Promise<IUser[]>;
+  getSpecialTaskForceModerators(session?: ClientSession): Promise<IUser[]>;
 
   findActiveLowReputationExpertsToday(
     session?: ClientSession,
@@ -153,16 +157,15 @@ export interface IUserRepository {
   }>;
 
   /**
- * Finds all users with pagination, search, sorting and filtering (Admin).
- * @param page - page number
- * @param limit - documents per page
- * @param search - search query
- * @param sort - sorting option
- * @param filter - filter option
- * @param session - MongoDB session
- * @returns paginated users list
- */
-
+   * Finds all users with pagination, search, sorting and filtering (Admin).
+   * @param page - page number
+   * @param limit - documents per page
+   * @param search - search query
+   * @param sort - sorting option
+   * @param filter - filter option
+   * @param session - MongoDB session
+   * @returns paginated users list
+   */
 
   updateReputationScore(
     userId: string,
@@ -227,7 +230,7 @@ export interface IUserRepository {
     sortOption: string,
     filter: string,
     session?: ClientSession,
-  ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }>;
+  ): Promise<{experts: IUser[]; totalExperts: number; totalPages: number}>;
   /**
    * Finds all users.
    * @param userId - userid of expert to block.
@@ -247,11 +250,11 @@ export interface IUserRepository {
   ): Promise<void>;
 
   /**
-  * Updates user activity status
-  * @param userId - userid of expert to update
-  * @param status - either active or in-active
-  * @returns void
-  */
+   * Updates user activity status
+   * @param userId - userid of expert to update
+   * @param status - either active or in-active
+   * @returns void
+   */
   updateActivityStatus(
     userId: string,
     status: 'active' | 'in-active',
@@ -277,21 +280,25 @@ export interface IUserRepository {
   getExpertPerformance(session?: ClientSession): Promise<ExpertPerformance[]>;
 
   /**
- * Updates the last check-in time for a user.
- * @param userId - The ID of the user.
- * @param time - The new check-in time.
- */
-  updateCheckInTime(userId: string, time: Date, session?: ClientSession): Promise<void>;
+   * Updates the last check-in time for a user.
+   * @param userId - The ID of the user.
+   * @param time - The new check-in time.
+   */
+  updateCheckInTime(
+    userId: string,
+    time: Date,
+    session?: ClientSession,
+  ): Promise<void>;
 
-  findUnblockedUsers(session?: ClientSession): Promise<IUser[]>
+  findUnblockedUsers(session?: ClientSession): Promise<IUser[]>;
 
-  blockExperts(expertIds: string[], session: ClientSession): Promise<void>
+  blockExperts(expertIds: string[], session: ClientSession): Promise<void>;
 
-  unBlockExperts(): Promise<void>
+  unBlockExperts(): Promise<void>;
 
-  countActiveExperts(session?: ClientSession): Promise<number>
+  countActiveExperts(session?: ClientSession): Promise<number>;
 
-  countNonBlockedExperts(session?: ClientSession): Promise<number>
+  countNonBlockedExperts(session?: ClientSession): Promise<number>;
 
   /**
    * Finds all admins.
@@ -350,16 +357,29 @@ export interface IUserRepository {
   ): Promise<IUser | null>;
   findAvailableModerators(): Promise<IUser[]>;
   findAvailableStfModerators(): Promise<IUser[]>;
-  findAvailableStfModeratorsForSources(sources: QuestionSource[]): Promise<IUser[]>;
-  addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource): Promise<void>;
-  removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void>;
-  removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
+  findAvailableStfModeratorsForSources(
+    sources: QuestionSource[],
+  ): Promise<IUser[]>;
+  addAssignedQuestion(
+    moderatorId: string,
+    questionId: string,
+    status: QuestionStatus,
+    source?: QuestionSource,
+  ): Promise<void>;
+  removeAssignedQuestion(
+    moderatorId: string,
+    questionId: string,
+  ): Promise<void>;
+  removeAssignedQuestionFromAllModerators(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void>;
 
-   /**
+  /**
    * @param session
    */
   getUserHistory(
-    query: { userId: string; startDateTime?: string; endDateTime?: string },
+    query: {userId: string; startDateTime?: string; endDateTime?: string},
     session?: ClientSession,
   ): Promise<IUserHistory>;
 }

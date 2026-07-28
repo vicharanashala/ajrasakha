@@ -1,7 +1,18 @@
 import type { UserCredential } from "firebase/auth";
 import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester" | "district_coordinator" | "block_coordinator" | "village_volunteer" | "call_agent";
+export type UserRole =
+  | "admin"
+  | "moderator"
+  | "expert"
+  | "pae_expert"
+  | "tester"
+  | "district_coordinator"
+  | "block_coordinator"
+  | "village_volunteer"
+  | "call_agent"
+  | "gate_keeper"
+  | "auditor";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -44,11 +55,11 @@ export interface IUser {
   penaltyPercentage?: number;
   rankPosition?: number;
   expertRank?: number;
-  status?: 'active' | 'in-active';
+  status?: "active" | "in-active";
   lastCheckInAt?: string | Date;
   avatar?: string;
   special_task_force?: boolean;
-  special_task_force_moderator?: boolean
+  special_task_force_moderator?: boolean;
   mobile?: string;
   university?: string;
   isVerified?: boolean;
@@ -69,7 +80,17 @@ export interface IUnverifiedUser {
   role?: string;
 }
 export interface ReviewLevelCount {
-  Review_level: 'Author' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5' | 'Level 6' | 'Level 7' | 'Level 8' | 'Level 9';
+  Review_level:
+    | "Author"
+    | "Level 1"
+    | "Level 2"
+    | "Level 3"
+    | "Level 4"
+    | "Level 5"
+    | "Level 6"
+    | "Level 7"
+    | "Level 8"
+    | "Level 9";
   pendingcount?: number;
   completedcount?: number;
   approvedCount?: number;
@@ -77,8 +98,7 @@ export interface ReviewLevelCount {
   modifiedCount?: number;
   inReviewQuestions?: number;
   delayedQuestion?: number;
-  count?: number
-
+  count?: number;
 }
 
 export interface IReviewParmeters {
@@ -108,7 +128,7 @@ export interface IReview {
   updatedAt?: Date;
   reputation_score?: number;
   notificationRetention?: NotificationRetentionType;
-  reRoutedReview?: boolean
+  reRoutedReview?: boolean;
 }
 
 export interface HistoryItem {
@@ -162,12 +182,15 @@ export interface HistoryItem {
   priority?: Priority;
   id?: string;
 
-  updatedAt?: Date,
-
+  updatedAt?: Date;
 }
 
 export type QuestionPriority = "low" | "medium" | "high" | "critical";
-export type QuestionSource = "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
+export type QuestionSource =
+  | "AJRASAKHA"
+  | "AGRI_EXPERT"
+  | "WHATSAPP"
+  | "OUTREACH";
 
 export interface IQuestion {
   id: string;
@@ -205,8 +228,8 @@ export interface RejectReRoutePayload {
   rerouteId: string;
   questionId: string;
   moderatorId: string;
-  expertId: string
-  role: string
+  expertId: string;
+  role: string;
 }
 
 export interface ISubmissions {
@@ -236,7 +259,7 @@ export interface AuthContextType {
     selectedRole: Role,
     uid: string,
     email: string,
-    name?: string
+    name?: string,
   ) => void;
   loginWithGoogle: () => Promise<any>;
   loginWithEmail: (email: string, password: string) => Promise<any>;
@@ -279,8 +302,34 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "pending" | "dynamic";
-export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
+export type QuestionStatus =
+  | "open"
+  | "in-review"
+  | "closed"
+  | "delayed"
+  | "re-routed"
+  | "hold"
+  | "pae_submitted"
+  | "draft"
+  | "duplicate"
+  | "pass"
+  | "non_agri"
+  | "dynamic"
+  | "queue_progress"
+  | "auditor_review"
+  | "dynamic_closed"
+  | "queue_duplicate"
+  | "duplicate_confirmed";
+export type ReRouteStatus =
+  | "pending"
+  | "expert_rejected"
+  | "expert_completed"
+  | "moderator_rejected"
+  | "moderator_approved"
+  | "approved"
+  | "rejected"
+  | "modified"
+  | "in-review";
 export interface ResponseDto {
   id: string;
   answer: string;
@@ -373,7 +422,12 @@ export interface FinalizedAnswersResponse {
   heatMapResults: HeatMapResult[];
 }
 
-export type SourceType = "hyper_local" | "state" | "central" | "MODERATOR_REVIEW" | "other";
+export type SourceType =
+  | "hyper_local"
+  | "state"
+  | "central"
+  | "MODERATOR_REVIEW"
+  | "other";
 
 export interface SourceItem {
   sourceType?: SourceType;
@@ -382,10 +436,10 @@ export interface SourceItem {
   page?: string | number;
 }
 export interface PreviousAnswersItem {
-  modifiedBy: string
+  modifiedBy: string;
   oldAnswer: string;
   newAnswer: string;
-  modifiedAt?: Date
+  modifiedAt?: Date;
 }
 export interface IAnswer {
   _id?: string;
@@ -397,7 +451,7 @@ export interface IAnswer {
   remarks: string;
   sources: SourceItem[];
   reviews?: IReview[];
-  modifications?: PreviousAnswersItem[]
+  modifications?: PreviousAnswersItem[];
   answer: string;
   threshold: number;
   createdAt?: Date;
@@ -494,6 +548,7 @@ export interface IQuestionFullData {
   referenceSource?: string;
   isDuplicateChecked?: boolean;
   autoAllocateModerator?: boolean;
+  isDuplicateCancelled?: boolean;
   referenceQuestionData?: {
     question: string;
     status: string;
@@ -510,19 +565,38 @@ export interface IQuestionFullData {
   };
   originalQuestion?: string;
   closedAt?: string;
+  closedBy?: string;
   threadId?: string;
   threadUserEmail?: string | null;
   messageId?: string;
   approved_moderator: {
     name: string;
     email: string;
-  }
+  };
   /** Id of the moderator currently assigned to review this question (set by the moderator-queue cron). */
   moderatorId?: string | null;
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   assigned_moderator?: { name: string; email: string } | null;
+  /** Gate keeper / auditor currently assigned to this question (role-queue cron). */
+  assigned_gate_keeper?: { name: string; email: string } | null;
+  assigned_auditor?: { name: string; email: string } | null;
+  gateKeeperId?: string | null;
+  auditorId?: string | null;
+  gateKeeperAssignedAt?: string | null;
+  auditorAssignedAt?: string | null;
+  gateKeeperFinishedAt?: string | null;
+  auditorFinishedAt?: string | null;
+  autoAllocateGateKeeper?: boolean;
+  autoAllocateAuditor?: boolean;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
   isAssignedModerator?: boolean;
+  /** True when the requesting user is the assigned gate keeper / auditor (server-computed). */
+  isAssignedGateKeeper?: boolean;
+  isAssignedAuditor?: boolean;
+  /** Set when a Gate Keeper pushes to the Auditor (status → 'auditor_review'); records
+   *  whether the question was 'dynamic' or 'duplicate' so the Auditor shows the right
+   *  action (Notify User vs Push to GDB). */
+  auditorReviewType?: "dynamic" | "duplicate";
   /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
   moderatorAssignedAt?: string | null;
   closedFinalAnswer?: {
@@ -561,7 +635,7 @@ export interface QuestionMessageDetail {
 
 export interface QuestionMessageDetailsResponse {
   success: boolean;
-  data: QuestionMessageDetail,
+  data: QuestionMessageDetail;
   message?: string;
 }
 
@@ -581,7 +655,6 @@ export interface QuestionFeedbackResponse {
     createdAt?: string;
   };
 }
-
 
 export interface IComment {
   _id: string;
@@ -603,6 +676,7 @@ export interface IDetailedQuestion {
   aiInitialAnswer: string;
   status: QuestionStatus;
   tag?: "dynamic" | "static_dynamic";
+  auditorReviewType?: "dynamic" | "duplicate";
   totalAnswersCount: number;
   priority: QuestionPriority;
   metrics: IQuestionMetrics;
@@ -635,14 +709,17 @@ export interface IDetailedQuestion {
   pae_review?: boolean;
   is_non_agri?: boolean;
   isTesting?: boolean;
-  similarityScore?: number;        // percentage (0–100)
+  similarityScore?: number; // percentage (0–100)
   referenceQuestionId?: string;
-  referenceQuestion?: string
+  referenceQuestion?: string;
   referenceSource?: string;
   isDuplicateChecked?: boolean;
   autoAllocateModerator?: boolean;
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   moderatorId?: string | null;
+  isDuplicateCancelled?: boolean;
+  duplicateCancelReason?: string;
+  isAutoAllocate?: boolean;
 }
 
 export interface IDetailedQuestionResponse {
@@ -693,9 +770,16 @@ export interface INotification {
 // Reroute History Types
 // =====================
 
-
-export type RerouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
-
+export type RerouteStatus =
+  | "pending"
+  | "expert_rejected"
+  | "expert_completed"
+  | "moderator_rejected"
+  | "moderator_approved"
+  | "approved"
+  | "rejected"
+  | "modified"
+  | "in-review";
 
 // ---------------------
 // User (Moderator / Expert)
@@ -755,7 +839,7 @@ export interface IReroute {
   reroutedBy: IUserReRoute;
   reroutedTo: IUserReRoute;
   answer: Answer;
-  rejectionReason?: string
+  rejectionReason?: string;
 }
 
 // ---------------------
@@ -790,7 +874,7 @@ export interface ReroutedQuestionItem {
   answer: AnswerReRoute;
   reroute: Reroute;
   details: QuestionDetailsReRoute;
-  source: QuestionSource
+  source: QuestionSource;
   pae_review?: boolean;
 }
 
@@ -857,7 +941,7 @@ export interface QuestionRerouteRepo {
   updatedAt: string;
   totalAnswersCount: number;
   history: QuestionHistoryRerouteRepo[];
-  isAutoAllocate?: boolean
+  isAutoAllocate?: boolean;
 }
 
 /* =========================
@@ -877,15 +961,13 @@ export interface QuestionHistoryRerouteRepo {
   priority?: Priority;
   id?: string;
 
-  updatedAt?: Date,
+  updatedAt?: Date;
   updatedBy?: {
     // who's submission is this
     _id: string;
     userName: string;
     // email: string;
   };
-
-
 }
 
 /* =========================
@@ -945,7 +1027,7 @@ export interface AnswerRerouteRepo {
   questionId: string;
   authorId: string;
   approvedBy: string | null;
-  _id?: string
+  _id?: string;
 }
 
 /* =========================
@@ -972,13 +1054,13 @@ export interface RerouteRerouteRepo {
 }
 export type QuestionResponse =
   | {
-    kind: "normal";
-    data: IQuestion;
-  }
+      kind: "normal";
+      data: IQuestion;
+    }
   | {
-    kind: "reroute";
-    data: QuestionRerouteRepo;
-  };
+      kind: "reroute";
+      data: QuestionRerouteRepo;
+    };
 export interface WorkloadBalanceResponse {
   message: string;
   expertsInvolved: number;
@@ -1003,73 +1085,79 @@ export type GrowthResponse = {
 };
 
 enum AuditCategory {
-  QUESTION = 'QUESTION',
-  EXPERTS_CATEGORY = 'EXPERTS_CATEGORY',
-  EXPERTS_MANAGEMENT = 'EXPERTS_MANAGEMENT',
-  REQUEST_QUEUE = 'REQUEST_QUEUE',
-  ANALYTICS = 'ANALYTICS',
-  CROP_MANAGEMENT = 'CROP_MANAGEMENT',
-  OUTREACH_REPORT = 'OUTREACH_REPORT',
-  AGENTS_INTERFACE = 'AGENTS_INTERFACE', // PENDING, not on priority
-  DOWNLOAD_REPORTS = 'DOWNLOAD_REPORTS',
-  ANSWER = 'ANSWER',
-  FARMER_MANAGEMENT = 'FARMER_MANAGEMENT',
+  QUESTION = "QUESTION",
+  EXPERTS_CATEGORY = "EXPERTS_CATEGORY",
+  EXPERTS_MANAGEMENT = "EXPERTS_MANAGEMENT",
+  REQUEST_QUEUE = "REQUEST_QUEUE",
+  ANALYTICS = "ANALYTICS",
+  CROP_MANAGEMENT = "CROP_MANAGEMENT",
+  OUTREACH_REPORT = "OUTREACH_REPORT",
+  AGENTS_INTERFACE = "AGENTS_INTERFACE", // PENDING, not on priority
+  DOWNLOAD_REPORTS = "DOWNLOAD_REPORTS",
+  ANSWER = "ANSWER",
+  FARMER_MANAGEMENT = "FARMER_MANAGEMENT",
 }
 
 enum AuditAction {
   // Farmer
-  ADD_FARMER = 'ADD_FARMER',
-  UPDATE_FARMER = 'UPDATE_FARMER',
-  DELETE_FARMER = 'DELETE_FARMER',
+  ADD_FARMER = "ADD_FARMER",
+  UPDATE_FARMER = "UPDATE_FARMER",
+  DELETE_FARMER = "DELETE_FARMER",
 
   // Question
-  QUESTION_ADD = 'QUESTION_ADD',
-  QUESTION_UPDATE = 'QUESTION_UPDATE',
-  QUESTION_DELETE = 'QUESTION_DELETE',
-  QUESTION_BULK_CREATE = 'QUESTION_BULK_CREATE',
-  QUESTION_BULK_UPDATE = 'QUESTION_BULK_UPDATE',
-  QUESTION_BULK_DELETE = 'QUESTION_BULK_DELETE',
-  REALLOCATE_QUESTIONS = 'REALLOCATE_QUESTIONS',
+  QUESTION_ADD = "QUESTION_ADD",
+  QUESTION_UPDATE = "QUESTION_UPDATE",
+  QUESTION_DELETE = "QUESTION_DELETE",
+  QUESTION_BULK_CREATE = "QUESTION_BULK_CREATE",
+  QUESTION_BULK_UPDATE = "QUESTION_BULK_UPDATE",
+  QUESTION_BULK_DELETE = "QUESTION_BULK_DELETE",
+  REALLOCATE_QUESTIONS = "REALLOCATE_QUESTIONS",
 
   //EXPERTS_CATEGORY
-  EXPERTS_AUTO_ALLOCATE = 'EXPERTS_AUTO_ALLOCATE',
-  SELECT_EXPERT = 'SELECT_EXPERT',
-  DELETE_EXPERT = 'DELETE_EXPERT',
-  SELECT_MODERATOR = 'SELECT_MODERATOR',
-  DELETE_MODERATOR = 'DELETE_MODERATOR',
-  EXPERTS_ADD_COMMENT = 'EXPERTS_ADD_COMMENT',
+  EXPERTS_AUTO_ALLOCATE = "EXPERTS_AUTO_ALLOCATE",
+  SELECT_EXPERT = "SELECT_EXPERT",
+  DELETE_EXPERT = "DELETE_EXPERT",
+  SELECT_MODERATOR = "SELECT_MODERATOR",
+  DELETE_MODERATOR = "DELETE_MODERATOR",
+  SELECT_GATE_KEEPER = "SELECT_GATE_KEEPER",
+  DELETE_GATE_KEEPER = "DELETE_GATE_KEEPER",
+  SELECT_AUDITOR = "SELECT_AUDITOR",
+  DELETE_AUDITOR = "DELETE_AUDITOR",
+  TOGGLE_GATE_KEEPER_ALLOCATION = "TOGGLE_GATE_KEEPER_ALLOCATION",
+  TOGGLE_AUDITOR_ALLOCATION = "TOGGLE_AUDITOR_ALLOCATION",
+  EXPERTS_ADD_COMMENT = "EXPERTS_ADD_COMMENT",
 
   //EXPERTS_MANAGEMENT
-  BLOCK_EXPERT = 'BLOCK_EXPERT',
-  UNBLOCK_EXPERT = 'UNBLOCK_EXPERT',
+  BLOCK_EXPERT = "BLOCK_EXPERT",
+  UNBLOCK_EXPERT = "UNBLOCK_EXPERT",
 
   //REQUEST_QUEUE,
-  CHANGE_STATUS = 'CHANGE_STATUS',
-  DELETE_REQUEST = 'DELETE_REQUEST',
+  CHANGE_STATUS = "CHANGE_STATUS",
+  DELETE_REQUEST = "DELETE_REQUEST",
 
   //ANALYTICS
-  ANALYTICS_EXPORT_PDF = 'ANALYTICS_EXPORT_PDF', // button not functional yet, pending
+  ANALYTICS_EXPORT_PDF = "ANALYTICS_EXPORT_PDF", // button not functional yet, pending
 
   //CROP_MANAGEMENT
-  ADD_CROP = 'ADD_CROP',
-  UPDATE_CROP = 'UPDATE_CROP',
+  ADD_CROP = "ADD_CROP",
+  UPDATE_CROP = "UPDATE_CROP",
 
   //OUTREACH_REPORT
-  SEND_OUTREACH_REPORT = 'SEND_OUTREACH_REPORT',
+  SEND_OUTREACH_REPORT = "SEND_OUTREACH_REPORT",
 
   //DOWNLOAD_REPORTS
-  DOWNLOAD = 'DOWNLOAD',
+  DOWNLOAD = "DOWNLOAD",
 
   //ANSWER
-  APPROVE_ANSWER = 'APPROVE_ANSWER',
-  REROUTE_ANSWER = 'REROUTE_ANSWER',
-  REROUTE_REJECTION = 'REROUTE_REJECTION',
+  APPROVE_ANSWER = "APPROVE_ANSWER",
+  REROUTE_ANSWER = "REROUTE_ANSWER",
+  REROUTE_REJECTION = "REROUTE_REJECTION",
 }
 
 enum OutComeStatus {
-  SUCCESS = 'SUCCESS',
-  FAILED = 'FAILED',
-  PARTIAL = 'PARTIAL',
+  SUCCESS = "SUCCESS",
+  FAILED = "FAILED",
+  PARTIAL = "PARTIAL",
 }
 
 export interface ModeratorAuditTrail {
@@ -1123,17 +1211,16 @@ export interface FeedbackEntry {
 export interface FeedbackData {
   positiveFeedbacks: FeedbackEntry[];
   negativeFeedbacks: FeedbackEntry[];
-  positiveFeedbackCounts: { tag: string, count: any }[],
-  negativeFeedbackCounts: { tag: string, count: any }[],
+  positiveFeedbackCounts: { tag: string; count: any }[];
+  negativeFeedbackCounts: { tag: string; count: any }[];
   stats: {
-    "_id"?: null | string,
-    positiveCount: number,
-    negativeCount: number,
-    averageRating: number,
-    totalFeedbacks: number
-  }
+    _id?: null | string;
+    positiveCount: number;
+    negativeCount: number;
+    averageRating: number;
+    totalFeedbacks: number;
+  };
 }
-
 
 export interface ResponseAdherenceTable {
   date: string;

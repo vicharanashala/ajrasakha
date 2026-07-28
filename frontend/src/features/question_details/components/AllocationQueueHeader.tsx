@@ -38,8 +38,6 @@ export const AllocationQueueHeader = ({
   queue = [],
   currentUser,
 }: AllocationQueueHeaderProps) => {
-  const isDuplicate = question.status === "duplicate";
-
   const [autoAllocate, setAutoAllocate] = useState(question.isAutoAllocate);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -54,7 +52,7 @@ export const AllocationQueueHeader = ({
   const expertsIdsInQueue = new Set(queue.map((expert) => expert._id));
   const experts =
     usersData?.users.filter(
-      (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
+      (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id),
     ) || [];
   // let experts = [];
 
@@ -79,11 +77,11 @@ export const AllocationQueueHeader = ({
     .filter(
       (expert) =>
         expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
+        expert.email?.toLowerCase().includes(searchTerm.toLowerCase()),
     )
     .sort((a, b) => {
-      const aIsInactiveOrBlocked = a.isBlocked || a.status === 'in-active';
-      const bIsInactiveOrBlocked = b.isBlocked || b.status === 'in-active';
+      const aIsInactiveOrBlocked = a.isBlocked || a.status === "in-active";
+      const bIsInactiveOrBlocked = b.isBlocked || b.status === "in-active";
       if (!aIsInactiveOrBlocked && bIsInactiveOrBlocked) return -1;
       if (aIsInactiveOrBlocked && !bIsInactiveOrBlocked) return 1;
       return 0;
@@ -92,7 +90,9 @@ export const AllocationQueueHeader = ({
   const handleToggle = async (checked: boolean) => {
     try {
       if (question.isOnHold) {
-        toast.error("Cannot change auto-allocate status while question is on hold. Please release the hold first.");
+        toast.error(
+          "Cannot change auto-allocate status while question is on hold. Please release the hold first.",
+        );
         return;
       }
       await toggleAutoAllocateStatus(question._id);
@@ -107,7 +107,7 @@ export const AllocationQueueHeader = ({
     setSelectedExperts((prev) =>
       prev.includes(expertId)
         ? prev.filter((id) => id !== expertId)
-        : [...prev, expertId]
+        : [...prev, expertId],
     );
   };
 
@@ -115,7 +115,7 @@ export const AllocationQueueHeader = ({
     try {
       if (question.status === "in-review" || question.status == "closed") {
         toast.error(
-          "This question is currently being reviewed or has been closed. Please check back later!"
+          "This question is currently being reviewed or has been closed. Please check back later!",
         );
         return;
       }
@@ -130,7 +130,7 @@ export const AllocationQueueHeader = ({
     } catch (error: any) {
       console.error("Error allocating experts:", error);
       toast.error(
-        error?.message || "Failed to allocate experts. Please try again."
+        error?.message || "Failed to allocate experts. Please try again.",
       );
     }
   };
@@ -139,6 +139,22 @@ export const AllocationQueueHeader = ({
     setSelectedExperts([]);
     setIsModalOpen(false);
   };
+
+  // The auto-allocate toggle is shown to moderators/admins regardless of status (so
+  // they can turn allocation on/off ahead of time). The "Select Experts" action only
+  // shows when the question is actually in a normal expert-answering status — never for
+  // triage statuses (dynamic / duplicate / queue_duplicate / auditor_review / non_agri).
+  const canManageAllocation =
+    currentUser.role !== "expert" &&
+    currentUser.role !== "gate_keeper" &&
+    currentUser.role !== "auditor";
+  const isExpertStatus =
+    question.status !== "non_agri" &&
+    question.status !== "queue_duplicate" &&
+    question.status !== "auditor_review" &&
+    question.status !== "dynamic" &&
+    question.status !== "duplicate";
+
   return (
     <div className="flex flex-col gap-4 pb-6 border-b border-border">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -161,8 +177,10 @@ export const AllocationQueueHeader = ({
         {/* RIGHT SECTION — for duplicate questions the auto-allocate toggle and
             "Select Experts" only show to the moderator the question is assigned to
             (i.e. from "My Assignment"); hidden on every other tab. Non-duplicate
-            questions are unaffected. */}
-        {currentUser.role !== "expert" && question.status!=='non_agri' && question.isTesting!==true && (!isDuplicate || question.isAssignedModerator) && (
+            questions are unaffected.
+            Queue-duplicate questions: NO auto-allocate / Select Experts until the
+            status is changed away from 'queue_duplicate'. */}
+        {canManageAllocation ? (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             {/* Auto-Allocate Block */}
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
@@ -201,20 +219,24 @@ export const AllocationQueueHeader = ({
               </TooltipProvider>
             </div>
 
-            {/* Select Experts Button */}
-            {!autoAllocate && (
+            {/* Select Experts Button — only when auto-allocate is OFF and the question
+                is in a normal expert-answering status (not a triage status). */}
+            {!autoAllocate && isExpertStatus && (
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 {/* <DialogTrigger asChild> */}
-                <Button variant="default" className="gap-2 w-full sm:w-auto"
+                <Button
+                  variant="default"
+                  className="gap-2 w-full sm:w-auto"
                   onClick={() => {
                     if (question.isOnHold) {
                       toast.error(
-                        "This question is on hold. Release Hold to add experts."
+                        "This question is on hold. Release Hold to add experts.",
                       );
                       return;
                     }
                     setIsModalOpen(true);
-                  }} >
+                  }}
+                >
                   <UserPlus className="w-4 h-4" />
                   Select Experts
                 </Button>
@@ -292,10 +314,11 @@ export const AllocationQueueHeader = ({
                         filteredExperts.map((expert) => (
                           <div
                             key={expert._id}
-                            className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${expert.isBlocked
-                              ? "blur-[0px] cursor-not-allowed"
-                              : "hover:bg-muted/50"
-                              }
+                            className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${
+                              expert.isBlocked
+                                ? "blur-[0px] cursor-not-allowed"
+                                : "hover:bg-muted/50"
+                            }
   `}
                           >
                             <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -342,7 +365,7 @@ export const AllocationQueueHeader = ({
 
                                 <div className="text-sm text-muted-foreground flex-shrink-0 ml-2 hidden md:block">
                                   {expert.preference?.domain &&
-                                    expert.preference.domain !== "all"
+                                  expert.preference.domain !== "all"
                                     ? expert.preference.domain
                                     : "Agriculture Expert"}
                                 </div>
@@ -373,6 +396,17 @@ export const AllocationQueueHeader = ({
                 </DialogContent>
               </Dialog>
             )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                autoAllocate ? "bg-green-500" : "bg-muted-foreground/50"
+              }`}
+            />
+            <span className="font-medium text-sm text-foreground">
+              Auto-allocate: {autoAllocate ? "On" : "Off"}
+            </span>
           </div>
         )}
       </div>

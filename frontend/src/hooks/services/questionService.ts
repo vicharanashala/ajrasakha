@@ -34,6 +34,7 @@ export type QueueQuestionItem = {
   crop?: string;
   expertName?: string;
   moderatorName?: string;
+  assigneeName?: string;
   allocatedAt?: string | null;
   minutesSinceAllocated?: number;
   openedAt?: string | null;
@@ -81,6 +82,13 @@ export type QueueDetailsResponse = {
   moderatorAllocatedManual: { count: number; items: QueueQuestionItem[] };
   availableModeratorsTimeBound: { count: number; items: QueueExpertItem[] };
   availableModeratorsManual: { count: number; items: QueueExpertItem[] };
+  // Gate keeper / auditor role queues
+  gateKeeperWaiting: { count: number; items: QueueQuestionItem[] };
+  gateKeeperAllocated: { count: number; items: QueueQuestionItem[] };
+  availableGateKeepers: { count: number; items: QueueExpertItem[] };
+  auditorWaiting: { count: number; items: QueueQuestionItem[] };
+  auditorAllocated: { count: number; items: QueueQuestionItem[] };
+  availableAuditors: { count: number; items: QueueExpertItem[] };
 };
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
@@ -164,6 +172,12 @@ export class QuestionService {
 
     if (filter.moderatorId) {
       params.append("moderatorId", filter.moderatorId);
+    }
+    if (filter.gateKeeperId) {
+      params.append("gateKeeperId", filter.gateKeeperId);
+    }
+    if (filter.auditorId) {
+      params.append("auditorId", filter.auditorId);
     }
 
     // states and normalisedCrops sent as JSON arrays in request body
@@ -843,6 +857,38 @@ export class QuestionService {
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/moderator`, {
       method: "DELETE",
+    });
+  }
+
+  async changeRoleAssignee(
+    questionId: string,
+    role: "gate_keeper" | "auditor",
+    userId: string,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/role-assignee`, {
+      method: "PATCH",
+      body: JSON.stringify({ role, userId }),
+    });
+  }
+
+  async removeRoleAssignee(
+    questionId: string,
+    role: "gate_keeper" | "auditor",
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/role-assignee`, {
+      method: "DELETE",
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  async toggleRoleAllocation(
+    questionId: string,
+    role: "gate_keeper" | "auditor",
+    enabled: boolean,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/role-allocation`, {
+      method: "PATCH",
+      body: JSON.stringify({ role, enabled }),
     });
   }
 

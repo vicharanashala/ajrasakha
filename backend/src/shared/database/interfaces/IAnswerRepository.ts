@@ -34,6 +34,7 @@ export interface IAnswerRepository {
     status?: string,
     remarks?: string,
     type?:string,
+    approvedBy?: string,
   ): Promise<{insertedId: string}>;
 
   addAjrasakhaAnswer(

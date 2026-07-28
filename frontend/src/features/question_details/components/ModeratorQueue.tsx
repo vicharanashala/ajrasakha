@@ -98,10 +98,20 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
     );
   }, [stfModerators, searchTerm]);
 
-  // Only moderators/admins see this section.
-  if (currentUser.role !== "moderator" && currentUser.role !== "admin") {
-    return null;
-  }
+  // The moderator queue is visible to everyone (including experts) as read-only;
+  // only moderators/admins get the management controls (auto-allocate toggle,
+  // Select Moderator, Remove Moderator).
+  const canManageModerator =
+    currentUser.role === "moderator" || currentUser.role === "admin";
+
+  // Dynamic / duplicate questions and anything in auditor review go through the
+  // Gate Keeper → Auditor flow, not normal moderator allocation — hide all
+  // moderator-allocation controls (auto-allocate toggle, Select Moderator, Remove Moderator).
+  const showModeratorControls =
+    canManageModerator &&
+    question.status !== "auditor_review" &&
+    question.status !== "dynamic" &&
+    question.status !== "duplicate";
 
   const assignedModerator = question.assigned_moderator;
 
@@ -112,6 +122,11 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
     question.status === "in-review" ||
     question.status === "re-routed" ||
     question.status === "duplicate";
+
+  // Queue-duplicate questions must not expose any allocation controls (auto-allocate
+  // moderator toggle or Select Moderator) until their status is changed away from
+  // 'queue_duplicate'. `canSelectModerator` already excludes it; this also hides the toggle.
+  const isQueueDuplicate = question.status === "queue_duplicate";
 
   // Closed → the moderation is finalized (green). Otherwise it's still pending (amber).
   const isClosed = question.status === "closed";
@@ -187,8 +202,10 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
           {/* RIGHT SECTION — Auto-allocate toggle + Select moderator. */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Auto Allocate toggle — controls whether the moderator-queue cron may
-                auto-assign this question to a moderator. Styled to match the
-                "Auto-allocate Experts" block in the Allocation Queue header. */}
+                auto-assign this question to a moderator. Shown to moderators/admins
+                regardless of status (so they can turn allocation on/off ahead of time);
+                hidden only for queue-duplicate questions. */}
+            {canManageModerator && !isQueueDuplicate && (
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
               <Switch
                 id="auto-allocate-moderator"
@@ -226,11 +243,12 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                 </Tooltip>
               </TooltipProvider>
             </div>
+            )}
 
             {/* Select moderator. Shown only when auto-allocation is OFF (otherwise the
                 queue assigns a moderator automatically), and once the question has
                 reached the review stage (in-review / re-routed). */}
-            {!autoAllocateModerator && canSelectModerator && (
+            {showModeratorControls && !autoAllocateModerator && canSelectModerator && (
               <Button
                 variant="default"
                 className="gap-2 w-full sm:w-auto"
@@ -239,6 +257,21 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                 <UserPlus className="w-4 h-4" />
                 Select Moderator
               </Button>
+            )}
+
+            {/* Non-managers (gate keeper / auditor) get a read-only field indicating
+                whether moderator auto-allocation is on or off. */}
+            {!canManageModerator && (
+              <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    autoAllocateModerator ? "bg-green-500" : "bg-muted-foreground/50"
+                  }`}
+                />
+                <span className="font-medium text-sm text-foreground">
+                  Auto-allocate Moderator: {autoAllocateModerator ? "On" : "Off"}
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -256,7 +289,7 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
             {/* Remove moderator — hover-revealed trash icon, mirrors the expert allocation removal.
                 Sits outside the flipping element so it stays put. Hidden once the question is
                 finalized (closed), and only available when auto-allocation is OFF (manual mode). */}
-            {!isClosed && !autoAllocateModerator && (
+            {showModeratorControls && !isClosed && !autoAllocateModerator && (
               <div className="absolute -top-1 right-0 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
                 <ConfirmationModal
                   title="Remove Moderator?"
