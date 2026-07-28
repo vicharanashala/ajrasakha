@@ -1,3 +1,7 @@
+## SCOPE
+
+Expert UI login -> `/home` -> `My Queue & Allocated Questions` opened by default -> respond to question
+
 ### RESP-001 — Response panel is visible
 
 **Feature**
