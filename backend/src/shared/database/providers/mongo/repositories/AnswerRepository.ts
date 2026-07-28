@@ -59,7 +59,6 @@ export class AnswerRepository implements IAnswerRepository {
     status?: string,
     remarks?: string,
     type?:string,
-    approvedBy?: string,
   ): Promise<{insertedId: string}> {
     try {
       await this.init();
@@ -85,9 +84,6 @@ export class AnswerRepository implements IAnswerRepository {
         embedding,
         reRouted:type ? true : false,
         sources,
-        ...(approvedBy && isValidObjectId(approvedBy)
-          ? { approvedBy: new ObjectId(approvedBy) }
-          : {}),
         createdAt: new Date(),
         updatedAt: new Date(),
       };

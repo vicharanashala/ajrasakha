@@ -1,32 +1,10 @@
 import { useState, useEffect } from "react";
 import { useGetAuditTrailsByQuestionId } from "@/hooks/api/auditTrails/useGetAuditTrailsByQuestionId";
 import type { ModeratorAuditTrail } from "@/types";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/atoms/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
-import {
-  Loader2,
-  User,
-  Clock,
-  Activity,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  Copy,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  RefreshCw,
-} from "lucide-react";
+import { Loader2, User, Clock, Activity, AlertCircle, CheckCircle, XCircle, Copy, Check, ChevronLeft, ChevronRight, Filter, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
 import { formatDate } from "@/utils/formatDate";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { toast } from "sonner";
@@ -54,8 +32,6 @@ const actionLabels: Record<string, string> = {
   BULK_PAE_ALLOCATE: "Bulk PAE Allocation",
   REPLACE_QUEUE_EXPERT: "Queue Expert Replaced",
   CHECK_DUPLICATE: "Duplicate Check",
-  CONFIRM_DUPLICATE: "Duplicate Confirmed",
-  CANCEL_DUPLICATE: "Duplicate Cancelled",
   APPROVE_AI_INITIAL_ANSWER: "AI Initial Answer Approved",
   EXPERTS_AUTO_ALLOCATE: "Expert Auto-allocated",
   SYSTEM_ALLOCATED: "System Allocated",
@@ -63,12 +39,6 @@ const actionLabels: Record<string, string> = {
   DELETE_EXPERT: "Expert Deleted",
   SELECT_MODERATOR: "Moderator Selected",
   DELETE_MODERATOR: "Moderator Removed",
-  SELECT_GATE_KEEPER: "Gate Keeper Selected",
-  DELETE_GATE_KEEPER: "Gate Keeper Removed",
-  SELECT_AUDITOR: "Auditor Selected",
-  DELETE_AUDITOR: "Auditor Removed",
-  TOGGLE_GATE_KEEPER_ALLOCATION: "Gate Keeper Auto-Allocation Toggled",
-  TOGGLE_AUDITOR_ALLOCATION: "Auditor Auto-Allocation Toggled",
   TOGGLE_MODERATOR_ALLOCATION: "Moderator Auto-Allocation Toggled",
   EXPERTS_ADD_COMMENT: "Comment Added by Expert",
   BLOCK_EXPERT: "Expert Blocked",
@@ -80,7 +50,6 @@ const actionLabels: Record<string, string> = {
   APPROVE_ANSWER: "Answer Approved",
   APPROVE_LLM_ANSWER: "Approve LLM Answer",
   PUSH_TO_GDB: "Pushed to GDB",
-  PUSH_TO_AUDITOR: "Pushed to Auditor",
   ANSWER_CREATED: "Answer Created",
   EDIT_FINAL_ANSWER: "Final Answer Edited",
   REROUTE_ANSWER: "Answer Rerouted",
@@ -108,21 +77,13 @@ const actionLabels: Record<string, string> = {
   CHANGE_USER_PASSWORD: "User Password Changed",
 };
 
-const actionOptions = Object.entries(actionLabels)
-  .map(([value, label]) => ({
-    value,
-    label,
-  }))
-  .sort((a, b) => a.label.localeCompare(b.label));
+const actionOptions = Object.entries(actionLabels).map(([value, label]) => ({
+  value,
+  label,
+})).sort((a, b) => a.label.localeCompare(b.label));
 
 const getActionLabel = (action: string): string => {
-  return (
-    actionLabels[action] ||
-    action
-      .replace(/_/g, " ")
-      .toLowerCase()
-      .replace(/^\w/, (c) => c.toUpperCase())
-  );
+  return actionLabels[action] || action.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 };
 
 const getCategoryLabel = (category: string): string => {
@@ -172,10 +133,7 @@ const AuditItem = ({ audit }: AuditItemProps) => {
               {getCategoryLabel(audit.category)}
             </Badge>
             {audit.outcome?.status && (
-              <Badge
-                variant="outline"
-                className={`text-xs gap-1 ${getOutcomeBadgeClass(audit.outcome.status)}`}
-              >
+              <Badge variant="outline" className={`text-xs gap-1 ${getOutcomeBadgeClass(audit.outcome.status)}`}>
                 {getOutcomeIcon(audit.outcome.status)}
                 {audit.outcome.status}
               </Badge>
@@ -197,8 +155,7 @@ const AuditItem = ({ audit }: AuditItemProps) => {
               {audit.actor.name || "Unknown Actor"}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {audit.actor.email || "No email"} •{" "}
-              {audit.actor.role || "No role"}
+              {audit.actor.email || "No email"} • {audit.actor.role || "No role"}
             </p>
           </div>
         </div>
@@ -207,62 +164,52 @@ const AuditItem = ({ audit }: AuditItemProps) => {
       {/* Changes */}
       {(audit.changes?.before || audit.changes?.after) && (
         <div className="mb-3 space-y-2">
-          {audit.changes.before &&
-            Object.keys(audit.changes.before).length > 0 && (
-              <div className="p-2 rounded-md bg-red-500/5 border border-red-500/20">
-                <p className="text-xs font-medium text-red-600 mb-1">Before:</p>
-                <div className="space-y-1">
-                  {Object.entries(audit.changes.before).map(([key, value]) => (
-                    <div key={key} className="text-xs">
-                      <span className="text-muted-foreground">{key}:</span>{" "}
-                      <span className="text-foreground">
-                        {typeof value === "object"
-                          ? JSON.stringify(value)
-                          : String(value)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+          {audit.changes.before && Object.keys(audit.changes.before).length > 0 && (
+            <div className="p-2 rounded-md bg-red-500/5 border border-red-500/20">
+              <p className="text-xs font-medium text-red-600 mb-1">Before:</p>
+              <div className="space-y-1">
+                {Object.entries(audit.changes.before).map(([key, value]) => (
+                  <div key={key} className="text-xs">
+                    <span className="text-muted-foreground">{key}:</span>{" "}
+                    <span className="text-foreground">
+                      {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                    </span>
+                  </div>
+                ))}
               </div>
-            )}
-          {audit.changes.after &&
-            Object.keys(audit.changes.after).length > 0 && (
-              <div className="p-2 rounded-md bg-green-500/5 border border-green-500/20">
-                <p className="text-xs font-medium text-green-600 mb-1">
-                  After:
-                </p>
-                <div className="space-y-1">
-                  {Object.entries(audit.changes.after).map(([key, value]) => (
-                    <div key={key} className="text-xs">
-                      <span className="text-muted-foreground">{key}:</span>{" "}
-                      <span className="text-foreground">
-                        {typeof value === "object"
-                          ? JSON.stringify(value)
-                          : String(value)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+            </div>
+          )}
+          {audit.changes.after && Object.keys(audit.changes.after).length > 0 && (
+            <div className="p-2 rounded-md bg-green-500/5 border border-green-500/20">
+              <p className="text-xs font-medium text-green-600 mb-1">After:</p>
+              <div className="space-y-1">
+                {Object.entries(audit.changes.after).map(([key, value]) => (
+                  <div key={key} className="text-xs">
+                    <span className="text-muted-foreground">{key}:</span>{" "}
+                    <span className="text-foreground">
+                      {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                    </span>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+          )}
         </div>
       )}
 
       {/* Context */}
       {audit.context && Object.keys(audit.context).length > 0 && (
         <div className="mb-3 p-2 rounded-md bg-muted/20">
-          <p className="text-xs font-medium text-muted-foreground mb-1">
-            Context:
-          </p>
+          <p className="text-xs font-medium text-muted-foreground mb-1">Context:</p>
           <div className="space-y-1">
             {Object.entries(audit.context).map(([key, value]) => (
               <div key={key} className="text-xs flex gap-1">
                 <span className="text-muted-foreground">{key}:</span>
                 <span className="text-foreground truncate">
-                  {Array.isArray(value)
-                    ? value.map((v) => String(v)).join(", ")
-                    : typeof value === "object"
-                      ? JSON.stringify(value)
+                  {Array.isArray(value) 
+                    ? value.map(v => String(v)).join(", ")
+                    : typeof value === "object" 
+                      ? JSON.stringify(value) 
                       : String(value)}
                 </span>
               </div>
@@ -275,20 +222,14 @@ const AuditItem = ({ audit }: AuditItemProps) => {
       {audit.outcome?.errorMessage && (
         <div className="p-2 rounded-md bg-red-500/5 border border-red-500/20">
           <p className="text-xs font-medium text-red-600 mb-1">Error:</p>
-          <p className="text-xs text-foreground">
-            {audit.outcome.errorMessage}
-          </p>
+          <p className="text-xs text-foreground">{audit.outcome.errorMessage}</p>
         </div>
       )}
     </div>
   );
 };
 
-export const AuditTrailModal = ({
-  open,
-  onClose,
-  questionId,
-}: AuditTrailModalProps) => {
+export const AuditTrailModal = ({ open, onClose, questionId }: AuditTrailModalProps) => {
   const [page, setPage] = useState(1);
   const [action, setAction] = useState<string>("");
   const [copied, setCopied] = useState(false);
@@ -301,7 +242,7 @@ export const AuditTrailModal = ({
     page,
     ITEMS_PER_PAGE,
     action || null,
-    order,
+    order
   );
 
   // Debug log
@@ -465,10 +406,7 @@ export const AuditTrailModal = ({
           {!isLoading && !error && data?.data && data.data.length > 0 && (
             <div className="space-y-3">
               {data.data.map((audit, index) => (
-                <AuditItem
-                  key={`${audit.actor?.id || "unknown"}-${index}`}
-                  audit={audit}
-                />
+                <AuditItem key={`${audit.actor?.id || 'unknown'}-${index}`} audit={audit} />
               ))}
             </div>
           )}

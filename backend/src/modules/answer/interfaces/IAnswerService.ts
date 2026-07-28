@@ -2,7 +2,6 @@ import type { ClientSession } from "mongodb";
 import type {
   IAnswer,
   SourceItem,
-  QuestionStatus,
 } from "#root/shared/interfaces/models.js";
 import type {
   ReviewAnswerBody,
@@ -65,11 +64,6 @@ export interface IAnswerService {
     userId: string,
     updates: UpdateAnswerBody,
   ): Promise<{modifiedCount: number}>;
-
-  confirmDuplicate(
-    userId: string,
-    questionId: string,
-  ): Promise<{status: QuestionStatus; closed: boolean}>;
 
   deleteAnswer(
     questionId: string,

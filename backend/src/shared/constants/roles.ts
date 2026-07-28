@@ -11,8 +11,6 @@ export const USER_ROLES = [
   'pae_expert',
   'tester',
   'call_agent',
-  'gate_keeper',
-  'auditor',
   ...COORDINATOR_ROLES,
 ] as const;
 

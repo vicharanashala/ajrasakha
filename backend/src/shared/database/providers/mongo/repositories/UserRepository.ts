@@ -1,7 +1,6 @@
-import {IUserRepository} from '#shared/database/interfaces/IUserRepository.js';
+import { IUserRepository } from '#shared/database/interfaces/IUserRepository.js';
 import {
   IUser,
-  UserRole,
   IUserRoleHistory,
   NotificationRetentionType,
   IAnswer,
@@ -10,24 +9,20 @@ import {
   QuestionSource,
   IUserHistory,
 } from '#shared/interfaces/models.js';
-import {instanceToPlain} from 'class-transformer';
-import {injectable, inject} from 'inversify';
-import {Collection, MongoClient, ClientSession, ObjectId} from 'mongodb';
-import {MongoDatabase} from '../MongoDatabase.js';
-import {
-  InternalServerError,
-  NotFoundError,
-  BadRequestError,
-} from 'routing-controllers';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {User} from '#auth/classes/transformers/User.js';
-import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
+import { instanceToPlain } from 'class-transformer';
+import { injectable, inject } from 'inversify';
+import { Collection, MongoClient, ClientSession, ObjectId } from 'mongodb';
+import { MongoDatabase } from '../MongoDatabase.js';
+import { InternalServerError, NotFoundError, BadRequestError } from 'routing-controllers';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { User } from '#auth/classes/transformers/User.js';
+import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import {
   ExpertPerformance,
   ModeratorApprovalRate,
   UserRoleOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
-import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepository.js';
 
 @injectable()
 export class UserRepository implements IUserRepository {
@@ -38,7 +33,7 @@ export class UserRepository implements IUserRepository {
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
-  ) {}
+  ) { }
 
   /**
    * Ensures that `usersCollection` is initialized before usage.
@@ -61,11 +56,11 @@ export class UserRepository implements IUserRepository {
         lastName: 1,
         'preference.state': 1,
       });
-      await this.AnswerCollection.createIndex({authorId: 1});
-      await this.userRoleHistoryCollection.createIndex({userId: 1, from: -1});
+      await this.AnswerCollection.createIndex({ authorId: 1 });
+      await this.userRoleHistoryCollection.createIndex({ userId: 1, from: -1 });
       await this.userRoleHistoryCollection.createIndex(
-        {userId: 1, to: 1},
-        {partialFilterExpression: {to: null}},
+        { userId: 1, to: 1 },
+        { partialFilterExpression: { to: null } },
       );
     } catch (error) {
       console.error('Failed to create index:', error);
@@ -88,18 +83,18 @@ export class UserRepository implements IUserRepository {
     await this.init();
     await this.ensureIndexes();
     const existingUser = await this.usersCollection.findOne(
-      {firebaseUID: user.firebaseUID},
-      {session},
+      { firebaseUID: user.firebaseUID },
+      { session },
     );
 
     if (existingUser) {
       throw new Error('User already exists');
     }
-    const result = await this.usersCollection.insertOne(user, {session});
+    const result = await this.usersCollection.insertOne(user, { session });
     if (!result.acknowledged) {
       throw new InternalServerError('Failed to create user');
     }
-
+    
     const now = user.createdAt ?? new Date();
     await this.userRoleHistoryCollection.insertOne(
       {
@@ -112,7 +107,7 @@ export class UserRepository implements IUserRepository {
         isBlocked: user.isBlocked ?? false,
         special_task_force: user.special_task_force ?? false,
       },
-      {session},
+      { session },
     );
     return result.insertedId.toString();
   }
@@ -126,7 +121,7 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser | null> {
     await this.init();
 
-    const user = await this.usersCollection.findOne({email}, {session});
+    const user = await this.usersCollection.findOne({ email }, { session });
     return user;
   }
 
@@ -140,7 +135,7 @@ export class UserRepository implements IUserRepository {
     await this.init();
 
     const user = await this.usersCollection.findOne(
-      {_id: new ObjectId(id)},
+      { _id: new ObjectId(id) },
       {
         projection: {
           // _id: 0,
@@ -177,7 +172,7 @@ export class UserRepository implements IUserRepository {
     session?: ClientSession,
   ): Promise<IUser | null> {
     await this.init();
-    const user = await this.usersCollection.findOne({firebaseUID}, {session});
+    const user = await this.usersCollection.findOne({ firebaseUID }, { session });
     return user;
   }
 
@@ -187,9 +182,9 @@ export class UserRepository implements IUserRepository {
   async makeAdmin(userId: string, session?: ClientSession): Promise<void> {
     await this.init();
     await this.usersCollection.updateOne(
-      {_id: new ObjectId(userId)},
-      {$set: {roles: 'admin'}},
-      {session},
+      { _id: new ObjectId(userId) },
+      { $set: { roles: 'admin' } },
+      { session },
     );
   }
 
@@ -202,9 +197,9 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser | null> {
     await this.init();
     const result = await this.usersCollection.findOneAndUpdate(
-      {firebaseUID},
-      {$set: {password}},
-      {returnDocument: 'after'},
+      { firebaseUID },
+      { $set: { password } },
+      { returnDocument: 'after' },
     );
     return instanceToPlain(new User(result)) as IUser;
   }
@@ -217,24 +212,24 @@ export class UserRepository implements IUserRepository {
     await this.init();
     await this.ensureIndexes();
     const existingUser = await this.usersCollection.findOne(
-      {_id: new ObjectId(userId)},
-      {session},
+      { _id: new ObjectId(userId) },
+      { session },
     );
     if (!existingUser) return null;
 
     const roleChanged =
       userData.role !== undefined && userData.role !== existingUser.role;
     const updatedAt = new Date();
-    const {_id, ...sanitizedData} = userData;
+    const { _id, ...sanitizedData } = userData;
     const result = await this.usersCollection.updateOne(
-      {_id: new ObjectId(userId)},
+      { _id: new ObjectId(userId) },
       {
         $set: {
           ...sanitizedData,
           updatedAt,
         },
       },
-      {session},
+      { session },
     );
     if (result.matchedCount === 0) return null;
 
@@ -251,7 +246,7 @@ export class UserRepository implements IUserRepository {
               updatedAt,
             },
           },
-          {session},
+          { session },
         ),
         this.userRoleHistoryCollection.insertOne(
           {
@@ -264,14 +259,13 @@ export class UserRepository implements IUserRepository {
             isBlocked: existingUser.isBlocked,
             special_task_force: existingUser.special_task_force,
           },
-          {session},
-        ),
-      ]);
+          { session },
+        )])
     }
 
     const updatedUser = await this.usersCollection.findOne(
-      {_id: new ObjectId(userId)},
-      {session},
+      { _id: new ObjectId(userId) },
+      { session },
     );
 
     return updatedUser as IUser;
@@ -284,7 +278,7 @@ export class UserRepository implements IUserRepository {
     await this.init();
     const objectIds = ids.map(id => new ObjectId(id));
     const users = await this.usersCollection
-      .find({_id: {$in: objectIds}}, {session})
+      .find({ _id: { $in: objectIds } }, { session })
       .toArray();
 
     return users.map(user => ({
@@ -295,7 +289,7 @@ export class UserRepository implements IUserRepository {
 
   async findAll(session?: ClientSession): Promise<IUser[]> {
     await this.init();
-    const allUsers = await this.usersCollection.find({}, {session}).toArray();
+    const allUsers = await this.usersCollection.find({}, { session }).toArray();
 
     // Remove duplicate users (in case multiple  emails point to same user)
     const uniqueUsersMap = new Map<string, IUser>();
@@ -336,9 +330,9 @@ export class UserRepository implements IUserRepository {
 
       if (search) {
         matchQuery.$or = [
-          {firstName: {$regex: search, $options: 'i'}},
-          {lastName: {$regex: search, $options: 'i'}},
-          {email: {$regex: search, $options: 'i'}},
+          { firstName: { $regex: search, $options: 'i' } },
+          { lastName: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
         ];
       }
 
@@ -358,17 +352,18 @@ export class UserRepository implements IUserRepository {
         matchQuery.special_task_force = isSTFFilter;
       }
 
+
       const sortMap: any = {
-        role: {roleOrder: 1},
-        workload_asc: {reputation_score: 1},
-        workload_desc: {reputation_score: -1},
-        incentive_asc: {incentive: 1},
-        incentive_desc: {incentive: -1},
-        penalty_asc: {penalty: 1},
-        penalty_desc: {penalty: -1},
-        joined_asc: {createdAt: 1},
-        joined_desc: {createdAt: -1},
-        default: {rankPosition: 1},
+        role: { roleOrder: 1 },
+        workload_asc: { reputation_score: 1 },
+        workload_desc: { reputation_score: -1 },
+        incentive_asc: { incentive: 1 },
+        incentive_desc: { incentive: -1 },
+        penalty_asc: { penalty: 1 },
+        penalty_desc: { penalty: -1 },
+        joined_asc: { createdAt: 1 },
+        joined_desc: { createdAt: -1 },
+        default: { rankPosition: 1 },
       };
 
       const selectedSort = sortMap[sortOption] || sortMap.default;
@@ -378,13 +373,13 @@ export class UserRepository implements IUserRepository {
           /** Default isBlocked */
           {
             $addFields: {
-              isBlocked: {$ifNull: ['$isBlocked', false]},
+              isBlocked: { $ifNull: ['$isBlocked', false] },
             },
           },
 
           {
             $addFields: {
-              status: {$ifNull: ['$status', 'active']},
+              status: { $ifNull: ["$status", "active"] },
             },
           },
 
@@ -392,10 +387,10 @@ export class UserRepository implements IUserRepository {
           {
             $lookup: {
               from: 'answers',
-              let: {userId: '$_id'},
+              let: { userId: '$_id' },
               pipeline: [
-                {$match: {$expr: {$eq: ['$authorId', '$$userId']}}},
-                {$count: 'count'},
+                { $match: { $expr: { $eq: ['$authorId', '$$userId'] } } },
+                { $count: 'count' },
               ],
               as: 'answersMeta',
             },
@@ -405,11 +400,11 @@ export class UserRepository implements IUserRepository {
           {
             $addFields: {
               totalAnswers_Created: {
-                $ifNull: [{$arrayElemAt: ['$answersMeta.count', 0]}, 0],
+                $ifNull: [{ $arrayElemAt: ['$answersMeta.count', 0] }, 0],
               },
-              penalty: {$ifNull: ['$penalty', 0]},
-              incentive: {$ifNull: ['$incentive', 0]},
-              reputation_score: {$ifNull: ['$reputation_score', 0]},
+              penalty: { $ifNull: ['$penalty', 0] },
+              incentive: { $ifNull: ['$incentive', 0] },
+              reputation_score: { $ifNull: ['$reputation_score', 0] },
             },
           },
 
@@ -418,10 +413,10 @@ export class UserRepository implements IUserRepository {
             $addFields: {
               penaltyPercentage: {
                 $cond: [
-                  {$gt: ['$totalAnswers_Created', 0]},
+                  { $gt: ['$totalAnswers_Created', 0] },
                   {
                     $multiply: [
-                      {$divide: ['$penalty', '$totalAnswers_Created']},
+                      { $divide: ['$penalty', '$totalAnswers_Created'] },
                       100,
                     ],
                   },
@@ -437,14 +432,14 @@ export class UserRepository implements IUserRepository {
               roleOrder: {
                 $switch: {
                   branches: [
-                    {case: {$eq: ['$role', 'admin']}, then: 1},
-                    {case: {$eq: ['$role', 'moderator']}, then: 2},
-                    {case: {$eq: ['$role', 'expert']}, then: 3},
-                    {case: {$eq: ['$role', 'pae_expert']}, then: 4},
-                    {case: {$eq: ['$role', 'district_coordinator']}, then: 5},
-                    {case: {$eq: ['$role', 'block_coordinator']}, then: 6},
-                    {case: {$eq: ['$role', 'village_volunteer']}, then: 7},
-                    {case: {$eq: ['$role', 'tester']}, then: 8},
+                    { case: { $eq: ['$role', 'admin'] }, then: 1 },
+                    { case: { $eq: ['$role', 'moderator'] }, then: 2 },
+                    { case: { $eq: ['$role', 'expert'] }, then: 3 },
+                    { case: { $eq: ['$role', 'pae_expert'] }, then: 4 },
+                    { case: { $eq: ['$role', 'district_coordinator'] }, then: 5 },
+                    { case: { $eq: ['$role', 'block_coordinator'] }, then: 6 },
+                    { case: { $eq: ['$role', 'village_volunteer'] }, then: 7 },
+                    { case: { $eq: ['$role', 'tester'] }, then: 8 },
                   ],
                   default: 99,
                 },
@@ -457,16 +452,16 @@ export class UserRepository implements IUserRepository {
             $addFields: {
               rankValue: {
                 $cond: [
-                  {$eq: ['$role', 'expert']},
+                  { $eq: ["$role", "expert"] },
                   {
                     $subtract: [
                       {
                         $add: [
-                          {$multiply: ['$totalAnswers_Created', 0.5]},
-                          {$multiply: ['$incentive', 0.3]},
+                          { $multiply: ["$totalAnswers_Created", 0.5] },
+                          { $multiply: ["$incentive", 0.3] },
                         ],
                       },
-                      {$multiply: ['$penaltyPercentage', 0.2]},
+                      { $multiply: ["$penaltyPercentage", 0.2] },
                     ],
                   },
                   -1,
@@ -493,19 +488,19 @@ export class UserRepository implements IUserRepository {
           {
             $group: {
               _id: null,
-              users: {$push: '$$ROOT'},
+              users: { $push: "$$ROOT" },
             },
           },
           {
             $addFields: {
               users: {
                 $map: {
-                  input: {$range: [0, {$size: '$users'}]},
-                  as: 'idx',
+                  input: { $range: [0, { $size: "$users" }] },
+                  as: "idx",
                   in: {
                     $mergeObjects: [
-                      {$arrayElemAt: ['$users', '$$idx']},
-                      {rankPosition: {$add: ['$$idx', 1]}},
+                      { $arrayElemAt: ["$users", "$$idx"] },
+                      { rankPosition: { $add: ["$$idx", 1] } },
                     ],
                   },
                 },
@@ -513,17 +508,17 @@ export class UserRepository implements IUserRepository {
             },
           },
           {
-            $unwind: '$users',
+            $unwind: "$users",
           },
           {
-            $replaceRoot: {newRoot: '$users'},
+            $replaceRoot: { newRoot: "$users" },
           },
 
           /** Calculate Global Expert Rank */
           {
             $facet: {
               experts: [
-                {$match: {role: 'expert'}},
+                { $match: { role: 'expert' } },
                 {
                   $sort: {
                     status: 1,
@@ -534,37 +529,34 @@ export class UserRepository implements IUserRepository {
                     penalty: 1,
                     incentive: -1,
                     createdAt: 1,
-                  },
+                  }
                 },
-                {$group: {_id: null, list: {$push: '$$ROOT'}}},
-                {$unwind: {path: '$list', includeArrayIndex: 'expertRank'}},
+                { $group: { _id: null, list: { $push: '$$ROOT' } } },
+                { $unwind: { path: '$list', includeArrayIndex: 'expertRank' } },
                 {
                   $replaceRoot: {
                     newRoot: {
-                      $mergeObjects: [
-                        '$list',
-                        {expertRank: {$add: ['$expertRank', 1]}},
-                      ],
-                    },
-                  },
-                },
+                      $mergeObjects: ['$list', { expertRank: { $add: ['$expertRank', 1] } }]
+                    }
+                  }
+                }
               ],
               others: [
-                {$match: {role: {$ne: 'expert'}}},
-                {$addFields: {expertRank: null}},
-              ],
-            },
+                { $match: { role: { $ne: 'expert' } } },
+                { $addFields: { expertRank: null } }
+              ]
+            }
           },
           {
             $project: {
-              allUsers: {$concatArrays: ['$experts', '$others']},
-            },
+              allUsers: { $concatArrays: ['$experts', '$others'] }
+            }
           },
-          {$unwind: '$allUsers'},
-          {$replaceRoot: {newRoot: '$allUsers'}},
+          { $unwind: '$allUsers' },
+          { $replaceRoot: { newRoot: '$allUsers' } },
 
           /** Match users (Applied here for global ranking) */
-          {$match: matchQuery},
+          { $match: matchQuery },
 
           /** UI sorting (dropdown) */
           {
@@ -577,8 +569,8 @@ export class UserRepository implements IUserRepository {
           /** Pagination */
           {
             $facet: {
-              users: [{$skip: skip}, {$limit: limit}],
-              meta: [{$count: 'totalUsers'}],
+              users: [{ $skip: skip }, { $limit: limit }],
+              meta: [{ $count: "totalUsers" }],
             },
           },
         ])
@@ -602,6 +594,7 @@ export class UserRepository implements IUserRepository {
     }
   }
 
+
   async updateReputationScore(
     userId: string,
     isIncrement: boolean,
@@ -610,18 +603,18 @@ export class UserRepository implements IUserRepository {
     await this.init();
     const incrementValue = isIncrement ? 1 : -1;
     await this.usersCollection.updateOne(
-      {_id: new ObjectId(userId)},
+      { _id: new ObjectId(userId) },
       [
         {
           $set: {
             reputation_score: {
-              $max: [0, {$add: ['$reputation_score', incrementValue]}],
+              $max: [0, { $add: ['$reputation_score', incrementValue] }],
             },
             updatedAt: new Date(),
           },
         },
       ],
-      {session},
+      { session },
     );
   }
 
@@ -630,9 +623,7 @@ export class UserRepository implements IUserRepository {
     session?: ClientSession,
   ): Promise<void> {
     await this.init();
-    const submissionCollection = await this.db.getCollection<any>(
-      'question_submissions',
-    );
+    const submissionCollection = await this.db.getCollection<any>('question_submissions');
 
     const userObjectId = new ObjectId(userId);
     const userIdStr = userId.toString();
@@ -640,47 +631,34 @@ export class UserRepository implements IUserRepository {
     // Count active assignments:
     // 1. History is empty AND user is at index 0 of queue
     // 2. History is NOT empty AND user is the updatedBy of the last history entry AND status is 'in-review'
-    const count = await submissionCollection.countDocuments(
-      {
-        $or: [
-          {
-            $and: [
-              {history: {$size: 0}},
-              {$or: [{'queue.0': userObjectId}, {'queue.0': userIdStr}]},
-            ],
-          },
-          {
-            $and: [
-              {history: {$not: {$size: 0}}},
-              {
-                $expr: {
-                  $and: [
-                    {
-                      $eq: [
-                        {$arrayElemAt: ['$history.status', -1]},
-                        'in-review',
-                      ],
-                    },
-                    {
-                      $in: [
-                        {$arrayElemAt: ['$history.updatedBy', -1]},
-                        [userObjectId, userIdStr],
-                      ],
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        ],
-      },
-      {session},
-    );
+    const count = await submissionCollection.countDocuments({
+      $or: [
+        {
+          $and: [
+            { history: { $size: 0 } },
+            { $or: [{ 'queue.0': userObjectId }, { 'queue.0': userIdStr }] }
+          ]
+        },
+        {
+          $and: [
+            { history: { $not: { $size: 0 } } },
+            {
+              $expr: {
+                $and: [
+                  { $eq: [{ $arrayElemAt: ['$history.status', -1] }, 'in-review'] },
+                  { $in: [{ $arrayElemAt: ['$history.updatedBy', -1] }, [userObjectId, userIdStr]] }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }, { session });
 
     await this.usersCollection.updateOne(
-      {_id: userObjectId},
-      {$set: {reputation_score: count, updatedAt: new Date()}},
-      {session},
+      { _id: userObjectId },
+      { $set: { reputation_score: count, updatedAt: new Date() } },
+      { session }
     );
   }
 
@@ -691,14 +669,14 @@ export class UserRepository implements IUserRepository {
   ): Promise<void> {
     await this.init();
     await this.usersCollection.updateOne(
-      {_id: new ObjectId(userId)},
+      { _id: new ObjectId(userId) },
       {
         $set: {
           reputation_score: Math.max(0, score),
           updatedAt: new Date(),
         },
       },
-      {session},
+      { session },
     );
   }
 
@@ -710,7 +688,7 @@ export class UserRepository implements IUserRepository {
 
     // 1. Fetch all experts
     const allUsersRaw = await this.usersCollection
-      .find({role: 'expert', isBlocked: false}, {session})
+      .find({ role: 'expert', isBlocked: false }, { session })
       .toArray();
 
     // 2. Remove duplicates based on email
@@ -738,9 +716,7 @@ export class UserRepository implements IUserRepository {
           return '';
         };
         const prefState = (pref.state || '').toLowerCase().trim();
-        const normalizeDomain = (
-          d: string | string[] | undefined,
-        ): string[] => {
+        const normalizeDomain = (d: string | string[] | undefined): string[] => {
           if (!d) return [];
           if (Array.isArray(d)) return d.map(v => v.toLowerCase().trim());
           return [d.toLowerCase().trim()];
@@ -748,12 +724,12 @@ export class UserRepository implements IUserRepository {
         const prefDomains = normalizeDomain(pref.domain);
         const prefCrop = normalize(pref.crop);
 
+
         const detState = (details.state || '').toLowerCase().trim();
         const detDomains = normalizeDomain(details.domain);
         const detCrop = normalize(details.crop);
 
-        const prefDomainIsAll =
-          prefDomains.length === 1 && prefDomains[0] === 'all';
+        const prefDomainIsAll = prefDomains.length === 1 && prefDomains[0] === 'all';
         const isAllSelected =
           prefCrop === 'all' && prefState === 'all' && prefDomainIsAll;
 
@@ -770,15 +746,15 @@ export class UserRepository implements IUserRepository {
         const workloadScore =
           typeof user.reputation_score === 'number' ? user.reputation_score : 0;
 
-        return {user, score, isAllSelected, workloadScore};
+        return { user, score, isAllSelected, workloadScore };
       })
 
       .filter(Boolean) as {
-      user: IUser;
-      score: number;
-      isAllSelected: boolean;
-      workloadScore: number;
-    }[];
+        user: IUser;
+        score: number;
+        isAllSelected: boolean;
+        workloadScore: number;
+      }[];
 
     const matched = scoredUsers.filter(x => x.score > 0);
     const unmatched = scoredUsers.filter(x => x.score === 0);
@@ -811,10 +787,8 @@ export class UserRepository implements IUserRepository {
     let result = [...matched, ...unmatched].map(s => s.user);
     return result;
   }
-  async getSpecialTaskForceExperts(
-    details: PreferenceDto,
-    session: ClientSession,
-  ): Promise<IUser[]> {
+  async getSpecialTaskForceExperts(details: PreferenceDto,
+    session: ClientSession): Promise<IUser[]> {
     await this.init();
     const allUsersRaw = await this.usersCollection
       .find(
@@ -823,7 +797,7 @@ export class UserRepository implements IUserRepository {
           isBlocked: false,
           special_task_force: true,
         },
-        {session},
+        { session },
       )
       .toArray();
 
@@ -843,9 +817,7 @@ export class UserRepository implements IUserRepository {
     return [...stfUsers, ...prefUsers];
   }
 
-  async getSpecialTaskForceModerators(
-    session: ClientSession,
-  ): Promise<IUser[]> {
+  async getSpecialTaskForceModerators(session: ClientSession): Promise<IUser[]> {
     await this.init();
     const allUsersRaw = await this.usersCollection
       .find(
@@ -854,7 +826,7 @@ export class UserRepository implements IUserRepository {
           isBlocked: false,
           special_task_force_moderator: true,
         },
-        {session},
+        { session },
       )
       .toArray();
 
@@ -868,8 +840,8 @@ export class UserRepository implements IUserRepository {
     await this.init();
 
     // 1. Fetch all experts (include role and isBlocked for queue details)
-    const query: any = {role: 'expert', isBlocked: false};
-    const cursor = this.usersCollection.find(query, {session});
+    const query: any = { role: 'expert', isBlocked: false };
+    const cursor = this.usersCollection.find(query, { session });
     if (limit) cursor.limit(limit);
     const allUsersRaw = await cursor.toArray();
 
@@ -878,10 +850,7 @@ export class UserRepository implements IUserRepository {
     const droppedByDedup: string[] = [];
     const noEmail: string[] = [];
     for (const user of allUsersRaw) {
-      if (!user.email) {
-        noEmail.push(user._id?.toString());
-        continue;
-      }
+      if (!user.email) { noEmail.push(user._id?.toString()); continue; }
       if (!uniqueUsersMap.has(user.email)) uniqueUsersMap.set(user.email, user);
       else droppedByDedup.push(user._id?.toString());
     }
@@ -920,30 +889,27 @@ export class UserRepository implements IUserRepository {
           role: 'expert',
           isBlocked: false,
           status: 'active',
-          lastCheckInAt: {$gte: startOfDay, $lt: startOfTomorrow},
+          lastCheckInAt: { $gte: startOfDay, $lt: startOfTomorrow },
         },
-        {session},
+        { session },
       )
-      .sort({reputation_score: 1}) // lowest score first
+      .sort({ reputation_score: 1 }) // lowest score first
       .toArray();
+
 
     return users;
   }
 
   async findModerators(): Promise<IUser[]> {
     await this.init();
-    return await this.usersCollection.find({role: 'moderator'}).toArray();
+    return await this.usersCollection.find({ role: 'moderator' }).toArray();
   }
 
   /** Statuses that keep a moderator "busy". A held question in any other status
    *  (notably 're-routed', which is handed off to an expert but kept in the array for
    *  history) does NOT block new assignments. 'pae_submitted' blocks too: the moderator
    *  still has to act on it, so they shouldn't be handed another question of that category. */
-  static readonly BLOCKING_ASSIGNED_STATUSES: QuestionStatus[] = [
-    'in-review',
-    'duplicate',
-    'pae_submitted',
-  ];
+  static readonly BLOCKING_ASSIGNED_STATUSES: QuestionStatus[] = ['in-review', 'duplicate', 'pae_submitted'];
 
   /** Returns non-blocked moderators who can take a new question — i.e. they hold no
    *  assignedQuestionIds entry in a blocking status. A moderator with an empty array,
@@ -962,27 +928,27 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser[]> {
     await this.init();
     const blockingElemMatch: Record<string, unknown> = {
-      status: {$in: UserRepository.BLOCKING_ASSIGNED_STATUSES},
+      status: { $in: UserRepository.BLOCKING_ASSIGNED_STATUSES },
     };
     if (sources && sources.length > 0) {
       // Block on entries of this source group. Legacy entries with a missing/null
       // source are treated as blocking too (we can't tell their category), so this
       // is never looser than the original "busy on any blocking question" behaviour.
       blockingElemMatch.$or = [
-        {source: {$in: sources}},
-        {source: {$exists: false}},
-        {source: null},
+        { source: { $in: sources } },
+        { source: { $exists: false } },
+        { source: null },
       ];
     }
     return this.usersCollection
       .find({
         role: 'moderator',
-        isBlocked: {$ne: true},
+        isBlocked: { $ne: true },
         ...extraMatch,
         // No element is in a blocking status (also true for missing/null/empty arrays).
         // Scoped to `sources` when provided.
         assignedQuestionIds: {
-          $not: {$elemMatch: blockingElemMatch},
+          $not: { $elemMatch: blockingElemMatch },
         },
       })
       .toArray();
@@ -996,7 +962,7 @@ export class UserRepository implements IUserRepository {
 
   /** Same as findAvailableModerators but restricted to Special Task Force moderators. */
   async findAvailableStfModerators(): Promise<IUser[]> {
-    return this.findAvailableModeratorsWithMatch({special_task_force: true});
+    return this.findAvailableModeratorsWithMatch({ special_task_force: true });
   }
 
   /** STF moderators available for a specific source group (e.g. time-bound or manual):
@@ -1007,28 +973,9 @@ export class UserRepository implements IUserRepository {
     sources: QuestionSource[],
   ): Promise<IUser[]> {
     return this.findAvailableModeratorsWithMatch(
-      {special_task_force: true},
+      { special_task_force: true },
       sources,
     );
-  }
-
-  /** Users of a given role who can take a new question — not blocked and currently
-   *  holding no assigned question (one question at a time). Used by the gate-keeper /
-   *  auditor queue cron to find a free assignee. */
-  async findAvailableUsersByRole(role: UserRole): Promise<IUser[]> {
-    await this.init();
-    return this.usersCollection
-      .find({
-        role,
-        isBlocked: {$ne: true},
-        // Empty / missing assigned-questions array = free.
-        $or: [
-          {assignedQuestionIds: {$exists: false}},
-          {assignedQuestionIds: null},
-          {assignedQuestionIds: {$size: 0}},
-        ],
-      })
-      .toArray();
   }
 
   /** Appends a question (with its current status) to a moderator's assigned-questions
@@ -1040,41 +987,35 @@ export class UserRepository implements IUserRepository {
     questionId: string,
     status: QuestionStatus,
     source?: QuestionSource,
-    session?: ClientSession,
   ): Promise<void> {
     await this.init();
     const qid = new ObjectId(questionId);
     await this.usersCollection.updateOne(
-      {_id: new ObjectId(moderatorId)},
+      { _id: new ObjectId(moderatorId) },
       {
-        $pull: {assignedQuestionIds: {questionId: qid}},
-        $set: {updatedAt: new Date()},
+        $pull: { assignedQuestionIds: { questionId: qid } },
+        $set: { updatedAt: new Date() },
       },
-      {session},
     );
     await this.usersCollection.updateOne(
-      {_id: new ObjectId(moderatorId)},
+      { _id: new ObjectId(moderatorId) },
       {
-        $push: {assignedQuestionIds: {questionId: qid, status, source}},
-        $set: {updatedAt: new Date()},
+        $push: { assignedQuestionIds: { questionId: qid, status, source } },
+        $set: { updatedAt: new Date() },
       },
-      {session},
     );
   }
 
   /** Removes a single question's entry from a moderator's assigned-questions array.
    *  Called when the moderator acts on the question (answers/closes), or when the
    *  question is manually removed/reassigned. */
-  async removeAssignedQuestion(
-    moderatorId: string,
-    questionId: string,
-  ): Promise<void> {
+  async removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void> {
     await this.init();
     await this.usersCollection.updateOne(
-      {_id: new ObjectId(moderatorId)},
+      { _id: new ObjectId(moderatorId) },
       {
-        $pull: {assignedQuestionIds: {questionId: new ObjectId(questionId)}},
-        $set: {updatedAt: new Date()},
+        $pull: { assignedQuestionIds: { questionId: new ObjectId(questionId) } },
+        $set: { updatedAt: new Date() },
       },
     );
   }
@@ -1089,20 +1030,18 @@ export class UserRepository implements IUserRepository {
     await this.init();
     const qid = new ObjectId(questionId);
     await this.usersCollection.updateMany(
-      {'assignedQuestionIds.questionId': qid},
+      { 'assignedQuestionIds.questionId': qid },
       {
-        $pull: {assignedQuestionIds: {questionId: qid}},
-        $set: {updatedAt: new Date()},
+        $pull: { assignedQuestionIds: { questionId: qid } },
+        $set: { updatedAt: new Date() },
       },
-      {session},
+      { session },
     );
   }
 
   async findAdmins(session?: ClientSession): Promise<IUser[]> {
     await this.init();
-    return await this.usersCollection
-      .find({role: 'admin'}, {session})
-      .toArray();
+    return await this.usersCollection.find({ role: 'admin' }, { session }).toArray();
   }
 
   async updateAutoDeleteNotificationPreference(
@@ -1119,9 +1058,9 @@ export class UserRepository implements IUserRepository {
         throw new NotFoundError('user not found');
       }
       await this.usersCollection.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
-        {$set: {notificationRetention: preference}},
-        {upsert: true, session},
+        { _id: new ObjectId(userId) },
+        { $set: { notificationRetention: preference } },
+        { upsert: true, session },
       );
     } catch (error) {
       console.log(error);
@@ -1143,9 +1082,9 @@ export class UserRepository implements IUserRepository {
         throw new NotFoundError('User not found');
       }
       await this.usersCollection.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
-        {$inc: {[field]: 1}},
-        {upsert: true, session},
+        { _id: new ObjectId(userId) },
+        { $inc: { [field]: 1 } },
+        { upsert: true, session },
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update incentive`);
@@ -1384,7 +1323,7 @@ export class UserRepository implements IUserRepository {
     sortOption: string,
     filter: string,
     session?: ClientSession,
-  ): Promise<{experts: any[]; totalExperts: number; totalPages: number}> {
+  ): Promise<{ experts: any[]; totalExperts: number; totalPages: number }> {
     await this.init();
 
     try {
@@ -1395,8 +1334,8 @@ export class UserRepository implements IUserRepository {
 
       if (search) {
         matchQuery.$or = [
-          {firstName: {$regex: search, $options: 'i'}},
-          {lastName: {$regex: search, $options: 'i'}},
+          { firstName: { $regex: search, $options: 'i' } },
+          { lastName: { $regex: search, $options: 'i' } },
         ];
       }
 
@@ -1405,145 +1344,145 @@ export class UserRepository implements IUserRepository {
       }
 
       const sortMap: any = {
-        workload_asc: {reputation_score: 1},
-        workload_desc: {reputation_score: -1},
-        incentive_asc: {incentive: 1},
-        incentive_desc: {incentive: -1},
-        penalty_asc: {penaltyPercentage: 1},
-        penalty_desc: {penaltyPercentage: -1},
-        joined_asc: {createdAt: 1},
-        joined_desc: {createdAt: -1},
-        default: {rankPosition: 1},
+        workload_asc: { reputation_score: 1 },
+        workload_desc: { reputation_score: -1 },
+        incentive_asc: { incentive: 1 },
+        incentive_desc: { incentive: -1 },
+        penalty_asc: { penaltyPercentage: 1 },
+        penalty_desc: { penaltyPercentage: -1 },
+        joined_asc: { createdAt: 1 },
+        joined_desc: { createdAt: -1 },
+        default: { rankPosition: 1 },
       };
 
       const selectedSort = sortMap[sortOption] || sortMap.default;
 
-      const result = await this.usersCollection
-        .aggregate([
-          /** Match experts */
-          {$match: {role: 'expert'}},
+      const result = await this.usersCollection.aggregate([
+        /** Match experts */
+        { $match: { role: "expert" } },
 
-          /** Default isBlocked */
-          {
-            $addFields: {
-              isBlocked: {$ifNull: ['$isBlocked', false]},
-            },
+
+        /** Default isBlocked */
+        {
+          $addFields: {
+            isBlocked: { $ifNull: ['$isBlocked', false] },
           },
+        },
 
-          /** Answers count */
-          {
-            $lookup: {
-              from: 'answers',
-              let: {userId: '$_id'},
-              pipeline: [
-                {$match: {$expr: {$eq: ['$authorId', '$$userId']}}},
-                {$count: 'count'},
+        /** Answers count */
+        {
+          $lookup: {
+            from: 'answers',
+            let: { userId: '$_id' },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$authorId', '$$userId'] } } },
+              { $count: 'count' },
+            ],
+            as: 'answersMeta',
+          },
+        },
+
+        /** Derived fields */
+        {
+          $addFields: {
+            totalAnswers_Created: {
+              $ifNull: [{ $arrayElemAt: ['$answersMeta.count', 0] }, 0],
+            },
+            penalty: { $ifNull: ['$penalty', 0] },
+            incentive: { $ifNull: ['$incentive', 0] },
+            reputation_score: { $ifNull: ['$reputation_score', 0] },
+          },
+        },
+
+        /** Penalty percentage */
+        {
+          $addFields: {
+            penaltyPercentage: {
+              $cond: [
+                { $gt: ['$totalAnswers_Created', 0] },
+                {
+                  $multiply: [
+                    { $divide: ['$penalty', '$totalAnswers_Created'] },
+                    100,
+                  ],
+                },
+                0,
               ],
-              as: 'answersMeta',
             },
           },
+        },
 
-          /** Derived fields */
-          {
-            $addFields: {
-              totalAnswers_Created: {
-                $ifNull: [{$arrayElemAt: ['$answersMeta.count', 0]}, 0],
-              },
-              penalty: {$ifNull: ['$penalty', 0]},
-              incentive: {$ifNull: ['$incentive', 0]},
-              reputation_score: {$ifNull: ['$reputation_score', 0]},
+        /** Rank value */
+        {
+          $addFields: {
+            rankValue: {
+              $subtract: [
+                {
+                  $add: [
+                    { $multiply: ['$totalAnswers_Created', 0.5] },
+                    { $multiply: ['$incentive', 0.3] },
+                  ],
+                },
+                { $multiply: ['$penaltyPercentage', 0.2] },
+              ],
             },
           },
+        },
 
-          /** Penalty percentage */
-          {
-            $addFields: {
-              penaltyPercentage: {
-                $cond: [
-                  {$gt: ['$totalAnswers_Created', 0]},
-                  {
-                    $multiply: [
-                      {$divide: ['$penalty', '$totalAnswers_Created']},
-                      100,
-                    ],
-                  },
-                  0,
-                ],
-              },
-            },
+        /** Ranking sort (global rank order) */
+        {
+          $sort: {
+            status: 1,
+            isBlocked: 1,
+            rankValue: -1,
+            reputation_score: -1,
+            totalAnswers_Created: -1,
+            penalty: 1,
+            incentive: -1,
+            createdAt: 1,
           },
+        },
 
-          /** Rank value */
-          {
-            $addFields: {
-              rankValue: {
-                $subtract: [
-                  {
-                    $add: [
-                      {$multiply: ['$totalAnswers_Created', 0.5]},
-                      {$multiply: ['$incentive', 0.3]},
-                    ],
-                  },
-                  {$multiply: ['$penaltyPercentage', 0.2]},
-                ],
-              },
-            },
+        /** Assign rankPosition */
+        {
+          $group: {
+            _id: null,
+            experts: { $push: '$$ROOT' },
           },
+        },
+        {
+          $unwind: {
+            path: '$experts',
+            includeArrayIndex: 'rankPosition',
+          },
+        },
+        {
+          $addFields: {
+            'experts.rankPosition': { $add: ['$rankPosition', 1] },
+          },
+        },
+        {
+          $replaceRoot: { newRoot: '$experts' },
+        },
 
-          /** Ranking sort (global rank order) */
-          {
-            $sort: {
-              status: 1,
-              isBlocked: 1,
-              rankValue: -1,
-              reputation_score: -1,
-              totalAnswers_Created: -1,
-              penalty: 1,
-              incentive: -1,
-              createdAt: 1,
-            },
+        /** UI sorting (dropdown) */
+        {
+          $sort: {
+            isBlocked: 1,
+            ...selectedSort,
           },
+        },
+        { $match: matchQuery },
 
-          /** Assign rankPosition */
-          {
-            $group: {
-              _id: null,
-              experts: {$push: '$$ROOT'},
-            },
+        /** Pagination */
+        {
+          $facet: {
+            experts: [{ $skip: skip }, { $limit: limit }],
+            meta: [{ $count: 'totalExperts' }],
           },
-          {
-            $unwind: {
-              path: '$experts',
-              includeArrayIndex: 'rankPosition',
-            },
-          },
-          {
-            $addFields: {
-              'experts.rankPosition': {$add: ['$rankPosition', 1]},
-            },
-          },
-          {
-            $replaceRoot: {newRoot: '$experts'},
-          },
+        },
+      ]).toArray();
 
-          /** UI sorting (dropdown) */
-          {
-            $sort: {
-              isBlocked: 1,
-              ...selectedSort,
-            },
-          },
-          {$match: matchQuery},
-
-          /** Pagination */
-          {
-            $facet: {
-              experts: [{$skip: skip}, {$limit: limit}],
-              meta: [{$count: 'totalExperts'}],
-            },
-          },
-        ])
-        .toArray();
 
       const experts = result[0]?.experts || [];
       const totalExperts = result[0]?.meta[0]?.totalExperts || 0;
@@ -1568,10 +1507,10 @@ export class UserRepository implements IUserRepository {
 
     return this.usersCollection.countDocuments(
       {
-        role: 'expert',
-        status: 'active',
+        role: "expert",
+        status: "active",
       },
-      {session},
+      { session }
     );
   }
 
@@ -1580,10 +1519,10 @@ export class UserRepository implements IUserRepository {
 
     return this.usersCollection.countDocuments(
       {
-        role: 'expert',
-        isBlocked: {$ne: true},
+        role: "expert",
+        isBlocked: { $ne: true },
       },
-      {session},
+      { session }
     );
   }
 
@@ -1597,11 +1536,11 @@ export class UserRepository implements IUserRepository {
       const updatedAt = new Date();
       const isBlocked = action === 'block';
       const result = await this.usersCollection.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
-        {$set: {isBlocked}},
-        {upsert: true, returnDocument: 'after', session},
+        { _id: new ObjectId(userId) },
+        { $set: { isBlocked } },
+        { upsert: true, returnDocument: 'after', session },
       );
-      await Promise.all([
+       await Promise.all([
         this.userRoleHistoryCollection.updateOne(
           {
             userId: new ObjectId(userId),
@@ -1613,7 +1552,7 @@ export class UserRepository implements IUserRepository {
               updatedAt,
             },
           },
-          {session},
+          { session },
         ),
         this.userRoleHistoryCollection.insertOne(
           {
@@ -1626,9 +1565,8 @@ export class UserRepository implements IUserRepository {
             isBlocked: result.isBlocked,
             special_task_force: result.special_task_force,
           },
-          {session},
-        ),
-      ]);
+          { session },
+        )])
     } catch (error) {
       throw new InternalServerError(`Failed to update IsBlock`);
     }
@@ -1643,17 +1581,18 @@ export class UserRepository implements IUserRepository {
     try {
       const special_task_force = action === 'assign';
       const updatedAt = new Date();
-      const updatedUser = await this.usersCollection.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
+      const updatedUser =await this.usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
         {
           $set: {
             special_task_force,
             updatedAt,
           },
         },
-        {upsert: true, returnDocument: 'after', session},
+        { upsert: true, returnDocument: 'after', session },
       );
 
+      
       await Promise.all([
         this.userRoleHistoryCollection.updateOne(
           {
@@ -1666,7 +1605,7 @@ export class UserRepository implements IUserRepository {
               updatedAt,
             },
           },
-          {session},
+          { session },
         ),
         this.userRoleHistoryCollection.insertOne(
           {
@@ -1679,9 +1618,8 @@ export class UserRepository implements IUserRepository {
             isBlocked: updatedUser.isBlocked,
             special_task_force: updatedUser.special_task_force,
           },
-          {session},
-        ),
-      ]);
+          { session },
+        )])
     } catch (error) {
       throw new InternalServerError(`Failed to update STF status`);
     }
@@ -1695,16 +1633,10 @@ export class UserRepository implements IUserRepository {
     await this.init();
     try {
       const updatedAt = new Date();
-      const result = await this.usersCollection.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
-        {
-          $set: {
-            status,
-            updatedAt: new Date(),
-            isBlocked: status === 'active' ? false : true,
-          },
-        },
-        {returnDocument: 'after', session},
+      const result =await this.usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        { $set: { status, updatedAt: new Date(), isBlocked: status === 'active'?false:true } },
+        { returnDocument: 'after', session },
       );
 
       await Promise.all([
@@ -1719,7 +1651,7 @@ export class UserRepository implements IUserRepository {
               updatedAt,
             },
           },
-          {session},
+          { session },
         ),
         this.userRoleHistoryCollection.insertOne(
           {
@@ -1732,17 +1664,17 @@ export class UserRepository implements IUserRepository {
             isBlocked: result.isBlocked,
             special_task_force: result.special_task_force,
           },
-          {session},
-        ),
-      ]);
+          { session },
+        )])
     } catch (error) {
       throw new InternalServerError(`Failed to update activity status`);
     }
   }
 
+
   async getUserRoleCount(
-    startDateTime?: string,
-    endDateTime?: string,
+    startDateTime?:string,
+    endDateTime?:string,
     session?: ClientSession,
   ): Promise<{
     userRoleOverview: UserRoleOverview[];
@@ -1763,197 +1695,192 @@ export class UserRepository implements IUserRepository {
           ? new Date(endDateTime)
           : new Date(new Date().setUTCHours(23, 59, 59, 999));
 
-      const result = await this.userRoleHistoryCollection
-        .aggregate(
-          [
-            // -------------------------------------------------------------------------
-            // Step 1:
-            // Get all history records that were active during the selected period.
-            //
-            // Example:
-            // Expert     : 10:00 -> 11:00
-            // Moderator  : 11:00 -> null
-            //
-            // Filter:
-            // 10:00 -> 14:00
-            //
-            // Both records are returned.
-            // -------------------------------------------------------------------------
-            {
-              $match: {
-                $and: [
-                  {
-                    from: {$lte: end},
-                  },
-                  {
-                    $or: [{to: null}, {to: {$gt: start}}],
-                  },
-                ],
-              },
-            },
-
-            // -------------------------------------------------------------------------
-            // Step 2:
-            // Sort latest history first for each user.
-            // -------------------------------------------------------------------------
-            {
-              $sort: {
-                userId: 1,
-                from: -1,
-              },
-            },
-
-            // -------------------------------------------------------------------------
-            // Step 3:
-            // Keep ONLY the latest history record for each user within the
-            // selected period.
-            //
-            // Example:
-            //
-            // Expert     10:00
-            // Moderator  11:00
-            //
-            // => Keeps Moderator
-            // -------------------------------------------------------------------------
-            {
-              $group: {
-                _id: '$userId',
-                latest: {
-                  $first: '$$ROOT',
+      const result = await this.userRoleHistoryCollection.aggregate(
+        [
+          // -------------------------------------------------------------------------
+          // Step 1:
+          // Get all history records that were active during the selected period.
+          //
+          // Example:
+          // Expert     : 10:00 -> 11:00
+          // Moderator  : 11:00 -> null
+          //
+          // Filter:
+          // 10:00 -> 14:00
+          //
+          // Both records are returned.
+          // -------------------------------------------------------------------------
+          {
+            $match: {
+              $and: [
+                {
+                  from: { $lte: end },
                 },
-              },
-            },
-
-            {
-              $replaceRoot: {
-                newRoot: '$latest',
-              },
-            },
-
-            // -------------------------------------------------------------------------
-            // Filter based on the latest snapshot only.
-            // This ensures we evaluate the user's latest status/block state
-            // within the selected period.
-            // -------------------------------------------------------------------------
-            {
-              $match: {
-                isBlocked: false,
-                $or: [
-                  {status: 'active'},
-                  {status: null},
-                  {status: {$exists: false}},
-                ],
-              },
-            },
-
-            // -------------------------------------------------------------------------
-            // Step 4:
-            // Count users by role.
-            // -------------------------------------------------------------------------
-            {
-              $group: {
-                _id: '$role',
-
-                count: {
-                  $sum: 1,
+                {
+                  $or: [
+                    { to: null },
+                    { to: { $gt: start } },
+                  ],
                 },
+              ],
+            },
+          },
 
-                stfCount: {
-                  $sum: {
-                    $cond: [
-                      {
-                        $and: [
-                          {
-                            $in: ['$role', ['expert', 'moderator']],
-                          },
-                          {
-                            $eq: ['$special_task_force', true],
-                          },
-                        ],
-                      },
-                      1,
-                      0,
-                    ],
-                  },
-                },
+          // -------------------------------------------------------------------------
+          // Step 2:
+          // Sort latest history first for each user.
+          // -------------------------------------------------------------------------
+          {
+            $sort: {
+              userId: 1,
+              from: -1,
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 3:
+          // Keep ONLY the latest history record for each user within the
+          // selected period.
+          //
+          // Example:
+          //
+          // Expert     10:00
+          // Moderator  11:00
+          //
+          // => Keeps Moderator
+          // -------------------------------------------------------------------------
+          {
+            $group: {
+              _id: '$userId',
+              latest: {
+                $first: '$$ROOT',
               },
             },
+          },
 
-            // -------------------------------------------------------------------------
-            // Step 5:
-            // Convert role values into display names.
-            // -------------------------------------------------------------------------
-            {
-              $project: {
-                _id: 0,
+          {
+            $replaceRoot: {
+              newRoot: '$latest',
+            },
+          },
 
-                role: {
-                  $switch: {
-                    branches: [
-                      {case: {$eq: ['$_id', 'expert']}, then: 'Experts'},
-                      {case: {$eq: ['$_id', 'moderator']}, then: 'Moderators'},
-                      {case: {$eq: ['$_id', 'admin']}, then: 'Admins'},
-                      {
-                        case: {$eq: ['$_id', 'pae_expert']},
-                        then: 'PAE Experts',
-                      },
-                      {
-                        case: {
-                          $eq: ['$_id', 'district_coordinator'],
+          // -------------------------------------------------------------------------
+          // Filter based on the latest snapshot only.
+          // This ensures we evaluate the user's latest status/block state
+          // within the selected period.
+          // -------------------------------------------------------------------------
+          {
+            $match: {
+              isBlocked: false,
+              $or: [
+                { status: 'active' },
+                { status: null },
+                { status: { $exists: false } },
+              ],
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 4:
+          // Count users by role.
+          // -------------------------------------------------------------------------
+          {
+            $group: {
+              _id: '$role',
+
+              count: {
+                $sum: 1,
+              },
+
+              stfCount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        {
+                          $in: ['$role', ['expert', 'moderator']],
                         },
-                        then: 'District Coordinators',
-                      },
-                      {
-                        case: {
-                          $eq: ['$_id', 'block_coordinator'],
+                        {
+                          $eq: ['$special_task_force', true],
                         },
-                        then: 'Block Coordinators',
-                      },
-                      {
-                        case: {
-                          $eq: ['$_id', 'village_volunteer'],
-                        },
-                        then: 'Village Volunteers',
-                      },
-                      {case: {$eq: ['$_id', 'tester']}, then: 'Testers'},
-                      {
-                        case: {$eq: ['$_id', 'call_agent']},
-                        then: 'Call Agents',
-                      },
-                    ],
-                    default: 'Others',
-                  },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
                 },
-
-                count: 1,
-                stfCount: 1,
               },
             },
+          },
 
-            // -------------------------------------------------------------------------
-            // Step 6:
-            // Sort alphabetically.
-            // -------------------------------------------------------------------------
-            {
-              $sort: {
-                role: 1,
+          // -------------------------------------------------------------------------
+          // Step 5:
+          // Convert role values into display names.
+          // -------------------------------------------------------------------------
+          {
+            $project: {
+              _id: 0,
+
+              role: {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ['$_id', 'expert'] }, then: 'Experts' },
+                    { case: { $eq: ['$_id', 'moderator'] }, then: 'Moderators' },
+                    { case: { $eq: ['$_id', 'admin'] }, then: 'Admins' },
+                    { case: { $eq: ['$_id', 'pae_expert'] }, then: 'PAE Experts' },
+                    {
+                      case: {
+                        $eq: ['$_id', 'district_coordinator'],
+                      },
+                      then: 'District Coordinators',
+                    },
+                    {
+                      case: {
+                        $eq: ['$_id', 'block_coordinator'],
+                      },
+                      then: 'Block Coordinators',
+                    },
+                    {
+                      case: {
+                        $eq: ['$_id', 'village_volunteer'],
+                      },
+                      then: 'Village Volunteers',
+                    },
+                    { case: { $eq: ['$_id', 'tester'] }, then: 'Testers' },
+                    { case: { $eq: ['$_id', 'call_agent'] }, then: 'Call Agents' },
+                  ],
+                  default: 'Others',
+                },
               },
-            },
-          ],
-          {session},
-        )
-        .toArray();
 
-      const userRoleOverview = result.map(({role, count}) => ({
+              count: 1,
+              stfCount: 1,
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 6:
+          // Sort alphabetically.
+          // -------------------------------------------------------------------------
+          {
+            $sort: {
+              role: 1,
+            },
+          },
+        ],
+        { session },
+      ).toArray();
+
+      const userRoleOverview = result.map(({ role, count }) => ({
         role,
         count,
       })) as UserRoleOverview[];
       return {
         userRoleOverview,
         stfExpertCount:
-          result.find(item => item.role === 'Experts')?.stfCount ?? 0,
+          result.find((item) => item.role === 'Experts')?.stfCount ?? 0,
         stfModeratorCount:
-          result.find(item => item.role === 'Moderators')?.stfCount ?? 0,
+          result.find((item) => item.role === 'Moderators')?.stfCount ?? 0,
       };
     } catch (error) {
       console.error('Error fetching user role count:', error);
@@ -1968,7 +1895,7 @@ export class UserRepository implements IUserRepository {
 
     const experts = await this.usersCollection
       .find(
-        {role: 'expert'},
+        { role: 'expert' },
         {
           session,
           projection: {
@@ -1998,43 +1925,38 @@ export class UserRepository implements IUserRepository {
   async updateCheckInTime(userId: string, time: Date) {
     await this.init();
     await this.usersCollection.updateOne(
-      {_id: new ObjectId(userId)},
+      { _id: new ObjectId(userId) },
       {
         $set: {
           lastCheckInAt: time,
           updatedAt: new Date(),
         },
-      },
+      }
     );
   }
 
   async findUnblockedUsers(session?: ClientSession): Promise<IUser[]> {
     try {
-      await this.init();
-      const experts = await this.usersCollection
-        .find(
-          {
-            role: 'expert',
-            isBlocked: {$ne: true},
-          },
-          session,
-        )
-        .toArray();
-      return experts;
+      await this.init()
+      const experts = await this.usersCollection.find(
+        {
+          role: 'expert',
+          isBlocked: { $ne: true },
+        },
+        session,
+      ).toArray()
+      return experts
     } catch (error) {
       throw new InternalServerError('Failed to fetch users');
     }
   }
 
-  async blockExperts(
-    expertIds: string[],
-    session: ClientSession,
-  ): Promise<void> {
+  async blockExperts(expertIds: string[], session: ClientSession): Promise<void> {
     try {
-      await this.init();
+      await this.init()
       await this.usersCollection.updateMany(
-        {_id: {$in: expertIds.map(id => new ObjectId(id))}},
-        {$set: {isBlocked: true}},
+        { _id: { $in: expertIds.map(id => new ObjectId(id)) } },
+        { $set: { isBlocked: true } },
         session,
       );
     } catch (error) {
@@ -2045,26 +1967,24 @@ export class UserRepository implements IUserRepository {
     try {
       await this.init();
       await this.usersCollection.updateMany(
-        {inactive: {$ne: true}},
-        {$set: {isBlocked: false}},
+        { inactive: { $ne: true } },
+        { $set: { isBlocked: false } },
       );
     } catch (error) {
       throw new InternalServerError('Failed to unblock experts');
     }
   }
 
-  async findInactiveOrBlockedExperts(
-    session?: ClientSession,
-  ): Promise<IUser[]> {
+  async findInactiveOrBlockedExperts(session?: ClientSession): Promise<IUser[]> {
     try {
       await this.init();
       return await this.usersCollection
         .find(
           {
             role: 'expert',
-            $or: [{status: 'in-active'}, {isBlocked: true}],
+            $or: [{ status: 'in-active' }, { isBlocked: true }],
           },
-          {session},
+          { session },
         )
         .toArray();
     } catch (error) {
@@ -2083,12 +2003,12 @@ export class UserRepository implements IUserRepository {
           {
             role: 'call_agent' as any,
           },
-          {session},
+          { session },
         )
         .toArray();
 
       // Convert ObjectId to string and return minimal data
-      return agents.map(agent => ({
+      return agents.map((agent) => ({
         ...agent,
         _id: agent._id.toString(),
       })) as IUser[];
@@ -2107,11 +2027,11 @@ export class UserRepository implements IUserRepository {
             role: 'call_agent' as any,
             isCallAgentActive: true,
           },
-          {session},
+          { session },
         )
         .toArray();
 
-      return agents.map(agent => ({
+      return agents.map((agent) => ({
         ...agent,
         _id: agent._id.toString(),
       })) as IUser[];
@@ -2134,7 +2054,7 @@ export class UserRepository implements IUserRepository {
       const newRole = isCallAgent ? ('call_agent' as any) : 'expert';
 
       const result = await this.usersCollection.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
+        { _id: new ObjectId(userId) },
         {
           $set: {
             role: newRole,
@@ -2145,7 +2065,7 @@ export class UserRepository implements IUserRepository {
             isCallAgent: 1,
           },
         },
-        {returnDocument: 'after', session},
+        { returnDocument: 'after', session },
       );
       if (!result) {
         throw new NotFoundError('User not found');
@@ -2168,8 +2088,8 @@ export class UserRepository implements IUserRepository {
     try {
       await this.init();
       const user = await this.usersCollection.findOne(
-        {_id: new ObjectId(userId)},
-        {session},
+        { _id: new ObjectId(userId) },
+        { session },
       );
       if (!user) {
         throw new NotFoundError('User not found');
@@ -2180,14 +2100,14 @@ export class UserRepository implements IUserRepository {
       }
       const newStatus = !user.isCallAgentActive;
       const result = await this.usersCollection.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
+        { _id: new ObjectId(userId) },
         {
           $set: {
             isCallAgentActive: newStatus,
             updatedAt: new Date(),
           },
         },
-        {returnDocument: 'after', session},
+        { returnDocument: 'after', session },
       );
       const plainResult = JSON.parse(JSON.stringify(result));
       return {
@@ -2195,9 +2115,7 @@ export class UserRepository implements IUserRepository {
         _id: result._id.toString(),
       } as IUser;
     } catch (error) {
-      throw new InternalServerError(
-        'Failed to toggle call agent active status',
-      );
+      throw new InternalServerError('Failed to toggle call agent active status');
     }
   }
 
@@ -2216,7 +2134,7 @@ export class UserRepository implements IUserRepository {
           role: 'call_agent' as any,
           isCallAgentActive: true,
           isBusy: false,
-          agent: {$exists: true, $ne: 'not_available'},
+          agent: { $exists: true, $ne: 'not_available' },
         },
         {
           $set: {
@@ -2228,7 +2146,7 @@ export class UserRepository implements IUserRepository {
         {
           returnDocument: 'after',
           session,
-          sort: {agent: 1}, // Sort by agent number to get smallest first
+          sort: { agent: 1 }, // Sort by agent number to get smallest first
         },
       );
 
@@ -2249,11 +2167,11 @@ export class UserRepository implements IUserRepository {
 
   //get user history by userId
   async getUserHistory(
-    query: {userId: string; startDateTime?: string; endDateTime?: string},
+    query: { userId: string; startDateTime?: string; endDateTime?: string },
     session?: ClientSession,
   ): Promise<IUserHistory> {
     try {
-      const {userId, startDateTime, endDateTime} = query;
+      const { userId, startDateTime, endDateTime } = query;
       await this.init();
 
       // Default to today's full UTC day if values are not provided
@@ -2286,15 +2204,15 @@ export class UserRepository implements IUserRepository {
             // -------------------------------------------------------------------------
             {
               $lookup: {
-                from: 'user_role_history',
+                from: "user_role_history",
                 let: {
-                  userId: '$_id',
+                  userId: "$_id",
                 },
                 pipeline: [
                   {
                     $match: {
                       $expr: {
-                        $eq: ['$userId', '$$userId'],
+                        $eq: ["$userId", "$$userId"],
                       },
                       from: {
                         $lte: end,
@@ -2317,7 +2235,7 @@ export class UserRepository implements IUserRepository {
                     },
                   },
                 ],
-                as: 'roleHistory',
+                as: "roleHistory",
               },
             },
 
@@ -2337,25 +2255,25 @@ export class UserRepository implements IUserRepository {
                     $trim: {
                       input: {
                         $concat: [
-                          {$ifNull: ['$firstName', '']},
-                          ' ',
-                          {$ifNull: ['$lastName', '']},
+                          { $ifNull: ["$firstName", ""] },
+                          " ",
+                          { $ifNull: ["$lastName", ""] },
                         ],
                       },
                     },
                   },
-                  email: '$email',
-                  firstName: '$firstName',
-                  lastName: '$lastName',
-                  role: '$role',
-                  status: '$status',
-                  isBlocked: '$isBlocked',
-                  special_task_force: '$special_task_force',
+                  email: "$email",
+                  firstName: "$firstName",
+                  lastName: "$lastName",
+                  role: "$role",
+                  status: "$status",
+                  isBlocked: "$isBlocked",
+                  special_task_force: "$special_task_force",
                 },
               },
             },
           ],
-          {session},
+          { session },
         )
         .toArray();
 

@@ -24,19 +24,19 @@ import {
   Req,
   ForbiddenError,
 } from 'routing-controllers';
-import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
-import {ObjectId} from 'mongodb';
-import {inject, injectable} from 'inversify';
-import {GLOBAL_TYPES} from '#root/types.js';
+import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
+import { ObjectId } from 'mongodb';
+import { inject, injectable } from 'inversify';
+import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IQuestion,
   IQuestionSubmission,
   IUser,
-  IcheckStatusResponseDto,
+  IcheckStatusResponseDto
 } from '#root/shared/interfaces/models.js';
-import type {QAMetadata} from '#root/shared/database/interfaces/ICallDetailsRepository.js';
-import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
-import {verifyNotTester} from '#root/shared/functions/verifyNotTester.js';
+import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {
   AddQuestionBodyDto,
   AllocatedQuestionsBodyDto,
@@ -61,27 +61,19 @@ import {
   getJobById,
   startBackgroundProcessing,
 } from '#root/workers/workerManager.js';
-import {ContextIdParam} from '#root/modules/context/classes/validators/ContextValidator.js';
-import {QuestionService} from '../services/QuestionService.js';
-import {UploadFileOptions} from '#root/modules/question/classes/validators/fileUploadOptions.js';
-import {QuestionLevelResponse} from '#root/modules/question/classes/transformers/QuestionLevel.js';
-import {
-  IQuestionService,
-  QueueSectionName,
-} from '../interfaces/IQuestionService.js';
-import {FlexibleAuth} from '#root/shared/functions/flexibleAuth.js';
-import {InternalApiAuth} from '#root/shared/index.js';
-import {
-  AuditAction,
-  AuditCategory,
-  ModeratorAuditTrail,
-  OutComeStatus,
-} from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
-import {AUDIT_TRAILS_TYPES} from '#root/modules/auditTrails/types.js';
-import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
-import {UserService} from '#root/modules/user/index.js';
-import {IContextService} from '#root/modules/context/interfaces/index.js';
-import {restoreBackupBson} from '#root/utils/DBMigration.js';
+import { ContextIdParam } from '#root/modules/context/classes/validators/ContextValidator.js';
+import { QuestionService } from '../services/QuestionService.js';
+import { UploadFileOptions } from '#root/modules/question/classes/validators/fileUploadOptions.js';
+import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
+import { IQuestionService, QueueSectionName } from '../interfaces/IQuestionService.js';
+import { FlexibleAuth } from '#root/shared/functions/flexibleAuth.js';
+import { InternalApiAuth } from '#root/shared/index.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { UserService } from '#root/modules/user/index.js';
+import { IContextService } from '#root/modules/context/interfaces/index.js';
+import { restoreBackupBson } from '#root/utils/DBMigration.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -100,23 +92,21 @@ export class QuestionController {
     @inject(GLOBAL_TYPES.ContextService)
     private readonly contextService: IContextService,
 
+
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
-  ) {}
+  ) { }
 
   @Post('/status-summary')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get total questions count and breakdown by status'})
+  @OpenAPI({ summary: 'Get total questions count and breakdown by status' })
   async getQuestionStatusSummary(
     @QueryParams() query: GetDetailedQuestionsQuery,
     @Body() body: DetailedQuestionsBodyDto,
   ) {
-    const data = await this.questionService.getQuestionStatusSummary(
-      query,
-      body,
-    );
-    return {success: true, data};
+    const data = await this.questionService.getQuestionStatusSummary(query, body);
+    return { success: true, data };
   }
 
   @Get('/queue-details')
@@ -150,29 +140,29 @@ export class QuestionController {
         startTime,
         endTime,
       );
-      return {success: true, data};
+      return { success: true, data };
     }
 
     // Full snapshot: all sections, page 1.
     const data = await this.questionService.getQueueDetails(startTime, endTime);
-    return {success: true, data};
+    return { success: true, data };
   }
 
   @Get('/context/:contextId')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get questions by context ID'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Get questions by context ID' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async getByContextId(@Params() params: ContextIdParam): Promise<IQuestion[]> {
-    const {contextId} = params;
+    const { contextId } = params;
     return this.questionService.getByContextId(contextId);
   }
 
   @Post('/allocated')
   @HttpCode(200)
-  @ResponseSchema(QuestionResponse, {isArray: true})
+  @ResponseSchema(QuestionResponse, { isArray: true })
   @Authorized()
-  @OpenAPI({summary: 'Get all open status questions'})
+  @OpenAPI({ summary: 'Get all open status questions' })
   async getAllocatedQuestions(
     @QueryParams()
     query: GetDetailedQuestionsQuery,
@@ -180,22 +170,21 @@ export class QuestionController {
     @CurrentUser() user: IUser,
   ): Promise<QuestionResponse[]> {
     const userId = user._id.toString();
-    const canViewQueue = user.role === 'admin' || user.role === 'moderator';
+    const canViewQueue =
+      user.role === 'admin' || user.role === 'moderator';
     const targetUserId =
-      canViewQueue && query.user && query.user !== 'all' ? query.user : userId;
+      canViewQueue && query.user && query.user !== 'all'
+        ? query.user
+        : userId;
 
-    return this.questionService.getAllocatedQuestions(
-      targetUserId,
-      query,
-      body,
-    );
+    return this.questionService.getAllocatedQuestions(targetUserId, query, body);
   }
 
   @Get('/allocated/page')
   @Authorized()
-  @OpenAPI({summary: 'Get particular question'})
+  @OpenAPI({ summary: 'Get particular question' })
   async getAllocatedQuestionPage(
-    @QueryParams() query: {questionId: string},
+    @QueryParams() query: { questionId: string },
     @CurrentUser() user: IUser,
   ) {
     return this.questionService.getAllocatedQuestionPage(
@@ -207,20 +196,20 @@ export class QuestionController {
   @Post('/detailed')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get detailed questions with advanced filters'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Get detailed questions with advanced filters' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async getDetailedQuestions(
     @QueryParams() query: GetDetailedQuestionsQuery,
     @Body() body: DetailedQuestionsBodyDto,
-  ): Promise<{questions: IQuestion[]; totalPages: number}> {
+  ): Promise<{ questions: IQuestion[]; totalPages: number }> {
     return this.questionService.getDetailedQuestions(query, body);
   }
 
   @Post('/generate')
   @HttpCode(200)
-  @ResponseSchema(GeneratedQuestionResponse, {isArray: true})
+  @ResponseSchema(GeneratedQuestionResponse, { isArray: true })
   @Authorized()
-  @OpenAPI({summary: 'Generate questions from raw transcript'})
+  @OpenAPI({ summary: 'Generate questions from raw transcript' })
   async getQuestionFromRawContext(
     @Body() body: GenerateQuestionsBody,
   ): Promise<GeneratedQuestionResponse[]> {
@@ -229,24 +218,22 @@ export class QuestionController {
 
   @Post('/generate-by-call-context')
   @HttpCode(200)
-  @ResponseSchema(GeneratedQuestionResponse, {isArray: true})
+  @ResponseSchema(GeneratedQuestionResponse, { isArray: true })
   @Authorized()
-  @OpenAPI({summary: 'Generate questions from call context'})
+  @OpenAPI({ summary: 'Generate questions from call context' })
   async getQuestionFromCallContext(
     @Body() body: GenerateQuestionsBody,
   ): Promise<GeneratedQuestionResponse[]> {
-    return this.questionService.getQuestionFromCallContext(
-      body.query,
-      body.state,
-      body.crop,
-    );
+    return this.questionService.getQuestionFromCallContext(body.query, body.state, body.crop);
   }
 
   @Post('/call-summary')
   @HttpCode(200)
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  @OpenAPI({summary: 'Generate call summary from raw transcript'})
-  async getCallSummary(@Body() body: GenerateQuestionsBody): Promise<any> {
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({ summary: 'Generate call summary from raw transcript' })
+  async getCallSummary(
+    @Body() body: GenerateQuestionsBody,
+  ): Promise<any> {
     return this.questionService.getCallSummary(body.query);
   }
 
@@ -254,8 +241,8 @@ export class QuestionController {
   @Post('/acc-agent/thread')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Create ACC Agent thread for HITL flow'})
-  async createAccAgentThread(): Promise<{thread_id: string}> {
+  @OpenAPI({ summary: 'Create ACC Agent thread for HITL flow' })
+  async createAccAgentThread(): Promise<{ thread_id: string }> {
     try {
       const result = await this.questionService.createAccAgentThread();
       return result;
@@ -268,9 +255,9 @@ export class QuestionController {
   @Post('/acc-agent/extract')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Extract data from transcript using ACC Agent'})
+  @OpenAPI({ summary: 'Extract data from transcript using ACC Agent' })
   async extractAccAgentData(
-    @Body() body: {threadId: string; transcript: string},
+    @Body() body: { threadId: string; transcript: string }
   ): Promise<{
     extracted_query: string;
     extracted_crop: string;
@@ -279,10 +266,7 @@ export class QuestionController {
     extracted_domain?: string | string[];
   }> {
     try {
-      const result = await this.questionService.extractAccAgentData(
-        body.threadId,
-        body.transcript,
-      );
+      const result = await this.questionService.extractAccAgentData(body.threadId, body.transcript);
       return result;
     } catch (error) {
       console.error('[QuestionController] extractAccAgentData: Error', error);
@@ -293,10 +277,9 @@ export class QuestionController {
   @Post('/acc-agent/update-state')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Update ACC Agent state with human corrections'})
+  @OpenAPI({ summary: 'Update ACC Agent state with human corrections' })
   async updateAccAgentState(
-    @Body()
-    body: {
+    @Body() body: {
       threadId: string;
       correctedData: {
         query: string;
@@ -306,14 +289,11 @@ export class QuestionController {
         domain: string | string[];
         season: string;
       };
-    },
-  ): Promise<{success: boolean}> {
+    }
+  ): Promise<{ success: boolean }> {
     try {
-      await this.questionService.updateAccAgentState(
-        body.threadId,
-        body.correctedData,
-      );
-      return {success: true};
+      await this.questionService.updateAccAgentState(body.threadId, body.correctedData);
+      return { success: true };
     } catch (error) {
       console.error('[QuestionController] updateAccAgentState: Error', error);
       throw error;
@@ -323,23 +303,16 @@ export class QuestionController {
   @Post('/acc-agent/resume')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Resume ACC Agent and get final answer'})
+  @OpenAPI({ summary: 'Resume ACC Agent and get final answer' })
   async resumeAccAgentAndGetAnswer(
-    @Body() body: {threadId: string; callUuid?: string; metadata?: QAMetadata},
+    @Body() body: { threadId: string; callUuid?: string; metadata?: QAMetadata }
   ): Promise<any> {
     try {
       // const result = await this.questionService.resumeAccAgentAndGetAnswer(body.threadId, body.callUuid, body.metadata);
-      const result = await this.questionService.getAccAgentState(
-        body.threadId,
-        body.callUuid,
-        body.metadata,
-      );
+      const result = await this.questionService.getAccAgentState(body.threadId, body.callUuid, body.metadata);
       return result;
     } catch (error) {
-      console.error(
-        '[QuestionController] resumeAccAgentAndGetAnswer: Error',
-        error,
-      );
+      console.error('[QuestionController] resumeAccAgentAndGetAnswer: Error', error);
       throw error;
     }
   }
@@ -347,29 +320,27 @@ export class QuestionController {
   @Post('/')
   @HttpCode(201)
   @UseBefore(FlexibleAuth)
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  @OpenAPI({summary: 'Add a new question (single or bulk upload)'})
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({ summary: 'Add a new question (single or bulk upload)' })
   async addQuestion(
-    @UploadedFile('file', {options: UploadFileOptions})
+    @UploadedFile('file', { options: UploadFileOptions })
     file: Express.Multer.File,
     @Body() body: AddQuestionBodyDto,
     @CurrentUser() user: IUser,
     @Req() req: any,
-  ): Promise<Partial<any> | {message: string}> {
+  ): Promise<Partial<any> | { message: string }> {
     verifyNotTester(user);
     const userId = user?._id?.toString();
 
-    const name = `${user?.firstName} ${user?.lastName}`;
-    const actorPayload = userId
-      ? {
-          id: userId,
-          name: name,
-          email: user?.email,
-          role: user?.role,
-          avatar: user?.avatar || '',
-          source: body.source,
-        }
-      : null;
+    const name = `${user?.firstName} ${user?.lastName}`
+    const actorPayload = userId ? {
+      id: userId,
+      name: name,
+      email: user?.email,
+      role: user?.role,
+      avatar: user?.avatar || '',
+      source: body.source
+    } : null
 
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
@@ -377,26 +348,22 @@ export class QuestionController {
       actor: actorPayload,
     };
 
+
     if (file) {
       let payload: any[] = [];
       const isRequiredAiInitialAnswer =
         body.isRequiredAiInitialAnswer === 'true';
 
-      const isOutreachQuestion = body.isOutreachQuestion === 'true';
+      const isOutreachQuestion =
+        body.isOutreachQuestion === 'true';
 
       // Read directly from req.body (multer-parsed) to avoid class-transformer dropping fields
       const rawBody = req.body || {};
-      const allocationMode =
-        rawBody.allocationMode || body.allocationMode || 'expert';
-      const paeExpertId: string | undefined =
-        rawBody.paeExpertId || body.paeExpertId;
+      const allocationMode = rawBody.allocationMode || body.allocationMode || 'expert';
+      const paeExpertId: string | undefined = rawBody.paeExpertId || body.paeExpertId;
       console.log('[BulkUpload] rawBody:', rawBody);
-      console.log(
-        '[BulkUpload] allocationMode:',
-        allocationMode,
-        '| paeExpertId:',
-        paeExpertId,
-      );
+      console.log('[BulkUpload] allocationMode:', allocationMode, '| paeExpertId:', paeExpertId);
+
 
       try {
         const mimetype = file.mimetype;
@@ -410,12 +377,12 @@ export class QuestionController {
           payload = JSON.parse(fileContent);
         } else if (
           mimetype ===
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
           mimetype === 'application/vnd.ms-excel' ||
           filename.endsWith('.xls') ||
           filename.endsWith('.xlsx')
         ) {
-          const workbook = XLSX.read(file.buffer, {type: 'buffer'});
+          const workbook = XLSX.read(file.buffer, { type: 'buffer' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           payload = XLSX.utils.sheet_to_json(worksheet);
@@ -439,20 +406,18 @@ export class QuestionController {
           role: user.role,
           avatar: user?.avatar || '',
         };
-        setImmediate(() =>
-          startBackgroundProcessing(
-            actor,
-            this.auditTrailsService,
-            isRequiredAiInitialAnswer,
-            isOutreachQuestion,
-            payload,
-            allocationMode,
-            paeExpertId,
-          ),
-        );
+        setImmediate(() => startBackgroundProcessing(
+          actor,
+          this.auditTrailsService,
+          isRequiredAiInitialAnswer,
+          isOutreachQuestion,
+          payload,
+          allocationMode,
+          paeExpertId
+        ));
 
         return {
-          message: `Processing ${payload.length} question(s). Non-duplicate entries are being assigned to experts${isRequiredAiInitialAnswer ? ' with AI-generated initial answers' : ''}.`,
+          message: `Processing ${payload.length} question(s). Non-duplicate entries are being assigned to experts${isRequiredAiInitialAnswer ? " with AI-generated initial answers" : ""}.`,
           count: payload.length,
           isBulkUpload: !!file,
         };
@@ -468,9 +433,7 @@ export class QuestionController {
             errorCode: err?.errorCode || 'INTERNAL_ERROR',
             errorMessage: err?.message || 'Failed to process uploaded file',
             errorName: err?.name || 'Error',
-            errorStack:
-              err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-              'No stack trace available',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
           },
           createdAt: new Date(),
         };
@@ -484,7 +447,7 @@ export class QuestionController {
       let data;
 
       try {
-        console.log('the controller body coming===', body);
+        console.log("the controller body coming===", body)
         const result = await this.questionService.addQuestion(userId, body);
         data = result.data;
       } catch (err: any) {
@@ -498,9 +461,7 @@ export class QuestionController {
             errorCode: err?.errorCode || 'INTERNAL_ERROR',
             errorMessage: err?.message || 'Failed to add question',
             errorName: err?.name || 'Error',
-            errorStack:
-              err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-              'No stack trace available',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
           },
         };
         if (actorPayload !== null) {
@@ -509,7 +470,9 @@ export class QuestionController {
         if (err instanceof InternalServerError) {
           throw new InternalServerError(err.message);
         }
-        throw new BadRequestError(err?.message || 'Failed to add question');
+        throw new BadRequestError(
+          err?.message || 'Failed to add question',
+        );
       }
 
       auditPayload = {
@@ -520,8 +483,8 @@ export class QuestionController {
         changes: {
           after: {
             question: data.question,
-            details: data.details,
-          },
+            details: data.details
+          }
         },
 
         outcome: {
@@ -530,24 +493,25 @@ export class QuestionController {
         createdAt: new Date(),
       };
 
+
+
       if (actorPayload !== null) {
         this.auditTrailsService.createAuditTrail(auditPayload);
       }
 
+
+
       return {
         success: true,
         message: 'Question submitted successfully.',
-        question_id: data._id,
+        question_id: data._id
       };
     }
   }
   @Post('/reAllocateLessWorkload')
   @HttpCode(200)
   // @ResponseSchema(Object, {statusCode: 400})
-  @OpenAPI({
-    summary:
-      'ReAllocating questions which are delayed to those who has less workload',
-  })
+  @OpenAPI({ summary: 'ReAllocating questions which are delayed to those who has less workload' })
   async reAllocateLessWorkload(
     @CurrentUser() user: IUser,
     @QueryParam('type') type?: string,
@@ -566,10 +530,7 @@ export class QuestionController {
       createdAt: new Date(),
     };
     try {
-      const result = await this.questionService.balanceWorkload(
-        undefined,
-        type,
-      );
+      const result = await this.questionService.balanceWorkload(undefined, type);
       auditPayload = {
         ...auditPayload,
         changes: {
@@ -584,7 +545,8 @@ export class QuestionController {
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
       return result;
-    } catch (err: any) {
+    }
+    catch (err: any) {
       auditPayload = {
         ...auditPayload,
         outcome: {
@@ -596,13 +558,14 @@ export class QuestionController {
       throw new BadRequestError(
         err?.message || 'Failed to process uploaded file',
       );
+
     }
   }
 
   @Get('/reallocation-preview')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get preview of questions and experts for reallocation'})
+  @OpenAPI({ summary: 'Get preview of questions and experts for reallocation' })
   async getReallocationPreview(@QueryParam('type') type: string) {
     return this.questionService.getReallocationPreview(type);
   }
@@ -610,11 +573,10 @@ export class QuestionController {
   @Post('/reallocate-manual')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Manually reallocate questions to experts'})
+  @OpenAPI({ summary: 'Manually reallocate questions to experts' })
   async reallocateManual(
-    @Body()
-    body: {
-      assignments: {submissionId: string; expertId: string}[];
+    @Body() body: {
+      assignments: { submissionId: string; expertId: string }[];
       inactiveExpertIds?: string[];
     },
     @CurrentUser() user: IUser,
@@ -638,14 +600,11 @@ export class QuestionController {
       createdAt: new Date(),
     };
     try {
-      const result = await this.questionService.manualReallocate(
-        body.assignments,
-        body.inactiveExpertIds,
-      );
+      const result = await this.questionService.manualReallocate(body.assignments, body.inactiveExpertIds);
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        changes: {after: {assignments: body.assignments}},
-        outcome: {status: OutComeStatus.SUCCESS},
+        changes: { after: { assignments: body.assignments } },
+        outcome: { status: OutComeStatus.SUCCESS },
       });
       return result;
     } catch (err: any) {
@@ -656,33 +615,22 @@ export class QuestionController {
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to manually reallocate',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       });
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
       }
-      throw new BadRequestError(
-        err?.message || 'Failed to manually reallocate',
-      );
+      throw new BadRequestError(err?.message || 'Failed to manually reallocate');
     }
   }
 
-  @Get('/download-question-report')
+  @Get("/download-question-report")
   @Authorized()
-  @ContentType(
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  )
-  @OpenAPI({summary: 'Download question report as Excel'})
+  @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @OpenAPI({ summary: 'Download question report as Excel' })
   async downloadQuestionReport(
-    @QueryParams()
-    query: {
-      consecutiveApprovals?: string;
-      startDate?: string;
-      endDate?: string;
-    },
+    @QueryParams() query: { consecutiveApprovals?: string; startDate?: string; endDate?: string },
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
@@ -707,18 +655,14 @@ export class QuestionController {
       context: {
         startDate: startDate,
         endDate: endDate,
-        endPoint: 'downloadQuestionReport',
+        endPoint: "downloadQuestionReport",
       },
       outcome: {
         status: OutComeStatus.SUCCESS,
       },
     };
     try {
-      data = await this.questionService.generateQuestionReport(
-        consecutiveApprovals,
-        startDate,
-        endDate,
-      );
+      data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
@@ -727,9 +671,7 @@ export class QuestionController {
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to generate question report',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
@@ -745,7 +687,7 @@ export class QuestionController {
     if (!data) {
       response.status(200).json({
         success: false,
-        message: 'No data found for the selected filters',
+        message: "No data found for the selected filters"
       });
       return;
     }
@@ -753,14 +695,12 @@ export class QuestionController {
     return Buffer.from(data as ArrayBuffer);
   }
 
-  @Get('/download-overall-report')
+  @Get("/download-overall-report")
   @Authorized()
-  @ContentType(
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  )
-  @OpenAPI({summary: 'Download overall questions report by month as Excel'})
+  @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @OpenAPI({ summary: 'Download overall questions report by month as Excel' })
   async downloadOverallReport(
-    @QueryParams() query: {startDate?: string; endDate?: string},
+    @QueryParams() query: { startDate?: string; endDate?: string },
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
@@ -782,29 +722,23 @@ export class QuestionController {
       context: {
         startDate: startDate,
         endDate: endDate,
-        endPoint: 'downloadOverallReport',
+        endPoint: "downloadOverallReport",
       },
       outcome: {
         status: OutComeStatus.SUCCESS,
       },
     };
     try {
-      data = await this.questionService.generateOverallQuestionReport(
-        startDate,
-        endDate,
-      );
+      data = await this.questionService.generateOverallQuestionReport(startDate, endDate);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage:
-            err?.message || 'Failed to generate overall question report',
+          errorMessage: err?.message || 'Failed to generate overall question report',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
@@ -820,7 +754,7 @@ export class QuestionController {
     if (!data) {
       response.status(200).json({
         success: false,
-        message: 'No data found for the selected date range',
+        message: "No data found for the selected date range"
       });
       return;
     }
@@ -828,15 +762,12 @@ export class QuestionController {
     return Buffer.from(data);
   }
 
-  @Get('/download-filtered-report')
+  @Get("/download-filtered-report")
   @Authorized()
-  @ContentType(
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  )
-  @OpenAPI({summary: 'Download filtered questions report as Excel'})
+  @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @OpenAPI({ summary: 'Download filtered questions report as Excel' })
   async downloadFilteredReport(
-    @QueryParams()
-    query: {
+    @QueryParams() query: {
       state?: string;
       crop?: string;
       normalised_crop?: string;
@@ -865,7 +796,7 @@ export class QuestionController {
       },
       context: {
         filters: query,
-        endPoint: 'downloadFilteredReport',
+        endPoint: "downloadFilteredReport",
       },
       outcome: {
         status: OutComeStatus.SUCCESS,
@@ -893,12 +824,9 @@ export class QuestionController {
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage:
-            err?.message || 'Failed to generate filtered question report',
+          errorMessage: err?.message || 'Failed to generate filtered question report',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
@@ -914,7 +842,7 @@ export class QuestionController {
     if (!data) {
       response.status(200).json({
         success: false,
-        message: 'No questions found for the selected filters',
+        message: "No questions found for the selected filters"
       });
       return;
     }
@@ -922,14 +850,12 @@ export class QuestionController {
     return Buffer.from(data);
   }
 
-  @Get('/download-duplicate-questions-report')
+  @Get("/download-duplicate-questions-report")
   @Authorized()
-  @ContentType(
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  )
-  @OpenAPI({summary: 'Download duplicate questions report as Excel'})
+  @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @OpenAPI({ summary: 'Download duplicate questions report as Excel' })
   async downloadDuplicateReport(
-    @QueryParams() query: {startDate?: string; endDate?: string},
+    @QueryParams() query: { startDate?: string; endDate?: string },
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
@@ -945,29 +871,26 @@ export class QuestionController {
         role: user.role,
         avatar: user?.avatar || '',
       },
-      context: {startDate, endDate, endPoint: 'downloadDuplicateReport'},
+      context: { startDate, endDate, endPoint: 'downloadDuplicateReport' },
       createdAt: new Date(),
     };
     try {
-      const data = await this.questionService.generateDuplicateQuestionReport(
-        startDate,
-        endDate,
-      );
+      const data = await this.questionService.generateDuplicateQuestionReport(startDate, endDate);
       if (!data) {
         this.auditTrailsService.createAuditTrail({
           ...auditPayload,
-          outcome: {status: OutComeStatus.SUCCESS},
-          changes: {after: {result: 'No duplicate questions found'}},
+          outcome: { status: OutComeStatus.SUCCESS },
+          changes: { after: { result: 'No duplicate questions found' } },
         });
         response.status(200).json({
           success: false,
-          message: 'No duplicate questions found for the selected date range',
+          message: "No duplicate questions found for the selected date range"
         });
         return;
       }
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        outcome: {status: OutComeStatus.SUCCESS},
+        outcome: { status: OutComeStatus.SUCCESS },
       });
       return Buffer.from(data);
     } catch (err: any) {
@@ -978,9 +901,7 @@ export class QuestionController {
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to download duplicate report',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       });
       throw err;
@@ -990,81 +911,58 @@ export class QuestionController {
   @Get('/:questionId/submission-exists')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Check if a submission exists for this question'})
+  @OpenAPI({ summary: 'Check if a submission exists for this question' })
   async checkSubmissionExists(
     @Params() params: QuestionIdParam,
-  ): Promise<{exists: boolean}> {
-    const exists = await this.questionService.checkSubmissionExists(
-      params.questionId,
-    );
-    return {exists};
+  ): Promise<{ exists: boolean }> {
+    const exists = await this.questionService.checkSubmissionExists(params.questionId);
+    return { exists };
   }
 
   @Get('/:questionId')
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(QuestionResponse)
-  @OpenAPI({summary: 'Get selected question by ID'})
+  @OpenAPI({ summary: 'Get selected question by ID' })
   async getQuestionById(
     @Params() params: QuestionIdParam,
     @Body() updates: Partial<QuestionResponse>,
   ): Promise<QuestionResponse> {
-    const {questionId} = params;
+    const { questionId } = params;
     return this.questionService.getQuestionById(questionId);
   }
 
   @Get('/:questionId/full')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get full details of selected question by ID'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Get full details of selected question by ID' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async getQuestionFull(
     @Params() params: QuestionIdParam,
     @CurrentUser() user: IUser,
   ) {
-    const {questionId} = params;
+    const { questionId } = params;
     const userId = user._id.toString();
-    const {
-      question,
-      approved_moderator,
-      assigned_moderator,
-      assigned_gate_keeper,
-      assigned_auditor,
-      isAssignedModerator,
-      isAssignedGateKeeper,
-      isAssignedAuditor,
-    } = await this.questionService.getQuestionFullData(questionId, userId);
+    const { question, approved_moderator, assigned_moderator, isAssignedModerator } = await this.questionService.getQuestionFullData(
+      questionId,
+      userId,
+    );
 
     if (!question) {
       throw new NotFoundError(`Question with id ${questionId} not found`);
     }
 
-    return {
-      success: true,
-      data: {
-        ...question,
-        approved_moderator,
-        assigned_moderator,
-        assigned_gate_keeper,
-        assigned_auditor,
-        isAssignedModerator,
-        isAssignedGateKeeper,
-        isAssignedAuditor,
-      },
-    };
+    return { success: true, data: { ...question, approved_moderator, assigned_moderator, isAssignedModerator } };
   }
 
   @Patch('/:questionId/toggle-auto-allocate')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Toggle auto-allocate option for the selected question'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async toggleAutoAllocate(
-    @Params() params: QuestionIdParam,
-    @CurrentUser() user: IUser,
-  ) {
+  @OpenAPI({ summary: 'Toggle auto-allocate option for the selected question' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async toggleAutoAllocate(@Params() params: QuestionIdParam, @CurrentUser() user: IUser,) {
     verifyNotTester(user);
-    const {questionId} = params;
+    const { questionId } = params;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_CATEGORY,
       action: AuditAction.EXPERTS_AUTO_ALLOCATE,
@@ -1086,14 +984,11 @@ export class QuestionController {
     let questionDetails;
     let expertDetails;
     try {
-      questionDetails =
-        await this.questionService.getQuestionDataById(questionId);
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
       result = await this.questionService.toggleAutoAllocate(questionId);
       if (result?.data?.length > 0) {
         const expertIdToString = result?.data?.map(id => id.toString()) || [];
-        expertDetails = await Promise.all(
-          expertIdToString.map(id => this.userService.getUserById(id)),
-        );
+        expertDetails = await Promise.all(expertIdToString.map((id) => this.userService.getUserById(id)));
       }
     } catch (err: any) {
       auditPayload = {
@@ -1112,9 +1007,7 @@ export class QuestionController {
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to toggle auto-allocate',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
@@ -1137,14 +1030,11 @@ export class QuestionController {
         },
         after: {
           autoAllocate: !questionDetails.isAutoAllocate,
-          expertsDetails:
-            expertDetails?.length > 0
-              ? expertDetails.map(ed => ({
-                  name: `${ed?.firstName} ${ed?.lastName || ''}`.trim(),
-                  email: ed?.email,
-                  id: ed?._id.toString(),
-                }))
-              : [],
+          expertsDetails: expertDetails?.length > 0 ? expertDetails.map(ed => ({
+            name: `${ed?.firstName} ${ed?.lastName || ''}`.trim(),
+            email: ed?.email,
+            id: ed?._id.toString(),
+          })) : [],
         },
       },
     };
@@ -1155,16 +1045,16 @@ export class QuestionController {
   @Patch('/:questionId/moderator')
   @HttpCode(200)
   @Authorized(['admin', 'moderator'])
-  @OpenAPI({summary: 'Change the moderator assigned to a question'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Change the moderator assigned to a question' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async changeModerator(
     @Params() params: QuestionIdParam,
-    @Body() body: {moderatorId: string},
+    @Body() body: { moderatorId: string },
     @CurrentUser() user: IUser,
   ) {
     verifyNotTester(user);
-    const {questionId} = params;
-    const {moderatorId} = body;
+    const { questionId } = params;
+    const { moderatorId } = body;
     if (!moderatorId) {
       throw new BadRequestError('moderatorId is required');
     }
@@ -1173,10 +1063,7 @@ export class QuestionController {
     let prevModerator: any;
     let newModerator: any;
     const moderatorLabel = (m: any) =>
-      m
-        ? `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() +
-          (m.email ? ` (${m.email})` : '')
-        : null;
+      m ? `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() + (m.email ? ` (${m.email})` : '') : null;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_CATEGORY,
       action: AuditAction.SELECT_MODERATOR,
@@ -1187,14 +1074,13 @@ export class QuestionController {
         role: user.role,
         avatar: user?.avatar || '',
       },
-      context: {questionId},
+      context: { questionId },
       changes: {},
-      outcome: {status: OutComeStatus.SUCCESS},
+      outcome: { status: OutComeStatus.SUCCESS },
     };
 
     try {
-      questionDetails =
-        await this.questionService.getQuestionDataById(questionId);
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
       const prevModeratorId = (questionDetails as any)?.moderatorId?.toString();
       // Guard against a malformed previous moderatorId so a bad stored value can't
       // throw a BSONError when we look up the previous moderator.
@@ -1205,36 +1091,31 @@ export class QuestionController {
         this.userService.getUserById(moderatorId),
       ]);
 
-      await this.questionService.changeQuestionModerator(
-        questionId,
-        moderatorId,
-      );
+      await this.questionService.changeQuestionModerator(questionId, moderatorId);
 
       auditPayload = {
         ...auditPayload,
-        context: {...auditPayload.context, question: questionDetails?.question},
+        context: { ...auditPayload.context, question: questionDetails?.question },
         changes: {
-          before: {moderator: moderatorLabel(prevModerator) ?? 'Unassigned'},
-          after: {moderator: moderatorLabel(newModerator) ?? moderatorId},
+          before: { moderator: moderatorLabel(prevModerator) ?? 'Unassigned' },
+          after: { moderator: moderatorLabel(newModerator) ?? moderatorId },
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
-      return {success: true, message: 'Moderator updated successfully'};
+      return { success: true, message: 'Moderator updated successfully' };
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
-        context: {...auditPayload.context, question: questionDetails?.question},
+        context: { ...auditPayload.context, question: questionDetails?.question },
         changes: {
-          before: {moderator: moderatorLabel(prevModerator) ?? 'Unassigned'},
+          before: { moderator: moderatorLabel(prevModerator) ?? 'Unassigned' },
         },
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to change moderator',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
@@ -1248,22 +1129,19 @@ export class QuestionController {
   @Delete('/:questionId/moderator')
   @HttpCode(200)
   @Authorized(['admin', 'moderator'])
-  @OpenAPI({summary: 'Remove the moderator assigned to a question'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Remove the moderator assigned to a question' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async removeModerator(
     @Params() params: QuestionIdParam,
     @CurrentUser() user: IUser,
   ) {
     verifyNotTester(user);
-    const {questionId} = params;
+    const { questionId } = params;
 
     let questionDetails: any;
     let prevModerator: any;
     const moderatorLabel = (m: any) =>
-      m
-        ? `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() +
-          (m.email ? ` (${m.email})` : '')
-        : null;
+      m ? `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() + (m.email ? ` (${m.email})` : '') : null;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.EXPERTS_CATEGORY,
       action: AuditAction.DELETE_MODERATOR,
@@ -1274,46 +1152,41 @@ export class QuestionController {
         role: user.role,
         avatar: user?.avatar || '',
       },
-      context: {questionId},
+      context: { questionId },
       changes: {},
-      outcome: {status: OutComeStatus.SUCCESS},
+      outcome: { status: OutComeStatus.SUCCESS },
     };
 
     try {
-      questionDetails =
-        await this.questionService.getQuestionDataById(questionId);
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
       const prevModeratorId = (questionDetails as any)?.moderatorId?.toString();
-      prevModerator = prevModeratorId
-        ? await this.userService.getUserById(prevModeratorId)
-        : null;
+      prevModerator = prevModeratorId ? await this.userService.getUserById(prevModeratorId) : null;
 
       await this.questionService.removeQuestionModerator(questionId);
 
       auditPayload = {
         ...auditPayload,
-        context: {...auditPayload.context, question: questionDetails?.question},
+        context: { ...auditPayload.context, question: questionDetails?.question },
         changes: {
-          before: {moderator: moderatorLabel(prevModerator) ?? 'Unassigned'},
-          after: {moderator: 'Unassigned'},
+          before: { moderator: moderatorLabel(prevModerator) ?? 'Unassigned' },
+          after: { moderator: 'Unassigned' },
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
-      return {success: true, message: 'Moderator removed successfully'};
+      return { success: true, message: 'Moderator removed successfully' };
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
-        context: {...auditPayload.context, question: questionDetails?.question},
+        context: { ...auditPayload.context, question: questionDetails?.question },
         changes: {
-          before: {moderator: moderatorLabel(prevModerator) ?? 'Unassigned'},
+          before: { moderator: moderatorLabel(prevModerator) ?? 'Unassigned' },
         },
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to remove moderator',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
@@ -1324,273 +1197,17 @@ export class QuestionController {
     }
   }
 
-  // ── Gate keeper / auditor role assignee (re)assign, remove & allocation toggle ──
-
-  /** Shared actor block + user label helper for role-queue audit entries. */
-  private roleAuditActor(user: IUser) {
-    return {
-      id: user._id.toString(),
-      name: `${user.firstName} ${user.lastName}`,
-      email: user.email,
-      role: user.role,
-      avatar: user?.avatar || '',
-    };
-  }
-  private userLabel(u: any): string | null {
-    return u
-      ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() +
-          (u.email ? ` (${u.email})` : '')
-      : null;
-  }
-
-  @Patch('/:questionId/role-assignee')
-  @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
-  @OpenAPI({summary: 'Assign a gate keeper / auditor to a question'})
-  async changeRoleAssignee(
-    @Params() params: QuestionIdParam,
-    @Body() body: {role: 'gate_keeper' | 'auditor'; userId: string},
-    @CurrentUser() user: IUser,
-  ) {
-    verifyNotTester(user);
-    const {questionId} = params;
-    const {role, userId} = body;
-    if (role !== 'gate_keeper' && role !== 'auditor') {
-      throw new BadRequestError("role must be 'gate_keeper' or 'auditor'");
-    }
-    if (!userId) throw new BadRequestError('userId is required');
-
-    const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
-    let auditPayload: ModeratorAuditTrail = {
-      category: AuditCategory.EXPERTS_CATEGORY,
-      action:
-        role === 'gate_keeper'
-          ? AuditAction.SELECT_GATE_KEEPER
-          : AuditAction.SELECT_AUDITOR,
-      actor: this.roleAuditActor(user),
-      context: {questionId},
-      changes: {},
-      outcome: {status: OutComeStatus.SUCCESS},
-    };
-    let questionDetails: any;
-    let prevUser: any;
-    let newUser: any;
-    try {
-      questionDetails =
-        await this.questionService.getQuestionDataById(questionId);
-      const prevId = (questionDetails as any)?.[
-        role === 'gate_keeper' ? 'gateKeeperId' : 'auditorId'
-      ]?.toString();
-      [prevUser, newUser] = await Promise.all([
-        prevId && ObjectId.isValid(prevId)
-          ? this.userService.getUserById(prevId)
-          : null,
-        this.userService.getUserById(userId),
-      ]);
-
-      await this.questionService.changeQuestionRoleAssignee(
-        questionId,
-        role,
-        userId,
-        `${user.firstName} ${user.lastName ?? ''}`.trim(),
-      );
-
-      auditPayload = {
-        ...auditPayload,
-        context: {...auditPayload.context, question: questionDetails?.question},
-        changes: {
-          before: {[noun]: this.userLabel(prevUser) ?? 'Unassigned'},
-          after: {[noun]: this.userLabel(newUser) ?? userId},
-        },
-      };
-      this.auditTrailsService.createAuditTrail(auditPayload);
-      return {success: true, message: `${noun} updated successfully`};
-    } catch (err: any) {
-      this.auditTrailsService.createAuditTrail({
-        ...auditPayload,
-        context: {...auditPayload.context, question: questionDetails?.question},
-        changes: {before: {[noun]: this.userLabel(prevUser) ?? 'Unassigned'}},
-        outcome: {
-          status: OutComeStatus.FAILED,
-          errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage: err?.message || `Failed to change ${noun}`,
-          errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
-        },
-      });
-      if (err instanceof InternalServerError)
-        throw new InternalServerError(err.message);
-      throw new BadRequestError(err?.message || `Failed to change ${noun}`);
-    }
-  }
-
-  @Delete('/:questionId/role-assignee')
-  @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
-  @OpenAPI({summary: 'Remove the gate keeper / auditor assigned to a question'})
-  async removeRoleAssignee(
-    @Params() params: QuestionIdParam,
-    @Body() body: {role: 'gate_keeper' | 'auditor'},
-    @CurrentUser() user: IUser,
-  ) {
-    verifyNotTester(user);
-    const {questionId} = params;
-    const {role} = body;
-    if (role !== 'gate_keeper' && role !== 'auditor') {
-      throw new BadRequestError("role must be 'gate_keeper' or 'auditor'");
-    }
-
-    const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
-    let auditPayload: ModeratorAuditTrail = {
-      category: AuditCategory.EXPERTS_CATEGORY,
-      action:
-        role === 'gate_keeper'
-          ? AuditAction.DELETE_GATE_KEEPER
-          : AuditAction.DELETE_AUDITOR,
-      actor: this.roleAuditActor(user),
-      context: {questionId},
-      changes: {},
-      outcome: {status: OutComeStatus.SUCCESS},
-    };
-    let questionDetails: any;
-    let prevUser: any;
-    try {
-      questionDetails =
-        await this.questionService.getQuestionDataById(questionId);
-      const prevId = (questionDetails as any)?.[
-        role === 'gate_keeper' ? 'gateKeeperId' : 'auditorId'
-      ]?.toString();
-      prevUser =
-        prevId && ObjectId.isValid(prevId)
-          ? await this.userService.getUserById(prevId)
-          : null;
-
-      await this.questionService.removeQuestionRoleAssignee(
-        questionId,
-        role,
-        `${user.firstName} ${user.lastName ?? ''}`.trim(),
-      );
-
-      auditPayload = {
-        ...auditPayload,
-        context: {...auditPayload.context, question: questionDetails?.question},
-        changes: {
-          before: {[noun]: this.userLabel(prevUser) ?? 'Unassigned'},
-          after: {[noun]: 'Unassigned'},
-        },
-      };
-      this.auditTrailsService.createAuditTrail(auditPayload);
-      return {success: true, message: `${noun} removed successfully`};
-    } catch (err: any) {
-      this.auditTrailsService.createAuditTrail({
-        ...auditPayload,
-        context: {...auditPayload.context, question: questionDetails?.question},
-        changes: {before: {[noun]: this.userLabel(prevUser) ?? 'Unassigned'}},
-        outcome: {
-          status: OutComeStatus.FAILED,
-          errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage: err?.message || `Failed to remove ${noun}`,
-          errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
-        },
-      });
-      if (err instanceof InternalServerError)
-        throw new InternalServerError(err.message);
-      throw new BadRequestError(err?.message || `Failed to remove ${noun}`);
-    }
-  }
-
-  @Patch('/:questionId/role-allocation')
-  @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
-  @OpenAPI({
-    summary: 'Toggle gate keeper / auditor auto-allocation for a question',
-  })
-  async toggleRoleAllocation(
-    @Params() params: QuestionIdParam,
-    @Body() body: {role: 'gate_keeper' | 'auditor'; enabled: boolean},
-    @CurrentUser() user: IUser,
-  ) {
-    verifyNotTester(user);
-    const {questionId} = params;
-    const {role, enabled} = body;
-    if (role !== 'gate_keeper' && role !== 'auditor') {
-      throw new BadRequestError("role must be 'gate_keeper' or 'auditor'");
-    }
-    const field =
-      role === 'gate_keeper' ? 'autoAllocateGateKeeper' : 'autoAllocateAuditor';
-    const label = role === 'gate_keeper' ? 'Gate keeper' : 'Auditor';
-
-    let auditPayload: ModeratorAuditTrail = {
-      category: AuditCategory.QUESTION,
-      action:
-        role === 'gate_keeper'
-          ? AuditAction.TOGGLE_GATE_KEEPER_ALLOCATION
-          : AuditAction.TOGGLE_AUDITOR_ALLOCATION,
-      actor: this.roleAuditActor(user),
-      context: {questionId},
-      changes: {},
-      outcome: {status: OutComeStatus.SUCCESS},
-    };
-    let questionDetails: any;
-    try {
-      questionDetails =
-        await this.questionService.getQuestionDataById(questionId);
-      // Default is ON (true) unless explicitly false.
-      const before = (questionDetails as any)?.[field] !== false;
-
-      await this.questionService.updateQuestion(questionId, {
-        [field]: enabled,
-      } as any);
-
-      auditPayload = {
-        ...auditPayload,
-        context: {...auditPayload.context, question: questionDetails?.question},
-        changes: {
-          before: {[`${label} auto-allocation`]: before ? 'On' : 'Off'},
-          after: {[`${label} auto-allocation`]: enabled ? 'On' : 'Off'},
-        },
-      };
-      this.auditTrailsService.createAuditTrail(auditPayload);
-      return {
-        success: true,
-        message: `${label} auto-allocation turned ${enabled ? 'on' : 'off'}`,
-      };
-    } catch (err: any) {
-      this.auditTrailsService.createAuditTrail({
-        ...auditPayload,
-        context: {...auditPayload.context, question: questionDetails?.question},
-        outcome: {
-          status: OutComeStatus.FAILED,
-          errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage: err?.message || 'Failed to toggle allocation',
-          errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
-        },
-      });
-      if (err instanceof InternalServerError)
-        throw new InternalServerError(err.message);
-      throw new BadRequestError(err?.message || 'Failed to toggle allocation');
-    }
-  }
-
   @Post('/bulk-pae-allocate')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Bulk allocate PAE experts to multiple draft questions'})
+  @OpenAPI({ summary: 'Bulk allocate PAE experts to multiple draft questions' })
   async bulkAllocatePaeExperts(
     @Body() body: BulkPaeAllocateRequest,
     @CurrentUser() user: IUser,
   ) {
     verifyNotTester(user);
-    const {_id: userId} = user;
-    const {questionIds, paeExpertId} = body;
+    const { _id: userId } = user;
+    const { questionIds, paeExpertId } = body;
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.BULK_PAE_ALLOCATE,
@@ -1615,8 +1232,8 @@ export class QuestionController {
       );
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        changes: {after: {questionIds, paeExpertId}},
-        outcome: {status: OutComeStatus.SUCCESS},
+        changes: { after: { questionIds, paeExpertId } },
+        outcome: { status: OutComeStatus.SUCCESS },
       });
       return result;
     } catch (err: any) {
@@ -1627,34 +1244,30 @@ export class QuestionController {
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to bulk allocate PAE experts',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       });
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
       }
-      throw new BadRequestError(
-        err?.message || 'Failed to bulk allocate PAE experts',
-      );
+      throw new BadRequestError(err?.message || 'Failed to bulk allocate PAE experts');
     }
   }
 
   @Post('/:questionId/allocate-experts')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Manually allocate experts to a selected question'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Manually allocate experts to a selected question' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async allocateExperts(
     @Params() params: QuestionIdParam,
     @Body() body: AllocateExpertsRequest,
     @CurrentUser() user: IUser,
   ) {
     verifyNotTester(user);
-    const {_id: userId} = user;
-    const {questionId} = params;
-    const {experts} = body;
+    const { _id: userId } = user;
+    const { questionId } = params;
+    const { experts } = body;
     let expertDetails;
     let questionDetails;
     let result;
@@ -1676,11 +1289,8 @@ export class QuestionController {
       },
     };
     try {
-      expertDetails = await Promise.all(
-        experts.map(id => this.userService.getUserById(id)),
-      );
-      questionDetails =
-        await this.questionService.getQuestionDataById(questionId);
+      expertDetails = await Promise.all(experts.map((id) => this.userService.getUserById(id)));
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
       result = await this.questionService.allocateExperts(
         userId.toString(),
         questionId,
@@ -1698,16 +1308,16 @@ export class QuestionController {
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to allocate experts',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
       }
-      throw new BadRequestError(err?.message || 'Failed to allocate experts');
+      throw new BadRequestError(
+        err?.message || 'Failed to allocate experts',
+      );
     }
 
     auditPayload = {
@@ -1735,15 +1345,15 @@ export class QuestionController {
   @Put('/:questionId')
   @HttpCode(200)
   @UseBefore(FlexibleAuth)
-  @ResponseSchema(QuestionResponse, {isArray: true})
-  @OpenAPI({summary: 'Update a question by ID'})
+  @ResponseSchema(QuestionResponse, { isArray: true })
+  @OpenAPI({ summary: 'Update a question by ID' })
   async updateQuestion(
     @Params() params: QuestionIdParam,
     @Body() updates: Partial<IQuestion>,
     @CurrentUser() user: IUser,
-  ): Promise<{modifiedCount: number}> {
+  ): Promise<{ modifiedCount: number }> {
     verifyNotTester(user);
-    const {questionId} = params;
+    const { questionId } = params;
     let prevQuestion;
     let response;
     let questionDetails;
@@ -1762,23 +1372,20 @@ export class QuestionController {
           role: user.role,
           avatar: user?.avatar || '',
         },
-        context: {questionId},
+        context: { questionId },
         createdAt: new Date(),
       };
       updates.passedBy = new ObjectId(user._id.toString());
       try {
         prevQuestion = await this.questionService.getQuestionById(questionId);
-        response = await this.questionService.updateQuestion(
-          questionId,
-          updates,
-        );
+        response = await this.questionService.updateQuestion(questionId, updates);
         this.auditTrailsService.createAuditTrail({
           ...auditPayload,
           changes: {
-            before: {status: prevQuestion.status, question: prevQuestion.text},
-            after: {status: updates.status},
+            before: { status: prevQuestion.status, question: prevQuestion.text },
+            after: { status: updates.status },
           },
-          outcome: {status: OutComeStatus.SUCCESS},
+          outcome: { status: OutComeStatus.SUCCESS },
         });
         return response;
       } catch (err: any) {
@@ -1786,7 +1393,7 @@ export class QuestionController {
           ...auditPayload,
           changes: {
             before: prevQuestion
-              ? {status: prevQuestion.status, question: prevQuestion.text}
+              ? { status: prevQuestion.status, question: prevQuestion.text }
               : undefined,
           },
           outcome: {
@@ -1794,15 +1401,15 @@ export class QuestionController {
             errorCode: err?.errorCode || 'INTERNAL_ERROR',
             errorMessage: err?.message || 'Failed to pass question',
             errorName: err?.name || 'Error',
-            errorStack:
-              err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-              'No stack trace available',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
           },
         });
         if (err instanceof InternalServerError) {
           throw new InternalServerError(err.message);
         }
-        throw new BadRequestError(err?.message || 'Failed to pass question');
+        throw new BadRequestError(
+          err?.message || 'Failed to pass question',
+        );
       }
     }
 
@@ -1820,26 +1427,21 @@ export class QuestionController {
           role: user.role,
           avatar: user?.avatar || '',
         },
-        context: {questionId},
-        outcome: {status: OutComeStatus.SUCCESS},
+        context: { questionId },
+        outcome: { status: OutComeStatus.SUCCESS },
         createdAt: new Date(),
       };
       try {
         // Use getQuestionDataById (raw IQuestion) — getQuestionById returns a trimmed
         // object WITHOUT autoAllocateModerator, which would make `before` always false.
         const prev = await this.questionService.getQuestionDataById(questionId);
-        response = await this.questionService.updateQuestion(
-          questionId,
-          updates,
-        );
+        response = await this.questionService.updateQuestion(questionId, updates);
         this.auditTrailsService.createAuditTrail({
           ...toggleAudit,
-          context: {...toggleAudit.context, question: (prev as any)?.question},
+          context: { ...toggleAudit.context, question: (prev as any)?.question },
           changes: {
-            before: {
-              autoAllocateModerator: prev?.autoAllocateModerator ?? false,
-            },
-            after: {autoAllocateModerator: updates.autoAllocateModerator},
+            before: { autoAllocateModerator: prev?.autoAllocateModerator ?? false },
+            after: { autoAllocateModerator: updates.autoAllocateModerator },
           },
         });
         return response;
@@ -1849,20 +1451,15 @@ export class QuestionController {
           outcome: {
             status: OutComeStatus.FAILED,
             errorCode: err?.errorCode || 'INTERNAL_ERROR',
-            errorMessage:
-              err?.message || 'Failed to toggle moderator allocation',
+            errorMessage: err?.message || 'Failed to toggle moderator allocation',
             errorName: err?.name || 'Error',
-            errorStack:
-              err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-              'No stack trace available',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
           },
         });
         if (err instanceof InternalServerError) {
           throw new InternalServerError(err.message);
         }
-        throw new BadRequestError(
-          err?.message || 'Failed to toggle moderator allocation',
-        );
+        throw new BadRequestError(err?.message || 'Failed to toggle moderator allocation');
       }
     }
 
@@ -1877,8 +1474,8 @@ export class QuestionController {
         role: user.role,
         avatar: user?.avatar || '',
       },
-      context: {questionId},
-      outcome: {status: OutComeStatus.SUCCESS},
+      context: { questionId },
+      outcome: { status: OutComeStatus.SUCCESS },
       createdAt: new Date(),
     };
     try {
@@ -1896,16 +1493,14 @@ export class QuestionController {
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
-        context: {...auditPayload.context, question: questionDetails?.text},
-        changes: questionDetails ? {before: questionDetails} : {},
+        context: { ...auditPayload.context, question: questionDetails?.text },
+        changes: questionDetails ? { before: questionDetails } : {},
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to update question',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
@@ -1918,13 +1513,7 @@ export class QuestionController {
     // Log only the fields that actually changed (before → after).
     const before: Record<string, any> = {};
     const after: Record<string, any> = {};
-    const trackedKeys = [
-      'question',
-      'status',
-      'priority',
-      'aiInitialAnswer',
-      'details',
-    ] as const;
+    const trackedKeys = ['question', 'status', 'priority', 'aiInitialAnswer', 'details'] as const;
     for (const key of trackedKeys) {
       const next = (updates as any)[key];
       const prev = (questionDetails as any)?.[key];
@@ -1936,8 +1525,8 @@ export class QuestionController {
 
     auditPayload = {
       ...auditPayload,
-      context: {...auditPayload.context, question: questionDetails?.text},
-      changes: {before, after},
+      context: { ...auditPayload.context, question: questionDetails?.text },
+      changes: { before, after },
     };
     this.auditTrailsService.createAuditTrail(auditPayload);
     return response;
@@ -1946,18 +1535,14 @@ export class QuestionController {
   @Patch('/:questionId')
   @HttpCode(200)
   @UseBefore(InternalApiAuth)
-  @OpenAPI({summary: 'Update question fields by ID using internal API key'})
+  @OpenAPI({ summary: 'Update question fields by ID using internal API key' })
   async UpdateThreadId(
     @Params() params: QuestionIdParam,
     @Body() updates: Partial<IQuestion>,
-  ): Promise<{modifiedCount: number}> {
-    const {questionId} = params;
+  ): Promise<{ modifiedCount: number }> {
+    const { questionId } = params;
     try {
-      return await this.questionService.updateQuestion(
-        questionId,
-        updates,
-        true,
-      );
+      return await this.questionService.updateQuestion(questionId, updates, true);
     } catch (err: any) {
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
@@ -1969,16 +1554,16 @@ export class QuestionController {
   @Delete('/:questionId/allocation')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Remove an allocation from a question by ID'})
+  @OpenAPI({ summary: 'Remove an allocation from a question by ID' })
   async removeAllocation(
     @Params() params: QuestionIdParam,
     @Body() body: RemoveAllocateBody,
     @CurrentUser() user: IUser,
   ): Promise<IQuestionSubmission> {
     verifyNotTester(user);
-    const {_id: userId} = user;
-    const {questionId} = params;
-    const {index} = body;
+    const { _id: userId } = user;
+    const { questionId } = params;
+    const { index } = body;
     let expertId;
     let expertDeatils;
     let questionDetails;
@@ -1998,13 +1583,10 @@ export class QuestionController {
       },
       outcome: {
         status: OutComeStatus.SUCCESS,
-      },
+      }
     };
     try {
-      expertId = await this.questionService.getExprtIdByIndex(
-        questionId,
-        index,
-      );
+      expertId = await this.questionService.getExprtIdByIndex(questionId, index);
       expertDeatils = await this.userService.getUserById(expertId);
       questionDetails = await this.questionService.getQuestionById(questionId);
       result = await this.questionService.removeExpertFromQueue(
@@ -2027,9 +1609,7 @@ export class QuestionController {
         changes: {
           before: {
             experts: expertId,
-            expertName: expertDeatils
-              ? `${expertDeatils.firstName} ${expertDeatils.lastName}`
-              : 'Unknown',
+            expertName: expertDeatils ? `${expertDeatils.firstName} ${expertDeatils.lastName}` : 'Unknown',
             email: expertDeatils ? expertDeatils.email : 'Unknown',
             role: expertDeatils ? expertDeatils.role : 'Unknown',
           },
@@ -2043,9 +1623,7 @@ export class QuestionController {
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to remove expert allocation',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
@@ -2061,9 +1639,7 @@ export class QuestionController {
       changes: {
         before: {
           experts: expertId,
-          expertName: expertDeatils
-            ? `${expertDeatils.firstName} ${expertDeatils.lastName}`
-            : 'Unknown',
+          expertName: expertDeatils ? `${expertDeatils.firstName} ${expertDeatils.lastName}` : 'Unknown',
           email: expertDeatils ? expertDeatils.email : 'Unknown',
           role: expertDeatils ? expertDeatils.role : 'Unknown',
         },
@@ -2080,13 +1656,13 @@ export class QuestionController {
   @Delete('/bulk')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Bulk delete questions'})
+  @OpenAPI({ summary: 'Bulk delete questions' })
   async bulkDeleteQuestions(
     @Body() body: BulkDeleteQuestionDto,
     @CurrentUser() user: IUser,
-  ): Promise<{message: string; jobId: string}> {
+  ): Promise<{ message: string; jobId: string }> {
     verifyNotTester(user);
-    const {questionIds} = body;
+    const { questionIds } = body;
     let prevQuestions;
     let response;
     let auditPayload: ModeratorAuditTrail = {
@@ -2107,29 +1683,22 @@ export class QuestionController {
       },
     };
     try {
-      prevQuestions = await Promise.all(
-        questionIds.map(id => this.questionService.getQuestionById(id)),
-      );
-      response = await this.questionService.bulkDeleteQuestions(
-        user._id.toString(),
-        questionIds,
-      );
+      prevQuestions = await Promise.all(questionIds.map(id => this.questionService.getQuestionById(id)));
+      response = await this.questionService.bulkDeleteQuestions(user._id.toString(), questionIds);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
         changes: {
           before: {
             questions: prevQuestions,
-          },
+          }
         },
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to bulk delete questions',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
@@ -2159,13 +1728,13 @@ export class QuestionController {
   @Delete('/:questionId')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Delete a question by ID'})
+  @OpenAPI({ summary: 'Delete a question by ID' })
   async deleteQuestion(
     @Params() params: QuestionIdParam,
     @CurrentUser() user: IUser,
-  ): Promise<{deletedCount: number}> {
+  ): Promise<{ deletedCount: number }> {
     verifyNotTester(user);
-    const {questionId} = params;
+    const { questionId } = params;
     let prevQuestion;
     let response;
     let auditPayload: ModeratorAuditTrail = {
@@ -2177,6 +1746,7 @@ export class QuestionController {
         email: user.email,
         role: user.role,
         avatar: user?.avatar || '',
+
       },
       context: {
         questionId: questionId,
@@ -2194,23 +1764,23 @@ export class QuestionController {
         changes: {
           before: {
             question: prevQuestion,
-          },
+          }
         },
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to delete question',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
       }
-      throw new BadRequestError(err?.message || 'Failed to delete question');
+      throw new BadRequestError(
+        err?.message || 'Failed to delete question',
+      );
     }
 
     auditPayload = {
@@ -2232,9 +1802,9 @@ export class QuestionController {
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(QuestionResponse)
-  @OpenAPI({summary: 'Get all questions and review levels'})
+  @OpenAPI({ summary: 'Get all questions and review levels' })
   async getQuestionsAndReviewlevel(
-    @QueryParams() query: GetDetailedQuestionsQuery,
+    @QueryParams() query: GetDetailedQuestionsQuery
   ): Promise<QuestionLevelResponse> {
     return this.questionService.getQuestionAndReviewLevel(query);
   }
@@ -2247,7 +1817,7 @@ export class QuestionController {
   @Get('/:id')
   getJob(@Param('id') id: string) {
     const job = getJobById(id);
-    if (!job) return {message: 'Job not found'};
+    if (!job) return { message: 'Job not found' };
     return job;
   }
 
@@ -2268,16 +1838,17 @@ export class QuestionController {
   //   );
   // }
 
+
   @Post('/data/out-reach/date')
   @HttpCode(200)
   // @Authorized()
-  @OpenAPI({summary: 'Send Ajrasakha Questions via Email'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Send Ajrasakha Questions via Email' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async outreachQuestions(
     @Body() body: DateRangeRequest,
     @CurrentUser() user: IUser,
   ) {
-    const {startDate, endDate, emails} = body;
+    const { startDate, endDate, emails } = body;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.OUTREACH_REPORT,
       action: AuditAction.SEND_OUTREACH_REPORT,
@@ -2291,12 +1862,12 @@ export class QuestionController {
       context: {
         startDate: startDate,
         endDate: endDate,
-        endPoint: 'outreachQuestions',
+        endPoint: "outreachQuestions",
         recepients: emails,
       },
       outcome: {
         status: OutComeStatus.SUCCESS,
-      },
+      }
     };
     try {
       const result = await this.questionService.sendOutReachQuestionsMail(
@@ -2311,13 +1882,10 @@ export class QuestionController {
         ...auditPayload,
         outcome: {
           status: OutComeStatus.FAILED,
-          errorMessage:
-            error?.message || 'Failed to send outreach questions email',
+          errorMessage: error?.message || 'Failed to send outreach questions email',
           errorCode: error?.errorCode || 'INTERNAL_ERROR',
           errorName: error?.name || 'Error',
-          errorStack:
-            error?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: error?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
@@ -2328,10 +1896,12 @@ export class QuestionController {
   @Get('/:questionId/feedback')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get user feedback for a selected question by ID'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async getQuestionFeedback(@Params() params: QuestionIdParam) {
-    const {questionId} = params;
+  @OpenAPI({ summary: 'Get user feedback for a selected question by ID' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async getQuestionFeedback(
+    @Params() params: QuestionIdParam,
+  ) {
+    const { questionId } = params;
     const data = await this.questionService.getQuestionFeedback(questionId);
 
     return {
@@ -2343,13 +1913,13 @@ export class QuestionController {
   @Get('/:questionId/chatbot')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'Get full chatbot details of selected question by ID'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Get full chatbot details of selected question by ID' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async getChatbotDetails(
     @Params() params: QuestionIdParam,
     @CurrentUser() user: IUser,
   ) {
-    const {questionId} = params;
+    const { questionId } = params;
     const userId = user._id.toString();
     const data = await this.questionService.getMatchedQuestion(
       questionId,
@@ -2361,31 +1931,32 @@ export class QuestionController {
     }
 
     return {
-      success: true,
-      data: {
+      success: true, data: {
         messageId: data.messageId,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
         user: data.user,
         content: data.content,
-      },
+      }
     };
   }
 
   @Post('/check-status')
   @HttpCode(200)
   @UseBefore(FlexibleAuth)
-  @OpenAPI({summary: 'Check status of multiple questions'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Check status of multiple questions' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async checkStatus(
-    @Body() body: {question_ids: string[]},
+    @Body() body: { question_ids: string[] },
   ): Promise<IcheckStatusResponseDto> {
-    const {question_ids} = body;
+    const { question_ids } = body;
 
     if (!question_ids || !Array.isArray(question_ids)) {
       throw new BadRequestError('question_ids must be an array');
     }
-    const results = await this.questionService.checkStatus(question_ids);
+    const results = await this.questionService.checkStatus(
+      question_ids
+    );
     return {
       success: true,
       data: results,
@@ -2395,16 +1966,10 @@ export class QuestionController {
   @Post('/:questionId/check-duplicate')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({
-    summary:
-      'Manually trigger duplicate check for a question without a reference question',
-  })
-  async manualCheckDuplicate(
-    @Params() params: QuestionIdParam,
-    @CurrentUser() user: IUser,
-  ) {
+  @OpenAPI({ summary: 'Manually trigger duplicate check for a question without a reference question' })
+  async manualCheckDuplicate(@Params() params: QuestionIdParam, @CurrentUser() user: IUser) {
     verifyNotTester(user);
-    const {questionId} = params;
+    const { questionId } = params;
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.CHECK_DUPLICATE,
@@ -2415,15 +1980,14 @@ export class QuestionController {
         role: user.role,
         avatar: user?.avatar || '',
       },
-      context: {questionId},
+      context: { questionId },
       createdAt: new Date(),
     };
     try {
-      const result =
-        await this.questionService.manualCheckDuplicate(questionId);
+      const result = await this.questionService.manualCheckDuplicate(questionId);
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        outcome: {status: OutComeStatus.SUCCESS},
+        outcome: { status: OutComeStatus.SUCCESS },
       });
       return result;
     } catch (err: any) {
@@ -2434,9 +1998,7 @@ export class QuestionController {
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to check duplicate',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       });
       throw err;
@@ -2446,23 +2008,16 @@ export class QuestionController {
   @Patch('/:questionId/hold')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({summary: 'To hold the question for some time'})
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async holdQuestion(
-    @Params() params: QuestionIdParam,
-    @CurrentUser() user: IUser,
-    @Body() body: {action: 'hold' | 'unhold'},
-  ) {
+  @OpenAPI({ summary: 'To hold the question for some time' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async holdQuestion(@Params() params: QuestionIdParam, @CurrentUser() user: IUser, @Body() body: { action: "hold" | "unhold" }) {
     verifyNotTester(user);
-    const {questionId} = params;
-    const {action} = body;
+    const { questionId } = params;
+    const { action } = body;
 
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
-      action:
-        action === 'hold'
-          ? AuditAction.QUESTION_HOLD
-          : AuditAction.QUESTION_UNHOLD,
+      action: action === 'hold' ? AuditAction.QUESTION_HOLD : AuditAction.QUESTION_UNHOLD,
       actor: {
         id: user._id.toString(),
         name: `${user.firstName} ${user.lastName}`,
@@ -2470,20 +2025,16 @@ export class QuestionController {
         role: user.role,
         avatar: user?.avatar || '',
       },
-      context: {questionId},
+      context: { questionId },
       createdAt: new Date(),
     };
 
     try {
-      const result = await this.questionService.holdQuestion(
-        questionId,
-        user._id.toString(),
-        action,
-      );
+      const result = await this.questionService.holdQuestion(questionId, user._id.toString(), action);
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        changes: {after: {action, questionId}},
-        outcome: {status: OutComeStatus.SUCCESS},
+        changes: { after: { action, questionId } },
+        outcome: { status: OutComeStatus.SUCCESS },
       });
       return result;
     } catch (err: any) {
@@ -2500,20 +2051,16 @@ export class QuestionController {
 
   @Get('/:questionId/generate-answer')
   @HttpCode(200)
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  @OpenAPI({summary: 'Generate ai-initial answer'})
-  async generateAiInitialAnswer(
-    @Params() params: QuestionIdParam,
-    @QueryParams() query: {userId: string},
-  ) {
-    const {questionId} = params;
-    const {userId} = query;
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({ summary: 'Generate ai-initial answer' })
+  async generateAiInitialAnswer(@Params() params: QuestionIdParam, @QueryParams() query: { userId: string }) {
+    const { questionId } = params;
+    const { userId } = query;
     let response;
     let auditPayload: ModeratorAuditTrail;
     if (userId) {
       const user = await this.userService.getUserById(userId);
-      const prevQuestion =
-        await this.questionService.getQuestionById(questionId);
+      const prevQuestion = await this.questionService.getQuestionById(questionId);
       auditPayload = {
         category: AuditCategory.AI_GENERATED,
         action: AuditAction.GENERATE_ANSWER,
@@ -2547,12 +2094,9 @@ export class QuestionController {
           outcome: {
             status: OutComeStatus.FAILED,
             errorCode: err?.errorCode || 'INTERNAL_ERROR',
-            errorMessage:
-              err?.message || 'Failed to generate AI initial answer',
+            errorMessage: err?.message || 'Failed to generate AI initial answer',
             errorName: err?.name || 'Error',
-            errorStack:
-              err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-              'No stack trace available',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
           },
         };
         this.auditTrailsService.createAuditTrail(auditPayload);
@@ -2582,16 +2126,12 @@ export class QuestionController {
   @Post('/:questionId/approve-initial-answer')
   @HttpCode(200)
   @Authorized()
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  @OpenAPI({summary: 'Generate ai-initial answer'})
-  async approveInitialAnswer(
-    @Params() params: QuestionIdParam,
-    @Body() body: ApproveInitialAnswerBody,
-    @CurrentUser() user: IUser,
-  ) {
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({ summary: 'Generate ai-initial answer' })
+  async approveInitialAnswer(@Params() params: QuestionIdParam, @Body() body: ApproveInitialAnswerBody, @CurrentUser() user: IUser) {
     verifyNotTester(user);
-    const {questionId} = params;
-    const {answer} = body;
+    const { questionId } = params;
+    const { answer } = body;
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.APPROVE_AI_INITIAL_ANSWER,
@@ -2602,18 +2142,15 @@ export class QuestionController {
         role: user.role,
         avatar: user?.avatar || '',
       },
-      context: {questionId},
+      context: { questionId },
       createdAt: new Date(),
     };
     try {
-      const result = await this.questionService.approveAiInitialAnswer(
-        questionId,
-        answer,
-      );
+      const result = await this.questionService.approveAiInitialAnswer(questionId, answer);
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        changes: {after: {answer: answer?.substring(0, 200)}},
-        outcome: {status: OutComeStatus.SUCCESS},
+        changes: { after: { answer: answer?.substring(0, 200) } },
+        outcome: { status: OutComeStatus.SUCCESS },
       });
       return result;
     } catch (err: any) {
@@ -2624,36 +2161,30 @@ export class QuestionController {
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to approve initial answer',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       });
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
       }
-      throw new BadRequestError(
-        err?.message || 'Failed to approve initial answer',
-      );
+      throw new BadRequestError(err?.message || 'Failed to approve initial answer');
     }
   }
 
   @Post('/:questionId/replace-queue-expert')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({
-    summary: 'Replace an expert at a specific level in the queue or the author',
-  })
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  @OpenAPI({ summary: 'Replace an expert at a specific level in the queue or the author' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async replaceQueueExpert(
     @Params() params: QuestionIdParam,
     @Body() body: ReplaceQueueExpertRequest,
     @CurrentUser() user: IUser,
   ) {
     verifyNotTester(user);
-    const {_id: userId} = user;
-    const {questionId} = params;
-    const {levelIndex, newExpertId, isAuthor, reasonForChange} = body;
+    const { _id: userId } = user;
+    const { questionId } = params;
+    const { levelIndex, newExpertId, isAuthor, reasonForChange } = body;
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.REPLACE_QUEUE_EXPERT,
@@ -2664,7 +2195,7 @@ export class QuestionController {
         role: user.role,
         avatar: user?.avatar || '',
       },
-      context: {questionId, levelIndex, isAuthor, reasonForChange},
+      context: { questionId, levelIndex, isAuthor, reasonForChange },
       createdAt: new Date(),
     };
     try {
@@ -2678,8 +2209,8 @@ export class QuestionController {
       );
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        changes: {after: {newExpertId, levelIndex}},
-        outcome: {status: OutComeStatus.SUCCESS},
+        changes: { after: { newExpertId, levelIndex } },
+        outcome: { status: OutComeStatus.SUCCESS },
       });
       return result;
     } catch (err: any) {
@@ -2690,17 +2221,13 @@ export class QuestionController {
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
           errorMessage: err?.message || 'Failed to replace queue expert',
           errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       });
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
       }
-      throw new BadRequestError(
-        err?.message || 'Failed to replace queue expert',
-      );
+      throw new BadRequestError(err?.message || 'Failed to replace queue expert');
     }
   }
 
@@ -2719,15 +2246,13 @@ export class QuestionController {
   //reallocate selected question to lessworkloads expert
   @Post('/reAllocateSelectedQuestions')
   @HttpCode(200)
-  @OpenAPI({
-    summary: 'ReAllocating selectedquestions to those who has less workload',
-  })
+  @OpenAPI({ summary: 'ReAllocating selectedquestions to those who has less workload' })
   async reAllocateSelectedQuestions(
     @CurrentUser() user: IUser,
     @Body() body: ReallocateExpertsSelectedQuestionsRequest,
   ) {
     verifyNotTester(user);
-    const {questionIds} = body;
+    const { questionIds } = body;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.REALLOCATE_QUESTIONS,
@@ -2741,10 +2266,7 @@ export class QuestionController {
       createdAt: new Date(),
     };
     try {
-      const result =
-        await this.questionService.balanceWorkloadSelectedQuestions(
-          questionIds ?? [],
-        );
+      const result = await this.questionService.balanceWorkloadSelectedQuestions(questionIds ?? []);
       auditPayload = {
         ...auditPayload,
         changes: {
@@ -2759,8 +2281,9 @@ export class QuestionController {
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
       return result;
-    } catch (err: any) {
-      console.log('Error in reAllocateSelectedQuestions:', err);
+    }
+    catch (err: any) {
+      console.log("Error in reAllocateSelectedQuestions:", err);
       auditPayload = {
         ...auditPayload,
         outcome: {
@@ -2772,6 +2295,7 @@ export class QuestionController {
       throw new BadRequestError(
         err?.message || 'Failed to process uploaded file',
       );
+
     }
   }
 
@@ -2780,10 +2304,7 @@ export class QuestionController {
   @Post('/reallocate-timebound')
   @HttpCode(200)
   @Authorized(['admin', 'moderator'])
-  @OpenAPI({
-    summary:
-      'Reallocate time-bound questions pending > 45 min to experts with < 3 active time-bound questions',
-  })
+  @OpenAPI({ summary: 'Reallocate time-bound questions pending > 45 min to experts with < 3 active time-bound questions' })
   async reallocateTimeBound(@CurrentUser() user: IUser) {
     const result = await this.questionService.reallocateTimeBoundQuestions();
     this.auditTrailsService.createAuditTrail({
@@ -2796,8 +2317,8 @@ export class QuestionController {
         role: user.role,
         avatar: user?.avatar || '',
       },
-      changes: {after: {type: 'timeBound', ...result}},
-      outcome: {status: OutComeStatus.SUCCESS},
+      changes: { after: { type: 'timeBound', ...result } },
+      outcome: { status: OutComeStatus.SUCCESS },
       createdAt: new Date(),
     });
     return result;
@@ -2806,18 +2327,12 @@ export class QuestionController {
   @Post('/:questionId/mark-opened')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({
-    summary:
-      'Mark that the current expert has opened a time-bound question (blocks 45-min auto-reallocation)',
-  })
+  @OpenAPI({ summary: 'Mark that the current expert has opened a time-bound question (blocks 45-min auto-reallocation)' })
   async markQuestionOpened(
     @Param('questionId') questionId: string,
     @CurrentUser() user: IUser,
   ) {
-    await this.questionService.markQuestionOpened(
-      questionId,
-      user._id.toString(),
-    );
-    return {success: true};
+    await this.questionService.markQuestionOpened(questionId, user._id.toString());
+    return { success: true };
   }
 }

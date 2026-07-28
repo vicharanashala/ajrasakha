@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { UserService } from "../../services/userService";
-import type { AssignedQuestion } from "../../services/userService";
 import type { IMyPreference, IUser } from "@/types";
 
 const userService = new UserService();
@@ -19,8 +18,6 @@ interface BasicUser {
   domain?:string | null;
   mobile?: string;
   university?: string;
-  /** Questions this user currently holds — used to show availability in select modals. */
-  assignedQuestionIds?: AssignedQuestion[] | null;
 }
 export interface IUsersNameResponse {
   myPreference: IMyPreference;

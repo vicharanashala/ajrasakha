@@ -105,14 +105,6 @@ export interface IQuestionRepository {
    */
   getById(questionId: string, session?: ClientSession): Promise<IQuestion>;
 
-  /** Find questions referencing the given question (referenceQuestionId), optionally
-   *  by status. Used to propagate a close to queue-duplicate children. */
-  findByReferenceQuestionId(
-    referenceQuestionId: string,
-    status?: QuestionStatus,
-    session?: ClientSession,
-  ): Promise<IQuestion[]>;
-
   /**
    * Retrieves all questions for a specific context.
    * @param questionId - The ID of the question.
@@ -566,27 +558,4 @@ export interface IQuestionRepository {
   findUnassignedInReviewQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
   findModeratorAssignedQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
-
-  /** Gate-keeper / auditor role allocation helpers. */
-  findUnassignedQuestionsForRole(
-    statuses: QuestionStatus[],
-    assigneeField: 'gateKeeperId' | 'auditorId',
-    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
-  ): Promise<IQuestion[]>;
-  findQuestionsAssignedToRole(
-    assigneeField: 'gateKeeperId' | 'auditorId',
-    statuses: QuestionStatus[],
-  ): Promise<IQuestion[]>;
-  setRoleAssignee(
-    questionId: string,
-    assigneeField: 'gateKeeperId' | 'auditorId',
-    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
-    assigneeId: string | null,
-    session?: ClientSession,
-  ): Promise<void>;
-  markRoleFinished(
-    questionId: string,
-    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
-    finishedAt: Date,
-  ): Promise<void>;
 }
