@@ -321,7 +321,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     : null;
 
   const experts =
-    usersData?.users.filter((user) => user.role === "expert") || [];
+    (usersData?.users ?? []).filter((user) => user.role === "expert");
 
   const filteredExperts = experts.filter(
     (expert) =>
