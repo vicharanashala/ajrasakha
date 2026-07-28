@@ -56,4 +56,18 @@ export class PublicDashboardService {
       { method: "DELETE" },
     );
   }
+
+  /** Admin-only: upload an image/video file to GCS; stores its URL as an item. */
+  async uploadMedia(
+    file: File,
+    type: "image" | "video",
+  ): Promise<PublicDashboardItem | null> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", type);
+    return apiFetch<PublicDashboardItem>(
+      `${API_BASE_URL}/public-dashboard/media`,
+      { method: "POST", body: formData },
+    );
+  }
 }

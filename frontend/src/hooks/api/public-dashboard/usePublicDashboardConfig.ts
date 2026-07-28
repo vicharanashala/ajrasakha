@@ -55,3 +55,16 @@ export const useDeletePublicDashboardItem = () => {
     },
   });
 };
+
+/** Admin: upload an image/video file to GCS; stores its URL as an item. */
+export const useUploadPublicDashboardMedia = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["upload-public-dashboard-media"],
+    mutationFn: ({ file, type }: { file: File; type: "image" | "video" }) =>
+      service.uploadMedia(file, type),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ITEMS_KEY });
+    },
+  });
+};

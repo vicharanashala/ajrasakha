@@ -1,7 +1,9 @@
 import 'reflect-metadata';
 import {
   Authorized,
+  BadRequestError,
   Body,
+  BodyParam,
   CurrentUser,
   Delete,
   ForbiddenError,
@@ -10,10 +12,12 @@ import {
   Param,
   Post,
   Put,
+  UploadedFile,
 } from 'routing-controllers';
 import {OpenAPI} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {PublicDashboardService} from '../services/PublicDashboardService.js';
+import {mediaUploadOptions} from '../validators/mediaUploadOptions.js';
 import {IUser} from '#root/shared/interfaces/models.js';
 
 @OpenAPI({
@@ -72,6 +76,30 @@ export class PublicDashboardController {
   ) {
     this.assertAdmin(user);
     return this.publicDashboardService.addItem(body?.name, body?.value);
+  }
+
+  /**
+   * Admin-only: upload an outreach image/video file to the GCS media bucket and store its
+   * public URL as an item. Multipart form-data: `file` (the upload) + `type`
+   * ('image' | 'video', defaults to image).
+   */
+  @Post('/media')
+  @Authorized(['admin'])
+  @OpenAPI({
+    summary: 'Admin: upload an outreach image/video to GCS and store its URL',
+  })
+  async uploadMedia(
+    @UploadedFile('file', {options: mediaUploadOptions})
+    file: Express.Multer.File,
+    @BodyParam('type') type: string,
+    @CurrentUser() user: IUser,
+  ) {
+    this.assertAdmin(user);
+    if (!file) {
+      throw new BadRequestError('file is required');
+    }
+    const kind: 'image' | 'video' = type === 'video' ? 'video' : 'image';
+    return this.publicDashboardService.uploadMedia(file, kind);
   }
 
   /** Admin-only: update an item's name/value by id. */

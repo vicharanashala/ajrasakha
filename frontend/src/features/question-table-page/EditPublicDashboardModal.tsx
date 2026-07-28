@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,12 +11,13 @@ import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import { toast } from "sonner";
-import { Check, ImagePlus, LayoutDashboard, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { Check, ImagePlus, LayoutDashboard, Loader2, Pencil, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import {
   useAddPublicDashboardItem,
   useDeletePublicDashboardItem,
   usePublicDashboardItems,
   useUpdatePublicDashboardItem,
+  useUploadPublicDashboardMedia,
 } from "@/hooks/api/public-dashboard/usePublicDashboardConfig";
 import {
   OUTREACH_IMAGE_NAME,
@@ -42,6 +43,11 @@ export const EditPublicDashboardModal = ({
   const { mutateAsync: updateItem, isPending: updating } =
     useUpdatePublicDashboardItem();
   const { mutateAsync: deleteItem } = useDeletePublicDashboardItem();
+  const { mutateAsync: uploadMedia, isPending: uploading } =
+    useUploadPublicDashboardMedia();
+
+  const imageFileRef = useRef<HTMLInputElement>(null);
+  const videoFileRef = useRef<HTMLInputElement>(null);
 
   const saturationItem = useMemo(
     () => items?.find((i) => i.name === SATURATION_LIMIT_NAME),
@@ -143,6 +149,19 @@ export const EditPublicDashboardModal = ({
     }
   };
 
+  const handleUploadFile = async (
+    file: File | undefined,
+    type: "image" | "video",
+  ) => {
+    if (!file) return;
+    try {
+      await uploadMedia({ file, type });
+      toast.success(`Outreach ${type} uploaded.`);
+    } catch (error: any) {
+      toast.error(error?.message || `Failed to upload ${type}.`);
+    }
+  };
+
   const handleDeleteImage = async (id: string) => {
     try {
       await deleteItem(id);
@@ -219,6 +238,28 @@ export const EditPublicDashboardModal = ({
                 disabled={adding || !newVideoUrl.trim()}
               >
                 <Plus className="mr-1 h-4 w-4" /> Add
+              </Button>
+              <input
+                ref={videoFileRef}
+                type="file"
+                accept="video/*"
+                className="hidden"
+                onChange={(e) => {
+                  handleUploadFile(e.target.files?.[0], "video");
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => videoFileRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="mr-1 h-4 w-4" />
+                )}
+                Upload
               </Button>
             </div>
 
@@ -327,6 +368,28 @@ export const EditPublicDashboardModal = ({
                 disabled={adding || !newImageUrl.trim()}
               >
                 <ImagePlus className="mr-1 h-4 w-4" /> Add
+              </Button>
+              <input
+                ref={imageFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  handleUploadFile(e.target.files?.[0], "image");
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => imageFileRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="mr-1 h-4 w-4" />
+                )}
+                Upload
               </Button>
             </div>
 

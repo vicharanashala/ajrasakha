@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {injectable} from 'inversify';
 import {BadRequestError, NotFoundError} from 'routing-controllers';
 import {PublicDashboardRepository} from '../repositories/PublicDashboardRepository.js';
+import {uploadPublicDashboardMedia} from '../utils/uploadMedia.js';
 import {
   IPublicDashboardRepository,
   PublicDashboardItem,
@@ -90,6 +91,20 @@ export class PublicDashboardService implements IPublicDashboardService {
     items[idx] = updated;
     await this.repo.saveItems(items);
     return updated;
+  }
+
+  /**
+   * Admin: upload an outreach image/video to GCS and store its public URL as an item
+   * (name = "outreach image" / "outreach video").
+   */
+  async uploadMedia(
+    file: Express.Multer.File,
+    kind: 'image' | 'video',
+  ): Promise<PublicDashboardItem> {
+    const url = await uploadPublicDashboardMedia(file, kind);
+    const name =
+      kind === 'video' ? OUTREACH_VIDEO_NAME : OUTREACH_IMAGE_NAME;
+    return this.addItem(name, url);
   }
 
   /** Admin: delete an item by id. */

@@ -36,4 +36,10 @@ export interface IPublicDashboardService {
 
   /** Admin: delete an item by id. */
   deleteItem(id: string): Promise<void>;
+
+  /** Admin: upload an outreach image/video to GCS; stores its URL as an item. */
+  uploadMedia(
+    file: Express.Multer.File,
+    kind: 'image' | 'video',
+  ): Promise<PublicDashboardItem>;
 }
