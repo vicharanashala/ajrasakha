@@ -204,3 +204,45 @@ def validate_candidate(
             f"expected {protected.dominant_script}; received {candidate_script or 'none'}"
         )
     return failures
+
+
+def validate_compressed_candidate(
+    candidate: str,
+    *,
+    lower_bound: int,
+    upper_bound: int,
+    protected: ProtectedContent,
+) -> list[str]:
+    """Validate a model-written fallback without requiring verbatim source spans.
+
+    The normal extractor validates exact source slices with ``validate_candidate``.
+    This fallback is intentionally allowed to paraphrase when no whole-segment
+    selection can fit. It therefore keeps deterministic checks that remain valid
+    under paraphrasing: range, no new URLs or measurements, and writing script.
+    """
+
+    failures: list[str] = []
+    actual = len(candidate)
+    if not candidate:
+        failures.append("EMPTY_OUTPUT")
+    if actual < lower_bound:
+        failures.append(
+            f"LENGTH_TOO_SHORT: {actual} characters; minimum is {lower_bound}"
+        )
+    if actual > upper_bound:
+        failures.append(
+            f"LENGTH_TOO_LONG: {actual} characters; maximum is {upper_bound}"
+        )
+
+    for value in sorted(_urls(candidate) - protected.urls):
+        failures.append(f"NEW_URL_NOT_IN_SOURCE: {value}")
+    for value in sorted(_measurements(candidate) - protected.measurements):
+        failures.append(f"NEW_MEASUREMENT_NOT_IN_SOURCE: {value}")
+
+    candidate_script = _dominant_script(candidate)
+    if protected.dominant_script and candidate_script != protected.dominant_script:
+        failures.append(
+            "WRONG_WRITING_SCRIPT: "
+            f"expected {protected.dominant_script}; received {candidate_script or 'none'}"
+        )
+    return failures
