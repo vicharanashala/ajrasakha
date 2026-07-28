@@ -199,6 +199,49 @@ final_state = acc_graph.get_state(config)
 print(final_state.values.get("final_answer"))
 ```
 
+## Selective transcript extraction
+
+The initial LangGraph run accepts an optional `extraction_type` input:
+
+| Value | Returned extraction fields | Continues to answer flow when resumed |
+|---|---|---|
+| `farmer_details` | Farmer profile fields plus state and district | No |
+| `query_details` | Query, crop, state, district, and standardized domains | Yes |
+| `all` | Both field groups | Yes |
+
+`all` is the default when `extraction_type` is omitted, preserving the
+pre-existing API behavior.
+
+```json
+{
+  "assistant_id": "<assistant-id>",
+  "input": {
+    "transcript": "Expert: Hello... Farmer: My name is Ramesh...",
+    "extraction_type": "farmer_details"
+  }
+}
+```
+
+## Official location normalization
+
+After transcript extraction, `extracted_state` and `extracted_district` are
+normalized against the Government of India Local Government Directory (LGD)
+datasets. District matching is restricted to the matched state to avoid
+selecting a same-named district from another state.
+
+Matching uses normalized exact names, a small set of historical aliases, and a
+conservative fuzzy match. Unmatched values become `All` when LGD responds
+successfully. If LGD is unavailable or not configured, the original extracted
+values are preserved so transcript extraction continues to work.
+
+Required configuration:
+
+```dotenv
+LGD_API_KEY=<data.gov.in API key>
+LGD_STATES_API_URL=https://api.data.gov.in/resource/a71e60f0-a21d-43de-a6c5-fa5d21600cdb
+LGD_DISTRICTS_API_URL=https://api.data.gov.in/resource/37231365-78ba-44d5-ac22-3deec40b9197
+```
+
 ## Dependencies
 
 - `langgraph` - Graph workflow framework
