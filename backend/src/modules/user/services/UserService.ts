@@ -1070,4 +1070,45 @@ export class UserService extends BaseService {
       throw new InternalServerError(`Failed to calculate working hours: ${error}`);
     }
   }
+
+  async getWorkingHoursTrend(
+  query: {
+    userId: string;
+    startDateTime: string;
+    endDateTime: string;
+  },
+): Promise<any> {
+  try {
+    const { userId } = query;
+
+    if (!userId) {
+      throw new NotFoundError('User ID is required');
+    }
+
+    return this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      return await this.userRepo.getWorkingHoursTrend(
+        query,
+        session,
+      );
+    });
+  } catch (error) {
+    if (
+      error instanceof NotFoundError ||
+      error instanceof BadRequestError
+    ) {
+      throw error;
+    }
+
+    throw new InternalServerError(
+      'Failed to fetch working hours trend',
+    );
+  }
+}
+
 }

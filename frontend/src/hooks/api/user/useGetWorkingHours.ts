@@ -19,3 +19,21 @@ export const useGetWorkingHours = (
     },
   });
 };
+
+
+export const useGetWorkingHoursTrends = (
+  userId?: string,
+  startDateTime?: string,
+  endDateTime?: string,
+) => {
+  return useQuery<any | null, Error>({
+    queryKey: ["working-hours", userId, startDateTime, endDateTime],
+    enabled: Boolean(userId && startDateTime && endDateTime),
+    queryFn: async () => {
+      if (!userId || !startDateTime || !endDateTime) {
+        return [];
+      }
+      return userService.getWorkingHoursTrends(userId, startDateTime, endDateTime);
+    },
+  });
+};

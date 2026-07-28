@@ -1229,4 +1229,13 @@ export class UserController {
     // console.log("result----", result);
     return result;
   }
+
+    @Get ('/working-hours-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getWorkingHoursTrend(
+    @QueryParams() query: {userId: string; startDateTime: string; endDateTime: string}
+  ): Promise<any>{
+    return await this.userService.getWorkingHoursTrend(query)
+  }
 }

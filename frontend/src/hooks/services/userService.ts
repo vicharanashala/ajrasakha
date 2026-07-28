@@ -301,4 +301,19 @@ export class UserService {
       }
     );
   }
+
+    async getWorkingHoursTrends(
+      userId: string,
+      startDateTime: string,
+      endDateTime: string,
+    ): Promise<any> {
+      const params = new URLSearchParams({
+        userId,
+        startDateTime,
+        endDateTime,
+      });
+      return apiFetch<any>(
+        `${this._baseUrl}/working-hours-trend?${params.toString()}`
+      );
+    }
 }

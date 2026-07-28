@@ -2324,6 +2324,8 @@ export class UserRepository implements IUserRepository {
 
       const userHistory = result[0];
 
+      // console.log("History:", userHistory?.roleHistory);
+
       return {
         roleHistory: userHistory?.roleHistory ?? [],
         userDetails: userHistory?.userDetails ?? null,
@@ -2353,4 +2355,154 @@ export class UserRepository implements IUserRepository {
     );
     return { modifiedCount: result.modifiedCount };
   }
+
+  async getWorkingHoursTrend(
+  query: {
+    userId: string;
+    startDateTime: string;
+    endDateTime: string;
+  },
+  session?: ClientSession,
+): Promise<
+  {
+    date: string;
+    workingHours: number;
+  }[]
+> {
+  try {
+    const { userId, startDateTime, endDateTime } = query;
+
+    await this.init();
+
+    const start = new Date(startDateTime);
+    const end = new Date(endDateTime);
+
+    const sessions = await this.userRoleHistoryCollection
+      .aggregate<{
+        from: Date;
+        to: Date | null;
+      }>(
+        [
+          {
+            $match: {
+              userId: new ObjectId(userId),
+              isBlocked: false,
+              from: {
+                $lte: end,
+              },
+              $or: [
+                {
+                  to: null,
+                },
+                {
+                  to: {
+                    $gt: start,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              from: 1,
+              to: 1,
+            },
+          },
+          {
+            $sort: {
+              from: 1,
+            },
+          },
+        ],
+        { session },
+      )
+      .toArray();
+
+      // console.log("Sessions:", sessions);
+
+      const now = new Date();
+
+const dailyHours = new Map<string, number>();
+
+const getDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+for (const sessionItem of sessions) {
+  let sessionStart = new Date(sessionItem.from);
+  let sessionEnd = sessionItem.to
+    ? new Date(sessionItem.to)
+    : now;
+
+  // Restrict session to requested range
+  if (sessionStart < start) sessionStart = new Date(start);
+  if (sessionEnd > end) sessionEnd = new Date(end);
+
+  if (sessionEnd <= sessionStart) continue;
+
+  let current = new Date(sessionStart);
+
+  while (current < sessionEnd) {
+    // End of current local day
+    const dayEnd = new Date(current);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const chunkEnd =
+      sessionEnd < dayEnd ? sessionEnd : dayEnd;
+
+    const hours =
+      (chunkEnd.getTime() - current.getTime()) /
+      (1000 * 60 * 60);
+
+    const key = getDateKey(current);
+
+    dailyHours.set(
+      key,
+      (dailyHours.get(key) || 0) + hours,
+    );
+
+    current = new Date(chunkEnd);
+
+    // Move to next day
+    current.setMilliseconds(current.getMilliseconds() + 1);
+  }
+}
+
+const result: {
+  date: string;
+  workingHours: number;
+}[] = [];
+
+const cursor = new Date(start);
+cursor.setHours(0, 0, 0, 0);
+
+const last = new Date(end);
+last.setHours(0, 0, 0, 0);
+
+while (cursor <= last) {
+  const key = getDateKey(cursor);
+
+  result.push({
+    date: key,
+    workingHours:
+      Math.round((dailyHours.get(key) || 0) * 10) / 10,
+  });
+
+  cursor.setDate(cursor.getDate() + 1);
+}
+
+return result;
+  } catch (error) {
+    console.error(error);
+    throw new InternalServerError(
+      "Failed to fetch working hours trend",
+    );
+  }
+}
+
 }
