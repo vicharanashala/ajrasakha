@@ -140,6 +140,20 @@ export class PublicDashboardService implements IPublicDashboardService {
     }
 
     if (name === OUTREACH_VIDEO_NAME || name === OUTREACH_IMAGE_NAME) {
+      // Value may be a plain URL string (legacy) OR an object { url, place?, title?, body?, reach?, outcome? }
+      if (value !== null && typeof value === 'object') {
+        const v = value as Record<string, unknown>;
+        const validatedUrl = this.validateUrl(v.url);
+        // Return a clean object — only known text fields are allowed through
+        const out: Record<string, unknown> = { url: validatedUrl };
+        if (typeof v.place === 'string' && v.place.trim()) out.place = v.place.trim();
+        if (typeof v.title === 'string' && v.title.trim()) out.title = v.title.trim();
+        if (typeof v.body === 'string' && v.body.trim()) out.body = v.body.trim();
+        if (typeof v.reach === 'string' && v.reach.trim()) out.reach = v.reach.trim();
+        if (typeof v.outcome === 'string' && v.outcome.trim()) out.outcome = v.outcome.trim();
+        return out;
+      }
+      // Legacy: plain URL string
       return this.validateUrl(value);
     }
 
