@@ -8441,4 +8441,84 @@ export class QuestionService extends BaseService implements IQuestionService {
       historyLength: updated?.history?.length ?? 0,
     };
   }
+
+  /** Admin utility: append an expert to a question's submission queue. */
+  async addSubmissionQueueEntry(
+    questionId: string,
+    expertId: string,
+  ): Promise<{ success: boolean; queueLength: number }> {
+    if (!expertId || !ObjectId.isValid(expertId)) {
+      throw new BadRequestError('A valid expertId is required');
+    }
+    const updated = await this.questionSubmissionRepo.addQueueEntry(
+      questionId,
+      expertId,
+    );
+    return { success: true, queueLength: updated?.queue?.length ?? 0 };
+  }
+
+  /** Admin utility: append a history entry to a question's submission history.
+   *  The raw entry's id/date fields are coerced to ObjectId/Date before storing. */
+  async addSubmissionHistoryEntry(
+    questionId: string,
+    rawEntry: Record<string, any>,
+  ): Promise<{ success: boolean; historyLength: number }> {
+    const entry = this.buildHistoryEntry(rawEntry);
+    const updated = await this.questionSubmissionRepo.addHistoryEntry(
+      questionId,
+      entry,
+    );
+    return {
+      success: true,
+      historyLength: updated?.history?.length ?? 0,
+    };
+  }
+
+  /** Coerce a raw JSON history entry into a stored ISubmissionHistory (ObjectIds + Dates). */
+  private buildHistoryEntry(raw: Record<string, any>): ISubmissionHistory {
+    if (!raw || typeof raw !== 'object') {
+      throw new BadRequestError('entry object is required');
+    }
+    const toOid = (v: unknown): ObjectId => {
+      if (!v || !ObjectId.isValid(String(v))) {
+        throw new BadRequestError(`Invalid ObjectId: ${String(v)}`);
+      }
+      return new ObjectId(String(v));
+    };
+    const toDate = (v: unknown): Date | undefined =>
+      v ? new Date(v as string) : undefined;
+
+    if (!raw.updatedBy) {
+      throw new BadRequestError('entry.updatedBy is required');
+    }
+    if (!raw.status) {
+      throw new BadRequestError('entry.status is required');
+    }
+
+    const entry: any = {
+      updatedBy: toOid(raw.updatedBy),
+      status: raw.status,
+      createdAt: toDate(raw.createdAt) ?? new Date(),
+      updatedAt: toDate(raw.updatedAt) ?? new Date(),
+    };
+
+    // Optional ObjectId fields.
+    if (raw.answer) entry.answer = toOid(raw.answer);
+    if (raw.reviewId) entry.reviewId = toOid(raw.reviewId);
+    if (raw.approvedAnswer) entry.approvedAnswer = toOid(raw.approvedAnswer);
+    if (raw.rejectedBy) entry.rejectedBy = toOid(raw.rejectedBy);
+    if (raw.rejectedAnswer) entry.rejectedAnswer = toOid(raw.rejectedAnswer);
+    if (raw.lastModifiedBy) entry.lastModifiedBy = toOid(raw.lastModifiedBy);
+    if (raw.modifiedAnswer) entry.modifiedAnswer = toOid(raw.modifiedAnswer);
+
+    // Optional string fields.
+    if (raw.reasonForRejection) {
+      entry.reasonForRejection = String(raw.reasonForRejection);
+    }
+    if (raw.reasonForLastModification) {
+      entry.reasonForLastModification = String(raw.reasonForLastModification);
+    }
+
+    return entry as ISubmissionHistory;
+  }
 }
