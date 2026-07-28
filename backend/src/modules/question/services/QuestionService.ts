@@ -2818,7 +2818,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         const updateData:any = {
           firstAllocationAt: new Date(),
         };
-        if (question.status === 'duplicate' && question.isAutoAllocate === false) {
+        if (question.status === 'duplicate') {
           updateData.status = 'open';
         }
 
