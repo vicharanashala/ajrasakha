@@ -550,6 +550,7 @@ export const QuestionsFilters = ({
       priority: advanceFilter.priority,
       domain: myPreference?.domain || advanceFilter.domain,
       user: advanceFilter.user,
+      assignedUser: advanceFilter.assignedUser,
       endTime: advanceFilter.endTime,
       startTime: advanceFilter.startTime,
       review_level: advanceFilter?.review_level,
