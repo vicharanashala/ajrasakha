@@ -29,6 +29,11 @@ export class DashboardQueryDto {
   @IsOptional()
   @IsString()
   endTime?: string;
+
+  @JSONSchema({ example: '6a3385e5d7128c0afd3f2283', description: 'Filter by coordinator ID to scope metrics to their hierarchy' })
+  @IsOptional()
+  @IsString()
+  coordinatorId?: string;
 }
 
 export class SourceQueryDto {

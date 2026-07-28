@@ -14,6 +14,7 @@ interface QueryInsightsSectionProps {
     shouldLoadQueryInsights: boolean;
     source: "annam" | "whatsapp";
     userType: string;
+    coordinatorId?: string;
 }
 
 export function QueryInsightsSection({
@@ -25,6 +26,7 @@ export function QueryInsightsSection({
     shouldLoadQueryInsights,
     source,
     userType,
+    coordinatorId,
 }: QueryInsightsSectionProps) {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -40,6 +42,7 @@ export function QueryInsightsSection({
                         source={source}
                         userType={userType}
                         isLoading={isLoadingQueryCategories}
+                        coordinatorId={coordinatorId}
                     />
                 ) : (
                     <LazySectionSkeleton className="h-[360px]" />
@@ -59,6 +62,7 @@ export function QueryInsightsSection({
                         errorLoadingtopCrops={errorLoadingtopCrops}
                         source={source}
                         userType={userType}
+                        coordinatorId={coordinatorId}
                     />
                 ) : (
                     <LazySectionSkeleton className="h-[360px]" />

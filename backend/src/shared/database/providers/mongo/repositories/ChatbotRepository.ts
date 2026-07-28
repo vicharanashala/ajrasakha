@@ -2115,17 +2115,19 @@ export class ChatbotRepository implements IChatbotRepository {
     _source = 'annam',
     session?: ClientSession,
     userType = 'all',
+    coordinatorId?: string,
   ): Promise<QueryCategoryEntry[]> {
     try {
       await this.initReviewSystem();
 
       // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-      const matchQuery = buildBaseQuestionMatch(source);
-
-      matchQuery['details.domain'] = {
-        $exists: true,
-        $nin: [null, ''],
+      const matchQuery: any = {
+        ...buildBaseQuestionMatch(source),
+        'details.domain': {
+          $exists: true,
+          $nin: [null, ''],
+        },
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -2134,7 +2136,16 @@ export class ChatbotRepository implements IChatbotRepository {
       );
 
       if (query && Object.keys(query).length) {
+        if (!matchQuery.$and) matchQuery.$and = [];
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length) {
+          if (!matchQuery.$and) matchQuery.$and = [];
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
       const pipeline = [
         {
@@ -2238,6 +2249,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
     userType = 'all',
     search?: string,
+    coordinatorId?: string,
   ): Promise<PaginatedQueryCategoryQuestions> {
     try {
       await this.initReviewSystem();
@@ -2247,11 +2259,12 @@ export class ChatbotRepository implements IChatbotRepository {
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
 
-      const baseMatch = buildBaseQuestionMatch(_source);
-
-      baseMatch['details.domain'] = {
-        $exists: true,
-        $nin: [null, ''],
+      const baseMatch: any = {
+        ...buildBaseQuestionMatch(_source),
+        'details.domain': {
+          $exists: true,
+          $nin: [null, ''],
+        },
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -2260,7 +2273,16 @@ export class ChatbotRepository implements IChatbotRepository {
       );
 
       if (query && Object.keys(query).length > 0) {
+        if (!baseMatch.$and) baseMatch.$and = [];
         baseMatch.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          if (!baseMatch.$and) baseMatch.$and = [];
+          baseMatch.$and.push(coordinatorMatch);
+        }
       }
       const categoryLabel = category?.trim();
       if (!categoryLabel) {
@@ -2472,6 +2494,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<DistrictAnalyticsEntry[]> {
     try {
       await this.initReviewSystem();
@@ -2533,6 +2556,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
 
       const raw = await this.QuestionCollection.aggregate(
@@ -4368,6 +4398,7 @@ export class ChatbotRepository implements IChatbotRepository {
     source: string,
     userType?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{totalQuestions: number; topCrops: any[]}> {
     try {
       await this.initReviewSystem();
@@ -4387,6 +4418,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchStage.$and.push(coordinatorMatch);
+        }
       }
       const cropFieldRaw = {
         $ifNull: ['$details.normalised_crop', '$details.crop'],
@@ -9244,9 +9282,18 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate: Date,
     endDate: Date,
     session?: ClientSession,
+    coordinatorId?: string,
   ) {
     try {
       await this.init('annam');
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length === 0) return [];
+        coordinatorMatch = { _id: { $in: targetUserIds } };
+      }
+
       const userMatch =
         userType === 'all'
           ? {}
@@ -9261,6 +9308,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $match: {
               createdAt: {$gte: startDate, $lte: endDate},
               ...userMatch,
+              ...coordinatorMatch,
             },
           },
           {
@@ -9287,9 +9335,18 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate: Date,
     endDate: Date,
     session?: ClientSession,
+    coordinatorId?: string,
   ) {
     try {
       await this.init('annam');
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length === 0) return [];
+        coordinatorMatch = { _id: { $in: targetUserIds } };
+      }
+
       const userMatch =
         userType === 'all'
           ? {}
@@ -9305,6 +9362,7 @@ export class ChatbotRepository implements IChatbotRepository {
               farmerProfile: {$exists: true, $ne: null},
               updatedAt: {$gte: startDate, $lte: endDate},
               ...userMatch,
+              ...coordinatorMatch,
             },
           },
           {
@@ -9331,9 +9389,19 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate: Date,
     endDate: Date,
     session?: ClientSession,
+    coordinatorId?: string,
   ) {
     try {
       await this.init('annam');
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length === 0) return [];
+        const targetUserIdStrings = targetUserIds.map(id => id.toString());
+        coordinatorMatch = { user: { $in: targetUserIdStrings } };
+      }
+
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
       const result = await this.messagesCollection
         .aggregate([
@@ -9341,6 +9409,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $match: {
               createdAt: {$gte: startDate, $lte: endDate},
               isDeleted: {$ne: true},
+              ...coordinatorMatch,
             },
           },
           ...userTypeLookupStages,
@@ -9434,6 +9503,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getDuplicateQuestions(
     source = 'annam',
+    coordinatorId?: string,
     session?: ClientSession,
   ): Promise<DuplicateQuestionEntry[]> {
     try {
@@ -9444,12 +9514,19 @@ export class ChatbotRepository implements IChatbotRepository {
       if (source === 'whatsapp') {
         return await this.getWhatsAppDuplicateQuestions();
       }
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+      }
+
       // 1. Fetch duplicate questions from the main review DB
       const dupeQuestions = await this.QuestionCollection.find(
         {
           similarityScore: {$exists: true},
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           status: {$ne: 'non_agri'},
+          ...coordinatorMatch,
         },
         {session},
       )
@@ -9566,7 +9643,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDomainSpikes(days = 60, session?: ClientSession) {
+  async getDomainSpikes(days = 60, coordinatorId?: string, session?: ClientSession) {
     try {
       await this.initReviewSystem();
 
@@ -9613,10 +9690,16 @@ export class ChatbotRepository implements IChatbotRepository {
         },
       };
 
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+      }
+
       const matchStage = {
         ...domainMatch,
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
         status: {$ne: 'non_agri'},
+        ...coordinatorMatch,
       };
 
       const pipeline: any[] = [
@@ -9806,6 +9889,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{question: string; count: number}>> {
     try {
       if (source === 'whatsapp') {
@@ -9819,6 +9903,17 @@ export class ChatbotRepository implements IChatbotRepository {
         isDeleted: {$ne: true},
         text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
+
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length > 0) {
+          queryMatch.user = {
+            $in: targetUserIds.map(id => id.toString()),
+          };
+        } else {
+          queryMatch.user = null;
+        }
+      }
 
       if (startTime || endTime) {
         queryMatch.createdAt = {};
@@ -9865,6 +9960,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{questionId: string; question: string; count: number}>> {
     try {
       await this.initReviewSystem();
@@ -9887,6 +9983,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
 
       // const userTypeLookupStages =
@@ -9962,6 +10065,7 @@ export class ChatbotRepository implements IChatbotRepository {
     page: number = 1,
     limit: number = 10,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{
     data: any[];
     total: number;
@@ -9991,6 +10095,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
 
       let qId;
@@ -13604,22 +13715,39 @@ export class ChatbotRepository implements IChatbotRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       await this.init(source);
-      const totalFarmerProfileUsers = Math.max(
-        await this.users.countDocuments(
-          {farmerProfile: {$exists: true, $ne: null}},
-          {session},
-        ),
-        1,
-      );
+      let totalFarmerProfileUsers = 1;
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        totalFarmerProfileUsers = Math.max(targetUserIds.length, 1);
+      } else {
+        totalFarmerProfileUsers = Math.max(
+          await this.users.countDocuments(
+            {farmerProfile: {$exists: true, $ne: null}},
+            {session},
+          ),
+          1,
+        );
+      }
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
       const queryMatch: any = {
         isCreatedByUser: true,
         isDeleted: {$ne: true},
         text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length > 0) {
+          queryMatch.user = {
+            $in: targetUserIds.map(id => id.toString()),
+          };
+        } else {
+          queryMatch.user = null;
+        }
+      }
       if (startTime || endTime) {
         queryMatch.createdAt = {};
         if (startTime) {
@@ -14462,6 +14590,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
     userType = 'all',
     search?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -14617,6 +14746,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (Object.keys(userTypeMatch).length) {
         finalMatch.$and.push(userTypeMatch);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          finalMatch.$and.push(coordinatorMatch);
+        }
       }
 
       const result = await this.QuestionCollection.aggregate(
@@ -17102,6 +17238,233 @@ export class ChatbotRepository implements IChatbotRepository {
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user profile: ${error}`);
+    }
+  }
+
+  async getHierarchyUserIds(userId: string): Promise<ObjectId[]> {
+    let rootUser = null;
+
+    const isValidObjectId =
+      ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
+
+    if (isValidObjectId) {
+      rootUser = await this.users.findOne({ _id: new ObjectId(userId) });
+    } else {
+      rootUser = await this.users.findOne({
+        $or: [{ firebaseUID: userId }, { email: userId }]
+      });
+    }
+
+    if (!rootUser && isValidObjectId) {
+      const centralUser = await this.ReviewUsers.findOne({ _id: new ObjectId(userId) });
+      if (centralUser) {
+        const orConditions = [];
+        if (centralUser.firebaseUID) orConditions.push({ firebaseUID: centralUser.firebaseUID });
+        if (centralUser.email) orConditions.push({ email: centralUser.email });
+
+        if (orConditions.length > 0) {
+          rootUser = await this.users.findOne({ $or: orConditions });
+        }
+      }
+    }
+
+    if (!rootUser) return [];
+
+    const ids = [rootUser._id, ...(rootUser.assignedCoordinators || [])];
+    return ids.map(id => new ObjectId(id));
+  }
+
+  async buildCoordinatorMatchQuery(coordinatorId?: string): Promise<any> {
+    if (!coordinatorId) return {};
+    const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+    if (targetUserIds.length === 0) return { _id: null };
+    const targetUserIdStrings = targetUserIds.map(id => id.toString());
+    const targetUserObjects = targetUserIds.map(id => new ObjectId(id));
+    return {
+      userId: {
+        $in: [...targetUserObjects, ...targetUserIdStrings]
+      }
+    };
+  }
+
+  async getCoordinatorKpiSummary(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<any> {
+    try {
+      await this.init('annam');
+      await this.initReviewSystem();
+
+      const targetUserIds = await this.getHierarchyUserIds(userId);
+      const targetUserIdStrings = targetUserIds.map(id => id.toString());
+
+      const [totalUsers, totalAppInstalls] = await Promise.all([
+        this.users.countDocuments({ _id: { $in: targetUserIds } }, { session }),
+        this.users.countDocuments(
+          {
+            _id: { $in: targetUserIds },
+            farmerProfile: { $exists: true, $ne: null },
+            isVerified: true
+          },
+          { session }
+        )
+      ]);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const activeUsersToday = await this.messagesCollection.distinct('user', {
+        user: { $in: targetUserIdStrings },
+        createdAt: { $gte: today },
+        isCreatedByUser: true,
+        isDeleted: { $ne: true }
+      }, { session });
+
+      const todayQueries = await this.messagesCollection.countDocuments({
+        user: { $in: targetUserIdStrings },
+        createdAt: { $gte: today },
+        isCreatedByUser: true,
+        isDeleted: { $ne: true }
+      }, { session });
+
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      threeDaysAgo.setHours(0, 0, 0, 0);
+
+      const activeUsers3Days = await this.messagesCollection.distinct('user', {
+        user: { $in: targetUserIdStrings },
+        createdAt: { $gte: threeDaysAgo },
+        isCreatedByUser: true,
+        isDeleted: { $ne: true }
+      }, { session });
+
+      const inactiveUsersLast3Days = Math.max(0, totalUsers - activeUsers3Days.length);
+
+      const coordinatorMatch = await this.buildCoordinatorMatchQuery(userId);
+      const duplicateQuestionsCount = await this.QuestionCollection.countDocuments({
+        similarityScore: { $exists: true },
+        $or: [{ isTesting: { $exists: false } }, { isTesting: { $ne: true } }],
+        status: { $ne: 'non_agri' },
+        ...coordinatorMatch,
+      }, { session });
+
+      const usersWithFeedback = await this.messagesCollection.distinct('user', {
+        user: { $in: targetUserIdStrings },
+        feedback: { $exists: true },
+        isCreatedByUser: false,
+        isDeleted: { $ne: true }
+      }, { session });
+      const lowFeedbackUsersCount = Math.max(0, totalUsers - usersWithFeedback.length);
+
+      const sessionStats = await this.conversations
+        .aggregate([
+          {
+            $match: {
+              user: { $in: targetUserIdStrings }
+            }
+          },
+          {
+            $project: {
+              durationMs: { $max: [0, { $subtract: ['$updatedAt', '$createdAt'] }] }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              avg: { $avg: '$durationMs' }
+            }
+          }
+        ], { session })
+        .toArray();
+
+      const avgSessionDurationMs = sessionStats[0]?.avg ?? 0;
+      const avgSessionDurationMin = avgSessionDurationMs / 60000;
+
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+      const [dauTrendRaw, queriesTrendRaw] = await Promise.all([
+        this.messagesCollection.aggregate([
+          {
+            $match: {
+              user: { $in: targetUserIdStrings },
+              createdAt: { $gte: thirtyDaysAgo },
+              isCreatedByUser: true,
+              isDeleted: { $ne: true }
+            }
+          },
+          {
+            $group: {
+              _id: {
+                day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+                user: '$user'
+              }
+            }
+          },
+          {
+            $group: {
+              _id: '$_id.day',
+              activeCount: { $sum: 1 }
+            }
+          },
+          { $sort: { _id: 1 } }
+        ], { session }).toArray(),
+
+        this.messagesCollection.aggregate([
+          {
+            $match: {
+              user: { $in: targetUserIdStrings },
+              createdAt: { $gte: thirtyDaysAgo },
+              isCreatedByUser: true,
+              isDeleted: { $ne: true }
+            }
+          },
+          {
+            $group: {
+              _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { _id: 1 } }
+        ], { session }).toArray()
+      ]);
+
+      const dauTrendMap = new Map(dauTrendRaw.map(d => [d._id, d.activeCount]));
+      const queriesTrendMap = new Map(queriesTrendRaw.map(q => [q._id, q.count]));
+
+      const dauTrend = [];
+      const queriesTrend = [];
+
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10);
+        dauTrend.push({
+          date: dateStr,
+          count: dauTrendMap.get(dateStr) ?? 0
+        });
+        queriesTrend.push({
+          date: dateStr,
+          count: queriesTrendMap.get(dateStr) ?? 0
+        });
+      }
+
+      return {
+        totalUsers,
+        totalAppInstalls,
+        dauActiveCount: activeUsersToday.length,
+        dauTotalCount: totalAppInstalls,
+        todayQueries,
+        avgSessionDurationMin,
+        dauTrend,
+        queriesTrend,
+        inactiveUsersLast3Days,
+        duplicateQuestionsCount,
+        lowFeedbackUsersCount
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get coordinator KPI: ${error}`);
     }
   }
 
