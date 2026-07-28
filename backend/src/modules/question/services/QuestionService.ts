@@ -2815,13 +2815,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         // moderator intentionally toggled off auto-allocate and is now manually
         // picking an expert. Reopen the question so the selected expert can see
         // it in their dashboard (only open/delayed questions are visible there).
+        const updateData:any = {
+          firstAllocationAt: new Date(),
+        };
         if (question.status === 'duplicate' && question.isAutoAllocate === false) {
-          await this.questionRepo.updateQuestion(
-            questionId,
-            { status: 'open' },
-            session,
-          );
+          updateData.status = 'open';
         }
+
+        await this.questionRepo.updateQuestion(questionId,updateData,session,);
 
         const expertIds = experts.map(e => new ObjectId(e));
 
