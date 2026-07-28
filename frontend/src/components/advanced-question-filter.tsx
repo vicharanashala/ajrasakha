@@ -905,7 +905,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-sm">
                       <p>
-                        Filters questions currently assigned to the selected user (queue length = 1 &amp; history length = 0 OR history length &gt;= 1 &amp; status = in-review).
+                        Shows questions currently pending an initial answer or active review from the selected user.
                       </p>
                     </TooltipContent>
                   </Tooltip>
