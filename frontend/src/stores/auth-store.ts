@@ -1,6 +1,7 @@
 import { auth, googleProvider } from "@/config/firebase";
 import { queryClient } from "@/routes/__root";
 import type { AuthUser, ExtendedUserCredential } from "@/types";
+import { env } from "@/config/env";
 import {
   // getIdToken,
   onAuthStateChanged,
@@ -100,6 +101,13 @@ export const useAuthStore = create<AuthStore>()(
 
         initAuthListener: () => {
           set({ loading: true });
+          if (env.enableMocks()) {
+            set((state) => ({
+              loading: false,
+              isAuthenticated: !!state.user,
+            }));
+            return;
+          }
           onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
               const authUser: AuthUser = {

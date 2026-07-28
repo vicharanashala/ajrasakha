@@ -51,9 +51,9 @@ export const AllocationQueueHeader = ({
 
   const expertsIdsInQueue = new Set(queue.map((expert) => expert._id));
   const experts =
-    usersData?.users.filter(
+    (usersData?.users ?? []).filter(
       (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
-    ) || [];
+    );
   // let experts = [];
 
   /*   if (question.source === "AJRASAKHA") {
