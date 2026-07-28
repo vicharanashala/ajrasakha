@@ -103,7 +103,7 @@ export function StateList({ statesWithData, onSelectState, isLoading, renderCard
               <div className="flex items-center justify-end gap-1">
                 <Users className="h-3.5 w-3.5 shrink-0" />
                 <span className="tabular-nums">
-                  {questionStatusRange !== undefined ? fmt((f.properties._analytics as Analytics).users): fmt((f.properties._analytics as Analytics).activeUsers)}
+                  {questionStatusRange !== undefined ? fmt((f.properties._analytics as Analytics).activeUsers):fmt((f.properties._analytics as Analytics).users)}
                 </span>
               </div>
             </div>

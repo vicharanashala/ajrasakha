@@ -6911,8 +6911,10 @@ export class ChatbotRepository implements IChatbotRepository {
     activeTodayByProfile = false,
     missingDemographicField = '',
     isVerfied?: boolean,
+    fromMap?: boolean,
     loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
+    console.log("Profile completed----", profileCompleted)
     try {
       await this.init(source);
 
@@ -6951,10 +6953,12 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
-        'farmerProfile.state': {
-          $nin: [null, ''],
-        },
       };
+      if(fromMap === true){
+       userFilter['farmerProfile.state'] ={
+        $nin: [null, ''],
+       }
+      }
       if (isVerfied !== undefined) {
         userFilter.isVerified = isVerfied;
       }
@@ -7109,6 +7113,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {farmerProfile: {$exists: true, $ne: null}},
         ];
       } else if (profileCompleted === 'no') {
+        console.log("profile completed?", profileCompleted);
         userFilter.$and = [
           ...(userFilter.$and ?? []),
           {$or: [{farmerProfile: {$exists: false}}, {farmerProfile: null}]},
@@ -15139,9 +15144,12 @@ export class ChatbotRepository implements IChatbotRepository {
     isPassed?: string,
     tag?: string,
     userId?: string,
+    state?: string,
+    district?: string,
   ): Promise<any> {
     await this.initReviewSystem();
     await this.init('annam');
+    console.log('State is coming to be', state)
 
     const safePage = Math.max(Number(page) || 1, 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
@@ -15198,6 +15206,21 @@ export class ChatbotRepository implements IChatbotRepository {
         matchQuery.createdAt.$lte = endOfDay;
       }
     }
+
+          if (state) {
+        matchQuery['details.state'] = {
+          $regex: `^${state}$`,
+          $options: 'i',
+        };
+      }
+
+      if (district) {
+        matchQuery['details.district'] = {
+          $regex: `^${district}$`,
+          $options: 'i',
+        };
+      }
+
 
     const query = await this.buildQuestionUserTypeMatchQuery(source, userType);
 

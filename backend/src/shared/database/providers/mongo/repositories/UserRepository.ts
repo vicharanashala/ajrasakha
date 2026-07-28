@@ -1014,20 +1014,30 @@ export class UserRepository implements IUserRepository {
   ): Promise<void> {
     await this.init();
     const qid = new ObjectId(questionId);
+    // Aggregation-pipeline update so it's null-safe: `$ifNull` coerces a null/missing
+    // `assignedQuestionIds` to [] (a plain $push/$pull throws on a non-array/null field),
+    // `$filter` de-dupes any existing entry for this question, then we append the new one.
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
-      {
-        $pull: { assignedQuestionIds: { questionId: qid } },
-        $set: { updatedAt: new Date() },
-      },
-      { session },
-    );
-    await this.usersCollection.updateOne(
-      { _id: new ObjectId(moderatorId) },
-      {
-        $push: { assignedQuestionIds: { questionId: qid, status, source } },
-        $set: { updatedAt: new Date() },
-      },
+      [
+        {
+          $set: {
+            assignedQuestionIds: {
+              $concatArrays: [
+                {
+                  $filter: {
+                    input: { $ifNull: ['$assignedQuestionIds', []] },
+                    as: 'a',
+                    cond: { $ne: ['$$a.questionId', qid] },
+                  },
+                },
+                [{ questionId: qid, status, source: source ?? null }],
+              ],
+            },
+            updatedAt: new Date(),
+          },
+        },
+      ],
       { session },
     );
   }
@@ -1035,7 +1045,11 @@ export class UserRepository implements IUserRepository {
   /** Removes a single question's entry from a moderator's assigned-questions array.
    *  Called when the moderator acts on the question (answers/closes), or when the
    *  question is manually removed/reassigned. */
-  async removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void> {
+  async removeAssignedQuestion(
+    moderatorId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
     await this.init();
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
@@ -1043,6 +1057,7 @@ export class UserRepository implements IUserRepository {
         $pull: { assignedQuestionIds: { questionId: new ObjectId(questionId) } },
         $set: { updatedAt: new Date() },
       },
+      { session },
     );
   }
 
@@ -2313,5 +2328,25 @@ export class UserRepository implements IUserRepository {
       console.error('Error fetching user history:', error);
       throw new InternalServerError('Failed to fetch user history');
     }
+  }
+
+  /**
+   * Clears all assigned question IDs for a user by setting assignedQuestionIds to null.
+   * @param userId - The ID of the user whose assigned questions should be cleared
+   */
+  async clearAssignedQuestions(userId: string): Promise<{modifiedCount: number}> {
+    await this.init();
+    const result = await this.usersCollection.updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          // Empty array, NOT null — a null field can't be $push/$pull-ed, which would
+          // make the user look "available" but block every future auto-assignment.
+          assignedQuestionIds: [],
+          updatedAt: new Date(),
+        },
+      },
+    );
+    return { modifiedCount: result.modifiedCount };
   }
 }

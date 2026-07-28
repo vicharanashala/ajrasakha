@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { getContainer } from '../loadModules.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { QuestionService } from '#root/modules/core/index.js';
-
+import { appConfig } from '#root/config/app.js';
 // Queue assignment is now run by the Cloud Run Job `gate-keeper-auditor-queue`
 // (see src/jobs/gate-keeper-auditor-queue/run.ts), triggered by Cloud Scheduler
 // every minute. The in-process cron is disabled to avoid double execution.

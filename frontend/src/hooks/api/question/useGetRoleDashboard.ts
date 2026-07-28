@@ -16,10 +16,13 @@ export const useGetRoleDashboard = (
     enabled?: boolean;
     userId?: string;
     role?: "gate_keeper" | "auditor";
+    startDate?: string;
+    endDate?: string;
+    dateFilterType?: "assigned" | "completed" | "both";
   } = {},
 ) => {
   return useQuery<RoleDashboardResponse | null>({
-    queryKey: ["role_dashboard", page, limit, search, options.userId, options.role],
+    queryKey: ["role_dashboard", page, limit, search, options.userId, options.role, options.startDate, options.endDate, options.dateFilterType],
     queryFn: () =>
       questionService.getRoleDashboard(
         page,
@@ -27,6 +30,9 @@ export const useGetRoleDashboard = (
         search,
         options.userId,
         options.role,
+        options.startDate,
+        options.endDate,
+        options.dateFilterType,
       ),
     enabled: options.enabled ?? true,
   });

@@ -990,8 +990,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">
                             {isDynamicQuestion
-                                ? "As Auditor you can notify the user and close this dynamic question."
-                                : "As Auditor you can push this duplicate question to the GDB, or notify the user."}
+                                ? "As Auditor you can notify the user, allocate experts, or close this dynamic question."
+                                : "As Auditor you can push this duplicate question to the GDB, allocate experts, or notify the user."}
                         </p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
                             {isDuplicateQuestion && (
@@ -1000,6 +1000,10 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                     {isUpdating ? "Pushing to GDB..." : "Push to GDB"}
                                 </Button>
                             )}
+                            <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handleAccept} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                                {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                                {isUpdating ? "Allocating..." : "Allocate Experts"}
+                            </Button>
                             {isDuplicateQuestion && (
                                 <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
                                     {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}

@@ -733,6 +733,7 @@ export interface IChatbotRepository {
     activeTodayByProfile?: boolean,
     missingDemographicField?: string,
     isVerified?: boolean,
+    fromMap?: boolean,
     loginStatus?: 'all' | 'loggedIn' | 'loggedOut',
   ): Promise<PaginatedUserDetails>;
 
@@ -1083,6 +1084,8 @@ export interface IChatbotRepository {
     isPassed?: string,
     tag?: string,
     userId?: string,
+    state?: string,
+    district?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(

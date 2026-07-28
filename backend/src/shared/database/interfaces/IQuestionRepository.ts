@@ -585,6 +585,9 @@ export interface IQuestionRepository {
     page: number,
     limit: number,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
   ): Promise<{
     assignedCount: number;
     submittedCount: number;
@@ -603,5 +606,6 @@ export interface IQuestionRepository {
     questionId: string,
     finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
     finishedAt: Date,
+    session?: ClientSession,
   ): Promise<void>;
 }

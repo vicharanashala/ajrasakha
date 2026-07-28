@@ -74,6 +74,8 @@ import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAudit
 import { UserService } from '#root/modules/user/index.js';
 import { IContextService } from '#root/modules/context/interfaces/index.js';
 import { restoreBackupBson } from '#root/utils/DBMigration.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
+import { CheckOverlapsService } from '../services/CheckOverlapsService.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -95,6 +97,9 @@ export class QuestionController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(CORE_TYPES.CheckOverlapsService)
+    private readonly checkOverlapsService: CheckOverlapsService,
   ) { }
 
   @Post('/status-summary')
@@ -173,7 +178,7 @@ export class QuestionController {
   ): Promise<QuestionResponse[]> {
     const userId = user._id.toString();
     const canViewQueue =
-      user.role === 'admin' || user.role === 'moderator';
+      user.role === 'admin' || user.role === 'moderator' || user.role === 'gate_keeper' || user.role === 'auditor';
     const targetUserId =
       canViewQueue && query.user && query.user !== 'all'
         ? query.user
@@ -943,6 +948,9 @@ export class QuestionController {
       search?: string;
       userId?: string;
       role?: 'gate_keeper' | 'auditor';
+      startDate?: string;
+      endDate?: string;
+      dateFilterType?: 'assigned' | 'completed' | 'both';
     },
   ) {
     // Managers (admin / moderator) may view a specific gate keeper's / auditor's
@@ -966,12 +974,28 @@ export class QuestionController {
     }
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 11;
+
+    // Parse date range - ensure startDate has 00:00:00 and endDate has 23:59:59
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+    if (query.startDate) {
+      startDate = new Date(query.startDate);
+      startDate.setHours(0, 0, 0, 0);
+    }
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
     return this.questionService.getRoleAssigneeDashboard(
       targetUserId,
       role,
       page,
       limit,
       query.search,
+      startDate,
+      endDate,
+      query.dateFilterType || 'both',
     );
   }
 
@@ -2695,5 +2719,67 @@ export class QuestionController {
   ) {
     await this.questionService.markQuestionOpened(questionId, user._id.toString());
     return { success: true };
+  }
+
+  // ─── Migration endpoints (internal API key auth) ──────────────────────────
+
+  @Post('/background/process')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Background process for repo actions' })
+  async backgroundProcessAction(
+    @Body() body: { userId: string },
+  ) {
+    const { userId } = body;
+    if (!userId) {
+      throw new BadRequestError('userId is required');
+    }
+    const result = await this.questionService.backgroundProcessAction(userId);
+    return result;
+  }
+
+  @Post('/background/remove-history-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Remove a submission history entry by index (internal data fix)',
+  })
+  async removeSubmissionHistoryEntry(
+    @Body() body: { questionId: string; index: number },
+  ) {
+    const { questionId, index } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (index === undefined || index === null) {
+      throw new BadRequestError('index is required');
+    }
+    return await this.questionService.removeSubmissionHistoryEntry(
+      questionId,
+      Number(index),
+    );
+  }
+  // ─── Check overlaps endpoint (internal API key auth) ──────────────────────
+
+  @Post('/check-overlaps')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Check for overlapping documents between staging and production databases' })
+  async checkOverlaps() {
+    console.log('[QuestionController] checkOverlaps: Starting overlap check...');
+    const result = await this.checkOverlapsService.checkOverlaps();
+    return result;
+  }
+
+  // ─── Run migration endpoint (internal API key auth) ──────────────────────
+
+  @Post('/run-migration')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Run migration from staging to production database' })
+  async runMigration() {
+    console.log('[QuestionController] runMigration: Starting migration...');
+    const result = await this.checkOverlapsService.runMigration();
+    return result;
   }
 }

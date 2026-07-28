@@ -1546,6 +1546,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     activeTodayByProfile = false,
     missingDemographicField?: string,
     isVerified?: boolean,
+    fromMap?:boolean,
     loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
@@ -1576,6 +1577,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         activeTodayByProfile,
         missingDemographicField,
         isVerified,
+        fromMap,
         loginStatus,
       );
       return data;
@@ -3793,7 +3795,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, isPassed?: string, tag?: string, userId?: string): Promise<any> {
+  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, isPassed?: string, tag?: string, userId?: string, state?: string, district?: string): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionsClosedWithinTwoHours(
         page,
@@ -3807,6 +3809,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         isPassed,
         tag,
         userId,
+        state,
+        district,
       )
     }catch(error){
       throw new InternalServerError(`Internal server error ${error}`)

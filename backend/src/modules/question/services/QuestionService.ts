@@ -2321,15 +2321,28 @@ export class QuestionService extends BaseService implements IQuestionService {
           updates.isClosed = true;
           if (!updates.closedAt) updates.closedAt = new Date();
         }
-        return this.questionRepo.updateQuestion(questionId, updates, session);
+        const updateResult = await this.questionRepo.updateQuestion(
+          questionId,
+          updates,
+          session,
+        );
+
+        // In-transaction: if the status changed, free any gate keeper / auditor whose
+        // handling scope the question has now left (pass / push-to-auditor / close, etc.)
+        // so the status change and the release commit atomically — a failure here rolls
+        // back the whole update, preventing a stuck assignee. (The queue cron still
+        // reconciles as a backstop for any release missed by other paths.)
+        if (!threadUpdate && updates.status) {
+          await this.freeRoleAssigneeOnStatusChange(
+            questionId,
+            updates.status,
+            session,
+          );
+        }
+
+        return updateResult;
       });
 
-      // After commit: if the status changed, free any gate keeper / auditor whose
-      // handling scope the question has now left (pass / push-to-auditor / close, etc.)
-      // so the role queue cron can hand them another question.
-      if (!threadUpdate && updates.status) {
-        await this.freeRoleAssigneeOnStatusChange(questionId, updates.status);
-      }
       return result;
     } catch (error) {
       throw new InternalServerError(`Failed to update question: ${error}`);
@@ -4221,13 +4234,17 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   /** Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts
-   *  plus their paginated question list. "Submitted" = they finished it (finishedAt set). */
+   *  plus their paginated question list. "Submitted" = they finished it (finishedAt set).
+   *  Supports optional date range filtering by assigned date, completed date, or both. */
   async getRoleAssigneeDashboard(
     userId: string,
     role: 'gate_keeper' | 'auditor',
     page: number,
     limit: number,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
   ) {
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const finishedField =
@@ -4240,6 +4257,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       page,
       limit,
       search,
+      startDate,
+      endDate,
+      dateFilterType,
     );
   }
 
@@ -7006,15 +7026,56 @@ export class QuestionService extends BaseService implements IQuestionService {
    * auditor). Clears the assignee field on the question and removes it from the
    * user's assigned list so the cron can hand them another. Best-effort; never throws.
    */
+  /**
+   * The exact time a role (gate keeper / auditor) finished with a question — taken from the
+   * audit trail (the createdAt of the latest action logged by an actor of that role) rather
+   * than fabricated with new Date().
+   *
+   * When called inside the update transaction (session present), the audit entry for the
+   * current action hasn't been written yet AND an older same-role entry could mislead — so
+   * there we use the action instant (now), which is exact. Post-commit / reconciliation
+   * (no session) reads the real historical time from the audit trail.
+   */
+  private async resolveRoleFinishTime(
+    questionId: string,
+    role: 'gate_keeper' | 'auditor',
+    session?: ClientSession,
+  ): Promise<Date> {
+    if (session) return new Date();
+    try {
+      const {data} = await this.auditTrailsService.getAuditTrailsByQuestionId(
+        questionId,
+        1,
+        25,
+        null,
+        'desc',
+      );
+      const entry = data.find(
+        a => (a as any)?.actor?.role === role && (a as any)?.createdAt,
+      );
+      if (entry?.createdAt) return new Date(entry.createdAt as any);
+    } catch (err: any) {
+      console.error(
+        `[RoleAssignee] audit-time lookup failed for ${questionId} (${role}):`,
+        err?.message,
+      );
+    }
+    return new Date();
+  }
+
   async freeRoleAssigneeOnStatusChange(
     questionId: string,
     newStatus?: QuestionStatus,
+    session?: ClientSession,
   ): Promise<void> {
-    try {
-      const question = await this.questionRepo.getById(questionId);
+    // When a session is supplied, the caller wants this to run inside their transaction —
+    // let failures propagate so the status change and the release roll back together.
+    // Without a session it stays best-effort (post-commit / other callers) and never throws.
+    const run = async () => {
+      const question = await this.questionRepo.getById(questionId, session);
       if (!question) return;
-      // Fall back to the question's current (already-committed) status when the caller
-      // doesn't pass one — e.g. after an answer approval/close.
+      // Fall back to the question's current status when the caller doesn't pass one —
+      // e.g. after an answer approval/close.
       const status = newStatus ?? question.status;
 
       // When the question leaves the role's handling statuses, the assignee has acted:
@@ -7023,30 +7084,38 @@ export class QuestionService extends BaseService implements IQuestionService {
       // change doesn't overwrite the original finish time.
       const gkId = (question as any).gateKeeperId?.toString();
       if (gkId && !QuestionService.GATE_KEEPER_STATUSES.includes(status)) {
-        // Always pull the question from the gate keeper's assigned list so they're
-        // freed (e.g. on cancel duplicate → open). Only stamp finishedAt once so a
-        // later status change doesn't overwrite the original finish time.
-        await this.userRepo.removeAssignedQuestion(gkId, questionId);
+        await this.userRepo.removeAssignedQuestion(gkId, questionId, session);
         if (!(question as any).gateKeeperFinishedAt) {
           await this.questionRepo.markRoleFinished(
             questionId,
             'gateKeeperFinishedAt',
-            new Date(),
+            await this.resolveRoleFinishTime(questionId, 'gate_keeper', session),
+            session,
           );
         }
       }
 
       const audId = (question as any).auditorId?.toString();
       if (audId && !QuestionService.AUDITOR_STATUSES.includes(status)) {
-        await this.userRepo.removeAssignedQuestion(audId, questionId);
+        await this.userRepo.removeAssignedQuestion(audId, questionId, session);
         if (!(question as any).auditorFinishedAt) {
           await this.questionRepo.markRoleFinished(
             questionId,
             'auditorFinishedAt',
-            new Date(),
+            await this.resolveRoleFinishTime(questionId, 'auditor', session),
+            session,
           );
         }
       }
+    };
+
+    if (session) {
+      await run();
+      return;
+    }
+
+    try {
+      await run();
     } catch (err: any) {
       console.error(
         `[RoleAssignee] Failed to free assignee for ${questionId}:`,
@@ -8333,6 +8402,30 @@ export class QuestionService extends BaseService implements IQuestionService {
         auditorAllocated as QueueDetailsResponse['auditorAllocated'],
       availableAuditors:
         availableAuditors as QueueDetailsResponse['availableAuditors'],
+    };
+  }
+
+  /**
+   * Remove the second entry from history and queue arrays in a question submission.
+   * This is used for migration purposes to fix duplicate entries.
+   * @param submissionId - The submission document ID
+   */
+  async backgroundProcessAction(userId: string): Promise<{ modifiedCount: number }> {
+        return await this.userRepo.clearAssignedQuestions(userId);
+  }
+
+  /** Admin utility: remove a submission history entry (by 0-based index) for a question. */
+  async removeSubmissionHistoryEntry(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: boolean; historyLength: number }> {
+    const updated = await this.questionSubmissionRepo.removeHistoryEntryByIndex(
+      questionId,
+      index,
+    );
+    return {
+      success: true,
+      historyLength: updated?.history?.length ?? 0,
     };
   }
 }

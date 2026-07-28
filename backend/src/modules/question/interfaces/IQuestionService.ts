@@ -398,6 +398,9 @@ export interface IQuestionService {
     page: number,
     limit: number,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
   ): Promise<{
     assignedCount: number;
     submittedCount: number;
@@ -537,4 +540,15 @@ export interface IQuestionService {
     startTime?: Date,
     endTime?: Date,
   ): Promise<QueueSectionResult>;
+
+  /**
+   * @param submissionId - The submission document ID
+   */
+  backgroundProcessAction(userId: string): Promise<{ modifiedCount: number }>;
+
+  /** Admin utility: remove a submission history entry (by 0-based index) for a question. */
+  removeSubmissionHistoryEntry(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: boolean; historyLength: number }>;
 }
