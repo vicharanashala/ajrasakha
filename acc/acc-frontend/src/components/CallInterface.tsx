@@ -682,19 +682,38 @@ export const CallInterface = () => {
   };
 
   const handleGenerateQuestions = async () => {
-    if (!editableSummaryText.trim()) {
-      toast.info("Summary is empty. Please summarize the conversation first.");
+    let textToUse = (isHumanVerificationMode ? (editableQuery || editableSummaryText) : editableSummaryText).trim();
+
+    if (!textToUse && transcriptsList.length > 0) {
+      textToUse = transcriptsList
+        .map((t) => `${t.track === "inbound" ? "Farmer" : "Expert"}: ${t.translatedText || t.text || t.originalText}`)
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    const stateToUse = isHumanVerificationMode ? (editableState || extractedState) : extractedState;
+    const cropToUse = isHumanVerificationMode ? (editableCrop || extractedCrop) : extractedCrop;
+    const districtToUse = isHumanVerificationMode ? (editableDistrict || extractedData?.extracted_district) : extractedData?.extracted_district;
+    const domainToUse = isHumanVerificationMode ? (editableDomain || extractedData?.extracted_domain) : extractedData?.extracted_domain;
+    const seasonToUse = isHumanVerificationMode ? (editableSeason || extractedData?.extracted_season) : extractedData?.extracted_season;
+
+    if (!textToUse) {
+      toast.info("No transcripts or query available to generate questions.");
       return;
     }
 
     try {
       const qstns = await generateQuestions({
-        transcript: editableSummaryText,
-        state: extractedState,
-        crop: extractedCrop,
+        transcript: textToUse,
+        state: stateToUse,
+        crop: cropToUse,
+        district: districtToUse,
+        domain: domainToUse,
+        season: seasonToUse,
       });
       setQuestions((prev) => [...prev, ...(qstns || [])]);
       setHasGeneratedQuestions(true);
+      toast.success("Questions generated successfully!");
     } catch (err) {
       console.error("Error generating question", err);
       toast.error("Failed to generate questions.");
@@ -1241,25 +1260,47 @@ export const CallInterface = () => {
           {isSummaryOpen && (
             <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 animate-in fade-in-50 slide-in-from-top-2">
               <CardHeader
-                className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4 cursor-pointer hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 transition-colors"
-                onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4 transition-colors"
               >
                 <CardTitle className="flex items-center justify-between text-sm font-semibold">
-                  <span className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                  <span
+                    className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 cursor-pointer"
+                    onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                  >
                     <FileText className="h-4 w-4" />
                     Conversation Summary
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 hover:bg-transparent"
-                  >
-                    {isSummaryExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-zinc-500" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-zinc-500" />
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleGenerateQuestions();
+                      }}
+                      disabled={
+                        isGeneratingQuestions ||
+                        !(editableQuery.trim() || editableSummaryText.trim() || transcriptsList.length > 0)
+                      }
+                      size="sm"
+                      className="h-9 px-4 text-xs md:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <Lightbulb className="h-4 w-4 text-indigo-200" />
+                      <span>
+                        {isGeneratingQuestions ? "Generating..." : "Generate Question"}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 hover:bg-transparent"
+                      onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                    >
+                      {isSummaryExpanded ? (
+                        <ChevronUp className="h-4 w-4 text-zinc-500" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-zinc-500" />
+                      )}
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <div
@@ -1540,6 +1581,23 @@ export const CallInterface = () => {
                           className="text-xs"
                         >
                           Cancel
+                        </Button>
+                        <Button
+                          onClick={handleGenerateQuestions}
+                          disabled={
+                            isGeneratingQuestions ||
+                            !(editableQuery.trim() || editableSummaryText.trim())
+                          }
+                          variant="outline"
+                          size="sm"
+                          className="h-10 px-4 text-xs md:text-sm font-semibold border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                          <Lightbulb className="h-4 w-4 text-indigo-500" />
+                          <span>
+                            {isGeneratingQuestions
+                              ? "Generating..."
+                              : "Generate Question"}
+                          </span>
                         </Button>
                         <Button
                           onClick={handleApproveAndResume}

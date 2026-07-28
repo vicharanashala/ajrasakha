@@ -166,6 +166,35 @@ export class AccAgentController {
     }
   }
 
+  @Post('/generate-by-call-context')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Generate questions from call context' })
+  async getQuestionFromCallContext(
+    @Body() body: {
+      query: string;
+      state?: string;
+      crop?: string;
+      district?: string;
+      domain?: string | string[];
+      season?: string;
+    },
+  ): Promise<any[]> {
+    try {
+      return await this.accAgentService.generateQuestionsFromCallContext(
+        body.query,
+        body.state,
+        body.crop,
+        body.district,
+        body.domain,
+        body.season,
+      );
+    } catch (error) {
+      console.error('[AccAgentController] getQuestionFromCallContext: Error', error);
+      throw error;
+    }
+  }
+
   @Post('/acc-agent/call-summary')
   @HttpCode(200)
   @OpenAPI({ summary: 'Generate call summary from raw transcript' })

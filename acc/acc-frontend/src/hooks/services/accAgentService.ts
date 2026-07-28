@@ -42,10 +42,32 @@ export interface QAMetadata {
   extracted_season: string;
 }
 
+export interface GeneratedQuestion {
+  id: string;
+  question: string;
+  agri_specialist: string;
+  answer: string;
+  referenceSource: string;
+}
+
 const API_BASE_URL = env.apiBaseUrl();
 
 export class AccAgentService {
   private readonly baseUrl = `${API_BASE_URL}/questions`;
+
+  async generateQuestionsFromCallContext(
+    query: string,
+    state?: string,
+    crop?: string,
+    district?: string,
+    domain?: string | string[],
+    season?: string
+  ): Promise<GeneratedQuestion[] | null> {
+    return apiFetch<GeneratedQuestion[] | null>(`${this.baseUrl}/generate-by-call-context`, {
+      method: "POST",
+      body: JSON.stringify({ query, state, crop, district, domain, season }),
+    });
+  }
 
   async createThread(): Promise<{ thread_id: string }> {
     const result = await apiFetch<{ thread_id: string }>(`${this.baseUrl}/acc-agent/thread`, {

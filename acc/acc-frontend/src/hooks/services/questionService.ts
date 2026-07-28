@@ -1,23 +1,18 @@
-import { env } from "@/config/env";
-import { apiFetch } from "../api/api-fetch";
+import { AccAgentService, type GeneratedQuestion } from "./accAgentService";
 
-export interface GeneratedQuestion {
-  id: string;
-  question: string;
-  agri_specialist: string;
-  answer: string;
-  referenceSource: string;
-}
-
-const API_BASE_URL = env.apiBaseUrl();
+export type { GeneratedQuestion };
 
 export class QuestionService {
-  private _baseUrl = `${API_BASE_URL}/questions`;
+  private accAgentService = new AccAgentService();
 
-  async generateQuestionsFromCallContext(query: string, state?: string, crop?: string): Promise<GeneratedQuestion[] | null> {
-    return apiFetch<GeneratedQuestion[] | null>(`${this._baseUrl}/generate-by-call-context`, {
-      method: "POST",
-      body: JSON.stringify({ query, state, crop }),
-    });
+  async generateQuestionsFromCallContext(
+    query: string,
+    state?: string,
+    crop?: string,
+    district?: string,
+    domain?: string | string[],
+    season?: string
+  ): Promise<GeneratedQuestion[] | null> {
+    return this.accAgentService.generateQuestionsFromCallContext(query, state, crop, district, domain, season);
   }
 }
