@@ -9,6 +9,7 @@ import {
   IReroute,
   IReviewerHeatmapResponse,
   LevelReportStat,
+  QuestionSource,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -276,6 +277,115 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       throw new InternalServerError(
         `Failed to remove history entry: ${error}`,
       );
+    }
+  }
+
+  /** Admin data-fix: remove a single expert from a question's submission queue by its
+   *  array index (0-based). Read-modify-write so out-of-range indexes fail loudly and the
+   *  rest of the queue keeps its order. Does NOT touch the history or re-run allocation. */
+  async removeQueueEntryByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null> {
+    try {
+      await this.init();
+      const submission = await this.getByQuestionId(questionId, session);
+      if (!submission) {
+        throw new NotFoundError(
+          `No submission found for questionId: ${questionId}`,
+        );
+      }
+
+      const queue = submission.queue || [];
+      if (!Number.isInteger(index) || index < 0 || index >= queue.length) {
+        throw new BadRequestError(
+          `Invalid queue index ${index}; submission has ${queue.length} expert${queue.length === 1 ? '' : 's'} in the queue`,
+        );
+      }
+
+      const nextQueue = [...queue];
+      nextQueue.splice(index, 1);
+
+      await this.QuestionSubmissionCollection.updateOne(
+        {questionId: new ObjectId(questionId)},
+        {$set: {queue: nextQueue, updatedAt: new Date()}},
+        {session},
+      );
+
+      return this.getByQuestionId(questionId, session);
+    } catch (error) {
+      if (
+        error instanceof BadRequestError ||
+        error instanceof NotFoundError
+      ) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to remove queue entry: ${error}`,
+      );
+    }
+  }
+
+  /** Admin utility: append an expert to a question's submission queue. */
+  async addQueueEntry(
+    questionId: string,
+    expertId: string,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null> {
+    try {
+      await this.init();
+      const submission = await this.getByQuestionId(questionId, session);
+      if (!submission) {
+        throw new NotFoundError(
+          `No submission found for questionId: ${questionId}`,
+        );
+      }
+      await this.QuestionSubmissionCollection.updateOne(
+        {questionId: new ObjectId(questionId)},
+        {
+          $push: {queue: new ObjectId(expertId)},
+          $set: {updatedAt: new Date()},
+        } as any,
+        {session},
+      );
+      return this.getByQuestionId(questionId, session);
+    } catch (error) {
+      if (error instanceof BadRequestError || error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to add queue entry: ${error}`);
+    }
+  }
+
+  /** Admin utility: append a pre-built history entry to a question's submission history. */
+  async addHistoryEntry(
+    questionId: string,
+    entry: ISubmissionHistory,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null> {
+    try {
+      await this.init();
+      const submission = await this.getByQuestionId(questionId, session);
+      if (!submission) {
+        throw new NotFoundError(
+          `No submission found for questionId: ${questionId}`,
+        );
+      }
+      await this.QuestionSubmissionCollection.updateOne(
+        {questionId: new ObjectId(questionId)},
+        {
+          $push: {history: entry},
+          $set: {updatedAt: new Date()},
+        } as any,
+        {session},
+      );
+      return this.getByQuestionId(questionId, session);
+    } catch (error) {
+      if (error instanceof BadRequestError || error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to add history entry: ${error}`);
     }
   }
 
@@ -3401,6 +3511,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async setCurrentExpertAllocatedAt(
     questionId: string,
     allocatedAt: Date,
+    session?: ClientSession,
   ): Promise<void> {
     await this.init();
     await this.QuestionSubmissionCollection.updateOne(
@@ -3412,6 +3523,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           updatedAt: new Date(),
         },
       },
+      { session },
     );
   }
 
@@ -3437,9 +3549,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     );
   }
 
-  async findTimeBoundQuestionsForReallocation(): Promise<
-    IQuestionSubmission[]
-  > {
+  async findTimeBoundQuestionsForReallocation(
+    sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
+    requirePaeReviewNotDone: boolean = false,
+  ): Promise<IQuestionSubmission[]> {
     await this.init();
     const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
 
@@ -3468,25 +3581,14 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {$unwind: '$question'},
       {
         $match: {
-          'question.source': {$in: ['WHATSAPP', 'AJRASAKHA']},
+          'question.source': { $in: sources },
           // 're-routed' questions are owned by the reroute flow (moderators handle them),
-          // not the time-bound cron — exclude them so they don't consume STF capacity.
-          'question.status': {
-            $nin: [
-              'closed',
-              'in-review',
-              'pae_submitted',
-              'pass',
-              'duplicate',
-              'draft',
-              'non_agri',
-              're-routed',
-            ],
-          },
-          'question.isOnHold': {$ne: true},
+          // not the single-allocation cron — exclude them so they don't consume capacity.
+          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri', 're-routed'] },
+          'question.isOnHold': { $ne: true },
           'question.isAutoAllocate': {$eq: true},
-          // Test questions must never be auto-allocated, regardless of isAutoAllocate.
-          'question.isTesting': {$ne: true},
+          // Manual single-allocation: only questions not yet PAE-reviewed (false/missing).
+          ...(requirePaeReviewNotDone ? { 'question.pae_review': { $ne: true } } : {}),
         },
       },
       {$sort: {'question.createdAt': 1}},
@@ -3498,7 +3600,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
    *  answer / approvedAnswer / modifiedAnswer / rejectedAnswer (an empty history,
    *  meaning opened-but-no-entry, also qualifies). Distinct from "stuck", which is
    *  allocated-but-NEVER-opened. */
-  async findOpenedButIdleTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
+  async findOpenedButIdleTimeBoundQuestions(
+    sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
+  ): Promise<IQuestionSubmission[]> {
     await this.init();
     const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
 
@@ -3536,33 +3640,36 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {$unwind: '$question'},
       {
         $match: {
-          'question.source': {$in: ['WHATSAPP', 'AJRASAKHA']},
-          'question.status': {$in: ['open', 'delayed']},
-          'question.isOnHold': {$ne: true},
-          'question.isAutoAllocate': {$eq: true},
-          // Test questions must never be auto-allocated, regardless of isAutoAllocate.
-          'question.isTesting': {$ne: true},
+          'question.source': { $in: sources },
+          'question.status': { $in: ['open', 'delayed'] },
+          'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': { $eq: true },
         },
       },
       {$sort: {'question.createdAt': 1}},
     ]).toArray();
   }
 
-  async findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
+  async findUnallocatedTimeBoundQuestions(
+    sources: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'],
+    requirePaeReviewNotDone: boolean = false,
+  ): Promise<IQuestionSubmission[]> {
     await this.init();
 
-    // Never-allocated time-bound questions sourced directly from the questions
-    // collection: time-bound + auto-allocate + still open/delayed + never had a
+    // Never-allocated single-allocation questions sourced directly from the questions
+    // collection: matching source + auto-allocate + still open/delayed + never had a
     // first allocation. Shaped to the submission-like form the callers expect
     // (.questionId / .question / .queue).
     const questions = await this.QuestionCollection.find({
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: { $in: sources },
       isAutoAllocate: true,
       status: {$in: ['open', 'delayed']},
       firstAllocationAt: null,
       isOnHold: {$ne: true},
       // Test questions must never be auto-allocated, regardless of isAutoAllocate.
       isTesting: {$ne: true},
+      // Manual single-allocation: only questions not yet PAE-reviewed (false/missing).
+      ...(requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {}),
     })
       .sort({createdAt: 1})
       .toArray();
@@ -3584,7 +3691,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
    *  AND the last expert completed their work:
    *    - Position 0 (author): history[0].answer exists (submitted their answer)
    *    - Position >= 1 (reviewer): last history status !== 'in-review' (completed review) */
-  async findAnsweredQuestionsNeedingReviewer(): Promise<IQuestionSubmission[]> {
+  async findAnsweredQuestionsNeedingReviewer(
+    sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
+    requirePaeReviewNotDone: boolean = false,
+  ): Promise<IQuestionSubmission[]> {
     await this.init();
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
       {
@@ -3630,12 +3740,17 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {$unwind: '$question'},
       {
         $match: {
-          'question.source': {$in: ['WHATSAPP', 'AJRASAKHA']},
-          'question.status': {$in: ['open', 'delayed']},
-          'question.isOnHold': {$ne: true},
-          'question.isAutoAllocate': {$eq: true},
+         // 'question.source': {$in: ['WHATSAPP', 'AJRASAKHA']},
+          //'question.status': {$in: ['open', 'delayed']},
+         // 'question.isOnHold': {$ne: true},
+          //'question.isAutoAllocate': {$eq: true},
           // Test questions must never be auto-allocated, regardless of isAutoAllocate.
           'question.isTesting': {$ne: true},
+          'question.source': { $in: sources },
+          'question.status': { $in: ['open', 'delayed'] },
+          'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': {$eq:true},
+          ...(requirePaeReviewNotDone ? { 'question.pae_review': { $ne: true } } : {}),
         },
       },
     ]).toArray();
@@ -3648,6 +3763,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     questionId: string,
     reviewerId: string,
     now: Date,
+    session?: ClientSession,
   ): Promise<void> {
     await this.init();
     await this.QuestionSubmissionCollection.updateOne(
@@ -3668,10 +3784,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           updatedAt: now,
         },
       },
+      { session },
     );
   }
 
-  async getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>> {
+  async getTimeBoundActiveCountPerExpert(
+    sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
+  ): Promise<Map<string, number>> {
     await this.init();
     // Pipeline: join with questions, filter to time-bound, unwind queue with index,
     // and determine whether the expert at each position still has pending work.
@@ -3693,9 +3812,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {$unwind: '$q'},
       {
         $match: {
-          'q.source': {$in: ['WHATSAPP', 'AJRASAKHA']},
-          'q.status': {$in: ['open', 'delayed']},
-          'q.isOnHold': {$ne: true},
+          'q.source': { $in: sources },
+          'q.status': { $in: ['open', 'delayed'] },
+          'q.isOnHold': { $ne: true },
         },
       },
       // Unwind queue so each expert gets their own document with their position index

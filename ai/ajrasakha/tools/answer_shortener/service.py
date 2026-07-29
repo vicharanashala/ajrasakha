@@ -1,4 +1,4 @@
-"""Query-guided, source-only answer extraction orchestration."""
+"""Query-guided extraction with a constrained fallback for infeasible ranges."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from typing import Protocol
 try:  # Package import for local Uvicorn and tests.
     from .extraction import (
         assemble_selected_segments,
+        ExtractionSegment,
         ExtractionSelectionError,
         ExtractiveRangeNotFeasibleError,
         MandatorySpanMappingError,
@@ -18,11 +19,21 @@ try:  # Package import for local Uvicorn and tests.
         parse_ranked_segment_ids,
         split_source_into_segments,
     )
-    from .prompts import SEGMENT_RANKING_SYSTEM_PROMPT, build_segment_ranking_prompt
-    from .validation import ProtectedContent
+    from .prompts import (
+        RANKED_SOURCE_COMPRESSION_SYSTEM_PROMPT,
+        SEGMENT_RANKING_SYSTEM_PROMPT,
+        build_ranked_source_compression_prompt,
+        build_segment_ranking_prompt,
+    )
+    from .validation import (
+        ProtectedContent,
+        normalize_candidate,
+        validate_compressed_candidate,
+    )
 except ImportError:  # Docker runs this directory directly as ``api:app``.
     from extraction import (
         assemble_selected_segments,
+        ExtractionSegment,
         ExtractionSelectionError,
         ExtractiveRangeNotFeasibleError,
         MandatorySpanMappingError,
@@ -31,8 +42,17 @@ except ImportError:  # Docker runs this directory directly as ``api:app``.
         parse_ranked_segment_ids,
         split_source_into_segments,
     )
-    from prompts import SEGMENT_RANKING_SYSTEM_PROMPT, build_segment_ranking_prompt
-    from validation import ProtectedContent
+    from prompts import (
+        RANKED_SOURCE_COMPRESSION_SYSTEM_PROMPT,
+        SEGMENT_RANKING_SYSTEM_PROMPT,
+        build_ranked_source_compression_prompt,
+        build_segment_ranking_prompt,
+    )
+    from validation import (
+        ProtectedContent,
+        normalize_candidate,
+        validate_compressed_candidate,
+    )
 
 
 logger = logging.getLogger(__name__)
@@ -74,6 +94,15 @@ class ModelSelectionError(ShorteningError):
 
     def __init__(self, *, attempts: int, failure_codes: tuple[str, ...]) -> None:
         super().__init__("Claude could not return a valid source-segment ranking")
+        self.attempts = attempts
+        self.failure_codes = failure_codes
+
+
+class ModelCompressionError(ShorteningError):
+    """Raised when fallback compression cannot produce a validated answer."""
+
+    def __init__(self, *, attempts: int, failure_codes: tuple[str, ...]) -> None:
+        super().__init__("Claude could not return a valid compressed answer")
         self.attempts = attempts
         self.failure_codes = failure_codes
 
@@ -213,24 +242,31 @@ class AnswerShorteningService:
         mandatory_text = _EXTRACTION_SEPARATOR.join(
             segment.text for segment in mandatory_segments
         )
-        if len(mandatory_text) > upper_bound:
-            raise ProtectedContentTooLargeError(
-                "The target is too small to preserve mandatory safety source segments"
-            )
-
         known_segment_ids = tuple(segment.segment_id for segment in segments)
 
-        # Feasibility is independent of relevance order. Fail before paying for a
-        # model call when no whole-source-segment combination can fit the range.
-        fit_ranked_segments(
-            segments,
-            known_segment_ids,
-            lower_bound=lower_bound,
-            target=expected_character_count,
-            upper_bound=upper_bound,
-            mandatory_segment_ids=mandatory_segment_ids,
-            separator=_EXTRACTION_SEPARATOR,
-        )
+        # Rank once, then use that ranking for either path. Exact extraction remains
+        # preferred. The constrained model fallback is used only when no complete
+        # source-segment selection can satisfy the requested range.
+        try:
+            if len(mandatory_text) > upper_bound:
+                raise ExtractiveRangeNotFeasibleError(
+                    lower_bound=lower_bound,
+                    target=expected_character_count,
+                    upper_bound=upper_bound,
+                    closest_achievable_lengths=(len(mandatory_text),),
+                )
+            fit_ranked_segments(
+                segments,
+                known_segment_ids,
+                lower_bound=lower_bound,
+                target=expected_character_count,
+                upper_bound=upper_bound,
+                mandatory_segment_ids=mandatory_segment_ids,
+                separator=_EXTRACTION_SEPARATOR,
+            )
+            extractive_fit_available = True
+        except ExtractiveRangeNotFeasibleError:
+            extractive_fit_available = False
 
         prompt_segments = tuple(
             {
@@ -286,6 +322,22 @@ class AnswerShorteningService:
                     exc.code,
                 )
                 continue
+
+            ranked_segments = tuple(
+                by_id[segment_id] for segment_id in ranked_segment_ids
+            )
+            if not extractive_fit_available:
+                return await self._compress_ranked_source(
+                    original_query=original_query,
+                    ranked_segments=ranked_segments,
+                    protected=protected,
+                    parts=parts,
+                    original_count=original_count,
+                    target=expected_character_count,
+                    lower_bound=lower_bound,
+                    upper_bound=upper_bound,
+                    ranking_attempts=attempt,
+                )
 
             selection = fit_ranked_segments(
                 segments,
@@ -345,6 +397,113 @@ class AnswerShorteningService:
             safe_codes,
         )
         raise ModelSelectionError(
+            attempts=self._max_attempts,
+            failure_codes=safe_codes,
+        )
+
+    async def _compress_ranked_source(
+        self,
+        *,
+        original_query: str,
+        ranked_segments: tuple[ExtractionSegment, ...],
+        protected: ProtectedContent,
+        parts: AnswerParts,
+        original_count: int,
+        target: int,
+        lower_bound: int,
+        upper_bound: int,
+        ranking_attempts: int,
+    ) -> ShorteningOutcome:
+        """Use the existing relevance ranking for the exceptional rewrite path."""
+
+        prompt_segments = tuple(
+            {
+                "id": segment.segment_id,
+                "text": segment.text,
+                "character_count": len(segment.text),
+                "source_order": source_order,
+            }
+            for source_order, segment in enumerate(ranked_segments)
+        )
+        max_tokens = min(self._max_output_tokens, max(256, upper_bound * 2))
+        previous_invalid_response: str | None = None
+        safe_validation_error: str | None = None
+        failure_codes: list[str] = []
+
+        for compression_attempt in range(1, self._max_attempts + 1):
+            user_prompt = build_ranked_source_compression_prompt(
+                original_query=original_query,
+                ranked_segments=prompt_segments,
+                target=target,
+                lower_bound=lower_bound,
+                upper_bound=upper_bound,
+                previous_invalid_response=previous_invalid_response,
+                safe_validation_error=safe_validation_error,
+            )
+            raw_candidate = await self._gateway.generate(
+                system_prompt=RANKED_SOURCE_COMPRESSION_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                max_tokens=max_tokens,
+            )
+            candidate = normalize_candidate(raw_candidate)
+            failures = validate_compressed_candidate(
+                candidate,
+                lower_bound=lower_bound,
+                upper_bound=upper_bound,
+                protected=protected,
+            )
+            if failures:
+                failure_codes.extend(failure.split(":", 1)[0] for failure in failures)
+                previous_invalid_response = raw_candidate[
+                    :_MAX_INVALID_RESPONSE_FEEDBACK_CHARACTERS
+                ]
+                safe_validation_error = "; ".join(failures)
+                logger.info(
+                    "fallback answer compression rejected model=%s ranking_attempt=%d "
+                    "compression_attempt=%d failure_codes=%s",
+                    self._model,
+                    ranking_attempts,
+                    compression_attempt,
+                    tuple(failure.split(":", 1)[0] for failure in failures),
+                )
+                continue
+
+            total_attempts = ranking_attempts + compression_attempt
+            logger.info(
+                "fallback answer compression succeeded model=%s original_chars=%d "
+                "target_chars=%d output_chars=%d ranking_attempts=%d "
+                "compression_attempts=%d",
+                self._model,
+                original_count,
+                target,
+                len(candidate),
+                ranking_attempts,
+                compression_attempt,
+            )
+            return self._outcome(
+                text=candidate,
+                parts=parts,
+                status="shortened",
+                original_count=original_count,
+                target=target,
+                lower_bound=lower_bound,
+                upper_bound=upper_bound,
+                attempts=total_attempts,
+            )
+
+        safe_codes = tuple(dict.fromkeys(failure_codes))
+        logger.warning(
+            "fallback answer compression failed model=%s original_chars=%d "
+            "target_chars=%d ranking_attempts=%d compression_attempts=%d "
+            "failure_codes=%s",
+            self._model,
+            original_count,
+            target,
+            ranking_attempts,
+            self._max_attempts,
+            safe_codes,
+        )
+        raise ModelCompressionError(
             attempts=self._max_attempts,
             failure_codes=safe_codes,
         )

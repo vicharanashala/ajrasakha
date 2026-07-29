@@ -74,6 +74,8 @@ import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAudit
 import { UserService } from '#root/modules/user/index.js';
 import { IContextService } from '#root/modules/context/interfaces/index.js';
 import { restoreBackupBson } from '#root/utils/DBMigration.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
+import { CheckOverlapsService } from '../services/CheckOverlapsService.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -95,6 +97,9 @@ export class QuestionController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(CORE_TYPES.CheckOverlapsService)
+    private readonly checkOverlapsService: CheckOverlapsService,
   ) { }
 
   @Post('/status-summary')
@@ -2704,6 +2709,29 @@ export class QuestionController {
     return result;
   }
 
+  @Post('/reallocate-manual-queue')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Reallocate manual-queue (AGRI_EXPERT/OUTREACH) questions — assigns authors/reviewers for the single-allocation manual flow' })
+  async reallocateManualQueue(@CurrentUser() user: IUser) {
+    const result = await this.questionService.reallocateManualQuestions();
+    this.auditTrailsService.createAuditTrail({
+      category: AuditCategory.QUESTION,
+      action: AuditAction.REALLOCATE_QUESTIONS,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      changes: { after: { type: 'manual', ...result } },
+      outcome: { status: OutComeStatus.SUCCESS },
+      createdAt: new Date(),
+    });
+    return result;
+  }
+
   @Post('/:questionId/mark-opened')
   @HttpCode(200)
   @Authorized()
@@ -2753,5 +2781,94 @@ export class QuestionController {
       questionId,
       Number(index),
     );
+  }
+
+  @Post('/background/remove-queue-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Remove an expert from a submission queue by index (internal data fix)',
+  })
+  async removeSubmissionQueueEntry(
+    @Body() body: { questionId: string; index: number },
+  ) {
+    const { questionId, index } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (index === undefined || index === null) {
+      throw new BadRequestError('index is required');
+    }
+    return await this.questionService.removeSubmissionQueueEntry(
+      questionId,
+      Number(index),
+    );
+  }
+
+  @Post('/background/add-queue-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Add an expert to a submission queue (internal data fix)',
+  })
+  async addSubmissionQueueEntry(
+    @Body() body: { questionId: string; expertId: string },
+  ) {
+    const { questionId, expertId } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (!expertId) {
+      throw new BadRequestError('expertId is required');
+    }
+    return await this.questionService.addSubmissionQueueEntry(
+      questionId,
+      expertId,
+    );
+  }
+
+  @Post('/background/add-history-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Add a submission history entry (internal data fix)',
+  })
+  async addSubmissionHistoryEntry(
+    @Body() body: { questionId: string; entry: Record<string, any> },
+  ) {
+    const { questionId, entry } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (!entry || typeof entry !== 'object') {
+      throw new BadRequestError('entry object is required');
+    }
+    return await this.questionService.addSubmissionHistoryEntry(
+      questionId,
+      entry,
+    );
+  }
+  // ─── Check overlaps endpoint (internal API key auth) ──────────────────────
+
+  @Post('/check-overlaps')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Check for overlapping documents between staging and production databases' })
+  async checkOverlaps() {
+    console.log('[QuestionController] checkOverlaps: Starting overlap check...');
+    const result = await this.checkOverlapsService.checkOverlaps();
+    return result;
+  }
+
+  // ─── Run migration endpoint (internal API key auth) ──────────────────────
+
+  @Post('/run-migration')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Run migration from staging to production database' })
+  async runMigration() {
+    console.log('[QuestionController] runMigration: Starting migration...');
+    const result = await this.checkOverlapsService.runMigration();
+    return result;
   }
 }

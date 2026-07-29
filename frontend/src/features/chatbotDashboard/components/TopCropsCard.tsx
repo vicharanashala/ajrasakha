@@ -51,6 +51,7 @@ interface TopCropsCardProps {
     errorLoadingtopCrops: string | null | Error;
     source?: "vicharanashala" | "annam" | "whatsapp";
     userType?: string;
+    coordinatorId?: string;
 }
 
 export const TopCropsCard = ({
@@ -59,6 +60,7 @@ export const TopCropsCard = ({
     errorLoadingtopCrops,
     source = "annam",
     userType,
+    coordinatorId,
 }: TopCropsCardProps) => {
     const [isMaximized, setIsMaximized] = useState(false);
     const [topCrop, setTopCrop] = useState<string | null>(null);
@@ -332,6 +334,7 @@ export const TopCropsCard = ({
                         setTopCrop(null);
                         setSelectedCrops([]);
                     }}
+                    coordinatorId={coordinatorId}
                 />
             )}
         </>

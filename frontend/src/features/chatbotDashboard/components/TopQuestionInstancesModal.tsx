@@ -56,6 +56,7 @@ interface TopQuestionInstancesModalProps {
   startDate?: Date;
   endDate?: Date;
   onClose: () => void;
+  coordinatorId?: string;
 }
 
 const PAGE_SIZE = 10;
@@ -70,6 +71,7 @@ export function TopQuestionInstancesModal({
   startDate,
   endDate,
   onClose,
+  coordinatorId,
 }: TopQuestionInstancesModalProps) {
   const { setSelectedQuestionId, setView } = useSelectedQuestion();
 
@@ -84,6 +86,7 @@ export function TopQuestionInstancesModal({
     page,
     limit: PAGE_SIZE,
     enabled: true,
+    coordinatorId,
   });
 
   // ── Columns ───────────────────────────────────────────────────────────────

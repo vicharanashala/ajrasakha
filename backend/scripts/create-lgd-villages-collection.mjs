@@ -61,7 +61,7 @@ const LGD_API_KEY = process.env.LGD_API_KEY;
 const LGD_VILLAGES_API_URL = process.env.LGD_VILLAGES_API_URL;
 
 const BLOCKS_COLLECTION = 'blocks';
-const COLLECTION_NAME = 'villages3';
+const COLLECTION_NAME = 'villages';
 
 const NUM_WORKERS = parseInt(process.env.NUM_WORKERS || '5', 10);
 
