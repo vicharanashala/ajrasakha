@@ -685,6 +685,15 @@ class GetDetailedQuestionsQuery {
   user?: string;
 
   @JSONSchema({
+    description: 'Filter based on assigned userId',
+    example: '1234567890',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  assignedUser?: string;
+
+  @JSONSchema({
     description: 'Minimum number of answers',
     example: 0,
     type: 'number',

@@ -311,7 +311,7 @@ function transformApiResponse(
       };
     }
     return card;
-  });
+  }) as any;
 
   updatedData.inactiveUsersLast3Days = result.kpi.inactiveUsersLast3Days ?? 0;
   updatedData.duplicateQuestionsCount = result.kpi.duplicateQuestionsCount ?? 0;
@@ -321,7 +321,7 @@ function transformApiResponse(
     if (card.id === "dau") {
       return {
         ...card,
-        value: result.kpi.totalAppInstalls.toString(), // raw number, no formatting
+        value: String((result.kpi as any).dauValue ?? result.kpi.totalAppInstalls.toString()), // raw number, no formatting
         delta: delta.text,
         deltaDir: delta.dir,
         sparkPoints,
@@ -333,7 +333,7 @@ function transformApiResponse(
     if (card.id === "queries") {
       return {
         ...card,
-        value: formatIndian(result.kpi.dailyQueries),
+        value: String((result.kpi as any).queriesValue ?? formatIndian(result.kpi.dailyQueries)),
         delta: queryDelta.text,
         deltaDir: queryDelta.dir,
         monthlyDelta: queryMonthlyDelta.text,
@@ -362,7 +362,7 @@ function transformApiResponse(
     if (card.id === "session") {
       return {
         ...card,
-        value: `${result.kpi.avgSessionDurationMin.toFixed(1)} min`,
+        value: String((result.kpi as any).sessionValue ?? `${result.kpi.avgSessionDurationMin.toFixed(1)} min`),
         delta: sessionDelta.text,
         deltaDir: sessionDelta.dir,
         sparkPoints: sessionSparkPoints,
@@ -373,7 +373,7 @@ function transformApiResponse(
       };
     }
     return card;
-  });
+  }) as any;
 
   updatedData.queryCategories = result.queryCategories ?? [];
   updatedData.feedbackData = result.feedbackData ?? {
@@ -427,6 +427,7 @@ export function useDashboardData(
       "dashboard-data",
       source,
       userType,
+      filters?.coordinatorId,
     ],
     enabled,
     // Keep previous data while fetching new data (for filter changes)
@@ -447,6 +448,7 @@ export function useDashboardData(
       if (endISO) params.set("endTime", endISO);
       params.set("source", source);
       if (userType !== "all") params.set("userType", userType);
+      if (filters?.coordinatorId) params.set("coordinatorId", filters.coordinatorId);
       const queryString = params.toString();
 
       const result = await apiFetch<DashboardApiResponse>(
@@ -475,19 +477,22 @@ export const useTopFaqs = (
   startTime?: Date,
   endTime?: Date,
   enabled?: boolean,
+  coordinatorId?: string,
 ) => {
   const params = new URLSearchParams();
   params.append("source", source);
   params.append("userType", userType);
   if (startTime) params.append("startTime", startTime.toISOString());
   if (endTime) params.append("endTime", endTime.toISOString());
+  if (coordinatorId) params.append("coordinatorId", coordinatorId);
   return useQuery({
     queryKey: [
       "top-faqs",
       source,
       userType,
       startTime,
-      endTime
+      endTime,
+      coordinatorId,
     ],
     placeholderData: (prev) => prev,
     queryFn: async () => {

@@ -89,6 +89,27 @@ export interface IQuestionSubmissionRepository {
     session?: ClientSession,
   ): Promise<IQuestionSubmission | null>;
 
+  /** Admin data-fix: remove a single expert from a submission's queue by its 0-based index. */
+  removeQueueEntryByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null>;
+
+  /** Admin utility: append an expert to a submission's queue. */
+  addQueueEntry(
+    questionId: string,
+    expertId: string,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null>;
+
+  /** Admin utility: append a pre-built history entry to a submission's history. */
+  addHistoryEntry(
+    questionId: string,
+    entry: ISubmissionHistory,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null>;
+
   /**
    * allocateExperts (push expertIds to queue)
    * @param questionId

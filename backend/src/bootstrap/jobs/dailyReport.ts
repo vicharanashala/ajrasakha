@@ -1,7 +1,7 @@
 import { sendStatsEmail} from '../../utils/backupEmailService.js';
 import cron from 'node-cron';
 
-const start =true
+const start =false
 if(start){
 const job = async () => {
   console.log('📊 Cron Job Started: Sending GDB Count Report...');

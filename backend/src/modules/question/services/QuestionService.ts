@@ -2854,6 +2854,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
         //6. Allocate experts
+        // If the question is a duplicate and auto-allocate is OFF, it means the
+        // moderator intentionally toggled off auto-allocate and is now manually
+        // picking an expert. Reopen the question so the selected expert can see
+        // it in their dashboard (only open/delayed questions are visible there).
+        const updateData:any = {
+          firstAllocationAt: new Date(),
+        };
+        if (question.status === 'duplicate') {
+          updateData.status = 'open';
+        }
+
+        await this.questionRepo.updateQuestion(questionId,updateData,session,);
+
         const expertIds = experts.map(e => new ObjectId(e));
 
         // if the last expert is  reviewing other question  (if status is not reviewed or not submitted an answer)
@@ -7490,12 +7503,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       let initialAllocated = 0;
       let reviewersAssigned = 0;
 
-      // If this run has ANY never-allocated questions, STF experts are reserved
-      // exclusively for them (never-allocated → STF only; needsReviewer → non-STF
-      // only). Only when there are no never-allocated questions at all may STF
-      // experts take reviewer work. unallocatedProcessed is kept for logging.
+      // Never-allocated (author-level) questions REQUIRE an STF answer-creator, so STF
+      // experts are reserved for them — but only while such questions still remain to be
+      // processed this run. Because the work queue puts all never-allocated work BEFORE
+      // reviewer work, once they're all handled any STF still free (per the cap) is spare
+      // and MAY take reviewer work. `unallocatedRemaining` tracks how many never-allocated
+      // questions are still pending; the needsReviewer STF guard checks it (not a run-wide
+      // flag) so a free STF isn't wrongly blocked from review-level questions.
       const hasUnallocatedSubmissions = unallocatedSubmissions.length > 0;
       let unallocatedProcessed = 0;
+      let unallocatedRemaining = unallocatedSubmissions.length;
 
       for (const { type, submission } of workQueue) {
         const questionId = submission.questionId?.toString();
@@ -7578,6 +7595,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionText: (question as any)?.question?.toString() ?? '',
           });
         } else if (type === 'unallocated') {
+          // This never-allocated question is now being handled — it no longer reserves an
+          // STF expert away from later reviewer work.
+          unallocatedRemaining--;
           let assignedExpert: string | null = null;
           for (const expert of getEligibleExpertsForQuestion(question)) {
             if (expert?.special_task_force !== true) continue;
@@ -7671,20 +7691,19 @@ export class QuestionService extends BaseService implements IQuestionService {
             if (historyExpertIds.has(expertId)) continue;
             if (queueExpertIds.has(expertId)) continue;
 
-            // CRITICAL: Whenever this run has ANY never-allocated questions, STF
-            // experts are reserved EXCLUSIVELY for them — they are never assigned
-            // to reviewer tasks, even after every never-allocated question has been
-            // handled and they still have spare capacity. needsReviewer work goes
-            // to non-STF experts only. (Only when there are NO never-allocated
-            // questions at all this run may STF experts take reviewer work.)
+            // Reserve STF experts for never-allocated questions only while such
+            // questions still remain to be processed this run. Since never-allocated
+            // work is ordered BEFORE reviewer work, by the time we reach needsReviewer
+            // all of it has been handled (unallocatedRemaining === 0), so an STF expert
+            // that is still free (per the cap) is spare and may take review-level work.
             if (
-              hasUnallocatedSubmissions &&
+              unallocatedRemaining > 0 &&
               expert?.special_task_force === true
             ) {
               console.log(
-                `[TimeBound] Skipping STF expert ${expertId} for needsReviewer question ${questionId} — never-allocated questions present this run; STF reserved for them (${unallocatedProcessed}/${unallocatedSubmissions.length} allocated)`,
+                `[TimeBound] Skipping STF expert ${expertId} for needsReviewer question ${questionId} — ${unallocatedRemaining} never-allocated question(s) still pending; STF reserved for them`,
               );
-              continue; // STF reserved for never-allocated questions
+              continue; // STF reserved for still-pending never-allocated questions
             }
 
             const currentCount = provisionalCounts.get(expertId) ?? 0;
@@ -8709,5 +8728,100 @@ export class QuestionService extends BaseService implements IQuestionService {
       success: true,
       historyLength: updated?.history?.length ?? 0,
     };
+  }
+
+  /** Admin data-fix: remove a single expert from a question's submission queue by index. */
+  async removeSubmissionQueueEntry(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: boolean; queueLength: number }> {
+    const updated = await this.questionSubmissionRepo.removeQueueEntryByIndex(
+      questionId,
+      index,
+    );
+    return {
+      success: true,
+      queueLength: updated?.queue?.length ?? 0,
+    };
+  }
+
+  /** Admin utility: append an expert to a question's submission queue. */
+  async addSubmissionQueueEntry(
+    questionId: string,
+    expertId: string,
+  ): Promise<{ success: boolean; queueLength: number }> {
+    if (!expertId || !ObjectId.isValid(expertId)) {
+      throw new BadRequestError('A valid expertId is required');
+    }
+    const updated = await this.questionSubmissionRepo.addQueueEntry(
+      questionId,
+      expertId,
+    );
+    return { success: true, queueLength: updated?.queue?.length ?? 0 };
+  }
+
+  /** Admin utility: append a history entry to a question's submission history.
+   *  The raw entry's id/date fields are coerced to ObjectId/Date before storing. */
+  async addSubmissionHistoryEntry(
+    questionId: string,
+    rawEntry: Record<string, any>,
+  ): Promise<{ success: boolean; historyLength: number }> {
+    const entry = this.buildHistoryEntry(rawEntry);
+    const updated = await this.questionSubmissionRepo.addHistoryEntry(
+      questionId,
+      entry,
+    );
+    return {
+      success: true,
+      historyLength: updated?.history?.length ?? 0,
+    };
+  }
+
+  /** Coerce a raw JSON history entry into a stored ISubmissionHistory (ObjectIds + Dates). */
+  private buildHistoryEntry(raw: Record<string, any>): ISubmissionHistory {
+    if (!raw || typeof raw !== 'object') {
+      throw new BadRequestError('entry object is required');
+    }
+    const toOid = (v: unknown): ObjectId => {
+      if (!v || !ObjectId.isValid(String(v))) {
+        throw new BadRequestError(`Invalid ObjectId: ${String(v)}`);
+      }
+      return new ObjectId(String(v));
+    };
+    const toDate = (v: unknown): Date | undefined =>
+      v ? new Date(v as string) : undefined;
+
+    if (!raw.updatedBy) {
+      throw new BadRequestError('entry.updatedBy is required');
+    }
+    if (!raw.status) {
+      throw new BadRequestError('entry.status is required');
+    }
+
+    const entry: any = {
+      updatedBy: toOid(raw.updatedBy),
+      status: raw.status,
+      createdAt: toDate(raw.createdAt) ?? new Date(),
+      updatedAt: toDate(raw.updatedAt) ?? new Date(),
+    };
+
+    // Optional ObjectId fields.
+    if (raw.answer) entry.answer = toOid(raw.answer);
+    if (raw.reviewId) entry.reviewId = toOid(raw.reviewId);
+    if (raw.approvedAnswer) entry.approvedAnswer = toOid(raw.approvedAnswer);
+    if (raw.rejectedBy) entry.rejectedBy = toOid(raw.rejectedBy);
+    if (raw.rejectedAnswer) entry.rejectedAnswer = toOid(raw.rejectedAnswer);
+    if (raw.lastModifiedBy) entry.lastModifiedBy = toOid(raw.lastModifiedBy);
+    if (raw.modifiedAnswer) entry.modifiedAnswer = toOid(raw.modifiedAnswer);
+
+    // Optional string fields.
+    if (raw.reasonForRejection) {
+      entry.reasonForRejection = String(raw.reasonForRejection);
+    }
+    if (raw.reasonForLastModification) {
+      entry.reasonForLastModification = String(raw.reasonForLastModification);
+    }
+
+    return entry as ISubmissionHistory;
   }
 }

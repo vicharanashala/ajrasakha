@@ -156,7 +156,12 @@ export const AllocationQueueHeader = ({
   // The auto-allocate toggle is shown to moderators/admins regardless of status (so
   // they can turn allocation on/off ahead of time). The "Select Experts" action only
   // shows when the question is actually in a normal expert-answering status — never for
-  // triage statuses (dynamic / duplicate / queue_duplicate / auditor_review / non_agri).
+  // triage statuses (dynamic / queue_duplicate / auditor_review / non_agri).
+  //
+  // Exception — duplicate questions: when the moderator explicitly turns auto-allocate
+  // OFF on a duplicate question, "Select Experts" must appear so they can manually pick
+  // an expert. The backend will reopen the question to 'open' on allocation so the
+  // expert can see it in their dashboard.
   // Gate keepers and auditors manage expert allocation alongside moderators/admins.
   const canManageAllocation = currentUser.role !== "expert";
   const isExpertStatus =
@@ -164,7 +169,9 @@ export const AllocationQueueHeader = ({
     question.status !== "queue_duplicate" &&
     question.status !== "auditor_review" &&
     question.status !== "dynamic" &&
-    question.status !== "duplicate";
+    // For duplicate questions: allow "Select Experts" only when auto-allocate is OFF
+    // (moderator has consciously decided to assign manually).
+    (question.status !== "duplicate" || !autoAllocate);
 
   return (
     <div className="flex flex-col gap-4 pb-6 border-b border-border">

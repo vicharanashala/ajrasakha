@@ -93,6 +93,7 @@ export const QuestionsPage = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
+  const [assignedUser, setAssignedUser] = useState("all");
   const [selectedQuestionId, setSelectedQuestionId] = useState(
     autoOpenQuestionId || "",
   );
@@ -175,6 +176,7 @@ export const QuestionsPage = ({
         priority,
         domain,
         user,
+        assignedUser,
         startTime,
         endTime,
         review_level,
@@ -222,6 +224,7 @@ export const QuestionsPage = ({
       priority,
       domain,
       user,
+      assignedUser,
       startTime,
       endTime,
       review_level,
@@ -412,7 +415,37 @@ export const QuestionsPage = ({
     }
   }, [pendingNav, isLoading, isReviewLoading, currentItems]);
 
-  const onChangeFilters = (next: AdvanceFilterValues) => {
+  const onChangeFilters = (next: {
+    status?: QuestionFilterStatus;
+    source?: QuestionSourceFilter;
+    priority?: QuestionPriorityFilter;
+    state?: string;
+    states?: string[];
+    crop?: string;
+    normalised_crop?: string;
+    normalisedCrops?: string[];
+    domain?: string;
+    user?: string;
+    assignedUser?: string;
+    answersCount?: [number, number];
+    dateRange?: QuestionDateRangeFilter;
+    startTime?: Date | undefined;
+    endTime?: Date | undefined;
+    review_level?: ReviewLevel;
+    closedAtEnd?: Date | undefined;
+    closedAtStart?: Date | undefined;
+    consecutiveApprovals?: string;
+    autoAllocateFilter?: string;
+    autoAllocateModeratorFilter?: string;
+    closedInTwoHrs?: boolean;
+    hiddenQuestions?: boolean;
+    duplicateQuestions?: boolean;
+    isOnHold?: boolean;
+    unallocatedQuestions?: boolean;
+    pae_review?: boolean;
+    is_non_agri?: boolean;
+    is_testing?: boolean;
+  }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
     if (next.state !== undefined) setState(next.state);
@@ -425,6 +458,7 @@ export const QuestionsPage = ({
     if (next.priority !== undefined) setPriority(next.priority);
     if (next.domain !== undefined) setDomain(next.domain);
     if (next.user !== undefined) setUser(next.user);
+    if (next.assignedUser !== undefined) setAssignedUser(next.assignedUser);
     if (next.startTime !== undefined) setStartTime(next.startTime);
     if (next.endTime !== undefined) setEndTime(next.endTime);
     if (next.review_level !== undefined) setReviewLevel(next.review_level);
@@ -480,6 +514,7 @@ export const QuestionsPage = ({
     setPriority("all");
     setDomain("all");
     setUser("all");
+    setAssignedUser("all");
     setReviewLevel("all");
     setStartTime(undefined);
     setEndTime(undefined);

@@ -352,7 +352,11 @@ export class UserRepository implements IUserRepository {
       }
 
       if (role && role !== 'ALL') {
-        matchQuery.role = role;
+        if (role === 'INTERNAL' || role === 'internal') {
+          matchQuery.role = { $ne: 'pae_expert' };
+        } else {
+          matchQuery.role = role;
+        }
       }
 
       if (isBlockedFilter !== undefined) {

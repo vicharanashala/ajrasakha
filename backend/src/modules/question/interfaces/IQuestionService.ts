@@ -558,6 +558,7 @@ export interface IQuestionService {
   /** Find time-bound questions pending > 45 min (not opened) and reallocate them
    *  to experts with fewer than 3 active time-bound questions. */
   reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
+  reallocateManualQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
 
   /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
    *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */
@@ -581,5 +582,23 @@ export interface IQuestionService {
   removeSubmissionHistoryEntry(
     questionId: string,
     index: number,
+  ): Promise<{ success: boolean; historyLength: number }>;
+
+  /** Admin data-fix: remove a single expert from a question's submission queue by index. */
+  removeSubmissionQueueEntry(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: boolean; queueLength: number }>;
+
+  /** Admin utility: append an expert to a question's submission queue. */
+  addSubmissionQueueEntry(
+    questionId: string,
+    expertId: string,
+  ): Promise<{ success: boolean; queueLength: number }>;
+
+  /** Admin utility: append a history entry to a question's submission history. */
+  addSubmissionHistoryEntry(
+    questionId: string,
+    rawEntry: Record<string, any>,
   ): Promise<{ success: boolean; historyLength: number }>;
 }
