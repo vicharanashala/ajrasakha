@@ -107,6 +107,7 @@ export class UserRepository implements IUserRepository {
         status: user.status ?? 'active',
         isBlocked: user.isBlocked ?? false,
         special_task_force: user.special_task_force ?? false,
+        isTrainingUser: user.isTrainingUser ?? false
       },
       { session },
     );
@@ -259,6 +260,7 @@ export class UserRepository implements IUserRepository {
             status: existingUser.status,
             isBlocked: existingUser.isBlocked,
             special_task_force: existingUser.special_task_force,
+            isTrainingUser: existingUser.isTrainingUser ?? false
           },
           { session },
         )])
@@ -1627,6 +1629,7 @@ export class UserRepository implements IUserRepository {
             status: result.status,
             isBlocked: result.isBlocked,
             special_task_force: result.special_task_force,
+            isTrainingUser: result.isTrainingUser ?? false
           },
           { session },
         )])
@@ -1680,6 +1683,7 @@ export class UserRepository implements IUserRepository {
             status: updatedUser.status,
             isBlocked: updatedUser.isBlocked,
             special_task_force: updatedUser.special_task_force,
+            isTrainingUser: updatedUser.isTrainingUser ?? false
           },
           { session },
         )])
@@ -1726,6 +1730,7 @@ export class UserRepository implements IUserRepository {
             status: result.status,
             isBlocked: result.isBlocked,
             special_task_force: result.special_task_force,
+            isTrainingUser: result.isTrainingUser ?? false
           },
           { session },
         )])

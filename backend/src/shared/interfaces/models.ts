@@ -87,6 +87,7 @@ export interface IUserHistory {
     status?: UserStatus;
     isBlocked?: boolean;
     special_task_force?: boolean;
+    isTrainingUser?: boolean,
   };
 }
 
