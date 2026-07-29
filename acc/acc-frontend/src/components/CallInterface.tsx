@@ -517,6 +517,7 @@ export const CallInterface = () => {
   const { mutateAsync: updateState } = useAccAgentUpdateState();
   const { mutateAsync: resumeAndGetAnswer, isPending: isResuming } =
     useAccAgentResume();
+  const isGeneratingQuestions = isExtracting || isResuming;
 
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
