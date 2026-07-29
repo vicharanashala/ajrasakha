@@ -130,6 +130,19 @@ export interface QueueDetailsResponse {
   auditorAllocated: {count: number; items: QueueQuestionItem[]};
   /** Auditors free to take a question. */
   availableAuditors: {count: number; items: QueueExpertItem[]};
+  // ── Manual (AGRI_EXPERT/OUTREACH) expert-queue sections — mirror the time-bound
+  //    expert sections above, scoped to the manual single-allocation queue. ──
+  receivedManual: {count: number; items: QueueQuestionItem[]};
+  receivedStatusCountsManual: {status: string; count: number}[];
+  autoAllocateOffManual: {count: number; items: QueueQuestionItem[]};
+  autoAllocateOpenManual: {count: number; items: QueueQuestionItem[]};
+  autoAllocateDelayedManual: {count: number; items: QueueQuestionItem[]};
+  allocatedManual: {count: number; items: QueueQuestionItem[]};
+  waitingManual: {count: number; items: QueueQuestionItem[]};
+  freeExpertsManual: {count: number; items: QueueExpertItem[]};
+  stuckManual: {count: number; items: QueueQuestionItem[]};
+  needsReviewerManual: {count: number; items: QueueQuestionItem[]};
+  openedIdleManual: {count: number; items: QueueQuestionItem[]};
 }
 
 /** Raw lean row returned by the repository layer for queue-details questions. */
@@ -186,7 +199,19 @@ export type QueueSectionName =
   | 'availableGateKeepers'
   | 'auditorWaiting'
   | 'auditorAllocated'
-  | 'availableAuditors';
+  | 'availableAuditors'
+  // Manual (AGRI_EXPERT/OUTREACH) expert-queue variants — same shape as the
+  // time-bound expert sections above, scoped to the manual single-allocation queue.
+  | 'receivedManual'
+  | 'autoAllocateOffManual'
+  | 'autoAllocateOpenManual'
+  | 'autoAllocateDelayedManual'
+  | 'allocatedManual'
+  | 'waitingManual'
+  | 'freeExpertsManual'
+  | 'stuckManual'
+  | 'needsReviewerManual'
+  | 'openedIdleManual';
 
 /** One page of a section: exact total + the requested page's items. */
 export interface QueueSectionResult {
@@ -527,6 +552,7 @@ export interface IQuestionService {
   /** Find time-bound questions pending > 45 min (not opened) and reallocate them
    *  to experts with fewer than 3 active time-bound questions. */
   reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
+  reallocateManualQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
 
   /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
    *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */
@@ -551,6 +577,12 @@ export interface IQuestionService {
     questionId: string,
     index: number,
   ): Promise<{ success: boolean; historyLength: number }>;
+
+  /** Admin data-fix: remove a single expert from a question's submission queue by index. */
+  removeSubmissionQueueEntry(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: boolean; queueLength: number }>;
 
   /** Admin utility: append an expert to a question's submission queue. */
   addSubmissionQueueEntry(
