@@ -7417,12 +7417,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       let initialAllocated = 0;
       let reviewersAssigned = 0;
 
-      // If this run has ANY never-allocated questions, STF experts are reserved
-      // exclusively for them (never-allocated → STF only; needsReviewer → non-STF
-      // only). Only when there are no never-allocated questions at all may STF
-      // experts take reviewer work. unallocatedProcessed is kept for logging.
+      // Never-allocated (author-level) questions REQUIRE an STF answer-creator, so STF
+      // experts are reserved for them — but only while such questions still remain to be
+      // processed this run. Because the work queue puts all never-allocated work BEFORE
+      // reviewer work, once they're all handled any STF still free (per the cap) is spare
+      // and MAY take reviewer work. `unallocatedRemaining` tracks how many never-allocated
+      // questions are still pending; the needsReviewer STF guard checks it (not a run-wide
+      // flag) so a free STF isn't wrongly blocked from review-level questions.
       const hasUnallocatedSubmissions = unallocatedSubmissions.length > 0;
       let unallocatedProcessed = 0;
+      let unallocatedRemaining = unallocatedSubmissions.length;
 
       for (const { type, submission } of workQueue) {
         const questionId = submission.questionId?.toString();
@@ -7505,6 +7509,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionText: (question as any)?.question?.toString() ?? '',
           });
         } else if (type === 'unallocated') {
+          // This never-allocated question is now being handled — it no longer reserves an
+          // STF expert away from later reviewer work.
+          unallocatedRemaining--;
           let assignedExpert: string | null = null;
           for (const expert of allExperts) {
             if (expert?.special_task_force !== true) continue;
@@ -7598,20 +7605,19 @@ export class QuestionService extends BaseService implements IQuestionService {
             if (historyExpertIds.has(expertId)) continue;
             if (queueExpertIds.has(expertId)) continue;
 
-            // CRITICAL: Whenever this run has ANY never-allocated questions, STF
-            // experts are reserved EXCLUSIVELY for them — they are never assigned
-            // to reviewer tasks, even after every never-allocated question has been
-            // handled and they still have spare capacity. needsReviewer work goes
-            // to non-STF experts only. (Only when there are NO never-allocated
-            // questions at all this run may STF experts take reviewer work.)
+            // Reserve STF experts for never-allocated questions only while such
+            // questions still remain to be processed this run. Since never-allocated
+            // work is ordered BEFORE reviewer work, by the time we reach needsReviewer
+            // all of it has been handled (unallocatedRemaining === 0), so an STF expert
+            // that is still free (per the cap) is spare and may take review-level work.
             if (
-              hasUnallocatedSubmissions &&
+              unallocatedRemaining > 0 &&
               expert?.special_task_force === true
             ) {
               console.log(
-                `[TimeBound] Skipping STF expert ${expertId} for needsReviewer question ${questionId} — never-allocated questions present this run; STF reserved for them (${unallocatedProcessed}/${unallocatedSubmissions.length} allocated)`,
+                `[TimeBound] Skipping STF expert ${expertId} for needsReviewer question ${questionId} — ${unallocatedRemaining} never-allocated question(s) still pending; STF reserved for them`,
               );
-              continue; // STF reserved for never-allocated questions
+              continue; // STF reserved for still-pending never-allocated questions
             }
 
             const currentCount = provisionalCounts.get(expertId) ?? 0;
