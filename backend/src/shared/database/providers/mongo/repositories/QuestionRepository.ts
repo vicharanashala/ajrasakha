@@ -350,6 +350,7 @@ export class QuestionRepository implements IQuestionRepository {
         endTime,
         domain,
         user,
+        assignedUser,
         page = 1,
         limit = 10,
         review_level,
@@ -758,6 +759,59 @@ export class QuestionRepository implements IQuestionRepository {
         }
 
         filter._id = {$in: questionIdsByUser.map(id => new ObjectId(id))};
+      }
+
+      if (assignedUser && assignedUser !== 'all') {
+        const userObjId = new ObjectId(assignedUser);
+        const userStr = assignedUser.toString();
+
+        const submissions = await this.QuestionSubmissionCollection.find({
+          $or: [
+            {
+              $and: [
+                { history: { $size: 0 } },
+                { queue: { $size: 1 } },
+                { $or: [{ 'queue.0': userObjId }, { 'queue.0': userStr }] },
+              ],
+            },
+            {
+              $and: [
+                { history: { $not: { $size: 0 } } },
+                {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $arrayElemAt: ['$history.status', -1] }, 'in-review'] },
+                      {
+                        $in: [
+                          { $arrayElemAt: ['$history.updatedBy', -1] },
+                          [userObjId, userStr],
+                        ],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+          .project({ questionId: 1 })
+          .toArray();
+
+        const assignedQuestionIds = submissions.map(s => s.questionId.toString());
+
+        if (assignedQuestionIds.length === 0) {
+          return { questions: [], totalPages: 0, totalCount: 0 };
+        }
+
+        if (filter._id) {
+          filter._id = {
+            $in: assignedQuestionIds
+              .map(id => new ObjectId(id))
+              .filter(id => filter._id.$in.some((existing: any) => existing.equals(id))),
+          };
+        } else {
+          filter._id = { $in: assignedQuestionIds.map(id => new ObjectId(id)) };
+        }
       }
       // --- review_level filter (Level 1–9) ---
       // --- review_level filter ---

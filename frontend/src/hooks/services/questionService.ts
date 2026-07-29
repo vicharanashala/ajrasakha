@@ -151,6 +151,7 @@ export class QuestionService {
     if (filter.priority) params.append("priority", filter.priority);
     if (filter.domain) params.append("domain", filter.domain);
     if (filter.user) params.append("user", filter.user);
+    if (filter.assignedUser) params.append("assignedUser", filter.assignedUser);
     if (filter.review_level) params.append("review_level", filter.review_level);
     if (filter.startTime) {
       params.append("startTime", formatDateLocal(filter.startTime));
@@ -254,6 +255,8 @@ export class QuestionService {
       params.append("domain", preferences.domain);
     if (preferences.user && preferences.user !== "all")
       params.append("user", preferences.user);
+    if (preferences.assignedUser && preferences.assignedUser !== "all")
+      params.append("assignedUser", preferences.assignedUser);
 
     if (preferences.answersCount) {
       const [min, max] = preferences.answersCount;
@@ -547,6 +550,7 @@ export class QuestionService {
     if (filter.priority) params.append("priority", filter.priority);
     if (filter.domain) params.append("domain", filter.domain);
     if (filter.user) params.append("user", filter.user);
+    if (filter.assignedUser) params.append("assignedUser", filter.assignedUser);
     if (filter.review_level) params.append("review_level", filter.review_level);
     if (filter.startTime) {
       params.append("startTime", formatDateLocal(filter.startTime));
