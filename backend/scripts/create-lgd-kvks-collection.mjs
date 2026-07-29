@@ -33,7 +33,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CSV_FILE_PATH = path.join(__dirname, '../krishi_vigyan kendra registry_2026-04-22_14-07-33.csv');
+const CSV_FILE_PATH = path.join(__dirname, 'krishi_vigyan kendra registry_2026-04-22_14-07-33.csv');
 
 const APPLY = process.argv.includes('--apply');
 
