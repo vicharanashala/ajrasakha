@@ -33,6 +33,7 @@ import {
   Lock,
   Droplets,
   CalendarClock,
+  Loader2,
 } from "lucide-react";
 import "./home-dashboard.css";
 import OrbCanvas from "./components/OrbCanvas";
@@ -41,7 +42,14 @@ import ExpertNetworkMap from "./components/ExpertNetworkMap";
 import {
   usePublicDashboardItems,
   usePublicDashboardUsers,
+  usePublicDashboardSaturatedCrops,
 } from "../../hooks/api/public-dashboard/usePublicDashboardConfig";
+import {
+  STAT_QUESTIONS_COLLECTED,
+  STAT_QUESTIONS_REFINED,
+  STAT_LANGUAGES_SUPPORTED,
+  STAT_AGROCLIMATIC_ZONES,
+} from "../../hooks/services/publicDashboardService";
 
 /** Helper to convert YouTube video URL into an embedded YouTube player URL. Returns null if invalid or not YouTube. */
 const getYouTubeEmbedUrl = (url?: string): string | null => {
@@ -63,8 +71,11 @@ const getYouTubeEmbedUrl = (url?: string): string | null => {
 
 export const HomeDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { data: publicUsers } = usePublicDashboardUsers();
+  const { data: publicUsers, isLoading: isUsersLoading } =
+    usePublicDashboardUsers();
   const { data: publicItems } = usePublicDashboardItems();
+  const { data: saturatedCrops, isLoading: isSaturatedLoading } =
+    usePublicDashboardSaturatedCrops();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLangOpen, setIsLangOpen] = useState(false);
   const [selectedLang, setSelectedLang] = useState("English");
@@ -180,15 +191,57 @@ export const HomeDashboard: React.FC = () => {
 
   const languages = ["English", "हिन्दी", "ਪੰਜਾਬੀ", "বাংলা", "தமிழ்"];
 
+  /** Read an admin-editable stat item by its canonical name, falling back to a default. */
+  const readStat = (name: string, fallback: string): string => {
+    const item = publicItems?.find(
+      (it) => it.name?.toLowerCase() === name.toLowerCase()
+    );
+    if (item == null || item.value == null || item.value === "") return fallback;
+    return String(item.value);
+  };
+
+  // Derive Crops/States covered from the saturated-crops endpoint. The response is either
+  // { states: [...] } or a raw states array — normalise, then count distinct states and
+  // distinct crop names across all states.
+  const coverage = React.useMemo(() => {
+    const states = Array.isArray(saturatedCrops)
+      ? saturatedCrops
+      : saturatedCrops?.states ?? [];
+    const stateNames = new Set<string>();
+    const cropNames = new Set<string>();
+    for (const s of states) {
+      const stateName = s.state?.trim();
+      if (stateName) stateNames.add(stateName.toLowerCase());
+      for (const c of s.crops ?? []) {
+        const crop = c?.crop != null ? String(c.crop).trim() : "";
+        if (crop) cropNames.add(crop.toLowerCase());
+      }
+    }
+    return { statesCovered: stateNames.size, cropsCovered: cropNames.size };
+  }, [saturatedCrops]);
+
+  // "SAUs collaborated with" = number of distinct universities among active pae_expert users.
+  const sauCount = React.useMemo(() => {
+    const universities = new Set<string>();
+    for (const u of publicUsers ?? []) {
+      if (u.role?.toLowerCase() !== "pae_expert") continue;
+      const uni = u.university?.trim();
+      if (uni) universities.add(uni.toLowerCase());
+    }
+    return universities.size;
+  }, [publicUsers]);
+
+  const spinner = <Loader2 className="inline-block h-4 w-4 animate-spin" aria-label="Loading" />;
+
   const heroMetrics = [
-    { value: "45M+", label: "Questions collected", icon: MessageSquare },
-    { value: "70,741", label: "Questions refined", icon: FileCheck },
-    { value: "22", label: "Languages Supported", icon: Globe },
-    { value: "—", label: "Crops Covered", icon: Sprout },
-    { value: "—", label: "States covered", icon: MapPin },
+    { value: readStat(STAT_QUESTIONS_COLLECTED, "45M+"), label: "Questions collected", icon: MessageSquare },
+    { value: readStat(STAT_QUESTIONS_REFINED, "70,741"), label: "Questions refined", icon: FileCheck },
+    { value: readStat(STAT_LANGUAGES_SUPPORTED, "22"), label: "Languages Supported", icon: Globe },
+    { value: isSaturatedLoading ? spinner : String(coverage.cropsCovered), label: "Crops Covered", icon: Sprout },
+    { value: isSaturatedLoading ? spinner : String(coverage.statesCovered), label: "States covered", icon: MapPin },
     { value: "—", label: "KVKs covered", icon: Landmark },
-    { value: "—", label: "SAUs collaborated with", icon: BookOpen },
-    { value: "126", label: "Agroclimatic Zones", icon: CloudSun },
+    { value: isUsersLoading ? spinner : String(sauCount), label: "SAUs collaborated with", icon: BookOpen },
+    { value: readStat(STAT_AGROCLIMATIC_ZONES, "126"), label: "Agroclimatic Zones", icon: CloudSun },
   ];
 
   const sourceNodes = [

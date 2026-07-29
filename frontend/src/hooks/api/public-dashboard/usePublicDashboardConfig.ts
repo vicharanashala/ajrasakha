@@ -5,6 +5,7 @@ const service = new PublicDashboardService();
 
 const ITEMS_KEY = ["public-dashboard-items"];
 const USERS_KEY = ["public-dashboard-users"];
+const SATURATED_CROPS_KEY = ["public-dashboard-saturated-crops"];
 
 /** Read all public dashboard items (saturation limit, outreach videos, …). */
 export const usePublicDashboardItems = () =>
@@ -19,6 +20,14 @@ export const usePublicDashboardUsers = () =>
   useQuery({
     queryKey: USERS_KEY,
     queryFn: () => service.getUsers(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+/** Read the saturated-crops-by-state aggregation (used for Crops/States covered stats). */
+export const usePublicDashboardSaturatedCrops = () =>
+  useQuery({
+    queryKey: SATURATED_CROPS_KEY,
+    queryFn: () => service.getSaturatedCrops(),
     staleTime: 5 * 60 * 1000,
   });
 

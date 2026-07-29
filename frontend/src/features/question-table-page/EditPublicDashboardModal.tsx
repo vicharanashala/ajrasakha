@@ -21,6 +21,7 @@ import {
   useUploadPublicDashboardMedia,
 } from "@/hooks/api/public-dashboard/usePublicDashboardConfig";
 import {
+  HOMEPAGE_STATS,
   OUTREACH_IMAGE_NAME,
   OUTREACH_VIDEO_NAME,
   SATURATION_LIMIT_NAME,
@@ -107,6 +108,8 @@ export const EditPublicDashboardModal = ({
   );
 
   const [saturationLimit, setSaturationLimit] = useState<string>("");
+  // Homepage hero stats — one editable text value per canonical stat name.
+  const [statValues, setStatValues] = useState<Record<string, string>>({});
   const [newVideo, setNewVideo] = useState<VideoValue>(EMPTY_NEW_VIDEO);
   const [newVideoExpanded, setNewVideoExpanded] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState("");
@@ -122,6 +125,44 @@ export const EditPublicDashboardModal = ({
       setSaturationLimit(String(saturationItem.value));
     }
   }, [open, saturationItem?.value]);
+
+  // Seed the homepage stat inputs from their saved items (falling back to defaults) on open.
+  useEffect(() => {
+    if (!open) return;
+    const seeded: Record<string, string> = {};
+    for (const stat of HOMEPAGE_STATS) {
+      const item = items?.find((i) => i.name === stat.name);
+      seeded[stat.name] =
+        item?.value !== undefined && item?.value !== null
+          ? String(item.value)
+          : stat.defaultValue;
+    }
+    setStatValues(seeded);
+  }, [open, items]);
+
+  const handleSaveStats = async () => {
+    try {
+      let changed = 0;
+      for (const stat of HOMEPAGE_STATS) {
+        const value = (statValues[stat.name] ?? "").trim();
+        if (!value) continue;
+        const existing = items?.find((i) => i.name === stat.name);
+        if (existing) {
+          if (String(existing.value ?? "") === value) continue; // unchanged — skip
+          await updateItem({ id: existing.id, patch: { value } });
+          changed++;
+        } else {
+          await addItem({ name: stat.name, value });
+          changed++;
+        }
+      }
+      toast.success(
+        changed > 0 ? "Homepage statistics updated." : "No changes to save.",
+      );
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update statistics.");
+    }
+  };
 
   const handleSaveSaturation = async () => {
     const value = Number(saturationLimit);
@@ -236,6 +277,45 @@ export const EditPublicDashboardModal = ({
         </DialogHeader>
 
         <div className="space-y-6 py-2">
+          {/* Homepage Statistics */}
+          <div className="space-y-2">
+            <Label>Homepage Statistics</Label>
+            <p className="text-xs text-muted-foreground">
+              The headline numbers shown in the hero section of the public
+              dashboard. Values are free text (e.g. "45M+", "70,741").
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {HOMEPAGE_STATS.map((stat) => (
+                <div key={stat.name} className="space-y-1">
+                  <Label htmlFor={`stat-${stat.name}`} className="text-xs">
+                    {stat.label}
+                  </Label>
+                  <Input
+                    id={`stat-${stat.name}`}
+                    value={statValues[stat.name] ?? ""}
+                    onChange={(e) =>
+                      setStatValues((s) => ({ ...s, [stat.name]: e.target.value }))
+                    }
+                    placeholder={isLoading ? "Loading..." : stat.defaultValue}
+                    disabled={isLoading}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveStats();
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end pt-1">
+              <Button
+                onClick={handleSaveStats}
+                disabled={updating || adding || isLoading}
+              >
+                <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+                Save Statistics
+              </Button>
+            </div>
+          </div>
+
           {/* Crop Saturation Limit */}
           <div className="space-y-1.5">
             <Label htmlFor="saturation-limit">Crop Saturation Limit</Label>

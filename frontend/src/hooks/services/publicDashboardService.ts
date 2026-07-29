@@ -8,6 +8,28 @@ export const SATURATION_LIMIT_NAME = "saturation limit crop";
 export const OUTREACH_VIDEO_NAME = "outreach video";
 export const OUTREACH_IMAGE_NAME = "outreach image";
 
+/** Homepage hero statistics — admin-editable single-value items. */
+export const STAT_QUESTIONS_COLLECTED = "stat questions collected";
+export const STAT_QUESTIONS_REFINED = "stat questions refined";
+export const STAT_LANGUAGES_SUPPORTED = "stat languages supported";
+export const STAT_AGROCLIMATIC_ZONES = "stat agroclimatic zones";
+
+/**
+ * Descriptor for each admin-editable homepage stat: the canonical item `name`, the label
+ * shown on the public dashboard, and the fallback value used until an admin sets it.
+ * Shared by the public dashboard (reader) and the admin edit modal (writer).
+ */
+export const HOMEPAGE_STATS: {
+  name: string;
+  label: string;
+  defaultValue: string;
+}[] = [
+  { name: STAT_QUESTIONS_COLLECTED, label: "Questions collected", defaultValue: "45M+" },
+  { name: STAT_QUESTIONS_REFINED, label: "Questions refined", defaultValue: "70,741" },
+  { name: STAT_LANGUAGES_SUPPORTED, label: "Languages Supported", defaultValue: "22" },
+  { name: STAT_AGROCLIMATIC_ZONES, label: "Agroclimatic Zones", defaultValue: "126" },
+];
+
 export interface SaturatedCrop {
   crop: string;
   count: number;
