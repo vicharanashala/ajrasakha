@@ -3,6 +3,7 @@ import { injectable, inject } from 'inversify';
 import { MongoClient, ObjectId } from 'mongodb';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { MongoDatabase } from '#root/shared/database/providers/mongo/MongoDatabase.js';
+import { getFirebaseAuth } from '#root/config/firebaseAdmin.js';
 
 export interface OverlapResult {
   collection: string;
@@ -736,6 +737,184 @@ export class CheckOverlapsService {
       if (prodSession) await prodSession.endSession();
       await stagingClient.close();
       log('🔌 Connections safely closed.');
+    }
+  }
+
+  /**
+   * Migrate Firebase users for staging users.
+   * 
+   * This creates Firebase users for all users where staging: true in the production database.
+   * The temporary password is "TemporaryPass@123".
+   * 
+   * Handles the edge case where a user with the same email already exists in Firebase
+   * (from the other application) by linking to the existing Firebase UID.
+   */
+  async migrateFirebaseUsers(): Promise<{
+    success: boolean;
+    timestamp: string;
+    logs: string[];
+    summary: {
+      total: number;
+      created: number;
+      existing: number;
+      failed: number;
+      skipped: number;
+    };
+  }> {
+    const logs: string[] = [];
+
+    const log = (message: string, ...args: any[]) => {
+      const fullMessage = args.length > 0 ? `${message} ${args.map(a => JSON.stringify(a)).join(' ')}` : message;
+      logs.push(fullMessage);
+      console.log(fullMessage);
+    };
+
+    // Counters
+    const counters = {
+      total: 0,
+      created: 0,
+      existing: 0,
+      failed: 0,
+      skipped: 0,
+    };
+
+    const TEMP_PASSWORD = 'TemporaryPass@123';
+
+    log('🚀 Starting Firebase user migration for staging users...');
+    log(`Timestamp: ${new Date().toISOString()}`);
+    log(`Temporary password for all users: ${TEMP_PASSWORD}`);
+
+    try {
+      // Get the production database
+      const db = await this.db.init();
+
+      // Get all users where staging: true
+      // Note: Staging users already have firebaseUid from the old Firebase, 
+      // but we need to create new Firebase users in the new Firebase project
+      const stagingUsers = await db
+        .collection('users')
+        .find({
+          staging: true
+        })
+        .toArray();
+
+      counters.total = stagingUsers.length;
+      log(`📊 Found ${stagingUsers.length} staging users`);
+
+      if (stagingUsers.length === 0) {
+        log('⚠️ No staging users found that need Firebase migration.');
+        return {
+          success: true,
+          timestamp: new Date().toISOString(),
+          logs,
+          summary: counters,
+        };
+      }
+
+      // Get Firebase Auth instance
+      const auth = getFirebaseAuth();
+
+      for (const user of stagingUsers) {
+        const userId = user._id.toString();
+        const email = user.email;
+
+        log(`\n👤 Processing user: ${email} (${userId})`);
+
+        // Skip if no email
+        if (!email) {
+          log(`   ⚠️ Skipping user ${userId}: No email provided`);
+          counters.skipped++;
+          continue;
+        }
+
+        try {
+          // Try to create a new Firebase user
+          const firebaseUser = await auth.createUser({
+            email: email,
+            emailVerified: false,
+            password: TEMP_PASSWORD,
+            displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || undefined,
+            disabled: false,
+          });
+
+          log(`   ✅ Created Firebase user: ${firebaseUser.uid}`);
+
+          // Update the user document with the new firebaseUid and firebaseMigrated flag
+          await db.collection('users').updateOne(
+            { _id: user._id },
+            {
+              $set: {
+                firebaseUid: firebaseUser.uid,
+                firebaseMigrated: true,
+              },
+            }
+          );
+
+          log(`   ✅ Updated user document with firebaseUid and firebaseMigrated: true`);
+          counters.created++;
+        } catch (error: any) {
+          // Handle the case where the email already exists in Firebase
+          if (error.code === 'auth/email-already-exists') {
+            log(`   ⚠️ Email already exists in Firebase. Getting existing user...`);
+
+            try {
+              // Get the existing Firebase user by email
+              const existingUser = await auth.getUserByEmail(email);
+              log(`   ✅ Found existing Firebase user: ${existingUser.uid}`);
+
+              // Update the user document with the existing firebaseUid and firebaseMigrated flag
+              await db.collection('users').updateOne(
+                { _id: user._id },
+                {
+                  $set: {
+                    firebaseUid: existingUser.uid,
+                    firebaseMigrated: true,
+                  },
+                }
+              );
+
+              log(`   ✅ Updated user document with existing firebaseUid and firebaseMigrated: true`);
+              counters.existing++;
+            } catch (getUserError: any) {
+              log(`   🔴 Failed to get existing Firebase user: ${getUserError.message}`);
+              counters.failed++;
+            }
+          } else {
+            // Other errors
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            log(`   🔴 Failed to create Firebase user: ${errorMessage}`);
+            counters.failed++;
+          }
+        }
+      }
+
+      // Print summary
+      log('\n========================================');
+      log('📊 FIREBASE MIGRATION SUMMARY');
+      log('========================================');
+      log(`Total users processed: ${counters.total}`);
+      log(`Created: ${counters.created}`);
+      log(`Existing (linked): ${counters.existing}`);
+      log(`Failed: ${counters.failed}`);
+      log(`Skipped: ${counters.skipped}`);
+      log('========================================');
+
+      return {
+        success: true,
+        timestamp: new Date().toISOString(),
+        logs,
+        summary: counters,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log(`🔴 Error during Firebase migration: ${errorMessage}`);
+
+      return {
+        success: false,
+        timestamp: new Date().toISOString(),
+        logs,
+        summary: counters,
+      };
     }
   }
 }

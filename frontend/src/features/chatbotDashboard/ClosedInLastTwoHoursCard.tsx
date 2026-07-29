@@ -80,7 +80,7 @@ export function ClosedInLastTwoHoursCard({
   showSourceFilter = true,
 }: ClosedInLastTwoHoursCardProps) {
 
-  console.log("State on frontend is", state);
+  // console.log("State on frontend is", state);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {

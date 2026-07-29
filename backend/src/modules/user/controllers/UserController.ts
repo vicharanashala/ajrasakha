@@ -15,7 +15,8 @@ import {
   QueryParams,
   BadRequestError,
   InternalServerError,
-  ForbiddenError
+  ForbiddenError,
+  QueryParam
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -52,6 +53,9 @@ import {
   UserEntryResponse,
   UserHistoryResponse,
 } from '../../core/classes/validators/UserResponseValidators.js';
+import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
+import { IChatbotService } from '#root/modules/chatbot/interfaces/IChatbotService.js';
+import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -63,6 +67,9 @@ export class UserController {
   constructor(
     @inject(GLOBAL_TYPES.UserService)
     private readonly userService: UserService,
+
+    @inject(CHATBOT_TYPES.ChatbotService)
+    private readonly chatbotService: IChatbotService,
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
@@ -1310,5 +1317,31 @@ export class UserController {
     @QueryParams() query: { userId: string; startDateTime: string; endDateTime: string; }
   ): Promise<{ workingHours: number }> {
     return await this.userService.getWorkingHours(query);
+  }
+
+  @Get('/reviewer-lifecycle')
+  @HttpCode(200)
+  @Authorized()
+  async getReviewerLifecycle(
+    @QueryParam('userId') userId?: string,
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string,
+  ): Promise<any> {
+
+    // console.log("reviewer-lifecycle---", userId, startDate, endDate);
+    const result = await this.chatbotService.getReviewerLifecycle(
+      userId, new Date(startDate), new Date(endDate)
+    );
+    // console.log("result----", result);
+    return result;
+  }
+
+    @Get ('/working-hours-trend')
+  @HttpCode(200)
+  @Authorized()
+  async getWorkingHoursTrend(
+    @QueryParams() query: {userId: string; startDateTime: string; endDateTime: string; granularity: TrendGranularity;}
+  ): Promise<any>{
+    return await this.userService.getWorkingHoursTrend(query)
   }
 }
