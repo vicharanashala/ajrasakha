@@ -2871,4 +2871,16 @@ export class QuestionController {
     const result = await this.checkOverlapsService.runMigration();
     return result;
   }
+
+  // ─── Migrate Firebase users endpoint (internal API key auth) ──────────────────────
+
+  @Post('/migrate-firebase-users')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Migrate Firebase users for staging users - creates new Firebase users and updates their UIDs' })
+  async migrateFirebaseUsers() {
+    console.log('[QuestionController] migrateFirebaseUsers: Starting Firebase user migration...');
+    const result = await this.checkOverlapsService.migrateFirebaseUsers();
+    return result;
+  }
 }
