@@ -6839,8 +6839,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       let failedAssignments = 0;
 
       // Assign one question per available moderator within a single source group.
-      // For manual questions only, training questions may be assigned only to
-      // moderators marked as training users.
+      // Training questions must only go to training moderators, and non-training
+      // questions must only go to non-training moderators.
       const runPass = async (
         label: string,
         moderators: IUser[],
@@ -6939,7 +6939,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         );
       }
 
-      await runPass('time-bound', timeBoundModerators, timeBoundQuestions);
+      await runPass(
+        'time-bound',
+        timeBoundModerators,
+        timeBoundQuestions,
+        (moderator, question) =>
+          this.isQuestionUserTrainingTypeMatch(moderator, question),
+      );
       await runPass(
         'manual',
         manualModerators,
