@@ -770,7 +770,6 @@ export class QuestionRepository implements IQuestionRepository {
             {
               $and: [
                 { history: { $size: 0 } },
-                { queue: { $size: 1 } },
                 { $or: [{ 'queue.0': userObjId }, { 'queue.0': userStr }] },
               ],
             },
