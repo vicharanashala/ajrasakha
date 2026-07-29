@@ -16,7 +16,7 @@
  *
  *  Collection:
  *    • kvks — one document per KVK, upserted on `kvkId`.
- *      Fields stored: kvkId, kvkName, kvkAddress, districtLgdCode,
+ *      Fields stored: kvkId, kvkName, kvkAddress, districtCode,
  *      createdAt, updatedAt.
  *
  *  Safe to re-run: existing KVKs are upserted (matched on kvkId).
@@ -93,18 +93,18 @@ async function run() {
         
         const parseNum = (v) => (!v || v === 'NA') ? null : (isNaN(Number(v)) ? null : Number(v));
         
-        const districtLgdCode = parseNum(districtLgdCodeStr);
+        const districtCode = parseNum(districtLgdCodeStr);
         const latitude = parseNum(latitudeStr);
         const longitude = parseNum(longitudeStr);
-        const stateLgdCode = currentStateLgdCode;
+        const stateCode = currentStateLgdCode;
         
         if (kvkId && kvkName) {
             results.push({
                 kvkId,
                 kvkName,
                 kvkAddress,
-                districtLgdCode,
-                stateLgdCode,
+                districtCode,
+                stateCode,
                 latitude,
                 longitude,
                 createdAt: new Date(),
