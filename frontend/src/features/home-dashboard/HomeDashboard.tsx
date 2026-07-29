@@ -85,6 +85,7 @@ export const HomeDashboard: React.FC = () => {
   const [reviewStage, setReviewStage] = useState(0);
   const [livePulseCount, setLivePulseCount] = useState(12842);
   const [activeStatesCount, setActiveStatesCount] = useState<number | null>(null);
+  const [activeNetworkTab, setActiveNetworkTab] = useState<"experts" | "kvk" | "sau">("experts");
 
   const futureSlides = [
     {
@@ -240,6 +241,22 @@ export const HomeDashboard: React.FC = () => {
     return universities.size;
   }, [publicUsers]);
 
+  // SAU-network breakdown: pae_expert users grouped by university (case-insensitive, so
+  // "Lallu" and "lallu" collapse into one), keeping the first-seen casing as the label.
+  const sauUniversities = React.useMemo<{ university: string; count: number }[]>(() => {
+    const groups = new Map<string, { university: string; count: number }>();
+    for (const u of publicUsers ?? []) {
+      if (u.role?.toLowerCase() !== "pae_expert") continue;
+      const uni = u.university?.trim();
+      if (!uni) continue;
+      const key = uni.toLowerCase();
+      const existing = groups.get(key);
+      if (existing) existing.count += 1;
+      else groups.set(key, { university: uni, count: 1 });
+    }
+    return Array.from(groups.values()).sort((a, b) => b.count - a.count);
+  }, [publicUsers]);
+
   const spinner = <Loader2 className="inline-block h-4 w-4 animate-spin" aria-label="Loading" />;
 
   const heroMetrics = [
@@ -313,29 +330,42 @@ export const HomeDashboard: React.FC = () => {
     { name: "Pests & disease alerts", cadence: "In Training", icon: ShieldCheck, isLive: false },
   ];
 
-  const expertCounts = React.useMemo(() => {
-    if (!publicUsers || publicUsers.length === 0) {
-      return [
-        ["Field & practical agronomists", "0", "#2b7050"],
-        ["Researchers & Admins", "0", "#6d9a57"],
-        ["Moderators", "0", "#d3ad5e"],
-        ["Auditors & Gatekeepers", "0", "#8c79a4"],
-        ["Reviewers & Authors", "0", "#a76455"],
-      ];
-    }
-    const reviewers = publicUsers.filter((u) => u.role?.toLowerCase() === "reviewer" || u.role?.toLowerCase() === "author").length;
-    const agronomists = publicUsers.filter((u) => u.role?.toLowerCase() === "expert" || u.role?.toLowerCase() === "agronomist").length;
-    const moderators = publicUsers.filter((u) => u.role?.toLowerCase() === "moderator").length;
-    const researchers = publicUsers.filter((u) => u.role?.toLowerCase() === "admin").length;
-    const auditors = publicUsers.filter((u) => u.role?.toLowerCase() === "auditor" || u.role?.toLowerCase() === "gate_keeper" || u.role?.toLowerCase() === "gatekeeper").length;
+  const expertCounts = React.useMemo<[string, string, string][]>(() => {
+    // Friendly display labels for known role keys; anything else is prettified below.
+    const ROLE_LABELS: Record<string, string> = {
+      expert: "Agronomists / Experts",
+      agronomist: "Agronomists / Experts",
+      pae_expert: "PAE Experts",
+      moderator: "Moderators",
+      auditor: "Auditors",
+      gate_keeper: "Gate Keepers",
+      gatekeeper: "Gate Keepers",
+      reviewer: "Reviewers",
+      author: "Authors",
+      district_coordinator: "District Coordinators",
+      block_coordinator: "Block Coordinators",
+      village_volunteer: "Village Volunteers",
+      call_agent: "Call Agents",
+    };
+    const ROLE_COLORS = ["#2b7050", "#6d9a57", "#d3ad5e", "#8c79a4", "#a76455", "#4e8ca6", "#b07d3b", "#5a8f74"];
 
-    return [
-      ["Field & practical agronomists", agronomists.toLocaleString(), "#2b7050"],
-      ["Researchers & Admins", researchers.toLocaleString(), "#6d9a57"],
-      ["Moderators", moderators.toLocaleString(), "#d3ad5e"],
-      ["Auditors & Gatekeepers", auditors.toLocaleString(), "#8c79a4"],
-      ["Reviewers & Authors", reviewers.toLocaleString(), "#a76455"],
-    ];
+    // Count active users per role, excluding admins.
+    const counts: Record<string, number> = {};
+    for (const u of publicUsers ?? []) {
+      const role = u.role?.trim().toLowerCase();
+      if (!role || role === "admin") continue;
+      counts[role] = (counts[role] || 0) + 1;
+    }
+
+    // Highest count first; label unknown roles by title-casing their key.
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([role, count], i) => {
+        const label =
+          ROLE_LABELS[role] ??
+          role.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+        return [label, count.toLocaleString(), ROLE_COLORS[i % ROLE_COLORS.length]];
+      });
   }, [publicUsers]);
 
   const outreachStories = React.useMemo(() => {
@@ -841,24 +871,60 @@ export const HomeDashboard: React.FC = () => {
             <h2>A nationwide network of agricultural experts and institutions.</h2>
 
             <div className="network-tabs">
-              <button className="active" type="button">
+              <button
+                className={activeNetworkTab === "experts" ? "active" : ""}
+                type="button"
+                onClick={() => setActiveNetworkTab("experts")}
+              >
                 Experts map
               </button>
-              <button type="button">KVK network</button>
-              <button type="button">SAU network</button>
+              <button
+                className={activeNetworkTab === "kvk" ? "active" : ""}
+                type="button"
+                onClick={() => setActiveNetworkTab("kvk")}
+              >
+                KVK network
+              </button>
+              <button
+                className={activeNetworkTab === "sau" ? "active" : ""}
+                type="button"
+                onClick={() => setActiveNetworkTab("sau")}
+              >
+                SAU network
+              </button>
             </div>
 
-            <ul className="expert-counts">
-              {expertCounts.map(([label, count, color]) => (
-                <li key={label}>
-                  <span>
-                    <i style={{ background: color }} />
-                    {label}
-                  </span>
-                  <strong>{count}</strong>
-                </li>
-              ))}
-            </ul>
+            {activeNetworkTab === "sau" ? (
+              <ul className="expert-counts">
+                {sauUniversities.length > 0 ? (
+                  sauUniversities.map(({ university, count }) => (
+                    <li key={university.toLowerCase()}>
+                      <span>
+                        <i style={{ background: "#2b7050" }} />
+                        {university}
+                      </span>
+                      <strong>{count.toLocaleString()}</strong>
+                    </li>
+                  ))
+                ) : (
+                  <li>
+                    <span>No SAU (pae_expert) universities yet</span>
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <ul className="expert-counts">
+                {expertCounts.map(([label, count, color]) => (
+                  <li key={label}>
+                    <span>
+                      <i style={{ background: color }} />
+                      {label}
+                    </span>
+                    <strong>{count}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="expert-map-card">
@@ -867,9 +933,7 @@ export const HomeDashboard: React.FC = () => {
               <div className="night-map-label" style={{ marginTop: "12px" }}>
                 <span className="live-dot" />
                 <span>
-                  {publicUsers && publicUsers.length > 0
-                    ? `${publicUsers.length.toLocaleString()} active experts registered`
-                    : "0 active experts registered"}
+                  {`${(publicUsers?.filter((u) => u.role?.toLowerCase() !== "admin").length ?? 0).toLocaleString()} active experts registered`}
                 </span>
               </div>
             </div>

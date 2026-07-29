@@ -105,6 +105,9 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
     const dynamicMapped: ExpertProfile[] = [];
 
     publicUsers.forEach((u, idx) => {
+      // Admins are back-office and not part of the public expert network.
+      if (safeString(u.role).toLowerCase() === "admin") return;
+
       const firstName = safeString(u.firstName);
       const lastName = safeString(u.lastName);
       const userName =
