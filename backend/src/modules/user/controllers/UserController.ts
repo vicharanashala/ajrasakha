@@ -305,9 +305,15 @@ export class UserController {
     // If current user is NOT a training user, show only moderators who are NOT training users
     // If isTrainingUser field doesn't exist in the collection, treat it as false (not true)
     const isTrainingUser = currentUser.isTrainingUser === true;
+    const isAdmin = currentUser.role === 'admin';
     
-    return users
-      .filter(u => (u.isTrainingUser === true) === isTrainingUser)
+   
+    return users.filter(u => {
+      if (isAdmin) {
+        return true;
+      }
+      return (u.isTrainingUser === true) === isTrainingUser;
+    })
       .map(u => ({
         _id: u._id?.toString(),
         name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
