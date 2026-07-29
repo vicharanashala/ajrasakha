@@ -81,8 +81,9 @@ export class PublicDashboardRepository implements IPublicDashboardRepository {
             status: {$in: ['open', 'closed', 'delayed']},
           },
         },
-        // Count questions per (state, crop). Prefer the normalised crop name, then
-        // the raw crop, so variant spellings collapse into one bucket.
+        // Count questions per (state, crop), splitting the total into closed vs
+        // in-progress (open + delayed). Prefer the normalised crop name, then the raw
+        // crop, so variant spellings collapse into one bucket.
         {
           $group: {
             _id: {
@@ -95,6 +96,12 @@ export class PublicDashboardRepository implements IPublicDashboardRepository {
               },
             },
             count: {$sum: 1},
+            closed: {
+              $sum: {$cond: [{$eq: ['$status', 'closed']}, 1, 0]},
+            },
+            inProgress: {
+              $sum: {$cond: [{$in: ['$status', ['open', 'delayed']]}, 1, 0]},
+            },
           },
         },
         // A crop is "saturated" when its document count exceeds the limit.
@@ -104,10 +111,19 @@ export class PublicDashboardRepository implements IPublicDashboardRepository {
           $group: {
             _id: '$_id.state',
             total: {$sum: '$count'},
-            crops: {$push: {crop: '$_id.crop', count: '$count'}},
+            closed: {$sum: '$closed'},
+            inProgress: {$sum: '$inProgress'},
+            crops: {
+              $push: {
+                crop: '$_id.crop',
+                count: '$count',
+                closed: '$closed',
+                inProgress: '$inProgress',
+              },
+            },
           },
         },
-        {$project: {_id: 0, state: '$_id', total: 1, crops: 1}},
+        {$project: {_id: 0, state: '$_id', total: 1, closed: 1, inProgress: 1, crops: 1}},
         {$sort: {total: -1}},
       ]).toArray()) as SaturatedCropStateItem[];
 

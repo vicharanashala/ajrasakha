@@ -5,7 +5,11 @@ export interface SaturatedCropStateItem {
   state: string;
   /** Sum of question counts across the saturated crops in this state. */
   total: number;
-  crops: {crop: string; count: number}[];
+  /** Sum of closed-status question counts across the saturated crops in this state. */
+  closed: number;
+  /** Sum of in-progress (open + delayed) question counts across the saturated crops. */
+  inProgress: number;
+  crops: {crop: string; count: number; closed: number; inProgress: number}[];
 }
 
 /** Public-facing subset of an active user for the public dashboard. */

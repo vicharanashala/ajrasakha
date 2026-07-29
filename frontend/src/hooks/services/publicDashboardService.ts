@@ -33,11 +33,19 @@ export const HOMEPAGE_STATS: {
 export interface SaturatedCrop {
   crop: string;
   count: number;
+  /** Count of closed-status questions for this crop. */
+  closed?: number;
+  /** Count of in-progress (open + delayed) questions for this crop. */
+  inProgress?: number;
 }
 
 export interface SaturatedCropStateItem {
   state: string;
   total: number;
+  /** Sum of closed-status question counts across the state's saturated crops. */
+  closed?: number;
+  /** Sum of in-progress (open + delayed) question counts across the state's saturated crops. */
+  inProgress?: number;
   crops: SaturatedCrop[];
 }
 

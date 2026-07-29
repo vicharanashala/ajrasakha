@@ -737,7 +737,7 @@ export const HomeDashboard: React.FC = () => {
         <div className="page-shell coverage-layout">
           <div className="coverage-intro">
             <span className="eyebrow">India coverage · Knowledge without boundaries</span>
-            <h2>Knowledge spanning across state, district, and village.</h2>
+            <h2>Knowledge spanning across state and district.</h2>
             <p>
               From crops to geographies, discover the breadth of our advisory coverage.
             </p>
