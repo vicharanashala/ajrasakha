@@ -8,7 +8,9 @@
     "test:integration": "vitest run --config vite.integration.config.ts"
   },
   "devDependencies": {
+    "@types/supertest": "^7.2.1",
     "mongodb-memory-server": "^11.2.0",
+    "supertest": "^7.2.2",
     "unplugin-swc": "^1.5.7",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4"

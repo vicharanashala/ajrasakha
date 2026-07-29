@@ -116,6 +116,42 @@ MongoDB behavior (Vitest config: `vite.integration.config.ts`,
 `include: ['*.integration.test.ts']`). The default `pnpm test` run excludes
 them and stays fully mocked, per the testing principles.
 
+### HTTP integration tests (Layer 4)
+
+`http-plivo-endpoints.integration.test.ts` boots the **real** Express +
+`routing-controllers` app the same way `index.ts` does - real middleware
+chain, real route registration, real class-validator/body-parser behavior,
+real DI container wired to a `mongodb-memory-server` instance - and drives it
+with `supertest`. Only Plivo (the SDK client) and Firebase (`verifyIdToken`)
+are mocked; everything else, including the Express/HTTP boundary and MongoDB,
+is real. Harness: `helpers/http-app.ts`.
+
+Coverage:
+
+- `GET /api/health` returns a healthy status body
+- CORS preflight (`OPTIONS`) returns 204 with the allow-* headers
+- `GET /api/reference` actually serves the Scalar/OpenAPI HTML page
+- An unregistered route returns 404
+- `POST /api/plivo/answer` returns busy XML with no agent available, and
+  dial XML + a real Mongo agent reservation when one is
+- `POST /api/plivo/webhook/call-ended` releases the real agent holding the
+  call
+- `@Authorized()` routes: no token, a token that fails verification, and a
+  verified token with no matching DB user all return 401; an authenticated
+  but wrong-role user gets the controller's own 400; a correctly authenticated
+  `call_agent` gets 200
+- `/send-message` request validation: missing fields returns 400
+
+KNOWN FINDING (not fixed - testers only, no app-code changes made):
+
+- A malformed JSON request body on *any* endpoint returns **500**, not 400.
+  `body-parser`'s `SyntaxError` carries `status: 400`, but
+  `HttpErrorHandler` (`shared/middleware/errorHandler.ts`) only special-cases
+  `UnauthorizedError`/`HttpError`; every other `instanceof Error` - including
+  this one - is flattened to 500 without checking `err.status`/`err.statusCode`.
+  The test asserts the actual (buggy) 500 rather than the expected 400, with
+  a comment explaining why.
+
 ## Running the tests
 
 First install the existing ACC backend dependencies from `acc/acc-backend`:
