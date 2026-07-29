@@ -1,4 +1,9 @@
-import { expect, type Locator, type Page, type Response } from "@playwright/test";
+import {
+  expect,
+  type Locator,
+  type Page,
+  type Response,
+} from "@playwright/test";
 
 export type OpenedQuestion = {
   id: string;
@@ -6,7 +11,7 @@ export type OpenedQuestion = {
   responseBody: Record<string, unknown>;
 };
 
-export class DashboardPage {
+export class ExpertDashboardPage {
   readonly allQuestionsTab: Locator;
   readonly questionTable: Locator;
   readonly emptyState: Locator;
@@ -25,12 +30,16 @@ export class DashboardPage {
   async openAllQuestions(): Promise<void> {
     await this.allQuestionsTab.click();
     await expect(
-      this.page.getByRole("columnheader", { name: "Question" }).or(this.emptyState.first()),
+      this.page
+        .getByRole("columnheader", { name: "Question" })
+        .or(this.emptyState.first()),
     ).toBeVisible();
   }
 
   questionRows(): Locator {
-    return this.page.locator("tbody tr").filter({ has: this.page.locator("td") });
+    return this.page
+      .locator("tbody tr")
+      .filter({ has: this.page.locator("td") });
   }
 
   firstQuestionTrigger(): Locator {
@@ -48,7 +57,10 @@ export class DashboardPage {
     );
     await trigger.click();
     const response = await responsePromise;
-    expect(response.ok(), `Full question request failed: ${response.status()}`).toBeTruthy();
+    expect(
+      response.ok(),
+      `Full question request failed: ${response.status()}`,
+    ).toBeTruthy();
 
     const responseBody = (await response.json()) as Record<string, unknown>;
     const data = responseBody.data as Record<string, unknown> | undefined;
@@ -62,7 +74,9 @@ export class DashboardPage {
     };
   }
 
-  async clickFirstQuestionAndWaitFor(responsePredicate: (response: Response) => boolean): Promise<Response> {
+  async clickFirstQuestionAndWaitFor(
+    responsePredicate: (response: Response) => boolean,
+  ): Promise<Response> {
     const trigger = this.firstQuestionTrigger();
     await expect(trigger).toBeVisible();
     const responsePromise = this.page.waitForResponse(responsePredicate);
