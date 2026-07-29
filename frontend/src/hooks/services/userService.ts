@@ -19,6 +19,7 @@ export interface StfModerator {
   _id: string;
   name: string;
   email: string;
+  isTrainingUser?: boolean;
   /** The questions this moderator currently holds (empty when free). A moderator is
    *  busy only while holding an entry in a blocking status; re-routed entries don't count. */
   assignedQuestionIds?: AssignedQuestion[] | null;

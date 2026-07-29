@@ -535,6 +535,7 @@ export interface IQuestionFullData {
   auditorFinishedAt?: string | null;
   autoAllocateGateKeeper?: boolean;
   autoAllocateAuditor?: boolean;
+  isTrainingQuestion?: boolean;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
   isAssignedModerator?: boolean;
   /** True when the requesting user is the assigned gate keeper / auditor (server-computed). */
