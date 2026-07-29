@@ -87,6 +87,35 @@ The Scalar UI is mounted by the ACC microservice at:
 /api/reference
 ```
 
+### MongoDB integration tests (Layer 4)
+
+Unlike the suites above, these run against a real `mongod` via
+`mongodb-memory-server` (an isolated, local, in-memory instance - no
+production database or Docker required). Only the MongoDB boundary is real;
+Plivo, Sarvam, and Firebase are still out of scope here.
+
+`mongo-agent-reservation.integration.test.ts`
+
+- Concurrent calls never reserve the same agent (`findAndMarkAvailableAgent`
+  under real concurrent `findOneAndUpdate` operations, not a mock)
+- Lowest-numbered available agent is reserved first
+- No-agent-available returns null
+- Inactive or unassigned agents are ignored
+- A single agent is never double-booked under a burst of concurrent calls
+- Distinct agents are reserved per call when there is enough capacity
+
+`mongo-call-details-duplicate.integration.test.ts`
+
+- The unique `callUuid` index on `call_details` is actually created
+- Concurrent creates with the same `callUuid` persist exactly one document
+- A repeated create does not overwrite the original document
+- Distinct call UUIDs persist independently
+
+These are run separately from the mocked suites, since they exercise real
+MongoDB behavior (Vitest config: `vite.integration.config.ts`,
+`include: ['*.integration.test.ts']`). The default `pnpm test` run excludes
+them and stays fully mocked, per the testing principles.
+
 ## Running the tests
 
 First install the existing ACC backend dependencies from `acc/acc-backend`:
@@ -109,6 +138,13 @@ Run one file from the test directory:
 pnpm vitest run sarvam-speech-contract.test.ts
 ```
 
+Run the MongoDB integration suite (downloads a local MongoDB binary via
+`mongodb-memory-server` on first run, cached afterward):
+
+```powershell
+pnpm test:integration
+```
+
 ## Scope
 
 - No production implementation files are modified by this test suite.
@@ -116,5 +152,6 @@ pnpm vitest run sarvam-speech-contract.test.ts
   TypeScript configuration do not need to be changed.
 - Speech recognition and translation quality are out of scope.
 - Real phone audio quality and Plivo internal behavior are out of scope.
-- Database-backed race and performance tests require agreed production targets
-  and an isolated integration environment.
+- Database-backed race tests now run against a real local MongoDB instance
+  (see Layer 4 above). Performance/load tests still require agreed production
+  targets before implementation.
