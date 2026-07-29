@@ -12,6 +12,7 @@ import type {
   ILocationDistrict,
   ILocationBlock,
   ILocationVillage,
+  IKvk,
   IKvkSyncResult,
 } from '../interfaces/ILocationService.js';
 
@@ -90,6 +91,28 @@ export class LocationService implements ILocationService {
       villageNameEnglish: record.villageNameEnglish,
       blockCode: record.blockCode,
       pincode: record.pincode || 0, // Fallback since it might not be in DB
+    }));
+  }
+
+  public async getKvks(districtCode: number): Promise<IKvk[]> {
+    if (!districtCode) {
+      throw new BadRequestError('districtCode is required');
+    }
+
+    const collection = await this.db.getCollection<any>('kvks');
+    const records = await collection
+      .find({ districtCode: Number(districtCode) })
+      .sort({ kvkName: 1 })
+      .toArray();
+
+    return records.map((record: any) => ({
+      kvkId: record.kvkId,
+      kvkName: record.kvkName,
+      kvkAddress: record.kvkAddress,
+      districtCode: record.districtCode,
+      stateCode: record.stateCode,
+      latitude: record.latitude,
+      longitude: record.longitude,
     }));
   }
 

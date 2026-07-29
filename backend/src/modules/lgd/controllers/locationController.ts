@@ -9,6 +9,7 @@ import type {
   ILocationDistrict,
   ILocationBlock,
   ILocationVillage,
+  IKvk,
   IKvkSyncResult,
 } from '../interfaces/ILocationService.js';
 
@@ -51,6 +52,14 @@ export class LocationController {
     @QueryParam('blockCode') blockCode: number,
   ): Promise<ILocationVillage[]> {
     return this.locationService.getVillages(blockCode);
+  }
+
+  @Get('/kvks')
+  @HttpCode(200)
+  async getKvks(
+    @QueryParam('districtCode') districtCode: number,
+  ): Promise<IKvk[]> {
+    return this.locationService.getKvks(districtCode);
   }
 
   // Runs the existing `scripts/create-lgd-kvks-collection.mjs --apply` script,
