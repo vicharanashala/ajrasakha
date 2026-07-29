@@ -2342,6 +2342,25 @@ export class QuestionRepository implements IQuestionRepository {
                   '$status',
                 ],
               },
+
+              isDelayed: {
+                $cond: [
+                  {
+                    $lte: [
+                      {
+                        $add: [
+                          '$createdAt',
+                          twoHoursMs,
+                          { $ifNull: ['$accumulatedHoldMs', 0] },
+                        ],
+                      },
+                      now,
+                    ],
+                  },
+                  true,
+                  { $ifNull: ['$isDelayed', false] },
+                ],
+              },
             },
           },
         ],

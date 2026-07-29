@@ -143,6 +143,90 @@ type ResponseAdherenceTableData = {
   totalStaticDynamicWhatsappCount: number;
   totalStaticDynamicAjrasakhaCount: number;
   totalStaticDynamicManualCount: number;
+
+  whatsAppAnsweredAfter120Min: number;
+  ajrasakhaAnsweredAfter120Min: number;
+  manualAnsweredAfter120Min: number;
+
+  whatsAppAnsweredAfter120MinClosed: number;
+  whatsAppAnsweredAfter120MinPass: number;
+  whatsAppAnsweredAfter120MinDynamicClosed: number;
+  whatsAppAnsweredAfter120MinDuplicateClosed: number;
+
+  ajrasakhaAnsweredAfter120MinClosed: number;
+  ajrasakhaAnsweredAfter120MinPass: number;
+  ajrasakhaAnsweredAfter120MinDynamicClosed: number;
+  ajrasakhaAnsweredAfter120MinDuplicateClosed: number;
+
+  manualAnsweredAfter120MinClosed: number;
+  manualAnsweredAfter120MinPass: number;
+  manualAnsweredAfter120MinDynamicClosed: number;
+  manualAnsweredAfter120MinDuplicateClosed: number;
+
+  whatsappSlaBreachedCount: number;
+  ajrasakhaSlaBreachedCount: number;
+  manualSlaBreachedCount: number;
+
+    // WhatsApp
+  whatsappTatMinutes: number;
+  whatsappAverageTimeToAuthorMinutes: number;
+  whatsappAverageReviewAcceptMinutes: number;
+  whatsappAverageReviewModifyMinutes: number;
+  whatsappAverageReviewRejectReauthorMinutes: number;
+  whatsappAverageModeratingMinutes: number;
+  whatsappAverageGatekeepingMinutes: number;
+  whatsappAverageAuditingMinutes: number;
+  whatsappAverageReroutedCompletionMinutes: number;
+
+  // Ajrasakha
+  ajrasakhaTatMinutes: number;
+  ajrasakhaAverageTimeToAuthorMinutes: number;
+  ajrasakhaAverageReviewAcceptMinutes: number;
+  ajrasakhaAverageReviewModifyMinutes: number;
+  ajrasakhaAverageReviewRejectReauthorMinutes: number;
+  ajrasakhaAverageModeratingMinutes: number;
+  ajrasakhaAverageGatekeepingMinutes: number;
+  ajrasakhaAverageAuditingMinutes: number;
+  ajrasakhaAverageReroutedCompletionMinutes: number;
+
+  // Manual
+  manualTatMinutes: number;
+  manualAverageTimeToAuthorMinutes: number;
+  manualAverageReviewAcceptMinutes: number;
+  manualAverageReviewModifyMinutes: number;
+  manualAverageReviewRejectReauthorMinutes: number;
+  manualAverageModeratingMinutes: number;
+  manualAverageGatekeepingMinutes: number;
+  manualAverageAuditingMinutes: number;
+  manualAverageReroutedCompletionMinutes: number;
+
+  whatsappAverageEndToEndQnaCompletionMinutes: number;
+  ajrasakhaAverageEndToEndQnaCompletionMinutes: number;
+  manualAverageEndToEndQnaCompletionMinutes: number;
+
+  whatsappAverageEndToEndUniqueMinutes: number;
+  ajrasakhaAverageEndToEndUniqueMinutes: number;
+  manualAverageEndToEndUniqueMinutes: number;
+
+  whatsappAverageEndToEndDynamicMinutes: number;
+  ajrasakhaAverageEndToEndDynamicMinutes: number;
+  manualAverageEndToEndDynamicMinutes: number;
+
+  whatsappAverageEndToEndDuplicateMinutes: number;
+  ajrasakhaAverageEndToEndDuplicateMinutes: number;
+  manualAverageEndToEndDuplicateMinutes: number;
+
+        whatsappPaeAssignedQuestions: number;
+    ajrasakhaPaeAssignedQuestions: number;
+    manualPaeAssignedQuestions: number;
+    // PAE Contribution to GDB
+    whatsappPaeContributionToGDB: number;
+    ajrasakhaPaeContributionToGDB: number;
+    manualPaeContributionToGDB: number;
+    // PAE Contribution to GDB %
+    whatsappPaeContributionToGDBPct: number;
+    ajrasakhaPaeContributionToGDBPct: number;
+    manualPaeContributionToGDBPct: number;
 };
 
 const DEFAULT_DATA: ResponseAdherenceTableData = {
@@ -276,6 +360,90 @@ const DEFAULT_DATA: ResponseAdherenceTableData = {
   totalStaticDynamicWhatsappCount: 0,
   totalStaticDynamicAjrasakhaCount: 0,
   totalStaticDynamicManualCount: 0,
+
+  whatsAppAnsweredAfter120Min: 0,
+  ajrasakhaAnsweredAfter120Min: 0,
+  manualAnsweredAfter120Min: 0,
+
+  whatsAppAnsweredAfter120MinClosed: 0,
+  whatsAppAnsweredAfter120MinPass: 0,
+  whatsAppAnsweredAfter120MinDynamicClosed: 0,
+  whatsAppAnsweredAfter120MinDuplicateClosed: 0,
+
+  ajrasakhaAnsweredAfter120MinClosed: 0,
+  ajrasakhaAnsweredAfter120MinPass: 0,
+  ajrasakhaAnsweredAfter120MinDynamicClosed: 0,
+  ajrasakhaAnsweredAfter120MinDuplicateClosed: 0,
+
+  manualAnsweredAfter120MinClosed: 0,
+  manualAnsweredAfter120MinPass: 0,
+  manualAnsweredAfter120MinDynamicClosed: 0,
+  manualAnsweredAfter120MinDuplicateClosed: 0,
+
+  whatsappSlaBreachedCount: 0,
+  ajrasakhaSlaBreachedCount: 0,
+  manualSlaBreachedCount: 0,
+
+  // WhatsApp
+whatsappTatMinutes: 0,
+whatsappAverageTimeToAuthorMinutes: 0,
+whatsappAverageReviewAcceptMinutes: 0,
+whatsappAverageReviewModifyMinutes: 0,
+whatsappAverageReviewRejectReauthorMinutes: 0,
+whatsappAverageModeratingMinutes: 0,
+whatsappAverageGatekeepingMinutes: 0,
+whatsappAverageAuditingMinutes: 0,
+whatsappAverageReroutedCompletionMinutes: 0,
+
+// Ajrasakha
+ajrasakhaTatMinutes: 0,
+ajrasakhaAverageTimeToAuthorMinutes: 0,
+ajrasakhaAverageReviewAcceptMinutes: 0,
+ajrasakhaAverageReviewModifyMinutes: 0,
+ajrasakhaAverageReviewRejectReauthorMinutes: 0,
+ajrasakhaAverageModeratingMinutes: 0,
+ajrasakhaAverageGatekeepingMinutes: 0,
+ajrasakhaAverageAuditingMinutes: 0,
+ajrasakhaAverageReroutedCompletionMinutes: 0,
+
+// Manual
+manualTatMinutes: 0,
+manualAverageTimeToAuthorMinutes: 0,
+manualAverageReviewAcceptMinutes: 0,
+manualAverageReviewModifyMinutes: 0,
+manualAverageReviewRejectReauthorMinutes: 0,
+manualAverageModeratingMinutes: 0,
+manualAverageGatekeepingMinutes: 0,
+manualAverageAuditingMinutes: 0,
+manualAverageReroutedCompletionMinutes: 0,
+
+  whatsappAverageEndToEndQnaCompletionMinutes: 0,
+  ajrasakhaAverageEndToEndQnaCompletionMinutes: 0,
+  manualAverageEndToEndQnaCompletionMinutes: 0,
+
+  whatsappAverageEndToEndUniqueMinutes: 0,
+  ajrasakhaAverageEndToEndUniqueMinutes: 0,
+  manualAverageEndToEndUniqueMinutes: 0,
+
+  whatsappAverageEndToEndDynamicMinutes: 0,
+  ajrasakhaAverageEndToEndDynamicMinutes: 0,
+  manualAverageEndToEndDynamicMinutes: 0,
+
+  whatsappAverageEndToEndDuplicateMinutes: 0,
+  ajrasakhaAverageEndToEndDuplicateMinutes: 0,
+  manualAverageEndToEndDuplicateMinutes: 0,
+
+        whatsappPaeAssignedQuestions: 0,
+    ajrasakhaPaeAssignedQuestions: 0,
+    manualPaeAssignedQuestions: 0,
+    // PAE Contribution to GDB
+    whatsappPaeContributionToGDB: 0,
+    ajrasakhaPaeContributionToGDB: 0,
+    manualPaeContributionToGDB: 0,
+    // PAE Contribution to GDB %
+    whatsappPaeContributionToGDBPct: 0,
+    ajrasakhaPaeContributionToGDBPct: 0,
+    manualPaeContributionToGDBPct: 0,
 };
 
 const ALL_ROW_IDS = [
@@ -283,6 +451,7 @@ const ALL_ROW_IDS = [
   "time",
   "header",
   "queriesAsked",
+  "irrevelantQueries",
   "pushedReviewer",
   "answered120",
   "answered120Closed",
@@ -300,12 +469,49 @@ const ALL_ROW_IDS = [
   "staticdynamicWeather",
   "staticdynamicMarket",
   "staticdynamicSchemes",
-  // "nonGdb",
+
+  "answeredAfter120Min",
+  "answeredAfter120MinClosed",
+  "answeredAfter120MinPass",
+  "answeredAfter120MinDynamicClosed",
+  "answeredAfter120MinDuplicateClosed",
+
+  "tatMinutes",
+  "averageTimeToAuthorMinutes",
+  "averageReviewAcceptMinutes",
+  "averageReviewModifyMinutes",
+  "averageReviewRejectReauthorMinutes",
+  "averageModeratingMinutes",
+  "averageGatekeepingMinutes",
+  "averageAuditingMinutes",
+  "averageReroutedCompletionMinutes",
+
+  "slaBreachedCount",
+
   "inReview",
   "open",
   "delayed",
+  "closed",
+  "pending",
+  "nonAgri",
+  "hold",
+  "paeSubmited",
+  "paeAssignedQuestions",
+  "paeContributionToGDB",
+  "paeContributionToGDBPct",
+  "dynamicClosed",
+  "rerouted",
+  "pass",
+  "duplicateClosed",
+
   "summaryDelayReason",
-  "avgResponse",
+
+  "averageEndToEndQnaCompletion",
+  "averageEndToEndUnique",
+  "averageEndToEndDynamic",
+  "averageEndToEndDuplicate",
+
+  "slaBreached",
   "adherencePct",
 ] as const;
 
@@ -316,7 +522,7 @@ const DEFAULT_SELECTED_ROW_IDS = new Set<string>([
   "pushedReviewer",
   "answered120",
   "summaryDelayReason",
-  "avgResponse",
+  // "avgResponse",
   "adherencePct",
 ]);
  
@@ -444,12 +650,13 @@ export function ResponseAdherenceTableCard({
     { id: "time", field: "Time", whatsapp: d.timeWindow, ajraSakha: "", manual: "", notes: "" },
     { id: "header", field: "Source", whatsapp: "Whatsapp", ajraSakha: "AjraSakha", manual: "Manual", notes: "" },
     { id: "queriesAsked", field: "Queries Asked", whatsapp: whatsappQueriesAskedDisplay, ajraSakha: d.ajrasakhaQueriesAsked, manual: manualQueriesAskedDisplay, notes: "" },
+    { id: "irrevelantQueries", field: "Irrevelant Queries", whatsapp: d.whatsappQueriesAsked > 0 ? d.whatsappQueriesAsked - d.whatsappPushedToReviewer : "NIL", ajraSakha: d.ajrasakhaQueriesAsked > 0 ? d.ajrasakhaQueriesAsked - d.ajrasakhaPushedToReviewer : "NIL", manual: d.manualQueriesAsked > 0 ? d.manualQueriesAsked -  d.manualPushedToReviewer: "NIL", notes: "" },
     { id: "pushedReviewer", field: "Questions pushed into the review system", whatsapp: d.whatsappPushedToReviewer, ajraSakha: d.ajrasakhaPushedToReviewer, manual: d.manualPushedToReviewer, notes: "" },
     { id: "answered120", field: "Questions answered within 120 minutes", whatsapp: d.whatsappAnsweredWithin120Min, ajraSakha: d.ajrasakhaAnsweredWithin120Min, manual: d.manualAnsweredWithin120Min, notes: "" },
-    { id: "answered120Closed", field: "Closed within 120 minutes", whatsapp: d.answeredWithin120MinClosedwhatsapp,ajraSakha: d.answeredWithin120MinClosedajrasakha,manual: d.answeredWithin120MinClosedmanual,notes: "",},
-    { id: "answered120Pass",field: "Pass within 120 minutes",whatsapp: d.answeredWithin120MinPasswhatsapp,ajraSakha: d.answeredWithin120MinPassajrasakha,manual: d.answeredWithin120MinPassmanual,notes: "",},
-    { id: "answered120DynamicClosed",field: "Dynamic Closed within 120 minutes",whatsapp: d.answeredWithin120MinDynamicClosedwhatsapp,ajraSakha: d.answeredWithin120MinDynamicClosedajrasakha,manual: d.answeredWithin120MinDynamicClosedmanual,notes: "",},
-    { id: "answered120DuplicateClosed",field: "Duplicate Closed within 120 minutes",whatsapp: d.answeredWithin120MinDuplicateClosedwhatsapp,ajraSakha: d.answeredWithin120MinDuplicateClosedajrasakha,manual: d.answeredWithin120MinDuplicateClosedmanual,notes: "",},
+    {id: "answered120Closed",field: "Closed within 120 minutes",whatsapp: `${d.answeredWithin120MinClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,ajraSakha: `${d.answeredWithin120MinClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,manual: `${d.answeredWithin120MinClosedmanual} / ${d.manualAnsweredWithin120Min}`,notes: ""},
+    {id: "answered120Pass",field: "Pass within 120 minutes",whatsapp: `${d.answeredWithin120MinPasswhatsapp} / ${d.whatsappAnsweredWithin120Min}`,ajraSakha: `${d.answeredWithin120MinPassajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,manual: `${d.answeredWithin120MinPassmanual} / ${d.manualAnsweredWithin120Min}`,notes: ""},
+    {id: "answered120DynamicClosed",field: "Dynamic Closed within 120 minutes",whatsapp: `${d.answeredWithin120MinDynamicClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,ajraSakha: `${d.answeredWithin120MinDynamicClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,manual: `${d.answeredWithin120MinDynamicClosedmanual} / ${d.manualAnsweredWithin120Min}`,notes: ""},
+    {id: "answered120DuplicateClosed",field: "Duplicate Closed within 120 minutes",whatsapp: `${d.answeredWithin120MinDuplicateClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,ajraSakha: `${d.answeredWithin120MinDuplicateClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,manual: `${d.answeredWithin120MinDuplicateClosedmanual} / ${d.manualAnsweredWithin120Min}`,notes: ""},  
     { id: "duplicate", field: "Marked Duplicate (Fetched from GDB)", whatsapp: d.whatsappMarkedDuplicate, ajraSakha: d.ajrasakhaMarkedDuplicate, manual: d.manualMarkedDuplicate, notes: "" },
 
     { id: "totalDynamic", field: "Total - Dynamic", whatsapp: d.totalDynamicWhatsappCount, ajraSakha: d.totalDynamicAjrasakhaCount, manual: d.totalDynamicManualCount, notes: "" },
@@ -461,27 +668,50 @@ export function ResponseAdherenceTableCard({
     { id: "staticdynamicWeather", field: "Static Dynamic - Weather", whatsapp: d.whatsappdynamicWeatherStaticDynamicCount, ajraSakha: d.ajrasakhadynamicWeatherStaticDynamicCount, manual: d.manualdynamicWeatherStaticDynamicCount, notes: "" },
     { id: "staticdynamicMarket", field: "Static Dynamic - Market", whatsapp: d.whatsappdynamicMarketStaticDynamicCount, ajraSakha: d.ajrasakhadynamicMarketStaticDynamicCount, manual:d.manualdynamicMarketStaticDynamicCount, notes: "" },
     { id: "staticdynamicSchemes", field: "Static Dynamic - Schemes", whatsapp: d.whatsappdynamicSchemesStaticDynamicCount, ajraSakha: d.ajrasakhadynamicSchemesStaticDynamicCount, manual: d.manualdynamicSchemesStaticDynamicCount, notes: "" },
+    { id: "answeredAfter120Min", field: "Answered After 120 Min", whatsapp: d.whatsAppAnsweredAfter120Min, ajraSakha: d.ajrasakhaAnsweredAfter120Min, manual: d.manualAnsweredAfter120Min, notes: "" },
+    // { id: "answeredAfter120Min", field: "Answered After 120 Min", whatsapp: d.whatsAppAnsweredAfter120Min, ajraSakha: d.ajrasakhaAnsweredAfter120Min, manual: d.manualAnsweredAfter120Min, notes: ""},
+    {id: "answeredAfter120MinClosed",field: "Closed After 120 Min",whatsapp: `${d.whatsAppAnsweredAfter120MinClosed} / ${d.whatsAppAnsweredAfter120Min}`,ajraSakha: `${d.ajrasakhaAnsweredAfter120MinClosed} / ${d.ajrasakhaAnsweredAfter120Min}`,manual: `${d.manualAnsweredAfter120MinClosed} / ${d.manualAnsweredAfter120Min}`,notes: ""},
+    {id: "answeredAfter120MinPass",field: "Pass After 120 Min",whatsapp: `${d.whatsAppAnsweredAfter120MinPass} / ${d.whatsAppAnsweredAfter120Min}`,ajraSakha: `${d.ajrasakhaAnsweredAfter120MinPass} / ${d.ajrasakhaAnsweredAfter120Min}`,manual: `${d.manualAnsweredAfter120MinPass} / ${d.manualAnsweredAfter120Min}`,notes: ""},
+    {id: "answeredAfter120MinDynamicClosed",field: "Dynamic Closed After 120 Min",whatsapp: `${d.whatsAppAnsweredAfter120MinDynamicClosed} / ${d.whatsAppAnsweredAfter120Min}`,ajraSakha: `${d.ajrasakhaAnsweredAfter120MinDynamicClosed} / ${d.ajrasakhaAnsweredAfter120Min}`,manual: `${d.manualAnsweredAfter120MinDynamicClosed} / ${d.manualAnsweredAfter120Min}`,notes: ""},
+    {id: "answeredAfter120MinDuplicateClosed",field: "Duplicate Closed After 120 Min",whatsapp: `${d.whatsAppAnsweredAfter120MinDuplicateClosed} / ${d.whatsAppAnsweredAfter120Min}`,ajraSakha: `${d.ajrasakhaAnsweredAfter120MinDuplicateClosed} / ${d.ajrasakhaAnsweredAfter120Min}`,manual: `${d.manualAnsweredAfter120MinDuplicateClosed} / ${d.manualAnsweredAfter120Min}`,notes: ""},   
+    {id: "tatMinutes",field: "TAT",whatsapp: formatMinutes(d.whatsappTatMinutes),ajraSakha: formatMinutes(d.ajrasakhaTatMinutes),manual: formatMinutes(d.manualTatMinutes), notes: ""},
+    {id: "averageTimeToAuthorMinutes",field: "Average Time to Author",whatsapp: formatMinutes(d.whatsappAverageTimeToAuthorMinutes),ajraSakha: formatMinutes(d.ajrasakhaAverageTimeToAuthorMinutes),manual: formatMinutes(d.manualAverageTimeToAuthorMinutes),notes: ""},
+    {id: "averageReviewAcceptMinutes",field: "Average Time for Reviewing + Accepting",whatsapp: formatMinutes(d.whatsappAverageReviewAcceptMinutes),ajraSakha: formatMinutes(d.ajrasakhaAverageReviewAcceptMinutes),manual: formatMinutes(d.manualAverageReviewAcceptMinutes),notes: ""},
+    {id: "averageReviewModifyMinutes",field: "Average Time for Reviewing + Modifying",whatsapp: formatMinutes(d.whatsappAverageReviewModifyMinutes),ajraSakha: formatMinutes(d.ajrasakhaAverageReviewModifyMinutes),manual: formatMinutes(d.manualAverageReviewModifyMinutes),notes: ""},
+    {id: "averageReviewRejectReauthorMinutes",field: "Average Time for Reviewing + Rejecting + Re-Authoring",whatsapp: formatMinutes(d.whatsappAverageReviewRejectReauthorMinutes),ajraSakha: formatMinutes(d.ajrasakhaAverageReviewRejectReauthorMinutes),manual: formatMinutes(d.manualAverageReviewRejectReauthorMinutes),notes: ""},
+    {id: "averageModeratingMinutes",field: "Average Time for Moderating",whatsapp: formatMinutes(d.whatsappAverageModeratingMinutes),ajraSakha: formatMinutes(d.ajrasakhaAverageModeratingMinutes),manual: formatMinutes(d.manualAverageModeratingMinutes),notes: ""},
+    {id: "averageGatekeepingMinutes",field: "Average Time to Gatekeeping",whatsapp: formatMinutes(d.whatsappAverageGatekeepingMinutes),ajraSakha: formatMinutes(d.ajrasakhaAverageGatekeepingMinutes),manual: formatMinutes(d.manualAverageGatekeepingMinutes),notes: ""},
+    {id: "averageAuditingMinutes",field: "Average Time to Auditing",whatsapp: formatMinutes(d.whatsappAverageAuditingMinutes),ajraSakha: formatMinutes(d.ajrasakhaAverageAuditingMinutes),manual: formatMinutes(d.manualAverageAuditingMinutes),notes: ""},
+    {id: "averageReroutedCompletionMinutes",field: "Average Time for Rerouted Questions to be Completed",whatsapp: formatMinutes(d.whatsappAverageReroutedCompletionMinutes),ajraSakha: formatMinutes(d.ajrasakhaAverageReroutedCompletionMinutes),manual: formatMinutes(d.manualAverageReroutedCompletionMinutes),notes: ""},
+    {id: "slaBreachedCount",field: "SLA Breached Count",whatsapp: d.whatsappSlaBreachedCount,ajraSakha: d.ajrasakhaSlaBreachedCount, manual: d.manualSlaBreachedCount,notes: ""},
     // { id: "nonGdb", field: "Non GDB Questions - Answer prepared in 120 Min by AEs", whatsapp: d.whatsappNonGdbWithin120, ajraSakha: d.ajrasakhaNonGdbWithin120, manual: d.manualNonGdbWithin120, notes: "" },
     { id: "inReview", field: "Question in Review", whatsapp: d.whatsappInReview, ajraSakha: d.ajrasakhaInReview, manual: d.manualInReview, notes: "" },
     { id: "open", field: "Questions are Open", whatsapp: d.whatsappOpen, ajraSakha: d.ajrasakhaOpen, manual: d.manualOpen, notes: "" },
     { id: "delayed", field: "Questions are delayed", whatsapp: d.whatsappDelayed, ajraSakha: d.ajrasakhaDelayed, manual: d.manualDelayed, notes: "" },
-    {id: "closed", field: "Question are closed", whatsapp: d.whatsappClosedCount, ajraSakha: d.ajrasakhaClosedCount, manual: d.manualClosedCount, notes:""},
-    {id: "pending", field: "Question are pending", whatsapp: d.whatsappPendingCount, ajraSakha: d.ajrasakhaPendingCount, manual: d.manualPendingCount, notes:""},
-    {id: "non agri", field: "Question are non-agri", whatsapp: d.whatsappNonAgriCount, ajraSakha: d.ajrasakhaNonAgriCount, manual: d.manualNonAgriCount, notes:""},
-    {id: "dynamic", field: "Dynamic Question", whatsapp: d.whatsappDynamicCount, ajraSakha: d.ajrasakhaDynamicCount, manual: d.manualDynamicCount, notes:""},
-    {id: "duplicate", field: "Duplicate Question", whatsapp: d.whatsappDuplicateCount, ajraSakha: d.ajrasakhaDuplicateCount, manual: d.manualDuplicateCount, notes:""},
-    {id: "hold", field: "Question on hold", whatsapp: d.whatsappHoldCount, ajraSakha: d.ajrasakhaHoldCount, manual: d.manualHoldCount, notes:""},
+    {id: "closed", field: "Questions are closed", whatsapp: d.whatsappClosedCount, ajraSakha: d.ajrasakhaClosedCount, manual: d.manualClosedCount, notes:""},
+    {id: "pending", field: "Questions are pending", whatsapp: d.whatsappPendingCount, ajraSakha: d.ajrasakhaPendingCount, manual: d.manualPendingCount, notes:""},
+    // {id: "nonAgri", field: "Questions are non-agri", whatsapp: d.whatsappNonAgriCount, ajraSakha: d.ajrasakhaNonAgriCount, manual: d.manualNonAgriCount, notes:""},
+    // {id: "dynamic", field: "Dynamic Question", whatsapp: d.whatsappDynamicCount, ajraSakha: d.ajrasakhaDynamicCount, manual: d.manualDynamicCount, notes:""},
+    // {id: "duplicate", field: "Duplicate Question", whatsapp: d.whatsappDuplicateCount, ajraSakha: d.ajrasakhaDuplicateCount, manual: d.manualDuplicateCount, notes:""},
+    {id: "hold", field: "Questions on hold", whatsapp: d.whatsappHoldCount, ajraSakha: d.ajrasakhaHoldCount, manual: d.manualHoldCount, notes:""},
     {id: "paeSubmited", field: "PAE Submited Questions", whatsapp: d.whatsappPaeSubmitedCount, ajraSakha: d.ajrasakhaPaeSubmitedCount, manual: d.manualPaeSubmitedCount, notes:""},
-    {id: "dynamic closed", field: "Dynamic Closed Questions", whatsapp: d.whatsappDynamicCLosedCount, ajraSakha: d.ajrasakhaDynamicCLosedCount, manual: d.manualDynamicCLosedCount, notes:""},
+    {id: "paeAssignedQuestions",field: "PAE Assigned Questions",whatsapp: d.whatsappPaeAssignedQuestions ?? 0,ajraSakha: d.ajrasakhaPaeAssignedQuestions ?? 0,manual: d.manualPaeAssignedQuestions ?? 0,},
+    {id: "paeContributionToGDB",field: "PAE Contribution to GDB",whatsapp: d.whatsappPaeContributionToGDB ?? 0,ajraSakha: d.ajrasakhaPaeContributionToGDB ?? 0,manual: d.manualPaeContributionToGDB ?? 0,},
+    {id: "paeContributionToGDBPct",field: "PAE Contribution to GDB (%)",whatsapp: `${d.whatsappPaeContributionToGDBPct ?? 0}%`,ajraSakha: `${d.ajrasakhaPaeContributionToGDBPct ?? 0}%`,manual: `${d.manualPaeContributionToGDBPct ?? 0}%`,},
+// {id: "dynamicClosed", field: "Dynamic Closed Questions", whatsapp: d.whatsappDynamicCLosedCount, ajraSakha: d.ajrasakhaDynamicCLosedCount, manual: d.manualDynamicCLosedCount, notes:""},
     {id: "rerouted", field: "Rerouted Questions", whatsapp: d.whatsappReroutedCount, ajraSakha: d.ajrasakhaReroutedCount, manual: d.manualReroutedCount, notes:""},
     {id: "pass", field: "Pass Questions", whatsapp: d.whatsappPassCount, ajraSakha: d.ajrasakhaPassCount, manual: d.manualPassCount, notes:""},
-    {id: "duplicate closed", field: "Duplicate Closed Questions", whatsapp: d.whatsappDuplicateClosedCount, ajraSakha: d.ajrasakhaDuplicateClosedCount, manual: d.manualDuplicateClosedCount, notes:""},
+    // {id: "duplicateClosed", field: "Duplicate Closed Questions", whatsapp: d.whatsappDuplicateClosedCount, ajraSakha: d.ajrasakhaDuplicateClosedCount, manual: d.manualDuplicateClosedCount, notes:""},
     { id: "summaryDelayReason", field: "Summary of the reason for delay", whatsapp: "", ajraSakha: "", manual: "", notes: "" },
-    { id: "avgResponse", field: "Average response time", whatsapp: formatMinutes(d.whatsappAverageResponseMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseMinutes), manual: formatMinutes(d.manualAverageResponseMinutes), notes: "" },
-    { id: "avgResponseGDB", field: "Average response time GDB", whatsapp: formatMinutes(d.whatsappAverageResponseGBDMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseGBDMinutes), manual: formatMinutes(d.manualAverageResponseGBDMinutes), notes: "" },
-    { id: "avgResponseNonGDB", field: "Average response time Non GDB", whatsapp: formatMinutes(d.whatsappAverageResponseNonGBDMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseNonGBDMinutes), manual: formatMinutes(d.manualAverageResponseNonGBDMinutes), notes: "" },
-    { id: "adherencePct", field: "Percentage of questions completed within 120 minutes", whatsapp: `${d.whatsappAdherencePct.toFixed(2)}%`, ajraSakha: `${d.ajrasakhaAdherencePct.toFixed(2)}%`, manual: `${d.manualAdherencePct.toFixed(2)}%`, notes: "" },
+    { id: "averageEndToEndQnaCompletion", field: "Average response time for End to End QNA Completion", whatsapp: formatMinutes(d.whatsappAverageEndToEndQnaCompletionMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndQnaCompletionMinutes), manual: formatMinutes(d.manualAverageEndToEndQnaCompletionMinutes), notes: "" },
+    { id: "averageEndToEndUnique", field: "Average response time for End to End QNA Completion of Unique Questions", whatsapp: formatMinutes(d.whatsappAverageEndToEndUniqueMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndUniqueMinutes), manual: formatMinutes(d.manualAverageEndToEndUniqueMinutes), notes: "" },
+    { id: "averageEndToEndDynamic", field: "Average response time for End to End QNA Completion of Dynamic Question", whatsapp: formatMinutes(d.whatsappAverageEndToEndDynamicMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndDynamicMinutes), manual: formatMinutes(d.manualAverageEndToEndDynamicMinutes), notes: "" },
+    { id: "averageEndToEndDuplicate", field: "Average response time for End to End QNA Completion of Duplicate Question", whatsapp: formatMinutes(d.whatsappAverageEndToEndDuplicateMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndDuplicateMinutes), manual: formatMinutes(d.manualAverageEndToEndDuplicateMinutes), notes: "" },
+      //  { id: "avgResponse", field: "Average response time", whatsapp: formatMinutes(d.whatsappAverageResponseMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseMinutes), manual: formatMinutes(d.manualAverageResponseMinutes), notes: "" },
+    // { id: "avgResponseGDB", field: "Average response time GDB", whatsapp: formatMinutes(d.whatsappAverageResponseGBDMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseGBDMinutes), manual: formatMinutes(d.manualAverageResponseGBDMinutes), notes: "" },
+    // { id: "avgResponseNonGDB", field: "Average response time Non GDB", whatsapp: formatMinutes(d.whatsappAverageResponseNonGBDMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseNonGBDMinutes), manual: formatMinutes(d.manualAverageResponseNonGBDMinutes), notes: "" },
     { id: "slaBreached", field: "SLA Breached", whatsapp: `${(100 - d.whatsappAdherencePct).toFixed(2)}%`, ajraSakha: `${(100 - d.ajrasakhaAdherencePct).toFixed(2)}%`, manual: `${(100 - d.manualAdherencePct).toFixed(2)}%`, notes: "" },
+    { id: "adherencePct", field: "Percentage of questions completed within 120 minutes", whatsapp: `${d.whatsappAdherencePct.toFixed(2)}%`, ajraSakha: `${d.ajrasakhaAdherencePct.toFixed(2)}%`, manual: `${d.manualAdherencePct.toFixed(2)}%`, notes: "" },
   ] as const;
 
   const rows: RowConfig[] = [
@@ -524,8 +754,18 @@ export function ResponseAdherenceTableCard({
       manual: manualQueriesAskedDisplay,
     },
     {
+      key: "irrevelantQueries",
+      label: "Irrevelant Queries",
+      tooltip:
+        "Difference between the queries asked and questions pushed to the system",
+      type: "data",
+      wa: d.whatsappQueriesAsked > 0 ? d.whatsappQueriesAsked - d.whatsappPushedToReviewer : "NIL",
+      as: d.ajrasakhaQueriesAsked > 0 ? d.ajrasakhaQueriesAsked - d.ajrasakhaPushedToReviewer : "NIL",
+      manual: d.manualQueriesAsked > 0 ? d.manualQueriesAsked -  d.manualPushedToReviewer: "NIL",
+    },
+    {
       key: "pushedReviewer",
-      label: "Pushed into Reviewer System",
+      label: "Questoins Pushed into Reviewer System",
       tooltip:
         "Total questions created in the reviewer system for this source during the selected time window.",
       type: "data",
@@ -536,7 +776,7 @@ export function ResponseAdherenceTableCard({
 
     {
       key: "answered120",
-      label: "Responded within 120 min",
+      label: "Questions Responded within 120 min",
       tooltip:
         "Total completed questions whose operational completion time was within 120 minutes of question creation.",
       type: "data",
@@ -546,7 +786,7 @@ export function ResponseAdherenceTableCard({
     },
     {
       key: "answered120Closed",
-      label: "Closed within 120 minutes",
+      label: "Questions Closed within 120 minutes",
       tooltip:
         "Questions with Closed status that were completed within 120 minutes. The value is shown against the total questions responded to within 120 minutes.",
       type: "data",
@@ -556,7 +796,7 @@ export function ResponseAdherenceTableCard({
     },
     {
       key: "answered120Pass",
-      label: "Pass within 120 minutes",
+      label: " Questions Passed within 120 minutes",
       tooltip:
         "Questions with Pass status that were completed within 120 minutes. The value is shown against the total questions responded to within 120 minutes.",
       type: "data",
@@ -566,7 +806,7 @@ export function ResponseAdherenceTableCard({
     },
     {
       key: "answered120DynamicClosed",
-      label: "Dynamic Closed within 120 minutes",
+      label: "Questions Dynamic Closed within 120 minutes",
       tooltip:
         "Dynamic questions that reached Dynamic Closed status within 120 minutes. The value is shown against the total questions responded to within 120 minutes.",
       type: "data",
@@ -576,7 +816,7 @@ export function ResponseAdherenceTableCard({
     },
     {
       key: "answered120DuplicateClosed",
-      label: "Duplicate Closed within 120 minutes",
+      label: "Questions Duplicate Closed within 120 minutes",
       tooltip:
         "Duplicate questions that reached Duplicate Closed status within 120 minutes. The value is shown against the total questions responded to within 120 minutes.",
       type: "data",
@@ -587,7 +827,7 @@ export function ResponseAdherenceTableCard({
 
     {
       key: "duplicate",
-      label: "Marked Duplicate (GDB)",
+      label: "Questions Marked Duplicate (GDB)",
       tooltip:
         "Questions identified as duplicates of an existing Golden Database (GDB) question.",
       type: "data",
@@ -677,10 +917,150 @@ export function ResponseAdherenceTableCard({
       as: d.ajrasakhadynamicSchemesStaticDynamicCount,
       manual: d.manualdynamicSchemesStaticDynamicCount,
     },
+   {
+      key: "answeredAfter120Min",
+      label: "Questions Answered After 120 Min",
+      tooltip: "Questions answered after 120 minutes of creation",
+      type: "data",
+      wa: d.whatsAppAnsweredAfter120Min,
+      as: d.ajrasakhaAnsweredAfter120Min,
+      manual: d.manualAnsweredAfter120Min,
+    },
+
+    {
+      key: "answeredAfter120MinClosed",
+      label: "Questions Closed After 120 Min",
+      tooltip: "Questions closed after 120 minutes of creation",
+      type: "data",
+      wa: `${d.whatsAppAnsweredAfter120MinClosed} / ${d.whatsAppAnsweredAfter120Min}`,
+      as: `${d.ajrasakhaAnsweredAfter120MinClosed} / ${d.ajrasakhaAnsweredAfter120Min}`,
+      manual: `${d.manualAnsweredAfter120MinClosed} / ${d.manualAnsweredAfter120Min}`,
+    },
+
+    {
+      key: "answeredAfter120MinPass",
+      label: "Questions Passed After 120 Min",
+      tooltip: "Questions passed after 120 minutes of creation",
+      type: "data",
+      wa: `${d.whatsAppAnsweredAfter120MinPass} / ${d.whatsAppAnsweredAfter120Min}`,
+      as: `${d.ajrasakhaAnsweredAfter120MinPass} / ${d.ajrasakhaAnsweredAfter120Min}`,
+      manual: `${d.manualAnsweredAfter120MinPass} / ${d.manualAnsweredAfter120Min}`,
+    },
+
+    {
+      key: "answeredAfter120MinDynamicClosed",
+      label: "Questions Dynamic Closed After 120 Min",
+      tooltip: "Dynamic questions closed after 120 minutes of creation",
+      type: "data",
+      wa: `${d.whatsAppAnsweredAfter120MinDynamicClosed} / ${d.whatsAppAnsweredAfter120Min}`,
+      as: `${d.ajrasakhaAnsweredAfter120MinDynamicClosed} / ${d.ajrasakhaAnsweredAfter120Min}`,
+      manual: `${d.manualAnsweredAfter120MinDynamicClosed} / ${d.manualAnsweredAfter120Min}`,
+    },
+
+    {
+      key: "answeredAfter120MinDuplicateClosed",
+      label: "Questions Duplicate Closed After 120 Min",
+      tooltip: "Duplicate questions closed after 120 minutes of creation",
+      type: "data",
+      wa: `${d.whatsAppAnsweredAfter120MinDuplicateClosed} / ${d.whatsAppAnsweredAfter120Min}`,
+      as: `${d.ajrasakhaAnsweredAfter120MinDuplicateClosed} / ${d.ajrasakhaAnsweredAfter120Min}`,
+      manual: `${d.manualAnsweredAfter120MinDuplicateClosed} / ${d.manualAnsweredAfter120Min}`,
+    },
+    {
+      key: "tatMinutes",
+      label: "TAT",
+      tooltip: "Total turnaround time calculated from all TAT lifecycle bifurcations",
+      type: "data",
+      wa: formatMinutes(d.whatsappTatMinutes),
+      as: formatMinutes(d.ajrasakhaTatMinutes),
+      manual: formatMinutes(d.manualTatMinutes),
+    },
+    {
+      key: "averageTimeToAuthorMinutes",
+      label: "Average Time to Author",
+      tooltip: "Average time from first allocation to first answer submission",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageTimeToAuthorMinutes),
+      as: formatMinutes(d.ajrasakhaAverageTimeToAuthorMinutes),
+      manual: formatMinutes(d.manualAverageTimeToAuthorMinutes),
+    },
+    {
+      key: "averageReviewAcceptMinutes",
+      label: "Average Time for Reviewing + Accepting",
+      tooltip: "Average time taken for reviewing and accepting an answer",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageReviewAcceptMinutes),
+      as: formatMinutes(d.ajrasakhaAverageReviewAcceptMinutes),
+      manual: formatMinutes(d.manualAverageReviewAcceptMinutes),
+    },
+    {
+      key: "averageReviewModifyMinutes",
+      label: "Average Time for Reviewing + Modifying",
+      tooltip: "Average time taken for reviewing and modifying an answer",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageReviewModifyMinutes),
+      as: formatMinutes(d.ajrasakhaAverageReviewModifyMinutes),
+      manual: formatMinutes(d.manualAverageReviewModifyMinutes),
+    },
+    {
+      key: "averageReviewRejectReauthorMinutes",
+      label: "Average Time for Reviewing + Rejecting + Re-Authoring",
+      tooltip: "Average time from review start through rejection to re-authoring",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageReviewRejectReauthorMinutes),
+      as: formatMinutes(d.ajrasakhaAverageReviewRejectReauthorMinutes),
+      manual: formatMinutes(d.manualAverageReviewRejectReauthorMinutes),
+    },
+    {
+      key: "averageModeratingMinutes",
+      label: "Average Time for Moderating",
+      tooltip: "Average time taken for moderation",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageModeratingMinutes),
+      as: formatMinutes(d.ajrasakhaAverageModeratingMinutes),
+      manual: formatMinutes(d.manualAverageModeratingMinutes),
+    },
+    {
+      key: "averageGatekeepingMinutes",
+      label: "Average Time to Gatekeeping",
+      tooltip: "Average time taken for gatekeeping",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageGatekeepingMinutes),
+      as: formatMinutes(d.ajrasakhaAverageGatekeepingMinutes),
+      manual: formatMinutes(d.manualAverageGatekeepingMinutes),
+    },
+    {
+      key: "averageAuditingMinutes",
+      label: "Average Time to Auditing",
+      tooltip: "Average time taken for auditing",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageAuditingMinutes),
+      as: formatMinutes(d.ajrasakhaAverageAuditingMinutes),
+      manual: formatMinutes(d.manualAverageAuditingMinutes),
+    },
+    {
+      key: "averageReroutedCompletionMinutes",
+      label: "Average Time for Rerouted Questions to be Completed",
+      tooltip: "Average time from rerouting until completion",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageReroutedCompletionMinutes),
+      as: formatMinutes(d.ajrasakhaAverageReroutedCompletionMinutes),
+      manual: formatMinutes(d.manualAverageReroutedCompletionMinutes),
+    },
+
+    {
+      key: "slaBreachedCount",
+      label: "SLA Breached Count",
+      tooltip: "Questions whose lifecycle exceeded the 120-minute SLA",
+      type: "data",
+      wa: d.whatsappSlaBreachedCount,
+      as: d.ajrasakhaSlaBreachedCount,
+      manual: d.manualSlaBreachedCount,
+    },
 
     {
       key: "inReview",
-      label: "In Review",
+      label: "Questions are In Review",
       tooltip:
         "Questions currently under review and awaiting completion of the review process.",
       type: "data",
@@ -690,7 +1070,7 @@ export function ResponseAdherenceTableCard({
     },
     {
       key: "open",
-      label: "Open",
+      label: "Questions are Open",
       tooltip:
         "Questions currently in Open status and not yet completed.",
       type: "data",
@@ -700,7 +1080,7 @@ export function ResponseAdherenceTableCard({
     },
     {
       key: "delayed",
-      label: "Delayed",
+      label: "Questions are delayed",
       tooltip:
         "Questions currently marked as Delayed in the reviewer system.",
       type: "data",
@@ -710,7 +1090,7 @@ export function ResponseAdherenceTableCard({
     },
     {
       key: "closed",
-      label: "Closed",
+      label: "Question are closed",
       tooltip:
         "Questions whose current reviewer-system status is Closed.",
       type: "data",
@@ -720,7 +1100,7 @@ export function ResponseAdherenceTableCard({
     },
     {
       key: "pending",
-      label: "Pending",
+      label: "Question are pending",
       tooltip:
         "Questions whose current reviewer-system status is Pending.",
       type: "data",
@@ -728,39 +1108,39 @@ export function ResponseAdherenceTableCard({
       as: d.ajrasakhaPendingCount,
       manual: d.manualPendingCount,
     },
-    {
-      key: "nonAgri",
-      label: "Non Agri",
-      tooltip:
-        "Questions classified as non-agricultural and therefore outside the agricultural query workflow.",
-      type: "data",
-      wa: d.whatsappNonAgriCount,
-      as: d.ajrasakhaNonAgriCount,
-      manual: d.manualNonAgriCount,
-    },
-    {
-      key: "dynamic",
-      label: "Dynamic",
-      tooltip:
-        "Questions whose current reviewer-system status is Dynamic.",
-      type: "data",
-      wa: d.whatsappDynamicCount,
-      as: d.ajrasakhaDynamicCount,
-      manual: d.manualDynamicCount,
-    },
-    {
-      key: "duplicate",
-      label: "Duplicate",
-      tooltip:
-        "Questions whose current reviewer-system status is Duplicate.",
-      type: "data",
-      wa: d.whatsappDuplicateCount,
-      as: d.ajrasakhaDuplicateCount,
-      manual: d.manualDuplicateCount,
-    },
+    // {
+    //   key: "nonAgri",
+    //   label: "Non Agri Questions",
+    //   tooltip:
+    //     "Questions classified as non-agricultural and therefore outside the agricultural query workflow.",
+    //   type: "data",
+    //   wa: d.whatsappNonAgriCount,
+    //   as: d.ajrasakhaNonAgriCount,
+    //   manual: d.manualNonAgriCount,
+    // },
+    // {
+    //   key: "dynamic",
+    //   label: "Dynamic",
+    //   tooltip:
+    //     "Questions whose current reviewer-system status is Dynamic.",
+    //   type: "data",
+    //   wa: d.whatsappDynamicCount,
+    //   as: d.ajrasakhaDynamicCount,
+    //   manual: d.manualDynamicCount,
+    // },
+    // {
+    //   key: "duplicate",
+    //   label: "Duplicate",
+    //   tooltip:
+    //     "Questions whose current reviewer-system status is Duplicate.",
+    //   type: "data",
+    //   wa: d.whatsappDuplicateCount,
+    //   as: d.ajrasakhaDuplicateCount,
+    //   manual: d.manualDuplicateCount,
+    // },
     {
       key: "hold",
-      label: "Hold",
+      label: "Questions on Hold",
       tooltip:
         "Questions currently placed on hold and awaiting further action.",
       type: "data",
@@ -779,18 +1159,48 @@ export function ResponseAdherenceTableCard({
       manual: d.manualPaeSubmitedCount,
     },
     {
-      key: "dynamicClosed",
-      label: "Dynamic Closed",
+      key: "paeAssignedQuestions",
+      label: "PAE Assigned Questions",
       tooltip:
-        "Dynamic questions that have completed processing and reached Dynamic Closed status.",
+        "Open questions assigned to the PAE workflow where PAE review is enabled.",
       type: "data",
-      wa: d.whatsappDynamicCLosedCount,
-      as: d.ajrasakhaDynamicCLosedCount,
-      manual: d.manualDynamicCLosedCount,
+      wa: d.whatsappPaeAssignedQuestions,
+      as: d.ajrasakhaPaeAssignedQuestions,
+      manual: d.manualPaeAssignedQuestions,
     },
     {
+      key: "paeContributionToGDB",
+      label: "PAE Contribution to GDB",
+      tooltip:
+        "Closed questions where PAE review was enabled and contributed to the GDB.",
+      type: "data",
+      wa: d.whatsappPaeContributionToGDB,
+      as: d.ajrasakhaPaeContributionToGDB,
+      manual: d.manualPaeContributionToGDB,
+    },
+    {
+      key: "paeContributionToGDBPct",
+      label: "PAE Contribution to GDB (%)",
+      tooltip:
+        "Percentage of closed questions contributed by PAE out of all closed questions.",
+      type: "data",
+      wa: `${d.whatsappPaeContributionToGDBPct ?? 0}%`,
+      as: `${d.ajrasakhaPaeContributionToGDBPct ?? 0}%`,
+      manual: `${d.manualPaeContributionToGDBPct ?? 0}%`,
+    },
+    // {
+    //   key: "dynamicClosed",
+    //   label: "Dynamic Closed",
+    //   tooltip:
+    //     "Dynamic questions that have completed processing and reached Dynamic Closed status.",
+    //   type: "data",
+    //   wa: d.whatsappDynamicCLosedCount,
+    //   as: d.ajrasakhaDynamicCLosedCount,
+    //   manual: d.manualDynamicCLosedCount,
+    // },
+    {
       key: "rerouted",
-      label: "Rerouted",
+      label: "Rerouted Questions",
       tooltip:
         "Questions rerouted to another workflow or processing path.",
       type: "data",
@@ -800,7 +1210,7 @@ export function ResponseAdherenceTableCard({
     },
     {
       key: "pass",
-      label: "Pass",
+      label: "Pass Questions",
       tooltip:
         "Questions whose current reviewer-system status is Pass.",
       type: "data",
@@ -808,16 +1218,16 @@ export function ResponseAdherenceTableCard({
       as: d.ajrasakhaPassCount,
       manual: d.manualPassCount,
     },
-    {
-      key: "duplicateClosed",
-      label: "Duplicate Closed",
-      tooltip:
-        "Duplicate questions whose processing has been completed and whose current status is Duplicate Closed.",
-      type: "data",
-      wa: d.whatsappDuplicateClosedCount,
-      as: d.ajrasakhaDuplicateClosedCount,
-      manual: d.manualDuplicateClosedCount,
-    },
+    // {
+    //   key: "duplicateClosed",
+    //   label: "Duplicate Closed",
+    //   tooltip:
+    //     "Duplicate questions whose processing has been completed and whose current status is Duplicate Closed.",
+    //   type: "data",
+    //   wa: d.whatsappDuplicateClosedCount,
+    //   as: d.ajrasakhaDuplicateClosedCount,
+    //   manual: d.manualDuplicateClosedCount,
+    // },
 
     {
       key: "summaryDelayReason",
@@ -830,36 +1240,73 @@ export function ResponseAdherenceTableCard({
       manual: "—",
     },
 
-    {
-      key: "avgResponse",
-      label: "Avg. Response Time",
-      tooltip:
-        "Average time from question creation to operational completion across all completed question categories.",
+   {
+      key: "averageEndToEndQnaCompletion",
+      label: "Average Response Time for End to End QNA Completion",
+      tooltip: "Average end-to-end completion time for all completed questions",
       type: "data",
-      wa: formatMinutes(d.whatsappAverageResponseMinutes),
-      as: formatMinutes(d.ajrasakhaAverageResponseMinutes),
-      manual: formatMinutes(d.manualAverageResponseMinutes),
+      wa: formatMinutes(d.whatsappAverageEndToEndQnaCompletionMinutes),
+      as: formatMinutes(d.ajrasakhaAverageEndToEndQnaCompletionMinutes),
+      manual: formatMinutes(d.manualAverageEndToEndQnaCompletionMinutes),
     },
     {
-      key: "avgResponseGDB",
-      label: "Avg. Response Time of GDB",
-      tooltip:
-        "Average time from question creation to closure for GDB-based questions.",
+      key: "averageEndToEndUnique",
+      label: "Average Response Time for End to End QNA Completion of Unique Questions",
+      tooltip: "Average end-to-end completion time for unique questions",
       type: "data",
-      wa: formatMinutes(d.whatsappAverageResponseGBDMinutes),
-      as: formatMinutes(d.ajrasakhaAverageResponseGBDMinutes),
-      manual: formatMinutes(d.manualAverageResponseGBDMinutes),
+      wa: formatMinutes(d.whatsappAverageEndToEndUniqueMinutes),
+      as: formatMinutes(d.ajrasakhaAverageEndToEndUniqueMinutes),
+      manual: formatMinutes(d.manualAverageEndToEndUniqueMinutes),
     },
     {
-      key: "avgResponseNonGDB",
-      label: "Avg. Response Time of Non GDB",
-      tooltip:
-        "Average time from question creation to operational completion for Non-GDB questions, including Pass, Dynamic Closed, and Duplicate Closed.",
+      key: "averageEndToEndDynamic",
+      label: "Average Response Time for End to End QNA Completion of Dynamic Question",
+      tooltip: "Average end-to-end completion time for dynamic questions",
       type: "data",
-      wa: formatMinutes(d.whatsappAverageResponseNonGBDMinutes),
-      as: formatMinutes(d.ajrasakhaAverageResponseNonGBDMinutes),
-      manual: formatMinutes(d.manualAverageResponseNonGBDMinutes),
+      wa: formatMinutes(d.whatsappAverageEndToEndDynamicMinutes),
+      as: formatMinutes(d.ajrasakhaAverageEndToEndDynamicMinutes),
+      manual: formatMinutes(d.manualAverageEndToEndDynamicMinutes),
     },
+    {
+      key: "averageEndToEndDuplicate",
+      label: "Average Response Time for End to End QNA Completion of Duplicate Question",
+      tooltip: "Average end-to-end completion time for duplicate questions",
+      type: "data",
+      wa: formatMinutes(d.whatsappAverageEndToEndDuplicateMinutes),
+      as: formatMinutes(d.ajrasakhaAverageEndToEndDuplicateMinutes),
+      manual: formatMinutes(d.manualAverageEndToEndDuplicateMinutes),
+    },
+
+    // {
+    //   key: "avgResponse",
+    //   label: "Avg. Response Time",
+    //   tooltip:
+    //     "Average time from question creation to operational completion across all completed question categories.",
+    //   type: "data",
+    //   wa: formatMinutes(d.whatsappAverageResponseMinutes),
+    //   as: formatMinutes(d.ajrasakhaAverageResponseMinutes),
+    //   manual: formatMinutes(d.manualAverageResponseMinutes),
+    // },
+    // {
+    //   key: "avgResponseGDB",
+    //   label: "Avg. Response Time of GDB",
+    //   tooltip:
+    //     "Average time from question creation to closure for GDB-based questions.",
+    //   type: "data",
+    //   wa: formatMinutes(d.whatsappAverageResponseGBDMinutes),
+    //   as: formatMinutes(d.ajrasakhaAverageResponseGBDMinutes),
+    //   manual: formatMinutes(d.manualAverageResponseGBDMinutes),
+    // },
+    // {
+    //   key: "avgResponseNonGDB",
+    //   label: "Avg. Response Time of Non GDB",
+    //   tooltip:
+    //     "Average time from question creation to operational completion for Non-GDB questions, including Pass, Dynamic Closed, and Duplicate Closed.",
+    //   type: "data",
+    //   wa: formatMinutes(d.whatsappAverageResponseNonGBDMinutes),
+    //   as: formatMinutes(d.ajrasakhaAverageResponseNonGBDMinutes),
+    //   manual: formatMinutes(d.manualAverageResponseNonGBDMinutes),
+    // },
     {
       key: "slaBreached",
       label: "SLA Breached",

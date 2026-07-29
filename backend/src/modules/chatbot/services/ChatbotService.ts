@@ -3819,6 +3819,90 @@ export class ChatbotService extends BaseService implements IChatbotService {
         totalStaticDynamicWhatsappCount: 0,
         totalStaticDynamicAjrasakhaCount: 0,
         totalStaticDynamicManualCount: 0,
+
+        whatsAppAnsweredAfter120Min: 0,
+        ajrasakhaAnsweredAfter120Min: 0,
+        manualAnsweredAfter120Min: 0,
+
+        whatsAppAnsweredAfter120MinClosed: 0,
+        whatsAppAnsweredAfter120MinPass: 0,
+        whatsAppAnsweredAfter120MinDynamicClosed: 0,
+        whatsAppAnsweredAfter120MinDuplicateClosed: 0,
+
+        ajrasakhaAnsweredAfter120MinClosed: 0,
+        ajrasakhaAnsweredAfter120MinPass: 0,
+        ajrasakhaAnsweredAfter120MinDynamicClosed: 0,
+        ajrasakhaAnsweredAfter120MinDuplicateClosed: 0,
+
+        manualAnsweredAfter120MinClosed: 0,
+        manualAnsweredAfter120MinPass: 0,
+        manualAnsweredAfter120MinDynamicClosed: 0,
+        manualAnsweredAfter120MinDuplicateClosed: 0,
+
+        whatsappSlaBreachedCount: 0,
+        ajrasakhaSlaBreachedCount: 0,
+        manualSlaBreachedCount: 0,
+
+        // WhatsApp
+        whatsappTatMinutes: 0,
+        whatsappAverageTimeToAuthorMinutes: 0,
+        whatsappAverageReviewAcceptMinutes: 0,
+        whatsappAverageReviewModifyMinutes: 0,
+        whatsappAverageReviewRejectReauthorMinutes: 0,
+        whatsappAverageModeratingMinutes: 0,
+        whatsappAverageGatekeepingMinutes: 0,
+        whatsappAverageAuditingMinutes: 0,
+        whatsappAverageReroutedCompletionMinutes: 0,
+
+        // Ajrasakha
+        ajrasakhaTatMinutes: 0,
+        ajrasakhaAverageTimeToAuthorMinutes: 0,
+        ajrasakhaAverageReviewAcceptMinutes: 0,
+        ajrasakhaAverageReviewModifyMinutes: 0,
+        ajrasakhaAverageReviewRejectReauthorMinutes: 0,
+        ajrasakhaAverageModeratingMinutes: 0,
+        ajrasakhaAverageGatekeepingMinutes: 0,
+        ajrasakhaAverageAuditingMinutes: 0,
+        ajrasakhaAverageReroutedCompletionMinutes: 0,
+
+        // Manual
+        manualTatMinutes: 0,
+        manualAverageTimeToAuthorMinutes: 0,
+        manualAverageReviewAcceptMinutes: 0,
+        manualAverageReviewModifyMinutes: 0,
+        manualAverageReviewRejectReauthorMinutes: 0,
+        manualAverageModeratingMinutes: 0,
+        manualAverageGatekeepingMinutes: 0,
+        manualAverageAuditingMinutes: 0,
+        manualAverageReroutedCompletionMinutes: 0,
+
+          whatsappAverageEndToEndQnaCompletionMinutes: 0,
+          ajrasakhaAverageEndToEndQnaCompletionMinutes: 0,
+          manualAverageEndToEndQnaCompletionMinutes: 0,
+
+          whatsappAverageEndToEndUniqueMinutes: 0,
+          ajrasakhaAverageEndToEndUniqueMinutes: 0,
+          manualAverageEndToEndUniqueMinutes: 0,
+
+          whatsappAverageEndToEndDynamicMinutes: 0,
+          ajrasakhaAverageEndToEndDynamicMinutes: 0,
+          manualAverageEndToEndDynamicMinutes: 0,
+
+          whatsappAverageEndToEndDuplicateMinutes: 0,
+          ajrasakhaAverageEndToEndDuplicateMinutes: 0,
+          manualAverageEndToEndDuplicateMinutes: 0,
+
+                whatsappPaeAssignedQuestions: 0,
+    ajrasakhaPaeAssignedQuestions: 0,
+    manualPaeAssignedQuestions: 0,
+    // PAE Contribution to GDB
+    whatsappPaeContributionToGDB: 0,
+    ajrasakhaPaeContributionToGDB: 0,
+    manualPaeContributionToGDB: 0,
+    // PAE Contribution to GDB %
+    whatsappPaeContributionToGDBPct: 0,
+    ajrasakhaPaeContributionToGDBPct: 0,
+    manualPaeContributionToGDBPct: 0,
       }));
   }
 

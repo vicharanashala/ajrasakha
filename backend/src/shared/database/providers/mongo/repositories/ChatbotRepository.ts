@@ -456,6 +456,18 @@ const WEATHER_CONCERN_LABELS: Record<keyof typeof WEATHER_CONCERNS, string> = {
   cyclone: 'Cyclone',
 };
 
+type TatStats = {
+  tatMinutes: number;
+  averageTimeToAuthorMinutes: number;
+  averageReviewAcceptMinutes: number;
+  averageReviewModifyMinutes: number;
+  averageReviewRejectReauthorMinutes: number;
+  averageModeratingMinutes: number;
+  averageGatekeepingMinutes: number;
+  averageAuditingMinutes: number;
+  averageReroutedCompletionMinutes: number;
+};
+
 @injectable()
 export class ChatbotRepository implements IChatbotRepository {
   private users!: Collection<IUser>;
@@ -750,6 +762,27 @@ export class ChatbotRepository implements IChatbotRepository {
     dynamicMarketStaticDynamicCount: number;
     dynamicSchemesDynamicCount: number;
     dynamicSchemesStaticDynamicCount: number;
+    answeredAfter120Min: number;
+    answeredAfter120MinClosed: number;
+    answeredAfter120MinPass: number;
+    answeredAfter120MinDynamicClosed: number;
+    answeredAfter120MinDuplicateClosed: number;
+    tatMinutes: number;
+    averageTimeToAuthorMinutes: number;
+    averageReviewAcceptMinutes: number;
+    averageReviewModifyMinutes: number;
+    averageReviewRejectReauthorMinutes: number;
+    averageModeratingMinutes: number;
+    averageGatekeepingMinutes: number;
+    averageAuditingMinutes: number;
+    averageReroutedCompletionMinutes: number;
+    averageEndToEndQnaCompletionMinutes: number;
+    averageEndToEndUniqueMinutes: number;
+    averageEndToEndDynamicMinutes: number;
+    averageEndToEndDuplicateMinutes: number;
+    paeAssignedQuestions: number;
+    paeContributionToGDB: number;
+    paeContributionToGDBPct: number;
   }> {
     const matchQuery = buildBaseQuestionMatch(source);
     if(source === "MANUAL"){
@@ -771,7 +804,7 @@ export class ChatbotRepository implements IChatbotRepository {
     if (query && Object.keys(query).length > 0) {
       matchQuery.$and.push(query);
     }
-
+    console.log("matchquery---", matchQuery);
     const result = await this.QuestionCollection.aggregate(
       [
         {$match: matchQuery},
@@ -1091,13 +1124,35 @@ export class ChatbotRepository implements IChatbotRepository {
                 },
               },
             ],
+            answeredAfter120MinBreakdown: [
+              {
+                $match: {
+                  _operationalCompletionAt: { $ne: null },
+                  isDelayed: true,
+                  _normalizedStatus: {
+                    $in: [
+                      'closed',
+                      'pass',
+                      'dynamic_closed',
+                      'duplicate_closed',
+                    ],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: '$_normalizedStatus',
+                  count: { $sum: 1 },
+                },
+              },
+            ],
             totalResponded: [ { $match: { operationalCompletionAt: { $ne: null }, normalizedStatus: { $in: [ 'closed', 'pass', 'dynamic_closed', 'duplicate_closed', ], }, }, }, { $count: 'count', }, ],
 
             averageResponseGdb: [
   {
     $match: {
-      operationalCompletionAt: { $ne: null },
-      normalizedStatus: 'closed',
+      _operationalCompletionAt: { $ne: null },
+      _normalizedStatus: 'closed',
     },
   },
   {
@@ -1115,7 +1170,7 @@ export class ChatbotRepository implements IChatbotRepository {
           $divide: [
             {
               $subtract: [
-                '$operationalCompletionAt',
+                '$_operationalCompletionAt',
                 '$createdAt',
               ],
             },
@@ -1125,47 +1180,181 @@ export class ChatbotRepository implements IChatbotRepository {
       },
     },
   },
-],
- 
-averageResponseNonGdb: [
-  {
-    $match: {
-      operationalCompletionAt: { $ne: null },
-      normalizedStatus: {
-        $in: [
-          'pass',
-          'dynamic_closed',
-          'duplicate_closed',
-        ],
-      },
-    },
-  },
-  {
-    $match: {
-      $expr: {
-        $gte: ['$_operationalCompletionAt', '$createdAt'],
-      },
-    },
-  },
-  {
-    $group: {
-      _id: null,
-      avgMinutes: {
-        $avg: {
-          $divide: [
-            {
-              $subtract: [
-                '$operationalCompletionAt',
-                '$createdAt',
-              ],
-            },
-            60 * 1000,
-          ],
-        },
-      },
-    },
-  },
-],
+            ],
+            
+            averageResponseNonGdb: [
+              {
+                $match: {
+                  _operationalCompletionAt: { $ne: null },
+                  _normalizedStatus: {
+                    $in: [
+                      'pass',
+                      'dynamic_closed',
+                      'duplicate_closed',
+                    ],
+                  },
+                },
+              },
+              {
+                $match: {
+                  $expr: {
+                    $gte: ['$_operationalCompletionAt', '$createdAt'],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgMinutes: {
+                    $avg: {
+                      $divide: [
+                        {
+                          $subtract: [
+                            '$_operationalCompletionAt',
+                            '$createdAt',
+                          ],
+                        },
+                        60 * 1000,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+
+            averageEndToEndQnaCompletion: [
+              {
+                $match: {
+                  _operationalCompletionAt: {$ne: null},
+                  _normalizedStatus: {
+                    $in: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
+                  },
+                },
+              },
+              {
+                $match: {
+                  $expr: {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgMinutes: {
+                    $avg: {
+                      $divide: [
+                        {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                        60 * 1000,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+
+            averageEndToEndUnique: [
+              {
+                $match: {
+                  _operationalCompletionAt: {$ne: null},
+                  _normalizedStatus: 'closed',
+                },
+              },
+              {
+                $match: {
+                  $expr: {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgMinutes: {
+                    $avg: {
+                      $divide: [
+                        {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                        60 * 1000,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+
+            averageEndToEndDynamic: [
+              {
+                $match: {
+                  _operationalCompletionAt: {$ne: null},
+                  _normalizedStatus: 'dynamic_closed',
+                },
+              },
+              {
+                $match: {
+                  $expr: {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgMinutes: {
+                    $avg: {
+                      $divide: [
+                        {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                        60 * 1000,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+
+            averageEndToEndDuplicate: [
+              {
+                $match: {
+                  _operationalCompletionAt: {$ne: null},
+                  _normalizedStatus: 'duplicate_closed',
+                },
+              },
+              {
+                $match: {
+                  $expr: {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgMinutes: {
+                    $avg: {
+                      $divide: [
+                        {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                        60 * 1000,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+            paeAssignedQuestions: [
+              {
+                $match: {
+                  _statusLower: 'open',
+                  pae_review: true,
+                },
+              },
+              {
+                $count: 'count',
+              },
+            ],
+
+            paeContributionToGDB: [
+              {
+                $match: {
+                  _statusLower: 'closed',
+                  pae_review: true,
+                },
+              },
+              {
+                $count: 'count',
+              },
+            ],
+
           },
         },
       ],
@@ -1191,6 +1380,21 @@ averageResponseNonGdb: [
     }
 
     const row = result[0] ?? {};
+    const paeAssignedQuestions =
+      row.paeAssignedQuestions?.[0]?.count ?? 0;
+
+    const paeContributionToGDB =
+      row.paeContributionToGDB?.[0]?.count ?? 0;
+
+    const totalClosedQuestions =
+      row.closed?.[0]?.count ?? 0;
+
+    const paeContributionToGDBPct =
+      totalClosedQuestions > 0
+        ? Math.round(
+            (paeContributionToGDB / totalClosedQuestions) * 100 * 100,
+          ) / 100
+        : 0;
     const answeredWithin120minBreakdown = Object.fromEntries(
       (row.answeredWithin120MinBreakdown ?? []).map(
         (item: { _id: string; count: number }) => [
@@ -1223,15 +1427,32 @@ averageResponseNonGdb: [
       row.dynamicWeather,
       'static_dynamic',
     );
-    // console.log("weatherDynamic and weatherStaticDynamic", weatherDynamic, weatherStaticDynamic);
+    const answeredAfter120MinBreakdown = Object.fromEntries(
+      (row.answeredAfter120MinBreakdown ?? []).map(
+        (item: { _id: string; count: number }) => [
+          item._id,
+          item.count,
+        ],
+      ),
+    )
+    const answeredAfter120Min = (
+      row.answeredAfter120MinBreakdown ?? []
+    ).reduce(
+      (total: number, item: { _id: string; count: number }) =>
+        total + item.count,
+      0,
+    );
+
+    const tatStats = await this.getTatStats(matchQuery);
+
     return {
       questionAsked: row.questionAsked?.[0]?.count ?? 0,
       closedQuestionsCount: row.closedQuestions?.[0]?.count ?? 0,
       passedQuestionsCount: row.passedQuestions?.[0]?.count ?? 0,
       answeredWithin120Min,
       totalResponded: row.totalResponded?.[0]?.count ?? 0,
-      averageResponseGDBMinutes: row.averageResponseGdb?.[0]?.count ?? 0,
-      averageResponseNonGDBMinutes: row.averageResponseNonGdb?.[0]?.count ?? 0,
+      averageResponseGDBMinutes: row.averageResponseGdb?.[0]?.avgMinutes ?? 0,
+      averageResponseNonGDBMinutes: row.averageResponseNonGdb?.[0]?.avgMinutes ?? 0,
       averageResponseMinutes: row.averageResponse?.[0]?.avgMinutes ?? 0,
       inReviewCount: row.inReview?.[0]?.count ?? 0,
       openCount: row.open?.[0]?.count ?? 0,
@@ -1240,10 +1461,10 @@ averageResponseNonGdb: [
       pendingCount: row.pending?.[0]?.count ?? 0,
       nonAgriCount: row.nonAgri?.[0]?.count ?? 0,
       dynamicCount: row.dynamic?.[0]?.count ?? 0,
-      duplicateCount: row.duplicateCount?.[0]?.count ?? 0,
+      duplicateCount: row.duplicate?.[0]?.count ?? 0,
       holdCount: row.hold?.[0]?.count ?? 0,
       paeSubmitedCount: row.paeSubmited?.[0]?.count ?? 0,
-      dynamicCLosedCount: row.dynamicClosed?.[0]?.count ?? 0,
+      dynamicCLosedCount: row.dynamicCLosed?.[0]?.count ?? 0,
       reroutedCount: row.rerouted?.[0]?.count ?? 0,
       passCount: row.pass?.[0]?.count ?? 0,
       duplicateClosedCount: row.duplicateClosed?.[0]?.count ?? 0,
@@ -1269,6 +1490,40 @@ averageResponseNonGdb: [
       dynamicMarketStaticDynamicCount: marketStaticDynamic?? 0,
       dynamicSchemesDynamicCount: schemesDynamic?? 0,
       dynamicSchemesStaticDynamicCount: schemesStaticDynamic?? 0,
+      answeredAfter120Min,
+      answeredAfter120MinClosed:
+        answeredAfter120MinBreakdown.closed ?? 0,
+      answeredAfter120MinPass:
+        answeredAfter120MinBreakdown.pass ?? 0,
+      answeredAfter120MinDynamicClosed:
+        answeredAfter120MinBreakdown.dynamic_closed ?? 0,
+      answeredAfter120MinDuplicateClosed:
+        answeredAfter120MinBreakdown.duplicate_closed ?? 0,
+        // TAT
+      tatMinutes: tatStats.tatMinutes,
+      averageTimeToAuthorMinutes:
+        tatStats.averageTimeToAuthorMinutes,
+      averageReviewAcceptMinutes:
+        tatStats.averageReviewAcceptMinutes,
+      averageReviewModifyMinutes:
+        tatStats.averageReviewModifyMinutes,
+      averageReviewRejectReauthorMinutes:
+        tatStats.averageReviewRejectReauthorMinutes,
+      averageModeratingMinutes:
+        tatStats.averageModeratingMinutes,
+      averageGatekeepingMinutes:
+        tatStats.averageGatekeepingMinutes,
+      averageAuditingMinutes:
+        tatStats.averageAuditingMinutes,
+      averageReroutedCompletionMinutes:
+        tatStats.averageReroutedCompletionMinutes,
+      averageEndToEndQnaCompletionMinutes: row.averageEndToEndQnaCompletion?.[0]?.avgMinutes ?? 0,
+      averageEndToEndUniqueMinutes: row.averageEndToEndUnique?.[0]?.avgMinutes ?? 0,
+      averageEndToEndDynamicMinutes: row.averageEndToEndDynamic?.[0]?.avgMinutes ?? 0,
+      averageEndToEndDuplicateMinutes: row.averageEndToEndDuplicate?.[0]?.avgMinutes ?? 0,
+      paeAssignedQuestions,
+      paeContributionToGDB,
+      paeContributionToGDBPct,
     };
   }
 
@@ -1464,6 +1719,14 @@ averageResponseNonGdb: [
                 100,
             ) / 100
           : 0;
+      const whatsappSlaBreachedCount =
+        Math.max(0, whatsapp.totalResponded - whatsapp.answeredWithin120Min);
+
+      const ajrasakhaSlaBreachedCount =
+        Math.max(0, ajrasakha.totalResponded - ajrasakha.answeredWithin120Min);
+
+      const manualSlaBreachedCount =
+        Math.max(0, manual.totalResponded - manual.answeredWithin120Min);
 
       const startReference = startTime ? new Date(startTime) : new Date();
       const endReference = endTime ? new Date(endTime) : new Date();
@@ -1479,6 +1742,7 @@ averageResponseNonGdb: [
       // const whatsappNonGdbWithin120 = whatsapp.nonGdbWithin120;
       // const ajrasakhaNonGdbWithin120 = ajrasakha.nonGdbWithin120;
       // const manualNonGdbWithin120 = manual.nonGdbWithin120;
+      // console.log("manual----", manual);
       return {
         date,
         time: `${hh}:${mm}`,
@@ -1616,7 +1880,95 @@ averageResponseNonGdb: [
         totalStaticDynamicAjrasakhaCount: ajrasakha.dynamicWeatherStaticDynamicCount + ajrasakha.dynamicMarketStaticDynamicCount + ajrasakha.dynamicSchemesStaticDynamicCount,
         totalStaticDynamicManualCount: manual.dynamicWeatherStaticDynamicCount + manual.dynamicMarketStaticDynamicCount + manual.dynamicSchemesStaticDynamicCount,
 
-          
+        whatsAppAnsweredAfter120Min: whatsapp.answeredAfter120Min,
+        ajrasakhaAnsweredAfter120Min: ajrasakha.answeredAfter120Min,
+        manualAnsweredAfter120Min: manual.answeredAfter120Min,
+
+        whatsAppAnsweredAfter120MinClosed: whatsapp.answeredAfter120MinClosed,
+        whatsAppAnsweredAfter120MinPass: whatsapp.answeredAfter120MinPass,
+        whatsAppAnsweredAfter120MinDynamicClosed: whatsapp.answeredAfter120MinDynamicClosed,
+        whatsAppAnsweredAfter120MinDuplicateClosed: whatsapp.answeredAfter120MinDuplicateClosed,
+
+        ajrasakhaAnsweredAfter120MinClosed: ajrasakha.answeredAfter120MinClosed,
+        ajrasakhaAnsweredAfter120MinPass: ajrasakha.answeredAfter120MinPass,
+        ajrasakhaAnsweredAfter120MinDynamicClosed: ajrasakha.answeredAfter120MinDynamicClosed,
+        ajrasakhaAnsweredAfter120MinDuplicateClosed: ajrasakha.answeredAfter120MinDuplicateClosed,
+
+        manualAnsweredAfter120MinClosed: manual.answeredAfter120MinClosed,
+        manualAnsweredAfter120MinPass: manual.answeredAfter120MinPass,
+        manualAnsweredAfter120MinDynamicClosed: manual.answeredAfter120MinDynamicClosed,
+        manualAnsweredAfter120MinDuplicateClosed: manual.answeredAfter120MinDuplicateClosed,
+
+        whatsappSlaBreachedCount,
+        ajrasakhaSlaBreachedCount,
+        manualSlaBreachedCount,
+
+        // WhatsApp TAT
+        whatsappTatMinutes: whatsapp.tatMinutes,
+        whatsappAverageTimeToAuthorMinutes: whatsapp.averageTimeToAuthorMinutes,
+        whatsappAverageReviewAcceptMinutes: whatsapp.averageReviewAcceptMinutes,
+        whatsappAverageReviewModifyMinutes: whatsapp.averageReviewModifyMinutes,
+        whatsappAverageReviewRejectReauthorMinutes:
+          whatsapp.averageReviewRejectReauthorMinutes,
+        whatsappAverageModeratingMinutes: whatsapp.averageModeratingMinutes,
+        whatsappAverageGatekeepingMinutes: whatsapp.averageGatekeepingMinutes,
+        whatsappAverageAuditingMinutes: whatsapp.averageAuditingMinutes,
+        whatsappAverageReroutedCompletionMinutes:
+          whatsapp.averageReroutedCompletionMinutes,
+
+        // Ajrasakha TAT
+        ajrasakhaTatMinutes: ajrasakha.tatMinutes,
+        ajrasakhaAverageTimeToAuthorMinutes: ajrasakha.averageTimeToAuthorMinutes,
+        ajrasakhaAverageReviewAcceptMinutes: ajrasakha.averageReviewAcceptMinutes,
+        ajrasakhaAverageReviewModifyMinutes: ajrasakha.averageReviewModifyMinutes,
+        ajrasakhaAverageReviewRejectReauthorMinutes:
+          ajrasakha.averageReviewRejectReauthorMinutes,
+        ajrasakhaAverageModeratingMinutes: ajrasakha.averageModeratingMinutes,
+        ajrasakhaAverageGatekeepingMinutes: ajrasakha.averageGatekeepingMinutes,
+        ajrasakhaAverageAuditingMinutes: ajrasakha.averageAuditingMinutes,
+        ajrasakhaAverageReroutedCompletionMinutes:
+          ajrasakha.averageReroutedCompletionMinutes,
+
+        // Manual TAT
+        manualTatMinutes: manual.tatMinutes,
+        manualAverageTimeToAuthorMinutes: manual.averageTimeToAuthorMinutes,
+        manualAverageReviewAcceptMinutes: manual.averageReviewAcceptMinutes,
+        manualAverageReviewModifyMinutes: manual.averageReviewModifyMinutes,
+        manualAverageReviewRejectReauthorMinutes:
+          manual.averageReviewRejectReauthorMinutes,
+        manualAverageModeratingMinutes: manual.averageModeratingMinutes,
+        manualAverageGatekeepingMinutes: manual.averageGatekeepingMinutes,
+        manualAverageAuditingMinutes: manual.averageAuditingMinutes,
+        manualAverageReroutedCompletionMinutes:
+          manual.averageReroutedCompletionMinutes,
+        whatsappAverageEndToEndQnaCompletionMinutes: whatsapp.averageEndToEndQnaCompletionMinutes,
+        ajrasakhaAverageEndToEndQnaCompletionMinutes: ajrasakha.averageEndToEndQnaCompletionMinutes,
+        manualAverageEndToEndQnaCompletionMinutes: manual.averageEndToEndQnaCompletionMinutes,
+
+        whatsappAverageEndToEndUniqueMinutes: whatsapp.averageEndToEndUniqueMinutes,
+        ajrasakhaAverageEndToEndUniqueMinutes: ajrasakha.averageEndToEndUniqueMinutes,
+        manualAverageEndToEndUniqueMinutes: manual.averageEndToEndUniqueMinutes,
+
+        whatsappAverageEndToEndDynamicMinutes: whatsapp.averageEndToEndDynamicMinutes,
+        ajrasakhaAverageEndToEndDynamicMinutes: ajrasakha.averageEndToEndDynamicMinutes,
+        manualAverageEndToEndDynamicMinutes: manual.averageEndToEndDynamicMinutes,
+
+        whatsappAverageEndToEndDuplicateMinutes: whatsapp.averageEndToEndDuplicateMinutes,
+        ajrasakhaAverageEndToEndDuplicateMinutes: ajrasakha.averageEndToEndDuplicateMinutes,
+        manualAverageEndToEndDuplicateMinutes: manual.averageEndToEndDuplicateMinutes,
+
+        // PAE Assigned Questions
+        whatsappPaeAssignedQuestions: whatsapp.paeAssignedQuestions,
+        ajrasakhaPaeAssignedQuestions: ajrasakha.paeAssignedQuestions,
+        manualPaeAssignedQuestions: manual.paeAssignedQuestions,
+        // PAE Contribution to GDB
+        whatsappPaeContributionToGDB: whatsapp.paeContributionToGDB,
+        ajrasakhaPaeContributionToGDB: ajrasakha.paeContributionToGDB,
+        manualPaeContributionToGDB: manual.paeContributionToGDB,
+        // PAE Contribution to GDB %
+        whatsappPaeContributionToGDBPct: whatsapp.paeContributionToGDBPct,
+        ajrasakhaPaeContributionToGDBPct: ajrasakha.paeContributionToGDBPct,
+        manualPaeContributionToGDBPct: manual.paeContributionToGDBPct,
       };
     } catch (error) {
       console.log("error------", error);
@@ -21239,5 +21591,423 @@ averageResponseNonGdb: [
         `Failed to fetch questions for manual source ${manualSource}: ${error}`,
       );
     }
+  }
+
+  async getTatStats(
+    matchQuery: Record<string, any>,
+  ): Promise<TatStats> {
+    await this.init();
+
+    // ------------------------------------------------
+    // 1. GET QUESTIONS
+    // ------------------------------------------------
+
+    const questions = await this.QuestionCollection
+      .find(matchQuery)
+      .project({
+        _id: 1,
+        createdAt: 1,
+        status: 1,
+        closedAt: 1,
+        passedAt: 1,
+        firstAllocationAt: 1,
+        moderatorAssignedAt: 1,
+        moderatorCompletedAt: 1,
+
+        // Add these once actual fields are confirmed:
+        // gatekeeperAssignedAt: 1,
+        // gatekeeperCompletedAt: 1,
+        // auditorAssignedAt: 1,
+        // auditorCompletedAt: 1,
+      })
+      .toArray();
+
+    if (!questions.length) {
+      return {
+        tatMinutes: 0,
+        averageTimeToAuthorMinutes: 0,
+        averageReviewAcceptMinutes: 0,
+        averageReviewModifyMinutes: 0,
+        averageReviewRejectReauthorMinutes: 0,
+        averageModeratingMinutes: 0,
+        averageGatekeepingMinutes: 0,
+        averageAuditingMinutes: 0,
+        averageReroutedCompletionMinutes: 0,
+      };
+    }
+
+    const questionIds = questions.map(q => q._id);
+
+    // ------------------------------------------------
+    // 2. FETCH SUBMISSIONS + REROUTES
+    // ------------------------------------------------
+
+    const [submissions, reroutes] = await Promise.all([
+      this.QuestionSubmissionsCollection
+        .find({
+          questionId: {$in: questionIds},
+        })
+        .toArray(),
+
+      this.Reroutes
+        .find({
+          questionId: {$in: questionIds},
+        })
+        .toArray(),
+    ]);
+
+    // ------------------------------------------------
+    // MAP DATA BY QUESTION ID
+    // ------------------------------------------------
+
+    const submissionMap = new Map(
+      submissions.map(submission => [
+        submission.questionId.toString(),
+        submission,
+      ]),
+    );
+
+    const rerouteMap = new Map(
+      reroutes.map(reroute => [
+        reroute.questionId.toString(),
+        reroute,
+      ]),
+    );
+
+    // ------------------------------------------------
+    // 3. ACCUMULATORS
+    // ------------------------------------------------
+
+    const stats = {
+      author: {
+        total: 0,
+        count: 0,
+      },
+
+      accept: {
+        total: 0,
+        count: 0,
+      },
+
+      modify: {
+        total: 0,
+        count: 0,
+      },
+
+      rejectReauthor: {
+        total: 0,
+        count: 0,
+      },
+
+      moderator: {
+        total: 0,
+        count: 0,
+      },
+
+      gatekeeper: {
+        total: 0,
+        count: 0,
+      },
+
+      auditor: {
+        total: 0,
+        count: 0,
+      },
+
+      rerouted: {
+        total: 0,
+        count: 0,
+      },
+    };
+
+    // ------------------------------------------------
+    // HELPER: ADD VALID DURATION
+    // ------------------------------------------------
+
+    const addDuration = (
+      stat: {total: number; count: number},
+      from?: Date | string | null,
+      to?: Date | string | null,
+    ) => {
+      if (!from || !to) {
+        return;
+      }
+
+      const fromTime = new Date(from).getTime();
+      const toTime = new Date(to).getTime();
+
+      const diff = toTime - fromTime;
+
+      if (diff >= 0) {
+        stat.total += diff;
+        stat.count++;
+      }
+    };
+
+    // ------------------------------------------------
+    // 4. PROCESS EACH QUESTION
+    // ------------------------------------------------
+// console.log("questions----", questions.length);
+    for (const question of questions) {
+      const questionId = question._id.toString();
+
+      const submission =
+        submissionMap.get(questionId);
+
+      const reroute =
+        rerouteMap.get(questionId);
+
+      const completionAt =
+        question.closedAt ??
+        question.passedAt ??
+        null;
+
+      // ==================================================
+      // A. AVERAGE TIME TO AUTHOR
+      //
+      // First allocation -> first answer submitted
+      // ==================================================
+
+      if (submission?.history?.length) {
+        const history = [...submission.history].sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() -
+            new Date(b.createdAt).getTime(),
+        );
+
+        const firstAnswer = history.find(
+          item => item.answer,
+        );
+
+        if (firstAnswer) {
+          addDuration(
+            stats.author,
+
+            question.firstAllocationAt ??
+              question.createdAt,
+
+            firstAnswer.createdAt,
+          );
+        }
+
+        // ==================================================
+        // B. REVIEW LIFECYCLE
+        // ==================================================
+
+        for (
+          let index = 0;
+          index < history.length;
+          index++
+        ) {
+          const item = history[index];
+
+          // ================================================
+          // REVIEWING + ACCEPTING
+          //
+          // Reviewer gets item -> approves answer
+          // ================================================
+
+          if (item.approvedAnswer) {
+            addDuration(
+              stats.accept,
+              item.createdAt,
+              item.updatedAt,
+            );
+          }
+
+          // ================================================
+          // REVIEWING + MODIFYING
+          //
+          // Reviewer gets item -> modifies answer
+          // ================================================
+
+          if (item.modifiedAnswer) {
+            addDuration(
+              stats.modify,
+              item.createdAt,
+              item.updatedAt,
+            );
+          }
+
+          // ================================================
+          // REVIEWING + REJECTING + RE-AUTHORING
+          //
+          // Review starts
+          //      ↓
+          // rejected
+          //      ↓
+          // author submits replacement answer
+          // ================================================
+
+          if (item.status === 'rejected') {
+            const nextAnswer = history
+              .slice(index + 1)
+              .find(nextItem => {
+                if (!nextItem.answer) {
+                  return false;
+                }
+
+                return (
+                  new Date(
+                    nextItem.createdAt,
+                  ).getTime() >
+                  new Date(
+                    item.createdAt,
+                  ).getTime()
+                );
+              });
+
+            if (nextAnswer) {
+              addDuration(
+                stats.rejectReauthor,
+                item.createdAt,
+                nextAnswer.createdAt,
+              );
+            }
+          }
+        }
+      }
+
+      // ==================================================
+      // C. MODERATING
+      //
+      // moderatorAssignedAt -> moderation completion
+      // ==================================================
+
+      if (question.moderatorAssignedAt) {
+        addDuration(
+          stats.moderator,
+
+          question.moderatorAssignedAt,
+
+          question.moderatorCompletedAt ??
+            completionAt,
+        );
+      }
+
+      // ==================================================
+      // D. GATEKEEPING
+      // ==================================================
+
+      /*
+      if (
+        question.gatekeeperAssignedAt &&
+        question.gatekeeperCompletedAt
+      ) {
+        addDuration(
+          stats.gatekeeper,
+          question.gatekeeperAssignedAt,
+          question.gatekeeperCompletedAt,
+        );
+      }
+      */
+
+      // ==================================================
+      // E. AUDITING
+      // ==================================================
+
+      /*
+      if (
+        question.auditorAssignedAt &&
+        question.auditorCompletedAt
+      ) {
+        addDuration(
+          stats.auditor,
+          question.auditorAssignedAt,
+          question.auditorCompletedAt,
+        );
+      }
+      */
+
+      // ==================================================
+      // F. REROUTED QUESTION -> COMPLETION
+      // ==================================================
+
+      if (reroute?.reroutes?.length) {
+        for (const event of reroute.reroutes) {
+          addDuration(
+            stats.rerouted,
+            event.reroutedAt,
+            event.updatedAt,
+          );
+        }
+      }
+    }
+
+    // ------------------------------------------------
+    // 5. CONVERT MILLISECONDS -> AVERAGE MINUTES
+    // ------------------------------------------------
+
+    const averageMinutes = (
+      stat: {
+        total: number;
+        count: number;
+      },
+    ): number => {
+      if (!stat.count) {
+        return 0;
+      }
+
+      return (
+        Math.round(
+          (stat.total /
+            stat.count /
+            (60 * 1000)) *
+            100,
+        ) / 100
+      );
+    };
+
+    // ------------------------------------------------
+    // 6. CALCULATE EACH TAT COMPONENT
+    // ------------------------------------------------
+
+    const averageTimeToAuthorMinutes =
+      averageMinutes(stats.author);
+    const averageReviewAcceptMinutes =
+      averageMinutes(stats.accept);
+    const averageReviewModifyMinutes =
+      averageMinutes(stats.modify);
+    const averageReviewRejectReauthorMinutes =
+      averageMinutes(stats.rejectReauthor);
+    const averageModeratingMinutes =
+      averageMinutes(stats.moderator);
+    const averageGatekeepingMinutes =
+      averageMinutes(stats.gatekeeper);
+    const averageAuditingMinutes =
+      averageMinutes(stats.auditor);
+    const averageReroutedCompletionMinutes =
+      averageMinutes(stats.rerouted);
+
+    // ------------------------------------------------
+    // 7. TOTAL TAT = SUM OF ALL BIFURCATIONS
+    // ------------------------------------------------
+
+    const tatMinutes =
+      averageTimeToAuthorMinutes +
+      averageReviewAcceptMinutes +
+      averageReviewModifyMinutes +
+      averageReviewRejectReauthorMinutes +
+      averageModeratingMinutes +
+      averageGatekeepingMinutes +
+      averageAuditingMinutes +
+      averageReroutedCompletionMinutes;
+
+    // ------------------------------------------------
+    // 8. RETURN
+    // ------------------------------------------------
+
+    return {
+      tatMinutes:
+        Math.round(tatMinutes * 100) / 100,
+      averageTimeToAuthorMinutes,
+      averageReviewAcceptMinutes,
+      averageReviewModifyMinutes,
+      averageReviewRejectReauthorMinutes,
+      averageModeratingMinutes,
+      averageGatekeepingMinutes,
+      averageAuditingMinutes,
+      averageReroutedCompletionMinutes,
+    };
   }
 }
