@@ -204,7 +204,15 @@ export class PerformanceService extends BaseService implements IPerformanceServi
         expertPerformance,
         analytics
       ] = await Promise.all([
-        this.getOverview(currentUserId, { startDateTime: qnAnalyticsStartTime, endDateTime: qnAnalyticsEndTime }),
+        this.getOverview(
+          currentUserId,
+          {
+            startDateTime: qnAnalyticsStartTime,
+            endDateTime: qnAnalyticsEndTime,
+          },
+          isTrainingUser,
+          isAdmin,
+        ),
         this.getGoldenDataset({
           viewType: goldenDataViewType,
           selectedYear: goldenDataSelectedYear,

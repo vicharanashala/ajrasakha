@@ -1839,55 +1839,8 @@ export class UserRepository implements IUserRepository {
               },
             },
 
-          {
-            $replaceRoot: {
-              newRoot: '$latest',
-            },
-          },
-
-          // -------------------------------------------------------------------------
-          // Filter based on the latest snapshot only.
-          // This ensures we evaluate the user's latest status/block state
-          // within the selected period.
-          // -------------------------------------------------------------------------
-          {
-            $match: {
-              isBlocked: false,
-              $or: [
-                { status: 'active' },
-                { status: null },
-                { status: { $exists: false } },
-              ],
-              ...(
-                isAdmin
-                  ? userType === 'tmu'
-                    ? { isTrainingUser: true }
-                    : userType === 'normal'
-                      ? { isTrainingUser: { $ne: true } }
-                      : {}
-                  : (isTrainingUser
-                      ? { isTrainingUser: true }
-                      : { isTrainingUser: { $ne: true } })
-              ),
-            },
-          },
-
-          // -------------------------------------------------------------------------
-          // Step 4:
-          // Count users by role.
-          // -------------------------------------------------------------------------
-          {
-            $group: {
-              _id: '$role',
-
-              count: {
-                $sum: 1,
-              },
-            },
-          },
-
             // -------------------------------------------------------------------------
-            // Step 3:
+            // Step 2:
             // Keep ONLY the latest history record for each user within the
             // selected period.
             //
@@ -1898,6 +1851,13 @@ export class UserRepository implements IUserRepository {
             //
             // => Keeps Moderator
             // -------------------------------------------------------------------------
+            {
+              $sort: {
+                userId: 1,
+                from: -1,
+                updatedAt: -1,
+              },
+            },
             {
               $group: {
                 _id: '$userId',
@@ -1914,6 +1874,7 @@ export class UserRepository implements IUserRepository {
             },
 
             // -------------------------------------------------------------------------
+            // Step 3:
             // Filter based on the latest snapshot only.
             // This ensures we evaluate the user's latest status/block state
             // within the selected period.
@@ -1926,6 +1887,17 @@ export class UserRepository implements IUserRepository {
                   {status: null},
                   {status: {$exists: false}},
                 ],
+                ...(
+                  isAdmin
+                    ? userType === 'tmu'
+                      ? {isTrainingUser: true}
+                      : userType === 'normal'
+                        ? {isTrainingUser: {$ne: true}}
+                        : {}
+                    : (isTrainingUser
+                        ? {isTrainingUser: true}
+                        : {isTrainingUser: {$ne: true}})
+                ),
               },
             },
 
