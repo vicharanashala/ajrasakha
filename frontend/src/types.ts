@@ -22,6 +22,10 @@ export interface IMyPreference {
   crop: string;
   domain: string | string[];
 }
+export interface IKVKCovered {
+  number?: number;
+  name?: string[];
+}
 export type NotificationRetentionType = "3d" | "1w" | "2w" | "1m" | "never";
 export interface IUser {
   _id?: string;
@@ -51,6 +55,7 @@ export interface IUser {
   special_task_force_moderator?: boolean
   mobile?: string;
   university?: string;
+  kvkCovered?: IKVKCovered;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
   lastAgentActiveAt?: string | Date;

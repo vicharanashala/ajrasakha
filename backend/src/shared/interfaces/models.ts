@@ -21,6 +21,11 @@ export interface IAssignedQuestion {
   status: QuestionStatus;
   source?: QuestionSource;
 }
+export interface IKVKCovered {
+  number?: number;
+  name?: string[];
+}
+
 export interface IUser {
   _id?: string | ObjectId;
   firebaseUID: string;
@@ -44,6 +49,7 @@ export interface IUser {
   avatar?: string;
   mobile?: string;
   university?: string;
+  kvkCovered?: IKVKCovered | null;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
   lastAgentActiveAt?: Date;

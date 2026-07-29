@@ -20,7 +20,7 @@ import { isCoordinatorRole } from "@/lib/roles";
 import { useAuthStore } from "@/stores/auth-store";
 import type { IUser } from "@/types";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef, useEffect, useMemo } from "react";
 import {
   Edit2,
   ArrowLeft,
@@ -59,7 +59,7 @@ export default function ProfilePage() {
   const { data: user, isLoading } = useGetCurrentUser({});
   const navigate = useNavigate();
   const { mutateAsync: updateUser, isPending: isUpdating } = useEditUser();
-  const { success: toastSuccess, loading:toastLoading, dismiss: toastDismiss} = useToast();
+  const { success: toastSuccess, loading: toastLoading, dismiss: toastDismiss } = useToast();
 
   useEffect(() => {
     if (user && isCoordinatorRole(user.role)) {
@@ -68,7 +68,7 @@ export default function ProfilePage() {
   }, [navigate, user]);
 
   const handleSubmit = async (data: IUser, showToast: boolean = true, id?: string) => {
-    let currentToastId;
+    let currentToastId: string | number | undefined;
     if (showToast) {
       currentToastId = toastLoading("Saving profile...", {
         desc: "Please wait while we update your details.",
@@ -78,10 +78,14 @@ export default function ProfilePage() {
     }
     try {
       await updateUser(data);
-      if (showToast) {
-        toast.success("Profile updated!");
+      if (showToast && currentToastId) {
+        toastDismiss(currentToastId);
+        toastSuccess("Profile updated!");
       }
     } catch (error) {
+      if (showToast && currentToastId) {
+        toastDismiss(currentToastId);
+      }
       console.error(error);
       throw error;
     }
@@ -248,6 +252,20 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   const [paeOtherDomain, setPaeOtherDomain] = useState("");
   const [paeOtherDomainError, setPaeOtherDomainError] = useState("");
 
+  const [kvkInput, setKvkInput] = useState<string>(() => {
+    if (user?.kvkCovered?.name && Array.isArray(user.kvkCovered.name)) {
+      return user.kvkCovered.name.join(", ");
+    }
+    return "";
+  });
+
+  const parsedKvkNames = useMemo(() => {
+    return kvkInput
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }, [kvkInput]);
+
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const [passwordForm, setPasswordForm] = useState({
@@ -400,6 +418,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         ...formData,
         mobile: formData.mobile?.trim(),
         university: formData.university?.trim(),
+        kvkCovered: parsedKvkNames.length > 0 ? { number: parsedKvkNames.length, name: parsedKvkNames } : undefined,
         preference: {
           state: formData.preference?.state ?? "",
           crop: formData.preference?.crop ?? "",
@@ -760,6 +779,40 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               <p className="text-sm text-red-500">{profileErrors.university}</p>
             )}
           </div>
+        </div>
+
+        {/* KVK Covered */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="kvkCovered">KVK Covered <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
+            {parsedKvkNames.length > 0 && (
+              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                Number of KVKs: {parsedKvkNames.length}
+              </span>
+            )}
+          </div>
+          <Input
+            id="kvkCovered"
+            disabled={!isEditMode}
+            value={kvkInput}
+            onChange={(e) => setKvkInput(e.target.value)}
+            placeholder="Enter KVK names separated by commas (e.g. KVK Barmer, KVK Jaipur)"
+          />
+          <p className="text-xs text-muted-foreground">
+            Separate multiple KVK names with commas.
+          </p>
+          {parsedKvkNames.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {parsedKvkNames.map((kvkName: string, idx: number) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                >
+                  {kvkName}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Email + Password */}
