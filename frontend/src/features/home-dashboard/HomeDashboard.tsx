@@ -209,15 +209,24 @@ export const HomeDashboard: React.FC = () => {
       : saturatedCrops?.states ?? [];
     const stateNames = new Set<string>();
     const cropNames = new Set<string>();
+    let closedTotal = 0;
+    let inProgressTotal = 0;
     for (const s of states) {
       const stateName = s.state?.trim();
       if (stateName) stateNames.add(stateName.toLowerCase());
+      closedTotal += s.closed ?? 0;
+      inProgressTotal += s.inProgress ?? 0;
       for (const c of s.crops ?? []) {
         const crop = c?.crop != null ? String(c.crop).trim() : "";
         if (crop) cropNames.add(crop.toLowerCase());
       }
     }
-    return { statesCovered: stateNames.size, cropsCovered: cropNames.size };
+    return {
+      statesCovered: stateNames.size,
+      cropsCovered: cropNames.size,
+      closedTotal,
+      inProgressTotal,
+    };
   }, [saturatedCrops]);
 
   // "SAUs collaborated with" = number of distinct universities among active pae_expert users.
@@ -747,16 +756,16 @@ export const HomeDashboard: React.FC = () => {
                 <span>Districts covered</span>
               </div>
               <div>
-                <strong>2.5L+</strong>
-                <span>Villages reached</span>
-              </div>
-              <div>
                 <strong>{activeStatesCount !== null ? activeStatesCount : "—"}</strong>
                 <span>States & UTs</span>
               </div>
               <div>
-                <strong>100%</strong>
-                <span>Non-conflict zones</span>
+                <strong>{isSaturatedLoading ? spinner : coverage.closedTotal}</strong>
+                <span>Closed Questions Count</span>
+              </div>
+              <div>
+                <strong>{isSaturatedLoading ? spinner : coverage.inProgressTotal}</strong>
+                <span>In-Progress Count</span>
               </div>
             </div>
           </div>

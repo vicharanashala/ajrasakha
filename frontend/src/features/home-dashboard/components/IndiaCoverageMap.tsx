@@ -175,14 +175,18 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
               map[lowerState] = {
                 state: rawState,
                 total: 0,
+                closed: 0,
+                inProgress: 0,
                 crops: [],
               };
             }
 
             // Aggregate totals across case variations (e.g. "UTTAR PRADESH" & "Uttar Pradesh")
             map[lowerState].total += Number(item.total) || 0;
+            map[lowerState].closed = (map[lowerState].closed ?? 0) + (Number(item.closed) || 0);
+            map[lowerState].inProgress = (map[lowerState].inProgress ?? 0) + (Number(item.inProgress) || 0);
 
-            // Merge crops list and sum crop counts
+            // Merge crops list and sum crop counts (with closed / in-progress split)
             if (Array.isArray(item.crops)) {
               item.crops.forEach((c: SaturatedCrop) => {
                 const existingCrop = map[lowerState].crops.find(
@@ -190,8 +194,15 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
                 );
                 if (existingCrop) {
                   existingCrop.count += Number(c.count) || 0;
+                  existingCrop.closed = (existingCrop.closed ?? 0) + (Number(c.closed) || 0);
+                  existingCrop.inProgress = (existingCrop.inProgress ?? 0) + (Number(c.inProgress) || 0);
                 } else {
-                  map[lowerState].crops.push({ crop: c.crop, count: Number(c.count) || 0 });
+                  map[lowerState].crops.push({
+                    crop: c.crop,
+                    count: Number(c.count) || 0,
+                    closed: Number(c.closed) || 0,
+                    inProgress: Number(c.inProgress) || 0,
+                  });
                 }
               });
             }
@@ -221,46 +232,59 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
 
   const activeStateName = hoveredState || selectedState;
 
-  // Resolve saturated crop data directly from backend API
-  const saturatedItem: SaturatedCropStateItem = React.useMemo(() => {
-    if (activeStateName) {
-      const match =
-        apiDataMap[activeStateName] ||
-        apiDataMap[activeStateName.toLowerCase()] ||
-        Object.values(apiDataMap).find(
-          (item) => item.state.toLowerCase() === activeStateName.toLowerCase()
-        );
-      if (match) return match;
-      return { state: activeStateName, total: 0, crops: [] };
+  // All saturated states (deduped across case variants, since apiDataMap holds both
+  // lowercase and original-case keys), sorted high → low. Drives the default state-wise
+  // breakdown.
+  const statesList = React.useMemo(() => {
+    const seen = new Set<string>();
+    const list: SaturatedCropStateItem[] = [];
+    for (const item of Object.values(apiDataMap)) {
+      const key = item.state.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      list.push(item);
     }
+    return list.sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
+  }, [apiDataMap]);
 
-    // If no state is hovered or selected, calculate overall India totals!
-    const allStates = Object.values(apiDataMap);
-    let overallTotal = 0;
-    const cropMap: Record<string, number> = {};
+  // India-wide totals = the sum of every state's total / closed / in-progress.
+  const grandTotals = React.useMemo(
+    () =>
+      statesList.reduce(
+        (acc, s) => ({
+          total: acc.total + (Number(s.total) || 0),
+          closed: acc.closed + (Number(s.closed) || 0),
+          inProgress: acc.inProgress + (Number(s.inProgress) || 0),
+        }),
+        { total: 0, closed: 0, inProgress: 0 }
+      ),
+    [statesList]
+  );
 
-    allStates.forEach((st) => {
-      overallTotal += Number(st.total) || 0;
-      if (Array.isArray(st.crops)) {
-        st.crops.forEach((c) => {
-          cropMap[c.crop] = (cropMap[c.crop] || 0) + (Number(c.count) || 0);
-        });
+  // The hovered/selected state's data (null when nothing is focused).
+  const activeStateItem = React.useMemo(() => {
+    if (!activeStateName) return null;
+    return (
+      apiDataMap[activeStateName] ||
+      apiDataMap[activeStateName.toLowerCase()] ||
+      statesList.find(
+        (s) => s.state.toLowerCase() === activeStateName.toLowerCase()
+      ) ||
+      null
+    );
+  }, [activeStateName, apiDataMap, statesList]);
+
+  // Metrics shown in the card: the focused state's figures when hovering, else India-wide.
+  const displayTotals = activeStateItem
+    ? {
+        total: Number(activeStateItem.total) || 0,
+        closed: Number(activeStateItem.closed) || 0,
+        inProgress: Number(activeStateItem.inProgress) || 0,
       }
-    });
+    : grandTotals;
 
-    const mergedCrops = Object.keys(cropMap)
-      .map((k) => ({ crop: k, count: cropMap[k] }))
-      .sort((a, b) => b.count - a.count);
-
-    return {
-      state: "All India Coverage",
-      total: overallTotal,
-      crops: mergedCrops,
-    };
-  }, [activeStateName, apiDataMap]);
-
-  const totalQuestions = saturatedItem.total;
-  const cropsList = saturatedItem.crops || [];
+  const totalQuestions = displayTotals.total;
+  const cropsList = activeStateItem?.crops ?? [];
 
   return (
     <>
@@ -309,50 +333,73 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
           }}
         >
           <span style={{ fontSize: "9px", fontWeight: 700, color: "#1733268c", textTransform: "uppercase", letterSpacing: "0.08em", display: "block" }}>
-            Total Questions Submitted
+            Total Questions Submitted{activeStateItem ? ` — ${activeStateItem.state}` : ""}
           </span>
           <strong style={{ fontFamily: "Newsreader, serif", fontSize: "32px", fontWeight: 600, color: "var(--forest)", display: "block", marginTop: "4px" }}>
             {totalQuestions > 0 ? totalQuestions.toLocaleString("en-IN") : "0"}
           </strong>
+          <div style={{ display: "flex", gap: "18px", marginTop: "8px" }}>
+            <span style={{ fontSize: "11px", color: "#173326b8" }}>
+              Closed:{" "}
+              <strong style={{ color: "var(--forest)" }}>
+                {displayTotals.closed.toLocaleString("en-IN")}
+              </strong>
+            </span>
+            <span style={{ fontSize: "11px", color: "#173326b8" }}>
+              In-Progress:{" "}
+              <strong style={{ color: "var(--forest)" }}>
+                {displayTotals.inProgress.toLocaleString("en-IN")}
+              </strong>
+            </span>
+          </div>
         </div>
 
-        {/* Breakdown according to Crops */}
+        {/* Breakdown: crop-wise for the focused state, else state-wise across India. */}
         <div style={{ marginTop: "14px" }}>
           <span style={{ fontSize: "9px", fontWeight: 700, color: "#17332694", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "10px" }}>
-            Crop-Wise Breakdown
+            {activeStateItem ? "Crop-Wise Breakdown" : "State-Wise Breakdown"}
           </span>
 
-          {cropsList.length > 0 ? (
+          {activeStateItem ? (
+            cropsList.length > 0 ? (
+              <div style={{ display: "grid", gap: "10px" }}>
+                {cropsList.map((c) => {
+                  const pct = totalQuestions > 0 ? Math.round(((Number(c.count) || 0) / totalQuestions) * 100) : 0;
+                  return (
+                    <div key={c.crop} style={{ display: "grid", gap: "4px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 600, color: "var(--ink)" }}>
+                        <span>{c.crop}</span>
+                        <span style={{ color: "#173326b8" }}>
+                          <strong>{(Number(c.count) || 0).toLocaleString("en-IN")}</strong> ({pct}%)
+                        </span>
+                      </div>
+                      <div style={{ height: "6px", width: "100%", borderRadius: "999px", background: "#17332617", overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${Math.max(4, Math.min(100, pct))}%`, borderRadius: "999px", background: "linear-gradient(90deg, #245d43, #d7b765)", transition: "width 0.4s ease" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ padding: "16px", borderRadius: "10px", background: "#f7f5ec", textAlign: "center", color: "#17332680", fontSize: "11px" }}>
+                No saturated crop records for {activeStateName}
+              </div>
+            )
+          ) : statesList.length > 0 ? (
             <div style={{ display: "grid", gap: "10px" }}>
-              {cropsList.map((c) => {
-                const pct = totalQuestions > 0 ? Math.round((c.count / totalQuestions) * 100) : 0;
+              {statesList.map((s) => {
+                const stateTotal = Number(s.total) || 0;
+                const pct = totalQuestions > 0 ? Math.round((stateTotal / totalQuestions) * 100) : 0;
                 return (
-                  <div key={c.crop} style={{ display: "grid", gap: "4px" }}>
+                  <div key={s.state} style={{ display: "grid", gap: "4px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 600, color: "var(--ink)" }}>
-                      <span>{c.crop}</span>
+                      <span>{s.state}</span>
                       <span style={{ color: "#173326b8" }}>
-                        <strong>{c.count.toLocaleString("en-IN")}</strong> ({pct}%)
+                        <strong>{stateTotal.toLocaleString("en-IN")}</strong> ({pct}%)
                       </span>
                     </div>
-                    {/* Visual bar share indicator */}
-                    <div
-                      style={{
-                        height: "6px",
-                        width: "100%",
-                        borderRadius: "999px",
-                        background: "#17332617",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: "100%",
-                          width: `${Math.max(4, Math.min(100, pct))}%`,
-                          borderRadius: "999px",
-                          background: "linear-gradient(90deg, #245d43, #d7b765)",
-                          transition: "width 0.4s ease",
-                        }}
-                      />
+                    <div style={{ height: "6px", width: "100%", borderRadius: "999px", background: "#17332617", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${Math.max(4, Math.min(100, pct))}%`, borderRadius: "999px", background: "linear-gradient(90deg, #245d43, #d7b765)", transition: "width 0.4s ease" }} />
                     </div>
                   </div>
                 );
@@ -360,7 +407,7 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
             </div>
           ) : (
             <div style={{ padding: "16px", borderRadius: "10px", background: "#f7f5ec", textAlign: "center", color: "#17332680", fontSize: "11px" }}>
-              No saturated crop records for {activeStateName}
+              No saturated state records available
             </div>
           )}
         </div>
