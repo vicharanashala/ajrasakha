@@ -66,7 +66,7 @@ export interface CallHistoryItem {
   agentEmail?: string;
   callDetails?: {
     caller?: { transcript: string; translation: string; detectedLanguage: string };
-    agent?: { transcript: string; translation: string; detectedLanguage: string; userid?: string };
+    agent?: { transcript: string; translation: string; detectedLanguage: string; userid?: string; username?: string; email?: string };
     queries?: CallQuery[];
     QA_pairs?: QAPairs;
   };
@@ -150,6 +150,7 @@ export class PlivoService {
     endDate?: string;
     status?: string;
     direction?: string;
+    agentId?: string;
   }): Promise<CallHistoryItem[]> {
     const queryParams = new URLSearchParams();
 
@@ -158,7 +159,7 @@ export class PlivoService {
     if (params.startDate) queryParams.append('startDate', params.startDate);
     if (params.endDate) queryParams.append('endDate', params.endDate);
     if (params.status) queryParams.append('status', params.status);
-    if (params.direction) queryParams.append('direction', params.direction);
+    if (params.agentId) queryParams.append('agentId', params.agentId);
 
     const url = `${this._baseUrl}/history${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await apiFetch<CallHistoryItem[]>(url);

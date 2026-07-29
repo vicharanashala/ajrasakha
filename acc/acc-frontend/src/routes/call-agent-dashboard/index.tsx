@@ -8,6 +8,7 @@ import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { CallAgentDashboard } from "@/components/CallAgentDashboard";
 import { CallInterface } from "@/components/CallInterface";
 import { CallHistory } from "@/components/CallHistory";
+import { CallLog } from "@/components/CallLog";
 import { ACCAnalyticsDashboard } from "@/components/ACCAnalyticsDashboard";
 import { ManageCallAgents } from "@/components/ManageCallAgents";
 import { Spinner } from "@/components/atoms/spinner";
@@ -83,6 +84,7 @@ function DashboardComponent() {
       ? [
           { id: "acc_analytics", label: "ACC Analytics", icon: BarChart3 },
           { id: "manage_agents", label: "Manage Agents", icon: Users },
+          { id: "call_log", label: "Call Log", icon: Clock },
         ]
       : []),
   ];
@@ -163,6 +165,11 @@ function DashboardComponent() {
                 </TabsContent>
                 <TabsContent value="manage_agents" className="m-0 h-full p-6 outline-none">
                   <ManageCallAgents />
+                </TabsContent>
+                <TabsContent value="call_log" className="m-0 h-full p-6 outline-none">
+                  <div className="w-full max-w-full">
+                    <CallLog />
+                  </div>
                 </TabsContent>
               </>
             )}
