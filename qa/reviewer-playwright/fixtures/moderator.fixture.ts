@@ -1,9 +1,11 @@
 import { test as base, expect } from "@playwright/test";
 import { LoginPage } from "../pages/shared/login.page.js";
 import { ModeratorDashboardPage } from "../pages/moderator/dashboard.page.js";
+import { CreateQuestionPage } from "../pages/moderator/create-question.page.js";
 
 type ModeratorFixtures = {
   moderatorDashboard: ModeratorDashboardPage;
+  createQuestionPage: CreateQuestionPage;
 };
 
 export const test = base.extend<ModeratorFixtures>({
@@ -16,6 +18,10 @@ export const test = base.extend<ModeratorFixtures>({
     );
 
     await use(new ModeratorDashboardPage(page));
+  },
+
+  createQuestionPage: async ({ page }, use) => {
+    await use(new CreateQuestionPage(page));
   },
 });
 
