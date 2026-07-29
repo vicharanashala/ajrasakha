@@ -1,14 +1,19 @@
 import 'reflect-metadata';
-import {JsonController, Get, HttpCode, QueryParam} from 'routing-controllers';
+import {JsonController, Get, Post, HttpCode, QueryParam, Authorized, CurrentUser, ForbiddenError} from 'routing-controllers';
 import {inject, injectable} from 'inversify';
 import {LGD_TYPES} from '../types.js';
+import {IUser} from '#root/shared/interfaces/models.js';
 import type {
   ILocationService,
   ILocationState,
   ILocationDistrict,
   ILocationBlock,
   ILocationVillage,
+  IKvkSyncResult,
 } from '../interfaces/ILocationService.js';
+
+// ── Allowed roles for triggering the KVK registry sync ──
+const KVK_SYNC_ROLES = ['admin'];
 
 @injectable()
 @JsonController('/location')
@@ -46,5 +51,18 @@ export class LocationController {
     @QueryParam('blockCode') blockCode: number,
   ): Promise<ILocationVillage[]> {
     return this.locationService.getVillages(blockCode);
+  }
+
+  // Runs the existing `scripts/create-lgd-kvks-collection.mjs --apply` script,
+  // which reads the KVK registry CSV and upserts it into the `kvks` collection.
+  @Post('/kvks/sync')
+  @HttpCode(200)
+  @Authorized()
+  async syncKvks(@CurrentUser() user: IUser): Promise<IKvkSyncResult> {
+    if (!KVK_SYNC_ROLES.includes(user.role)) {
+      throw new ForbiddenError('Only admins can trigger the KVK sync.');
+    }
+
+    return this.locationService.syncKvks();
   }
 }

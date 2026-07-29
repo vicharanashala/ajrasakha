@@ -1,6 +1,9 @@
 import 'reflect-metadata';
 import {inject, injectable} from 'inversify';
-import {BadRequestError} from 'routing-controllers';
+import {BadRequestError, InternalServerError} from 'routing-controllers';
+import {spawn} from 'child_process';
+import path from 'path';
+import {fileURLToPath} from 'url';
 import {MongoDatabase} from '#shared/database/providers/mongo/MongoDatabase.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import type {
@@ -9,7 +12,14 @@ import type {
   ILocationDistrict,
   ILocationBlock,
   ILocationVillage,
+  IKvkSyncResult,
 } from '../interfaces/ILocationService.js';
+
+// build/modules/lgd/services/locationService.js -> ../../../../scripts (i.e.
+// backend/scripts, which the Dockerfile copies to /app/scripts alongside
+// /app/build) — same resolution used by src/jobs/lgd-sync/run.ts.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const KVK_SCRIPT_PATH = path.resolve(__dirname, '../../../../scripts/create-lgd-kvks-collection.mjs');
 
 @injectable()
 export class LocationService implements ILocationService {
@@ -81,5 +91,52 @@ export class LocationService implements ILocationService {
       blockCode: record.blockCode,
       pincode: record.pincode || 0, // Fallback since it might not be in DB
     }));
+  }
+
+  // Runs the existing standalone `create-lgd-kvks-collection.mjs --apply` script
+  // (reads the KVK registry CSV and upserts it into the `kvks` collection). No
+  // sync logic is reimplemented here — this mirrors the same spawn pattern the
+  // `lgd-sync` Cloud Run Job uses to run the sibling LGD scripts, just exposed
+  // synchronously over HTTP instead of on a schedule.
+  public async syncKvks(): Promise<IKvkSyncResult> {
+    const summary = await new Promise<string>((resolve, reject) => {
+      let stdout = '';
+      let stderr = '';
+
+      const child = spawn('node', [KVK_SCRIPT_PATH, '--apply'], {
+        env: process.env,
+      });
+
+      child.stdout.on('data', chunk => {
+        const text = chunk.toString();
+        stdout += text;
+        console.log(`[kvk-sync] ${text.trimEnd()}`);
+      });
+      child.stderr.on('data', chunk => {
+        const text = chunk.toString();
+        stderr += text;
+        console.error(`[kvk-sync] ${text.trimEnd()}`);
+      });
+
+      child.on('error', err => {
+        reject(new InternalServerError(`Failed to start KVK sync script: ${err.message}`));
+      });
+
+      child.on('exit', (code, signal) => {
+        if (code === 0) {
+          const lastLine = stdout.trim().split('\n').filter(Boolean).pop();
+          resolve(lastLine || 'KVK sync completed successfully.');
+        } else {
+          const detail = stderr.trim().split('\n').filter(Boolean).pop() || `exit code ${code}`;
+          reject(
+            new InternalServerError(
+              `KVK sync script exited with code ${code}${signal ? ` (signal ${signal})` : ''}: ${detail}`,
+            ),
+          );
+        }
+      });
+    });
+
+    return {success: true, message: summary};
   }
 }

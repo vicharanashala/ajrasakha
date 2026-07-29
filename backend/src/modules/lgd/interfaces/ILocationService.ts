@@ -35,9 +35,15 @@ export interface ILocationVillage {
   pincode: number;
 }
 
+export interface IKvkSyncResult {
+  success: boolean;
+  message: string;
+}
+
 export interface ILocationService {
   getStates(): Promise<ILocationState[]>;
   getDistricts(stateCode: number): Promise<ILocationDistrict[]>;
   getBlocks(districtCode: number): Promise<ILocationBlock[]>;
   getVillages(blockCode: number): Promise<ILocationVillage[]>;
+  syncKvks(): Promise<IKvkSyncResult>;
 }
