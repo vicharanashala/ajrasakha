@@ -318,6 +318,7 @@ export class UserController {
         _id: u._id?.toString(),
         name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
         email: u.email,
+        isTrainingUser: u.isTrainingUser === true,
         // The questions this moderator currently holds, each with its denormalised status
         // ({ questionId, status }). Empty when free. Re-routed entries do not mark busy.
         assignedQuestionIds: (u.assignedQuestionIds ?? []).map((a: any) => ({
