@@ -2783,6 +2783,28 @@ export class QuestionController {
     );
   }
 
+  @Post('/background/remove-queue-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Remove an expert from a submission queue by index (internal data fix)',
+  })
+  async removeSubmissionQueueEntry(
+    @Body() body: { questionId: string; index: number },
+  ) {
+    const { questionId, index } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (index === undefined || index === null) {
+      throw new BadRequestError('index is required');
+    }
+    return await this.questionService.removeSubmissionQueueEntry(
+      questionId,
+      Number(index),
+    );
+  }
+
   @Post('/background/add-queue-entry')
   @HttpCode(200)
   @UseBefore(InternalApiAuth)

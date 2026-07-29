@@ -8644,6 +8644,21 @@ export class QuestionService extends BaseService implements IQuestionService {
     };
   }
 
+  /** Admin data-fix: remove a single expert from a question's submission queue by index. */
+  async removeSubmissionQueueEntry(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: boolean; queueLength: number }> {
+    const updated = await this.questionSubmissionRepo.removeQueueEntryByIndex(
+      questionId,
+      index,
+    );
+    return {
+      success: true,
+      queueLength: updated?.queue?.length ?? 0,
+    };
+  }
+
   /** Admin utility: append an expert to a question's submission queue. */
   async addSubmissionQueueEntry(
     questionId: string,

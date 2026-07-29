@@ -578,6 +578,12 @@ export interface IQuestionService {
     index: number,
   ): Promise<{ success: boolean; historyLength: number }>;
 
+  /** Admin data-fix: remove a single expert from a question's submission queue by index. */
+  removeSubmissionQueueEntry(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: boolean; queueLength: number }>;
+
   /** Admin utility: append an expert to a question's submission queue. */
   addSubmissionQueueEntry(
     questionId: string,

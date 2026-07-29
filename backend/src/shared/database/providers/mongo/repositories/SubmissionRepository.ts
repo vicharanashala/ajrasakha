@@ -280,6 +280,53 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }
   }
 
+  /** Admin data-fix: remove a single expert from a question's submission queue by its
+   *  array index (0-based). Read-modify-write so out-of-range indexes fail loudly and the
+   *  rest of the queue keeps its order. Does NOT touch the history or re-run allocation. */
+  async removeQueueEntryByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission | null> {
+    try {
+      await this.init();
+      const submission = await this.getByQuestionId(questionId, session);
+      if (!submission) {
+        throw new NotFoundError(
+          `No submission found for questionId: ${questionId}`,
+        );
+      }
+
+      const queue = submission.queue || [];
+      if (!Number.isInteger(index) || index < 0 || index >= queue.length) {
+        throw new BadRequestError(
+          `Invalid queue index ${index}; submission has ${queue.length} expert${queue.length === 1 ? '' : 's'} in the queue`,
+        );
+      }
+
+      const nextQueue = [...queue];
+      nextQueue.splice(index, 1);
+
+      await this.QuestionSubmissionCollection.updateOne(
+        {questionId: new ObjectId(questionId)},
+        {$set: {queue: nextQueue, updatedAt: new Date()}},
+        {session},
+      );
+
+      return this.getByQuestionId(questionId, session);
+    } catch (error) {
+      if (
+        error instanceof BadRequestError ||
+        error instanceof NotFoundError
+      ) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to remove queue entry: ${error}`,
+      );
+    }
+  }
+
   /** Admin utility: append an expert to a question's submission queue. */
   async addQueueEntry(
     questionId: string,
