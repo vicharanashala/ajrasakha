@@ -7909,6 +7909,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       question: row.question ?? '',
       status: row.status ?? '',
       source: row.source ?? '',
+      isTrainingQuestion: row.isTrainingQuestion === true,
       priority: row.priority,
       createdAt: row.createdAt,
       state: row.state,
@@ -7925,6 +7926,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       question: q.question ?? '',
       status: q.status ?? '',
       source: q.source ?? '',
+      isTrainingQuestion: q.isTrainingQuestion === true,
       priority: q.priority,
       createdAt: q.createdAt,
       state: q.details?.state,
@@ -7979,6 +7981,32 @@ export class QuestionService extends BaseService implements IQuestionService {
       map.set(u._id.toString(), name || (u as any).email || 'Unknown');
     }
     return map;
+  }
+
+  private async resolveExpertMeta(
+    ids: string[],
+  ): Promise<Map<string, { name: string; isTrainingUser: boolean }>> {
+    const map = new Map<string, { name: string; isTrainingUser: boolean }>();
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (!unique.length) return map;
+    const users = await this.userRepo.getUsersByIds(unique);
+    for (const u of users) {
+      const name =
+        `${(u as any).firstName ?? ''} ${(u as any).lastName ?? ''}`.trim();
+      map.set(u._id.toString(), {
+        name: name || (u as any).email || 'Unknown',
+        isTrainingUser: (u as any).isTrainingUser === true,
+      });
+    }
+    return map;
+  }
+
+  private expertMetaToNames(
+    meta: Map<string, { name: string; isTrainingUser: boolean }>,
+  ): Map<string, string> {
+    return new Map(
+      Array.from(meta.entries()).map(([id, value]) => [id, value.name]),
+    );
   }
 
   /** Server-side paginated single Queue-Details section: exact total `count`
@@ -8061,7 +8089,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           if (id) ids.push(id);
           for (const q of r.queue ?? []) ids.push(q?.toString());
         }
-        const names = await this.resolveExpertNames(ids);
+        const experts = await this.resolveExpertMeta(ids);
+        const names = this.expertMetaToNames(experts);
         return {
           count,
           items: items.map(r => {
@@ -8072,6 +8101,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             return {
               ...this.rawToQueueItem(r),
               expertName: id ? (names.get(id) ?? 'Unknown') : undefined,
+              isTrainingUser: id
+                ? experts.get(id)?.isTrainingUser === true
+                : undefined,
               queueExpertNames: (r.queue ?? []).map(
                 q => names.get(q?.toString()) ?? 'Unknown',
               ),
@@ -8121,6 +8153,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             reputationScore: e.reputation_score,
             role: e.role,
             isSpecialTaskForce: e.special_task_force === true,
+            isTrainingUser: e.isTrainingUser === true,
           }));
         return { count: free.length, items };
       }
@@ -8144,7 +8177,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           if (id) ids.push(id);
           for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
-        const names = await this.resolveExpertNames(ids);
+        const experts = await this.resolveExpertMeta(ids);
+        const names = this.expertMetaToNames(experts);
         const now = Date.now();
         const items: QueueQuestionItem[] = pageSubs.map(sub => {
           const item = this.submissionToQueueItem(sub);
@@ -8153,6 +8187,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           return {
             ...item,
             expertName: id ? (names.get(id) ?? 'Unknown') : undefined,
+            isTrainingUser: id
+              ? experts.get(id)?.isTrainingUser === true
+              : undefined,
             queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             allocatedAt,
             minutesSinceAllocated: allocatedAt
@@ -8181,7 +8218,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           if (id) ids.push(id);
           for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
-        const names = await this.resolveExpertNames(ids);
+        const experts = await this.resolveExpertMeta(ids);
+        const names = this.expertMetaToNames(experts);
         const now = Date.now();
         const items: QueueQuestionItem[] = pageSubs.map(sub => {
           const item = this.submissionToQueueItem(sub);
@@ -8190,6 +8228,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           return {
             ...item,
             expertName: id ? (names.get(id) ?? 'Unknown') : undefined,
+            isTrainingUser: id
+              ? experts.get(id)?.isTrainingUser === true
+              : undefined,
             queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             openedAt,
             minutesSinceOpened: openedAt
@@ -8224,7 +8265,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           ids.push(...completedIds);
           for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
-        const names = await this.resolveExpertNames(ids);
+        const experts = await this.resolveExpertMeta(ids);
+        const names = this.expertMetaToNames(experts);
         const items: QueueQuestionItem[] = pageSubs.map(sub => {
           const item = this.submissionToQueueItem(sub);
           const completedIds = byQuestion.get(item._id ?? '') ?? [];
@@ -8237,6 +8279,11 @@ export class QuestionService extends BaseService implements IQuestionService {
             queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             // Keep expertName as the most recent completer for backward compatibility.
             expertName: completedExpertNames[completedExpertNames.length - 1],
+            isTrainingUser:
+              completedIds.length > 0
+                ? experts.get(completedIds[completedIds.length - 1])?.isTrainingUser ===
+                  true
+                : undefined,
           };
         });
         return { count, items };
@@ -8333,11 +8380,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         const ids = pageQs
           .map(q => q.moderatorId?.toString())
           .filter(Boolean) as string[];
-        const names = await this.resolveExpertNames(ids);
+        const moderators = await this.resolveExpertMeta(ids);
         const items: QueueQuestionItem[] = pageQs.map(q => ({
           ...this.submissionToQueueItem({ question: q }),
           moderatorName: q.moderatorId
-            ? (names.get(q.moderatorId.toString()) ?? 'Unknown')
+            ? (moderators.get(q.moderatorId.toString())?.name ?? 'Unknown')
+            : undefined,
+          isTrainingUser: q.moderatorId
+            ? moderators.get(q.moderatorId.toString())?.isTrainingUser === true
             : undefined,
         }));
         return { count, items };
@@ -8360,6 +8410,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             reputationScore: m.reputation_score,
             role: m.role,
             isSpecialTaskForce: m.special_task_force === true,
+            isTrainingUser: m.isTrainingUser === true,
           }));
         return { count: mods.length, items };
       }
@@ -8398,11 +8449,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         const ids = pageQs
           .map(q => q.moderatorId?.toString())
           .filter(Boolean) as string[];
-        const names = await this.resolveExpertNames(ids);
+        const moderators = await this.resolveExpertMeta(ids);
         const items: QueueQuestionItem[] = pageQs.map(q => ({
           ...this.submissionToQueueItem({ question: q }),
           moderatorName: q.moderatorId
-            ? (names.get(q.moderatorId.toString()) ?? 'Unknown')
+            ? (moderators.get(q.moderatorId.toString())?.name ?? 'Unknown')
+            : undefined,
+          isTrainingUser: q.moderatorId
+            ? moderators.get(q.moderatorId.toString())?.isTrainingUser === true
             : undefined,
         }));
         return { count, items };
@@ -8429,6 +8483,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             reputationScore: m.reputation_score,
             role: m.role,
             isSpecialTaskForce: m.special_task_force === true,
+            isTrainingUser: m.isTrainingUser === true,
           }));
         return { count: mods.length, items };
       }
@@ -8467,12 +8522,15 @@ export class QuestionService extends BaseService implements IQuestionService {
         const ids = pageQs
           .map(q => (q as any)[assigneeField]?.toString())
           .filter(Boolean) as string[];
-        const names = await this.resolveExpertNames(ids);
+        const assignees = await this.resolveExpertMeta(ids);
         const items: QueueQuestionItem[] = pageQs.map(q => {
           const id = (q as any)[assigneeField]?.toString();
           return {
             ...this.submissionToQueueItem({question: q}),
-            assigneeName: id ? (names.get(id) ?? 'Unknown') : undefined,
+            assigneeName: id ? (assignees.get(id)?.name ?? 'Unknown') : undefined,
+            isTrainingUser: id
+              ? assignees.get(id)?.isTrainingUser === true
+              : undefined,
           };
         });
         return {count, items};
@@ -8497,6 +8555,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             reputationScore: u.reputation_score,
             role: u.role,
             isSpecialTaskForce: u.special_task_force === true,
+            isTrainingUser: u.isTrainingUser === true,
           }));
         return {count: users.length, items};
       }

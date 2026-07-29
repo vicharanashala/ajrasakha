@@ -7939,6 +7939,7 @@ export class QuestionRepository implements IQuestionRepository {
         question: 1,
         status: 1,
         source: 1,
+        isTrainingQuestion: 1,
         priority: 1,
         createdAt: 1,
         firstAllocationAt: 1,

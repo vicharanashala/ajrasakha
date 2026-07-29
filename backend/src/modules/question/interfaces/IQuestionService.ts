@@ -23,6 +23,8 @@ export interface QueueQuestionItem {
   question: string;
   status: string;
   source: string;
+  isTrainingQuestion?: boolean;
+  isTrainingUser?: boolean;
   priority?: string;
   createdAt?: string | Date;
   state?: string;
@@ -65,6 +67,7 @@ export interface QueueExpertItem {
   reputationScore?: number;
   role?: string;
   isSpecialTaskForce?: boolean;
+  isTrainingUser?: boolean;
 }
 
 export interface QueueDetailsResponse {
@@ -151,6 +154,7 @@ export interface RawQueueQuestionRow {
   question?: string;
   status?: string;
   source?: string;
+  isTrainingQuestion?: boolean;
   priority?: string;
   createdAt?: string | Date;
   state?: string;
