@@ -55,6 +55,7 @@ import {
 } from '../../core/classes/validators/UserResponseValidators.js';
 import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
 import { IChatbotService } from '#root/modules/chatbot/interfaces/IChatbotService.js';
+import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 
 @OpenAPI({
   tags: ['users'],
@@ -1234,7 +1235,7 @@ export class UserController {
   @HttpCode(200)
   @Authorized()
   async getWorkingHoursTrend(
-    @QueryParams() query: {userId: string; startDateTime: string; endDateTime: string}
+    @QueryParams() query: {userId: string; startDateTime: string; endDateTime: string; granularity: TrendGranularity;}
   ): Promise<any>{
     return await this.userService.getWorkingHoursTrend(query)
   }

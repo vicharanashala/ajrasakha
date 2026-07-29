@@ -34,8 +34,6 @@ import {
   useGetUserHistory,
   type UserHistoryItem,
 } from "@/hooks/api/user/useGetUserHistory";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./atoms/dialog";
-import { WorkingHoursTrendChart } from "@/features/chatbotDashboard/working-hours-trend";
 
 const padTime = (value: number) => String(value).padStart(2, "0");
 
@@ -100,7 +98,7 @@ export function UserHistoryView({
   const navigate = useNavigate();
   const [dateFilter, setDateFilter] = useState(() => getTodayFilterDefaults());
 
-  const [graphOpen, setGraphOpen] = useState(false);
+  // const [graphOpen, setGraphOpen] = useState(false);
 
   const fromValue = useMemo(
     () => buildDateTimeValue(dateFilter.fromDate, dateFilter.fromTime),
@@ -341,12 +339,6 @@ export function UserHistoryView({
                 </p>
                 
                 <div className="flex gap-2">
-    <Button
-      variant="outline"
-      onClick={() => setGraphOpen(true)}
-    >
-      Show Graph
-    </Button>
 
     <Button
       variant="ghost"
@@ -440,7 +432,7 @@ export function UserHistoryView({
         </CardContent>
       </Card>
 
-      <Dialog open={graphOpen} onOpenChange={setGraphOpen}>
+      {/* <Dialog open={graphOpen} onOpenChange={setGraphOpen}>
   <DialogContent className="max-w-[1200px] w-[95vw]">
     <DialogHeader>
       <DialogTitle>Working Hours Trend</DialogTitle>
@@ -455,7 +447,7 @@ export function UserHistoryView({
       endDateTime={toValue}
     />
   </DialogContent>
-</Dialog>
+</Dialog> */}
     </div>
   );
 }

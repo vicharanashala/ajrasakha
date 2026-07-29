@@ -52,6 +52,7 @@ import type { AdvanceFilterValues } from "@/components/advanced-question-filter"
 import { useReviewerLifecycle } from "@/hooks/api/user/useReviewerLifecycle";
 import { ReviewerLifecycle } from "./ReviewerTimeline";
 import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
+import { WorkingHoursTrendChart } from "@/features/chatbotDashboard/working-hours-trend";
 
 interface ExpertDashboardProps {
   expertId?: string | null;
@@ -683,6 +684,8 @@ const [dateRange, setDateRange] = useState<
             <UserHistoryView userId={userId} isEmbedded />
           </div>
         )}
+
+        {isViewerAdminOrModerator && userId && <WorkingHoursTrendChart userId={userId}/>}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-10">
           <TabsList>
             <TabsTrigger value="review_level">Review Level</TabsTrigger>

@@ -28,6 +28,7 @@ import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthServi
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
+import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -1076,6 +1077,7 @@ export class UserService extends BaseService {
     userId: string;
     startDateTime: string;
     endDateTime: string;
+    granularity: TrendGranularity;
   },
 ): Promise<any> {
   try {

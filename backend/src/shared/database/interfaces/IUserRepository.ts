@@ -6,6 +6,7 @@ import {
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource, IUserHistory,UserRole } from '#shared/interfaces/models.js';
 import { MongoClient, ClientSession, ObjectId } from 'mongodb';
+import { TrendGranularity } from '../providers/mongo/repositories/UserRepository.js';
 
 /**
  * Interface representing a repository for user-related operations.
@@ -369,6 +370,7 @@ export interface IUserRepository {
         userId: string;
         startDateTime: string;
         endDateTime: string;
+        granularity: TrendGranularity;
       },
       session?: ClientSession,
   ): Promise<any>

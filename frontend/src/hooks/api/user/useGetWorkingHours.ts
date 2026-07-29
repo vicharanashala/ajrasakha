@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { UserService } from "@/hooks/services/userService";
+import { UserService, type TrendGranularity } from "@/hooks/services/userService";
 
 const userService = new UserService();
 
@@ -25,15 +25,16 @@ export const useGetWorkingHoursTrends = (
   userId?: string,
   startDateTime?: string,
   endDateTime?: string,
+  granularity: TrendGranularity = "day",
 ) => {
   return useQuery<any | null, Error>({
-    queryKey: ["working-hours", userId, startDateTime, endDateTime],
+    queryKey: ["working-hours", userId, startDateTime, endDateTime, granularity],
     enabled: Boolean(userId && startDateTime && endDateTime),
     queryFn: async () => {
       if (!userId || !startDateTime || !endDateTime) {
         return [];
       }
-      return userService.getWorkingHoursTrends(userId, startDateTime, endDateTime);
+      return userService.getWorkingHoursTrends(userId, startDateTime, endDateTime, granularity,);
     },
   });
 };

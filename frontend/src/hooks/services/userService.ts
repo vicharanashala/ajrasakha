@@ -6,6 +6,13 @@ import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();
 
+
+export type TrendGranularity =
+  | "hour"
+  | "day"
+  | "week"
+  | "month";
+
 /** One question a moderator currently holds, with its denormalised status. */
 export interface AssignedQuestion {
   questionId: string;
@@ -306,11 +313,13 @@ export class UserService {
       userId: string,
       startDateTime: string,
       endDateTime: string,
+      granularity: TrendGranularity,
     ): Promise<any> {
       const params = new URLSearchParams({
         userId,
         startDateTime,
         endDateTime,
+        granularity
       });
       return apiFetch<any>(
         `${this._baseUrl}/working-hours-trend?${params.toString()}`
