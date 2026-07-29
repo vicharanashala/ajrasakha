@@ -173,6 +173,9 @@ export class PlivoController {
     status: string;
     startTime: string;
     direction: string;
+    agentUserId?: string;
+    agentUsername?: string;
+    agentEmail?: string;
     callDetails?: any;
   }>> {
     try {
@@ -200,11 +203,35 @@ export class PlivoController {
           direction: call.callDirection
         }));
 
-      for (const item of history) {
+      for (const item of history as any[]) {
         try {
           const details = await this.callDetailsRepository.getByCallUuid(item.uuid);
+          let agentUserIdStr = details?.agent?.userid ? details.agent.userid.toString() : this.plivoService.getCallAgent(item.uuid);
+
           if (details) {
             item.callDetails = details;
+          }
+
+          if (agentUserIdStr) {
+            try {
+              const agentUser = await this.userRepository.findById(agentUserIdStr);
+              if (agentUser) {
+                const fullName = [agentUser.firstName, agentUser.lastName].filter(Boolean).join(' ') || agentUser.agent || agentUser.email;
+
+                item.agentUserId = agentUserIdStr;
+                item.agentUsername = fullName;
+                item.agentEmail = agentUser.email;
+
+                if (item.callDetails) {
+                  item.callDetails.agent = item.callDetails.agent || { transcript: '', translation: '', detectedLanguage: 'unknown' };
+                  item.callDetails.agent.userid = agentUserIdStr;
+                  item.callDetails.agent.username = fullName;
+                  item.callDetails.agent.email = agentUser.email;
+                }
+              }
+            } catch (userErr) {
+              console.warn(`[PLIVO-CONTROLLER] Could not resolve user details for agent ${agentUserIdStr}:`, userErr);
+            }
           }
         } catch (e) {
           console.error(`[PLIVO-CONTROLLER] Could not fetch details for ${item.uuid}`);

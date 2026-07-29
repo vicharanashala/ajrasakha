@@ -5,6 +5,8 @@ export interface CallParticipant {
   translation: string;
   detectedLanguage: string;
   userid?: ObjectId;
+  username?: string;
+  email?: string;
 }
 
 export interface CallQuery {

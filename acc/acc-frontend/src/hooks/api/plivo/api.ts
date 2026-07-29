@@ -61,6 +61,9 @@ export interface CallHistoryItem {
   status: string;
   startTime: string;
   direction: string;
+  agentUserId?: string;
+  agentUsername?: string;
+  agentEmail?: string;
   callDetails?: {
     caller?: { transcript: string; translation: string; detectedLanguage: string };
     agent?: { transcript: string; translation: string; detectedLanguage: string; userid?: string };

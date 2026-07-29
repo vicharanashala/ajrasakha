@@ -13,6 +13,7 @@ import axios from 'axios';
 import { AccAgentService } from '../services/AccAgentService.js';
 import { PLIVO_TYPES } from '../../plivo/types.js';
 import { GLOBAL_TYPES } from '#root/types.js';
+import { PlivoService } from '../../plivo/services/PlivoService.js';
 import type { ICallDetailsRepository, CallQuery } from '#shared/database/interfaces/ICallDetailsRepository.js';
 
 @OpenAPI({
@@ -27,6 +28,8 @@ export class AccAgentController {
     private readonly accAgentService: AccAgentService,
     @inject(PLIVO_TYPES.CallDetailsRepository)
     private readonly callDetailsRepository: ICallDetailsRepository,
+    @inject(PLIVO_TYPES.PlivoService)
+    private readonly plivoService: PlivoService,
   ) { }
 
   @Post('/acc-agent/thread')
@@ -126,13 +129,15 @@ export class AccAgentController {
         // Ensure call_details document exists
         let existingCallDetails = await this.callDetailsRepository.getByCallUuid(body.callUuid);
         if (!existingCallDetails) {
-          console.warn(`[AccAgentController] Call details document not found for callUuid: ${body.callUuid}. Creating new document.`);
+          const agentUserIdStr = this.plivoService.getCallAgent(body.callUuid);
+          const agentUserIdObj = agentUserIdStr ? new ObjectId(agentUserIdStr) : undefined;
+          console.warn(`[AccAgentController] Call details document not found for callUuid: ${body.callUuid}. Creating new document with agent.userid: ${agentUserIdStr}`);
           await this.callDetailsRepository.create({
             callUuid: body.callUuid,
             status: 'completed',
             direction: 'inbound',
             caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
-            agent: { transcript: '', translation: '', detectedLanguage: 'unknown' }
+            agent: { transcript: '', translation: '', detectedLanguage: 'unknown', userid: agentUserIdObj }
           });
         }
 
@@ -162,35 +167,6 @@ export class AccAgentController {
       return threadState;
     } catch (error) {
       console.error('[AccAgentController] resumeAccAgentAndGetAnswer: Error', error);
-      throw error;
-    }
-  }
-
-  @Post('/generate-by-call-context')
-  @HttpCode(200)
-  @Authorized()
-  @OpenAPI({ summary: 'Generate questions from call context' })
-  async getQuestionFromCallContext(
-    @Body() body: {
-      query: string;
-      state?: string;
-      crop?: string;
-      district?: string;
-      domain?: string | string[];
-      season?: string;
-    },
-  ): Promise<any[]> {
-    try {
-      return await this.accAgentService.generateQuestionsFromCallContext(
-        body.query,
-        body.state,
-        body.crop,
-        body.district,
-        body.domain,
-        body.season,
-      );
-    } catch (error) {
-      console.error('[AccAgentController] getQuestionFromCallContext: Error', error);
       throw error;
     }
   }

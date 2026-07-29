@@ -28,7 +28,7 @@ export const loginWithEmail = async (email: string, password: string) => {
   try {
     const result = await signInWithEmailAndPassword(auth, email, password);
 
-    if (!result.user.emailVerified) {
+    if ((!result.user.emailVerified) && !isDevelopment) {
       try {
         await authService.resendVerification(email);
       } catch (resendError) {

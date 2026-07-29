@@ -165,7 +165,18 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       if (details.status !== undefined) updateDoc.status = details.status;
       if (details.direction !== undefined) updateDoc.direction = details.direction;
       if (details.caller !== undefined) updateDoc.caller = details.caller;
-      if (details.agent !== undefined) updateDoc.agent = details.agent;
+      if (details.agent !== undefined) {
+        if (!details.agent.userid) {
+          const existing = await this.callDetailsCollection.findOne(
+            { callUuid },
+            { projection: { 'agent.userid': 1 }, session }
+          );
+          if (existing?.agent?.userid) {
+            details.agent.userid = existing.agent.userid;
+          }
+        }
+        updateDoc.agent = details.agent;
+      }
 
       await this.callDetailsCollection.updateOne(
         { callUuid },

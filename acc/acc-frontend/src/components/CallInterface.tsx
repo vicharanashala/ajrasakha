@@ -26,7 +26,6 @@ import {
 } from "lucide-react";
 import { plivoService } from "@/hooks/api/plivo/api";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
-import { useGenerateCallQuestion } from "@/hooks/api/question/useGenerateCallQuestion";
 import { useAccAgentThread } from "@/hooks/api/acc-agent/useAccAgentThread";
 import { useAccAgentExtract } from "@/hooks/api/acc-agent/useAccAgentExtract";
 import { useAccAgentUpdateState } from "@/hooks/api/acc-agent/useAccAgentUpdateState";
@@ -510,8 +509,6 @@ export const CallInterface = () => {
   };
 
   const lastTranscriptRef = useRef("");
-  const { mutateAsync: generateQuestions, isPending: isGeneratingQuestions } =
-    useGenerateCallQuestion();
 
   // ACC Agent HITL hooks
   const { mutateAsync: createThread } = useAccAgentThread();
@@ -682,41 +679,10 @@ export const CallInterface = () => {
   };
 
   const handleGenerateQuestions = async () => {
-    let textToUse = (isHumanVerificationMode ? (editableQuery || editableSummaryText) : editableSummaryText).trim();
-
-    if (!textToUse && transcriptsList.length > 0) {
-      textToUse = transcriptsList
-        .map((t) => `${t.track === "inbound" ? "Farmer" : "Expert"}: ${t.translatedText || t.text || t.originalText}`)
-        .filter(Boolean)
-        .join("\n");
-    }
-
-    const stateToUse = isHumanVerificationMode ? (editableState || extractedState) : extractedState;
-    const cropToUse = isHumanVerificationMode ? (editableCrop || extractedCrop) : extractedCrop;
-    const districtToUse = isHumanVerificationMode ? (editableDistrict || extractedData?.extracted_district) : extractedData?.extracted_district;
-    const domainToUse = isHumanVerificationMode ? (editableDomain || extractedData?.extracted_domain) : extractedData?.extracted_domain;
-    const seasonToUse = isHumanVerificationMode ? (editableSeason || extractedData?.extracted_season) : extractedData?.extracted_season;
-
-    if (!textToUse) {
-      toast.info("No transcripts or query available to generate questions.");
-      return;
-    }
-
-    try {
-      const qstns = await generateQuestions({
-        transcript: textToUse,
-        state: stateToUse,
-        crop: cropToUse,
-        district: districtToUse,
-        domain: domainToUse,
-        season: seasonToUse,
-      });
-      setQuestions((prev) => [...prev, ...(qstns || [])]);
-      setHasGeneratedQuestions(true);
-      toast.success("Questions generated successfully!");
-    } catch (err) {
-      console.error("Error generating question", err);
-      toast.error("Failed to generate questions.");
+    if (isHumanVerificationMode && threadId) {
+      await handleApproveAndResume();
+    } else {
+      await handleExtractWithHITL();
     }
   };
 

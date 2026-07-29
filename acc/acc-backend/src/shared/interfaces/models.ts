@@ -31,4 +31,5 @@ export interface IUser {
   isBusy?: boolean; // true if agent is currently in a call
   currentCallUuid?: string | null; // UUID of the current call being handled
   lastAgentActiveAt?: Date;
+  lastCallAssignedAt?: Date;
 }

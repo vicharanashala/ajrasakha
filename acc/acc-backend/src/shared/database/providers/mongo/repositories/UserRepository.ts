@@ -132,6 +132,7 @@ export class UserRepository implements IUserRepository {
     session?: ClientSession,
   ): Promise<IUser | null> {
     await this.init();
+    const now = new Date();
     const result = await this.usersCollection.findOneAndUpdate(
       {
         role: 'call_agent',
@@ -143,13 +144,14 @@ export class UserRepository implements IUserRepository {
         $set: {
           isBusy: true,
           currentCallUuid: callUuid,
-          updatedAt: new Date(),
+          lastCallAssignedAt: now,
+          updatedAt: now,
         },
       },
       {
         returnDocument: 'after',
         session,
-        sort: { agent: 1 },
+        sort: { lastCallAssignedAt: 1, agent: 1 },
       },
     );
 
