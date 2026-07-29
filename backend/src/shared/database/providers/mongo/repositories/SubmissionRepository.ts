@@ -705,6 +705,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   async heatMapResultsForReviewer(
     query: GetHeatMapQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IReviewerHeatmapResponse | null> {
     try {
       await this.init();
@@ -786,6 +788,28 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         {
           $match: {
             'history.updatedBy': {$exists: true, $ne: null},
+          },
+        },
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+        {
+          $unwind: '$question',
+        },
+        {
+          $match: {
+            ...(
+              !isAdmin && isTrainingUser === true
+                ? { 'question.isTrainingQuestion': true }
+                : !isAdmin && isTrainingUser === false
+                  ? { 'question.isTrainingQuestion': { $ne: true } }
+                  : {}
+            ),
           },
         },
         {
@@ -1743,7 +1767,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     };
   }
   //690f05447360add0cf5aa0f8
-  async getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
+  async getUserReviewLevel(query: ExpertReviewLevelDto, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     await this.init();
     let {userId, startTime, endTime} = query;
     const reviewerId = new ObjectId(userId);
@@ -1854,6 +1878,17 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         $unwind: {
           path: '$questionDetails',
           preserveNullAndEmptyArrays: false,
+        },
+      },
+
+      {
+        $match: {
+          ...(
+            !isAdmin &&
+            (isTrainingUser
+              ? { 'questionDetails.isTrainingQuestion': true }
+              : { 'questionDetails.isTrainingQuestion': { $ne: true } })
+          ),
         },
       },
 
@@ -2111,6 +2146,31 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       // 8) Keep only documents with Review_level
       {$match: {Review_level: {$ne: null}}},
 
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'questionDetails',
+        },
+      },
+      {
+        $unwind: {
+          path: '$questionDetails',
+          preserveNullAndEmptyArrays: false,
+        },
+      },
+      {
+        $match: {
+          ...(
+            !isAdmin &&
+            (isTrainingUser
+              ? { 'questionDetails.isTrainingQuestion': true }
+              : { 'questionDetails.isTrainingQuestion': { $ne: true } })
+          ),
+        },
+      },
+
       // 9) Group counts by Review_level
       {
         $group: {
@@ -2314,6 +2374,31 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
 
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      {
+        $unwind: {
+          path: '$question',
+          preserveNullAndEmptyArrays: false,
+        },
+      },
+      {
+        $match: {
+          ...(
+            !isAdmin &&
+            (isTrainingUser
+              ? { 'question.isTrainingQuestion': true }
+              : { 'question.isTrainingQuestion': { $ne: true } })
+          ),
+        },
+      },
+
       // 3️⃣ Aggregate true counts
       {
         $group: {
@@ -2373,6 +2458,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
     ];
+
     let rerouteResults =
       await this.ReRouteCollection.aggregate(reroutePipeline).toArray();
     if (rerouteResults.length == 0) {
@@ -2390,7 +2476,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }
     return [...merged, ...rerouteResults];
   }
-  async getModeratorReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
+  async getModeratorReviewLevel(query: ExpertReviewLevelDto, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     await this.init();
     let {
       userId,
@@ -2493,23 +2579,25 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         modifiedCount: 0,
       },
     ];
-    if (
+
+    const hasQuestionFilters =
       crop ||
       normalised_crop ||
       season ||
       state ||
       district ||
       status ||
-      domain
-    ) {
+      domain;
+
+    if (!isAdmin || hasQuestionFilters) {
       const questionFilter: any = {};
       if (crop) questionFilter['details.crop'] = crop;
       if (normalised_crop) {
         if (normalised_crop === '__NOT_SET__') {
           questionFilter.$or = [
-            {'details.normalised_crop': {$exists: false}},
-            {'details.normalised_crop': null},
-            {'details.normalised_crop': ''},
+            { 'details.normalised_crop': { $exists: false } },
+            { 'details.normalised_crop': null },
+            { 'details.normalised_crop': '' },
           ];
         } else {
           questionFilter['details.normalised_crop'] = {
@@ -2523,9 +2611,19 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       if (district) questionFilter['details.district'] = district;
       if (domain) questionFilter['details.domain'] = domain;
       if (status) questionFilter['status'] = status;
-      const questions = await this.QuestionCollection.find(questionFilter, {
-        projection: {_id: 1},
-      }).toArray();
+      const questions = await this.QuestionCollection.find(
+        {
+          ...questionFilter,
+          ...(
+            !isAdmin &&
+            (isTrainingUser
+              ? { isTrainingQuestion: true }
+              : { isTrainingQuestion: { $ne: true } })
+          ),
+        },
+        {
+          projection: { _id: 1 },
+        }).toArray();
 
       questionIds = questions.map(q => q._id);
       if (questionIds.length == 0) {
@@ -3878,6 +3976,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async getLevelWiseReport(
     startDate: string,
     endDate: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<LevelReportStat[]> {
     await this.init();
@@ -3902,6 +4002,30 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             $lte: convertedEndDate,
           },
         },
+      },
+
+      // Lookup question
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+
+      {
+        $unwind: '$question',
+      },
+
+      // Filter by training question (only for non-admins)
+      {
+        $match:
+          !isAdmin && isTrainingUser === true
+            ? { 'question.isTrainingQuestion': true }
+            : !isAdmin && isTrainingUser === false
+              ? { 'question.isTrainingQuestion': { $ne: true } }
+              : {},
       },
 
       // 3️⃣ Add computed fields

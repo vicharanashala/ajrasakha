@@ -255,6 +255,8 @@ export interface IQuestionRepository {
   ): Promise<IQuestion[]>;
 
   getClosedQuestionsCount(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<number>;
   /**
@@ -269,6 +271,8 @@ export interface IQuestionRepository {
     goldenDataSelectedYear: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
  ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
 
@@ -278,7 +282,7 @@ export interface IQuestionRepository {
   * @param session -MongoDB client session for transactions.
   * @returns A promise that resolves to question document
   */
-  getTodayApproved(session?:ClientSession):Promise<{todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number}[]}>;
+  getTodayApproved(isTrainingUser?: boolean, isAdmin?: boolean, session?:ClientSession):Promise<{todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number}[]}>;
 
   /**
    * get monthly analytics.
@@ -294,6 +298,8 @@ export interface IQuestionRepository {
     goldenDataSelectedMonth: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
 
@@ -314,6 +320,8 @@ export interface IQuestionRepository {
     goldenDataSelectedWeek: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
 
@@ -334,6 +342,8 @@ export interface IQuestionRepository {
     goldenDataSelectedDay: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
@@ -359,6 +369,8 @@ export interface IQuestionRepository {
   getCustomRangeAnalytics(
     customStartDateTime: string,
     customEndDateTime: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     customData: GoldenDatasetEntry[];
@@ -378,6 +390,8 @@ export interface IQuestionRepository {
    */
   getCountBySource(
     timeRange: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<DashboardResponse['questionContributionTrend']>;
 
@@ -386,6 +400,8 @@ export interface IQuestionRepository {
    * @param session - Optional MongoDB client session for transactions.
    */
   getQuestionOverviewByStatus(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<QuestionStatusOverview[]>;
 
@@ -402,6 +418,8 @@ export interface IQuestionRepository {
     state?: string[],
     source?: string[],
     crop?: string[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{analytics: Analytics}>;
 
   /**
@@ -412,6 +430,8 @@ export interface IQuestionRepository {
   getModeratorApprovalRate(
     currentUserId: string,
     session?: ClientSession,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ModeratorApprovalRate>;
   getAll(session?: ClientSession): Promise<IQuestion[]>;
 
@@ -433,6 +453,8 @@ export interface IQuestionRepository {
   getMonthlyQuestionStats(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<Array<{
     year: number;
@@ -513,6 +535,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>;
 
@@ -523,6 +547,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>;
 
@@ -533,6 +559,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<any>;
 
@@ -543,6 +571,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>
 
@@ -553,6 +583,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any> 
 
@@ -563,6 +595,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>
 

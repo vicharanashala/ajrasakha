@@ -7,12 +7,12 @@ import {
   MongoDatabase,
   RequestStatus,
 } from '#root/shared/index.js';
+import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {IRequestRepository} from '#root/shared/database/interfaces/IRequestRepository.js';
 import {
   CreateRequestBodyDto,
   GetAllRequestsQueryDto,
 } from '#root/modules/request/classes/validators/RequestValidators.js';
-import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {InternalServerError, NotFoundError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 
@@ -87,6 +87,7 @@ private async init() {
 
   async getAllRequests(
     query: GetAllRequestsQueryDto,
+    user: IUser,
     session?: ClientSession,
   ): Promise<{requests: IRequest[]; totalPages: number; totalCount: number}> {
     try {
@@ -104,6 +105,21 @@ private async init() {
       if (query.requestType && query.requestType !== 'all') {
         filter.requestType = query.requestType;
       }
+
+      // Filter by isTrainingQuestion based on user role (for moderators only)
+      if (user.role === 'moderator') {
+        if (user.isTrainingUser) {
+          // Training user: only show training questions
+          filter['details.isTrainingQuestion'] = true;
+        } else {
+          // Non-training moderator: only show non-training questions or where field doesn't exist
+          filter.$or = [
+            { 'details.isTrainingQuestion': false },
+            { 'details.isTrainingQuestion': { $exists: false } },
+          ];
+        }
+      }
+      // Admin sees all requests - no additional filter needed
 
       const sort: Record<string, 1 | -1> = {};
       if (query.sortOrder === 'oldest') {
@@ -138,6 +154,11 @@ private async init() {
 
         const requestedUser = userMap.get(req.requestedBy?.toString());
 
+        // Extract isTrainingQuestion from details for admin to include in response
+        const isTrainingQuestion = req.details && typeof req.details === 'object' && 'isTrainingQuestion' in req.details
+          ? (req.details as any).isTrainingQuestion
+          : undefined;
+
         return {
           ...req,
           _id: req._id?.toString(),
@@ -159,6 +180,8 @@ private async init() {
                 lastName: requestedUser.lastName,
               }
             : null,
+          // Include isTrainingQuestion in response for admin role
+          ...(user.role === 'admin' && { isTrainingQuestion }),
         } as IRequest;
       });
       return {requests: sanitizedData, totalPages, totalCount};

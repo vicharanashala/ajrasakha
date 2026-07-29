@@ -127,7 +127,7 @@ export interface IUserRepository {
    * Finds all users.
    * @returns A promise that resolves to an array of users.
    */
-  findAll(session?: ClientSession): Promise<IUser[]>;
+  findAll(session?: ClientSession, isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]>;
 
   /**
    * Finds all users.
@@ -227,6 +227,7 @@ export interface IUserRepository {
     search: string,
     sortOption: string,
     filter: string,
+    isTrainingUserFilter?: boolean,
     session?: ClientSession,
   ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }>;
   /**
@@ -242,6 +243,12 @@ export interface IUserRepository {
   ): Promise<void>;
 
   updateSTFStatus(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void>;
+
+  updateTrainingUserStatus(
     userId: string,
     action: string,
     session?: ClientSession,
@@ -265,6 +272,9 @@ export interface IUserRepository {
   getUserRoleCount(
     startDateTime?: string,
     endDateTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    userType?: 'all' | 'tmu' | 'normal',
     session?: ClientSession,
   ): Promise<{
     userRoleOverview: UserRoleOverview[];
@@ -275,7 +285,7 @@ export interface IUserRepository {
   /**
    * @param session
    */
-  getExpertPerformance(session?: ClientSession): Promise<ExpertPerformance[]>;
+  getExpertPerformance(isTrainingUser: boolean,isAdmin?: boolean,session?: ClientSession): Promise<ExpertPerformance[]>;
 
   /**
  * Updates the last check-in time for a user.

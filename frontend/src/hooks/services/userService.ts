@@ -26,6 +26,7 @@ export interface StfModerator {
   _id: string;
   name: string;
   email: string;
+  isTrainingUser?: boolean;
   /** The questions this moderator currently holds (empty when free). A moderator is
    *  busy only while holding an entry in a blocking status; re-routed entries don't count. */
   assignedQuestionIds?: AssignedQuestion[] | null;
@@ -271,6 +272,13 @@ export class UserService {
         body: JSON.stringify({ isVerified }),
       }
     );
+  }
+
+  async toggleTrainingUserStatus(userId: string, action: string): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}/training-users`, {
+      body: JSON.stringify({ userId, action }),
+      method: "PATCH",
+    });
   }
 
   async getWorkingHours(

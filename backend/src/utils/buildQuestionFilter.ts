@@ -8,8 +8,11 @@ export const buildQuestionFilter = async (
   QuestionSubmissionCollection,AnswersCollection
 ) => {
 
-  const filter = buildBaseQuestionMatch(query.source);
-
+  const filter = buildBaseQuestionMatch(query.source,query.isTrainingQuestion=== true);
+  
+  if(query.isTrainingQuestion=== true){
+    filter.source = "AGRI_EXPERT"
+  }
   const caseInsensitive = (field: string, value?: string) => {
     if (value && value !== "all") {
       filter[field] = { $regex: `^${value}$`, $options: "i" };

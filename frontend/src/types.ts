@@ -58,6 +58,7 @@ export interface IUser {
   agent?: string; // "not_available" or "agent_1", "agent_2", etc.
   isBusy?: boolean; // true if agent is currently in a call
   currentCallUuid?: string | null; // UUID of the current call being handled
+  isTrainingUser?: boolean; // true if the user is assigned as a training user
 }
 
 export interface IUnverifiedUser {
@@ -534,6 +535,7 @@ export interface IQuestionFullData {
   auditorFinishedAt?: string | null;
   autoAllocateGateKeeper?: boolean;
   autoAllocateAuditor?: boolean;
+  isTrainingQuestion?: boolean;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
   isAssignedModerator?: boolean;
   /** True when the requesting user is the assigned gate keeper / auditor (server-computed). */
@@ -664,6 +666,7 @@ export interface IDetailedQuestion {
   autoAllocateModerator?: boolean;
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   moderatorId?: string | null;
+  isTrainingQuestion?: boolean;
   isDuplicateCancelled?: boolean;
   duplicateCancelReason?: string;
   isAutoAllocate?: boolean;

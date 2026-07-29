@@ -90,18 +90,18 @@ export class UserService extends BaseService {
       );
     }
   }
-  async getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
+  async getUserReviewLevel(query: ExpertReviewLevelDto, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     try {
       //if (!query.userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
         if (query.role == 'moderator') {
           const moderatorResult =
-            await this.questionSubmissionRepo.getModeratorReviewLevel(query);
+            await this.questionSubmissionRepo.getModeratorReviewLevel(query,isTrainingUser,isAdmin);
           return moderatorResult;
         }
         const result =
-          await this.questionSubmissionRepo.getUserReviewLevel(query);
+          await this.questionSubmissionRepo.getUserReviewLevel(query,isTrainingUser,isAdmin);
 
         return result;
       });
@@ -260,11 +260,13 @@ export class UserService extends BaseService {
     sort: string,
     filter: string,
     includeSelf = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
-        const users = await this.userRepo.findAll(session);
+        const users = await this.userRepo.findAll(session,isTrainingUser,isAdmin);
         // The caller is excluded by default: most manual-select flows are handing work
         // to someone else (re-routing an answer, reallocating a question). Gate keepers /
         // auditors assigning a question to themselves pass includeSelf.
@@ -304,6 +306,7 @@ export class UserService extends BaseService {
               questionId: a.questionId?.toString(),
               status: a.status,
             })),
+            isTrainingUser: u.isTrainingUser ?? false,
           })),
           totalUsers: users.length,
           totalPages: 5,
@@ -342,6 +345,7 @@ export class UserService extends BaseService {
     search: string,
     sort: string,
     filter: string,
+    currentUser?: IUser,
   ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }> {
     return await this._withTransaction(async (session: ClientSession) => {
       return await this.userRepo.findAllExperts(
@@ -350,6 +354,9 @@ export class UserService extends BaseService {
         search,
         sort,
         filter,
+        currentUser?.role === 'moderator'
+          ? currentUser.isTrainingUser === true
+          : undefined,
         session,
       );
     });
@@ -1030,7 +1037,13 @@ export class UserService extends BaseService {
     }
   }
 
-  async getWorkingHours(query: { userId: string; startDateTime: string; endDateTime: string }): Promise<{ workingHours: number }> {
+   async updateTrainingUserStatus(userId: string, action: string): Promise<void> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      await this.userRepo.updateTrainingUserStatus(userId, action, session);
+    });
+   }
+
+   async getWorkingHours(query: { userId: string; startDateTime: string; endDateTime: string }): Promise<{ workingHours: number }> {
     try {
       const { userId, startDateTime, endDateTime } = query;
       if (!userId) throw new NotFoundError('User ID is required');

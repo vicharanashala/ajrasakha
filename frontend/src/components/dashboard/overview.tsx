@@ -11,6 +11,13 @@ import {
 } from "@/components/atoms/card";
 import { Badge } from "@/components/atoms/badge";
 import { ScrollArea } from "@/components/atoms/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/atoms/select";
 import CountUp from "react-countup";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 
@@ -98,9 +105,12 @@ interface ModeratorsOverviewProps {
   selectedDate: string;
   startTime: string;
   endTime: string;
+  isAdmin?: boolean;
+  userTypeFilter?: "all" | "tmu" | "normal";
   onSelectedDateChange: (value: string) => void;
   onStartTimeChange: (value: string) => void;
   onEndTimeChange: (value: string) => void;
+  onUserTypeFilterChange?: (value: "all" | "tmu" | "normal") => void;
 }
 
 export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
@@ -110,9 +120,12 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
   selectedDate,
   startTime,
   endTime,
+  isAdmin = false,
+  userTypeFilter = "all",
   onSelectedDateChange,
   onStartTimeChange,
   onEndTimeChange,
+  onUserTypeFilterChange,
 }) => {
   const total = data.reduce((acc, item) => acc + item.count, 0);
   const { ref, key } = useRestartOnView();
@@ -219,9 +232,28 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
               <h3 className="text-sm font-semibold text-foreground">
                 Role Breakdown
               </h3>
-              <Badge variant="outline" className="shrink-0 text-xs">
-                {roleRows.length} roles
-              </Badge>
+              <div className="flex items-center gap-2">
+                {isAdmin && onUserTypeFilterChange && (
+                  <Select
+                    value={userTypeFilter}
+                    onValueChange={(value) =>
+                      onUserTypeFilterChange(value as "all" | "tmu" | "normal")
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-[110px] text-xs">
+                      <SelectValue placeholder="Filter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="tmu">TMU</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                <Badge variant="outline" className="shrink-0 text-xs">
+                  {roleRows.length} roles
+                </Badge>
+              </div>
             </div>
 
             <ScrollArea className="h-[240px] rounded-md border p-1">

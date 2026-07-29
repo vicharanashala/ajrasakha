@@ -113,6 +113,7 @@ export class UserRepository implements IUserRepository {
         status: user.status ?? 'active',
         isBlocked: user.isBlocked ?? false,
         special_task_force: user.special_task_force ?? false,
+        isTrainingUser: user.isTrainingUser ?? false
       },
       {session},
     );
@@ -265,6 +266,7 @@ export class UserRepository implements IUserRepository {
             status: existingUser.status,
             isBlocked: existingUser.isBlocked,
             special_task_force: existingUser.special_task_force,
+            isTrainingUser: existingUser.isTrainingUser ?? false
           },
           {session},
         ),
@@ -295,9 +297,19 @@ export class UserRepository implements IUserRepository {
     }));
   }
 
-  async findAll(session?: ClientSession): Promise<IUser[]> {
+  async findAll(session?: ClientSession, isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]> {
     await this.init();
-    const allUsers = await this.usersCollection.find({}, {session}).toArray();
+    const allUsers = await this.usersCollection.find(
+      {
+        ...(
+          !isAdmin &&
+          (isTrainingUser
+            ? { isTrainingUser: true }
+            : { isTrainingUser: { $ne: true } })
+        ),
+      },
+      { session }
+    ).toArray();
 
     // Remove duplicate users (in case multiple  emails point to same user)
     const uniqueUsersMap = new Map<string, IUser>();
@@ -876,7 +888,7 @@ export class UserRepository implements IUserRepository {
     await this.init();
 
     // 1. Fetch all experts (include role and isBlocked for queue details)
-    const query: any = { role: 'expert', isBlocked: false, status: { $ne: 'in-active' } };
+    const query: any = { role: 'expert', isBlocked: false, status: { $ne: 'in-active' }};
     const cursor = this.usersCollection.find(query, { session });
     if (limit) cursor.limit(limit);
     const allUsersRaw = await cursor.toArray();
@@ -1407,6 +1419,7 @@ export class UserRepository implements IUserRepository {
     search: string,
     sortOption: string,
     filter: string,
+    isTrainingUserFilter?: boolean,
     session?: ClientSession,
   ): Promise<{experts: any[]; totalExperts: number; totalPages: number}> {
     await this.init();
@@ -1426,6 +1439,10 @@ export class UserRepository implements IUserRepository {
 
       if (filter && filter !== 'ALL') {
         matchQuery['preference.state'] = filter;
+      }
+
+      if (isTrainingUserFilter !== undefined) {
+        matchQuery.isTrainingUser = isTrainingUserFilter;
       }
 
       const sortMap: any = {
@@ -1649,6 +1666,7 @@ export class UserRepository implements IUserRepository {
             status: result.status,
             isBlocked: result.isBlocked,
             special_task_force: result.special_task_force,
+            isTrainingUser: result.isTrainingUser ?? false
           },
           {session},
         ),
@@ -1702,6 +1720,7 @@ export class UserRepository implements IUserRepository {
             status: updatedUser.status,
             isBlocked: updatedUser.isBlocked,
             special_task_force: updatedUser.special_task_force,
+            isTrainingUser: updatedUser.isTrainingUser ?? false
           },
           {session},
         ),
@@ -1755,6 +1774,7 @@ export class UserRepository implements IUserRepository {
             status: result.status,
             isBlocked: result.isBlocked,
             special_task_force: result.special_task_force,
+            isTrainingUser: result.isTrainingUser ?? false
           },
           {session},
         ),
@@ -1765,8 +1785,11 @@ export class UserRepository implements IUserRepository {
   }
 
   async getUserRoleCount(
-    startDateTime?: string,
-    endDateTime?: string,
+    startDateTime?:string,
+    endDateTime?:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    userType?: 'all' | 'tmu' | 'normal',
     session?: ClientSession,
   ): Promise<{
     userRoleOverview: UserRoleOverview[];
@@ -1818,17 +1841,6 @@ export class UserRepository implements IUserRepository {
 
             // -------------------------------------------------------------------------
             // Step 2:
-            // Sort latest history first for each user.
-            // -------------------------------------------------------------------------
-            {
-              $sort: {
-                userId: 1,
-                from: -1,
-              },
-            },
-
-            // -------------------------------------------------------------------------
-            // Step 3:
             // Keep ONLY the latest history record for each user within the
             // selected period.
             //
@@ -1839,6 +1851,13 @@ export class UserRepository implements IUserRepository {
             //
             // => Keeps Moderator
             // -------------------------------------------------------------------------
+            {
+              $sort: {
+                userId: 1,
+                from: -1,
+                updatedAt: -1,
+              },
+            },
             {
               $group: {
                 _id: '$userId',
@@ -1855,6 +1874,7 @@ export class UserRepository implements IUserRepository {
             },
 
             // -------------------------------------------------------------------------
+            // Step 3:
             // Filter based on the latest snapshot only.
             // This ensures we evaluate the user's latest status/block state
             // within the selected period.
@@ -1867,6 +1887,17 @@ export class UserRepository implements IUserRepository {
                   {status: null},
                   {status: {$exists: false}},
                 ],
+                ...(
+                  isAdmin
+                    ? userType === 'tmu'
+                      ? {isTrainingUser: true}
+                      : userType === 'normal'
+                        ? {isTrainingUser: {$ne: true}}
+                        : {}
+                    : (isTrainingUser
+                        ? {isTrainingUser: true}
+                        : {isTrainingUser: {$ne: true}})
+                ),
               },
             },
 
@@ -1986,13 +2017,24 @@ export class UserRepository implements IUserRepository {
   }
 
   async getExpertPerformance(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<ExpertPerformance[]> {
     await this.init();
 
     const experts = await this.usersCollection
       .find(
-        {role: 'expert'},
+        {
+          role: 'expert',
+          ...(
+            !isAdmin && isTrainingUser === true
+              ? { isTrainingUser: true }
+              : !isAdmin && isTrainingUser === false
+                ? { isTrainingUser: { $ne: true } }
+                : {}
+          ),
+        },
         {
           session,
           projection: {
@@ -2397,6 +2439,59 @@ export class UserRepository implements IUserRepository {
     }
   }
 
+  async updateTrainingUserStatus(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    try {
+      const isTrainingUser = action === 'assign';
+      const updatedAt = new Date();
+      const updatedUser =await this.usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            isTrainingUser,
+            updatedAt,
+          },
+        },
+        { upsert: true, returnDocument: 'after', session },
+      );
+
+      
+      await Promise.all([
+        this.userRoleHistoryCollection.updateOne(
+          {
+            userId: new ObjectId(userId),
+            to: null,
+          },
+          {
+            $set: {
+              to: updatedAt,
+              updatedAt,
+            },
+          },
+          { session },
+        ),
+        this.userRoleHistoryCollection.insertOne(
+          {
+            userId: new ObjectId(userId),
+            role: updatedUser.role,
+            from: updatedAt,
+            to: null,
+            isVerified: updatedUser.isVerified ?? false,
+            status: updatedUser.status,
+            isBlocked: updatedUser.isBlocked,
+            special_task_force: updatedUser.special_task_force,
+            isTrainingUser: updatedUser.isTrainingUser,
+          },
+          { session },
+        )])
+    } catch (error) {
+      throw new InternalServerError(`Failed to update training user status`);
+    }
+  }
   /**
    * Clears all assigned question IDs for a user by setting assignedQuestionIds to null.
    * @param userId - The ID of the user whose assigned questions should be cleared
