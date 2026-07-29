@@ -552,6 +552,7 @@ export interface IQuestionService {
   /** Find time-bound questions pending > 45 min (not opened) and reallocate them
    *  to experts with fewer than 3 active time-bound questions. */
   reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
+  reallocateManualQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
 
   /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
    *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */

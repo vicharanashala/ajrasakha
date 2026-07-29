@@ -2709,6 +2709,29 @@ export class QuestionController {
     return result;
   }
 
+  @Post('/reallocate-manual-queue')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Reallocate manual-queue (AGRI_EXPERT/OUTREACH) questions — assigns authors/reviewers for the single-allocation manual flow' })
+  async reallocateManualQueue(@CurrentUser() user: IUser) {
+    const result = await this.questionService.reallocateManualQuestions();
+    this.auditTrailsService.createAuditTrail({
+      category: AuditCategory.QUESTION,
+      action: AuditAction.REALLOCATE_QUESTIONS,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      changes: { after: { type: 'manual', ...result } },
+      outcome: { status: OutComeStatus.SUCCESS },
+      createdAt: new Date(),
+    });
+    return result;
+  }
+
   @Post('/:questionId/mark-opened')
   @HttpCode(200)
   @Authorized()
