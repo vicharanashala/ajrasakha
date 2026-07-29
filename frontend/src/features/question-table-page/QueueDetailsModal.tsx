@@ -23,6 +23,7 @@ import {
   Hourglass,
   ShieldCheck,
   ShieldUser,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetQueueDetails } from "@/hooks/api/question/useGetQueueDetails";
@@ -125,6 +126,13 @@ const formatIdleTime = (mins?: number | null): string => {
   return h > 0 ? `${d} days ${h} hour ${m} mins` : `${d} days ${m} mins`;
 };
 
+const TrainingUserTag = () => (
+  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+    <GraduationCap className="h-3 w-3" />
+    TMU
+  </span>
+);
+
 const QuestionRow = ({
   item,
   showExpert,
@@ -156,9 +164,20 @@ const QuestionRow = ({
           "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
       )}
     >
-      <p className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2">
-        {item.question || "(no text)"}
-      </p>
+      <div className="flex items-start gap-2">
+        {item.isTrainingQuestion && (
+          <span
+            className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+            title="Training model question"
+          >
+            <GraduationCap className="h-3 w-3" />
+            Training
+          </span>
+        )}
+        <p className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2">
+          {item.question || "(no text)"}
+        </p>
+      </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
         {showWorkType && item.workType && (
           <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 font-medium uppercase tracking-wide">
@@ -176,8 +195,9 @@ const QuestionRow = ({
       </div>
       {showExpert &&
         (item.expertName ? (
-          <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
+          <p className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-gray-700 dark:text-gray-300">
             Expert: {item.expertName}
+            {item.isTrainingUser && <TrainingUserTag />}
           </p>
         ) : (
           <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
@@ -198,8 +218,9 @@ const QuestionRow = ({
       )}
       {showModerator &&
         (item.moderatorName ? (
-          <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
+          <p className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-gray-700 dark:text-gray-300">
             Moderator: {item.moderatorName}
+            {item.isTrainingUser && <TrainingUserTag />}
           </p>
         ) : (
           <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
@@ -208,8 +229,9 @@ const QuestionRow = ({
         ))}
       {showAssignee &&
         (item.assigneeName ? (
-          <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
+          <p className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-gray-700 dark:text-gray-300">
             {assigneeLabel}: {item.assigneeName}
+            {item.isTrainingUser && <TrainingUserTag />}
           </p>
         ) : (
           <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
@@ -227,6 +249,7 @@ const ExpertRow = ({ item }: { item: QueueExpertItem }) => (
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
           {item.name}
         </p>
+        {item.isTrainingUser && <TrainingUserTag />}
         {item.isSpecialTaskForce ? (
           <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300">
             STF

@@ -27,6 +27,8 @@ export type QueueQuestionItem = {
   question: string;
   status: string;
   source: string;
+  isTrainingQuestion?: boolean;
+  isTrainingUser?: boolean;
   priority?: string;
   createdAt?: string;
   state?: string;
@@ -49,6 +51,7 @@ export type QueueExpertItem = {
   reputationScore?: number;
   role?: string;
   isSpecialTaskForce?: boolean;
+  isTrainingUser?: boolean;
 };
 
 export type QueueSectionResponse = {

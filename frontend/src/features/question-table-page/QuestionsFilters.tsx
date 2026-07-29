@@ -1218,7 +1218,7 @@ export const QuestionsFilters = ({
               />
 
               {/* queue details — admins, moderators, gate keepers & auditors */}
-              {canViewQueueDetails(userRole) && !isTrainingUser && (
+              {canViewQueueDetails(userRole) && (
                 <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
 
