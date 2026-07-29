@@ -558,4 +558,6 @@ export interface IChatbotService {
       limit: number,
       search?: string,
     )
+
+    getReviewerLifecycle( userId: string, startDate?: Date, endDate?: Date ): Promise<any>
 }

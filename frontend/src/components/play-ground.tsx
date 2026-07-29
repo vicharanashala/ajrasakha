@@ -295,7 +295,7 @@ export const PlaygroundPage = () => {
                   <Dashboard />
                 </TabsContent>
               )}
-              {user && user.role === "expert" && (
+              {user && (user.role === "expert" || user.role === "moderator") && (
                 <TabsContent
                   value="expertPerformance"
                   className={cn(

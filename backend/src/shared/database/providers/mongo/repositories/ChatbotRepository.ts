@@ -503,6 +503,7 @@ export class ChatbotRepository implements IChatbotRepository {
   private QuestionSubmissionsCollection: Collection<IQuestionSubmission>;
   private Reroutes: Collection<any>;
   private ReviewUsers: Collection<any>;
+  private UserRoleHistoryCollection: Collection<any>;
   private async initReviewSystem() {
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
@@ -513,6 +514,7 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.Reroutes = await this.db.getCollection<any>('reroutes');
     this.ReviewUsers = await this.db.getCollection<any>('users');
+    this.UserRoleHistoryCollection = await this.db.getCollection<any>('user_role_history');
   }
 
   private buildActiveSessionFilter(userIds: ObjectId[], now = new Date()) {
@@ -21239,5 +21241,473 @@ averageResponseNonGdb: [
         `Failed to fetch questions for manual source ${manualSource}: ${error}`,
       );
     }
+  }
+
+  async getReviewerLifecycle(
+    userId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    // console.log("getReviewerLifecycle---", userId, startDate, endDate);
+    try {
+      await this.initReviewSystem();
+
+      const start = startDate ? new Date(startDate) : undefined;
+      const end = endDate ? new Date(endDate) : undefined;
+
+      if (end) {
+        end.setHours(23, 59, 59, 999);
+      }
+
+      const userObjectId = new ObjectId(userId);
+
+      const roleHistory = await this.UserRoleHistoryCollection.find({
+        userId: userObjectId,
+        ...(start || end
+          ? {
+              from: {
+                ...(end ? { $lte: end } : {}),
+              },
+              $or: [
+                { to: null },
+                {
+                  to: {
+                    ...(start ? { $gte: start } : {}),
+                  },
+                },
+              ],
+            }
+          : {}),
+      })
+        .sort({ from: 1 })
+        .toArray();
+
+      const submissions = await this.QuestionSubmissionsCollection.find({
+        history: {
+          $elemMatch: {
+            updatedBy: userObjectId,
+            ...(start || end
+              ? {
+                  createdAt: {
+                    ...(start ? {$gte: start} : {}),
+                    ...(end ? {$lte: end} : {}),
+                  },
+                }
+              : {}),
+          },
+        },
+      }).toArray();
+
+      const activities: any[] = [];
+
+      const rerouteDocs = await this.Reroutes.find({
+        reroutes: {
+          $elemMatch: {
+            reroutedTo: userObjectId,
+            ...(start || end
+              ? {
+                  reroutedAt: {
+                    ...(start ? {$gte: start} : {}),
+                    ...(end ? {$lte: end} : {}),
+                  },
+                }
+              : {}),
+          },
+        },
+      }).toArray();
+
+      for (const rerouteDoc of rerouteDocs) {
+        for (const reroute of rerouteDoc.reroutes ?? []) {
+          const isModeratedByUser =
+            reroute.reroutedTo?.toString() === userId;
+
+          if (!isModeratedByUser) {
+            continue;
+          }
+
+          const startAt = new Date(reroute.reroutedAt);
+
+          if (start && startAt < start) continue;
+          if (end && startAt > end) continue;
+
+          const endAt = reroute.updatedAt
+            ? new Date(reroute.updatedAt)
+            : null;
+
+          activities.push({
+            questionId: rerouteDoc.questionId?.toString(),
+
+            startAt,
+            endAt,
+
+            durationMs: endAt
+              ? endAt.getTime() - startAt.getTime()
+              : null,
+
+            // Main lifecycle classification
+            status: 'moderated',
+            activityType: "moderated",
+
+            // Preserve what moderator actually did
+            outcome: reroute.status,
+
+            reroutedBy: reroute.reroutedBy?.toString(),
+            comment: reroute.comment ?? '',
+          });
+        }
+      }
+
+      const questionIds = submissions
+        .map((submission) => submission.questionId)
+        .filter(Boolean);
+
+      const questions = await this.QuestionCollection.find(
+        {
+          _id: { $in: questionIds },
+        },
+        {
+          projection: {
+            _id: 1,
+            firstAllocationAt: 1,
+          },
+        },
+      ).toArray();
+
+      const questionMap = new Map(
+        questions.map((question) => [
+          question._id.toString(),
+          question,
+        ]),
+      );
+
+      for (const submission of submissions) {
+        const question = questionMap.get(
+          submission.questionId?.toString(),
+        );
+
+        const userHistories = (submission.history ?? [])
+          .map((history, originalIndex) => ({
+            history,
+            originalIndex,
+          }))
+          .filter(({ history }) => {
+            if (history.updatedBy?.toString() !== userId) {
+              return false;
+            }
+
+            const historyCreatedAt = new Date(history.createdAt);
+
+            if (start && historyCreatedAt < start) return false;
+            if (end && historyCreatedAt > end) return false;
+
+            return true;
+          });
+
+          for (const { history, originalIndex } of userHistories) {
+            const historyCreatedAt = new Date(history.createdAt);
+
+            const historyUpdatedAt = history.updatedAt
+              ? new Date(history.updatedAt)
+              : null;
+
+            if (!historyUpdatedAt) continue;
+
+            let activityStart = historyCreatedAt;
+
+            // firstAllocationAt ONLY for actual first submission activity
+            if (originalIndex === 0 && question?.firstAllocationAt) {
+              const firstAllocationAt = new Date(question.firstAllocationAt);
+
+              if (
+                firstAllocationAt <= historyUpdatedAt &&
+                (!start || firstAllocationAt >= start) &&
+                (!end || firstAllocationAt <= end)
+              ) {
+                activityStart = firstAllocationAt;
+              }
+            }
+
+            if (activityStart >= historyUpdatedAt) continue;
+
+            const activityType =
+              originalIndex === 0
+                ? "authored"
+                : "reviewed";
+
+            activities.push({
+              questionId: submission.questionId?.toString(),
+              startAt: activityStart,
+              endAt: historyUpdatedAt,
+              durationMs:
+                historyUpdatedAt.getTime() -
+                activityStart.getTime(),
+              status: history.status,
+              activityType,
+            });
+          }
+      }
+
+      activities.sort(
+        (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+      );
+
+      const moderatorQuery: any = {
+        moderatorId: userObjectId,
+        moderatorAssignedAt: { $ne: null },
+
+        $or: [
+          { closedAt: { $ne: null } },
+          { passedAt: { $ne: null } },
+        ],
+      };
+
+      // Apply selected date range on when moderation started
+      if (start || end) {
+        moderatorQuery.moderatorAssignedAt = {
+          $ne: null,
+          ...(start ? { $gte: start } : {}),
+          ...(end ? { $lte: end } : {}),
+        };
+      }
+
+      const moderatedQuestions = await this.QuestionCollection.find(
+        moderatorQuery,
+        {
+          projection: {
+            _id: 1,
+            status: 1,
+            moderatorId: 1,
+            moderatorAssignedAt: 1,
+            closedAt: 1,
+            passedAt: 1,
+          },
+        },
+      ).toArray();
+
+      for (const question of moderatedQuestions) {
+        if (!question.moderatorAssignedAt) {
+          continue;
+        }
+
+        const startAt = new Date(question.moderatorAssignedAt);
+
+        // Depending on final question state
+        const endAt = question.closedAt
+          ? new Date(question.closedAt)
+          : question.passedAt
+            ? new Date(question.passedAt)
+            : null;
+
+        if (!endAt) {
+          continue;
+        }
+
+        activities.push({
+          questionId: question._id.toString(),
+
+          startAt,
+          endAt,
+
+          durationMs:
+            endAt.getTime() - startAt.getTime(),
+
+          status: 'moderated',
+          activityType: "moderated",
+
+          // Optional: useful for UI/debugging
+          outcome: question.closedAt
+            ? 'closed'
+            : 'passed',
+        });
+      }
+
+      const filteredActivities = activities
+        .filter((activity) => activity.endAt)
+        .map((activity) => {
+          let activityStart = new Date(activity.startAt);
+          let activityEnd = new Date(activity.endAt);
+
+          // No overlap
+          if (start && activityEnd < start) return null;
+          if (end && activityStart > end) return null;
+
+          // Clip to requested range
+          if (start && activityStart < start) {
+            activityStart = new Date(start);
+          }
+
+          if (end && activityEnd > end) {
+            activityEnd = new Date(end);
+          }
+
+          if (activityStart >= activityEnd) {
+            return null;
+          }
+
+          return {
+            ...activity,
+            startAt: activityStart,
+            endAt: activityEnd,
+            durationMs:
+              activityEnd.getTime() - activityStart.getTime(),
+          };
+        })
+        .filter(Boolean);
+
+      const groupedLifecycle =
+        this.groupReviewerLifecycleByHour(filteredActivities);
+
+      return {
+        reviewerId: userId,
+        startDate: start,
+        endDate: end,
+        roleHistory: roleHistory.map(role => ({
+          role: role.role,
+          from: role.from,
+          to: role.to,
+        })),
+        lifecycle: groupedLifecycle,
+      };
+    } catch (err) {
+      console.log('error in getReviewerLifecycle:', err);
+      throw Error(err);
+    }
+  }
+
+  private groupReviewerLifecycleByHour(activities: any[]): any[] {
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+    const grouped = new Map<
+      string,
+      Map<
+        string,
+        {
+          hourStart: Date;
+          hourEnd: Date;
+          activities: any[];
+        }
+      >
+    >();
+
+    for (const activity of activities) {
+      const originalStart = new Date(activity.startAt);
+
+      // Do not calculate working duration for unfinished activities.
+      // We know when it started, but we don't know how long the reviewer
+      // actually worked on it.
+      if (!activity.endAt) {
+        continue;
+      }
+
+      const originalEnd = new Date(activity.endAt);
+
+      let currentStart = new Date(originalStart);
+
+      while (currentStart < originalEnd) {
+        /*
+         * Convert currentStart to IST so we can determine
+         * the correct IST hourly boundary.
+         */
+        const istTime = new Date(currentStart.getTime() + IST_OFFSET_MS);
+
+        // Next IST hour
+        const nextHourIST = new Date(istTime);
+        nextHourIST.setUTCMinutes(0, 0, 0);
+        nextHourIST.setUTCHours(nextHourIST.getUTCHours() + 1);
+
+        // Convert boundary back to UTC
+        const nextHourUTC = new Date(nextHourIST.getTime() - IST_OFFSET_MS);
+
+        const segmentEnd =
+          originalEnd < nextHourUTC ? originalEnd : nextHourUTC;
+
+        const durationMs = segmentEnd.getTime() - currentStart.getTime();
+
+        /*
+         * Determine the IST date/hour for grouping.
+         */
+        const segmentIST = new Date(currentStart.getTime() + IST_OFFSET_MS);
+
+        const year = segmentIST.getUTCFullYear();
+        const month = String(segmentIST.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(segmentIST.getUTCDate()).padStart(2, '0');
+
+        const hour = segmentIST.getUTCHours();
+
+        const dateKey = `${year}-${month}-${day}`;
+        const hourKey = `${hour}`;
+
+        if (!grouped.has(dateKey)) {
+          grouped.set(dateKey, new Map());
+        }
+
+        const dayGroup = grouped.get(dateKey)!;
+
+        if (!dayGroup.has(hourKey)) {
+          /*
+           * Build actual UTC timestamps representing
+           * this IST hour.
+           */
+          const hourStartIST = new Date(
+            Date.UTC(year, Number(month) - 1, Number(day), hour),
+          );
+
+          const hourStartUTC = new Date(hourStartIST.getTime() - IST_OFFSET_MS);
+
+          const hourEndUTC = new Date(hourStartUTC.getTime() + 60 * 60 * 1000);
+
+          dayGroup.set(hourKey, {
+            hourStart: hourStartUTC,
+            hourEnd: hourEndUTC,
+            activities: [],
+          });
+        }
+
+      dayGroup.get(hourKey)!.activities.push({
+        questionId: activity.questionId,
+        startAt: currentStart,
+        endAt: segmentEnd,
+        durationMs,
+
+        status: activity.status,
+        activityType: activity.activityType,
+
+        outcome: activity.outcome,
+        reroutedBy: activity.reroutedBy,
+        comment: activity.comment,
+
+        isSplit:
+          originalStart.getTime() !== currentStart.getTime() ||
+          originalEnd.getTime() !== segmentEnd.getTime(),
+
+        originalStartAt: originalStart,
+        originalEndAt: originalEnd,
+      });
+
+        currentStart = segmentEnd;
+      }
+    }
+
+    // Convert Maps → arrays
+    return Array.from(grouped.entries())
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .map(([date, hours]) => ({
+        date,
+
+        hours: Array.from(hours.values())
+          .sort((a, b) => a.hourStart.getTime() - b.hourStart.getTime())
+          .map(hour => ({
+            ...hour,
+
+            totalQuestions: new Set(
+              hour.activities.map(activity => activity.questionId),
+            ).size,
+
+            totalWorkDurationMs: hour.activities.reduce(
+              (total, activity) => total + (activity.durationMs ?? 0),
+              0,
+            ),
+          })),
+    }));
   }
 }

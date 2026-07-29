@@ -6,6 +6,7 @@ import {
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource, IUserHistory,UserRole } from '#shared/interfaces/models.js';
 import { MongoClient, ClientSession, ObjectId } from 'mongodb';
+import { TrendGranularity } from '../providers/mongo/repositories/UserRepository.js';
 
 /**
  * Interface representing a repository for user-related operations.
@@ -363,6 +364,16 @@ export interface IUserRepository {
     query: { userId: string; startDateTime?: string; endDateTime?: string },
     session?: ClientSession,
   ): Promise<IUserHistory>;
+
+  getWorkingHoursTrend(
+      query: {
+        userId: string;
+        startDateTime: string;
+        endDateTime: string;
+        granularity: TrendGranularity;
+      },
+      session?: ClientSession,
+  ): Promise<any>
 
   /**
    * Clears all assigned question IDs for a user by setting assignedQuestionIds to null.
