@@ -77,6 +77,15 @@ gcloud iam service-accounts create gate-keeper-auditor-queue-sa \
   --project="${PROJECT_ID}"
 # No IAM bindings — the SA has no permissions on purpose.
 
+# Same pattern for the LGD sync Job (states/districts/blocks/villages) — it
+# only talks to MongoDB Atlas and the external data.gov.in LGD API, so it
+# needs no GCP API access either.
+gcloud iam service-accounts create lgd-sync-sa \
+  --display-name="Cloud Run Job: lgd-sync" \
+  --project="${PROJECT_ID}"
+# No IAM bindings — the SA has no permissions on purpose.
+```
+
 ### 1.6 Grant your GitHub Actions SA permission to deploy the Job
 
 Your existing `GCP_GH_SA_KEY` service account needs these roles:
@@ -114,6 +123,11 @@ These need to be set in **Settings → Secrets and variables → Actions → Sec
 | Secret | Example value | Notes |
 |---|---|---|
 | `GCP_BACKUP_BUCKET` | `reviewer-db-backups` | The GCS bucket from step 1.2 |
+| `LGD_API_KEY` | `579b464db66ec...` | data.gov.in API key, same value as backend `.env` |
+| `LGD_STATES_API_URL` | `https://api.data.gov.in/resource/a71e60f0-...` | Same value as backend `.env` |
+| `LGD_DISTRICTS_API_URL` | `https://api.data.gov.in/resource/37231365-...` | Same value as backend `.env` |
+| `LGD_SUBDISTRICTS_API_URL` | `https://api.data.gov.in/resource/6be51a29-...` | Same value as backend `.env`; used as the "blocks" source |
+| `LGD_VILLAGES_API_URL` | `https://api.data.gov.in/resource/f17a1608-...` | Same value as backend `.env` |
 
 ### New variables to add (Settings → Secrets and variables → Actions → Variables)
 | Variable | Default | Notes |
@@ -172,3 +186,21 @@ Remaining 6 jobs to migrate:
 - `agentStatusCleanupJob` → `agent-status-cleanup` (every 1 min)
 - `dailyReport` → `daily-report` (twice daily)
 - `notificationDelete` → `notification-delete` (daily 02:00)
+
+### New (non-migration) Cloud Run Jobs
+
+Not every Cloud Run Job here replaces a legacy `node-cron` task — this one is
+net-new and never existed as an in-process cron:
+
+- `lgd-sync` (`0 3 * * 0`, Asia/Kolkata — weekly, Sunday 03:00 IST)  ✅
+  Runs `backend/src/jobs/lgd-sync/run.ts`, which executes the existing
+  standalone scripts `backend/scripts/create-lgd-{states,districts,blocks,villages}-collection.mjs`
+  with `--apply`, strictly in that order, stopping immediately if any one of
+  them exits non-zero (districts need states, blocks need districts, villages
+  read the `blocks` collection those scripts write). No new sync logic — this
+  job is only an orchestrator around the four existing scripts.
+  Sized at 2Gi/2cpu with a 6h task-timeout since a full villages sync can
+  involve thousands of data.gov.in API calls; adjust once real run times are
+  known. Reuses `DB_URL`/`DB_NAME` and the existing `LGD_*` env vars — no new
+  application code or env vars were introduced, only the new GitHub secrets
+  listed in §2 so CI can pass them through to the deployed Job.
