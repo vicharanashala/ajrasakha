@@ -224,6 +224,18 @@ const validateUniversity = (value: string) => {
   return "";
 };
 
+const toCamelCase = (str: string) => {
+  if (!str) return "";
+  const trimmed = str.trim();
+  if (!trimmed) return "";
+  return trimmed
+    .toLowerCase()
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
 const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   const [formData, setFormData] = useState<IUser>({
     ...user,
@@ -252,7 +264,14 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   const [paeOtherDomain, setPaeOtherDomain] = useState("");
   const [paeOtherDomainError, setPaeOtherDomainError] = useState("");
 
-  const [kvkInput, setKvkInput] = useState<string>(() => {
+  const [kvkNumberInput, setKvkNumberInput] = useState<string>(() => {
+    if (user?.kvkCovered?.number !== undefined && user?.kvkCovered?.number !== null) {
+      return String(user.kvkCovered.number);
+    }
+    return "";
+  });
+
+  const [kvkNamesInput, setKvkNamesInput] = useState<string>(() => {
     if (user?.kvkCovered?.name && Array.isArray(user.kvkCovered.name)) {
       return user.kvkCovered.name.join(", ");
     }
@@ -260,11 +279,11 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   });
 
   const parsedKvkNames = useMemo(() => {
-    return kvkInput
+    return kvkNamesInput
       .split(",")
-      .map((item) => item.trim())
+      .map((item) => toCamelCase(item))
       .filter(Boolean);
-  }, [kvkInput]);
+  }, [kvkNamesInput]);
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
@@ -414,11 +433,15 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
             ? customDomain.trim()
             : (formData.preference?.domain ?? "all");
 
+      const rawNum = kvkNumberInput.trim() !== "" ? parseInt(kvkNumberInput.trim(), 10) : undefined;
+      const validNum = rawNum !== undefined && !isNaN(rawNum) ? rawNum : parsedKvkNames.length;
+      const hasKvkData = kvkNumberInput.trim() !== "" || parsedKvkNames.length > 0;
+
       const payload: IUser = {
         ...formData,
         mobile: formData.mobile?.trim(),
         university: formData.university?.trim(),
-        kvkCovered: parsedKvkNames.length > 0 ? { number: parsedKvkNames.length, name: parsedKvkNames } : undefined,
+        kvkCovered: hasKvkData ? { number: validNum, name: parsedKvkNames } : undefined,
         preference: {
           state: formData.preference?.state ?? "",
           crop: formData.preference?.crop ?? "",
@@ -781,38 +804,40 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
           </div>
         </div>
 
-        {/* KVK Covered */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="kvkCovered">KVK Covered <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
-            {parsedKvkNames.length > 0 && (
-              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                Number of KVKs: {parsedKvkNames.length}
-              </span>
-            )}
+        {/* KVK Covered (Two Fields: Number & Names) */}
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Field 1: Number of KVKs */}
+          <div className="space-y-2">
+            <Label htmlFor="kvkCoveredNumber">
+              Number of KVKs <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+            </Label>
+            <Input
+              id="kvkCoveredNumber"
+              type="number"
+              min="0"
+              disabled={!isEditMode}
+              value={kvkNumberInput}
+              onChange={(e) => setKvkNumberInput(e.target.value)}
+              placeholder="e.g. 2"
+            />
           </div>
-          <Input
-            id="kvkCovered"
-            disabled={!isEditMode}
-            value={kvkInput}
-            onChange={(e) => setKvkInput(e.target.value)}
-            placeholder="Enter KVK names separated by commas (e.g. KVK Barmer, KVK Jaipur)"
-          />
-          <p className="text-xs text-muted-foreground">
-            Separate multiple KVK names with commas.
-          </p>
-          {parsedKvkNames.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {parsedKvkNames.map((kvkName: string, idx: number) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
-                >
-                  {kvkName}
-                </span>
-              ))}
-            </div>
-          )}
+
+          {/* Field 2: KVK Names */}
+          <div className="space-y-2">
+            <Label htmlFor="kvkCoveredNames">
+              KVK Names <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+            </Label>
+            <Input
+              id="kvkCoveredNames"
+              disabled={!isEditMode}
+              value={kvkNamesInput}
+              onChange={(e) => setKvkNamesInput(e.target.value)}
+              placeholder="kvk1, kvk2"
+            />
+            <p className="text-xs text-muted-foreground">
+              Separate multiple KVK names with commas.
+            </p>
+          </div>
         </div>
 
         {/* Email + Password */}

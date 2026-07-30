@@ -13,6 +13,7 @@ import { Type, Transform } from 'class-transformer';
 import { NotificationRetentionType } from '#root/shared/index.js';
 import { ICropRef, UserRole } from '#root/shared/interfaces/models.js';
 import { USER_ROLES } from '#root/shared/constants/roles.js';
+import { toCamelCase } from '#root/utils/toCamelCase.js';
 
 export class KVKCoveredDto {
   @IsOptional()
@@ -22,6 +23,11 @@ export class KVKCoveredDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  @Transform(({ value }) =>
+    Array.isArray(value)
+      ? value.map((n: string) => (typeof n === 'string' ? toCamelCase(n) : n))
+      : value
+  )
   name?: string[];
 }
 

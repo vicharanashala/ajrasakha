@@ -3,6 +3,7 @@ import {
   StringToObjectId,
 } from '#shared/constants/transformerConstants.js';
 import {IKVKCovered, IPreference, IUser, NotificationRetentionType, UserRole} from '#shared/interfaces/models.js';
+import { toCamelCase } from '#root/utils/toCamelCase.js';
 import {Expose, Transform} from 'class-transformer';
 import {ObjectId} from 'mongodb';
 
@@ -106,7 +107,20 @@ class User implements IUser {
     this.updatedAt = data?.updatedAt || new Date();
     this.mobile = data?.mobile || '';
     this.university = data?.university || '';
-    this.kvkCovered = data?.kvkCovered ?? null;
+    if (data?.kvkCovered) {
+      const names = Array.isArray(data.kvkCovered.name)
+        ? data.kvkCovered.name.map((n: string) => (typeof n === 'string' ? toCamelCase(n) : '')).filter(Boolean)
+        : [];
+      const num = typeof data.kvkCovered.number === 'number' && !isNaN(data.kvkCovered.number)
+        ? data.kvkCovered.number
+        : names.length;
+      this.kvkCovered = {
+        number: num,
+        name: names,
+      };
+    } else {
+      this.kvkCovered = null;
+    }
     this.isCallAgentActive = data?.isCallAgentActive;
     this.lastAgentActiveAt = data?.lastAgentActiveAt;
     this.Call_centre_manager = data?.Call_centre_manager;

@@ -28,6 +28,7 @@ import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthServi
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
+import { toCamelCase } from '#root/utils/toCamelCase.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -151,10 +152,13 @@ export class UserService extends BaseService {
         );
       if (sanitizedData.kvkCovered !== undefined && sanitizedData.kvkCovered !== null) {
         const names = Array.isArray(sanitizedData.kvkCovered.name)
-          ? sanitizedData.kvkCovered.name.map((n: string) => typeof n === 'string' ? n.trim() : '').filter(Boolean)
+          ? sanitizedData.kvkCovered.name.map((n: string) => typeof n === 'string' ? toCamelCase(n) : '').filter(Boolean)
           : [];
+        const num = typeof sanitizedData.kvkCovered.number === 'number' && !isNaN(sanitizedData.kvkCovered.number)
+          ? sanitizedData.kvkCovered.number
+          : names.length;
         sanitizedData.kvkCovered = {
-          number: names.length,
+          number: num,
           name: names,
         };
       }
