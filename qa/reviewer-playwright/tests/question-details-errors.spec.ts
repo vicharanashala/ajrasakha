@@ -45,7 +45,9 @@ test.describe("Reviewer loading, failure, and partial-data behavior", () => {
     });
 
     await dashboardPage.allQuestionsTab.click();
-    await expect(authenticatedPage.locator(".animate-spin").first()).toBeVisible();
+    await expect(
+      authenticatedPage.locator(".animate-spin").first(),
+    ).toBeVisible();
     releaseList();
     await expect(dashboardPage.emptyState.first()).toBeVisible();
   });
@@ -59,14 +61,23 @@ test.describe("Reviewer loading, failure, and partial-data behavior", () => {
   }) => {
     await dashboardPage.openAllQuestions();
     await authenticatedPage.route("**/questions/*/full", (route) =>
-      route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "controlled failure" }) }),
+      route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "controlled failure" }),
+      }),
     );
 
-    const response = await dashboardPage.clickFirstQuestionAndWaitFor((candidate) =>
-      /\/questions\/[^/]+\/full(?:\?|$)/.test(new URL(candidate.url()).pathname),
+    const response = await dashboardPage.clickFirstQuestionAndWaitFor(
+      (candidate) =>
+        /\/questions\/[^/]+\/full(?:\?|$)/.test(
+          new URL(candidate.url()).pathname,
+        ),
     );
     expect(response.status()).toBe(500);
-    await expect(authenticatedPage.locator(".animate-spin").first()).toBeHidden();
+    await expect(
+      authenticatedPage.locator(".animate-spin").first(),
+    ).toBeHidden();
     await expect(questionDetailsPage.exitButton).toBeHidden();
     await expect(questionDetailsPage.title).toBeHidden();
   });
@@ -81,13 +92,17 @@ test.describe("Reviewer loading, failure, and partial-data behavior", () => {
     await dashboardPage.openAllQuestions();
     await authenticatedPage.route("**/questions/*/full", async (route) => {
       const upstream = await route.fetch();
-      const body = (await upstream.json()) as { data?: Record<string, unknown> };
+      const body = (await upstream.json()) as {
+        data?: Record<string, unknown>;
+      };
       if (body.data) {
         delete body.data.context;
         delete body.data.metrics;
         delete body.data.closedAt;
         delete body.data.approved_moderator;
-        const details = body.data.details as Record<string, unknown> | undefined;
+        const details = body.data.details as
+          | Record<string, unknown>
+          | undefined;
         if (details) {
           delete details.district;
           delete details.normalised_crop;
@@ -101,7 +116,9 @@ test.describe("Reviewer loading, failure, and partial-data behavior", () => {
     const selected = await dashboardPage.openFirstQuestion();
     await questionDetailsPage.expectQuestionText(selected.question);
     expect(await questionDetailsPage.metadataValue("District")).toBe("-");
-    expect(await questionDetailsPage.metadataValue("Normalized Crop")).toBe("-");
+    expect(await questionDetailsPage.metadataValue("Normalized Crop")).toBe(
+      "-",
+    );
     expect(await questionDetailsPage.metadataValue("Season")).toBe("-");
     expect(await questionDetailsPage.metadataValue("Domain")).toBe("-");
   });

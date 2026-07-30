@@ -297,3 +297,33 @@ test("MOD-017 Moderator can successfully create a question", async ({
 
   await moderatorDashboard.expectQuestionVisible(QUESTION);
 });
+
+test("MOD-018-SMOKE Moderator can open Question Details page", async ({
+  moderatorDashboard,
+  createQuestionPage,
+  moderatorQuestionDetailsPage,
+}) => {
+  const QUESTION = `PW_E2E_${Date.now()}`;
+
+  await moderatorDashboard.waitForShell();
+
+  await moderatorDashboard.openAllQuestions();
+
+  await moderatorDashboard.openCreateQuestionDialog();
+
+  await createQuestionPage.fillQuestion(QUESTION);
+
+  await createQuestionPage.selectState("Jammu And Kashmir");
+  await createQuestionPage.selectDistrict("Rajouri");
+  await createQuestionPage.selectCrop("All Spice");
+  await createQuestionPage.selectSeason("Winter");
+  await createQuestionPage.selectDomain("Fertilizer Use and Availability");
+
+  await createQuestionPage.submit();
+
+  await moderatorDashboard.expectQuestionCreated();
+
+  await moderatorDashboard.openQuestion(QUESTION);
+  // await moderatorDashboard.pause();
+  await moderatorQuestionDetailsPage.expectOpened();
+});

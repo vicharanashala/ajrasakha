@@ -19,7 +19,7 @@ type FullQuestion = {
   };
 };
 
-test.describe("Reviewer dashboard to question-detail vertical slice", () => {
+test.describe("Reviewer (Expert) dashboard to question-detail vertical slice", () => {
   // Catalogue source: 09-user-permissions.md, PERM-001.
   // Implementation: src/routes/auth/index.tsx, src/features/auth/**, src/lib/firebase.ts.
   test("PERM-001 expert login resolves the reviewer role and reaches /home", async ({

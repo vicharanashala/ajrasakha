@@ -83,4 +83,10 @@ export class ExpertDashboardPage {
     await trigger.click();
     return responsePromise;
   }
+  async openQuestion(question: string): Promise<void> {
+    await this.page
+      .getByRole("table")
+      .getByText(question, { exact: true })
+      .click();
+  }
 }

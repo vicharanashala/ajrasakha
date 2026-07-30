@@ -17,6 +17,10 @@ export class ModeratorDashboardPage {
     });
   }
 
+  async pause(): Promise<void> {
+    await this.page.pause();
+  }
+
   async waitForShell(): Promise<void> {
     await expect(this.page).toHaveURL(/\/home(?:[/?#]|$)/);
     await expect(this.allQuestionsTab).toBeVisible();
@@ -41,5 +45,11 @@ export class ModeratorDashboardPage {
     const table = this.page.getByRole("table");
 
     await expect(table.getByText(question, { exact: true })).toBeVisible();
+  }
+  async openQuestion(question: string): Promise<void> {
+    await this.page
+      .getByRole("table")
+      .getByText(question, { exact: true })
+      .click();
   }
 }

@@ -1,13 +1,13 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { LoginPage } from "../pages/shared/login.page.js";
 import { ExpertDashboardPage } from "../pages/expert/dashboard.page.js";
-import { QuestionDetailsPage } from "../pages/shared/question-details.page.js";
+import { ExpertQuestionDetailsPage } from "../pages/expert/question-details.page.js";
 import { ResponsePage } from "../pages/expert/response.page.js";
 type ReviewerFixtures = {
   environmentPage: Page;
   authenticatedPage: Page;
   dashboardPage: ExpertDashboardPage;
-  questionDetailsPage: QuestionDetailsPage;
+  questionDetailsPage: ExpertQuestionDetailsPage;
   responsePage: ResponsePage;
 };
 
@@ -52,7 +52,7 @@ export const test = base.extend<ReviewerFixtures>({
   },
 
   questionDetailsPage: async ({ authenticatedPage }, use) => {
-    await use(new QuestionDetailsPage(authenticatedPage));
+    await use(new ExpertQuestionDetailsPage(authenticatedPage));
   },
 
   responsePage: async ({ authenticatedPage }, use) => {
