@@ -27,6 +27,8 @@ export type QueueQuestionItem = {
   question: string;
   status: string;
   source: string;
+  isTrainingQuestion?: boolean;
+  isTrainingUser?: boolean;
   priority?: string;
   createdAt?: string;
   state?: string;
@@ -49,6 +51,7 @@ export type QueueExpertItem = {
   reputationScore?: number;
   role?: string;
   isSpecialTaskForce?: boolean;
+  isTrainingUser?: boolean;
 };
 
 export type QueueSectionResponse = {
@@ -202,6 +205,10 @@ export class QuestionService {
 
     if (filter.is_testing === true) {
       params.append("is_testing", "true");
+    }
+
+    if (filter.isTrainingQuestion === true) {
+      params.append("isTrainingQuestion", "true");
     }
 
     if (filter.moderatorId) {
@@ -577,6 +584,10 @@ export class QuestionService {
     }
     if (filter.autoAllocateModeratorFilter) {
       params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
+    }
+
+    if (filter.isTrainingQuestion === true) {
+      params.append("isTrainingQuestion", "true");
     }
 
     if (filter.dateRange && filter.dateRange !== "all")
@@ -1024,6 +1035,10 @@ export class QuestionService {
 
     if (filter.is_testing === true) {
       params.append("is_testing", "true");
+    }
+
+    if (filter.isTrainingQuestion === true) {
+      params.append("isTrainingQuestion", "true");
     }
 
     // states and normalisedCrops sent as JSON arrays in request body

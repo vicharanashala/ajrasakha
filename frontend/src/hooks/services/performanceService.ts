@@ -84,6 +84,7 @@ export class PerformaneService {
     selectedDate: string;
     startTime?: string;
     endTime?: string;
+    userType?: "all" | "tmu" | "normal";
   }): Promise<(OverviewResponse & {
     moderatorApprovalRate: ModeratorApprovalRate;
   }) | null> {
@@ -92,6 +93,9 @@ export class PerformaneService {
     const params = new URLSearchParams();
     params.append("startDateTime", startDate.toISOString());
     params.append("endDateTime", endDate.toISOString());
+    if (query.userType) {
+      params.append("userType", query.userType);
+    }
 
     return apiFetch<OverviewResponse & {
       moderatorApprovalRate: ModeratorApprovalRate;

@@ -69,6 +69,7 @@ interface QuestionsAnalyticsProps {
   date: DateRange;
   setDate: React.Dispatch<React.SetStateAction<DateRange>>;
   data: QuestionsAnalytics;
+  isTrainingUser?: boolean;
   setAnalyticsType: (value: "question" | "answer") => void;
   analyticsType: "question" | "answer";
   analyticsStatus: string[];
@@ -216,6 +217,9 @@ const STATUS_OPTIONS = [
   { value: "duplicate", label: "Duplicate" },
 ];
 const SOURCE_OPTIONS = SOURCES.map((src) => ({ value: src, label: src }));
+const TRAINING_SOURCE_OPTIONS = SOURCE_OPTIONS.filter(
+  (src) => src.value === "AGRI_EXPERT",
+);
 const CROP_OPTIONS = [...CROPS].sort().map((c) => ({ value: c, label: c }));
 
 type DraftFilters = {
@@ -247,6 +251,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
   date,
   setDate,
   data,
+  isTrainingUser = false,
   setAnalyticsType,
   analyticsType,
   analyticsStatus,
@@ -263,6 +268,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
 
   const { data: states = [] } = useGetStates();
   const stateOptions = states.map((s) => ({ value: s.stateNameEnglish, label: s.stateNameEnglish }));
+  const sourceOptions = isTrainingUser ? TRAINING_SOURCE_OPTIONS : SOURCE_OPTIONS;
 
   const handleDownloadCSV = () => {
     const tableData = data.tableData ?? [];
@@ -452,7 +458,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                     Source
                   </Label>
                   <MultiSelect
-                    items={SOURCE_OPTIONS}
+                    items={sourceOptions}
                     selected={draftFilters.source}
                     onChange={(val) => setDraftFilters((prev) => ({ ...prev, source: val }))}
                     placeholder="All Sources"

@@ -1427,6 +1427,12 @@ export interface IChatbotRepository {
     limit: number,
     search: string
   ): Promise<any>
+
+  getReviewerLifecycle(
+    userId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any>
 }
 
 export interface ChatbotConversationData {

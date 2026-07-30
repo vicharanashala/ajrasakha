@@ -380,6 +380,8 @@ export class QuestionController {
 
       // Read directly from req.body (multer-parsed) to avoid class-transformer dropping fields
       const rawBody = req.body || {};
+      const isTrainingQuestion =
+        rawBody.isTrainingQuestion === 'true' || body.isTrainingQuestion === true;
       const allocationMode = rawBody.allocationMode || body.allocationMode || 'expert';
       const paeExpertId: string | undefined = rawBody.paeExpertId || body.paeExpertId;
       console.log('[BulkUpload] rawBody:', rawBody);
@@ -432,6 +434,7 @@ export class QuestionController {
           this.auditTrailsService,
           isRequiredAiInitialAnswer,
           isOutreachQuestion,
+          isTrainingQuestion,
           payload,
           allocationMode,
           paeExpertId
@@ -683,7 +686,8 @@ export class QuestionController {
       },
     };
     try {
-      data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate);
+      const isAdmin = user.role === 'admin'
+      data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate, user.isTrainingUser??false,isAdmin??false);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
@@ -725,6 +729,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin'
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
 
@@ -750,7 +755,7 @@ export class QuestionController {
       },
     };
     try {
-      data = await this.questionService.generateOverallQuestionReport(startDate, endDate);
+      data = await this.questionService.generateOverallQuestionReport(startDate, endDate,user.isTrainingUser??false,isAdmin??false);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
@@ -880,6 +885,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
     const auditPayload: ModeratorAuditTrail = {
@@ -896,7 +902,7 @@ export class QuestionController {
       createdAt: new Date(),
     };
     try {
-      const data = await this.questionService.generateDuplicateQuestionReport(startDate, endDate);
+      const data = await this.questionService.generateDuplicateQuestionReport(startDate, endDate, user.isTrainingUser ?? false, isAdmin ?? false);
       if (!data) {
         this.auditTrailsService.createAuditTrail({
           ...auditPayload,
@@ -2869,6 +2875,18 @@ export class QuestionController {
   async runMigration() {
     console.log('[QuestionController] runMigration: Starting migration...');
     const result = await this.checkOverlapsService.runMigration();
+    return result;
+  }
+
+  // ─── Migrate Firebase users endpoint (internal API key auth) ──────────────────────
+
+  @Post('/migrate-firebase-users')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Migrate Firebase users for staging users - creates new Firebase users and updates their UIDs' })
+  async migrateFirebaseUsers() {
+    console.log('[QuestionController] migrateFirebaseUsers: Starting Firebase user migration...');
+    const result = await this.checkOverlapsService.migrateFirebaseUsers();
     return result;
   }
 }

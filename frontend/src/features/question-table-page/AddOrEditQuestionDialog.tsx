@@ -53,6 +53,7 @@ import { CROPS, DOMAINS, SEASONS} from "../../components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
+import { Checkbox } from "@/components/atoms/checkbox";
 import { TopLeftBadge, TopRightBadge } from "@/components/NewBadge";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { toast } from "@/shared/components/toast";
@@ -85,6 +86,7 @@ interface AddOrEditQuestionDialogProps {
   mode: "add" | "edit";
   validationErrors?: AddQuestionValidationErrors;
   onFieldValidatedChange?: (field: AddQuestionField) => void;
+  defaultIsTrainingQuestion?: boolean;
 }
 
 export type AddQuestionField =
@@ -182,6 +184,7 @@ export const AddOrEditQuestionDialog = ({
   mode,
   validationErrors,
   onFieldValidatedChange,
+  defaultIsTrainingQuestion = false,
 }: AddOrEditQuestionDialogProps) => {
   const [flagReason, setFlagReason] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -220,6 +223,7 @@ export const AddOrEditQuestionDialog = ({
           season: "",
           domain: [] as string[],
         },
+        isTrainingQuestion: defaultIsTrainingQuestion,
       } as IDetailedQuestion);
       // Reset upload mode and file when dialog opens in add mode
       setUploadMode("single");
@@ -1160,6 +1164,24 @@ export const AddOrEditQuestionDialog = ({
                           </div>
                         );
                       })}
+
+                  <div className="flex items-center gap-2 mt-1">
+                    <Checkbox
+                      className="border-primary"
+                      checked={Boolean(updatedData?.isTrainingQuestion)}
+                      onCheckedChange={(checked) =>
+                        setUpdatedData((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                isTrainingQuestion: checked === true,
+                              }
+                            : prev
+                        )
+                      }
+                    />
+                    <Label className="text-sm font-medium">Training Question</Label>
+                  </div>
                 </div>
 
                 {userRole !== "expert" && mode === "edit" && (
@@ -1282,6 +1304,10 @@ export const AddOrEditQuestionDialog = ({
             formData.append("file", file);
             formData.append("isRequiredAiInitialAnswer", String(isRequiredAiInitialAnswer));
             formData.append("isOutreachQuestion", String(isOutreachQuestion));
+            formData.append(
+              "isTrainingQuestion",
+              String(defaultIsTrainingQuestion || updatedData?.isTrainingQuestion === true),
+            );
             formData.append("allocationMode", mode);
             if (paeExpertId) formData.append("paeExpertId", paeExpertId);
             onSave?.("add", undefined, undefined, undefined, formData);

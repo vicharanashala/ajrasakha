@@ -8,6 +8,7 @@ import type { IUser } from "@/types";
 import {
   CROPS,
   STATES,
+  type AdvanceFilterValues,
   type QuestionDateRangeFilter,
   type QuestionFilterStatus,
   type QuestionPriorityFilter,
@@ -85,6 +86,7 @@ export const QuestionsPage = ({
   const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
   const [isNonAgri, setIsNonAgri] = useState<boolean | undefined>(undefined);
   const [isTesting, setIsTesting] = useState<boolean | undefined>(undefined);
+  const [isTrainingQuestion, setIsTrainingQuestion] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
@@ -191,6 +193,7 @@ export const QuestionsPage = ({
         pae_review: paeReview,
         is_non_agri: isNonAgri,
         is_testing: isTesting,
+        isTrainingQuestion,
         // Dedicated tab: filter to questions assigned to the current moderator
         // Dedicated ("My Assignment") tab: filter to questions assigned to the current
         // user, by their role — moderator, gate keeper, or auditor.
@@ -238,6 +241,7 @@ export const QuestionsPage = ({
       paeReview,
       isNonAgri,
       isTesting,
+      isTrainingQuestion,
       viewMode,
       // Only the id and role are read above. Depending on the whole `currentUser` object
       // rebuilt this filter on every window-focus refetch (react-query returns a new
@@ -334,6 +338,7 @@ export const QuestionsPage = ({
     if (searchTabMode === "non_agri") return questions.filter((q) => q.status === "non_agri");
     if (searchTabMode === "pae") return questions.filter((q) => (q as any).pae_review === true);
     if (searchTabMode === "dynamic") return questions.filter((q) => q.status === "dynamic");
+    if (searchTabMode === "training") return questions.filter((q) => q.isTrainingQuestion === true);
     return questions;
   }, [questionData, debouncedSearch, searchTabMode]);
 
@@ -369,7 +374,10 @@ export const QuestionsPage = ({
 
   const handleNext = () => {
     if (currentIndex < currentItems.length - 1) {
-      setSelectedQuestionId(currentItems[currentIndex + 1]._id);
+      const nextQuestionId = currentItems[currentIndex + 1]?._id;
+      if (nextQuestionId) {
+        setSelectedQuestionId(nextQuestionId);
+      }
     } else if (currentPageVal < totalPages) {
       setPendingNav("next");
       if (viewMode === "review-level") setReviewPage(prev => prev + 1);
@@ -379,7 +387,10 @@ export const QuestionsPage = ({
 
   const handlePrev = () => {
     if (currentIndex > 0) {
-      setSelectedQuestionId(currentItems[currentIndex - 1]._id);
+      const previousQuestionId = currentItems[currentIndex - 1]?._id;
+      if (previousQuestionId) {
+        setSelectedQuestionId(previousQuestionId);
+      }
     } else if (currentPageVal > 1) {
       setPendingNav("prev");
       if (viewMode === "review-level") setReviewPage(prev => prev - 1);
@@ -390,9 +401,15 @@ export const QuestionsPage = ({
   useEffect(() => {
     if (pendingNav && !isLoading && !isFetching && !isReviewLoading && currentItems.length > 0) {
       if (pendingNav === "next") {
-        setSelectedQuestionId(currentItems[0]._id);
+        const firstQuestionId = currentItems[0]?._id;
+        if (firstQuestionId) {
+          setSelectedQuestionId(firstQuestionId);
+        }
       } else {
-        setSelectedQuestionId(currentItems[currentItems.length - 1]._id);
+        const lastQuestionId = currentItems[currentItems.length - 1]?._id;
+        if (lastQuestionId) {
+          setSelectedQuestionId(lastQuestionId);
+        }
       }
       setPendingNav(null);
     }
@@ -469,6 +486,8 @@ export const QuestionsPage = ({
       setIsNonAgri(next.is_non_agri);
     if ("is_testing" in next)
       setIsTesting(next.is_testing);
+    if ("isTrainingQuestion" in next)
+      setIsTrainingQuestion(next.isTrainingQuestion);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -510,6 +529,8 @@ export const QuestionsPage = ({
     setIsOnHold(false);
     setPaeReview(undefined);
     setIsNonAgri(undefined);
+    setIsTesting(undefined);
+    setIsTrainingQuestion(undefined);
   };
 
   const handleViewMore = (questoinId: string) => {
@@ -609,6 +630,7 @@ export const QuestionsPage = ({
               refetch();
             }}
             totalQuestions={displayTotal}
+            currentUser={currentUser}
             userRole={currentUser?.role!}
             isSelectionModeOn={isSelectionModeOn}
             handleBulkDelete={handleBulkDelete}

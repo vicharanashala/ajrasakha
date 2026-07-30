@@ -38,6 +38,8 @@ import {
   EyeOff,
   Eye,
   Camera,
+  Plus,
+  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -59,7 +61,7 @@ export default function ProfilePage() {
   const { data: user, isLoading } = useGetCurrentUser({});
   const navigate = useNavigate();
   const { mutateAsync: updateUser, isPending: isUpdating } = useEditUser();
-  const { success: toastSuccess, loading:toastLoading, dismiss: toastDismiss} = useToast();
+  const { success: toastSuccess, loading: toastLoading, dismiss: toastDismiss } = useToast();
 
   useEffect(() => {
     if (user && isCoordinatorRole(user.role)) {
@@ -68,7 +70,7 @@ export default function ProfilePage() {
   }, [navigate, user]);
 
   const handleSubmit = async (data: IUser, showToast: boolean = true, id?: string) => {
-    let currentToastId;
+    let currentToastId: string | number | undefined;
     if (showToast) {
       currentToastId = toastLoading("Saving profile...", {
         desc: "Please wait while we update your details.",
@@ -78,10 +80,14 @@ export default function ProfilePage() {
     }
     try {
       await updateUser(data);
-      if (showToast) {
-        toast.success("Profile updated!");
+      if (showToast && currentToastId) {
+        toastDismiss(currentToastId);
+        toastSuccess("Profile updated!");
       }
     } catch (error) {
+      if (showToast && currentToastId) {
+        toastDismiss(currentToastId);
+      }
       console.error(error);
       throw error;
     }
@@ -248,6 +254,38 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   const [paeOtherDomain, setPaeOtherDomain] = useState("");
   const [paeOtherDomainError, setPaeOtherDomainError] = useState("");
 
+  // KVKs are stored as a plain string array. Seed from the saved value, tolerating the
+  // legacy { number, name: [] } shape for older records.
+  const [kvkList, setKvkList] = useState<string[]>(() => {
+    const saved = user?.kvkCovered as unknown;
+    if (Array.isArray(saved)) return saved.filter(Boolean);
+    if (saved && typeof saved === "object" && Array.isArray((saved as any).name)) {
+      return (saved as any).name.filter(Boolean);
+    }
+    return [];
+  });
+  const [kvkDraft, setKvkDraft] = useState("");
+
+  const addKvk = () => {
+    // Title-case so it matches how it's stored, e.g. "kl university" → "Kl University".
+    const name = kvkDraft
+      .trim()
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    if (!name) return;
+    // Skip case-insensitive duplicates.
+    if (kvkList.some((k) => k.toLowerCase() === name.toLowerCase())) {
+      setKvkDraft("");
+      return;
+    }
+    setKvkList((prev) => [...prev, name]);
+    setKvkDraft("");
+  };
+
+  const removeKvk = (idx: number) => {
+    setKvkList((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const [passwordForm, setPasswordForm] = useState({
@@ -400,6 +438,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         ...formData,
         mobile: formData.mobile?.trim(),
         university: formData.university?.trim(),
+        kvkCovered: kvkList.length > 0 ? kvkList : undefined,
         preference: {
           state: formData.preference?.state ?? "",
           crop: formData.preference?.crop ?? "",
@@ -760,6 +799,58 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               <p className="text-sm text-red-500">{profileErrors.university}</p>
             )}
           </div>
+        </div>
+
+        {/* KVK Covered */}
+        <div className="space-y-2">
+          <Label htmlFor="kvkCovered">KVK Covered <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="kvkCovered"
+              disabled={!isEditMode}
+              value={kvkDraft}
+              onChange={(e) => setKvkDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addKvk();
+                }
+              }}
+              placeholder="Enter KVK covered"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              disabled={!isEditMode || !kvkDraft.trim()}
+              onClick={addKvk}
+              aria-label="Add KVK"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          {kvkList.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {kvkList.map((kvkName: string, idx: number) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                >
+                  {kvkName}
+                  {isEditMode && (
+                    <button
+                      type="button"
+                      onClick={() => removeKvk(idx)}
+                      className="hover:text-emerald-900 dark:hover:text-emerald-100"
+                      aria-label={`Remove ${kvkName}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Email + Password */}

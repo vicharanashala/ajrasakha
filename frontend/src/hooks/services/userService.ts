@@ -6,6 +6,13 @@ import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();
 
+
+export type TrendGranularity =
+  | "hour"
+  | "day"
+  | "week"
+  | "month";
+
 /** One question a moderator currently holds, with its denormalised status. */
 export interface AssignedQuestion {
   questionId: string;
@@ -19,6 +26,7 @@ export interface StfModerator {
   _id: string;
   name: string;
   email: string;
+  isTrainingUser?: boolean;
   /** The questions this moderator currently holds (empty when free). A moderator is
    *  busy only while holding an entry in a blocking status; re-routed entries don't count. */
   assignedQuestionIds?: AssignedQuestion[] | null;
@@ -266,6 +274,13 @@ export class UserService {
     );
   }
 
+  async toggleTrainingUserStatus(userId: string, action: string): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}/training-users`, {
+      body: JSON.stringify({ userId, action }),
+      method: "PATCH",
+    });
+  }
+
   async getWorkingHours(
     userId: string,
     startDateTime: string,
@@ -280,4 +295,42 @@ export class UserService {
       `${this._baseUrl}/working-hours?${params.toString()}`
     );
   }
+
+  async getReviewerLifecycle(
+    userId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<any> {
+    // console.log("getReviewerLifecycle---");
+
+    const params = new URLSearchParams();
+
+    params.append("userId", userId);
+    params.append("startDate", startDate);
+    params.append("endDate", endDate);
+
+    return apiFetch<any>(
+      `${this._baseUrl}/reviewer-lifecycle?${params.toString()}`,
+      {
+        method: "GET",
+      }
+    );
+  }
+
+    async getWorkingHoursTrends(
+      userId: string,
+      startDateTime: string,
+      endDateTime: string,
+      granularity: TrendGranularity,
+    ): Promise<any> {
+      const params = new URLSearchParams({
+        userId,
+        startDateTime,
+        endDateTime,
+        granularity
+      });
+      return apiFetch<any>(
+        `${this._baseUrl}/working-hours-trend?${params.toString()}`
+      );
+    }
 }

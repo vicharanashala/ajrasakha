@@ -4180,5 +4180,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Something went wrong ${error}`)
     }
   }
+
+  async getReviewerLifecycle( userId: string, startDate?: Date, endDate?: Date ): Promise<any> {
+    try{
+      return this.chatbotRepository.getReviewerLifecycle( userId, startDate, endDate );
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
 }
 

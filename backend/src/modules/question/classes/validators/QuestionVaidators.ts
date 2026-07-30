@@ -476,6 +476,15 @@ class AddQuestionBodyDto {
   @IsArray()
   @IsString({ each: true })
   tools_used?: string[];
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  isTrainingQuestion?: boolean;
 }
 
 class GenerateQuestionsBody {
@@ -901,6 +910,13 @@ class GetDetailedQuestionsQuery {
   @IsOptional()
   moderatorId?: string;
 
+  @JSONSchema({
+    description: 'filter questions with isTrainingQuestion=true (Training tab)',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  isTrainingQuestion?: string | boolean;
   @IsOptional()
   gateKeeperId?: string;
 
