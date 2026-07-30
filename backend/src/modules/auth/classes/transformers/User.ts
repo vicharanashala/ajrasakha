@@ -58,7 +58,7 @@ class User implements IUser {
   university?: string;
 
   @Expose()
-  kvkCovered?: IKVKCovered | null;
+  kvkCovered?: string[] | null;
 
   @Expose()
   isVerified: boolean;

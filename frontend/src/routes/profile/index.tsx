@@ -20,7 +20,7 @@ import { isCoordinatorRole } from "@/lib/roles";
 import { useAuthStore } from "@/stores/auth-store";
 import type { IUser } from "@/types";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useState, useRef, useEffect, useMemo } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import {
   Edit2,
   ArrowLeft,
@@ -38,6 +38,8 @@ import {
   EyeOff,
   Eye,
   Camera,
+  Plus,
+  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -252,19 +254,37 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   const [paeOtherDomain, setPaeOtherDomain] = useState("");
   const [paeOtherDomainError, setPaeOtherDomainError] = useState("");
 
-  const [kvkInput, setKvkInput] = useState<string>(() => {
-    if (user?.kvkCovered?.name && Array.isArray(user.kvkCovered.name)) {
-      return user.kvkCovered.name.join(", ");
+  // KVKs are stored as a plain string array. Seed from the saved value, tolerating the
+  // legacy { number, name: [] } shape for older records.
+  const [kvkList, setKvkList] = useState<string[]>(() => {
+    const saved = user?.kvkCovered as unknown;
+    if (Array.isArray(saved)) return saved.filter(Boolean);
+    if (saved && typeof saved === "object" && Array.isArray((saved as any).name)) {
+      return (saved as any).name.filter(Boolean);
     }
-    return "";
+    return [];
   });
+  const [kvkDraft, setKvkDraft] = useState("");
 
-  const parsedKvkNames = useMemo(() => {
-    return kvkInput
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }, [kvkInput]);
+  const addKvk = () => {
+    // Title-case so it matches how it's stored, e.g. "kl university" → "Kl University".
+    const name = kvkDraft
+      .trim()
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    if (!name) return;
+    // Skip case-insensitive duplicates.
+    if (kvkList.some((k) => k.toLowerCase() === name.toLowerCase())) {
+      setKvkDraft("");
+      return;
+    }
+    setKvkList((prev) => [...prev, name]);
+    setKvkDraft("");
+  };
+
+  const removeKvk = (idx: number) => {
+    setKvkList((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
@@ -418,7 +438,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         ...formData,
         mobile: formData.mobile?.trim(),
         university: formData.university?.trim(),
-        kvkCovered: parsedKvkNames.length > 0 ? { number: parsedKvkNames.length, name: parsedKvkNames } : undefined,
+        kvkCovered: kvkList.length > 0 ? kvkList : undefined,
         preference: {
           state: formData.preference?.state ?? "",
           crop: formData.preference?.crop ?? "",
@@ -783,32 +803,50 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
 
         {/* KVK Covered */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="kvkCovered">KVK Covered <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
-            {parsedKvkNames.length > 0 && (
-              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                Number of KVKs: {parsedKvkNames.length}
-              </span>
-            )}
+          <Label htmlFor="kvkCovered">KVK Covered <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="kvkCovered"
+              disabled={!isEditMode}
+              value={kvkDraft}
+              onChange={(e) => setKvkDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addKvk();
+                }
+              }}
+              placeholder="Enter KVK covered"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              disabled={!isEditMode || !kvkDraft.trim()}
+              onClick={addKvk}
+              aria-label="Add KVK"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
-          <Input
-            id="kvkCovered"
-            disabled={!isEditMode}
-            value={kvkInput}
-            onChange={(e) => setKvkInput(e.target.value)}
-            placeholder="Enter KVK names separated by commas (e.g. KVK Barmer, KVK Jaipur)"
-          />
-          <p className="text-xs text-muted-foreground">
-            Separate multiple KVK names with commas.
-          </p>
-          {parsedKvkNames.length > 0 && (
+          {kvkList.length > 0 && (
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {parsedKvkNames.map((kvkName: string, idx: number) => (
+              {kvkList.map((kvkName: string, idx: number) => (
                 <span
                   key={idx}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
                 >
                   {kvkName}
+                  {isEditMode && (
+                    <button
+                      type="button"
+                      onClick={() => removeKvk(idx)}
+                      className="hover:text-emerald-900 dark:hover:text-emerald-100"
+                      aria-label={`Remove ${kvkName}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
                 </span>
               ))}
             </div>

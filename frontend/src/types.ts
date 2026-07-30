@@ -55,7 +55,8 @@ export interface IUser {
   special_task_force_moderator?: boolean
   mobile?: string;
   university?: string;
-  kvkCovered?: IKVKCovered;
+  /** List of KVK names this user covers. (Legacy records may hold { number, name[] }.) */
+  kvkCovered?: string[];
   isVerified?: boolean;
   isCallAgentActive?: boolean;
   lastAgentActiveAt?: string | Date;

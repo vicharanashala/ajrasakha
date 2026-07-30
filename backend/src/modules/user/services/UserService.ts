@@ -150,13 +150,20 @@ export class UserService extends BaseService {
           'University name cannot be empty or blank space',
         );
       if (sanitizedData.kvkCovered !== undefined && sanitizedData.kvkCovered !== null) {
-        const names = Array.isArray(sanitizedData.kvkCovered.name)
-          ? sanitizedData.kvkCovered.name.map((n: string) => typeof n === 'string' ? n.trim() : '').filter(Boolean)
-          : [];
-        sanitizedData.kvkCovered = {
-          number: names.length,
-          name: names,
-        };
+        // Stored as a plain string array. Tolerate the legacy { name: [] } shape on input.
+        const raw = Array.isArray(sanitizedData.kvkCovered)
+          ? sanitizedData.kvkCovered
+          : Array.isArray((sanitizedData.kvkCovered as any).name)
+            ? (sanitizedData.kvkCovered as any).name
+            : [];
+        // Title-case each name so they persist consistently (e.g. "kl university" → "Kl University").
+        sanitizedData.kvkCovered = raw
+          .map((n: string) =>
+            typeof n === 'string'
+              ? n.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+              : '',
+          )
+          .filter(Boolean);
       }
       const authService = getFromContainer(FirebaseAuthService);
 

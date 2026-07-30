@@ -178,10 +178,9 @@ class UpdateUserDto {
   avatar?: string;
 
   @IsOptional()
-  @IsObject()
-  @ValidateNested()
-  @Type(() => KVKCoveredDto)
-  kvkCovered?: KVKCoveredDto;
+  @IsArray()
+  @IsString({ each: true })
+  kvkCovered?: string[];
 }
 
 export class ToggleUserRoleDto {

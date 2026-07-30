@@ -49,7 +49,8 @@ export interface IUser {
   avatar?: string;
   mobile?: string;
   university?: string;
-  kvkCovered?: IKVKCovered | null;
+  /** List of KVK names this user covers. (Legacy records may hold { number, name[] }.) */
+  kvkCovered?: string[] | null;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
   lastAgentActiveAt?: Date;
