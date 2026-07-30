@@ -19,12 +19,19 @@ export interface AuthUser {
 }
 export interface IMyPreference {
   state: string;
+  district?: string;
   crop: string;
   domain: string | string[];
 }
 export interface IKVKCovered {
   number?: number;
   name?: string[];
+}
+/** One KVK-covered entry: state, district and KVK name (all Title-Cased). */
+export interface IKVKCoveredItem {
+  state: string;
+  district: string;
+  name: string;
 }
 export type NotificationRetentionType = "3d" | "1w" | "2w" | "1m" | "never";
 export interface IUser {
@@ -55,8 +62,9 @@ export interface IUser {
   special_task_force_moderator?: boolean
   mobile?: string;
   university?: string;
-  /** List of KVK names this user covers. (Legacy records may hold { number, name[] }.) */
-  kvkCovered?: string[];
+  /** KVKs this user covers — one { state, district, name } entry each.
+   *  (Legacy records may hold string[] or { number, name[] }.) */
+  kvkCovered?: IKVKCoveredItem[];
   isVerified?: boolean;
   isCallAgentActive?: boolean;
   lastAgentActiveAt?: string | Date;

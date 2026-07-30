@@ -2,7 +2,7 @@ import {
   ObjectIdToString,
   StringToObjectId,
 } from '#shared/constants/transformerConstants.js';
-import {IKVKCovered, IPreference, IUser, NotificationRetentionType, UserRole} from '#shared/interfaces/models.js';
+import {IKVKCoveredItem, IPreference, IUser, NotificationRetentionType, UserRole} from '#shared/interfaces/models.js';
 import {Expose, Transform} from 'class-transformer';
 import {ObjectId} from 'mongodb';
 
@@ -58,7 +58,7 @@ class User implements IUser {
   university?: string;
 
   @Expose()
-  kvkCovered?: string[] | null;
+  kvkCovered?: IKVKCoveredItem[] | null;
 
   @Expose()
   isVerified: boolean;
