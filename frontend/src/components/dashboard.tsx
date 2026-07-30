@@ -211,14 +211,20 @@ export const Dashboard = () => {
   );
   const [overviewStartTime, setOverviewStartTime] = useState("00:00");
   const [overviewEndTime, setOverviewEndTime] = useState("23:59");
+  const [overviewUserTypeFilter, setOverviewUserTypeFilter] = useState<
+    "all" | "tmu" | "normal"
+  >("all");
 
   const { data: user } = useGetCurrentUser();
+  const isTrainingUser = user?.isTrainingUser === true;
+  const isAdmin = user?.role === "admin";
 
   // Granular Hooks
   const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview({
     selectedDate: overviewSelectedDate,
     startTime: overviewStartTime,
     endTime: overviewEndTime,
+    userType: isAdmin ? overviewUserTypeFilter : undefined,
   });
   const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
     viewType,
@@ -320,9 +326,12 @@ export const Dashboard = () => {
               selectedDate={overviewSelectedDate}
               startTime={overviewStartTime}
               endTime={overviewEndTime}
+              isAdmin={isAdmin}
+              userTypeFilter={overviewUserTypeFilter}
               onSelectedDateChange={setOverviewSelectedDate}
               onStartTimeChange={setOverviewStartTime}
               onEndTimeChange={setOverviewEndTime}
+              onUserTypeFilterChange={setOverviewUserTypeFilter}
             />
           </LoadingWrapper>
           <LoadingWrapper
@@ -376,7 +385,7 @@ export const Dashboard = () => {
         </div>
 
         {/* Question Source Charts Row */}
-        {goldenData?.questionSourceBreakdown && (
+        {!isTrainingUser && goldenData?.questionSourceBreakdown && (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <QuestionSourceCharts
               whatsappCount={goldenData.questionSourceBreakdown.whatsapp}
@@ -399,7 +408,7 @@ export const Dashboard = () => {
         )}
 
         {/* Response Adherence Row */}
-        {goldenData?.questionSourceBreakdown && goldenData?.questionsAnsweredWithin120Min && (
+        {!isTrainingUser && goldenData?.questionSourceBreakdown && goldenData?.questionsAnsweredWithin120Min && (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <ResponseAdherence
               totalWhatsapp={goldenData.questionSourceBreakdown.whatsapp}
@@ -428,18 +437,21 @@ export const Dashboard = () => {
         )}
 
         {/* Sources Chart Row */}
-        <div className="mb-6">
-          <LoadingWrapper
-            loading={isContributionLoading}
-            text="Fetching sources chart..."
-          >
-            <SourcesChart
-              data={contributionData ?? []}
-              timeRange={timeRange}
-              setTimeRange={setTimeRange}
-            />
-          </LoadingWrapper>
-        </div>
+        {
+          !isTrainingUser && (
+            <div className="mb-6">
+              <LoadingWrapper
+                loading={isContributionLoading}
+                text="Fetching sources chart..."
+              >
+                <SourcesChart
+                  data={contributionData ?? []}
+                  timeRange={timeRange}
+                  setTimeRange={setTimeRange}
+                />
+              </LoadingWrapper>
+            </div>
+          )}
 
         {/* Question Status Row */}
         <div className="mb-6">
@@ -462,6 +474,7 @@ export const Dashboard = () => {
             <QuestionsAnalytics
               date={date}
               setDate={setDate}
+              isTrainingUser={isTrainingUser}
               analyticsType={analyticsType}
               setAnalyticsType={setAnalyticsType}
               analyticsStatus={analyticsStatus}

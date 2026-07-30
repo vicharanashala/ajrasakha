@@ -273,6 +273,10 @@ export class UserHistoryUserDetailsResponse {
   @IsOptional()
   @IsBoolean()
   special_task_force?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isTrainingUser?: boolean;
 }
 
 export class UserHistoryResponse {

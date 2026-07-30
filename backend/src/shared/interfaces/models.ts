@@ -5,6 +5,7 @@ export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-r
 export type Tags = 'dynamic' | 'static_dynamic'
 export interface IPreference {
   state: string;
+  district?: string;
   crop: string;
   domain: string | string[];
 }
@@ -21,6 +22,17 @@ export interface IAssignedQuestion {
   status: QuestionStatus;
   source?: QuestionSource;
 }
+export interface IKVKCovered {
+  number?: number;
+  name?: string[];
+}
+/** One KVK-covered entry: state, district and KVK name (all Title-Cased). */
+export interface IKVKCoveredItem {
+  state?: string;
+  district?: string;
+  name?: string;
+}
+
 export interface IUser {
   _id?: string | ObjectId;
   firebaseUID: string;
@@ -44,6 +56,9 @@ export interface IUser {
   avatar?: string;
   mobile?: string;
   university?: string;
+  /** KVKs this user covers — one { state, district, name } entry each.
+   *  (Legacy records may hold string[] or { number, name[] }.) */
+  kvkCovered?: IKVKCoveredItem[] | null;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
   lastAgentActiveAt?: Date;
@@ -59,6 +74,7 @@ export interface IUser {
    *  at least one entry in a blocking status (in-review / duplicate); entries that are
    *  re-routed (handed to an expert) stay for history but do not block new work. */
   assignedQuestionIds?: IAssignedQuestion[] | null;
+  isTrainingUser?: boolean;
 }
 
 export interface IUserRoleHistory {
@@ -72,6 +88,7 @@ export interface IUserRoleHistory {
   isBlocked?: boolean;
   special_task_force?: boolean;
   special_task_force_moderator?: boolean;
+  isTrainingUser?: boolean;
 }
 
 export interface IUserHistory {
@@ -85,6 +102,7 @@ export interface IUserHistory {
     status?: UserStatus;
     isBlocked?: boolean;
     special_task_force?: boolean;
+    isTrainingUser?: boolean,
   };
 }
 
@@ -208,9 +226,11 @@ export interface IQuestion {
   isDuplicateChecked?: boolean;
   toolsUsed?: string[];
   passedBy?: ObjectId | string | null;
+  isTrainingQuestion?: boolean;
   /** Set when a moderator cancels a duplicate flag and reopens the question. The
    *  cancel reason and timestamp are recorded in the audit trail, not on the question. */
   isDuplicateCancelled?: boolean;
+  isDelayed?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -374,6 +394,9 @@ export type IRequest = RequestDetails & {
   requestedUser?: IUser | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
+  /** Flag indicating if the request is for a training question. 
+   * Included in response for admin role to enable UI changes. */
+  isTrainingQuestion?: boolean;
 };
 
 export type INotificationType =

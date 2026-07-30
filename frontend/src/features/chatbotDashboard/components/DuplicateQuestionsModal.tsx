@@ -23,6 +23,7 @@ interface DuplicateQuestionsModalProps {
   onClose: () => void;
   source?: 'annam' | 'whatsapp';
   userType: string;
+  coordinatorId?: string;
 }
 
 const DEFAULT_FILTERS: UserDetailsFilters = {
@@ -45,12 +46,12 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   loginStatus: 'all',
 };
 
-export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }: DuplicateQuestionsModalProps) {
+export function DuplicateQuestionsModal({ onClose, source = 'annam', userType, coordinatorId,
+}: DuplicateQuestionsModalProps) {
   const {
     setSelectedQuestionId,
-    setView,
   } = useSelectedQuestion();
-  const { data, isLoading, isError } = useDuplicateQuestions(true, source, userType);
+  const { data, isLoading, isError } = useDuplicateQuestions(true, source, userType, coordinatorId,);
   const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
 
   const filtered = useMemo(() => {

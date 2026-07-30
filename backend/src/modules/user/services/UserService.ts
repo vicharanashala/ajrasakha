@@ -28,6 +28,7 @@ import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthServi
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
+import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -89,18 +90,18 @@ export class UserService extends BaseService {
       );
     }
   }
-  async getUserReviewLevel(query: ExpertReviewLevelDto): Promise<any> {
+  async getUserReviewLevel(query: ExpertReviewLevelDto, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     try {
       //if (!query.userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
         if (query.role == 'moderator') {
           const moderatorResult =
-            await this.questionSubmissionRepo.getModeratorReviewLevel(query);
+            await this.questionSubmissionRepo.getModeratorReviewLevel(query,isTrainingUser,isAdmin);
           return moderatorResult;
         }
         const result =
-          await this.questionSubmissionRepo.getUserReviewLevel(query);
+          await this.questionSubmissionRepo.getUserReviewLevel(query,isTrainingUser,isAdmin);
 
         return result;
       });
@@ -120,6 +121,7 @@ export class UserService extends BaseService {
         'lastName',
         'mobile',
         'university',
+        'kvkCovered',
         'preference',
         'avatar',
       ] as const;
@@ -148,6 +150,48 @@ export class UserService extends BaseService {
         throw new BadRequestError(
           'University name cannot be empty or blank space',
         );
+      // Title-case a value so entries persist consistently ("kl university" → "Kl University").
+      const toTitleCase = (v: unknown) =>
+        typeof v === 'string'
+          ? v.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+          : '';
+      // Same, but keep the "all" sentinel lowercase so domain/district "all" checks keep working.
+      const titleCaseOrAll = (v: unknown) => {
+        const s = typeof v === 'string' ? v.trim() : '';
+        return s.toLowerCase() === 'all' ? 'all' : toTitleCase(s);
+      };
+
+      if (sanitizedData.kvkCovered !== undefined && sanitizedData.kvkCovered !== null) {
+        const raw = Array.isArray(sanitizedData.kvkCovered)
+          ? sanitizedData.kvkCovered
+          : [];
+        sanitizedData.kvkCovered = raw
+          .map((item: any) => {
+            // New shape: { state, district, name }. Legacy: a plain KVK-name string.
+            if (item && typeof item === 'object') {
+              return {
+                state: toTitleCase(item.state),
+                district: toTitleCase(item.district),
+                name: toTitleCase(item.name),
+              };
+            }
+            return { state: '', district: '', name: toTitleCase(item) };
+          })
+          .filter((item: {name: string}) => item.name);
+      }
+
+      // Store preference district and domain in Title Case (preserving the "all" sentinel).
+      if (sanitizedData.preference) {
+        const pref: any = sanitizedData.preference;
+        if (typeof pref.district === 'string') {
+          pref.district = titleCaseOrAll(pref.district);
+        }
+        if (Array.isArray(pref.domain)) {
+          pref.domain = pref.domain.map((d: unknown) => titleCaseOrAll(d)).filter(Boolean);
+        } else if (typeof pref.domain === 'string') {
+          pref.domain = titleCaseOrAll(pref.domain);
+        }
+      }
       const authService = getFromContainer(FirebaseAuthService);
 
       return this._withTransaction(async (session: ClientSession) => {
@@ -259,11 +303,13 @@ export class UserService extends BaseService {
     sort: string,
     filter: string,
     includeSelf = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
-        const users = await this.userRepo.findAll(session);
+        const users = await this.userRepo.findAll(session,isTrainingUser,isAdmin);
         // The caller is excluded by default: most manual-select flows are handing work
         // to someone else (re-routing an answer, reallocating a question). Gate keepers /
         // auditors assigning a question to themselves pass includeSelf.
@@ -297,12 +343,14 @@ export class UserService extends BaseService {
             special_task_force_moderator: u.special_task_force_moderator,
             mobile: u.mobile ?? '',
             university: u.university ?? '',
+            kvkCovered: u.kvkCovered ?? null,
             state: u.preference?.state ?? null,
             domain: u.preference?.domain ?? null,
             assignedQuestionIds: (u.assignedQuestionIds ?? []).map(a => ({
               questionId: a.questionId?.toString(),
               status: a.status,
             })),
+            isTrainingUser: u.isTrainingUser ?? false,
           })),
           totalUsers: users.length,
           totalPages: 5,
@@ -341,6 +389,7 @@ export class UserService extends BaseService {
     search: string,
     sort: string,
     filter: string,
+    currentUser?: IUser,
   ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }> {
     return await this._withTransaction(async (session: ClientSession) => {
       return await this.userRepo.findAllExperts(
@@ -349,6 +398,9 @@ export class UserService extends BaseService {
         search,
         sort,
         filter,
+        currentUser?.role === 'moderator'
+          ? currentUser.isTrainingUser === true
+          : undefined,
         session,
       );
     });
@@ -1029,7 +1081,13 @@ export class UserService extends BaseService {
     }
   }
 
-  async getWorkingHours(query: { userId: string; startDateTime: string; endDateTime: string }): Promise<{ workingHours: number }> {
+   async updateTrainingUserStatus(userId: string, action: string): Promise<void> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      await this.userRepo.updateTrainingUserStatus(userId, action, session);
+    });
+   }
+
+   async getWorkingHours(query: { userId: string; startDateTime: string; endDateTime: string }): Promise<{ workingHours: number }> {
     try {
       const { userId, startDateTime, endDateTime } = query;
       if (!userId) throw new NotFoundError('User ID is required');
@@ -1070,4 +1128,46 @@ export class UserService extends BaseService {
       throw new InternalServerError(`Failed to calculate working hours: ${error}`);
     }
   }
+
+  async getWorkingHoursTrend(
+  query: {
+    userId: string;
+    startDateTime: string;
+    endDateTime: string;
+    granularity: TrendGranularity;
+  },
+): Promise<any> {
+  try {
+    const { userId } = query;
+
+    if (!userId) {
+      throw new NotFoundError('User ID is required');
+    }
+
+    return this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      return await this.userRepo.getWorkingHoursTrend(
+        query,
+        session,
+      );
+    });
+  } catch (error) {
+    if (
+      error instanceof NotFoundError ||
+      error instanceof BadRequestError
+    ) {
+      throw error;
+    }
+
+    throw new InternalServerError(
+      'Failed to fetch working hours trend',
+    );
+  }
+}
+
 }

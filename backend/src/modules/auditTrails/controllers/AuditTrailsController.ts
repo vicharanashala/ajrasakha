@@ -182,12 +182,16 @@ class AuditTrailsController {
     @QueryParam('from') from?: string,
     @QueryParam('to') to?: string,
   ) {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser ?? false
     const actionCounts = await this.auditTrailsService.getShiftBasedAuditActionCounts(
       startDate,
       // endDate,
       shift,
       from ?? '00:00',
-      to ?? '23:59'
+      to ?? '23:59',
+      isTrainingUser,
+      isAdmin
     );
 
     return {

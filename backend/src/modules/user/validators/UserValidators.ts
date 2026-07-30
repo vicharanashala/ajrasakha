@@ -13,10 +13,28 @@ import { NotificationRetentionType } from '#root/shared/index.js';
 import { ICropRef, UserRole } from '#root/shared/interfaces/models.js';
 import { USER_ROLES } from '#root/shared/constants/roles.js';
 
+export class KVKCoveredItemDto {
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+}
+
 class PreferenceDto {
   @IsOptional()
   @IsString()
   state?: string;
+
+  @IsOptional()
+  @IsString()
+  district?: string;
 
   @IsOptional()
   // @IsString()
@@ -164,6 +182,12 @@ class UpdateUserDto {
   @IsOptional()
   @IsString()
   avatar?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => KVKCoveredItemDto)
+  kvkCovered?: KVKCoveredItemDto[];
 }
 
 export class ToggleUserRoleDto {

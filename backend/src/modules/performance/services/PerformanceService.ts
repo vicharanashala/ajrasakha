@@ -61,8 +61,10 @@ export class PerformanceService extends BaseService implements IPerformanceServi
 
   async getHeatMapresults(
     query: GetHeatMapQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IReviewerHeatmapResponse | null> {
-    return await this.questionSubmissionRepo.heatMapResultsForReviewer(query);
+    return await this.questionSubmissionRepo.heatMapResultsForReviewer(query,isTrainingUser,isAdmin);
   }
 
   async getCurrentUserWorkLoad(currentUserId: string): Promise<{
@@ -77,7 +79,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     await this.userRepo.updateCheckInTime(userId, time);
   }
 
-  async getOverview(currentUserId: string, query: { startDateTime?: string; endDateTime?: string; }): Promise<{
+  async getOverview(currentUserId: string, query: { startDateTime?: string; endDateTime?: string; userType?: 'all' | 'tmu' | 'normal'; }, isTrainingUser?: boolean, isAdmin?: boolean): Promise<{
     userRoleOverview: UserRoleOverview[];
     stfExpertCount: number;
     stfModeratorCount: number;
@@ -87,40 +89,45 @@ export class PerformanceService extends BaseService implements IPerformanceServi
       const overviewCounts = await this.userRepo.getUserRoleCount(
         query.startDateTime,
         query.endDateTime,
+        isTrainingUser,
+        isAdmin,
+        query.userType,
         session,
       );
       const moderatorApprovalRate = await this.questionRepo.getModeratorApprovalRate(
         currentUserId,
         session,
+        isTrainingUser,
+        isAdmin,
       );
       return { ...overviewCounts, moderatorApprovalRate };
     });
   }
 
-  async getGoldenDataset(query: GetGoldenDatasetQuery): Promise<GoldenDataset> {
+  async getGoldenDataset(query: GetGoldenDatasetQuery, isTrainingUser?: boolean, isAdmin?: boolean): Promise<GoldenDataset> {
     return await this._withTransaction(async (session: ClientSession) => {
       const { viewType, selectedYear, selectedMonth, selectedWeek, selectedDay, customStartDateTime, customEndDateTime } = query;
-      const verifiedEntries = await this.questionRepo.getClosedQuestionsCount(session);
-      const { todayApproved } = await this.questionRepo.getTodayApproved(session);
+      const verifiedEntries = await this.questionRepo.getClosedQuestionsCount(isTrainingUser,isAdmin,session);
+      const { todayApproved } = await this.questionRepo.getTodayApproved(isTrainingUser,isAdmin,session);
 
       let goldenDataset = {} as GoldenDataset;
 
       if (viewType === 'year') {
 
         const { yearData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics } =
-          await this.questionRepo.getYearAnalytics(selectedYear!, customStartDateTime, customEndDateTime, session);
+          await this.questionRepo.getYearAnalytics(selectedYear!, customStartDateTime, customEndDateTime, isTrainingUser,isAdmin, session);
         goldenDataset = { yearData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics };
       } else if (viewType === 'month') {
         const { weeksData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics } =
-          await this.questionRepo.getMonthAnalytics(selectedYear!, selectedMonth!, customStartDateTime, customEndDateTime, session);
+          await this.questionRepo.getMonthAnalytics(selectedYear!, selectedMonth!, customStartDateTime, customEndDateTime, isTrainingUser,isAdmin, session);
         goldenDataset = { weeksData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics };
       } else if (viewType === 'week') {
         const { dailyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics } =
-          await this.questionRepo.getWeekAnalytics(selectedYear!, selectedMonth!, selectedWeek!, customStartDateTime, customEndDateTime, session);
+          await this.questionRepo.getWeekAnalytics(selectedYear!, selectedMonth!, selectedWeek!, customStartDateTime, customEndDateTime, isTrainingUser,isAdmin, session);
         goldenDataset = { dailyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown ,paeMetrics};
       } else if (viewType === 'day') {
         const { dayHourlyData, totalEntriesByType, totalVerifiedByType, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown ,paeMetrics} =
-          await this.questionRepo.getDailyAnalytics(selectedYear!, selectedMonth!, selectedWeek!, selectedDay!, customStartDateTime, customEndDateTime, session);
+          await this.questionRepo.getDailyAnalytics(selectedYear!, selectedMonth!, selectedWeek!, selectedDay!, customStartDateTime, customEndDateTime, isTrainingUser,isAdmin, session);
         goldenDataset = { dayHourlyData, verifiedEntries, totalEntriesByType, totalVerifiedByType, todayApproved, moderatorBreakdown, questionSourceBreakdown, questionsAnsweredWithin120Min, averageResponseTime, questionsAnsweredAfter120Min,questionStateBreakdown,paeMetrics };
 
       }
@@ -128,16 +135,16 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getContributionTrend(timeRange: string): Promise<QuestionContributionTrend[]> {
+  async getContributionTrend(timeRange: string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<QuestionContributionTrend[]> {
     return await this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getCountBySource(timeRange, session);
+      return await this.questionRepo.getCountBySource(timeRange, isTrainingUser, isAdmin, session);
     });
   }
 
-  async getStatusOverview(): Promise<StatusOverview> {
+  async getStatusOverview(isTrainingUser?: boolean, isAdmin?: boolean): Promise<StatusOverview> {
     return await this._withTransaction(async (session: ClientSession) => {
-      const questionsOverview = await this.questionRepo.getQuestionOverviewByStatus(session);
-      const answerOverView = await this.answerRepo.getAnswerOverviewByStatus(session);
+      const questionsOverview = await this.questionRepo.getQuestionOverviewByStatus(isTrainingUser, isAdmin, session);
+      const answerOverView = await this.answerRepo.getAnswerOverviewByStatus(isTrainingUser, isAdmin, session);
       return {
         questions: questionsOverview,
         answers: answerOverView,
@@ -145,20 +152,20 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getExpertPerformance(): Promise<ExpertPerformance[]> {
+  async getExpertPerformance(isTrainingUser?:boolean,isAdmin?:boolean): Promise<ExpertPerformance[]> {
     return await this._withTransaction(async (session: ClientSession) => {
-      return await this.userRepo.getExpertPerformance(session);
+      return await this.userRepo.getExpertPerformance(isTrainingUser,isAdmin,session);
     });
   }
 
-  async getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
+  async getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery, isTrainingUser?:boolean,isAdmin?:boolean): Promise<Analytics> {
     return await this._withTransaction(async (session: ClientSession) => {
       const { type, startTime, endTime, status, state, source, crop } = query;
       if (type === 'question') {
-        const result = await this.questionRepo.getQuestionAnalytics(startTime, endTime, session, status, state, source, crop);
+        const result = await this.questionRepo.getQuestionAnalytics(startTime, endTime, session, status, state, source, crop, isTrainingUser, isAdmin);
         return result.analytics;
       } else {
-        const result = await this.answerRepo.getAnswerAnalytics(startTime, endTime, session, state, source, status);
+        const result = await this.answerRepo.getAnswerAnalytics(startTime, endTime, session, state, source, status, isTrainingUser, isAdmin);
         return result.analytics;
       }
     });
@@ -167,6 +174,8 @@ export class PerformanceService extends BaseService implements IPerformanceServi
   async getDashboardData(
     currentUserId: string,
     query: GetDashboardQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<{data: DashboardResponse}> {
     return await this._withTransaction(async (session: ClientSession) => {
       const {
@@ -195,22 +204,36 @@ export class PerformanceService extends BaseService implements IPerformanceServi
         expertPerformance,
         analytics
       ] = await Promise.all([
-        this.getOverview(currentUserId, { startDateTime: qnAnalyticsStartTime, endDateTime: qnAnalyticsEndTime }),
+        this.getOverview(
+          currentUserId,
+          {
+            startDateTime: qnAnalyticsStartTime,
+            endDateTime: qnAnalyticsEndTime,
+          },
+          isTrainingUser,
+          isAdmin,
+        ),
         this.getGoldenDataset({
           viewType: goldenDataViewType,
           selectedYear: goldenDataSelectedYear,
           selectedMonth: goldenDataSelectedMonth,
           selectedWeek: goldenDataSelectedWeek,
           selectedDay: goldenDataSelectedDay
-        }),
-        this.getContributionTrend(sourceChartTimeRange),
-        this.getStatusOverview(),
-        this.getExpertPerformance(),
+        },
+        isTrainingUser,
+        isAdmin
+      ),
+        this.getContributionTrend(sourceChartTimeRange,isTrainingUser,isAdmin),
+        this.getStatusOverview(isTrainingUser,isAdmin),
+        this.getExpertPerformance(isTrainingUser,isAdmin),
         this.getQuestionsAnalytics({
           type: qnAnalyticsType,
           startTime: qnAnalyticsStartTime,
           endTime: qnAnalyticsEndTime
-        })
+        },
+        isTrainingUser,
+        isAdmin
+      )
       ]);
 
       const response: DashboardResponse = {
@@ -244,9 +267,9 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async getLevelWiseReport(startDate:string,endDate:string): Promise<ArrayBuffer | null> {
+  async getLevelWiseReport(startDate:string,endDate:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<ArrayBuffer | null> {
     return await this._withTransaction(async (session: ClientSession) => {
-      const result = await this.questionSubmissionRepo.getLevelWiseReport(startDate, endDate, session);
+      const result = await this.questionSubmissionRepo.getLevelWiseReport(startDate, endDate, isTrainingUser, isAdmin, session);
       
       if(result.length === 0 ) return null
 
@@ -302,39 +325,39 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedMetrics(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getShiftBasedMetrics(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 
-  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedTrends(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getShiftBasedTrends(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 
-  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getQuestionStatusDistribution(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getQuestionStatusDistribution(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 
-  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getQuestionLevelDistribution(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getQuestionLevelDistribution(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 
-  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedTopExperts(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getShiftBasedTopExperts(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 
-  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string, isTrainingUser?: boolean, isAdmin?: boolean): Promise<any> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.questionRepo.getShiftBasedTopApprovingExperts(startDate, shift, source, from, to, session);
+      return await this.questionRepo.getShiftBasedTopApprovingExperts(startDate, shift, source, from, to, isTrainingUser, isAdmin, session);
     });
   }
 }

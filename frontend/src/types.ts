@@ -19,8 +19,19 @@ export interface AuthUser {
 }
 export interface IMyPreference {
   state: string;
+  district?: string;
   crop: string;
   domain: string | string[];
+}
+export interface IKVKCovered {
+  number?: number;
+  name?: string[];
+}
+/** One KVK-covered entry: state, district and KVK name (all Title-Cased). */
+export interface IKVKCoveredItem {
+  state: string;
+  district: string;
+  name: string;
 }
 export type NotificationRetentionType = "3d" | "1w" | "2w" | "1m" | "never";
 export interface IUser {
@@ -51,6 +62,9 @@ export interface IUser {
   special_task_force_moderator?: boolean
   mobile?: string;
   university?: string;
+  /** KVKs this user covers — one { state, district, name } entry each.
+   *  (Legacy records may hold string[] or { number, name[] }.) */
+  kvkCovered?: IKVKCoveredItem[];
   isVerified?: boolean;
   isCallAgentActive?: boolean;
   lastAgentActiveAt?: string | Date;
@@ -58,6 +72,7 @@ export interface IUser {
   agent?: string; // "not_available" or "agent_1", "agent_2", etc.
   isBusy?: boolean; // true if agent is currently in a call
   currentCallUuid?: string | null; // UUID of the current call being handled
+  isTrainingUser?: boolean; // true if the user is assigned as a training user
 }
 
 export interface IUnverifiedUser {
@@ -534,6 +549,7 @@ export interface IQuestionFullData {
   auditorFinishedAt?: string | null;
   autoAllocateGateKeeper?: boolean;
   autoAllocateAuditor?: boolean;
+  isTrainingQuestion?: boolean;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
   isAssignedModerator?: boolean;
   /** True when the requesting user is the assigned gate keeper / auditor (server-computed). */
@@ -664,6 +680,7 @@ export interface IDetailedQuestion {
   autoAllocateModerator?: boolean;
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   moderatorId?: string | null;
+  isTrainingQuestion?: boolean;
   isDuplicateCancelled?: boolean;
   duplicateCancelReason?: string;
   isAutoAllocate?: boolean;

@@ -123,13 +123,15 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   if (stfFilter !== "ALL") activeFiltersCount++;
 
 
-  console.log("Admin users ->", adminUsers?.users);
-  console.log("Expert details ->", expertDetails?.experts);
-  console.log("Table items ->", tableItems);
+  // console.log("Admin users ->", adminUsers?.users);
+  // console.log("Expert details ->", expertDetails?.experts);
+  // console.log("Table items ->", tableItems);
 
   const isLoading = isAdmin ? adminLoading : expertLoading;
 
-  const totalPages = isAdmin ? 1 : expertDetails?.totalPages || 0;
+  const totalPages = isAdmin
+    ? adminUsers?.totalPages || 1
+    : expertDetails?.totalPages || 0;
 
 
 
@@ -142,7 +144,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
           );
           const selectedRole = selectedUser?.role;
           // Admin / moderator → the admin/moderator overview dashboard.
-          if (selectedRole === "admin" || selectedRole === "moderator") {
+          if (selectedRole === "admin") {
             return (
               <div className="space-y-2">
                 <div className="flex justify-end">
@@ -201,9 +203,9 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
       ) : (
         <>
           <div className="flex flex-wrap items-start justify-between gap-4 w-full bg-card py-4 px-2 rounded">
-            {/* LEFT — Search */}
-            <div className="flex items-center gap-3 flex-1 min-w-[250px] max-w-[500px] order-1">
-              <div className="relative w-full">
+            {/* LEFT — Search & Buttons */}
+            <div className="flex items-center gap-3 flex-1 min-w-[250px] max-w-[750px] order-1">
+              <div className="relative flex-1 min-w-[180px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 
                 <Input
@@ -240,6 +242,36 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                   {showSensitive ? "Hide Info" : "Show Info"}
                 </button>
               )}
+
+              {/* Internal Button */}
+              <button
+                onClick={() => {
+                  setRoleFilter((prev) => (prev === "INTERNAL" ? "ALL" : "INTERNAL"));
+                  setPage(1);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${
+                  roleFilter === "INTERNAL"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-input hover:text-foreground"
+                }`}
+              >
+                Internal
+              </button>
+
+              {/* External Button */}
+              <button
+                onClick={() => {
+                  setRoleFilter((prev) => (prev === "pae_expert" ? "ALL" : "pae_expert"));
+                  setPage(1);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${
+                  roleFilter === "pae_expert"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-input hover:text-foreground"
+                }`}
+              >
+                External
+              </button>
             </div>
 
             {/* RIGHT — Sort + Filter Group */}

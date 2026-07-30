@@ -135,6 +135,10 @@ jobs:
           # reach the AI / WhatsApp / FAQ / POP servers on 100.x. The key MUST be reusable +
           # ephemeral: every Cloud Run cold start is a new machine, so a single-use key
           # authenticates one instance and fails on the rest.
+
+          secrets: |
+            DB_URL=AJRASAKHA_REVIEWER_SYS_DB_URI_STAGING:latest
+
           env_vars: |
             NODE_ENV=staging
             TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
