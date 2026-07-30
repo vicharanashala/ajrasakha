@@ -1,0 +1,30 @@
+{
+  "name": "my-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite optimize && vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/react-query": "^5.101.4",
+    "lucide-react": "^1.28.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^3.10.1",
+    "tailwindcss": "^4.1.18"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^5.1.1",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4",
+    "vite-plugin-svgr": "^4.5.0"
+  }
+}
