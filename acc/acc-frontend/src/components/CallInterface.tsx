@@ -553,6 +553,13 @@ export const CallInterface = () => {
   const [editableFarmerPrimaryCrop, setEditableFarmerPrimaryCrop] = useState("");
   const [shouldUpdateFarmerProfile, setShouldUpdateFarmerProfile] = useState(true);
 
+  // Live conversation simulation state
+  const [isSimulatingMode, setIsSimulatingMode] = useState(false);
+  const [simRole, setSimRole] = useState<"inbound" | "outbound">("inbound");
+  const [simText, setSimText] = useState("");
+  const [simOriginalText, setSimOriginalText] = useState("");
+  const [showOriginalInput, setShowOriginalInput] = useState(false);
+
   // Auto-scroll to bottom of chat bubbles
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -671,6 +678,9 @@ export const CallInterface = () => {
     setEditableFarmerBlock("");
     setEditableFarmerPrimaryCrop("");
     setShouldUpdateFarmerProfile(true);
+    setIsSimulatingMode(false);
+    setSimText("");
+    setSimOriginalText("");
     toast.success("Conversation cleared");
   };
 
@@ -741,7 +751,47 @@ export const CallInterface = () => {
     setEditableDomain([]);
     setEditableSeason("");
 
+    setIsSimulatingMode(true);
     toast.success(`Loaded test transcript with UUID: ${mockCallUuid}. Click 'Extract & Verify' to test AI response.`);
+  };
+
+  const handleAddSimulatedMessage = () => {
+    if (!simText.trim()) {
+      toast.error("Please enter a message to simulate.");
+      return;
+    }
+
+    const newMsg: CallTranscript = {
+      track: simRole,
+      text: simText.trim(),
+      originalText: simOriginalText.trim() || undefined,
+      translatedText: simText.trim(),
+      detectedLanguage: simOriginalText.trim() ? "custom" : "en-IN",
+      timestamp: new Date().toISOString(),
+    };
+
+    setTranscriptsList((prev) => [...prev, newMsg]);
+
+    // Ensure callUuid & mock state is initialized if not present
+    if (!callUuid) {
+      const now = new Date();
+      const dateStr = now.getFullYear().toString() +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        String(now.getDate()).padStart(2, '0') + "_" +
+        String(now.getHours()).padStart(2, '0') +
+        String(now.getMinutes()).padStart(2, '0') +
+        String(now.getSeconds()).padStart(2, '0');
+      const mockCallUuid = `testing_${dateStr}`;
+      setCallUuid(mockCallUuid);
+      setLastCallUuid(mockCallUuid);
+      setCallPhoneNumber("+919999999999");
+      setLastCallPhoneNumber("+919999999999");
+    }
+
+    setIsSimulatingMode(true);
+    setSimText("");
+    setSimOriginalText("");
+    toast.success(`Added ${simRole === "inbound" ? "Farmer" : "Agent"} message to conversation.`);
   };
 
   const handleResetQuestions = () => {
@@ -1158,6 +1208,10 @@ export const CallInterface = () => {
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
                     Streaming Live
                   </span>
+                ) : isSimulatingMode ? (
+                  <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-800 text-[10px] uppercase font-bold tracking-wider">
+                    Simulation Mode
+                  </Badge>
                 ) : transcriptsList.length > 0 ? (
                   <span className="flex items-center gap-1.5 text-[11px] sm:text-xs text-zinc-500 font-semibold uppercase tracking-wider ml-1">
                     <CheckCircle2 className="h-3.5 w-3.5" />
@@ -1208,15 +1262,15 @@ export const CallInterface = () => {
             </CardTitle>
           </CardHeader>
           <div
-            className={`transition-all duration-500 ease-in-out overflow-hidden ${isCallActive || transcriptsList.length > 0
-              ? "max-h-[900px] opacity-100"
-              : "max-h-0 opacity-0"
+            className={`transition-all duration-500 ease-in-out overflow-hidden ${isCallActive || transcriptsList.length > 0 || isSimulatingMode
+                ? "max-h-[1000px] opacity-100"
+                : "max-h-0 opacity-0"
               }`}
           >
             <CardContent className="p-4 sm:p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
               <div
                 ref={chatContainerRef}
-                className="space-y-5 h-[420px] max-h-[60vh] overflow-y-auto pr-2 sm:pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col border-b border-zinc-100 dark:border-zinc-900 pb-4"
+                className="space-y-5 h-[380px] max-h-[55vh] overflow-y-auto pr-2 sm:pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col border-b border-zinc-100 dark:border-zinc-900 pb-4"
               >
                 {transcriptsList.length > 0 ? (
                   transcriptsList.map((msg, index) => {
@@ -1306,7 +1360,97 @@ export const CallInterface = () => {
                       Speak into the line to stream transcripts in real-time.
                     </p>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-zinc-400 dark:text-zinc-500">
+                    <FlaskConical className="h-8 w-8 mb-2 opacity-50" />
+                    <p className="text-xs font-semibold uppercase tracking-wider">Simulation Ready</p>
+                    <p className="text-[11px] mt-0.5">Use the input bar below to add Farmer or Agent messages.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Interactive Conversation Simulation Bar */}
+              <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 space-y-2 bg-zinc-100/40 dark:bg-zinc-900/40 p-3 rounded-xl">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    <FlaskConical className="h-3.5 w-3.5" />
+                    <span>Simulate Conversation Message</span>
+                  </div>
+
+                  {/* Role Selection Toggle */}
+                  <div className="flex items-center gap-1 bg-zinc-200/70 dark:bg-zinc-800/80 p-0.5 rounded-lg text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setSimRole("inbound")}
+                      className={`px-2.5 py-1 rounded-md font-semibold text-[11px] transition-all flex items-center gap-1.5 ${
+                        simRole === "inbound"
+                          ? "bg-amber-500 text-white shadow-sm"
+                          : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                      }`}
+                    >
+                      <User className="h-3 w-3" />
+                      <span>Farmer (Inbound)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSimRole("outbound")}
+                      className={`px-2.5 py-1 rounded-md font-semibold text-[11px] transition-all flex items-center gap-1.5 ${
+                        simRole === "outbound"
+                          ? "bg-indigo-600 text-white shadow-sm"
+                          : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                      }`}
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      <span>Agent / Expert (Outbound)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Text Input & Send Button */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={simText}
+                    onChange={(e) => setSimText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleAddSimulatedMessage();
+                      }
+                    }}
+                    placeholder={`Type simulated ${simRole === "inbound" ? "Farmer query..." : "Agent response..."}`}
+                    className="h-8.5 text-xs bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-inner focus-visible:ring-amber-500"
+                  />
+
+                  <Button
+                    onClick={handleAddSimulatedMessage}
+                    disabled={!simText.trim()}
+                    size="sm"
+                    className="h-8.5 px-3.5 text-xs bg-amber-600 hover:bg-amber-700 text-white shadow-sm rounded-lg flex items-center gap-1.5 shrink-0 transition-all"
+                  >
+                    <Send className="h-3 w-3" />
+                    <span>Add</span>
+                  </Button>
+                </div>
+
+                {/* Expandable Original Language Input */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowOriginalInput(!showOriginalInput)}
+                    className="text-[11px] text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 font-medium flex items-center gap-1 transition-colors"
+                  >
+                    <Globe className="h-3 w-3" />
+                    <span>{showOriginalInput ? "Hide original native language text" : "+ Add original native language text (e.g. Marathi/Hindi)"}</span>
+                  </button>
+                  {showOriginalInput && (
+                    <Input
+                      value={simOriginalText}
+                      onChange={(e) => setSimOriginalText(e.target.value)}
+                      placeholder="Original native language text (e.g. माझ्या कपाशीच्या पिकावर पांढरी माशी आहे...)"
+                      className="h-8 text-xs mt-1.5 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+                    />
+                  )}
+                </div>
               </div>
             </CardContent>
           </div>
