@@ -23,6 +23,7 @@ import {
   Copy,
   Check,
   Sparkles,
+  FlaskConical,
 } from "lucide-react";
 import { plivoService } from "@/hooks/api/plivo/api";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
@@ -673,6 +674,76 @@ export const CallInterface = () => {
     toast.success("Conversation cleared");
   };
 
+  const handleLoadTestTranscript = () => {
+    const now = new Date();
+    const dateStr = now.getFullYear().toString() +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0') + "_" +
+      String(now.getHours()).padStart(2, '0') +
+      String(now.getMinutes()).padStart(2, '0') +
+      String(now.getSeconds()).padStart(2, '0');
+    const mockCallUuid = `testing_${dateStr}`;
+
+    const sampleTranscripts: CallTranscript[] = [
+      {
+        track: "inbound",
+        text: "नमस्कार सर, माझ्या कपाशीच्या पिकावर पांढरी माशी आणि पानावरील पिवळेपणा खूप वाढला आहे. पाने खाली वाकत आहेत. काय फवारणी करावी?",
+        originalText: "नमस्कार सर, माझ्या कपाशीच्या पिकावर पांढरी माशी आणि पानावरील पिवळेपणा खूप वाढला आहे. पाने खाली वाकत आहेत. काय फवारणी करावी?",
+        translatedText: "Hello sir, whitefly infestation and yellowing of leaves has increased significantly on my cotton crop. Leaves are curling downwards. What should I spray?",
+        detectedLanguage: "mr-IN",
+        timestamp: new Date(Date.now() - 120000).toISOString(),
+      },
+      {
+        track: "outbound",
+        text: "नमस्कार शेतकरी बंधू. तुमचे शेत कोणत्या जिल्ह्यात आहे आणि कपाशीचे वय किती आहे?",
+        originalText: "नमस्कार शेतकरी बंधू. तुमचे शेत कोणत्या जिल्ह्यात आहे आणि कपाशीचे वय किती आहे?",
+        translatedText: "Hello farmer brother. In which district is your farm located and what is the age of the cotton crop?",
+        detectedLanguage: "mr-IN",
+        timestamp: new Date(Date.now() - 90000).toISOString(),
+      },
+      {
+        track: "inbound",
+        text: "माझे शेत यवतमाळ, महाराष्ट्र येथे आहे. पीक सुमारे ६० दिवसांचे आहे. मी आधी युरिया दिला होता.",
+        originalText: "माझे शेत यवतमाळ, महाराष्ट्र येथे आहे. पीक सुमारे ६० दिवसांचे आहे. मी आधी युरिया दिला होता.",
+        translatedText: "My farm is in Yavatmal, Maharashtra. The crop is about 60 days old. I had applied urea earlier.",
+        detectedLanguage: "mr-IN",
+        timestamp: new Date(Date.now() - 60000).toISOString(),
+      },
+    ];
+
+    setTranscriptsList(sampleTranscripts);
+    setCallUuid(mockCallUuid);
+    setLastCallUuid(mockCallUuid);
+    setCallPhoneNumber("+919999999999");
+    setLastCallPhoneNumber("+919999999999");
+
+    // Reset previous Q&A states
+    setQuestions([]);
+    setTranslatedQuestions({});
+    setTranslatedAnswers({});
+    setTranslatingQuestions({});
+    setCopiedStates({});
+    lastTranscriptRef.current = "";
+    setIsSummaryOpen(false);
+    setEditableSummaryText("");
+    setExtractedState("");
+    setExtractedCrop("");
+    setHasGeneratedQuestions(false);
+
+    // Reset HITL state
+    setThreadId(null);
+    setExtractedData(null);
+    setIsHumanVerificationMode(false);
+    setEditableQuery("");
+    setEditableCrop("");
+    setEditableState("");
+    setEditableDistrict("");
+    setEditableDomain([]);
+    setEditableSeason("");
+
+    toast.success(`Loaded test transcript with UUID: ${mockCallUuid}. Click 'Extract & Verify' to test AI response.`);
+  };
+
   const handleResetQuestions = () => {
     setQuestions([]);
     setHasGeneratedQuestions(false);
@@ -1061,47 +1132,65 @@ export const CallInterface = () => {
       {/* Premium Read-Only Chat-Bubble Conversation View */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="h-fit border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
-          <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4">
-            <CardTitle className="text-sm font-semibold flex items-center justify-between">
-              <span className="flex flex-col md:flex-row md:items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                <div className="flex items-center gap-2">
+          <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-4 py-3.5 sm:px-6 sm:py-4">
+            <CardTitle className="text-sm font-semibold flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              {/* Title, Badge & Status */}
+              <div className="flex flex-wrap items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                <div className="flex items-center gap-2 min-w-max">
                   <MessageSquare
                     className={`h-4 w-4 ${isCallActive ? "animate-pulse" : ""}`}
                   />
-                  Live Conversation Dialogue
+                  <span className="font-bold text-sm sm:text-base">Live Conversation Dialogue</span>
                 </div>
+
                 {callUuid && (
                   <Badge
                     variant="secondary"
-                    className="font-mono text-[10px] py-0.5 px-2 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30"
+                    className="font-mono text-[10px] py-0.5 px-2 max-w-[180px] sm:max-w-[260px] truncate bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30"
+                    title={callUuid}
                   >
                     UUID: {callUuid}
                   </Badge>
                 )}
-              </span>
-              <div className="flex items-center gap-4">
+
                 {isCallActive ? (
-                  <span className="flex items-center gap-1.5 text-xs text-emerald-500 dark:text-emerald-400 font-semibold uppercase tracking-wider animate-pulse">
+                  <span className="flex items-center gap-1.5 text-[11px] sm:text-xs text-emerald-500 dark:text-emerald-400 font-semibold uppercase tracking-wider animate-pulse ml-1">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
                     Streaming Live
                   </span>
                 ) : transcriptsList.length > 0 ? (
-                  <span className="flex items-center gap-1.5 text-xs text-zinc-500 font-semibold uppercase tracking-wider">
+                  <span className="flex items-center gap-1.5 text-[11px] sm:text-xs text-zinc-500 font-semibold uppercase tracking-wider ml-1">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Call Concluded
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider">
+                  <span className="flex items-center gap-1.5 text-[11px] sm:text-xs text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider ml-1">
                     Inactive
                   </span>
                 )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+                <Button
+                  onClick={handleLoadTestTranscript}
+                  disabled={isCallActive || isExtracting || isResuming}
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-2.5 sm:px-3 text-xs font-semibold border-amber-300 dark:border-amber-700/60 bg-amber-50/80 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 shadow-sm rounded-xl flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  title="Load sample farmer transcript for testing AI response without a real phone call"
+                >
+                  <FlaskConical className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Test</span>
+                </Button>
+
                 <Button
                   onClick={handleExtractWithHITL}
                   disabled={isExtracting || transcriptsList.length === 0}
                   size="sm"
-                  className="h-9 px-4 text-xs md:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  className="h-8 px-3 text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  <Sparkles className="h-4 w-4 text-indigo-200" />
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-200" />
                   <span>{isExtracting ? "Extracting..." : "Extract & Verify"}</span>
                 </Button>
 
@@ -1110,7 +1199,7 @@ export const CallInterface = () => {
                   disabled={transcriptsList.length === 0}
                   size="sm"
                   variant="outline"
-                  className="h-7 text-xs border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                  className="h-8 px-2.5 text-xs border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900 rounded-xl"
                 >
                   <RotateCcw className="h-3 w-3 mr-1" />
                   Reset
@@ -1120,14 +1209,14 @@ export const CallInterface = () => {
           </CardHeader>
           <div
             className={`transition-all duration-500 ease-in-out overflow-hidden ${isCallActive || transcriptsList.length > 0
-                ? "max-h-[850px] opacity-100"
-                : "max-h-0 opacity-0"
+              ? "max-h-[900px] opacity-100"
+              : "max-h-0 opacity-0"
               }`}
           >
-            <CardContent className="p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
+            <CardContent className="p-4 sm:p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
               <div
                 ref={chatContainerRef}
-                className="space-y-5 h-[400px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col border-b border-zinc-100 dark:border-zinc-900 pb-4"
+                className="space-y-5 h-[420px] max-h-[60vh] overflow-y-auto pr-2 sm:pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col border-b border-zinc-100 dark:border-zinc-900 pb-4"
               >
                 {transcriptsList.length > 0 ? (
                   transcriptsList.map((msg, index) => {
@@ -1162,8 +1251,8 @@ export const CallInterface = () => {
                         {/* Chat Bubble Card */}
                         <div
                           className={`max-w-[80%] px-5 py-3.5 rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-md ${isCaller
-                              ? "bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none"
-                              : "bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 border-indigo-500 text-white rounded-tr-none shadow-indigo-500/10 dark:shadow-indigo-500/5"
+                            ? "bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none"
+                            : "bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 border-indigo-500 text-white rounded-tr-none shadow-indigo-500/10 dark:shadow-indigo-500/5"
                             }`}
                         >
                           {/* English Translation (Primary) */}
@@ -1175,8 +1264,8 @@ export const CallInterface = () => {
                           {msg.originalText && (
                             <div
                               className={`mt-2.5 pt-2 border-t text-[12px] flex flex-col gap-1 ${isCaller
-                                  ? "border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400"
-                                  : "border-white/20 text-white/80"
+                                ? "border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400"
+                                : "border-white/20 text-white/80"
                                 }`}
                             >
                               <div className="flex items-center gap-1.5 font-bold tracking-wider uppercase text-[10px]">
@@ -1592,8 +1681,8 @@ export const CallInterface = () => {
                       onChange={(e) => setEditableSummaryText(e.target.value)}
                       readOnly={hasGeneratedQuestions}
                       className={`w-full p-3 text-sm leading-relaxed rounded-xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-all duration-300 dark:text-zinc-100 shadow-inner ${hasGeneratedQuestions
-                          ? "min-h-[60px] max-h-[100px] resize-none overflow-y-auto bg-zinc-50/50 dark:bg-zinc-900/50 opacity-90 text-zinc-600 dark:text-zinc-400 text-xs"
-                          : "min-h-[150px] resize-y overflow-y-auto focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
+                        ? "min-h-[60px] max-h-[100px] resize-none overflow-y-auto bg-zinc-50/50 dark:bg-zinc-900/50 opacity-90 text-zinc-600 dark:text-zinc-400 text-xs"
+                        : "min-h-[150px] resize-y overflow-y-auto focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
                         }`}
                       placeholder="Conversation summary will appear here..."
                     />
