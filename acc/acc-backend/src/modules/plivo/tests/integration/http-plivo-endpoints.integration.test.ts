@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import { buildHttpTestApp } from './helpers/http-app.js';
+import { buildHttpTestApp } from '../helpers/http-app.js';
 
 // Plivo/Firebase are the ONLY external seams mocked here - everything else
 // (Express, routing-controllers, middleware, validation, DI, MongoDB) is

@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { CallDetailsRepository } from '#shared/database/providers/mongo/repositories/CallDetailsRepository.js';
 import type { CallDetails } from '#shared/database/interfaces/ICallDetailsRepository.js';
-import { createInMemoryMongo, waitForIndex, type InMemoryMongo } from './helpers/mongo-memory.js';
+import { createInMemoryMongo, waitForIndex, type InMemoryMongo } from '../helpers/mongo-memory.js';
 
 function buildCallDetails(callUuid: string, from = '+919900000001'): CallDetails {
   return {

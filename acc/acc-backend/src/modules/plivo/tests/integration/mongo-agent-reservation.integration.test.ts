@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { UserRepository } from '#shared/database/providers/mongo/repositories/UserRepository.js';
-import { createInMemoryMongo, type InMemoryMongo } from './helpers/mongo-memory.js';
+import { createInMemoryMongo, type InMemoryMongo } from '../helpers/mongo-memory.js';
 
 describe('MongoDB atomic agent reservation (real in-memory MongoDB)', () => {
   let mongo: InMemoryMongo;

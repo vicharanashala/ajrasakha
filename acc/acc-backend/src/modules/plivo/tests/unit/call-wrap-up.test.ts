@@ -21,7 +21,7 @@ vi.mock('plivo', () => ({
     })),
   },
 }));
-vi.mock('../../../config/app.js', () => ({
+vi.mock('../../../../config/app.js', () => ({
   appConfig: {sarvamAPI: 'test-key'},
 }));
 

@@ -99,7 +99,7 @@ vi.mock('#root/config/app.js', () => ({
     },
   },
 }));
-vi.mock('../../../bootstrap/loadModules.js', () => ({
+vi.mock('../../../../bootstrap/loadModules.js', () => ({
   getContainer: mocks.getContainer,
 }));
 

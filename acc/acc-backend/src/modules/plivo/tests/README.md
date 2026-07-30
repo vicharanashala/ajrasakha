@@ -231,7 +231,7 @@ pnpm test
 Run one file from the test directory:
 
 ```powershell
-pnpm vitest run sarvam-speech-contract.test.ts
+pnpm vitest run unit/sarvam-speech-contract.test.ts
 ```
 
 Run the MongoDB integration suite (downloads a local MongoDB binary via

@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import { buildWsTestApp } from './helpers/ws-app.js';
+import { buildWsTestApp } from '../helpers/ws-app.js';
 
 // Only Plivo (SDK client) and the outbound Sarvam speech sockets are faked here.
 // The local /plivo-stream WebSocket server (bootstrap/websocket.ts), the real
