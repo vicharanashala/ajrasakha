@@ -1283,6 +1283,15 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All States</SelectItem>
+                    {/* Show the saved value even if it isn't in the canonical list
+                        (e.g. an older manually-typed state), so it doesn't render blank. */}
+                    {formData.preference?.state &&
+                      formData.preference.state !== "all" &&
+                      !stateOptions.includes(formData.preference.state) && (
+                        <SelectItem value={formData.preference.state}>
+                          <MapPin className="h-4 w-4 mr-2 inline" /> {formData.preference.state}
+                        </SelectItem>
+                      )}
                     {stateOptions.map((state) => (
                       <SelectItem key={state} value={state}>
                         <MapPin className="h-4 w-4 mr-2 inline" /> {state}
@@ -1314,6 +1323,15 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Districts</SelectItem>
+                    {/* Show the saved value even if it isn't in the canonical list
+                        (e.g. "Chittor" typed manually vs "Chittoor"), so it doesn't render blank. */}
+                    {formData.preference?.district &&
+                      formData.preference.district !== "all" &&
+                      !prefDistrictNames.includes(formData.preference.district) && (
+                        <SelectItem value={formData.preference.district}>
+                          <MapPin className="h-4 w-4 mr-2 inline" /> {formData.preference.district}
+                        </SelectItem>
+                      )}
                     {prefDistrictNames.map((district) => (
                       <SelectItem key={district} value={district}>
                         <MapPin className="h-4 w-4 mr-2 inline" /> {district}

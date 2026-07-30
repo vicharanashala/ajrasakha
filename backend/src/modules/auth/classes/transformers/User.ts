@@ -101,6 +101,7 @@ class User implements IUser {
     this.preference = {
       crop: data?.preference?.crop || 'all',
       state: data?.preference?.state || 'all',
+      district: data?.preference?.district ?? '',
       domain: data?.preference?.domain || 'all',
     };
     this.reputation_score = data?.reputation_score || 0;
