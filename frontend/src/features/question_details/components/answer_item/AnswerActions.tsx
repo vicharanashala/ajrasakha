@@ -60,6 +60,7 @@ interface AnswerActionsProps {
   /** Whether the current user is the moderator this question is assigned to. Required
    *  for pae_submitted questions so Approve/Re-route only show for the assigned moderator. */
   isAssignedModerator?: boolean;
+  questionTag?: "dynamic" | "static_dynamic";
 }
 
 export const AnswerActions = ({
@@ -106,6 +107,7 @@ export const AnswerActions = ({
   isDedicatedView = false,
   assignedModerator,
   isAssignedModerator = false,
+  questionTag,
 }: AnswerActionsProps) => {
   // Approve and Re-route are restricted to the Dedicated (moderator-assigned) tab.
   // For pae_submitted questions (PAE tab) they are restricted to the assigned moderator
@@ -149,6 +151,7 @@ export const AnswerActions = ({
             approvalCount={answer.approvalCount}
             questionStatus={questionStatus}
             paeReview={paeReview}
+            isStaticDynamic={questionTag === "static_dynamic"}
           />
         )
       }
