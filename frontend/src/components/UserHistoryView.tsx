@@ -98,6 +98,8 @@ export function UserHistoryView({
   const navigate = useNavigate();
   const [dateFilter, setDateFilter] = useState(() => getTodayFilterDefaults());
 
+  // const [graphOpen, setGraphOpen] = useState(false);
+
   const fromValue = useMemo(
     () => buildDateTimeValue(dateFilter.fromDate, dateFilter.fromTime),
     [dateFilter.fromDate, dateFilter.fromTime],
@@ -335,9 +337,17 @@ export function UserHistoryView({
                   Select both a start and end date/time to narrow the table
                   below.
                 </p>
-                <Button variant="ghost" size="sm" onClick={resetFilters}>
-                  Reset
-                </Button>
+                
+                <div className="flex gap-2">
+
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={resetFilters}
+    >
+      Reset
+    </Button>
+  </div>
               </div>
             </div>
           </div>
@@ -421,6 +431,23 @@ export function UserHistoryView({
           )}
         </CardContent>
       </Card>
+
+      {/* <Dialog open={graphOpen} onOpenChange={setGraphOpen}>
+  <DialogContent className="max-w-[1200px] w-[95vw]">
+    <DialogHeader>
+      <DialogTitle>Working Hours Trend</DialogTitle>
+      <DialogDescription>
+        Daily working hours for the selected date range.
+      </DialogDescription>
+    </DialogHeader>
+
+    <WorkingHoursTrendChart
+      userId={userId}
+      startDateTime={fromValue}
+      endDateTime={toValue}
+    />
+  </DialogContent>
+</Dialog> */}
     </div>
   );
 }

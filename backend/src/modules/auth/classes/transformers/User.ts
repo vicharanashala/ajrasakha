@@ -78,6 +78,9 @@ class User implements IUser {
   @Expose()
   currentCallUuid?: string | null;
 
+  @Expose()
+  isTrainingUser?: boolean;
+
   constructor(data: Partial<IUser>) {
     this._id = data?._id ? new ObjectId(data?._id) : null;
     this.firebaseUID = data?.firebaseUID;
@@ -109,6 +112,7 @@ class User implements IUser {
     this.agent = data?.agent || 'not_available';
     this.isBusy = data?.isBusy || false;
     this.currentCallUuid = data?.currentCallUuid || null;
+    this.isTrainingUser = data?.isTrainingUser || false;
   }
 }
 

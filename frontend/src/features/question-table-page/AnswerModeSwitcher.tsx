@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { TopRightBadge } from "@/components/NewBadge";
-import { FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound, Zap } from "lucide-react";
+import { BookOpen, FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export const MODES = [
@@ -11,6 +11,7 @@ export const MODES = [
     { id: "draft", label: "Draft", icon: FileText },
     { id: "pae", label: "PAE", icon: UserCheck },
     { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
+    { id: "training", label: "Training", icon: BookOpen },
     // { id: "dynamic", label: "Dynamic", icon: Zap },
 ] as const
 
@@ -33,6 +34,8 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
         "Questions marked as dynamic (Status: Dynamic)",
     search:
         "Search results across all sources",
+    training:
+        "Questions used for training purposes",
 };
 
 type Mode = typeof MODES[number]["id"] | "search";
@@ -47,6 +50,8 @@ const SOURCE_TO_MODE: Record<string, string> = {
 export function AnswerModeSwitcher({
     answerMode,
     handleAnswerModeChange,
+    currentUserIsTrainingUser = false,
+    currentUserIsAdmin = false,
     hasSearch = false,
     sourceCounts,
     totalSearchCount,
@@ -56,6 +61,8 @@ export function AnswerModeSwitcher({
 }: {
     answerMode: Mode;
     handleAnswerModeChange: (mode: Mode) => void;
+    currentUserIsTrainingUser?: boolean;
+    currentUserIsAdmin?: boolean;
     hasSearch?: boolean;
     sourceCounts?: { source: string; count: number }[];
     totalSearchCount?: number;
@@ -68,6 +75,11 @@ export function AnswerModeSwitcher({
 }) {
     const groupRef = useRef<HTMLDivElement>(null);
     const [glider, setGlider] = useState({ left: 0, width: 0 });
+    const visibleModes = currentUserIsTrainingUser
+        ? MODES.filter((mode) => mode.id === "training")
+        : currentUserIsAdmin
+            ? MODES
+            : MODES.filter((mode) => mode.id !== "training");
 
     useEffect(() => {
         const activeBtn = groupRef.current?.querySelector<HTMLButtonElement>(
@@ -91,7 +103,7 @@ export function AnswerModeSwitcher({
                 style={{ left: glider.left, width: glider.width }}
             />
 
-            {hasSearch && (
+            {!currentUserIsTrainingUser && hasSearch && (
                 <Tooltip delayDuration={1200}>
                     <TooltipTrigger asChild>
                         <button
@@ -117,7 +129,7 @@ export function AnswerModeSwitcher({
                 </Tooltip>
             )}
 
-            {MODES.map(({ id, label, icon: Icon }) => {
+            {visibleModes.map(({ id, label, icon: Icon }) => {
                 const srcKey = Object.entries(SOURCE_TO_MODE).find(([, mode]) => mode === id)?.[0];
                 const srcCount = srcKey ? sourceCounts?.find(s => s.source === srcKey)?.count : undefined;
                 return (
@@ -125,14 +137,14 @@ export function AnswerModeSwitcher({
                         <TooltipTrigger asChild>
                             <button
                                 data-mode={id}
-                                onClick={() => handleAnswerModeChange(id)}
+                                onClick={() => handleAnswerModeChange(id as Mode)}
                                 className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${!isDedicatedView && answerMode === id
                                     ? "text-primary-foreground scale-[1.02]"
                                     : "text-muted-foreground hover:text-foreground"
                                     }`}
                             >
                                 <Icon className="h-4 w-4" />
-                                {(id === "draft" || id === "pae" || id === "non_agri" || id === "dynamic") && (
+                                {(id === "draft" || id === "pae" || id === "non_agri" || id === "training") && (
                                     <TopRightBadge label="new" right={0} />
                                 )}
                                 {label}
@@ -151,7 +163,7 @@ export function AnswerModeSwitcher({
             })}
 
             {/* Dedicated / My Assignment tab — shown only for moderators/admins */}
-            {showDedicated && (
+            { showDedicated && (
                 <>
                     <Tooltip delayDuration={1200}>
                         <TooltipTrigger asChild>

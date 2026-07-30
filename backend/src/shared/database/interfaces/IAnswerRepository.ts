@@ -200,6 +200,8 @@ export interface IAnswerRepository {
    * @param session
    */
   getAnswerOverviewByStatus(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<AnswerStatusOverview[]>;
 
@@ -215,6 +217,8 @@ export interface IAnswerRepository {
     state?: string[],
     source?: string[],
     status?: string[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<{analytics: Analytics}>;
 
 
@@ -247,6 +251,8 @@ export interface IAnswerRepository {
     consecutiveApprovals?: number,
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<{
     result: any[];

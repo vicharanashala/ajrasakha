@@ -90,6 +90,8 @@ export interface IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    month?: string,
+    coordinatorId?: string,
   ): Promise<DashboardResponse>;
   getKpiSummary(source?: string, userType?: string): Promise<KpiSummary>;
   getDailyActiveUsers(
@@ -103,6 +105,7 @@ export interface IChatbotService {
   getQueryCategories(
     source?: string,
     userType?: string,
+    coordinatorId?: string,
   ): Promise<QueryCategoryEntry[]>;
   getQueryCategoryQuestions(
     category: string,
@@ -112,6 +115,7 @@ export interface IChatbotService {
     source?: string,
     userType?: string,
     search?: string,
+    coordinatorId?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
   getQuestionFromDistrict(
     district: string,
@@ -125,9 +129,10 @@ export interface IChatbotService {
     startDate?: Date,
     endDate?: Date,
     knownDistricts?: string[],
+    coordinatorId?: string,
   ): Promise<any>;
-  getTopCrops(source?: string, userType?: string): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
-  getQuestionsByCrop(crop: string, crops?:string[], questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string): Promise<any>
+  getTopCrops(source?: string, userType?: string, coordinatorId?: string,): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+  getQuestionsByCrop(crop: string, crops?:string[], questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string, coordinatorId?: string): Promise<any>
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
   getDailyAnalytics(month?: string, source?: string, userType?: string): Promise<any[]>;
   getTodayQueryCount(source?: string, userType?: string): Promise<number>;
@@ -149,7 +154,7 @@ export interface IChatbotService {
     },
   ): Promise<QueryAnalyticsResponse>;
   getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
-  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean, loginStatus?: 'all' | 'loggedIn' | 'loggedOut'): Promise<PaginatedUserDetails>;
+  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean, fromMap?: boolean, loginStatus?: 'all' | 'loggedIn' | 'loggedOut'): Promise<PaginatedUserDetails>;
   getUsersByDemographic(
     category: string,
     value: string,
@@ -197,9 +202,10 @@ export interface IChatbotService {
     range: number,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<GrowthResponse>;
-  getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
-  getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
+  getDuplicateQuestions(source?: string, coordinatorId?: string): Promise<DuplicateQuestionEntry[]>;
+  getDomainSpikes(days?: number, coordinatorId?: string): Promise<DomainSpikeEntry[]>;
   getDailyQuestionTrends(
     days?: number,
     source?: string,
@@ -213,6 +219,7 @@ export interface IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{question: string; count: number}>>;
   getDistrictAnalyticsByState(
     state: string,
@@ -221,6 +228,7 @@ export interface IChatbotService {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<DistrictAnalyticsEntry[]>;
   getWeatherConcernAnalytics(
     filters?: WeatherConcernAnalyticsFilters,
@@ -345,6 +353,7 @@ export interface IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any>;
   getTopQuestionInstances(
     questionId: string,
@@ -354,12 +363,14 @@ export interface IChatbotService {
     endTime?: string,
     page?: number,
     limit?: number,
+    coordinatorId?: string,
   ): Promise<any>;
   getRepeatQueryCount(
     source?: string,
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any>;
   getAllUnverifiedUsers(
     page?: number,
@@ -437,10 +448,10 @@ export interface IChatbotService {
       userType: string,
       startDate?: Date,
       endDate?: Date
-    ): Promise<any>
-  getUserProfile(userId: string, startDate?: string, endDate?: string): Promise<any>
-  assignUsers(userId: string, targetIds: string[]): Promise<any>
-  unAssignUsers(userId: string, targetIds: string[]): Promise<any>
+    ): Promise<any>;
+  getUserProfile(userId: string, startDate?: string, endDate?: string): Promise<any>;
+  assignUsers(userId: string, targetIds: string[]): Promise<any>;
+  unAssignUsers(userId: string, targetIds: string[]): Promise<any>;
 
     getVillageUserCounts(
     state: string,
@@ -547,4 +558,6 @@ export interface IChatbotService {
       limit: number,
       search?: string,
     )
+
+    getReviewerLifecycle( userId: string, startDate?: Date, endDate?: Date ): Promise<any>
 }

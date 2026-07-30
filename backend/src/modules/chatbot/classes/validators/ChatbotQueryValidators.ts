@@ -29,6 +29,11 @@ export class DashboardQueryDto {
   @IsOptional()
   @IsString()
   endTime?: string;
+
+  @JSONSchema({ example: '6a3385e5d7128c0afd3f2283', description: 'Filter by coordinator ID to scope metrics to their hierarchy' })
+  @IsOptional()
+  @IsString()
+  coordinatorId?: string;
 }
 
 export class SourceQueryDto {
@@ -420,6 +425,11 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsString()
   isVerified?: string;
+
+     @JSONSchema({ example: 'true', description: 'If true, return only users who are has state in farmer profile' })
+  @IsOptional()
+  @IsString()
+  fromMap?: string;
 
   @JSONSchema({ example: 'loggedIn', description: 'Filter by login status: all, loggedIn, or loggedOut' })
   @IsOptional()
