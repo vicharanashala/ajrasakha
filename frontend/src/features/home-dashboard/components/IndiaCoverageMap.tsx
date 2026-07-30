@@ -147,6 +147,17 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
   const [apiDataMap, setApiDataMap] = useState<Record<string, SaturatedCropStateItem>>({});
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Helper to format state names cleanly (e.g. "MADHYA PRADESH" -> "Madhya Pradesh")
+  const formatStateName = (name: string): string => {
+    if (!name) return "";
+    return name
+      .trim()
+      .toLowerCase()
+      .split(" ")
+      .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : ""))
+      .join(" ");
+  };
+
   // Fetch /saturated-crops from PublicDashboardController on mount
   useEffect(() => {
     let isMounted = true;
@@ -170,10 +181,11 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
           if (item && item.state) {
             const rawState = item.state.trim();
             const lowerState = rawState.toLowerCase();
+            const cleanStateName = formatStateName(rawState);
 
             if (!map[lowerState]) {
               map[lowerState] = {
-                state: rawState,
+                state: cleanStateName,
                 total: 0,
                 closed: 0,
                 inProgress: 0,
@@ -209,13 +221,14 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
           }
         });
 
-        // Store with both original case key and lowercase key for O(1) instant lookup
+        // Store with original, clean title, and lowercase keys for O(1) instant lookup
         const finalMap: Record<string, SaturatedCropStateItem> = {};
         const uniqueKeys = Object.keys(map);
         uniqueKeys.forEach((k) => {
           const item = map[k];
           finalMap[k] = item;
           finalMap[item.state] = item;
+          finalMap[item.state.toLowerCase()] = item;
         });
 
         setApiDataMap(finalMap);
@@ -231,10 +244,9 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
   }, [onStatesCountChange]);
 
   const activeStateName = hoveredState || selectedState;
+  const formattedActiveStateName = activeStateName ? formatStateName(activeStateName) : null;
 
-  // All saturated states (deduped across case variants, since apiDataMap holds both
-  // lowercase and original-case keys), sorted high → low. Drives the default state-wise
-  // breakdown.
+  // All saturated states (deduped across case variants), sorted high → low.
   const statesList = React.useMemo(() => {
     const seen = new Set<string>();
     const list: SaturatedCropStateItem[] = [];
@@ -261,7 +273,7 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
     [statesList]
   );
 
-  // The hovered/selected state's data (null when nothing is focused).
+  // The hovered/selected state's data (null when nothing is focused or if state has no data).
   const activeStateItem = React.useMemo(() => {
     if (!activeStateName) return null;
     return (
@@ -274,12 +286,34 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
     );
   }, [activeStateName, apiDataMap, statesList]);
 
-  // Metrics shown in the card: the focused state's figures when hovering, else India-wide.
-  const displayTotals = activeStateItem
+  const isStateFocused = Boolean(activeStateName);
+  const isStateHasData = Boolean(activeStateItem);
+
+  // Scope Labels & Fallback Explanations
+  const dataScopeLabel = isStateHasData
+    ? `Total Questions Submitted — ${activeStateItem!.state}`
+    : isStateFocused
+    ? `Total Questions Submitted — Nationwide (Fallback)`
+    : `Total Questions Submitted — Nationwide`;
+
+  const scopeBadge = isStateHasData
+    ? "State Live Data"
+    : isStateFocused
+    ? "No State Data"
+    : "All India";
+
+  const scopeDescription = isStateHasData
+    ? `Displaying state-specific question and crop breakdown for ${activeStateItem!.state}.`
+    : isStateFocused
+    ? `No specific advisory data found for ${formattedActiveStateName}. Displaying All-India nationwide figures.`
+    : `Displaying nationwide aggregate coverage across all active states.`;
+
+  // Metrics shown in card
+  const displayTotals = isStateHasData
     ? {
-        total: Number(activeStateItem.total) || 0,
-        closed: Number(activeStateItem.closed) || 0,
-        inProgress: Number(activeStateItem.inProgress) || 0,
+        total: Number(activeStateItem!.total) || 0,
+        closed: Number(activeStateItem!.closed) || 0,
+        inProgress: Number(activeStateItem!.inProgress) || 0,
       }
     : grandTotals;
 
@@ -313,29 +347,138 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
 
       {/* Column 3: Dynamic State Inspector Card */}
       <aside className="state-card">
-        {/* Header: State Name */}
-        <div className="state-card-head">
-          <span>
-            <small>CURRENT FOCUS</small>
-            <strong>{activeStateName}</strong>
-          </span>
-          <span className="status-pill">{isLoaded ? "Live API" : "Connecting..."}</span>
+        {/* Header: State Name & Filter Controls */}
+        <div className="state-card-head" style={{ alignItems: "flex-start" }}>
+          <div>
+            <small style={{ display: "block" }}>CURRENT FOCUS</small>
+            <strong style={{ fontSize: "1.15rem", color: "var(--forest, #173326)" }}>
+              {isStateFocused ? formattedActiveStateName : "All India (Nationwide)"}
+            </strong>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+            <span
+              className="status-pill"
+              style={{
+                background: !isLoaded
+                  ? "#f3f4f6"
+                  : isStateHasData
+                  ? "#eef6f0"
+                  : isStateFocused
+                  ? "#fef3c7"
+                  : "#eef6f0",
+                color: !isLoaded
+                  ? "#6b7280"
+                  : isStateHasData
+                  ? "#164e2e"
+                  : isStateFocused
+                  ? "#92400e"
+                  : "#164e2e",
+                border: `1px solid ${
+                  !isLoaded
+                    ? "#e5e7eb"
+                    : isStateHasData
+                    ? "#c8e6d0"
+                    : isStateFocused
+                    ? "#fde68a"
+                    : "#c8e6d0"
+                }`,
+                fontSize: "11px",
+                fontWeight: 600,
+                padding: "2px 8px",
+                borderRadius: "12px",
+              }}
+            >
+              {scopeBadge}
+            </span>
+            {selectedState && (
+              <button
+                type="button"
+                onClick={() => setSelectedState(null)}
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: "#173326b8",
+                  background: "transparent",
+                  border: "none",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  padding: "2px 0",
+                }}
+              >
+                Clear Selection
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Total Questions Submitted Metric */}
+        {/* Scope Context Banner */}
         <div
           style={{
-            margin: "18px 0 14px",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            fontSize: "11px",
+            marginTop: "12px",
+            background: !isStateFocused
+              ? "#eef6f0"
+              : isStateHasData
+              ? "#eef6f0"
+              : "#fffbe8",
+            color: !isStateFocused
+              ? "#164e2e"
+              : isStateHasData
+              ? "#164e2e"
+              : "#92400e",
+            border: `1px solid ${
+              !isStateFocused
+                ? "#c8e6d0"
+                : isStateHasData
+                ? "#c8e6d0"
+                : "#fde68a"
+            }`,
+            lineHeight: 1.4,
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "6px",
+          }}
+        >
+          <span style={{ fontSize: "13px", lineHeight: 1 }}>
+            {!isStateFocused ? "🌐" : isStateHasData ? "📍" : "ℹ️"}
+          </span>
+          <span>{scopeDescription}</span>
+        </div>
+
+        {/* Total Questions Submitted Metric Box */}
+        <div
+          style={{
+            margin: "14px 0 14px",
             padding: "14px 16px",
             borderRadius: "12px",
             background: "#f7f5ec",
             border: "1px solid var(--line)",
           }}
         >
-          <span style={{ fontSize: "9px", fontWeight: 700, color: "#1733268c", textTransform: "uppercase", letterSpacing: "0.08em", display: "block" }}>
-            Total Questions Submitted{activeStateItem ? ` — ${activeStateItem.state}` : ""}
+          <span
+            style={{
+              fontSize: "9px",
+              fontWeight: 700,
+              color: "#1733268c",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              display: "block",
+            }}
+          >
+            {dataScopeLabel}
           </span>
-          <strong style={{ fontFamily: "Newsreader, serif", fontSize: "32px", fontWeight: 600, color: "var(--forest)", display: "block", marginTop: "4px" }}>
+          <strong
+            style={{
+              fontFamily: "Newsreader, serif",
+              fontSize: "32px",
+              fontWeight: 600,
+              color: "var(--forest)",
+              display: "block",
+              marginTop: "4px",
+            }}
+          >
             {totalQuestions > 0 ? totalQuestions.toLocaleString("en-IN") : "0"}
           </strong>
           <div style={{ display: "flex", gap: "18px", marginTop: "8px" }}>
@@ -354,27 +497,58 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
           </div>
         </div>
 
-        {/* Breakdown: crop-wise for the focused state, else state-wise across India. */}
+        {/* Breakdown: crop-wise for the focused state (if data exists), else state-wise across India. */}
         <div style={{ marginTop: "14px" }}>
-          <span style={{ fontSize: "9px", fontWeight: 700, color: "#17332694", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "10px" }}>
-            {activeStateItem ? "Crop-Wise Breakdown" : "State-Wise Breakdown"}
+          <span
+            style={{
+              fontSize: "9px",
+              fontWeight: 700,
+              color: "#17332694",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              display: "block",
+              marginBottom: "10px",
+            }}
+          >
+            {isStateHasData
+              ? `Crop-Wise Breakdown — ${activeStateItem!.state}`
+              : `State-Wise Breakdown (Nationwide)`}
           </span>
 
-          {activeStateItem ? (
+          {isStateHasData ? (
             cropsList.length > 0 ? (
               <div style={{ display: "grid", gap: "10px" }}>
                 {cropsList.map((c) => {
-                  const pct = totalQuestions > 0 ? Math.round(((Number(c.count) || 0) / totalQuestions) * 100) : 0;
+                  const cropTotal = Number(c.count) || 0;
+                  const cropClosed = Number(c.closed) || 0;
+                  const cropInProgress = Number(c.inProgress) || 0;
+                  const pct = totalQuestions > 0 ? Math.round((cropTotal / totalQuestions) * 100) : 0;
                   return (
                     <div key={c.crop} style={{ display: "grid", gap: "4px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 600, color: "var(--ink)" }}>
                         <span>{c.crop}</span>
                         <span style={{ color: "#173326b8" }}>
-                          <strong>{(Number(c.count) || 0).toLocaleString("en-IN")}</strong> ({pct}%)
+                          <strong>{cropTotal.toLocaleString("en-IN")}</strong> ({pct}%)
                         </span>
                       </div>
                       <div style={{ height: "6px", width: "100%", borderRadius: "999px", background: "#17332617", overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${Math.max(4, Math.min(100, pct))}%`, borderRadius: "999px", background: "linear-gradient(90deg, #245d43, #d7b765)", transition: "width 0.4s ease" }} />
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${Math.max(4, Math.min(100, pct))}%`,
+                            borderRadius: "999px",
+                            background: "linear-gradient(90deg, #245d43, #d7b765)",
+                            transition: "width 0.4s ease",
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#17332699" }}>
+                        <span>
+                          Closed: <strong style={{ color: "var(--forest)" }}>{cropClosed.toLocaleString("en-IN")}</strong>
+                        </span>
+                        <span>
+                          In-Progress: <strong style={{ color: "var(--forest)" }}>{cropInProgress.toLocaleString("en-IN")}</strong>
+                        </span>
                       </div>
                     </div>
                   );
@@ -389,6 +563,8 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
             <div style={{ display: "grid", gap: "10px" }}>
               {statesList.map((s) => {
                 const stateTotal = Number(s.total) || 0;
+                const stateClosed = Number(s.closed) || 0;
+                const stateInProgress = Number(s.inProgress) || 0;
                 const pct = totalQuestions > 0 ? Math.round((stateTotal / totalQuestions) * 100) : 0;
                 return (
                   <div key={s.state} style={{ display: "grid", gap: "4px" }}>
@@ -399,7 +575,23 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
                       </span>
                     </div>
                     <div style={{ height: "6px", width: "100%", borderRadius: "999px", background: "#17332617", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${Math.max(4, Math.min(100, pct))}%`, borderRadius: "999px", background: "linear-gradient(90deg, #245d43, #d7b765)", transition: "width 0.4s ease" }} />
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${Math.max(4, Math.min(100, pct))}%`,
+                          borderRadius: "999px",
+                          background: "linear-gradient(90deg, #245d43, #d7b765)",
+                          transition: "width 0.4s ease",
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#17332699" }}>
+                      <span>
+                        Closed: <strong style={{ color: "var(--forest)" }}>{stateClosed.toLocaleString("en-IN")}</strong>
+                      </span>
+                      <span>
+                        In-Progress: <strong style={{ color: "var(--forest)" }}>{stateInProgress.toLocaleString("en-IN")}</strong>
+                      </span>
                     </div>
                   </div>
                 );
@@ -415,9 +607,9 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
         <button
           type="button"
           style={{ marginTop: "20px" }}
-          onClick={() => alert(`Opening ${activeStateName} Regional Agri Dashboard...`)}
+          onClick={() => alert(`Opening ${formattedActiveStateName || "All-India"} Regional Agri Dashboard...`)}
         >
-          <span>View state dashboard</span>
+          <span>View {isStateHasData ? `${formattedActiveStateName}` : "national"} dashboard</span>
           <span>→</span>
         </button>
       </aside>
