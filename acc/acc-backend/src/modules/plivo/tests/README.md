@@ -8,8 +8,12 @@ acc/acc-backend
 ```
 
 They verify ACC-owned orchestration and contracts. Plivo, Sarvam AI, WebSocket
-connections, MongoDB repositories, and other external integrations are mocked.
-No test calls a real phone number, external API, Firebase project, or production
+connections, MongoDB repositories, and other external integrations are mocked
+in the default mocked suite below. The Layer 4 integration suites (further
+down) trade some of those mocks for the real thing - a real local MongoDB, a
+real Express/HTTP boundary, and a real local WebSocket server - while still
+keeping genuinely external third parties (Plivo, Sarvam, Firebase) faked. No
+test calls a real phone number, external API, Firebase project, or production
 database.
 
 ## Coverage
@@ -142,7 +146,7 @@ Coverage:
   `call_agent` gets 200
 - `/send-message` request validation: missing fields returns 400
 
-KNOWN FINDING (not fixed - testers only, no app-code changes made):
+KNOWN FINDINGS (not fixed - testers only, no app-code changes made):
 
 - A malformed JSON request body on *any* endpoint returns **500**, not 400.
   `body-parser`'s `SyntaxError` carries `status: 400`, but
@@ -151,6 +155,62 @@ KNOWN FINDING (not fixed - testers only, no app-code changes made):
   this one - is flattened to 500 without checking `err.status`/`err.statusCode`.
   The test asserts the actual (buggy) 500 rather than the expected 400, with
   a comment explaining why.
+
+- `POST /api/plivo/answer` and `POST /api/plivo/webhook/call-ended` **log a
+  false `Status: 500`** in the access log on every successful call, even
+  though the client genuinely receives 200. Root cause: both handlers use
+  `@Res() res` and call `res.send(...)`/`res.status(200).send('OK')` without
+  `return`ing it, so their `async` method resolves to `undefined`.
+  `routing-controllers`' `ExpressDriver.handleSuccess()` treats an
+  `undefined` result as "the controller never handled the response" (unless
+  the return value `=== options.response`) and throws a `NotFoundError`,
+  which flows into `handleError()` and tries to send a *second* response
+  body on a connection whose headers are already flushed - Express throws
+  `ERR_HTTP_HEADERS_SENT`, which is itself caught one level up and re-enters
+  `handleError()` a second time with an error that has no `.httpCode`,
+  landing on `response.status(500)`. That call is a harmless in-memory
+  property write at that point (the real bytes already reached the client),
+  but it corrupts `res.statusCode` for anything reading it afterward -
+  including `loggingHandler`'s `res.on('finish')` line. Any monitoring or
+  alerting built on these access logs would see a 100% error rate on two of
+  the highest-traffic endpoints in the call-routing path, even when the
+  service is working correctly. Reproduced in
+  `http-plivo-endpoints.integration.test.ts` by spying on `console.log` and
+  asserting the false `Status: 500` line appears alongside a genuinely
+  200/OK client response.
+
+### WebSocket integration tests (Layer 4)
+
+`ws-plivo-stream.integration.test.ts` boots the **real** `/plivo-stream`
+WebSocket server (`bootstrap/websocket.ts`) on a real `http.Server`, wired to
+the same real Express/DI/MongoDB stack as the HTTP layer, and drives it with
+real `ws` client connections. Only the Plivo SDK client and the *outbound*
+Sarvam speech sockets are faked - the local server, the simulated "Plivo
+media stream" client, and any "dashboard" clients are genuine WebSocket
+connections over a real ephemeral port. Harness: `helpers/ws-app.ts`.
+
+This harness uses a real 1-node `MongoMemoryReplSet` rather than a
+standalone `mongodb-memory-server`, because the WS `stop`/`close` handler's
+call to `UserService.markAgentAsAvailable` runs inside a real Mongo
+transaction (`BaseService._withTransaction`), which a standalone instance
+rejects outright. A replica set matches how production Mongo (Atlas) is
+always deployed.
+
+Coverage:
+
+- Full call lifecycle: a real `/api/plivo/answer` reservation, a simulated
+  Plivo media stream (`start` -> `media` -> `stop`), a mocked Sarvam
+  transcript response, and a "dashboard" client (authenticated as the
+  assigned agent) receiving `call_start`, `transcript`, and `call_end`
+  messages - with the real Mongo agent doc released and `call_details`
+  persisted afterward
+- Targeting: an unrelated authenticated agent does *not* receive a call's
+  transcript; an `admin`/`moderator` does, alongside the assigned agent
+- A call with no assigned agent broadcasts to every connected client
+- A client that never sends `start` only ever triggers `call_disconnected`
+  on close - no agent release, no `call_end`
+- A non-JSON WebSocket message doesn't crash the connection (the existing
+  `try/catch` swallow in the `message` handler keeps working)
 
 ## Running the tests
 

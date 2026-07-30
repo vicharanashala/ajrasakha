@@ -169,6 +169,62 @@ describe('ACC HTTP integration (real Express + routing-controllers + MongoDB)', 
       expect(agent?.isBusy).toBe(false);
       expect(agent?.currentCallUuid).toBeNull();
     });
+
+    // FINDING: routing-controllers' ExpressDriver.handleSuccess() treats an
+    // action's resolved return value of `undefined` as "the controller never
+    // handled the response" and throws a NotFoundError - UNLESS the method's
+    // return value is `=== options.response` (i.e. `return res.send(...)`).
+    // Every @Res()-based handler in this controller calls `res.send(...)`
+    // without `return`, so its async method always resolves to `undefined`.
+    // That NotFoundError is then routed to handleError(), which tries to
+    // send a *second* response body on the connection whose headers are
+    // already flushed; Express's res.json()/res.send() throws
+    // ERR_HTTP_HEADERS_SENT while doing so, which is itself caught by
+    // executeAction()'s outer .catch and re-enters handleError() a second
+    // time with an error that has no `.httpCode`, landing on `response
+    // .status(500)`. That call is a harmless in-memory property write at
+    // this point (the real bytes - status 200 - already reached the client,
+    // confirmed by the assertions above), but it corrupts `res.statusCode`
+    // for anything that reads it afterward - including loggingHandler's
+    // `res.on('finish')` access-log line. Result: every successful call to
+    // an affected endpoint is logged as a 500, even though callers see 200.
+    // This silently poisons any monitoring/alerting built on these access
+    // logs for two of the highest-traffic endpoints in the call-routing
+    // path. Not fixed here - see feedback_testers_only_no_app_fixes in
+    // memory - but reproduced below via the real access-log line itself.
+    it('KNOWN FINDING: access log records a false 500 for /answer and /webhook/call-ended even though the client gets 200', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      await seedUser();
+      await seedAgentCredentials('agent_1');
+
+      const answerRes = await request(app)
+        .post('/api/plivo/answer')
+        .type('form')
+        .send({ CallUUID: 'call-finding-1', From: '+15550009999' });
+      expect(answerRes.status).toBe(200);
+      expect(answerRes.text).toContain('<Dial');
+
+      const endedRes = await request(app)
+        .post('/api/plivo/webhook/call-ended')
+        .type('form')
+        .send({ CallUUID: 'call-finding-1' });
+      expect(endedRes.status).toBe(200);
+      expect(endedRes.text).toBe('OK');
+
+      const loggedLines = logSpy.mock.calls.map((call) => call[0]);
+      const falseAnswer500 = loggedLines.some(
+        (line) => typeof line === 'string' && line.includes('POST /api/plivo/answer') && line.includes('Status: 500'),
+      );
+      const falseEnded500 = loggedLines.some(
+        (line) =>
+          typeof line === 'string' && line.includes('POST /api/plivo/webhook/call-ended') && line.includes('Status: 500'),
+      );
+
+      logSpy.mockRestore();
+
+      expect(falseAnswer500).toBe(true);
+      expect(falseEnded500).toBe(true);
+    });
   });
 
   describe('authorization on @Authorized() routes', () => {

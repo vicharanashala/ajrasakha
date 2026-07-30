@@ -14,6 +14,14 @@ export interface HttpTestApp {
   stop: () => Promise<void>;
 }
 
+export interface HttpTestAppOptions {
+  dbName?: string;
+  // Points the app at an already-running Mongo instance (e.g. a
+  // MongoMemoryReplSet when a caller needs transaction support) instead of
+  // spinning up a standalone MongoMemoryServer.
+  mongoUri?: string;
+}
+
 // Builds the real Express + routing-controllers app the same way index.ts
 // does (real middleware chain, real controllers, real DI container, real
 // Scalar/OpenAPI mounting) but without calling listen()/initWebSocket(), so
@@ -21,10 +29,16 @@ export interface HttpTestApp {
 // a fresh mongodb-memory-server instance before any app module is imported,
 // since config/db.ts reads them once at first import.
 export async function buildHttpTestApp(
-  dbName = `acc_http_integration_${Date.now()}`,
+  options: HttpTestAppOptions = {},
 ): Promise<HttpTestApp> {
-  const mongoServer = await MongoMemoryServer.create();
-  process.env.DB_URL = mongoServer.getUri();
+  const dbName = options.dbName ?? `acc_http_integration_${Date.now()}`;
+  let mongoServer: MongoMemoryServer | undefined;
+  let mongoUri = options.mongoUri;
+  if (!mongoUri) {
+    mongoServer = await MongoMemoryServer.create();
+    mongoUri = mongoServer.getUri();
+  }
+  process.env.DB_URL = mongoUri;
   process.env.DB_NAME = dbName;
   process.env.APP_MODULE = process.env.APP_MODULE || 'all';
   process.env.NODE_ENV = process.env.NODE_ENV || 'development';
@@ -119,7 +133,9 @@ export async function buildHttpTestApp(
     stop: async () => {
       const database = getContainer().get(GLOBAL_TYPES.Database) as { disconnect: () => Promise<void> };
       await database.disconnect();
-      await mongoServer.stop();
+      if (mongoServer) {
+        await mongoServer.stop();
+      }
     },
   };
 }
