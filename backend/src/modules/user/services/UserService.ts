@@ -150,21 +150,47 @@ export class UserService extends BaseService {
         throw new BadRequestError(
           'University name cannot be empty or blank space',
         );
+      // Title-case a value so entries persist consistently ("kl university" → "Kl University").
+      const toTitleCase = (v: unknown) =>
+        typeof v === 'string'
+          ? v.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+          : '';
+      // Same, but keep the "all" sentinel lowercase so domain/district "all" checks keep working.
+      const titleCaseOrAll = (v: unknown) => {
+        const s = typeof v === 'string' ? v.trim() : '';
+        return s.toLowerCase() === 'all' ? 'all' : toTitleCase(s);
+      };
+
       if (sanitizedData.kvkCovered !== undefined && sanitizedData.kvkCovered !== null) {
-        // Stored as a plain string array. Tolerate the legacy { name: [] } shape on input.
         const raw = Array.isArray(sanitizedData.kvkCovered)
           ? sanitizedData.kvkCovered
-          : Array.isArray((sanitizedData.kvkCovered as any).name)
-            ? (sanitizedData.kvkCovered as any).name
-            : [];
-        // Title-case each name so they persist consistently (e.g. "kl university" → "Kl University").
+          : [];
         sanitizedData.kvkCovered = raw
-          .map((n: string) =>
-            typeof n === 'string'
-              ? n.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
-              : '',
-          )
-          .filter(Boolean);
+          .map((item: any) => {
+            // New shape: { state, district, name }. Legacy: a plain KVK-name string.
+            if (item && typeof item === 'object') {
+              return {
+                state: toTitleCase(item.state),
+                district: toTitleCase(item.district),
+                name: toTitleCase(item.name),
+              };
+            }
+            return { state: '', district: '', name: toTitleCase(item) };
+          })
+          .filter((item: {name: string}) => item.name);
+      }
+
+      // Store preference district and domain in Title Case (preserving the "all" sentinel).
+      if (sanitizedData.preference) {
+        const pref: any = sanitizedData.preference;
+        if (typeof pref.district === 'string') {
+          pref.district = titleCaseOrAll(pref.district);
+        }
+        if (Array.isArray(pref.domain)) {
+          pref.domain = pref.domain.map((d: unknown) => titleCaseOrAll(d)).filter(Boolean);
+        } else if (typeof pref.domain === 'string') {
+          pref.domain = titleCaseOrAll(pref.domain);
+        }
       }
       const authService = getFromContainer(FirebaseAuthService);
 
