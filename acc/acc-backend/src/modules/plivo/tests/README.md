@@ -212,6 +212,49 @@ Coverage:
 - A non-JSON WebSocket message doesn't crash the connection (the existing
   `try/catch` swallow in the `message` handler keeps working)
 
+### User role authorization tests (Layer 4)
+
+`user-role-authorization.integration.test.ts` targets `UserController`, the
+only controller in the app that uses the role-array form of the decorator
+(`@Authorized(['admin'])` / `@Authorized(['call_agent'])`). It also needs a
+real 1-node `MongoMemoryReplSet` (not a standalone `mongodb-memory-server`),
+because almost every `UserService` method runs inside
+`BaseService._withTransaction`.
+
+KNOWN FINDING (severity: high, not fixed - testers only, no app-code changes
+made): **`@Authorized(['admin'])` and `@Authorized(['call_agent'])` do not
+enforce the role they name - any authenticated, active, non-blocked user of
+any role passes.** Root cause:
+`shared/functions/authorizationChecker.ts` is declared as
+`authorizationChecker(action)` - a single parameter - but
+`routing-controllers`' `ExpressDriver` always calls it as
+`authorizationChecker(action, actionMetadata.authorizedRoles)` and treats
+its return value as the entire authorization decision, with no role
+comparison of its own. Since this app's checker never reads its second
+parameter, the role array passed to `@Authorized([...])` has no effect
+anywhere it's used.
+
+`UserController` uses the role-array form on 6 routes. Four of them happen
+to be independently guarded by an explicit role check inside `UserService`
+itself (defense in depth: `setCallAgentStatus`/`toggleCallAgentActive`
+check `requestingUserRole !== 'admin'`;
+`setAgentOnline`/`setAgentOffline`/`updateAgentHeartbeat` check
+`user.role !== 'call_agent'`), so they are not exploitable in practice. The
+remaining two have no such check and are a genuine, exploitable
+information-disclosure vulnerability:
+
+- `GET /api/users/call-agents` (intended admin-only) - any authenticated
+  user can list every call agent
+- `GET /api/users/list` (intended admin-only) - any authenticated user can
+  list every expert/user in the system
+
+Both are reproduced with a `role: 'expert'` user getting a real 200 from
+each route. The test file also documents a smaller related nuance:
+`routing-controllers` maps a failed authorization check to
+`AuthorizationRequiredError` (401) only when `authorizedRoles.length === 0`,
+and to `AccessDeniedError` (403) whenever it's non-empty - so role-array
+routes return 403 even for a request with no token at all, not 401.
+
 ## Running the tests
 
 First install the existing ACC backend dependencies from `acc/acc-backend`:
