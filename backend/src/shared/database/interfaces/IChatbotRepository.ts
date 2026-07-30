@@ -575,6 +575,89 @@ export interface ResponseAdherenceTable {
   totalStaticDynamicWhatsappCount: number;
   totalStaticDynamicAjrasakhaCount: number;
   totalStaticDynamicManualCount: number;
+
+  whatsAppAnsweredAfter120Min: number;
+  ajrasakhaAnsweredAfter120Min: number;
+  manualAnsweredAfter120Min: number;
+
+  whatsAppAnsweredAfter120MinClosed: number;
+  whatsAppAnsweredAfter120MinPass: number;
+  whatsAppAnsweredAfter120MinDynamicClosed: number;
+  whatsAppAnsweredAfter120MinDuplicateClosed: number;
+
+  ajrasakhaAnsweredAfter120MinClosed: number;
+  ajrasakhaAnsweredAfter120MinPass: number;
+  ajrasakhaAnsweredAfter120MinDynamicClosed: number;
+  ajrasakhaAnsweredAfter120MinDuplicateClosed: number;
+
+  manualAnsweredAfter120MinClosed: number;
+  manualAnsweredAfter120MinPass: number;
+  manualAnsweredAfter120MinDynamicClosed: number;
+  manualAnsweredAfter120MinDuplicateClosed: number;
+
+  whatsappSlaBreachedCount: number;
+  ajrasakhaSlaBreachedCount: number;
+  manualSlaBreachedCount: number;
+
+  // WhatsApp
+  whatsappTatMinutes: number;
+  whatsappAverageTimeToAuthorMinutes: number;
+  whatsappAverageReviewAcceptMinutes: number;
+  whatsappAverageReviewModifyMinutes: number;
+  whatsappAverageReviewRejectReauthorMinutes: number;
+  whatsappAverageModeratingMinutes: number;
+  whatsappAverageGatekeepingMinutes: number;
+  whatsappAverageAuditingMinutes: number;
+  whatsappAverageReroutedCompletionMinutes: number;
+
+  // Ajrasakha
+  ajrasakhaTatMinutes: number;
+  ajrasakhaAverageTimeToAuthorMinutes: number;
+  ajrasakhaAverageReviewAcceptMinutes: number;
+  ajrasakhaAverageReviewModifyMinutes: number;
+  ajrasakhaAverageReviewRejectReauthorMinutes: number;
+  ajrasakhaAverageModeratingMinutes: number;
+  ajrasakhaAverageGatekeepingMinutes: number;
+  ajrasakhaAverageAuditingMinutes: number;
+  ajrasakhaAverageReroutedCompletionMinutes: number;
+
+  // Manual
+  manualTatMinutes: number;
+  manualAverageTimeToAuthorMinutes: number;
+  manualAverageReviewAcceptMinutes: number;
+  manualAverageReviewModifyMinutes: number;
+  manualAverageReviewRejectReauthorMinutes: number;
+  manualAverageModeratingMinutes: number;
+  manualAverageGatekeepingMinutes: number;
+  manualAverageAuditingMinutes: number;
+  manualAverageReroutedCompletionMinutes: number;
+
+  whatsappAverageEndToEndQnaCompletionMinutes: number;
+  ajrasakhaAverageEndToEndQnaCompletionMinutes: number;
+  manualAverageEndToEndQnaCompletionMinutes: number;
+
+  whatsappAverageEndToEndUniqueMinutes: number;
+  ajrasakhaAverageEndToEndUniqueMinutes: number;
+  manualAverageEndToEndUniqueMinutes: number;
+
+  whatsappAverageEndToEndDynamicMinutes: number;
+  ajrasakhaAverageEndToEndDynamicMinutes: number;
+  manualAverageEndToEndDynamicMinutes: number;
+
+  whatsappAverageEndToEndDuplicateMinutes: number;
+  ajrasakhaAverageEndToEndDuplicateMinutes: number;
+  manualAverageEndToEndDuplicateMinutes: number;
+      whatsappPaeAssignedQuestions: number;
+    ajrasakhaPaeAssignedQuestions: number;
+    manualPaeAssignedQuestions: number;
+    // PAE Contribution to GDB
+    whatsappPaeContributionToGDB: number;
+    ajrasakhaPaeContributionToGDB: number;
+    manualPaeContributionToGDB: number;
+    // PAE Contribution to GDB %
+    whatsappPaeContributionToGDBPct: number;
+    ajrasakhaPaeContributionToGDBPct: number;
+    manualPaeContributionToGDBPct: number;
 }
 
 // ─── Single consolidated interface ───────────────────────────────────────────
