@@ -34,9 +34,16 @@ import {
   Droplets,
   CalendarClock,
   Loader2,
+  Monitor,
+  MessageCircle,
+  Cloud,
+  LineChart,
+  Calendar,
+  Shield,
 } from "lucide-react";
 import "./home-dashboard.css";
 import OrbCanvas from "./components/OrbCanvas";
+import HeroNetwork from "./components/HeroNetwork";
 import IndiaCoverageMap, { SVGIndiaMap } from "./components/IndiaCoverageMap";
 import ExpertNetworkMap from "./components/ExpertNetworkMap";
 import {
@@ -48,6 +55,7 @@ import {
   STAT_QUESTIONS_COLLECTED,
   STAT_QUESTIONS_REFINED,
   STAT_LANGUAGES_SUPPORTED,
+  STAT_KVKS_COVERED,
   STAT_AGROCLIMATIC_ZONES,
 } from "../../hooks/services/publicDashboardService";
 
@@ -73,7 +81,8 @@ export const HomeDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { data: publicUsers, isLoading: isUsersLoading } =
     usePublicDashboardUsers();
-  const { data: publicItems } = usePublicDashboardItems();
+  const { data: publicItems, isLoading: isItemsLoading } =
+    usePublicDashboardItems();
   const { data: saturatedCrops, isLoading: isSaturatedLoading } =
     usePublicDashboardSaturatedCrops();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -86,6 +95,21 @@ export const HomeDashboard: React.FC = () => {
   const [livePulseCount, setLivePulseCount] = useState(12842);
   const [activeStatesCount, setActiveStatesCount] = useState<number | null>(null);
   const [activeNetworkTab, setActiveNetworkTab] = useState<"experts" | "kvk" | "sau">("experts");
+  const [isNavScrolled, setIsNavScrolled] = useState(false);
+
+  // Scroll listener for floating navbar effect
+  useEffect(() => {
+    const handleNavScroll = () => {
+      if (window.scrollY > 25) {
+        setIsNavScrolled(true);
+      } else {
+        setIsNavScrolled(false);
+      }
+    };
+    window.addEventListener("scroll", handleNavScroll, { passive: true });
+    handleNavScroll();
+    return () => window.removeEventListener("scroll", handleNavScroll);
+  }, []);
 
   const futureSlides = [
     {
@@ -183,10 +207,11 @@ export const HomeDashboard: React.FC = () => {
 
   const navLinks = [
     ["Overview", "overview"],
-    ["Knowledge engine", "knowledge"],
-    ["Coverage", "india-map"],
+    ["India Map", "india-map"],
+    ["Knowledge Engine", "knowledge"],
     ["Experts", "experts"],
-    ["Integrations", "intelligence"],
+    ["Intelligence", "intelligence"],
+    ["Outreach", "outreach"],
     ["Learning", "learning"],
   ];
 
@@ -260,24 +285,24 @@ export const HomeDashboard: React.FC = () => {
   const spinner = <Loader2 className="inline-block h-4 w-4 animate-spin" aria-label="Loading" />;
 
   const heroMetrics = [
-    { value: readStat(STAT_QUESTIONS_COLLECTED, "45M+"), label: "Questions collected", icon: MessageSquare },
-    { value: readStat(STAT_QUESTIONS_REFINED, "70,741"), label: "Questions refined", icon: FileCheck },
-    { value: readStat(STAT_LANGUAGES_SUPPORTED, "22"), label: "Languages Supported", icon: Globe },
+    { value: isItemsLoading ? spinner : readStat(STAT_QUESTIONS_COLLECTED, "45M+"), label: "Questions collected", icon: MessageSquare },
+    { value: isItemsLoading ? spinner : readStat(STAT_QUESTIONS_REFINED, "70,741"), label: "Questions refined", icon: FileCheck },
+    { value: isItemsLoading ? spinner : readStat(STAT_LANGUAGES_SUPPORTED, "22"), label: "Languages Supported", icon: Globe },
     { value: isSaturatedLoading ? spinner : String(coverage.cropsCovered), label: "Crops Covered", icon: Sprout },
     { value: isSaturatedLoading ? spinner : String(coverage.statesCovered), label: "States covered", icon: MapPin },
-    { value: "—", label: "KVKs covered", icon: Landmark },
+    { value: isItemsLoading ? spinner : readStat(STAT_KVKS_COVERED, "731"), label: "KVKs covered", icon: Landmark },
     { value: isUsersLoading ? spinner : String(sauCount), label: "SAUs collaborated with", icon: BookOpen },
-    { value: readStat(STAT_AGROCLIMATIC_ZONES, "126"), label: "Agroclimatic Zones", icon: CloudSun },
+    { value: isItemsLoading ? spinner : readStat(STAT_AGROCLIMATIC_ZONES, "126"), label: "Agroclimatic Zones", icon: CloudSun },
   ];
 
   const sourceNodes = [
-    { label: "Government schemes", icon: Landmark, x: "18.5%", y: "27.5%" },
-    { label: "ICAR research", icon: FlaskConical, x: "32.5%", y: "17%" },
-    { label: "KVKs & field observations", icon: Sprout, x: "47%", y: "26.5%" },
-    { label: "Research institutions", icon: BookOpen, x: "61%", y: "17%" },
-    { label: "Experts & scientists", icon: Users, x: "74.5%", y: "28.5%" },
-    { label: "SAUs & institutions", icon: ShieldCheck, x: "85.5%", y: "19%" },
-    { label: "Farmer conversations", icon: MessageSquare, x: "93%", y: "32%" },
+    { label: "Government schemes", icon: Landmark, x: "4.5%", y: "34%" },
+    { label: "ICAR research", icon: FlaskConical, x: "13%", y: "20%" },
+    { label: "KVKs & field observations", icon: Sprout, x: "27%", y: "11%" },
+    { label: "Research institutions", icon: BookOpen, x: "42.5%", y: "4.5%" },
+    { label: "Experts & scientists", icon: Users, x: "54.8%", y: "6.5%" },
+    { label: "SAUs & institutions", icon: ShieldCheck, x: "72.5%", y: "14.5%" },
+    { label: "Farmer conversations", icon: MessageSquare, x: "85.8%", y: "30%" },
   ];
 
   const reviewStages = [
@@ -315,19 +340,19 @@ export const HomeDashboard: React.FC = () => {
 
   const integrations = [
     // Live Deployed Features (1-7)
-    { name: "Advisory Engine", cadence: "v2.4 Core", icon: Cpu, isLive: true },
-    { name: "Web Application", cadence: "v1.8 Portal", icon: Globe, isLive: true },
-    { name: "Whatsapp bot", cadence: "24/7 Active", icon: MessageSquare, isLive: true },
-    { name: "Weather", cadence: "Realtime", icon: CloudSun, isLive: true },
-    { name: "Market", cadence: "Hourly updates", icon: TrendingUp, isLive: true },
-    { name: "Schemes", cadence: "Daily sync", icon: Landmark, isLive: true },
-    { name: "Irrigation advisory", cadence: "Realtime", icon: Droplets, isLive: true },
+    { name: "Advisory Engine", cadence: "v2.4 Core", icon: Layers, isLive: true },
+    { name: "Web Application", cadence: "v1.8 Portal", icon: Monitor, isLive: true },
+    { name: "Whatsapp bot", cadence: "24/7 Active", icon: MessageCircle, isLive: true },
+    { name: "Weather", cadence: "Realtime", icon: Cloud, isLive: true },
+    { name: "Market", cadence: "Hourly updates", icon: LineChart, isLive: true },
+    { name: "Schemes", cadence: "Daily sync", icon: FileCheck, isLive: true },
+    { name: "Irrigation advisory", cadence: "Realtime", icon: Sprout, isLive: true },
 
     // Under Development / Pipeline Features (8-11)
-    { name: "Crop calendar", cadence: "Q3 Release", icon: CalendarClock, isLive: false },
-    { name: "Soil health intelligence", cadence: "In Pipeline", icon: Database, isLive: false },
-    { name: "Predictive analysis", cadence: "R&D Phase", icon: Sparkles, isLive: false },
-    { name: "Pests & disease alerts", cadence: "In Training", icon: ShieldCheck, isLive: false },
+    { name: "Crop calendar", cadence: "Q3 Release", icon: Calendar, isLive: false },
+    { name: "Soil health intelligence", cadence: "In Pipeline", icon: FlaskConical, isLive: false },
+    { name: "Predictive analysis", cadence: "R&D Phase", icon: LineChart, isLive: false },
+    { name: "Pests & disease alerts", cadence: "In Training", icon: Shield, isLive: false },
   ];
 
   const expertCounts = React.useMemo<[string, string, string][]>(() => {
@@ -457,31 +482,13 @@ export const HomeDashboard: React.FC = () => {
     ];
   }, [publicItems]);
 
-  const questionDomains = [
-    ["Crop production", 24],
-    ["Plant protection", 20],
-    ["Soil science", 16],
-    ["Horticulture", 14],
-    ["Animal husbandry", 11],
-    ["Farm machinery", 8],
-    ["Marketing", 7],
-  ];
-
-  const languageBars = [
-    ["Hindi", "82%"],
-    ["Punjabi", "68%"],
-    ["Marathi", "74%"],
-    ["Telugu", "61%"],
-    ["Tamil", "58%"],
-  ];
-
   return (
     <div className="home-dash-app">
       {/* Scroll Progress Bar */}
       <div className="page-progress" style={{ transformOrigin: "left" }} />
 
       {/* 1. Header / Navbar */}
-      <header className="site-header">
+      <header className={`site-header ${isNavScrolled ? "is-scrolled" : ""}`}>
         {/* Brand Logo */}
         <a
           href="#overview"
@@ -587,60 +594,131 @@ export const HomeDashboard: React.FC = () => {
         </nav>
       )}
 
-      {/* 2. Hero Section */}
+      {/* 2. Hero Section Redesigned */}
       <section className="hero" id="overview">
-        <img className="hero-background" src="/assets/hero-landscape.png" alt="Agricultural landscape" />
+        <img className="hero-background" src="/assets/hero-bg-new.jpg" alt="Agricultural landscape" />
         <div className="hero-wash" />
 
-        <div className="hero-layout page-shell">
-          <div className="hero-copy">
-            <span className="eyebrow">An IIT Ropar initiative</span>
-            <h1>India’s Agricultural Intelligence Infrastructure</h1>
-            <p>
-              Empowering every farmer, in every language, everywhere.
-              <br />
-              Validated Information | AI Powered | Human in Loop
+        <div className="hero-main-container page-shell">
+          {/* Left Column: Title, Subtitle, Actions, Metrics Dashboard */}
+          <div className="hero-left-col">
+            <span className="eyebrow">AN IIT ROPAR NATIONAL MISSION</span>
+            <h1 className="hero-title">No farmer should farm alone.</h1>
+            <p className="hero-subtitle">
+              Connecting every farmer to the wisdom of experts, institutions and the power of trusted intelligence.
             </p>
 
             <div className="hero-actions">
               <button
                 type="button"
-                className="watch-button"
+                className="watch-button-filled"
                 onClick={() => setIsStoryModalOpen(true)}
               >
-                <span>
-                  <Play size={16} fill="currentColor" />
+                <span className="play-icon-circle">
+                  <Play size={14} fill="currentColor" />
                 </span>
                 Watch the story
               </button>
 
-              <a href="#knowledge" className="text-link">
-                Explore mission <ArrowRight size={15} />
+              <a href="#knowledge" className="explore-mission-link">
+                Explore mission <ArrowRight size={16} />
               </a>
             </div>
 
-            <div className="hero-metrics">
+            {/* Glassmorphism Metrics Dashboard Box */}
+            <div className="hero-metrics-box">
               {heroMetrics.map(({ value, label, icon: Icon }) => (
-                <div className="metric" key={label}>
-                  <Icon size={18} />
-                  <span>
+                <div className="metric-cell" key={label}>
+                  <div className="metric-icon">
+                    <Icon size={18} />
+                  </div>
+                  <div className="metric-info">
                     <strong>{value}</strong>
                     <small>{label}</small>
-                  </span>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="hero-orb-wrap">
-            <OrbCanvas />
+          {/* Right Column: Interactive Network & Floating Avatars */}
+          <div className="hero-right-col">
+            <HeroNetwork />
+
+            {/* Floating Live Knowledge Pulse Card */}
+            <div className="live-knowledge-pulse-card">
+              <div className="pulse-card-header">
+                <span className="pulse-green-dot" />
+                <span>LIVE KNOWLEDGE PULSE</span>
+              </div>
+              <div className="pulse-counter-val">
+                {livePulseCount.toLocaleString()}
+              </div>
+              <div className="pulse-card-foot">
+                <span>validated updates today</span>
+                <svg className="mini-trend-chart" viewBox="0 0 60 20">
+                  <path
+                    d="M 0 16 Q 15 19, 30 11 T 60 4"
+                    fill="none"
+                    stroke="#488661"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M 0 16 Q 15 19, 30 11 T 60 4 L 60 20 L 0 20 Z"
+                    fill="rgba(72, 134, 97, 0.25)"
+                  />
+                </svg>
+              </div>
+            </div>
           </div>
         </div>
 
-        <a className="scroll-cue" href="#knowledge" aria-label="Scroll to explore">
-          <span>↓</span>
-          Scroll to explore
-        </a>
+        {/* Bottom Horizontal Vision Banner */}
+        <div className="hero-vision-bar">
+          <div className="vision-bar-content page-shell">
+            <div className="vision-statement">
+              <Sprout size={22} className="vision-leaf-icon" />
+              <span>
+                <strong>Our vision:</strong> An India where every farmer has the knowledge, confidence and support to thrive.
+              </span>
+            </div>
+
+            <div className="vision-pillars">
+              <div className="pillar-item">
+                <ShieldCheck size={18} className="pillar-icon" />
+                <div>
+                  <strong>Trusted</strong>
+                  <small>Verified by experts</small>
+                </div>
+              </div>
+
+              <div className="pillar-item">
+                <Lock size={18} className="pillar-icon" />
+                <div>
+                  <strong>Inclusive</strong>
+                  <small>In every language</small>
+                </div>
+              </div>
+
+              <div className="pillar-item">
+                <Users size={18} className="pillar-icon" />
+                <div>
+                  <strong>Impactful</strong>
+                  <small>Better decisions, better lives</small>
+                </div>
+              </div>
+
+              <div className="pillar-item">
+                <Sprout size={18} className="pillar-icon" />
+                <div>
+                  <strong>Sustainable</strong>
+                  <small>For today and tomorrow</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* 3. Knowledge Engine & Data Sources */}
@@ -852,7 +930,7 @@ export const HomeDashboard: React.FC = () => {
                     <small>
                       {cadence}
                       <i className={isLive ? "status-live" : "status-locked"}>
-                        {isLive ? "● Live" : "🔒 In Pipeline"}
+                        {isLive ? "Live" : "In Pipeline"}
                       </i>
                     </small>
                   </div>
@@ -1106,52 +1184,11 @@ export const HomeDashboard: React.FC = () => {
         </div>
       </section>
 
-      {/* 8. Learning Ecosystem */}
       <section className="learning-section" id="learning">
         <div className="page-shell learning-grid">
-          <article className="domains-card">
-            <span className="eyebrow">Domains of questions</span>
-            <h3>Where farmers seek answers</h3>
-            <div className="domain-list">
-              {questionDomains.map(([domain, pct]) => (
-                <label key={domain}>
-                  <span>
-                    {domain}
-                    <strong>{pct}%</strong>
-                  </span>
-                  <progress value={pct} max={24} />
-                </label>
-              ))}
-            </div>
-          </article>
-
-          <article className="languages-card">
-            <span className="eyebrow">Multilingual capability</span>
-            <h3>Knowledge in every language</h3>
-            <div className="language-stat">
-              <strong>15</strong>
-              <span>Indian languages</span>
-              <strong>12</strong>
-              <span>Audio languages</span>
-              <strong>60+</strong>
-              <span>Dialects covered</span>
-            </div>
-            <div className="language-bars">
-              {languageBars.map(([lang, pct]) => (
-                <label key={lang}>
-                  <span>
-                    {lang}
-                    <strong>{pct}</strong>
-                  </span>
-                  <progress value={parseInt(pct)} max={100} />
-                </label>
-              ))}
-            </div>
-          </article>
-
-          <article className="learning-card">
+          <article className="learning-card" style={{ gridColumn: "1 / -1" }}>
             <img src="/assets/learning-campus.png" alt="Agricultural science student studying field data" />
-            <div>
+            <div className="learning-card-content">
               <span className="eyebrow">Learning ecosystem</span>
               <h3>Building the next generation of agri-professionals.</h3>
               <div className="learning-tiers" style={{ display: "flex", alignItems: "center", gap: "12px", margin: "20px 0", fontSize: "14px", fontWeight: "700", color: "#173326" }}>
@@ -1161,9 +1198,30 @@ export const HomeDashboard: React.FC = () => {
                 <span style={{ color: "#d4ac57", opacity: 0.7 }}>|</span>
                 <span>Pioneer</span>
               </div>
-              <button type="button">
+               <a
+                className="explore-course-btn"
+                href="https://vibe.vicharanashala.ai/student/course-registration/6a2be954ca990e71be4e3752"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  width: "fit-content",
+                  minHeight: "42px",
+                  padding: "0 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  border: "0",
+                  borderRadius: "9px",
+                  background: "var(--forest)",
+                  color: "#fff",
+                  fontSize: "9px",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  gap: "16px",
+                }}
+              >
                 Explore the Course <ArrowRight size={16} />
-              </button>
+              </a>
             </div>
           </article>
         </div>
