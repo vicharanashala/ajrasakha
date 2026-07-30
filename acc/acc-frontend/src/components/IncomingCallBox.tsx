@@ -524,6 +524,13 @@ export const IncomingCallBox = ({
         setCallStatus("incoming");
         activeCallUuidRef.current = actualCallUuid;
 
+        // Reset transcripts from previous calls immediately on incoming call
+        setTranscripts([]);
+        setFarmerDetectedLanguage(null);
+        setTranslatedText(null);
+        setMessageText("");
+        lastCallUuidRef.current = null;
+
         // Try to get the assigned call UUID from backend user document
         refetchCurrentUser().then((res: any) => {
           const backendCallUuid = res.data?.currentCallUuid;
@@ -531,7 +538,6 @@ export const IncomingCallBox = ({
             actualCallUuid = backendCallUuid;
             activeCallUuidRef.current = backendCallUuid;
           }
-          // console.log(`📞 [IncomingCallBox] Resolved call UUID for incoming: ${actualCallUuid}`);
           onCallUuidChange?.(actualCallUuid);
         }).catch((err) => {
           console.error("❌ [IncomingCallBox] Error refetching user on incoming call:", err);
@@ -541,9 +547,15 @@ export const IncomingCallBox = ({
     );
 
     client.client.on("onCallAnswered", (callInfo?: any) => {
-      // console.log('✅ [CALL ANSWERED] Event fired!');
       setCallStatus("connected");
       onCallStateChange?.(true);
+
+      // Reset transcripts from previous calls on call answered
+      setTranscripts([]);
+      setFarmerDetectedLanguage(null);
+      setTranslatedText(null);
+      setMessageText("");
+      lastCallUuidRef.current = null;
 
       // Default ON: Auto-start transcript streaming when call is answered
       connectWebSocketRef.current?.();
@@ -561,7 +573,6 @@ export const IncomingCallBox = ({
           activeCallUuidRef.current = backendCallUuid;
         }
         if (actualCallUuid) {
-          // console.log(`📞 [IncomingCallBox] Resolved call UUID for answered: ${actualCallUuid}`);
           onCallUuidChange?.(actualCallUuid);
         }
       }).catch((err) => {
@@ -676,6 +687,19 @@ export const IncomingCallBox = ({
     wsRef.current = ws;
 
     // Setup message handlers
+    ws.onMessage("call_start", (message: PlivoTranscriptMessage) => {
+      console.log('📞 [IncomingCallBox] New call stream started via WS:', message.callId);
+      if (message.callId) {
+        activeCallUuidRef.current = message.callId;
+        onCallUuidChange?.(message.callId);
+      }
+      setTranscripts([]);
+      setFarmerDetectedLanguage(null);
+      setTranslatedText(null);
+      setMessageText("");
+      lastCallUuidRef.current = message.callId || null;
+    });
+
     ws.onMessage("transcript", (message: PlivoTranscriptMessage) => {
       // console.log('📝 [IncomingCallBox] Received transcript:', message);
       if (message.callId && activeCallUuidRef.current && message.callId !== activeCallUuidRef.current) {

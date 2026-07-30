@@ -1121,7 +1121,35 @@ export const CallInterface = () => {
         onTranscriptChange={() => { }} // Not using direct strings anymore
         onOriginalTranscriptChange={() => { }}
         onTranscriptsListChange={(list) => setTranscriptsList(list)}
-        onCallStateChange={(isActive) => setIsCallActive(isActive)}
+        onCallStateChange={(isActive) => {
+          setIsCallActive(isActive);
+          if (isActive) {
+            // Clear transcripts, questions, summary, HITL and simulation states when a new call becomes active
+            setTranscriptsList([]);
+            setQuestions([]);
+            setTranslatedQuestions({});
+            setTranslatedAnswers({});
+            setTranslatingQuestions({});
+            setCopiedStates({});
+            setEditableTranslatedTranscript("");
+            lastTranscriptRef.current = "";
+            setIsSummaryOpen(false);
+            setEditableSummaryText("");
+            setExtractedState("");
+            setExtractedCrop("");
+            setHasGeneratedQuestions(false);
+            setThreadId(null);
+            setExtractedData(null);
+            setIsHumanVerificationMode(false);
+            setEditableQuery("");
+            setEditableCrop("");
+            setEditableState("");
+            setEditableDistrict("");
+            setEditableDomain([]);
+            setEditableSeason("");
+            setIsSimulatingMode(false);
+          }
+        }}
         onCallUuidChange={(uuid) => {
           if (uuid === callUuid) {
             return;
@@ -1161,6 +1189,7 @@ export const CallInterface = () => {
             setEditableDistrict("");
             setEditableDomain([]);
             setEditableSeason("");
+            setIsSimulatingMode(false);
           }
         }}
         onPhoneNumberChange={(phone) => {
