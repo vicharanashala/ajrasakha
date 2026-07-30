@@ -154,6 +154,7 @@ export class PublicDashboardRepository implements IPublicDashboardRepository {
             avatar: 1,
             role: 1,
             university: 1,
+            kvkCovered: 1,
             createdAt: 1,
           },
         },

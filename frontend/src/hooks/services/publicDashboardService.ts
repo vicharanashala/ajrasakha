@@ -12,7 +12,6 @@ export const OUTREACH_IMAGE_NAME = "outreach image";
 export const STAT_QUESTIONS_COLLECTED = "stat questions collected";
 export const STAT_QUESTIONS_REFINED = "stat questions refined";
 export const STAT_LANGUAGES_SUPPORTED = "stat languages supported";
-export const STAT_KVKS_COVERED = "stat kvks covered";
 export const STAT_AGROCLIMATIC_ZONES = "stat agroclimatic zones";
 
 /**
@@ -28,7 +27,6 @@ export const HOMEPAGE_STATS: {
   { name: STAT_QUESTIONS_COLLECTED, label: "Questions collected", defaultValue: "45M+" },
   { name: STAT_QUESTIONS_REFINED, label: "Questions refined", defaultValue: "70,741" },
   { name: STAT_LANGUAGES_SUPPORTED, label: "Languages Supported", defaultValue: "22" },
-  { name: STAT_KVKS_COVERED, label: "KVKs covered", defaultValue: "731" },
   { name: STAT_AGROCLIMATIC_ZONES, label: "Agroclimatic Zones", defaultValue: "126" },
 ];
 
@@ -70,6 +68,8 @@ export interface PublicUserItem {
   avatar?: string;
   role: string;
   university?: string;
+  /** KVK names this user covers (pae_expert users). */
+  kvkCovered?: string[];
   createdAt?: string;
 }
 

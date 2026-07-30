@@ -20,6 +20,8 @@ export interface PublicUserItem {
   avatar?: string;
   role: UserRole;
   university?: string;
+  /** KVK names this user covers (pae_expert users). */
+  kvkCovered?: string[];
   createdAt?: Date;
 }
 

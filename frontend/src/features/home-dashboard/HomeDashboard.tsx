@@ -55,7 +55,6 @@ import {
   STAT_QUESTIONS_COLLECTED,
   STAT_QUESTIONS_REFINED,
   STAT_LANGUAGES_SUPPORTED,
-  STAT_KVKS_COVERED,
   STAT_AGROCLIMATIC_ZONES,
 } from "../../hooks/services/publicDashboardService";
 
@@ -95,6 +94,7 @@ export const HomeDashboard: React.FC = () => {
   const [livePulseCount, setLivePulseCount] = useState(12842);
   const [activeStatesCount, setActiveStatesCount] = useState<number | null>(null);
   const [activeNetworkTab, setActiveNetworkTab] = useState<"experts" | "kvk" | "sau">("experts");
+  const [hoveredKvkIdx, setHoveredKvkIdx] = useState<number | null>(null);
   const [isNavScrolled, setIsNavScrolled] = useState(false);
 
   // Scroll listener for floating navbar effect
@@ -282,6 +282,42 @@ export const HomeDashboard: React.FC = () => {
     return Array.from(groups.values()).sort((a, b) => b.count - a.count);
   }, [publicUsers]);
 
+  // Coerce a user's kvkCovered into a clean string[] — tolerates the legacy
+  // { number, name: [] } object shape that older records may still hold.
+  const getKvks = (u: { kvkCovered?: unknown }): string[] => {
+    const v = u.kvkCovered;
+    const arr = Array.isArray(v)
+      ? v
+      : v && typeof v === "object" && Array.isArray((v as any).name)
+        ? (v as any).name
+        : [];
+    return (arr as unknown[])
+      .map((k) => (typeof k === "string" ? k.trim() : ""))
+      .filter(Boolean);
+  };
+
+  // "KVKs covered" = number of distinct KVK names across all users (case-insensitive).
+  const kvkCount = React.useMemo(() => {
+    const kvks = new Set<string>();
+    for (const u of publicUsers ?? []) {
+      for (const k of getKvks(u)) kvks.add(k.toLowerCase());
+    }
+    return kvks.size;
+  }, [publicUsers]);
+
+  // KVK-network breakdown: each user who covers KVKs, with their name and KVK list.
+  const kvkUsers = React.useMemo<{ name: string; kvks: string[] }[]>(() => {
+    const list: { name: string; kvks: string[] }[] = [];
+    for (const u of publicUsers ?? []) {
+      const kvks = getKvks(u);
+      if (kvks.length === 0) continue;
+      const name =
+        [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || "Unnamed";
+      list.push({ name, kvks });
+    }
+    return list.sort((a, b) => b.kvks.length - a.kvks.length);
+  }, [publicUsers]);
+
   const spinner = <Loader2 className="inline-block h-4 w-4 animate-spin" aria-label="Loading" />;
 
   const heroMetrics = [
@@ -290,7 +326,7 @@ export const HomeDashboard: React.FC = () => {
     { value: isItemsLoading ? spinner : readStat(STAT_LANGUAGES_SUPPORTED, "22"), label: "Languages Supported", icon: Globe },
     { value: isSaturatedLoading ? spinner : String(coverage.cropsCovered), label: "Crops Covered", icon: Sprout },
     { value: isSaturatedLoading ? spinner : String(coverage.statesCovered), label: "States covered", icon: MapPin },
-    { value: isItemsLoading ? spinner : readStat(STAT_KVKS_COVERED, "731"), label: "KVKs covered", icon: Landmark },
+    { value: isUsersLoading ? spinner : String(kvkCount), label: "KVKs covered", icon: Landmark },
     { value: isUsersLoading ? spinner : String(sauCount), label: "SAUs collaborated with", icon: BookOpen },
     { value: isItemsLoading ? spinner : readStat(STAT_AGROCLIMATIC_ZONES, "126"), label: "Agroclimatic Zones", icon: CloudSun },
   ];
@@ -987,6 +1023,55 @@ export const HomeDashboard: React.FC = () => {
                 ) : (
                   <li>
                     <span>No SAU (pae_expert) universities yet</span>
+                  </li>
+                )}
+              </ul>
+            ) : activeNetworkTab === "kvk" ? (
+              <ul className="expert-counts">
+                {kvkUsers.length > 0 ? (
+                  kvkUsers.map((u, i) => (
+                    <li key={`${u.name}-${i}`}>
+                      <span>
+                        <i style={{ background: "#6d9a57" }} />
+                        {u.name}
+                      </span>
+                      {/* Hover the count to reveal the user's KVK names. */}
+                      <strong
+                        style={{ position: "relative", cursor: "pointer" }}
+                        onMouseEnter={() => setHoveredKvkIdx(i)}
+                        onMouseLeave={() => setHoveredKvkIdx(null)}
+                      >
+                        {u.kvks.length.toLocaleString()}
+                        {hoveredKvkIdx === i && (
+                          <span
+                            style={{
+                              position: "absolute",
+                              bottom: "calc(100% + 8px)",
+                              right: 0,
+                              zIndex: 20,
+                              minWidth: "180px",
+                              maxWidth: "260px",
+                              padding: "8px 10px",
+                              borderRadius: "8px",
+                              background: "#173326",
+                              color: "#faf8f1",
+                              fontSize: "12px",
+                              fontWeight: 500,
+                              lineHeight: 1.5,
+                              textAlign: "left",
+                              whiteSpace: "normal",
+                              boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+                            }}
+                          >
+                            {u.kvks.join(", ")}
+                          </span>
+                        )}
+                      </strong>
+                    </li>
+                  ))
+                ) : (
+                  <li>
+                    <span>No KVKs covered yet</span>
                   </li>
                 )}
               </ul>
