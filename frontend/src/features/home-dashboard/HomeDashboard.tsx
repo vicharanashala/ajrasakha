@@ -998,6 +998,7 @@ export const HomeDashboard: React.FC = () => {
               <button
                 className={activeNetworkTab === "experts" ? "active" : ""}
                 type="button"
+                onMouseEnter={() => setActiveNetworkTab("experts")}
                 onClick={() => setActiveNetworkTab("experts")}
               >
                 Experts map
@@ -1005,6 +1006,7 @@ export const HomeDashboard: React.FC = () => {
               <button
                 className={activeNetworkTab === "kvk" ? "active" : ""}
                 type="button"
+                onMouseEnter={() => setActiveNetworkTab("kvk")}
                 onClick={() => setActiveNetworkTab("kvk")}
               >
                 KVK network
@@ -1012,6 +1014,7 @@ export const HomeDashboard: React.FC = () => {
               <button
                 className={activeNetworkTab === "sau" ? "active" : ""}
                 type="button"
+                onMouseEnter={() => setActiveNetworkTab("sau")}
                 onClick={() => setActiveNetworkTab("sau")}
               >
                 SAU network
@@ -1102,7 +1105,7 @@ export const HomeDashboard: React.FC = () => {
 
           <div className="expert-map-card">
             <div className="night-map" style={{ padding: "8px", overflow: "visible" }}>
-              <ExpertNetworkMap publicUsers={publicUsers} />
+              <ExpertNetworkMap publicUsers={publicUsers} mode={activeNetworkTab} />
               <div className="night-map-label" style={{ marginTop: "12px" }}>
                 <span className="live-dot" />
                 <span>

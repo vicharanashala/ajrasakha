@@ -15,6 +15,8 @@ export interface ExpertProfile {
   advisoriesCount: number;
   x: number;
   y: number;
+  /** For KVK / SAU pins: the user who covers this KVK / university. */
+  coveredBy?: string;
 }
 
 export const getInitialsAvatarUrl = (name: string) => {
@@ -75,14 +77,21 @@ const normalizeState = (state: string): string => {
 interface ExpertNetworkMapProps {
   publicUsers?: PublicUserItem[] | null;
   className?: string;
+  /** What the map plots: experts (default), KVKs covered, or SAU universities — per state. */
+  mode?: "experts" | "kvk" | "sau";
 }
 
 export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
   publicUsers,
   className = "",
+  mode = "experts",
 }) => {
   const [hoveredState, setHoveredState] = useState<string | null>(null);
   const [activePinId, setActivePinId] = useState<string | null>(null);
+  // A clicked pin/list item "sticks" so its details card stays open while you move the mouse
+  // to read it or pick another — essential when many pins overlap. Hover only previews.
+  const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
+  const activeProfileId = selectedPinId || activePinId;
   const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
 
   // Parse live API public users from backend response
@@ -103,6 +112,94 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
 
     const stateCounts: Record<string, number> = {};
     const dynamicMapped: ExpertProfile[] = [];
+
+    // Place an item on a state's centroid, spreading multiple items around it. Returns null
+    // for "all"/unrecognised states (we can't put them on a real location).
+    const placeInState = (rawState: string) => {
+      const normalized = rawState ? normalizeState(rawState) : "";
+      const match =
+        normalized && normalized !== "all"
+          ? REAL_OFFICIAL_INDIA_MAP.find(
+              (st) =>
+                st.name.toLowerCase() === normalized ||
+                st.id.toLowerCase() === normalized
+            )
+          : undefined;
+      if (!match) return null;
+      const stateIdx = stateCounts[match.id] || 0;
+      stateCounts[match.id] = stateIdx + 1;
+      const baseX = match.cx ?? 300;
+      const baseY = match.cy ?? 300;
+      let x = baseX;
+      let y = baseY;
+      if (stateIdx > 0) {
+        // Phyllotaxis spiral with a growing radius so many pins fan out and don't overlap.
+        const angle = (stateIdx * 137.5 * Math.PI) / 180;
+        const radius = 6 + stateIdx * 3.2;
+        x = Math.round(baseX + Math.cos(angle) * radius);
+        y = Math.round(baseY + Math.sin(angle) * radius);
+      }
+      return { match, x, y };
+    };
+
+    // KVK / SAU modes: plot each covered KVK (or university) at its state.
+    if (mode === "kvk" || mode === "sau") {
+      publicUsers.forEach((u) => {
+        if (safeString(u.role).toLowerCase() === "admin") return;
+        const coveredBy =
+          [safeString(u.firstName), safeString(u.lastName)]
+            .filter(Boolean)
+            .join(" ")
+            .trim() || "—";
+        if (mode === "kvk") {
+          const kvks = Array.isArray(u.kvkCovered) ? u.kvkCovered : [];
+          kvks.forEach((k, ki) => {
+            const name = safeString(k?.name);
+            if (!name) return;
+            const pos = placeInState(safeString(k?.state));
+            if (!pos) return;
+            const district = safeString(k?.district);
+            dynamicMapped.push({
+              id: `kvk-${safeString(u.firstName)}-${ki}-${name}`,
+              name,
+              role: "KVK COVERED",
+              roleType: "agronomist",
+              institution: district ? `${district} District` : pos.match.name,
+              city: district || `${pos.match.name} Hub`,
+              state: pos.match.name,
+              avatar: getInitialsAvatarUrl(name),
+              expertise: [],
+              advisoriesCount: 0,
+              x: pos.x,
+              y: pos.y,
+              coveredBy,
+            });
+          });
+        } else {
+          const uni = safeString(u.university);
+          if (!uni) return;
+          const pos = placeInState(safeString(u.preference?.state));
+          if (!pos) return;
+          const district = safeString(u.preference?.district);
+          dynamicMapped.push({
+            id: `sau-${safeString(u.firstName)}-${uni}`,
+            name: uni,
+            role: "SAU / UNIVERSITY",
+            roleType: "researcher",
+            institution: uni,
+            city: district || `${pos.match.name} Hub`,
+            state: pos.match.name,
+            avatar: getInitialsAvatarUrl(uni),
+            expertise: [],
+            advisoriesCount: 0,
+            x: pos.x,
+            y: pos.y,
+            coveredBy,
+          });
+        }
+      });
+      return dynamicMapped;
+    }
 
     publicUsers.forEach((u, idx) => {
       // Admins are back-office and not part of the public expert network.
@@ -220,17 +317,27 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
     });
 
     return dynamicMapped;
-  }, [publicUsers]);
+  }, [publicUsers, mode]);
 
   // Determine active state's experts
   const activeStateName = hoveredState;
+
+  // Labels change with the map mode (experts / KVKs / SAUs).
+  const nounSingular = mode === "kvk" ? "KVK" : mode === "sau" ? "SAU" : "expert";
+  const nounPlural = mode === "kvk" ? "KVKs" : mode === "sau" ? "SAUs" : "experts";
+  const networkTitle =
+    mode === "kvk"
+      ? "Pan-India KVK Network"
+      : mode === "sau"
+        ? "Pan-India SAU Network"
+        : "Pan-India Expert Network";
 
   // On initial load when no state is hovered, don't render 132 pins on SVG map to avoid performance lag!
   // Only render pins for the hovered state, OR if a pin is active via top banner hover in Pan-India view.
   const visibleExperts = useMemo(() => {
     if (!activeStateName) {
-      if (activePinId) {
-        const activeExp = experts.find((e) => e.id === activePinId);
+      if (activeProfileId) {
+        const activeExp = experts.find((e) => e.id === activeProfileId);
         return activeExp ? [activeExp] : [];
       }
       return []; // Fast 60fps initial render!
@@ -238,7 +345,7 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
     return experts.filter(
       (e) => e.state.toLowerCase() === activeStateName.toLowerCase()
     );
-  }, [experts, activeStateName, activePinId]);
+  }, [experts, activeStateName, activeProfileId]);
 
   // List of experts to display in top banner pill buttons
   const bannerExperts = useMemo(() => {
@@ -246,11 +353,11 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
     return experts;
   }, [activeStateName, visibleExperts, experts]);
 
-  // Find hovered expert profile
+  // The profile whose details card is shown — the clicked (sticky) one, else the hovered one.
   const hoveredProfile = useMemo(() => {
-    if (!activePinId) return null;
-    return experts.find((e) => e.id === activePinId) || null;
-  }, [experts, activePinId]);
+    if (!activeProfileId) return null;
+    return experts.find((e) => e.id === activeProfileId) || null;
+  }, [experts, activeProfileId]);
 
   return (
     <div
@@ -327,7 +434,7 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
 
         {/* Telecom / Simcard Style Location Pins with Face Avatars */}
         {visibleExperts.map((exp) => {
-          const isPinHovered = activePinId === exp.id;
+          const isPinHovered = activeProfileId === exp.id;
           const avatarHref = failedAvatars[exp.id]
             ? getInitialsAvatarUrl(exp.name)
             : getAvatarUrl(exp.avatar, exp.name);
@@ -341,6 +448,9 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
               transform={`translate(${exp.x}, ${exp.y})`}
               onMouseEnter={() => setActivePinId(exp.id)}
               onMouseLeave={() => setActivePinId(null)}
+              onClick={() =>
+                setSelectedPinId((prev) => (prev === exp.id ? null : exp.id))
+              }
               style={{
                 cursor: "pointer",
                 transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -445,9 +555,10 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
               boxShadow: "0 0 10px #d6b763",
             }}
           />
-          <span>{activeStateName || "Pan-India Expert Network"}</span>
+          <span>{activeStateName || networkTitle}</span>
           <span style={{ opacity: 0.65, fontWeight: 500, fontSize: "0.75rem" }}>
-            ({activeStateName ? visibleExperts.length : experts.length} expert{(activeStateName ? visibleExperts.length : experts.length) !== 1 ? "s" : ""})
+            ({activeStateName ? visibleExperts.length : experts.length}{" "}
+            {(activeStateName ? visibleExperts.length : experts.length) !== 1 ? nounPlural : nounSingular})
           </span>
         </div>
 
@@ -455,21 +566,30 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
           <div
             style={{
               display: "flex",
+              flexWrap: "wrap",
               alignItems: "center",
-              gap: "6px",
-              overflowX: "auto",
+              gap: "5px",
               paddingBottom: "2px",
               maxWidth: "360px",
+              maxHeight: "132px",
+              overflowY: "auto",
             }}
           >
             {bannerExperts.map((exp, pIdx) => {
-              const isSelected = activePinId === exp.id;
+              const isSelected = activeProfileId === exp.id;
+              // In KVK/SAU modes show the full name (not just the first word) so each of
+              // (say) 10 KVKs is individually readable and clickable from this list.
+              const label =
+                mode === "experts" ? exp.name.split(" ")[0] : exp.name;
               return (
                 <button
                   key={exp.id}
                   onMouseEnter={() => setActivePinId(exp.id)}
                   onMouseLeave={() => setActivePinId(null)}
-                  onClick={() => setActivePinId(exp.id)}
+                  onClick={() =>
+                    setSelectedPinId((prev) => (prev === exp.id ? null : exp.id))
+                  }
+                  title={exp.coveredBy ? `${exp.name} — Covered by ${exp.coveredBy}` : exp.name}
                   style={{
                     background: isSelected
                       ? "linear-gradient(135deg, #d6b763 0%, #f1d879 100%)"
@@ -484,13 +604,16 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
                     fontWeight: 700,
                     cursor: "pointer",
                     whiteSpace: "nowrap",
+                    maxWidth: "170px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                     transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
                     boxShadow: isSelected
                       ? "0 4px 12px rgba(214, 183, 99, 0.4)"
                       : "none",
                   }}
                 >
-                  {pIdx + 1}. {exp.name.split(" ")[0]}
+                  {pIdx + 1}. {label}
                 </button>
               );
             })}
@@ -515,10 +638,41 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
             padding: "16px",
             boxShadow: "0 20px 50px rgba(0,0,0,0.7), 0 0 20px rgba(214, 183, 99, 0.2)",
             zIndex: 100,
-            pointerEvents: "none",
+            // Interactive when pinned (so the close button works); click-through on hover.
+            pointerEvents: selectedPinId ? "auto" : "none",
             animation: "popIn3D 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
           }}
         >
+          {selectedPinId && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPinId(null);
+                setActivePinId(null);
+              }}
+              aria-label="Close"
+              style={{
+                position: "absolute",
+                top: "8px",
+                right: "8px",
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                border: "1px solid rgba(214,183,99,0.4)",
+                background: "rgba(255,255,255,0.1)",
+                color: "#f8f4e6",
+                cursor: "pointer",
+                fontSize: "13px",
+                lineHeight: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              ×
+            </button>
+          )}
+
           {/* Header with Photo & Verification Badge */}
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
             <div style={{ position: "relative", width: "48px", height: "48px" }}>
@@ -589,10 +743,17 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
               <span>{hoveredProfile.institution}</span>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
-              <span style={{ color: "#4ade80" }}>✓</span>
-              <span>{hoveredProfile.advisoriesCount}+ Verified Advisories</span>
-            </div>
+            {hoveredProfile.coveredBy ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
+                <span style={{ color: "#f1d879" }}>👤</span>
+                <span>Covered by {hoveredProfile.coveredBy}</span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
+                <span style={{ color: "#4ade80" }}>✓</span>
+                <span>{hoveredProfile.advisoriesCount}+ Verified Advisories</span>
+              </div>
+            )}
           </div>
 
           {/* Expertise Chips */}
