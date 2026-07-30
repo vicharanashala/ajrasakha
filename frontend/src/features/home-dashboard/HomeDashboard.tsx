@@ -282,18 +282,28 @@ export const HomeDashboard: React.FC = () => {
     return Array.from(groups.values()).sort((a, b) => b.count - a.count);
   }, [publicUsers]);
 
-  // Coerce a user's kvkCovered into a clean string[] — tolerates the legacy
-  // { number, name: [] } object shape that older records may still hold.
+  // Coerce a user's kvkCovered into a clean list of KVK names. Handles the current
+  // { state, district, name } object entries as well as legacy shapes (string[] and
+  // { number, name: [] }).
   const getKvks = (u: { kvkCovered?: unknown }): string[] => {
     const v = u.kvkCovered;
-    const arr = Array.isArray(v)
-      ? v
-      : v && typeof v === "object" && Array.isArray((v as any).name)
-        ? (v as any).name
-        : [];
-    return (arr as unknown[])
-      .map((k) => (typeof k === "string" ? k.trim() : ""))
-      .filter(Boolean);
+    if (Array.isArray(v)) {
+      return v
+        .map((k) => {
+          if (typeof k === "string") return k.trim();
+          if (k && typeof k === "object" && typeof (k as any).name === "string")
+            return (k as any).name.trim();
+          return "";
+        })
+        .filter(Boolean);
+    }
+    // Legacy { number, name: [] }.
+    if (v && typeof v === "object" && Array.isArray((v as any).name)) {
+      return (v as any).name
+        .map((n: unknown) => (typeof n === "string" ? n.trim() : ""))
+        .filter(Boolean);
+    }
+    return [];
   };
 
   // "KVKs covered" = number of distinct KVK names across all users (case-insensitive).

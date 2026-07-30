@@ -1,4 +1,4 @@
-import {IPreference, UserRole} from '#root/shared/interfaces/models.js';
+import {IKVKCoveredItem, IPreference, UserRole} from '#root/shared/interfaces/models.js';
 
 /** One state and the crops within it whose question count exceeds the saturation limit. */
 export interface SaturatedCropStateItem {
@@ -20,8 +20,8 @@ export interface PublicUserItem {
   avatar?: string;
   role: UserRole;
   university?: string;
-  /** KVK names this user covers (pae_expert users). */
-  kvkCovered?: string[];
+  /** KVKs this user covers — { state, district, name } entries (pae_expert users). */
+  kvkCovered?: IKVKCoveredItem[];
   createdAt?: Date;
 }
 

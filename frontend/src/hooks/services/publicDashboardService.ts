@@ -68,8 +68,8 @@ export interface PublicUserItem {
   avatar?: string;
   role: string;
   university?: string;
-  /** KVK names this user covers (pae_expert users). */
-  kvkCovered?: string[];
+  /** KVKs this user covers — { state, district, name } entries (pae_expert users). */
+  kvkCovered?: { state?: string; district?: string; name?: string }[];
   createdAt?: string;
 }
 
