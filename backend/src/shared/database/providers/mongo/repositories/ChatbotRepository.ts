@@ -21612,13 +21612,12 @@ export class ChatbotRepository implements IChatbotRepository {
         passedAt: 1,
         firstAllocationAt: 1,
         moderatorAssignedAt: 1,
-        moderatorCompletedAt: 1,
 
         // Add these once actual fields are confirmed:
-        // gatekeeperAssignedAt: 1,
-        // gatekeeperCompletedAt: 1,
-        // auditorAssignedAt: 1,
-        // auditorCompletedAt: 1,
+        gateKeeperAssignedAt: 1,
+        gateKeeperFinishedAt: 1,
+        auditorAssignedAt: 1,
+        auditorFinishedAt: 1,
       })
       .toArray();
 
@@ -21874,14 +21873,11 @@ export class ChatbotRepository implements IChatbotRepository {
       // moderatorAssignedAt -> moderation completion
       // ==================================================
 
-      if (question.moderatorAssignedAt) {
+      if (question.moderatorAssignedAt && completionAt) {
         addDuration(
           stats.moderator,
-
           question.moderatorAssignedAt,
-
-          question.moderatorCompletedAt ??
-            completionAt,
+          completionAt,
         );
       }
 
@@ -21889,35 +21885,35 @@ export class ChatbotRepository implements IChatbotRepository {
       // D. GATEKEEPING
       // ==================================================
 
-      /*
+      
       if (
-        question.gatekeeperAssignedAt &&
-        question.gatekeeperCompletedAt
+        question.gateKeeperAssignedAt &&
+        question.gateKeeperFinishedAt
       ) {
         addDuration(
           stats.gatekeeper,
-          question.gatekeeperAssignedAt,
-          question.gatekeeperCompletedAt,
+          question.gateKeeperAssignedAt,
+          question.gateKeeperFinishedAt,
         );
       }
-      */
+      
 
       // ==================================================
       // E. AUDITING
       // ==================================================
 
-      /*
+      
       if (
         question.auditorAssignedAt &&
-        question.auditorCompletedAt
+        question.auditorFinishedAt
       ) {
         addDuration(
           stats.auditor,
           question.auditorAssignedAt,
-          question.auditorCompletedAt,
+          question.auditorFinishedAt,
         );
       }
-      */
+      
 
       // ==================================================
       // F. REROUTED QUESTION -> COMPLETION
