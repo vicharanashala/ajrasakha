@@ -6993,6 +6993,22 @@ export class QuestionService extends BaseService implements IQuestionService {
     gateKeeperAssigned: number;
     auditorAssigned: number;
   }> {
+    // Self-heal first: free any gate keeper / auditor still holding a question whose status
+    // has left their scope (e.g. pushed to auditor) but whose post-commit release was
+    // missed. Without this, that user stays "busy" forever and never gets new work.
+    await this.reconcileRoleAssignees({
+      label: 'GateKeeper',
+      assigneeField: 'gateKeeperId',
+      finishedAtField: 'gateKeeperFinishedAt',
+      statuses: QuestionService.GATE_KEEPER_STATUSES,
+    });
+    await this.reconcileRoleAssignees({
+      label: 'Auditor',
+      assigneeField: 'auditorId',
+      finishedAtField: 'auditorFinishedAt',
+      statuses: QuestionService.AUDITOR_STATUSES,
+    });
+
     const gateKeeperAssigned = await this.assignRoleQueue({
       label: 'GateKeeper',
       role: 'gate_keeper',
@@ -7014,6 +7030,55 @@ export class QuestionService extends BaseService implements IQuestionService {
       notificationMessage: 'A question has been assigned to you for audit',
     });
     return { gateKeeperAssigned, auditorAssigned };
+  }
+
+  /** Frees role assignees (gate keeper / auditor) still holding a question that has left
+   *  their status scope but was never marked finished — the durable backstop for a missed
+   *  post-commit release (see freeRoleAssigneeOnStatusChange). Best-effort per question. */
+  private async reconcileRoleAssignees(cfg: {
+    label: string;
+    assigneeField: 'gateKeeperId' | 'auditorId';
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt';
+    statuses: QuestionStatus[];
+  }): Promise<number> {
+    try {
+      const leaked = await this.questionRepo.findLeakedRoleAssignments(
+        cfg.assigneeField,
+        cfg.finishedAtField,
+        cfg.statuses,
+      );
+      let freed = 0;
+      for (const q of leaked) {
+        const questionId = q._id!.toString();
+        const userId = (q as any)[cfg.assigneeField]?.toString();
+        try {
+          if (userId) {
+            await this.userRepo.removeAssignedQuestion(userId, questionId);
+          }
+          await this.questionRepo.markRoleFinished(
+            questionId,
+            cfg.finishedAtField,
+            new Date(),
+          );
+          freed++;
+        } catch (err: any) {
+          console.error(
+            `[${cfg.label}] Failed to reconcile leaked assignment ${questionId}:`,
+            err?.message,
+          );
+        }
+      }
+      if (freed) {
+        console.log(`[${cfg.label}] Reconciled ${freed} leaked assignment(s).`);
+      }
+      return freed;
+    } catch (err: any) {
+      console.error(
+        `[${cfg.label}] Failed to reconcile leaked assignments:`,
+        err?.message,
+      );
+      return 0;
+    }
   }
 
   /** Assigns one unassigned question (in the given statuses) to each free user of a
