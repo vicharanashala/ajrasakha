@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { REAL_OFFICIAL_INDIA_MAP } from "./realOfficialIndiaMapData";
-import { publicDashboardService, type SaturatedCropStateItem, type SaturatedCrop } from "@/hooks/services/publicDashboardService";
+import type { SaturatedCropStateItem, SaturatedCrop, SaturatedCropsApiResponse } from "@/hooks/services/publicDashboardService";
 
 interface IndiaMapProps {
   fillColor?: string;
@@ -137,15 +137,21 @@ export const SVGIndiaMap: React.FC<IndiaMapProps> = ({
 };
 
 export interface IndiaCoverageMapProps {
+  /** Shared /saturated-crops response, fetched once by the parent and drilled down here. */
+  saturatedCrops?: SaturatedCropsApiResponse | SaturatedCropStateItem[] | null;
+  isLoading?: boolean;
   onStatesCountChange?: (count: number) => void;
 }
 
 // Main Export Component for Section 5 (Pan-India Coverage Layer)
-export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCountChange }) => {
+export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({
+  saturatedCrops,
+  isLoading,
+  onStatesCountChange,
+}) => {
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [hoveredState, setHoveredState] = useState<string | null>(null);
-  const [apiDataMap, setApiDataMap] = useState<Record<string, SaturatedCropStateItem>>({});
-  const [isLoaded, setIsLoaded] = useState(false);
+  const isLoaded = !isLoading;
 
   // Helper to format state names cleanly (e.g. "MADHYA PRADESH" -> "Madhya Pradesh")
   const formatStateName = (name: string): string => {
@@ -158,90 +164,82 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
       .join(" ");
   };
 
-  // Fetch /saturated-crops from PublicDashboardController on mount
-  useEffect(() => {
-    let isMounted = true;
+  // Build the state→data lookup from the shared saturated-crops response (no own fetch).
+  const apiDataMap = React.useMemo<Record<string, SaturatedCropStateItem>>(() => {
+    const res = saturatedCrops as any;
+    const itemsList: SaturatedCropStateItem[] = Array.isArray(res)
+      ? res
+      : Array.isArray(res?.states)
+      ? res.states
+      : [];
+    if (itemsList.length === 0) return {};
 
-    publicDashboardService.getSaturatedCrops().then((res: any) => {
-      if (!isMounted) return;
-      setIsLoaded(true);
-      if (!res) return;
+    const map: Record<string, SaturatedCropStateItem> = {};
+    itemsList.forEach((item) => {
+      if (item && item.state) {
+        const rawState = item.state.trim();
+        const lowerState = rawState.toLowerCase();
+        const cleanStateName = formatStateName(rawState);
 
-      // Extract array whether response is { saturationLimit, states: [...] } or direct [...]
-      const itemsList: SaturatedCropStateItem[] = Array.isArray(res)
-        ? res
-        : Array.isArray(res.states)
-        ? res.states
-        : [];
+        if (!map[lowerState]) {
+          map[lowerState] = {
+            state: cleanStateName,
+            total: 0,
+            closed: 0,
+            inProgress: 0,
+            crops: [],
+          };
+        }
 
-      if (itemsList.length > 0) {
-        const map: Record<string, SaturatedCropStateItem> = {};
+        // Aggregate totals across case variations (e.g. "UTTAR PRADESH" & "Uttar Pradesh")
+        map[lowerState].total += Number(item.total) || 0;
+        map[lowerState].closed = (map[lowerState].closed ?? 0) + (Number(item.closed) || 0);
+        map[lowerState].inProgress = (map[lowerState].inProgress ?? 0) + (Number(item.inProgress) || 0);
 
-        itemsList.forEach((item) => {
-          if (item && item.state) {
-            const rawState = item.state.trim();
-            const lowerState = rawState.toLowerCase();
-            const cleanStateName = formatStateName(rawState);
-
-            if (!map[lowerState]) {
-              map[lowerState] = {
-                state: cleanStateName,
-                total: 0,
-                closed: 0,
-                inProgress: 0,
-                crops: [],
-              };
-            }
-
-            // Aggregate totals across case variations (e.g. "UTTAR PRADESH" & "Uttar Pradesh")
-            map[lowerState].total += Number(item.total) || 0;
-            map[lowerState].closed = (map[lowerState].closed ?? 0) + (Number(item.closed) || 0);
-            map[lowerState].inProgress = (map[lowerState].inProgress ?? 0) + (Number(item.inProgress) || 0);
-
-            // Merge crops list and sum crop counts (with closed / in-progress split)
-            if (Array.isArray(item.crops)) {
-              item.crops.forEach((c: SaturatedCrop) => {
-                const existingCrop = map[lowerState].crops.find(
-                  (x) => x.crop.toLowerCase() === c.crop.toLowerCase()
-                );
-                if (existingCrop) {
-                  existingCrop.count += Number(c.count) || 0;
-                  existingCrop.closed = (existingCrop.closed ?? 0) + (Number(c.closed) || 0);
-                  existingCrop.inProgress = (existingCrop.inProgress ?? 0) + (Number(c.inProgress) || 0);
-                } else {
-                  map[lowerState].crops.push({
-                    crop: c.crop,
-                    count: Number(c.count) || 0,
-                    closed: Number(c.closed) || 0,
-                    inProgress: Number(c.inProgress) || 0,
-                  });
-                }
+        // Merge crops list and sum crop counts (with closed / in-progress split)
+        if (Array.isArray(item.crops)) {
+          item.crops.forEach((c: SaturatedCrop) => {
+            const existingCrop = map[lowerState].crops.find(
+              (x) => x.crop.toLowerCase() === c.crop.toLowerCase()
+            );
+            if (existingCrop) {
+              existingCrop.count += Number(c.count) || 0;
+              existingCrop.closed = (existingCrop.closed ?? 0) + (Number(c.closed) || 0);
+              existingCrop.inProgress = (existingCrop.inProgress ?? 0) + (Number(c.inProgress) || 0);
+            } else {
+              map[lowerState].crops.push({
+                crop: c.crop,
+                count: Number(c.count) || 0,
+                closed: Number(c.closed) || 0,
+                inProgress: Number(c.inProgress) || 0,
               });
             }
-          }
-        });
-
-        // Store with original, clean title, and lowercase keys for O(1) instant lookup
-        const finalMap: Record<string, SaturatedCropStateItem> = {};
-        const uniqueKeys = Object.keys(map);
-        uniqueKeys.forEach((k) => {
-          const item = map[k];
-          finalMap[k] = item;
-          finalMap[item.state] = item;
-          finalMap[item.state.toLowerCase()] = item;
-        });
-
-        setApiDataMap(finalMap);
-        if (onStatesCountChange) {
-          onStatesCountChange(uniqueKeys.length);
+          });
         }
       }
     });
 
-    return () => {
-      isMounted = false;
-    };
-  }, [onStatesCountChange]);
+    // Store with original, clean title, and lowercase keys for O(1) instant lookup.
+    const finalMap: Record<string, SaturatedCropStateItem> = {};
+    Object.keys(map).forEach((k) => {
+      const item = map[k];
+      finalMap[k] = item;
+      finalMap[item.state] = item;
+      finalMap[item.state.toLowerCase()] = item;
+    });
+    return finalMap;
+  }, [saturatedCrops]);
+
+  // Distinct-state count, reported up to the parent.
+  const statesCount = React.useMemo(() => {
+    const seen = new Set<string>();
+    for (const item of Object.values(apiDataMap)) seen.add(item.state.toLowerCase());
+    return seen.size;
+  }, [apiDataMap]);
+
+  useEffect(() => {
+    onStatesCountChange?.(statesCount);
+  }, [statesCount, onStatesCountChange]);
 
   const activeStateName = hoveredState || selectedState;
   const formattedActiveStateName = activeStateName ? formatStateName(activeStateName) : null;
@@ -293,7 +291,7 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
   const dataScopeLabel = isStateHasData
     ? `Total Questions Submitted — ${activeStateItem!.state}`
     : isStateFocused
-    ? `Total Questions Submitted — Nationwide (Fallback)`
+    ? `Total Questions Submitted — ${formattedActiveStateName}`
     : `Total Questions Submitted — Nationwide`;
 
   const scopeBadge = isStateHasData
@@ -305,16 +303,19 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
   const scopeDescription = isStateHasData
     ? `Displaying state-specific question and crop breakdown for ${activeStateItem!.state}.`
     : isStateFocused
-    ? `No specific advisory data found for ${formattedActiveStateName}. Displaying All-India nationwide figures.`
+    ? `No advisory data available for ${formattedActiveStateName} yet.`
     : `Displaying nationwide aggregate coverage across all active states.`;
 
-  // Metrics shown in card
+  // Metrics shown in card: the focused state's figures if it has data; zeros if a state is
+  // focused but has no data; nationwide totals when nothing is focused.
   const displayTotals = isStateHasData
     ? {
         total: Number(activeStateItem!.total) || 0,
         closed: Number(activeStateItem!.closed) || 0,
         inProgress: Number(activeStateItem!.inProgress) || 0,
       }
+    : isStateFocused
+    ? { total: 0, closed: 0, inProgress: 0 }
     : grandTotals;
 
   const totalQuestions = displayTotals.total;
@@ -510,12 +511,12 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
               marginBottom: "10px",
             }}
           >
-            {isStateHasData
-              ? `Crop-Wise Breakdown — ${activeStateItem!.state}`
+            {isStateFocused
+              ? `Crop-Wise Breakdown — ${formattedActiveStateName}`
               : `State-Wise Breakdown (Nationwide)`}
           </span>
 
-          {isStateHasData ? (
+          {isStateFocused ? (
             cropsList.length > 0 ? (
               <div style={{ display: "grid", gap: "10px" }}>
                 {cropsList.map((c) => {
@@ -556,7 +557,7 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({ onStatesCoun
               </div>
             ) : (
               <div style={{ padding: "16px", borderRadius: "10px", background: "#f7f5ec", textAlign: "center", color: "#17332680", fontSize: "11px" }}>
-                No saturated crop records for {activeStateName}
+                No saturated crop records for {formattedActiveStateName}
               </div>
             )
           ) : statesList.length > 0 ? (

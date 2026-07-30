@@ -896,10 +896,6 @@ export const HomeDashboard: React.FC = () => {
             </p>
             <div className="coverage-stats">
               <div>
-                <strong>728+</strong>
-                <span>Districts covered</span>
-              </div>
-              <div>
                 <strong>{activeStatesCount !== null ? activeStatesCount : "—"}</strong>
                 <span>States & UTs</span>
               </div>
@@ -914,7 +910,11 @@ export const HomeDashboard: React.FC = () => {
             </div>
           </div>
 
-          <IndiaCoverageMap onStatesCountChange={setActiveStatesCount} />
+          <IndiaCoverageMap
+            saturatedCrops={saturatedCrops}
+            isLoading={isSaturatedLoading}
+            onStatesCountChange={setActiveStatesCount}
+          />
         </div>
       </section>
 
