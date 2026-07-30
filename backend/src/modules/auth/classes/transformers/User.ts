@@ -2,7 +2,7 @@ import {
   ObjectIdToString,
   StringToObjectId,
 } from '#shared/constants/transformerConstants.js';
-import {IPreference, IUser, NotificationRetentionType, UserRole} from '#shared/interfaces/models.js';
+import {IKVKCovered, IPreference, IUser, NotificationRetentionType, UserRole} from '#shared/interfaces/models.js';
 import {Expose, Transform} from 'class-transformer';
 import {ObjectId} from 'mongodb';
 
@@ -58,6 +58,9 @@ class User implements IUser {
   university?: string;
 
   @Expose()
+  kvkCovered?: string[] | null;
+
+  @Expose()
   isVerified: boolean;
 
   @Expose()
@@ -106,6 +109,7 @@ class User implements IUser {
     this.updatedAt = data?.updatedAt || new Date();
     this.mobile = data?.mobile || '';
     this.university = data?.university || '';
+    this.kvkCovered = data?.kvkCovered ?? null;
     this.isCallAgentActive = data?.isCallAgentActive;
     this.lastAgentActiveAt = data?.lastAgentActiveAt;
     this.Call_centre_manager = data?.Call_centre_manager;

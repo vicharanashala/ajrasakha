@@ -121,6 +121,7 @@ export class UserService extends BaseService {
         'lastName',
         'mobile',
         'university',
+        'kvkCovered',
         'preference',
         'avatar',
       ] as const;
@@ -149,6 +150,22 @@ export class UserService extends BaseService {
         throw new BadRequestError(
           'University name cannot be empty or blank space',
         );
+      if (sanitizedData.kvkCovered !== undefined && sanitizedData.kvkCovered !== null) {
+        // Stored as a plain string array. Tolerate the legacy { name: [] } shape on input.
+        const raw = Array.isArray(sanitizedData.kvkCovered)
+          ? sanitizedData.kvkCovered
+          : Array.isArray((sanitizedData.kvkCovered as any).name)
+            ? (sanitizedData.kvkCovered as any).name
+            : [];
+        // Title-case each name so they persist consistently (e.g. "kl university" → "Kl University").
+        sanitizedData.kvkCovered = raw
+          .map((n: string) =>
+            typeof n === 'string'
+              ? n.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+              : '',
+          )
+          .filter(Boolean);
+      }
       const authService = getFromContainer(FirebaseAuthService);
 
       return this._withTransaction(async (session: ClientSession) => {
@@ -300,6 +317,7 @@ export class UserService extends BaseService {
             special_task_force_moderator: u.special_task_force_moderator,
             mobile: u.mobile ?? '',
             university: u.university ?? '',
+            kvkCovered: u.kvkCovered ?? null,
             state: u.preference?.state ?? null,
             domain: u.preference?.domain ?? null,
             assignedQuestionIds: (u.assignedQuestionIds ?? []).map(a => ({
