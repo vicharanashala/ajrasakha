@@ -144,6 +144,8 @@ export class ChatbotController {
       query.userType,
       query.startTime,
       query.endTime,
+      undefined,
+      query.coordinatorId,
     );
   }
 
@@ -225,6 +227,9 @@ export class ChatbotController {
 
     @QueryParam('endDate')
     endDate: string,
+
+    @QueryParam('coordinatorId')
+    coordinatorId?: string,
   ) {
     // console.log("Selected state code controller", selectedStateCode);
     let convertedStartDate = undefined
@@ -242,6 +247,7 @@ export class ChatbotController {
       userType,
       convertedStartDate,
       convertedEndDate,
+      coordinatorId,
     );
   }
 
@@ -395,8 +401,8 @@ export class ChatbotController {
   @Get('/query-categories')
   @HttpCode(200)
   @Authorized()
-  async getQueryCategories(@QueryParams() query: SourceQueryDto) {
-    return this.chatbotService.getQueryCategories(query.source, query.userType);
+  async getQueryCategories(@QueryParams() query: { source?: string; userType?: string; coordinatorId?: string }) {
+    return this.chatbotService.getQueryCategories(query.source || 'annam', query.userType || 'all', query.coordinatorId);
   }
 
   // @OpenAPI({
@@ -477,6 +483,7 @@ export class ChatbotController {
       userId?: string;
       manualSource?: string;
       effectiveDate?: string;
+      coordinatorId?: string;
     },
     @QueryParam('userId') userId?: string,
   ) {
@@ -495,6 +502,7 @@ export class ChatbotController {
         query.source,
         query.userType,
         query.search,
+        query.coordinatorId,
       );
     } else if (query.state && !query.district && !query.closedWithInTwohours) {
       console.log("Inside first else if.......")
@@ -534,6 +542,7 @@ export class ChatbotController {
         query.source,
         query.userType,
         query.search,
+        query.coordinatorId,
       );
     } else if (query.status) {
       const startDate = new Date(query.startDate);
@@ -733,9 +742,9 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getTopCrops(
-    @QueryParams() query: {source?: string; userType?: string},
+    @QueryParams() query: {source?: string; userType?: string; coordinatorId?: string},
   ) {
-    return this.chatbotService.getTopCrops(query.source, query.userType);
+    return this.chatbotService.getTopCrops(query.source, query.userType, query.coordinatorId);
   }
 
   @OpenAPI({
@@ -1147,8 +1156,8 @@ export class ChatbotController {
   @Get('/duplicate-questions')
   @HttpCode(200)
   @Authorized()
-  async getDuplicateQuestions(@QueryParams() query: SourceQueryDto) {
-    return this.chatbotService.getDuplicateQuestions(query.source);
+  async getDuplicateQuestions(@QueryParams() query: {source?: string; coordinatorId?: string}) {
+    return this.chatbotService.getDuplicateQuestions(query.source || 'annam', query.coordinatorId);
   }
 
   @OpenAPI({
@@ -1159,8 +1168,8 @@ export class ChatbotController {
   @Get('/domain-spikes')
   @HttpCode(200)
   @Authorized()
-  async getDomainSpikes(@QueryParams() query: {days?: number}) {
-    return this.chatbotService.getDomainSpikes(query.days ?? 60);
+  async getDomainSpikes(@QueryParams() query: {days?: number; coordinatorId?: string}) {
+    return this.chatbotService.getDomainSpikes(query.days ?? 60, query.coordinatorId);
   }
 
   @Get('/user-growth')
@@ -1190,12 +1199,13 @@ export class ChatbotController {
         30,
         startDate,
         endDate,
+        query.coordinatorId,
       );
       return data;
     }
 
     const range = Number(query.range) || 30;
-    const data = await this.chatbotService.getGrowth(query.source, query.userType, range);
+    const data = await this.chatbotService.getGrowth(query.source, query.userType, range,undefined, undefined, query.coordinatorId,);
     return data;
   }
 
@@ -1938,21 +1948,24 @@ export class ChatbotController {
       : undefined;
     const source = query.source;
     const userType = query.userType;
+    const coordinatorId = query.coordinatorId;
 
     const [topFaqs, topQuestionsFromCollection, repeatQueryCountData] =
       await Promise.all([
-        this.chatbotService.getTopFaqs(source, userType, startTime, endTime),
+        this.chatbotService.getTopFaqs(source, userType, startTime, endTime, coordinatorId),
         this.chatbotService.getTopQuestionsFromCollection(
           source,
           userType,
           startTime,
           endTime,
+          coordinatorId,
         ),
         this.chatbotService.getRepeatQueryCount(
           source,
           userType,
           startTime,
           endTime,
+          coordinatorId,
         ),
       ]);
 
@@ -1977,6 +1990,7 @@ export class ChatbotController {
       : undefined;
     const source = query.source;
     const userType = query.userType;
+    const coordinatorId = query.coordinatorId;
 
     return await this.chatbotService.getTopQuestionInstances(
       questionId,
@@ -1985,7 +1999,8 @@ export class ChatbotController {
       startTime,
       endTime,
       page,
-      limit
+      limit,
+      coordinatorId
     );
   }
 
@@ -2094,6 +2109,7 @@ export class ChatbotController {
       query.endDate,
     );
   }
+
 
   @Patch('/assign-users/:userId')
   @HttpCode(200)

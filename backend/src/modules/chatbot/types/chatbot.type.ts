@@ -3,7 +3,8 @@ export type GrowthQuery = {
   startDate?: string;
   endDate?: string;
   source?: string;
-  userType?: string,
+  userType?: string;
+  coordinatorId?: string;
 };
 
 export type GrowthResponse = {
@@ -36,6 +37,7 @@ export type TopFaqsQuery = {
   source?: string;
   startTime?: string;
   endTime?: string;
+  coordinatorId?: string;
 }
 
 export type userProfileQuery = {

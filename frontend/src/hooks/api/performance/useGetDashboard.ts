@@ -86,11 +86,19 @@ export const useGetOverview = (query: {
   selectedDate: string;
   startTime?: string;
   endTime?: string;
+  userType?: "all" | "tmu" | "normal";
 }) => {
   return useQuery<OverviewResponse & {
     moderatorApprovalRate: ModeratorApprovalRate;
   } | null>({
-    queryKey: ["dashboard", "overview", query.selectedDate, query.startTime, query.endTime],
+    queryKey: [
+      "dashboard",
+      "overview",
+      query.selectedDate,
+      query.startTime,
+      query.endTime,
+      query.userType,
+    ],
     queryFn: () => performaceService.getOverview(query),
     placeholderData: keepPreviousData,
   });

@@ -72,6 +72,16 @@ export interface ILocationVillage {
   pincode: string;
 }
 
+export interface IKvk {
+  kvkId: string;
+  kvkName: string;
+  kvkAddress?: string;
+  districtCode?: number;
+  stateCode?: number;
+  latitude?: number;
+  longitude?: number;
+}
+
 export class LocationService {
   private _baseUrl = `${API_BASE_URL}/location`;
 
@@ -104,6 +114,14 @@ export class LocationService {
       return await apiFetch<ILocationVillage[]>(`${this._baseUrl}/villages?blockCode=${blockCode}`);
     } catch {
       return fallbackVillages(blockCode);
+    }
+  }
+
+  async getKvks(districtCode: number): Promise<IKvk[] | null> {
+    try {
+      return await apiFetch<IKvk[]>(`${this._baseUrl}/kvks?districtCode=${districtCode}`);
+    } catch {
+      return fallbackKvks(districtCode);
     }
   }
 }
@@ -173,5 +191,20 @@ async function fallbackVillages(blockCode: number): Promise<ILocationVillage[]> 
     villageNameEnglish,
     blockCode,
     pincode: "",
+  }));
+}
+
+async function fallbackKvks(districtCode: number): Promise<IKvk[]> {
+  const { KVK } = await import("@/features/chatbotDashboard/utils/KVKS");
+  const districtName = districtNameByCode.get(districtCode);
+  
+  if (!districtName || !KVK[districtName]) {
+    return [];
+  }
+
+  return KVK[districtName].map((kvkName, index) => ({
+    kvkId: `${districtCode}-${index}`,
+    kvkName,
+    districtCode,
   }));
 }

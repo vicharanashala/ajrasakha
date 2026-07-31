@@ -6,9 +6,11 @@
  *
  * Replaces the in-process node-cron in bootstrap/jobs/dailyReport.ts.
  */
+import { loadAppModules } from '../../bootstrap/loadModules.js';
 import { sendStatsEmail } from '../../utils/backupEmailService.js';
 
 async function main(): Promise<void> {
+  await loadAppModules('all');
   console.log('[daily-report-job] sending GDB Count Report...');
   await sendStatsEmail();
   console.log('[daily-report-job] done');

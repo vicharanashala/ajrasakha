@@ -8,8 +8,11 @@ export const buildQuestionFilter = async (
   QuestionSubmissionCollection,AnswersCollection
 ) => {
 
-  const filter = buildBaseQuestionMatch(query.source);
-
+  const filter = buildBaseQuestionMatch(query.source,query.isTrainingQuestion=== true);
+  
+  if(query.isTrainingQuestion=== true){
+    filter.source = "AGRI_EXPERT"
+  }
   const caseInsensitive = (field: string, value?: string) => {
     if (value && value !== "all") {
       filter[field] = { $regex: `^${value}$`, $options: "i" };
@@ -31,6 +34,7 @@ export const buildQuestionFilter = async (
     closedAtStart,
     closedAtEnd,
     user,
+    assignedUser,
     review_level,
     consecutiveApprovals,
     autoAllocateFilter,
@@ -131,6 +135,66 @@ if (autoAllocateModeratorFilter && autoAllocateModeratorFilter !== 'all') {
     if (!ids.length) return { filter: { _id: { $in: [] } } };
 
     filter._id = { $in: ids };
+  }
+
+  if (assignedUser && assignedUser !== "all") {
+    const userObjId = new ObjectId(assignedUser);
+    const userStr = assignedUser.toString();
+
+    const submissions = await QuestionSubmissionCollection
+      .find({
+        $or: [
+          {
+            $and: [
+              { history: { $size: 0 } },
+              { queue: { $size: 1 } },
+              { $or: [{ "queue.0": userObjId }, { "queue.0": userStr }] },
+            ],
+          },
+          {
+            $and: [
+              { history: { $not: { $size: 0 } } },
+              {
+                $expr: {
+                  $and: [
+                    { $eq: [{ $arrayElemAt: ["$history.status", -1] }, "in-review"] },
+                    {
+                      $in: [
+                        { $arrayElemAt: ["$history.updatedBy", -1] },
+                        [userObjId, userStr],
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      })
+      .project({ questionId: 1 })
+      .toArray();
+
+    const ids = submissions.map((s: any) => s.questionId);
+
+    if (!ids.length) return { filter: { _id: { $in: [] } } };
+
+    if (filter._id) {
+      filter._id = {
+        $in: ids
+          .map((id: any) => (id instanceof ObjectId ? id : new ObjectId(id)))
+          .filter((x: ObjectId) =>
+            filter._id.$in.some((y: any) =>
+              y instanceof ObjectId ? y.equals(x) : y.toString() === x.toString(),
+            ),
+          ),
+      };
+    } else {
+      filter._id = {
+        $in: ids.map((id: any) =>
+          id instanceof ObjectId ? id : new ObjectId(id),
+        ),
+      };
+    }
   }
 
   if (review_level && review_level !== "all") {

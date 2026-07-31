@@ -470,9 +470,9 @@ export interface ResponseAdherenceTable {
   whatsappDynamicSchemes: number;
   ajrasakhaDynamicSchemes: number;
   manualDynamicSchemes: number;
-  whatsappNonGdbWithin120: number;
-  ajrasakhaNonGdbWithin120: number;
-  manualNonGdbWithin120: number;
+  // whatsappNonGdbWithin120: number;
+  // ajrasakhaNonGdbWithin120: number;
+  // manualNonGdbWithin120: number;
   whatsappInReview: number;
   ajrasakhaInReview: number;
   manualInReview: number;
@@ -482,6 +482,49 @@ export interface ResponseAdherenceTable {
   whatsappDelayed: number;
   ajrasakhaDelayed: number;
   manualDelayed: number;
+
+          whatsappClosedCount: number;
+        whatsappPendingCount: number;
+        whatsappNonAgriCount: number;
+        whatsappDynamicCount: number;
+        whatsappDuplicateCount: number;
+        whatsappHoldCount: number;
+        whatsappPaeSubmitedCount: number;
+        whatsappDynamicCLosedCount: number;
+        whatsappReroutedCount: number;
+        whatsappPassCount: number;
+        whatsappDuplicateClosedCount: number;
+
+      ajrasakhaClosedCount: number;
+    ajrasakhaPendingCount: number;
+    ajrasakhaNonAgriCount: number;
+    ajrasakhaDynamicCount: number;
+    ajrasakhaDuplicateCount: number;
+    ajrasakhaHoldCount: number;
+    ajrasakhaPaeSubmitedCount:number;
+    ajrasakhaDynamicCLosedCount: number;
+    ajrasakhaReroutedCount: number;
+    ajrasakhaPassCount: number;
+    ajrasakhaDuplicateClosedCount:number;
+
+      manualClosedCount: number;
+    manualPendingCount: number;
+    manualNonAgriCount:number;
+    manualDynamicCount: number;
+    manualDuplicateCount: number;
+    manualHoldCount: number;
+    manualPaeSubmitedCount:number;
+    manualDynamicCLosedCount: number;
+    manualReroutedCount: number;
+    manualPassCount: number;
+    manualDuplicateClosedCount:number;
+          manualAverageResponseGBDMinutes: number;
+    manualAverageResponseNonGBDMinutes: number;
+            whatsappAverageResponseGBDMinutes: number;
+        whatsappAverageResponseNonGBDMinutes: number;
+            ajrasakhaAverageResponseGBDMinutes: number,
+    ajrasakhaAverageResponseNonGBDMinutes: number;
+
   whatsappAverageResponseMinutes: number;
   ajrasakhaAverageResponseMinutes: number;
   manualAverageResponseMinutes: number;
@@ -491,6 +534,130 @@ export interface ResponseAdherenceTable {
   manualTotal?: number;
   agriexpertTotal?: number;
   outreachTotal?: number;
+  answeredWithin120MinClosedwhatsapp: number,
+  answeredWithin120MinPasswhatsapp: number,
+  answeredWithin120MinDynamicClosedwhatsapp: number,
+  answeredWithin120MinDuplicateClosedwhatsapp: number,
+  answeredWithin120MinClosedajrasakha: number,
+  answeredWithin120MinPassajrasakha: number,
+  answeredWithin120MinDynamicClosedajrasakha: number,
+  answeredWithin120MinDuplicateClosedajrasakha: number,
+  answeredWithin120MinClosedmanual: number,
+  answeredWithin120MinPassmanual: number,
+  answeredWithin120MinDynamicClosedmanual: number,
+  answeredWithin120MinDuplicateClosedmanual: number,
+
+  whatsappdynamicWeatherDynamicCount: number;
+  whatsappdynamicWeatherStaticDynamicCount: number;
+  ajrasakhadynamicWeatherDynamicCount: number;
+  ajrasakhadynamicWeatherStaticDynamicCount: number;
+  manualdynamicWeatherDynamicCount: number;
+  manualdynamicWeatherStaticDynamicCount: number;
+
+  whatsappdynamicMarketDynamicCount: number;
+  whatsappdynamicMarketStaticDynamicCount: number;
+  ajrasakhadynamicMarketDynamicCount: number;
+  ajrasakhadynamicMarketStaticDynamicCount: number;
+  manualdynamicMarketDynamicCount: number;
+  manualdynamicMarketStaticDynamicCount: number;
+
+  whatsappdynamicSchemesDynamicCount: number;
+  whatsappdynamicSchemesStaticDynamicCount: number;
+  ajrasakhadynamicSchemesDynamicCount: number;
+  ajrasakhadynamicSchemesStaticDynamicCount: number;
+  manualdynamicSchemesDynamicCount: number;
+  manualdynamicSchemesStaticDynamicCount: number;
+
+  totalDynamicWhatsappCount: number;
+  totalDynamicAjrasakhaCount: number;
+  totalDynamicManualCount: number;
+
+  totalStaticDynamicWhatsappCount: number;
+  totalStaticDynamicAjrasakhaCount: number;
+  totalStaticDynamicManualCount: number;
+
+  whatsAppAnsweredAfter120Min: number;
+  ajrasakhaAnsweredAfter120Min: number;
+  manualAnsweredAfter120Min: number;
+
+  whatsAppAnsweredAfter120MinClosed: number;
+  whatsAppAnsweredAfter120MinPass: number;
+  whatsAppAnsweredAfter120MinDynamicClosed: number;
+  whatsAppAnsweredAfter120MinDuplicateClosed: number;
+
+  ajrasakhaAnsweredAfter120MinClosed: number;
+  ajrasakhaAnsweredAfter120MinPass: number;
+  ajrasakhaAnsweredAfter120MinDynamicClosed: number;
+  ajrasakhaAnsweredAfter120MinDuplicateClosed: number;
+
+  manualAnsweredAfter120MinClosed: number;
+  manualAnsweredAfter120MinPass: number;
+  manualAnsweredAfter120MinDynamicClosed: number;
+  manualAnsweredAfter120MinDuplicateClosed: number;
+
+  whatsappSlaBreachedCount: number;
+  ajrasakhaSlaBreachedCount: number;
+  manualSlaBreachedCount: number;
+
+  // WhatsApp
+  whatsappTatMinutes: number;
+  whatsappAverageTimeToAuthorMinutes: number;
+  whatsappAverageReviewAcceptMinutes: number;
+  whatsappAverageReviewModifyMinutes: number;
+  whatsappAverageReviewRejectReauthorMinutes: number;
+  whatsappAverageModeratingMinutes: number;
+  whatsappAverageGatekeepingMinutes: number;
+  whatsappAverageAuditingMinutes: number;
+  whatsappAverageReroutedCompletionMinutes: number;
+
+  // Ajrasakha
+  ajrasakhaTatMinutes: number;
+  ajrasakhaAverageTimeToAuthorMinutes: number;
+  ajrasakhaAverageReviewAcceptMinutes: number;
+  ajrasakhaAverageReviewModifyMinutes: number;
+  ajrasakhaAverageReviewRejectReauthorMinutes: number;
+  ajrasakhaAverageModeratingMinutes: number;
+  ajrasakhaAverageGatekeepingMinutes: number;
+  ajrasakhaAverageAuditingMinutes: number;
+  ajrasakhaAverageReroutedCompletionMinutes: number;
+
+  // Manual
+  manualTatMinutes: number;
+  manualAverageTimeToAuthorMinutes: number;
+  manualAverageReviewAcceptMinutes: number;
+  manualAverageReviewModifyMinutes: number;
+  manualAverageReviewRejectReauthorMinutes: number;
+  manualAverageModeratingMinutes: number;
+  manualAverageGatekeepingMinutes: number;
+  manualAverageAuditingMinutes: number;
+  manualAverageReroutedCompletionMinutes: number;
+
+  whatsappAverageEndToEndQnaCompletionMinutes: number;
+  ajrasakhaAverageEndToEndQnaCompletionMinutes: number;
+  manualAverageEndToEndQnaCompletionMinutes: number;
+
+  whatsappAverageEndToEndUniqueMinutes: number;
+  ajrasakhaAverageEndToEndUniqueMinutes: number;
+  manualAverageEndToEndUniqueMinutes: number;
+
+  whatsappAverageEndToEndDynamicMinutes: number;
+  ajrasakhaAverageEndToEndDynamicMinutes: number;
+  manualAverageEndToEndDynamicMinutes: number;
+
+  whatsappAverageEndToEndDuplicateMinutes: number;
+  ajrasakhaAverageEndToEndDuplicateMinutes: number;
+  manualAverageEndToEndDuplicateMinutes: number;
+      whatsappPaeAssignedQuestions: number;
+    ajrasakhaPaeAssignedQuestions: number;
+    manualPaeAssignedQuestions: number;
+    // PAE Contribution to GDB
+    whatsappPaeContributionToGDB: number;
+    ajrasakhaPaeContributionToGDB: number;
+    manualPaeContributionToGDB: number;
+    // PAE Contribution to GDB %
+    whatsappPaeContributionToGDBPct: number;
+    ajrasakhaPaeContributionToGDBPct: number;
+    manualPaeContributionToGDBPct: number;
 }
 
 // ─── Single consolidated interface ───────────────────────────────────────────
@@ -536,6 +703,7 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    coordinatorId?: string,
   ): Promise<QueryCategoryEntry[]>;
 
   getQueryCategoryQuestions(
@@ -547,6 +715,7 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
     search?: string,
+    coordinatorId?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
 
   getWeatherConcernQueries(
@@ -579,6 +748,7 @@ export interface IChatbotRepository {
     source?: string,
     userType?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{
     totalQuestions: number;
     topCrops: {name: string; count: number}[];
@@ -619,7 +789,7 @@ export interface IChatbotRepository {
   //   search?: string,
   // ): Promise<any>;
 
-    getQuestionsByCrop(crop: string, crops?: string[] ,questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
+    getQuestionsByCrop(crop: string, crops?: string[] ,questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string, coordinatorId?: string): Promise<any>
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
@@ -822,9 +992,9 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<KccAndAgriAppStats>;
 
-  getIdsCreated(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
-  getInstalls(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
-  getActiveUsers(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
+  getIdsCreated(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
+  getInstalls(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
+  getActiveUsers(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
 
   getFeedbackData(
     source?: string,
@@ -869,12 +1039,14 @@ export interface IChatbotRepository {
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
   getDuplicateQuestions(
     source?: string,
+    coordinatorId?: string,
     session?: ClientSession,
   ): Promise<DuplicateQuestionEntry[]>;
 
   /** Domain query spikes: days where a domain's question count is ≥2× its 30-day rolling average. */
   getDomainSpikes(
     days?: number,
+    coordinatorId?: string,
     session?: ClientSession,
   ): Promise<DomainSpikeEntry[]>;
 
@@ -895,6 +1067,7 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{question: string; count: number}>>;
 
   /** 10 most frequently asked questions from the questions collection. */
@@ -904,6 +1077,7 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{questionId: string; question: string; count: number}>>;
 
   /** Get documents for a specific top question drill-down. */
@@ -916,6 +1090,7 @@ export interface IChatbotRepository {
     page?: number,
     limit?: number,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>;
   getResponseAdherenceTable(
     session?: ClientSession,
@@ -932,6 +1107,7 @@ export interface IChatbotRepository {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<DistrictAnalyticsEntry[]>;
 
   getWeatherConcernAnalytics(
@@ -1040,6 +1216,7 @@ export interface IChatbotRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<any>;
 
   /**
@@ -1131,6 +1308,10 @@ export interface IChatbotRepository {
     startDate?: string,
     endDate?: string,
   ) : Promise<any>
+  getCoordinatorKpiSummary(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<any>;
   assignUsers(userId: string, targetIds: string[]): Promise<any>
   unAssignUsers(userId: string, targetIds: string[]): Promise<any>
 
@@ -1245,6 +1426,12 @@ export interface IChatbotRepository {
     page: number,
     limit: number,
     search: string
+  ): Promise<any>
+
+  getReviewerLifecycle(
+    userId: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>
 }
 

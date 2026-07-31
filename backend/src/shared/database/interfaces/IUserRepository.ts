@@ -6,6 +6,7 @@ import {
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource, IUserHistory,UserRole } from '#shared/interfaces/models.js';
 import { MongoClient, ClientSession, ObjectId } from 'mongodb';
+import { TrendGranularity } from '../providers/mongo/repositories/UserRepository.js';
 
 /**
  * Interface representing a repository for user-related operations.
@@ -126,7 +127,7 @@ export interface IUserRepository {
    * Finds all users.
    * @returns A promise that resolves to an array of users.
    */
-  findAll(session?: ClientSession): Promise<IUser[]>;
+  findAll(session?: ClientSession, isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]>;
 
   /**
    * Finds all users.
@@ -226,6 +227,7 @@ export interface IUserRepository {
     search: string,
     sortOption: string,
     filter: string,
+    isTrainingUserFilter?: boolean,
     session?: ClientSession,
   ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }>;
   /**
@@ -241,6 +243,12 @@ export interface IUserRepository {
   ): Promise<void>;
 
   updateSTFStatus(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void>;
+
+  updateTrainingUserStatus(
     userId: string,
     action: string,
     session?: ClientSession,
@@ -264,6 +272,9 @@ export interface IUserRepository {
   getUserRoleCount(
     startDateTime?: string,
     endDateTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    userType?: 'all' | 'tmu' | 'normal',
     session?: ClientSession,
   ): Promise<{
     userRoleOverview: UserRoleOverview[];
@@ -274,7 +285,7 @@ export interface IUserRepository {
   /**
    * @param session
    */
-  getExpertPerformance(session?: ClientSession): Promise<ExpertPerformance[]>;
+  getExpertPerformance(isTrainingUser: boolean,isAdmin?: boolean,session?: ClientSession): Promise<ExpertPerformance[]>;
 
   /**
  * Updates the last check-in time for a user.
@@ -353,7 +364,7 @@ export interface IUserRepository {
   findAvailableStfModeratorsForSources(sources: QuestionSource[]): Promise<IUser[]>;
   findAvailableUsersByRole(role: UserRole): Promise<IUser[]>;
   addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<void>;
-  removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void>;
+  removeAssignedQuestion(moderatorId: string, questionId: string, session?: ClientSession): Promise<void>;
   removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
 
    /**
@@ -363,4 +374,20 @@ export interface IUserRepository {
     query: { userId: string; startDateTime?: string; endDateTime?: string },
     session?: ClientSession,
   ): Promise<IUserHistory>;
+
+  getWorkingHoursTrend(
+      query: {
+        userId: string;
+        startDateTime: string;
+        endDateTime: string;
+        granularity: TrendGranularity;
+      },
+      session?: ClientSession,
+  ): Promise<any>
+
+  /**
+   * Clears all assigned question IDs for a user by setting assignedQuestionIds to null.
+   * @param userId - The ID of the user whose assigned questions should be cleared
+   */
+  clearAssignedQuestions(userId: string): Promise<{ modifiedCount: number }>;
 }

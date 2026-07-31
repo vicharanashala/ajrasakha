@@ -23,6 +23,7 @@ try:  # Package import for local Uvicorn and tests.
         AnswerBodyMissingError,
         AnswerShorteningService,
         ExtractiveRangeNotFeasibleError,
+        ModelCompressionError,
         ModelSelectionError,
         ProtectedContentTooLargeError,
         TargetRequiresExpansionError,
@@ -41,6 +42,7 @@ except ImportError:  # Docker runs this directory directly as ``api:app``.
         AnswerBodyMissingError,
         AnswerShorteningService,
         ExtractiveRangeNotFeasibleError,
+        ModelCompressionError,
         ModelSelectionError,
         ProtectedContentTooLargeError,
         TargetRequiresExpansionError,
@@ -51,9 +53,10 @@ app = FastAPI(
     title="AjraSakha Answer Shortener API",
     version="1.0.0",
     description=(
-        "Extracts exact source segments from an existing AjraSakha answer according "
-        "to the farmer's original query and a target character count. Successful "
-        "responses are within ±50 characters."
+        "Extracts relevant source segments from an existing AjraSakha answer according "
+        "to the farmer's original query and a target character count. If whole source "
+        "segments cannot fit, it uses constrained source-grounded compression. "
+        "Successful responses are within ±50 characters."
     ),
 )
 
@@ -216,6 +219,22 @@ async def shorten_answer(
                 "message": (
                     "Claude could not return a valid complete source-segment "
                     "ranking after retries. No model-written text was returned."
+                ),
+                "retryable": True,
+                "attempts": exc.attempts,
+                "failure_codes": list(exc.failure_codes),
+                "guidance": {"action": "retry_request"},
+            },
+        ) from exc
+    except ModelCompressionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "MODEL_COMPRESSION_INVALID",
+                "category": "model_noncompliance",
+                "message": (
+                    "Claude could not produce a source-grounded answer within the "
+                    "requested character range after retries."
                 ),
                 "retryable": True,
                 "attempts": exc.attempts,
