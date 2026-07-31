@@ -77,9 +77,9 @@ test.describe("Moderator Flows", () => {
     const userMgmtTab = moderatorPage.getByRole("tab", {
       name: /user management|expert management/i,
     });
-    if (await userMgmtTab.isVisible()) {
+    if (await userMgmtTab.isVisible().catch(() => false)) {
       await userMgmtTab.click();
-      await moderatorPage.waitForTimeout(2000);
+      await moderatorPage.waitForLoadState("networkidle");
     }
   });
 
@@ -154,7 +154,7 @@ test.describe("Moderator Flows", () => {
     await dashboard.goto();
 
     await moderatorPage.getByRole("tab", { name: /all questions/i }).click();
-    await moderatorPage.waitForTimeout(3000);
+    await moderatorPage.waitForLoadState("networkidle");
 
     const rows = moderatorPage.locator("table tbody tr");
     const rowCount = await rows.count();

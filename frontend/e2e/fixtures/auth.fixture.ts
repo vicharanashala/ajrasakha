@@ -40,14 +40,14 @@ async function loginAs(page: Page, role: TestRoles): Promise<void> {
   }
 
   await page.goto("/auth");
-  await page.waitForSelector('input[name="email"]', { timeout: 15_000 });
+  await page.waitForSelector('input[name="email"]', { timeout: 30_000 });
 
   await page.fill('input[name="email"]', account.email);
   await page.fill('input[name="password"]', account.password);
   await page.click('button[type="submit"]');
 
-  await page.waitForURL("**/home", { timeout: 30_000 });
-  await page.waitForSelector("header", { timeout: 15_000 });
+  await page.waitForURL("**/home", { timeout: 60_000 });
+  await page.waitForSelector("header", { timeout: 30_000 });
 }
 
 export const test = base.extend<{

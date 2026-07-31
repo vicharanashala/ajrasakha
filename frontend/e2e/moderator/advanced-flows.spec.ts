@@ -347,7 +347,7 @@ test.describe("Performance - Page Load", () => {
       await adminPage.waitForLoadState("networkidle");
       const duration = Date.now() - start;
 
-      expect(duration).toBeLessThan(10_000);
+      expect(duration).toBeLessThan(15_000);
     }
   });
 

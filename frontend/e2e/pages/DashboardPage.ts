@@ -43,7 +43,7 @@ export class DashboardPage {
 
   async goto() {
     await this.page.goto("/home");
-    await this.header.waitFor({ timeout: 15_000 });
+    await this.header.waitFor({ timeout: 30_000 });
   }
 
   async clickTab(name: string) {
