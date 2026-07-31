@@ -87,6 +87,9 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
   mode = "experts",
 }) => {
   const [hoveredState, setHoveredState] = useState<string | null>(null);
+  // State selection is by CLICK (sticky) — not hover — so moving the mouse toward the users
+  // modal doesn't jump the selection to whatever state you pass over. Hover only glows.
+  const [selectedState, setSelectedState] = useState<string | null>(null);
   const [activePinId, setActivePinId] = useState<string | null>(null);
   // A clicked pin/list item "sticks" so its details card stays open while you move the mouse
   // to read it or pick another — essential when many pins overlap. Hover only previews.
@@ -320,7 +323,8 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
   }, [publicUsers, mode]);
 
   // Determine active state's experts
-  const activeStateName = hoveredState;
+  // The active (selected) state drives the users modal + pins — click only, hover never.
+  const activeStateName = selectedState;
 
   // Labels change with the map mode (experts / KVKs / SAUs).
   const nounSingular = mode === "kvk" ? "KVK" : mode === "sau" ? "SAU" : "expert";
@@ -347,10 +351,10 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
     );
   }, [experts, activeStateName, activeProfileId]);
 
-  // List of experts to display in top banner pill buttons
+  // Users modal: the selected state's users, or all Pan-India users when nothing is selected
+  // (e.g. after closing the state).
   const bannerExperts = useMemo(() => {
-    if (activeStateName) return visibleExperts;
-    return experts;
+    return activeStateName ? visibleExperts : experts;
   }, [activeStateName, visibleExperts, experts]);
 
   // The profile whose details card is shown — the clicked (sticky) one, else the hovered one.
@@ -403,10 +407,12 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
         {/* State Boundaries Path Layer */}
         <g>
           {REAL_OFFICIAL_INDIA_MAP.map((st, stIdx) => {
-            const isHovered =
-              Boolean(activeStateName) &&
-              (activeStateName!.toLowerCase() === st.name.toLowerCase() ||
-               activeStateName!.toLowerCase() === st.id.toLowerCase());
+            const matches = (name: string | null) =>
+              Boolean(name) &&
+              (name!.toLowerCase() === st.name.toLowerCase() ||
+                name!.toLowerCase() === st.id.toLowerCase());
+            // Glow on hover for feedback, and keep the clicked (selected) state highlighted.
+            const isHovered = matches(selectedState) || matches(hoveredState);
 
             return (
               <path
@@ -424,9 +430,12 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
                   filter: isHovered ? "url(#glowGold)" : "none",
                 }}
                 onMouseEnter={() => setHoveredState(st.name)}
-                onClick={() => setHoveredState(st.name)}
+                onMouseLeave={() => setHoveredState(null)}
+                onClick={() =>
+                  setSelectedState((prev) => (prev === st.name ? null : st.name))
+                }
               >
-                <title>{st.name} — Hover to see active experts</title>
+                <title>{st.name} — Click to view its users</title>
               </path>
             );
           })}
@@ -439,8 +448,9 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
             ? getInitialsAvatarUrl(exp.name)
             : getAvatarUrl(exp.avatar, exp.name);
 
-          // Only show name label if pin is hovered OR if the state has at most 2 experts
-          const shouldShowLabel = isPinHovered || visibleExperts.length <= 2;
+          // Names are no longer scattered on the map — only the actively hovered pin shows
+          // its name; the full list lives in the users modal.
+          const shouldShowLabel = isPinHovered;
 
           return (
             <g
@@ -560,27 +570,57 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
             ({activeStateName ? visibleExperts.length : experts.length}{" "}
             {(activeStateName ? visibleExperts.length : experts.length) !== 1 ? nounPlural : nounSingular})
           </span>
+          {selectedState && (
+            <button
+              type="button"
+              onClick={() => {
+                // Close the state: deselect + drop any pinned user → back to all users.
+                setSelectedState(null);
+                setSelectedPinId(null);
+                setActivePinId(null);
+              }}
+              aria-label={`Close ${selectedState}`}
+              style={{
+                marginLeft: "4px",
+                width: "20px",
+                height: "20px",
+                flexShrink: 0,
+                borderRadius: "50%",
+                border: "1px solid rgba(214,183,99,0.5)",
+                background: "rgba(255,255,255,0.1)",
+                color: "#f8f4e6",
+                cursor: "pointer",
+                fontSize: "13px",
+                lineHeight: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              ×
+            </button>
+          )}
         </div>
 
+        {/* Users modal: a scrollable list of everyone in the focused state. */}
         {bannerExperts.length > 0 && (
           <div
             style={{
               display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: "5px",
-              paddingBottom: "2px",
-              maxWidth: "360px",
-              maxHeight: "132px",
+              flexDirection: "column",
+              gap: "4px",
+              width: "232px",
+              maxWidth: "88vw",
+              maxHeight: "300px",
               overflowY: "auto",
+              paddingRight: "2px",
             }}
           >
-            {bannerExperts.map((exp, pIdx) => {
+            {bannerExperts.map((exp) => {
               const isSelected = activeProfileId === exp.id;
-              // In KVK/SAU modes show the full name (not just the first word) so each of
-              // (say) 10 KVKs is individually readable and clickable from this list.
-              const label =
-                mode === "experts" ? exp.name.split(" ")[0] : exp.name;
+              const subText = exp.coveredBy
+                ? `Covered by ${exp.coveredBy}`
+                : [exp.city, exp.role].filter(Boolean).join(" · ");
               return (
                 <button
                   key={exp.id}
@@ -589,31 +629,70 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
                   onClick={() =>
                     setSelectedPinId((prev) => (prev === exp.id ? null : exp.id))
                   }
-                  title={exp.coveredBy ? `${exp.name} — Covered by ${exp.coveredBy}` : exp.name}
                   style={{
-                    background: isSelected
-                      ? "linear-gradient(135deg, #d6b763 0%, #f1d879 100%)"
-                      : "rgba(255, 255, 255, 0.12)",
-                    color: isSelected ? "#061923" : "#ffffff",
-                    border: isSelected
-                      ? "1px solid #ffffff"
-                      : "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: "14px",
-                    padding: "3px 10px",
-                    fontSize: "0.72rem",
-                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "5px 8px",
+                    borderRadius: "10px",
+                    textAlign: "left",
                     cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    maxWidth: "170px",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-                    boxShadow: isSelected
-                      ? "0 4px 12px rgba(214, 183, 99, 0.4)"
-                      : "none",
+                    border: isSelected
+                      ? "1px solid #f1d879"
+                      : "1px solid rgba(255,255,255,0.08)",
+                    background: isSelected
+                      ? "rgba(214,183,99,0.18)"
+                      : "rgba(255,255,255,0.05)",
+                    color: "#f8f4e6",
+                    transition: "all 0.15s ease",
                   }}
                 >
-                  {pIdx + 1}. {label}
+                  <img
+                    src={
+                      failedAvatars[exp.id]
+                        ? getInitialsAvatarUrl(exp.name)
+                        : getAvatarUrl(exp.avatar, exp.name)
+                    }
+                    alt=""
+                    onError={() =>
+                      setFailedAvatars((prev) => ({ ...prev, [exp.id]: true }))
+                    }
+                    style={{
+                      width: "26px",
+                      height: "26px",
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      flexShrink: 0,
+                      border: "1px solid rgba(214,183,99,0.4)",
+                    }}
+                  />
+                  <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <span
+                      style={{
+                        fontSize: "0.74rem",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {exp.name}
+                    </span>
+                    {subText && (
+                      <span
+                        style={{
+                          fontSize: "0.64rem",
+                          fontWeight: 500,
+                          opacity: 0.7,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {subText}
+                      </span>
+                    )}
+                  </span>
                 </button>
               );
             })}
@@ -743,15 +822,10 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
               <span>{hoveredProfile.institution}</span>
             </div>
 
-            {hoveredProfile.coveredBy ? (
+            {hoveredProfile.coveredBy && (
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
                 <span style={{ color: "#f1d879" }}>👤</span>
                 <span>Covered by {hoveredProfile.coveredBy}</span>
-              </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
-                <span style={{ color: "#4ade80" }}>✓</span>
-                <span>{hoveredProfile.advisoriesCount}+ Verified Advisories</span>
               </div>
             )}
           </div>
