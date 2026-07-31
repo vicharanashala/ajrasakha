@@ -3162,6 +3162,7 @@ export class QuestionRepository implements IQuestionRepository {
 
     let start = startDate;
     let end = endDate;
+    const now = new Date();
 
     if (!start || !end) {
       start = new Date();
@@ -3249,6 +3250,7 @@ export class QuestionRepository implements IQuestionRepository {
               moderatorId: '$_id',
               reportStart: start,
               reportEnd: end,
+              currentTime: now,
             },
             pipeline: [
               {
@@ -3288,7 +3290,7 @@ export class QuestionRepository implements IQuestionRepository {
                           {
                             $min: [
                               {
-                                $ifNull: ['$to', '$$reportEnd'],
+                                $ifNull: ['$to', '$$currentTime'],
                               },
                               '$$reportEnd',
                             ],
