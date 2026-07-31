@@ -1,13 +1,26 @@
-FROM python:3.11-slim
-
-ENV PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY . .
+# Copy requirements first for better caching
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["python", "main.py"]
+# Copy application code
+COPY sync.py /app/sync.py
+COPY main.py /app/main.py
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# Cloud Run expects the process to handle SIGTERM
+# No EXPOSE needed for batch jobs
+# No CMD needed - will be overridden by Cloud Run Job command
+
+ENTRYPOINT ["python", "-u", "main.py"]
