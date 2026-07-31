@@ -3,7 +3,7 @@ import { LoginPage } from "../pages/shared/login.page.js";
 import { ExpertDashboardPage } from "../pages/expert/dashboard.page.js";
 import { ExpertQuestionDetailsPage } from "../pages/expert/question-details.page.js";
 import { ResponsePage } from "../pages/expert/response.page.js";
-type ReviewerFixtures = {
+type ExpertFixtures = {
   environmentPage: Page;
   authenticatedPage: Page;
   dashboardPage: ExpertDashboardPage;
@@ -12,11 +12,11 @@ type ReviewerFixtures = {
 };
 
 const credentials = () => ({
-  email: process.env.REVIEWER_USER_EMAIL,
-  password: process.env.REVIEWER_USER_PASSWORD,
+  email: process.env.EXPERT_EMAIL,
+  password: process.env.EXPERT_PASSWORD,
 });
 
-export const test = base.extend<ReviewerFixtures>({
+export const test = base.extend<ExpertFixtures>({
   environmentPage: async ({ page }, use, testInfo) => {
     try {
       const response = await page.request.get("/auth", { timeout: 5_000 });
@@ -26,7 +26,7 @@ export const test = base.extend<ReviewerFixtures>({
         base.skip(true, reason);
       }
     } catch (error) {
-      const reason = `Blocked: Reviewer frontend is unreachable at ${process.env.REVIEWER_BASE_URL ?? "http://127.0.0.1:5173"}.`;
+      const reason = `Blocked: Reviewer frontend is unreachable at ${process.env.BASE_URL ?? "http://127.0.0.1:5173"}.`;
       testInfo.annotations.push({ type: "blocked", description: reason });
       base.skip(true, reason);
     }

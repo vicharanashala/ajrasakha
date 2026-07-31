@@ -1,4 +1,4 @@
-import { test, expect } from "../fixtures/reviewer.fixture.js";
+import { test, expect } from "../../fixtures/expert.fixture.js";
 
 test.describe("Reviewer Response Panel", () => {
   // Catalogue source: 03-response.md, RESP-001.

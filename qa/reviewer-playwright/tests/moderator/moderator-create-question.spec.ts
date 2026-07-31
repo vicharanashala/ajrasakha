@@ -1,4 +1,4 @@
-import { test, expect } from "../fixtures/moderator.fixture.js";
+import { test, expect } from "../../fixtures/moderator.fixture.js";
 const QUESTION = "What is the recommended fertilizer dosage for wheat?";
 
 const CONTEXT = "The farmer has sandy soil with low organic matter.";

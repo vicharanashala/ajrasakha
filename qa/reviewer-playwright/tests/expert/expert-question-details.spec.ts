@@ -1,5 +1,5 @@
-import { test, expect } from "../fixtures/reviewer.fixture.js";
-import { LoginPage } from "../pages/shared/login.page.js";
+import { test, expect } from "../../fixtures/expert.fixture.js";
+import { LoginPage } from "../../pages/shared/login.page.js";
 
 type FullQuestion = {
   _id: string;

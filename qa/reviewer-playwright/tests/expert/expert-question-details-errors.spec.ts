@@ -1,4 +1,4 @@
-import { test, expect } from "../fixtures/reviewer.fixture.js";
+import { test, expect } from "../../fixtures/expert.fixture.js";
 
 test.describe("Reviewer loading, failure, and partial-data behavior", () => {
   // Catalogue source: 10-loading-error-empty.md, ERR-001.
