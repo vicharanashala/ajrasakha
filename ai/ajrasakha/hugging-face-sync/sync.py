@@ -17,6 +17,7 @@ from typing import Any
 
 from bson import ObjectId
 from datasets import Dataset, DatasetDict
+from datasets import Features, Sequence, Value
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
@@ -182,7 +183,24 @@ class GoldenToHuggingFaceSync:
             log.warning("No Q&A pairs to create dataset from!")
             return DatasetDict()
 
-        dataset = Dataset.from_list(qa_pairs)
+        # Define explicit features to handle mixed types (especially sources field)
+        features = Features({
+            "question_id": Value("string"),
+            "question": Value("string"),
+            "answer": Value("string"),
+            "author": Value("string"),
+            "sources": Sequence(Value("string")),
+            "crop": Value("string"),
+            "normalised_crop": Value("string"),
+            "state": Value("string"),
+            "season": Value("string"),
+            "domain": Value("string"),
+            "status": Value("string"),
+            "source": Value("string"),
+            "created_at": Value("string"),
+        })
+
+        dataset = Dataset.from_list(qa_pairs, features=features)
         dataset_dict = DatasetDict({"train": dataset})
 
         log.info("Created dataset with %d examples", len(dataset))
