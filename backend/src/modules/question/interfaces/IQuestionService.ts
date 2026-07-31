@@ -241,6 +241,10 @@ export interface IQuestionService {
 
   /** Get questions under a context */
   getByContextId(contextId: string): Promise<IQuestion[]>;
+  normalizeQuestionState(
+    currentValues: string[],
+    standardizedTo: string,
+  ): Promise<{ matched: number; modified: number }>;
 
   /** Questions allocated to an expert */
   getAllocatedQuestions(

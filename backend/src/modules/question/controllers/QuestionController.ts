@@ -2854,6 +2854,29 @@ export class QuestionController {
       entry,
     );
   }
+
+  @Post('/background/normalize-state')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Standardise a state name across all questions (internal data fix). Sets details.state to `standardizedTo` for every question whose details.state is one of `current`.',
+  })
+  async normalizeQuestionState(
+    @Body() body: { current: string[]; standardizedTo: string },
+  ) {
+    const { current, standardizedTo } = body;
+    if (!Array.isArray(current) || current.length === 0) {
+      throw new BadRequestError('current must be a non-empty array of state values');
+    }
+    if (!standardizedTo || typeof standardizedTo !== 'string') {
+      throw new BadRequestError('standardizedTo is required');
+    }
+    return await this.questionService.normalizeQuestionState(
+      current,
+      standardizedTo,
+    );
+  }
   // ─── Check overlaps endpoint (internal API key auth) ──────────────────────
 
   @Post('/check-overlaps')
