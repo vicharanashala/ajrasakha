@@ -21,12 +21,9 @@ export default defineConfig({
   workers: 1,
   timeout: 45_000,
   expect: { timeout: 10_000 },
-  reporter: [
-    ["list"],
-    ["json", { outputFile: "test-results/results.json" }],
-  ],
+  reporter: [["list"], ["json", { outputFile: "test-results/results.json" }]],
   use: {
-    baseURL: process.env.REVIEWER_BASE_URL ?? "http://127.0.0.1:5173",
+    baseURL: process.env.BASE_URL ?? "http://127.0.0.1:5173",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
