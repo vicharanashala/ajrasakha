@@ -1,4 +1,7 @@
-import { IReviewerHeatmapResponse } from '#root/shared/interfaces/models.js';
+import {
+  IReviewerHeatmapResponse,
+  IReviewQualityAnalyticsResponse,
+} from '#root/shared/interfaces/models.js';
 import {
   Analytics,
   DashboardResponse,
@@ -7,6 +10,7 @@ import {
   GetGoldenDatasetQuery,
   GetHeatMapQuery,
   GetQuestionsAnalyticsQuery,
+  GetReviewQualityAnalyticsQuery,
   GoldenDataset,
   ModeratorApprovalRate,
   QuestionContributionTrend,
@@ -59,6 +63,17 @@ export interface IPerformanceService {
   getStatusOverview(isTrainingUser?:boolean,isAdmin?:boolean): Promise<StatusOverview>;
 
   getExpertPerformance(isTrainingUser?:boolean,isAdmin?:boolean): Promise<ExpertPerformance[]>;
+
+  /**
+   * Aggregated pass/fail breakdown of the review quality checklist (context relevance,
+   * technical accuracy, practical utility, value/insight, credibility/trust,
+   * readability/communication) across answer reviews.
+   */
+  getReviewQualityAnalytics(
+    query: GetReviewQualityAnalyticsQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<IReviewQualityAnalyticsResponse>;
 
   getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery, isTrainingUser?:boolean,isAdmin?:boolean): Promise<Analytics>;
 
