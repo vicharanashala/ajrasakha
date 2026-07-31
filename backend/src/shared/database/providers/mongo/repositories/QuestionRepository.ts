@@ -2920,7 +2920,7 @@ export class QuestionRepository implements IQuestionRepository {
     yearData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -3197,12 +3197,13 @@ export class QuestionRepository implements IQuestionRepository {
     endDate?: Date,
   ): Promise<{
     todayApproved: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number; moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
   }> {
     await this.init();
 
     let start = startDate;
     let end = endDate;
+    const now = new Date();
 
     if (!start || !end) {
       start = new Date();
@@ -3212,95 +3213,266 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get moderator breakdown
-   const moderatorBreakdown = (await this.AnswersCollection.aggregate(
-  [
-    {
-      $match: {
-        status: 'approved',
-        isFinalAnswer: true,
-        approvedBy: {$exists: true, $ne: null},
-      },
-    },
-
-    // Lookup question
-    {
-      $lookup: {
-        from: 'questions',
-        localField: 'questionId',
-        foreignField: '_id',
-        as: 'question',
-      },
-    },
-
-    {
-      $unwind: {
-        path: '$question',
-        preserveNullAndEmptyArrays: false,
-      },
-    },
-
-    // Filter by question.closedAt
-       {
-         $match: {
-           'question.closedAt': {
-             $gte: start,
-             $lt: end,
-           },
-           ...(!isAdmin &&
-             (isTrainingUser
-               ? {
-                 'question.isTrainingQuestion': true,
-               }
-               : {
-                 'question.isTrainingQuestion': { $ne: true },
-               })),
-         },
-       },
-
-    {
-      $group: {
-        _id: '$approvedBy',
-        count: {$sum: 1},
-      },
-    },
-
-    {
-      $lookup: {
-        from: 'users',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'moderator',
-      },
-    },
-
-    {
-      $unwind: {
-        path: '$moderator',
-        preserveNullAndEmptyArrays: false,
-      },
-    },
-
-    {
-      $project: {
-        _id: 0,
-        moderatorName: {
-          $concat: [
-            '$moderator.firstName',
-            ' ',
-            {$ifNull: ['$moderator.lastName', '']},
-          ],
+    const moderatorBreakdown = (await this.AnswersCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'approved',
+            isFinalAnswer: true,
+            approvedBy: { $exists: true, $ne: null },
+          },
         },
-        count: 1,
-      },
-    },
 
-    {
-      $sort: {count: -1},
-    },
-  ],
-  {session},
-).toArray()) as {moderatorName: string; count: number}[];
+        // Lookup question
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
 
+        {
+          $unwind: {
+            path: '$question',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+
+        // Filter by question.closedAt
+        {
+          $match: {
+            'question.closedAt': {
+              $gte: start,
+              $lt: end,
+            },
+            ...(!isAdmin &&
+              (isTrainingUser
+                ? {
+                    'question.isTrainingQuestion': true,
+                  }
+                : {
+                    'question.isTrainingQuestion': { $ne: true },
+                  })),
+          },
+        },
+
+        // Group by moderator
+        {
+          $group: {
+            _id: '$approvedBy',
+            count: { $sum: 1 },
+          },
+        },
+
+        // Lookup moderator details
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'moderator',
+          },
+        },
+
+        {
+          $unwind: {
+            path: '$moderator',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+
+        // Lookup moderator role history
+        {
+          $lookup: {
+            from: 'user_role_history',
+            let: {
+              moderatorId: '$_id',
+              reportStart: start,
+              reportEnd: end,
+              currentTime: now,
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$userId', '$$moderatorId'] },
+                      {
+                        $in: ['$role', ['moderator', 'auditor', 'gate_keeper']],
+                      },
+                      {
+                        $eq: [
+                          { $ifNull: ['$isBlocked', false] },
+                          false,
+                        ],
+                      },
+
+                      // Role started before report ended
+                      { $lt: ['$from', '$$reportEnd'] },
+
+                      // Role ended after report started OR is still active
+                      {
+                        $or: [
+                          { $eq: ['$to', null] },
+                          { $gt: ['$to', '$$reportStart'] },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+              {
+                $project: {
+                  role:1,
+                  hours: {
+                    $divide: [
+                      {
+                        $subtract: [
+                          // Effective end
+                          {
+                            $min: [
+                              {
+                                $ifNull: ['$to', '$$currentTime'],
+                              },
+                              '$$reportEnd',
+                            ],
+                          },
+
+                          // Effective start
+                          {
+                            $max: [
+                              '$from',
+                              '$$reportStart',
+                            ],
+                          },
+                        ],
+                      },
+                      1000 * 60 * 60,
+                    ],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: '$role',
+                  hours: {
+                    $sum: '$hours',
+                  },
+                },
+              },
+            ],
+            as: 'roleHistory',
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+            moderatorName: {
+              $concat: [
+                '$moderator.firstName',
+                ' ',
+                { $ifNull: ['$moderator.lastName', ''] },
+              ],
+            },
+            count: 1,
+
+            moderatorHours: {
+              $round: [
+                {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'moderator'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+              ],
+            },
+
+            auditorHours: {
+              $round: [
+                {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'auditor'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+              ],
+            },
+
+            gateKeeperHours: {
+              $round: [
+                {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'gate_keeper'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+              ],
+            },
+          },
+        },
+
+        {
+          $sort: {
+            count: -1,
+          },
+        },
+      ],
+      { session },
+    ).toArray()) as {
+      moderatorName: string;
+      count: number;
+      moderatorHours: number;
+      auditorHours: number;
+      gateKeeperHours: number;
+    }[];
     // Calculate total from the breakdown
     const totalApproved = moderatorBreakdown.reduce(
       (sum, item) => sum + item.count,
@@ -3820,7 +3992,7 @@ export class QuestionRepository implements IQuestionRepository {
     weeksData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -4105,7 +4277,7 @@ export class QuestionRepository implements IQuestionRepository {
     dailyData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -4396,7 +4568,7 @@ export class QuestionRepository implements IQuestionRepository {
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -4715,7 +4887,7 @@ export class QuestionRepository implements IQuestionRepository {
       current.setDate(current.getDate() + 1);
     }
 
-    let moderatorBreakdown: {moderatorName: string; count: number}[] = [];
+    let moderatorBreakdown: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[] = [];
     let questionSourceBreakdown: {whatsapp: number; ajrasakha: number} = {
       whatsapp: 0,
       ajrasakha: 0,
@@ -4814,7 +4986,7 @@ export class QuestionRepository implements IQuestionRepository {
     customData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
