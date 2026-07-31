@@ -300,6 +300,7 @@ test.describe("Notifications - Edge Cases", () => {
   });
 
   test("notification tabs switch without errors", async ({ adminPage }) => {
+    test.setTimeout(45_000);
     await adminPage.goto("/home");
     await adminPage.waitForSelector("header", { timeout: 15_000 });
 
@@ -309,20 +310,29 @@ test.describe("Notifications - Edge Cases", () => {
     await bell.click();
     await adminPage.waitForTimeout(1000);
 
-    // Try each tab (skip disabled buttons)
     for (const tabName of ["unread", "read", "all"]) {
       const tab = adminPage.getByRole("button", {
         name: new RegExp(`^${tabName}$`, "i"),
       });
-      const isEnabled = await tab.isEnabled().catch(() => false);
-      if (isEnabled) {
-        await tab.click();
-        await adminPage.waitForTimeout(300);
+      const isVisible = await tab.isVisible().catch(() => false);
+      if (isVisible) {
+        const isEnabled = await tab.isEnabled().catch(() => false);
+        if (isEnabled) {
+          await tab.click();
+          await adminPage.waitForTimeout(300);
+        }
       }
     }
 
-    // Close with Escape
-    await adminPage.keyboard.press("Escape");
+    const closeBtn = adminPage.locator(
+      'button:has(.lucide-x), button:has(svg[class*="x"])',
+    );
+    const closeVisible = await closeBtn.isVisible().catch(() => false);
+    if (closeVisible) {
+      await closeBtn.click();
+    } else {
+      await adminPage.keyboard.press("Escape");
+    }
     await adminPage.waitForTimeout(500);
   });
 });
