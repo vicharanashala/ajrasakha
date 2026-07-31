@@ -367,6 +367,28 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
+  /** Standardise a state name across all questions: any question whose details.state matches
+   *  one of `currentValues` (e.g. "punjab", "PUNJAB", "पंजाब") is set to `standardizedTo`
+   *  (e.g. "Punjab"). Returns how many matched/were modified. */
+  async normalizeQuestionState(
+    currentValues: string[],
+    standardizedTo: string,
+  ): Promise<{ matched: number; modified: number }> {
+    const cleaned = (currentValues ?? [])
+      .map(v => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean);
+    const target = (standardizedTo ?? '').trim();
+    if (cleaned.length === 0) {
+      throw new BadRequestError('current values must be a non-empty array of strings');
+    }
+    if (!target) {
+      throw new BadRequestError('standardizedTo is required');
+    }
+    return this._withTransaction(async (session: ClientSession) => {
+      return this.questionRepo.normalizeQuestionState(cleaned, target, session);
+    });
+  }
+
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,

@@ -268,6 +268,28 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Data fix: standardise a state name. Sets details.state = standardizedTo for every
+   *  question whose details.state currently matches one of currentValues (exact match). */
+  async normalizeQuestionState(
+    currentValues: string[],
+    standardizedTo: string,
+    session?: ClientSession,
+  ): Promise<{ matched: number; modified: number }> {
+    try {
+      await this.init();
+      const result = await this.QuestionCollection.updateMany(
+        {'details.state': {$in: currentValues}},
+        {$set: {'details.state': standardizedTo, updatedAt: new Date()}},
+        {session},
+      );
+      return {matched: result.matchedCount, modified: result.modifiedCount};
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to normalize question state: ${error}`,
+      );
+    }
+  }
+
   async getById(
     questionId: string,
     session?: ClientSession,
@@ -2403,6 +2425,25 @@ export class QuestionRepository implements IQuestionRepository {
                   },
                   'delayed',
                   '$status',
+                ],
+              },
+
+              isDelayed: {
+                $cond: [
+                  {
+                    $lte: [
+                      {
+                        $add: [
+                          '$createdAt',
+                          twoHoursMs,
+                          { $ifNull: ['$accumulatedHoldMs', 0] },
+                        ],
+                      },
+                      now,
+                    ],
+                  },
+                  true,
+                  { $ifNull: ['$isDelayed', false] },
                 ],
               },
             },

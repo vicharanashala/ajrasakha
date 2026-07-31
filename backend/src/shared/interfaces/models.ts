@@ -5,6 +5,7 @@ export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-r
 export type Tags = 'dynamic' | 'static_dynamic'
 export interface IPreference {
   state: string;
+  district?: string;
   crop: string;
   domain: string | string[];
 }
@@ -24,6 +25,12 @@ export interface IAssignedQuestion {
 export interface IKVKCovered {
   number?: number;
   name?: string[];
+}
+/** One KVK-covered entry: state, district and KVK name (all Title-Cased). */
+export interface IKVKCoveredItem {
+  state?: string;
+  district?: string;
+  name?: string;
 }
 
 export interface IUser {
@@ -49,8 +56,9 @@ export interface IUser {
   avatar?: string;
   mobile?: string;
   university?: string;
-  /** List of KVK names this user covers. (Legacy records may hold { number, name[] }.) */
-  kvkCovered?: string[] | null;
+  /** KVKs this user covers — one { state, district, name } entry each.
+   *  (Legacy records may hold string[] or { number, name[] }.) */
+  kvkCovered?: IKVKCoveredItem[] | null;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
   lastAgentActiveAt?: Date;
@@ -222,6 +230,7 @@ export interface IQuestion {
   /** Set when a moderator cancels a duplicate flag and reopens the question. The
    *  cancel reason and timestamp are recorded in the audit trail, not on the question. */
   isDuplicateCancelled?: boolean;
+  isDelayed?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

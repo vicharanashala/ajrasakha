@@ -93,6 +93,8 @@ try {
   const states = records.map(record => ({
     stateCode: Number(record.state_code),
     stateNameEnglish: record.state_name_english,
+    stateNameLocal: record.state_name_local,
+    dataLastUpdated: new Date(record.last_updated),
   }));
 
   console.log(`✅ Fetched ${states.length} state(s) from the LGD API.\n`);

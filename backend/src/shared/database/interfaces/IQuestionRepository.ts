@@ -100,6 +100,12 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<IQuestion[]>;
 
+  normalizeQuestionState(
+    currentValues: string[],
+    standardizedTo: string,
+    session?: ClientSession,
+  ): Promise<{ matched: number; modified: number }>;
+
   /**
    * Retrieves all questions for a specific context.
    * @param questionId - The ID of the question.
