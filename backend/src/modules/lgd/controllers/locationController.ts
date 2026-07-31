@@ -1,8 +1,8 @@
 import 'reflect-metadata';
-import {JsonController, Get, Post, HttpCode, QueryParam, Authorized, CurrentUser, ForbiddenError} from 'routing-controllers';
+import {JsonController, Get, Post, HttpCode, QueryParam, UseBefore} from 'routing-controllers';
 import {inject, injectable} from 'inversify';
 import {LGD_TYPES} from '../types.js';
-import {IUser} from '#root/shared/interfaces/models.js';
+import {LocationApiAuth} from '../middleware/locationApiAuth.js';
 import type {
   ILocationService,
   ILocationState,
@@ -13,11 +13,9 @@ import type {
   IKvkSyncResult,
 } from '../interfaces/ILocationService.js';
 
-// ── Allowed roles for triggering the KVK registry sync ──
-const KVK_SYNC_ROLES = ['admin'];
-
 @injectable()
 @JsonController('/location')
+@UseBefore(LocationApiAuth)
 export class LocationController {
   constructor(
     @inject(LGD_TYPES.LocationService)

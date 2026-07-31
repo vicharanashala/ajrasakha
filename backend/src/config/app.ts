@@ -44,7 +44,7 @@ export const appConfig = {
   WA_WEBHOOK_API_URL: env("WA_WEBHOOK_API_URL") || null,
   WA_SEND_MESSAGE_WEBHOOK_API_URL: env("WA_SEND_MESSAGE_WEBHOOK_API_URL") || null,
   WEB_WEBHOOK_API_URL: env("WEB_WEBHOOK_API_URL") || "http://localhost:3080/api/webhooks/notifications",
-  WEB_WEBHOOK_API_KEY: env("WEB_WEBHOOK_API_KEY") || "",
+  LOCATION_API_SECRET: env("LOCATION_API_SECRET") || "",
   langGraphUrl: `http://${env('LANGRAPH_SERVER_IP')}:${env('LANGRAPH_SERVER_PORT')}`,
   plivo: {
     streamUrl: env('PLIVO_STREAM_URL') || 'wss://dummy-stream-url.example.com',
