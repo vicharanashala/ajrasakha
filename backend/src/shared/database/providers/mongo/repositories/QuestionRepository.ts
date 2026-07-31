@@ -2879,7 +2879,7 @@ export class QuestionRepository implements IQuestionRepository {
     yearData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -3156,7 +3156,7 @@ export class QuestionRepository implements IQuestionRepository {
     endDate?: Date,
   ): Promise<{
     todayApproved: number;
-    moderatorBreakdown?: {moderatorName: string; count: number; moderatorHours?: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number; moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
   }> {
     await this.init();
 
@@ -3258,7 +3258,9 @@ export class QuestionRepository implements IQuestionRepository {
                   $expr: {
                     $and: [
                       { $eq: ['$userId', '$$moderatorId'] },
-                      { $eq: ['$role', 'moderator'] },
+                      {
+                        $in: ['$role', ['moderator', 'auditor', 'gate_keeper']],
+                      },
                       {
                         $eq: [
                           { $ifNull: ['$isBlocked', false] },
@@ -3282,6 +3284,7 @@ export class QuestionRepository implements IQuestionRepository {
               },
               {
                 $project: {
+                  role:1,
                   hours: {
                     $divide: [
                       {
@@ -3312,8 +3315,8 @@ export class QuestionRepository implements IQuestionRepository {
               },
               {
                 $group: {
-                  _id: null,
-                  moderatorHours: {
+                  _id: '$role',
+                  hours: {
                     $sum: '$hours',
                   },
                 },
@@ -3330,21 +3333,81 @@ export class QuestionRepository implements IQuestionRepository {
               $concat: [
                 '$moderator.firstName',
                 ' ',
-                {
-                  $ifNull: ['$moderator.lastName', ''],
-                },
+                { $ifNull: ['$moderator.lastName', ''] },
               ],
             },
             count: 1,
+
             moderatorHours: {
               $round: [
                 {
                   $ifNull: [
                     {
-                      $arrayElemAt: [
-                        '$roleHistory.moderatorHours',
-                        0,
-                      ],
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'moderator'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+              ],
+            },
+
+            auditorHours: {
+              $round: [
+                {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'auditor'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+              ],
+            },
+
+            gateKeeperHours: {
+              $round: [
+                {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'gate_keeper'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
                     },
                     0,
                   ],
@@ -3366,8 +3429,9 @@ export class QuestionRepository implements IQuestionRepository {
       moderatorName: string;
       count: number;
       moderatorHours: number;
+      auditorHours: number;
+      gateKeeperHours: number;
     }[];
-
     // Calculate total from the breakdown
     const totalApproved = moderatorBreakdown.reduce(
       (sum, item) => sum + item.count,
@@ -3887,7 +3951,7 @@ export class QuestionRepository implements IQuestionRepository {
     weeksData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -4172,7 +4236,7 @@ export class QuestionRepository implements IQuestionRepository {
     dailyData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -4463,7 +4527,7 @@ export class QuestionRepository implements IQuestionRepository {
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -4782,7 +4846,7 @@ export class QuestionRepository implements IQuestionRepository {
       current.setDate(current.getDate() + 1);
     }
 
-    let moderatorBreakdown: {moderatorName: string; count: number, moderatorHours?: number}[] = [];
+    let moderatorBreakdown: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[] = [];
     let questionSourceBreakdown: {whatsapp: number; ajrasakha: number} = {
       whatsapp: 0,
       ajrasakha: 0,
@@ -4881,7 +4945,7 @@ export class QuestionRepository implements IQuestionRepository {
     customData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
