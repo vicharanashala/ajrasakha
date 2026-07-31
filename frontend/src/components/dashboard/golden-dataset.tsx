@@ -292,7 +292,7 @@ export const GoldenDatasetOverview = ({
                   return (
                     <div
                       key={idx}
-                      className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                      className="p-3 border rounded-lg transition-colors"
                     >
                       {/* Top Section: User Info, Total Hours, and Count */}
                       <div className="flex items-center justify-between">
@@ -303,17 +303,17 @@ export const GoldenDatasetOverview = ({
                             </span>
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900 text-sm">
+                            <p className="font-medium dark:text-white text-gray-900 text-sm">
                               {mod.moderatorName}
                             </p>
-                            <p className="text-xs font-medium text-blue-600 mt-0.5 flex items-center gap-1">
-                              <Clock size={12} className="text-blue-500" />
+                            <p className="text-xs font-medium text-primary mt-0.5 flex items-center gap-1">
+                              <Clock size={12} className="text-primary" />
                               {totalDisplay}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-bold text-gray-900">
+                          <p className="text-lg font-bold dark:text-white text-primary">
                             {mod.count}
                           </p>
                         </div>
@@ -323,16 +323,16 @@ export const GoldenDatasetOverview = ({
                       <div className="mt-3 pt-2 border-t flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-3 text-[11px] text-gray-500">
                           <span title="Moderator Hours">
-                            Mod: <strong className="text-gray-700 font-medium">{modDisplay}</strong>
+                            Mod: <strong className=" dark:text-white text-gray-700 font-medium">{modDisplay}</strong>
                           </span>
                           <span title="Auditor Hours">
-                            Aud: <strong className="text-gray-700 font-medium">{audDisplay}</strong>
+                            Aud: <strong className=" dark:text-white text-gray-700 font-medium">{audDisplay}</strong>
                           </span>
                           <span title="Gatekeeper Hours">
-                            GK: <strong className="text-gray-700 font-medium">{gkDisplay}</strong>
+                            GK: <strong className=" dark:text-white text-gray-700 font-medium">{gkDisplay}</strong>
                           </span>
                         </div>
-                        <p className="text-[11px] font-medium text-gray-500">
+                        <p className="text-[11px] font-medium dark:text-white text-gray-500">
                           {percentage.toFixed(1)}% <span className="hidden sm:inline">of total approvals</span>
                         </p>
                       </div>
