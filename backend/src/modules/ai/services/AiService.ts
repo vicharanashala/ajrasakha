@@ -1,8 +1,14 @@
 import { aiConfig } from '#root/config/ai.js';
 import { QuestionSearchResponse, IQuestionAnalysis, IQuestionWithAnswerTexts } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import { IQuestion } from '#root/shared/index.js';
-import { injectable } from 'inversify';
-import { InternalServerError } from 'routing-controllers';
+import { injectable, inject } from 'inversify';
+import { InternalServerError, NotFoundError } from 'routing-controllers';
+import { WEATHER_TYPES } from '#root/modules/weather/types.js';
+import { IWeatherService } from '#root/modules/weather/services/WeatherService.js';
+import { CROP_TYPES } from '#root/modules/crop/types.js';
+import { ICropService } from '#root/modules/crop/interfaces/ICropService.js';
+import { LGD_TYPES } from '#root/modules/lgd/types.js';
+import { ILocationService } from '#root/modules/lgd/interfaces/ILocationService.js';
 
 @injectable()
 export class AiService {
@@ -20,6 +26,15 @@ export class AiService {
 
   private _gdbServerUrl =
     'http://' + aiConfig.gdbServerIP + ':' + aiConfig.gdbServerPort;
+
+  constructor(
+    @inject(WEATHER_TYPES.WeatherService)
+    private readonly weatherService: IWeatherService,
+    @inject(CROP_TYPES.CropService)
+    private readonly cropService: ICropService,
+    @inject(LGD_TYPES.LocationService)
+    private readonly locationService: ILocationService,
+  ) {}
 
   async getQuestionByContext(
     context: string,
@@ -153,19 +168,21 @@ export class AiService {
     try {
       const fullUrl = `${this._openAIServerUrl}/v1/chat/completions`;
 
-      const systemPrompt = `
-        You are an expert agricultural advisor helping farmers.
+      const systemPrompt =
+        You are an expert agricultural advisor helping farmers. You have access to tools to get weather forecasts and crop information.
 
         Your goal:
-        - Provide accurate, practical, and easy-to-understand answers
-        - Write in simple language suitable for farmers
-        - Focus on real-world solutions
+        - Provide accurate, practical, and easy-to-understand answers.
+        - If the user asks about the weather, you MUST use the 'get_weather_forecast' tool with the location name.
+        - If the user asks about sowing or harvesting time for a crop, you MUST use the 'get_crop_sowing_info' tool.
+        - Write in simple language suitable for farmers.
+        - Focus on real-world solutions.
 
         Rules:
-        - Avoid bullet points unless necessary
-        - Write in clear, natural paragraphs
+        - Avoid bullet points unless necessary.
+        - Write in clear, natural paragraphs.
         - Do not use headings like "Cause", "Symptoms", etc.
-        - Be concise but informative
+        - Be concise but informative.
         `;
 
       const userPrompt = `
@@ -180,17 +197,52 @@ export class AiService {
         - Domain: ${questionDoc.details?.domain || "General"}
 
         Instructions:
-        Provide a clear and meaningful answer in paragraph form.
-
-        The answer should:
-        - Explain the likely issue
-        - Describe what the farmer might observe
-        - Suggest practical prevention and treatment steps
-        - Be easy to understand and actionable
-
-        Do not use structured sections or bullet formatting.
-        Write as a natural explanation.
+        - If the question is about weather, call the 'get_weather_forecast' tool with the location name (e.g., "Mumbai", "Jaipur").
+        - If the question is about sowing or harvesting time, call the 'get_crop_sowing_info' tool with the crop name.
+        - Otherwise, provide a clear and meaningful answer in paragraph form.
         `;
+
+      const tools = [
+        {
+          type: "function",
+          function: {
+            name: "get_weather_forecast",
+            description: "Get the current weather forecast for a given location name.",
+            parameters: {
+              type: "object",
+              properties: {
+                location: {
+                  type: "string",
+                  description: "The name of the city or location, e.g., 'Mumbai', 'Jaipur'.",
+                },
+              },
+              required: ["location"],
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "get_crop_sowing_info",
+            description: "Get the sowing and harvesting time for a specific crop.",
+            parameters: {
+              type: "object",
+              properties: {
+                crop_name: {
+                  type: "string",
+                  description: "The name of the crop in English, e.g., 'wheat', 'rice'.",
+                },
+              },
+              required: ["crop_name"],
+            },
+          },
+        },
+      ];
+
+      const messages: any[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ];
 
       const response = await fetch(fullUrl, {
         method: "POST",
@@ -199,12 +251,11 @@ export class AiService {
         },
         body: JSON.stringify({
           model: "Qwen/Qwen3-30B-A3B",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
+          messages: messages,
           temperature: 0.4,
           max_tokens: 700,
+          tools: tools,
+          tool_choice: "auto",
         }),
       });
 
@@ -215,33 +266,82 @@ export class AiService {
         );
       }
 
-      type LLMResponse = {
-        choices?: {
-          message?: {
-            content?: string;
+      const responseData = await response.json();
+      const responseMessage = responseData.choices[0].message;
+
+      // Check if the model wants to call a tool
+      if (responseMessage.tool_calls) {
+        const toolCall = responseMessage.tool_calls[0];
+        let toolResponseMessage;
+
+        if (toolCall.function.name === 'get_weather_forecast') {
+          const args = JSON.parse(toolCall.function.arguments);
+          try {
+            const coords = await this.locationService.getCoordinatesByLocationName(args.location);
+            if (coords) {
+              const weatherData = await this.weatherService.getWeatherByLocation(coords.lat, coords.lon);
+              toolResponseMessage = {
+                tool_call_id: toolCall.id,
+                role: "tool",
+                name: toolCall.function.name,
+                content: JSON.stringify(weatherData),
+              };
+            } else {
+              throw new NotFoundError();
+            }
+          } catch (e) {
+             toolResponseMessage = {
+                tool_call_id: toolCall.id,
+                role: "tool",
+                name: toolCall.function.name,
+                content: JSON.stringify({error: `Could not find the location ${args.location}.`}),
+              };
+          }
+        } else if (toolCall.function.name === 'get_crop_sowing_info') {
+          const args = JSON.parse(toolCall.function.arguments);
+          const cropInfo = this.cropService.getCropSowingInfo(args.crop_name);
+          toolResponseMessage = {
+            tool_call_id: toolCall.id,
+            role: "tool",
+            name: toolCall.function.name,
+            content: cropInfo ? JSON.stringify(cropInfo) : JSON.stringify({error: "Crop not found"}),
           };
-        }[];
-      };
+        }
 
-      let data: LLMResponse;
+        if (toolResponseMessage) {
+          messages.push(responseMessage);
+          messages.push(toolResponseMessage);
 
-      try {
-        data = (await response.json()) as LLMResponse;
-      } catch (err) {
-        throw new InternalServerError("Failed to parse LLM response JSON");
+          // Call the model again with the tool data
+          const finalResponse = await fetch(fullUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "Qwen/Qwen3-30B-A3B",
+              messages: messages,
+              temperature: 0.4,
+              max_tokens: 700,
+            }),
+          });
+
+          if (!finalResponse.ok) {
+            throw new InternalServerError('Failed to get final response from LLM after tool call');
+          }
+
+          const finalData = await finalResponse.json();
+          let answer = finalData.choices[0].message.content;
+          return { question: questionDoc.question, answer };
+        }
       }
 
-      if (!data || !Array.isArray(data.choices) || data.choices.length === 0) {
-        throw new InternalServerError("Invalid LLM response: missing choices");
+      // If no tool call, process the direct answer
+      let answer = responseMessage.content;
+
+      if (!answer) {
+        throw new InternalServerError("LLM returned insufficient content");
       }
-
-      const firstChoice = data.choices[0];
-
-      if (!firstChoice?.message?.content) {
-        throw new InternalServerError("Invalid LLM response: missing content");
-      }
-
-      let answer = firstChoice.message.content;
 
       answer = answer
         .replace(/```[\s\S]*?```/g, "") // remove code blocks fully
@@ -250,10 +350,6 @@ export class AiService {
         .replace(/^\s+/, "")            // remove leading whitespace/newlines
         .replace(/\n{3,}/g, "\n\n")     // normalize excessive line breaks
         .trim();
-
-      if (!answer || answer.length < 10) {
-        throw new InternalServerError("LLM returned insufficient content");
-      }
 
       return {
         question: questionDoc.question,
@@ -318,13 +414,8 @@ export class AiService {
       }
 
       const fullUrl = `${this._whatsAppServerUrl}/threads/${threadId}/state`;
-      console.log("Full url ", fullUrl);
-      let response;
-      try{
-      response = await fetch(fullUrl);
-      }catch(err){
-        console.error("Error fetching WhatsApp message:", err);
-      }
+
+      const response = await fetch(fullUrl);
 
       if (!response.ok) {
         console.error("Failed to fetch WhatsApp message:", response.statusText);
@@ -538,74 +629,6 @@ export class AiService {
     }
   }
 
-  /** Check whether a pending question is a duplicate of an already-answered one.
-   *  POST {gdbServerUrl}/v1/gdb/check-pending-duplicate
-   *       { rephrased_query, crop, state, createdAt }.
-   *  When a match exists, returns the duplicate-check result (is_duplicate, …).
-   *  When nothing matches, the GDB server replies with { detail: "…" } — that body is
-   *  returned as-is (not null) so callers can distinguish "not found" from a transport
-   *  error (which returns null). */
-  async checkPendingDuplicate(params: {
-    rephrased_query: string;
-    crop: string;
-    state: string;
-    createdAt?: Date | string | null;
-  }): Promise<GdbPendingDuplicateResponse | null> {
-    try {
-      const response = await fetch(
-        `${this._gdbServerUrl}/v1/gdb/check-pending-duplicate`,
-        {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(params),
-        },
-      );
-
-      const data = (await response.json().catch(() => null)) as
-        | GdbPendingDuplicateResponse
-        | null;
-
-      // A "question not found" reply (non-2xx, but carrying a `detail`) is a valid
-      // outcome the caller acts on — surface it. Only treat it as a failure when the
-      // response isn't ok AND there's no parseable body to act on.
-      if (!response.ok && !data?.detail) {
-        console.error(
-          `[checkPendingDuplicate] Failed: ${response.status} ${response.statusText}`,
-        );
-        return null;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('[checkPendingDuplicate] Error:', error);
-      return null;
-    }
-  }
-
-}
-
-export interface GdbPendingDuplicateCandidate {
-  question_id: string;
-  reference_question_id: string | null;
-  question: string;
-  similarity_score: number;
-  created_at: string;
-  is_duplicate: boolean;
-}
-
-export interface GdbPendingDuplicateResponse {
-  is_duplicate?: boolean;
-  duplicate_question_id?: string | null;
-  matched_question_id?: string | null;
-  similarity_score?: number;
-  match_type?: string;
-  query?: string;
-  crop?: string;
-  state?: string;
-  candidates_checked?: GdbPendingDuplicateCandidate[];
-  audit?: any;
-  /** Present (with a non-2xx status) when the question_id wasn't found. */
-  detail?: string;
 }
 
 export interface GdbMatchItem {
