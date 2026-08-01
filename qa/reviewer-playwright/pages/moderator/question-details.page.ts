@@ -20,8 +20,6 @@ export class ModeratorQuestionDetailsPage {
   readonly lifecycleSummary: Locator;
   readonly lifecycleDuration: Locator;
   readonly closeLifeCycleButton: Locator;
-  readonly auditDialog: Locator;
-  readonly auditDialogTitle: Locator;
 
   constructor(private readonly page: Page) {
     this.title = page.getByRole("heading", { level: 1 });

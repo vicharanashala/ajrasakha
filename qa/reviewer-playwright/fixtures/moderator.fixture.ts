@@ -3,10 +3,12 @@ import { LoginPage } from "../pages/shared/login.page.js";
 import { ModeratorDashboardPage } from "../pages/moderator/dashboard.page.js";
 import { CreateQuestionPage } from "../pages/moderator/create-question.page.js";
 import { ModeratorQuestionDetailsPage } from "../pages/moderator/question-details.page.js";
+import { ModeratorAllocationQueuePage } from "../pages/moderator/allocation-queue.page.js";
 type ModeratorFixtures = {
   moderatorDashboard: ModeratorDashboardPage;
   createQuestionPage: CreateQuestionPage;
   moderatorQuestionDetailsPage: ModeratorQuestionDetailsPage;
+  moderatorAllocationQueuePage: ModeratorAllocationQueuePage;
 };
 
 export const test = base.extend<ModeratorFixtures>({
@@ -27,6 +29,10 @@ export const test = base.extend<ModeratorFixtures>({
 
   moderatorQuestionDetailsPage: async ({ page }, use) => {
     await use(new ModeratorQuestionDetailsPage(page));
+  },
+
+  moderatorAllocationQueuePage: async ({ page }, use) => {
+    await use(new ModeratorAllocationQueuePage(page));
   },
 });
 
