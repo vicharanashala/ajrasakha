@@ -7178,9 +7178,24 @@ export class ChatbotRepository implements IChatbotRepository {
             {$skip: skip},
             {$limit: limit},
             {
+              $lookup: {
+                from: 'questions',
+                localField: 'messageId',
+                foreignField: 'messageId',
+                as: '_questionDoc',
+              },
+            },
+            {
+              $unwind: {
+                path: '$_questionDoc',
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            {
               $project: {
                 _id: 1,
                 conversationId: 1,
+                questionId: {$toString: '$_questionDoc._id'},
                 userId: '$_userDoc._id',
                 name: '$_userDoc.name',
                 username: '$_userDoc.username',
@@ -20783,10 +20798,26 @@ export class ChatbotRepository implements IChatbotRepository {
               $limit: limit,
             },
             {
+              $lookup: {
+                from: 'questions',
+                localField: 'messageId',
+                foreignField: 'messageId',
+                as: '_questionDoc',
+              },
+            },
+            {
+              $unwind: {
+                path: '$_questionDoc',
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            {
               $project: {
                 _id: 1,
 
                 conversationId: 1,
+
+                questionId: {$toString: '$_questionDoc._id'},
 
                 userId: '$_userDoc._id',
 
