@@ -608,8 +608,8 @@ export interface IQuestionRepository {
     session?: ClientSession
   ): Promise<any>
 
-  findUnassignedInReviewQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
-  findModeratorAssignedQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
+  findUnassignedInReviewQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
+  findModeratorAssignedQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 
   /** Gate-keeper / auditor role allocation helpers. */

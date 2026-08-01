@@ -7827,6 +7827,8 @@ export class QuestionRepository implements IQuestionRepository {
   /** Returns in-review questions with no moderator assigned yet, ordered oldest first. */
   async findUnassignedInReviewQuestions(
     sources?: QuestionSource[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<IQuestion[]> {
     await this.init();
     // Picks up in-review, duplicate and pae_submitted questions so the moderator-queue
@@ -7844,6 +7846,11 @@ export class QuestionRepository implements IQuestionRepository {
     if (sources && sources.length > 0) {
       filter.source = { $in: sources };
     }
+    if (isAdmin !== true && isTrainingUser !== undefined) {
+      filter.isTrainingQuestion = isTrainingUser
+        ? true
+        : { $ne: true };
+    }
     return this.QuestionCollection.find(filter)
       .sort({ createdAt: 1 })
       .toArray();
@@ -7855,6 +7862,8 @@ export class QuestionRepository implements IQuestionRepository {
    *  moderatorId) show up here too. Oldest first. */
   async findModeratorAssignedQuestions(
     sources?: QuestionSource[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IQuestion[]> {
     await this.init();
     const filter: Record<string, unknown> = {
@@ -7863,6 +7872,11 @@ export class QuestionRepository implements IQuestionRepository {
     };
     if (sources && sources.length > 0) {
       filter.source = { $in: sources };
+    }
+    if (isAdmin !== true && isTrainingUser !== undefined) {
+      filter.isTrainingQuestion = isTrainingUser
+        ? true
+        : { $ne: true };
     }
     return this.QuestionCollection.find(filter)
       .sort({ createdAt: 1 })

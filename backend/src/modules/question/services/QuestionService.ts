@@ -8409,7 +8409,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // in-review/duplicate questions with no moderator assigned yet. No date
         // filter so the count always matches what the cron picks up.
         const qs =
-          (await this.questionRepo.findUnassignedInReviewQuestions()) as any[];
+          (await this.questionRepo.findUnassignedInReviewQuestions([], isTrainingUser, isAdmin)) as any[];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
         // Map a full question doc through the submission mapper (wraps it as `.question`).
@@ -8424,7 +8424,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // questions always carry a moderatorId, so they appear here too. Each item
         // is tagged with the assigned moderator's name.
         const qs =
-          (await this.questionRepo.findModeratorAssignedQuestions()) as any[];
+          (await this.questionRepo.findModeratorAssignedQuestions([],isTrainingUser,isAdmin)) as any[];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
         const ids = pageQs
@@ -8476,6 +8476,8 @@ export class QuestionService extends BaseService implements IQuestionService {
             : MANUAL_SOURCES;
         const qs = (await this.questionRepo.findUnassignedInReviewQuestions(
           sources,
+          isTrainingUser,
+          isAdmin
         )) as any[];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
@@ -8493,6 +8495,8 @@ export class QuestionService extends BaseService implements IQuestionService {
             : MANUAL_SOURCES;
         const qs = (await this.questionRepo.findModeratorAssignedQuestions(
           sources,
+          isTrainingUser,
+          isAdmin
         )) as any[];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
@@ -8520,6 +8524,8 @@ export class QuestionService extends BaseService implements IQuestionService {
             : MANUAL_SOURCES;
         const mods = (await this.userRepo.findAvailableStfModeratorsForSources(
           sources,
+          isTrainingUser,
+          isAdmin
         )) as any[];
         const items: QueueExpertItem[] = mods
           .slice(skip, skip + safeLimit)
