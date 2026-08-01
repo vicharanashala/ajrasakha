@@ -242,3 +242,494 @@ Verify that hovering over an allocation card reveals the current allocation stat
 ### Status
 
 ✅ Passed
+
+## MQA-007 — Moderator sees Gate Keeper Queue
+
+### Feature
+
+Gate Keeper Queue
+
+### Purpose
+
+Verify that the **Gate Keeper Queue** section is displayed on the Question Details page.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Application loads successfully after login.
+- A valid question is created during test setup.
+- Moderator opens the newly created question.
+
+### Test Flow
+
+1. Login as moderator.
+2. Navigate to **All Questions**.
+3. Create a valid question.
+4. Submit the question.
+5. Open the created question.
+6. Scroll to the **Gate Keeper Queue** section.
+7. Verify the section is displayed.
+
+### Assertions
+
+- Gate Keeper Queue heading is visible.
+- Queue subtitle is visible.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-008 — Moderator sees Gate Keeper Auto Allocate toggle
+
+### Feature
+
+Gate Keeper Queue
+
+### Purpose
+
+Verify that the **Auto-allocate Gate Keeper** toggle is visible.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Question Details page is open.
+
+### Test Flow
+
+1. Open a question.
+2. Navigate to the **Gate Keeper Queue** section.
+3. Verify the Auto-allocate Gate Keeper control.
+
+### Assertions
+
+- Auto-allocate Gate Keeper toggle is visible.
+- Auto-allocate Gate Keeper label is visible.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-009 — Moderator sees Gate Keeper empty state
+
+### Feature
+
+Gate Keeper Queue
+
+### Purpose
+
+Verify that the Gate Keeper Queue displays its empty state when no Gate Keeper has been assigned.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Newly created question.
+- No Gate Keeper is assigned.
+
+### Test Flow
+
+1. Open a question.
+2. Navigate to the **Gate Keeper Queue**.
+3. Verify the empty state.
+
+### Assertions
+
+- Empty state heading **"No gate keeper assigned"** is visible.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-010 — Moderator sees Gate Keeper assignment message
+
+### Feature
+
+Gate Keeper Queue
+
+### Purpose
+
+Verify that the informational message explaining Gate Keeper assignment is displayed.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Newly created question.
+- No Gate Keeper is assigned.
+
+### Test Flow
+
+1. Open a question.
+2. Navigate to the **Gate Keeper Queue**.
+3. Observe the assignment information.
+
+### Assertions
+
+- Assignment guidance message is visible.
+- The message explains that a Gate Keeper will be assigned automatically when auto-allocation is enabled.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-011 — Moderator sees Auditor Queue
+
+### Feature
+
+Auditor Queue
+
+### Purpose
+
+Verify that the **Auditor Queue** section is displayed on the Question Details page.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Application loads successfully after login.
+- A valid question is created during test setup.
+- Moderator opens the newly created question.
+
+### Test Flow
+
+1. Login as moderator.
+2. Create a valid question.
+3. Open the question.
+4. Navigate to the **Auditor Queue** section.
+
+### Assertions
+
+- Auditor Queue heading is visible.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-012 — Moderator sees Auditor Auto Allocate toggle
+
+### Feature
+
+Auditor Queue
+
+### Purpose
+
+Verify that the **Auto-allocate Auditor** toggle is visible.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Question Details page is open.
+
+### Test Flow
+
+1. Open a question.
+2. Navigate to the **Auditor Queue**.
+3. Verify the Auto-allocate Auditor control.
+
+### Assertions
+
+- Auto-allocate Auditor toggle is visible.
+- Auto-allocate Auditor label is visible.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-013 — Moderator sees Auditor empty state
+
+### Feature
+
+Auditor Queue
+
+### Purpose
+
+Verify that the Auditor Queue displays its empty state when no Auditor has been assigned.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Newly created question.
+- No Auditor is assigned.
+
+### Test Flow
+
+1. Open a question.
+2. Navigate to the **Auditor Queue**.
+3. Verify the empty state.
+
+### Assertions
+
+- Empty state heading **"No auditor assigned"** is visible.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-014 — Moderator sees Auditor assignment message
+
+### Feature
+
+Auditor Queue
+
+### Purpose
+
+Verify that the informational message explaining Auditor assignment is displayed.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Newly created question.
+- No Auditor is assigned.
+
+### Test Flow
+
+1. Open a question.
+2. Navigate to the **Auditor Queue**.
+3. Observe the assignment information.
+
+### Assertions
+
+- Assignment guidance message is visible.
+- The message explains that an Auditor will be assigned automatically when auto-allocation is enabled.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-015 — Moderator sees Moderator Queue
+
+### Feature
+
+Moderator Queue
+
+### Purpose
+
+Verify that the **Moderator Queue** section is displayed on the Question Details page.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Application loads successfully after login.
+- A valid question is created during test setup.
+- Moderator opens the newly created question.
+
+### Test Flow
+
+1. Login as moderator.
+2. Create a valid question.
+3. Open the question.
+4. Navigate to the **Moderator Queue** section.
+
+### Assertions
+
+- Moderator Queue heading is visible.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-016 — Moderator sees Moderator Auto Allocate toggle
+
+### Feature
+
+Moderator Queue
+
+### Purpose
+
+Verify that the **Auto-allocate Moderator** toggle is visible.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Question Details page is open.
+
+### Test Flow
+
+1. Open a question.
+2. Navigate to the **Moderator Queue**.
+3. Verify the Auto-allocate Moderator control.
+
+### Assertions
+
+- Auto-allocate Moderator toggle is visible.
+- Auto-allocate Moderator label is visible.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-017 — Moderator sees Moderator empty state
+
+### Feature
+
+Moderator Queue
+
+### Purpose
+
+Verify that the Moderator Queue displays its empty state when no Moderator has been assigned.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Newly created question.
+- No Moderator is assigned.
+
+### Test Flow
+
+1. Open a question.
+2. Navigate to the **Moderator Queue**.
+3. Verify the empty state.
+
+### Assertions
+
+- Empty state heading **"No Moderator Assigned"** is visible.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-018 — Moderator sees Moderator assignment message
+
+### Feature
+
+Moderator Queue
+
+### Purpose
+
+Verify that the informational message explaining Moderator assignment is displayed.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Newly created question.
+- No Moderator is assigned.
+
+### Test Flow
+
+1. Open a question.
+2. Navigate to the **Moderator Queue**.
+3. Observe the assignment information.
+
+### Assertions
+
+- Assignment guidance message is visible.
+- The message explains that a Moderator will be assigned automatically, or can be assigned manually.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed

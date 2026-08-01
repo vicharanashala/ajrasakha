@@ -34,6 +34,14 @@ export class ModeratorAllocationQueuePage {
   readonly auditorEmptyState: Locator;
   readonly auditorEmptyMessage: Locator;
 
+  readonly moderatorSection: Locator;
+  readonly moderatorHeading: Locator;
+  readonly moderatorSubtitle: Locator;
+  readonly moderatorToggle: Locator;
+  readonly moderatorToggleLabel: Locator;
+  readonly moderatorEmptyState: Locator;
+  readonly moderatorEmptyMessage: Locator;
+
   constructor(private readonly page: Page) {
     this.heading = page.getByRole("heading", {
       name: "Allocation Queue",
@@ -130,6 +138,33 @@ export class ModeratorAllocationQueuePage {
     this.auditorEmptyMessage = this.auditorSection.getByText(
       /No auditor is currently assigned/,
     );
+    this.moderatorSection = this.page.locator(".w-full.space-y-6").filter({
+      has: this.page.getByRole("heading", {
+        name: "Moderator Queue",
+      }),
+    });
+
+    this.moderatorHeading = this.moderatorSection.getByRole("heading", {
+      name: "Moderator Queue",
+    });
+
+    this.moderatorSubtitle = this.moderatorSection.locator("p").first();
+
+    this.moderatorToggle = this.page.getByRole("switch", {
+      name: "Auto-allocate Moderator",
+    });
+
+    this.moderatorToggleLabel = this.page.getByText("Auto-allocate Moderator", {
+      exact: true,
+    });
+
+    this.moderatorEmptyState = this.moderatorSection.getByRole("heading", {
+      name: "No Moderator Assigned",
+    });
+
+    this.moderatorEmptyMessage = this.moderatorSection.getByText(
+      /No moderator is currently assigned/,
+    );
   }
 
   //   FUNCTIONS======================================
@@ -207,5 +242,21 @@ export class ModeratorAllocationQueuePage {
 
   async expectAuditorMessage() {
     await expect(this.auditorEmptyMessage).toBeVisible();
+  }
+  async expectModeratorOpened() {
+    await expect(this.moderatorHeading).toBeVisible();
+  }
+
+  async expectModeratorToggle() {
+    await expect(this.moderatorToggle).toBeVisible();
+    await expect(this.moderatorToggleLabel).toBeVisible();
+  }
+
+  async expectModeratorEmptyState() {
+    await expect(this.moderatorEmptyState).toBeVisible();
+  }
+
+  async expectModeratorMessage() {
+    await expect(this.moderatorEmptyMessage).toBeVisible();
   }
 }
