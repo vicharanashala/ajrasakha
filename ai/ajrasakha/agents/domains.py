@@ -39,6 +39,7 @@ CROP_ALL_DOMAINS: frozenset[str] = frozenset({
     "Infrastructure & Utilities",
     "Government Schemes",
     "Weather",
+    "Crop Recommendation",
     "General",
 })
 
@@ -60,6 +61,7 @@ _DOMAIN_ALIASES: dict[str, str] = {
     "pm kisan": "Financial & Institutional Services",
     "farm machinery and equipment": "Agriculture Mechanization",
     "farm machinery": "Agriculture Mechanization",
+    "crop recommendation": "Crop Recommendation",
 }
 
 # Planner routing labels not in reviewer MCP allowed_domains -> upload-safe name.
@@ -83,6 +85,7 @@ class PlannerToolFlags(TypedDict, total=False):
     schemes: bool
     chemical_checker: bool
     knowledge_base: bool
+    crop_recommendation: bool
 
 
 def domain_requires_crop(domain: str) -> bool:
@@ -123,6 +126,7 @@ def apply_tool_flags_from_domain(domain: str) -> PlannerToolFlags:
         "schemes": False,
         "chemical_checker": False,
         "knowledge_base": False,
+        "crop_recommendation": False,
     }
     if d == "Weather":
         flags["weather"] = True
@@ -133,6 +137,8 @@ def apply_tool_flags_from_domain(domain: str) -> PlannerToolFlags:
     elif d in _SCHEME_DOMAINS:
         flags["schemes"] = True
         flags["knowledge_base"] = False
+    elif d == "Crop Recommendation":
+        flags["crop_recommendation"] = True
     elif d in CROP_REQUIRED_DOMAINS:
         flags["knowledge_base"] = True
     return flags
@@ -147,6 +153,7 @@ def apply_tool_flags_from_domains(domains: list[str]) -> PlannerToolFlags:
         "schemes": False,
         "chemical_checker": False,
         "knowledge_base": False,
+        "crop_recommendation": False,
     }
     for d in domains or []:
         flags = apply_tool_flags_from_domain(d)

@@ -165,6 +165,29 @@ async def assemble_answer_body_node(
             logger.info("assemble_answer_body: specialist tools empty — empty_gdb path")
             return defer_empty_gdb_to_translate(state, plan=plan)
 
+        # Auto-chain GDB for crop recommendation
+        if plan.get("crop_recommendation"):
+            import re
+            import json
+            match = re.search(r"RECOMMENDED_CROP:\s*([a-zA-Z0-9_ ]+)", tool_block, re.IGNORECASE)
+            if match:
+                rec_crop = match.group(1).strip().lower()
+                logger.info("Auto-chaining GDB for recommended crop: %s", rec_crop)
+                try:
+                    from ajrasakha.agents.gdb_agent import gdb
+                    gdb_result = await gdb.ainvoke({
+                        "rephrased_query": f"Package of practices for {rec_crop}",
+                        "crop": rec_crop,
+                        "state": plan.get("entities", {}).get("state", "all"),
+                    }, config=config)
+                    gdb_data = json.loads(gdb_result)
+                    if gdb_has_usable_answers(gdb_data):
+                        gdb_body = gdb_answer_body(gdb_data)
+                        if gdb_body:
+                            tool_block += f"\n\n### Cultivation Guidelines for {rec_crop.title()}\n{gdb_body}"
+                except Exception as e:
+                    logger.warning("Auto-chaining GDB failed for crop %s: %s", rec_crop, e)
+
         # Check if the answer is relevant to the user's question
         # This handles cases like "What crops are best for weather?" where only weather data is returned
         rephrased_query = plan.get("rephrased_query", "")
@@ -196,7 +219,8 @@ async def assemble_answer_body_node(
                     plan.get("weather", False) or
                     plan.get("mandi", False) or
                     plan.get("soil", False) or
-                    plan.get("schemes", False)
+                    plan.get("schemes", False) or
+                    plan.get("crop_recommendation", False)
                 )
                 if has_dynamic_tool:
                     needs_relevance_check = True
