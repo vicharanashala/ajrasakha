@@ -245,6 +245,18 @@ export interface IQuestionService {
     currentValues: string[],
     standardizedTo: string,
   ): Promise<{ matched: number; modified: number }>;
+  normalizeQuestionDistricts(
+    mappings: { existingName: string; standardiseTo: string }[],
+  ): Promise<{
+    results: {
+      existingName: string;
+      standardiseTo: string;
+      matchedInDistricts: boolean;
+      matched: number;
+      modified: number;
+    }[];
+    notMatching: { existingName: string; standardiseTo: string }[];
+  }>;
 
   /** Questions allocated to an expert */
   getAllocatedQuestions(

@@ -106,6 +106,19 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<{ matched: number; modified: number }>;
 
+  normalizeQuestionDistricts(
+    mappings: { existingName: string; standardiseTo: string }[],
+  ): Promise<{
+    results: {
+      existingName: string;
+      standardiseTo: string;
+      matchedInDistricts: boolean;
+      matched: number;
+      modified: number;
+    }[];
+    notMatching: { existingName: string; standardiseTo: string }[];
+  }>;
+
   /**
    * Retrieves all questions for a specific context.
    * @param questionId - The ID of the question.

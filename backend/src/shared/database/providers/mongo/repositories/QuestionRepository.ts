@@ -290,6 +290,79 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Data fix: standardise question district names, validated against the `districts`
+   *  collection. For each { existingName, standardiseTo }: only when `standardiseTo` exists
+   *  as a districtNameEnglish do we set details.district = standardiseTo for questions whose
+   *  details.district === existingName. Names whose `standardiseTo` isn't a known district
+   *  are returned in `notMatching` and left untouched. */
+  async normalizeQuestionDistricts(
+    mappings: {existingName: string; standardiseTo: string}[],
+  ): Promise<{
+    results: {
+      existingName: string;
+      standardiseTo: string;
+      matchedInDistricts: boolean;
+      matched: number;
+      modified: number;
+    }[];
+    notMatching: {existingName: string; standardiseTo: string}[];
+  }> {
+    try {
+      await this.init();
+      const districtsCollection =
+        await this.db.getCollection<{districtNameEnglish?: string}>('districts');
+
+      // Which of the target names actually exist in the districts collection?
+      const targets = Array.from(new Set(mappings.map(m => m.standardiseTo)));
+      const existingDocs = await districtsCollection
+        .find(
+          {districtNameEnglish: {$in: targets}},
+          {projection: {districtNameEnglish: 1, _id: 0}},
+        )
+        .toArray();
+      const validSet = new Set(
+        existingDocs.map(d => d.districtNameEnglish).filter(Boolean),
+      );
+
+      const results: {
+        existingName: string;
+        standardiseTo: string;
+        matchedInDistricts: boolean;
+        matched: number;
+        modified: number;
+      }[] = [];
+      const notMatching: {existingName: string; standardiseTo: string}[] = [];
+
+      for (const m of mappings) {
+        if (!validSet.has(m.standardiseTo)) {
+          notMatching.push({
+            existingName: m.existingName,
+            standardiseTo: m.standardiseTo,
+          });
+          results.push({...m, matchedInDistricts: false, matched: 0, modified: 0});
+          continue;
+        }
+        const res = await this.QuestionCollection.updateMany(
+          {'details.district': m.existingName},
+          {$set: {'details.district': m.standardiseTo, updatedAt: new Date()}},
+        );
+        results.push({
+          existingName: m.existingName,
+          standardiseTo: m.standardiseTo,
+          matchedInDistricts: true,
+          matched: res.matchedCount,
+          modified: res.modifiedCount,
+        });
+      }
+
+      return {results, notMatching};
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to normalize question districts: ${error}`,
+      );
+    }
+  }
+
   async getById(
     questionId: string,
     session?: ClientSession,

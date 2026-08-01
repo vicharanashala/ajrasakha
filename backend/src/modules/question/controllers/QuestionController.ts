@@ -2877,6 +2877,24 @@ export class QuestionController {
       standardizedTo,
     );
   }
+
+  @Post('/background/normalize-district')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Standardise question district names against the districts collection (internal data fix). Body: [{ existingName, standardiseTo }]. When `standardiseTo` is a known districtNameEnglish, questions with details.district === existingName are updated to it; names not found in the districts collection are returned in `notMatching`.',
+  })
+  async normalizeQuestionDistricts(
+    @Body() body: { existingName: string; standardiseTo: string }[],
+  ) {
+    if (!Array.isArray(body) || body.length === 0) {
+      throw new BadRequestError(
+        'body must be a non-empty array of { existingName, standardiseTo }',
+      );
+    }
+    return await this.questionService.normalizeQuestionDistricts(body);
+  }
   // ─── Check overlaps endpoint (internal API key auth) ──────────────────────
 
   @Post('/check-overlaps')
