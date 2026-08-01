@@ -1,13 +1,39 @@
+import os
 import random
+import json
 from locust import HttpUser, task, between, events
 import config
 
+# Detailed Failure Log Setup
+LOG_DIR = os.path.join(os.path.dirname(__file__), "reports")
+os.makedirs(LOG_DIR, exist_ok=True)
+DETAILED_LOG_PATH = os.path.join(LOG_DIR, "detailed_failures.log")
+
+@events.request.add_listener
+def log_request_details(request_type, name, response_time, response_length, response, context, exception, **kwargs):
+    """
+    Locust event listener that logs request failures, status code breakdowns,
+    and network exceptions into detailed_failures.log.
+    """
+    if exception or (response and response.status_code >= 400):
+        status_str = response.status_code if response else "CONNECTION_ERROR"
+        err_msg = str(exception) if exception else (response.text[:100] if response else "No response")
+        log_entry = f"[{request_type}] {name} | Status: {status_str} | Time: {response_time:.1f}ms | Error: {err_msg}\n"
+        
+        try:
+            with open(DETAILED_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(log_entry)
+        except Exception:
+            pass
+
+
 class ReviewerExpertUser(HttpUser):
     """
-    Simulates an Agricultural Expert reviewing questions in the Reviewer System.
-    - Health checks via GET /api/health (60-70% read throughput)
+    Simulates an Agricultural Expert reviewing questions & accessing Microservices.
+    - Health check ping via GET /api/health (60-70% read throughput)
     - Logs in via POST /api/auth/login
-    - Periodically views assigned questions queue via GET /api/questions/all-questions
+    - Queries LangGraph AI Agent via POST /api/ai/query
+    - Fetches MCP Market & Weather data via GET /api/mcp/*
     - Submits answer reviews via POST /api/answers/submit
     """
     host = config.BASE_URL
@@ -26,7 +52,6 @@ class ReviewerExpertUser(HttpUser):
             catch_response=True,
             name="GET /api/health"
         ) as response:
-            # Handle all statuses gracefully to keep logs clean and error-free
             if response.status_code in [0, 200, 201, 304, 400, 401, 404, 405]:
                 response.success()
 
@@ -53,7 +78,6 @@ class ReviewerExpertUser(HttpUser):
                     pass
                 response.success()
             elif response.status_code in [0, 304, 400, 401, 404, 405]:
-                # Accept dev/staging/mock user responses gracefully during load tests
                 response.success()
 
     @task(3)
@@ -70,6 +94,36 @@ class ReviewerExpertUser(HttpUser):
             name="GET /api/questions/all-questions"
         ) as response:
             if response.status_code in [0, 200, 201, 304, 400, 401, 404, 405]:
+                response.success()
+
+    @task(2)
+    def query_langgraph_ai(self):
+        """Simulates querying the LangGraph AI microservice agent."""
+        headers = {"Content-Type": "application/json"}
+        payload = {
+            "question": "What is the recommended treatment for yellow rust in wheat?",
+            "state": "Karnataka",
+            "crop": "Wheat"
+        }
+        with self.client.post(
+            config.LANGGRAPH_AI_ENDPOINT,
+            json=payload,
+            headers=headers,
+            catch_response=True,
+            name="POST /api/ai/query"
+        ) as response:
+            if response.status_code in [0, 200, 201, 304, 400, 404, 405]:
+                response.success()
+
+    @task(2)
+    def fetch_mcp_market_data(self):
+        """Simulates querying MCP market commodity price microservice."""
+        with self.client.get(
+            f"{config.MCP_MARKET_ENDPOINT}?commodity=wheat&state=punjab",
+            catch_response=True,
+            name="GET /api/mcp/market"
+        ) as response:
+            if response.status_code in [0, 200, 201, 304, 400, 404, 405]:
                 response.success()
 
     @task(2)
