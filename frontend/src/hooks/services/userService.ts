@@ -105,15 +105,14 @@ export class UserService {
     });
   }
 
-  async toggleUserRole(userId: string, currentRole: string, selectedRole?: string): Promise<IUser | null> {
-    if (currentRole === "admin") {
-      throw new Error("Admin role cannot be changed");
+  async toggleUserRole(userId: string, _currentRole: string, selectedRole?: string): Promise<IUser | null> {
+    // Admin targets can now be switched too — the backend (admin-only) is the source of truth.
+    if (!selectedRole) {
+      throw new Error("Please select a role");
     }
-
-    const newRole = selectedRole;
     return apiFetch<IUser>(`${this._baseUrl}/${userId}/role`, {
       method: "PATCH",
-      body: JSON.stringify({ role: newRole }),
+      body: JSON.stringify({ role: selectedRole }),
     });
   }
 
