@@ -63,4 +63,27 @@ test.describe("Moderator Allocation Queue", () => {
 
     await moderatorAllocationQueuePage.expectAllocationStatusMessage();
   });
+  test("MQA-007 Moderator sees Gate Keeper Queue", async ({
+    moderatorAllocationQueuePage,
+  }) => {
+    await moderatorAllocationQueuePage.expectGateKeeperOpened();
+  });
+
+  test("MQA-008 Moderator sees Gate Keeper Auto Allocate toggle", async ({
+    moderatorAllocationQueuePage,
+  }) => {
+    await moderatorAllocationQueuePage.expectGateKeeperToggle();
+  });
+
+  test("MQA-009 Moderator sees Gate Keeper empty state", async ({
+    moderatorAllocationQueuePage,
+  }) => {
+    await moderatorAllocationQueuePage.expectGateKeeperEmptyState();
+  });
+
+  test("MQA-010 Moderator sees Gate Keeper assignment message", async ({
+    moderatorAllocationQueuePage,
+  }) => {
+    await moderatorAllocationQueuePage.expectGateKeeperMessage();
+  });
 });

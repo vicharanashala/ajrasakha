@@ -18,6 +18,14 @@ export class ModeratorAllocationQueuePage {
 
   readonly allocationStatusMessage: Locator;
 
+  readonly gateKeeperHeading: Locator;
+  readonly gateKeeperSubtitle: Locator;
+  readonly gateKeeperEmptyState: Locator;
+  readonly gateKeeperSection: Locator;
+  readonly gateKeeperToggle: Locator;
+  readonly gateKeeperToggleLabel: Locator;
+  readonly gateKeeperEmptyMessage: Locator;
+
   constructor(private readonly page: Page) {
     this.heading = page.getByRole("heading", {
       name: "Allocation Queue",
@@ -57,6 +65,34 @@ export class ModeratorAllocationQueuePage {
 
     this.allocationStatusMessage = this.page.getByText(
       /Expert .*reviewing|Expert created an answer/i,
+    );
+
+    this.gateKeeperSection = this.page.locator(".w-full.space-y-6").filter({
+      has: this.page.getByRole("heading", {
+        name: "Gate Keeper Queue",
+      }),
+    });
+
+    this.gateKeeperHeading = this.gateKeeperSection.getByRole("heading", {
+      name: "Gate Keeper Queue",
+    });
+
+    this.gateKeeperSubtitle = this.gateKeeperSection.locator("p").first();
+
+    this.gateKeeperEmptyState = this.gateKeeperSection.getByRole("heading", {
+      name: "No gate keeper assigned",
+    });
+
+    this.gateKeeperToggle = page.getByRole("switch", {
+      name: "Auto-allocate Gate Keeper",
+    });
+
+    this.gateKeeperToggleLabel = page.getByText("Auto-allocate Gate Keeper", {
+      exact: true,
+    });
+
+    this.gateKeeperEmptyMessage = page.getByText(
+      /No gate keeper is currently assigned/,
     );
   }
 
@@ -103,5 +139,21 @@ export class ModeratorAllocationQueuePage {
     await expect(
       card.getByText(/Expert .*reviewing|Expert created an answer/i),
     ).toBeVisible();
+  }
+
+  async expectGateKeeperOpened() {
+    await expect(this.gateKeeperHeading).toBeVisible();
+    await expect(this.gateKeeperSubtitle).toBeVisible();
+  }
+
+  async expectGateKeeperToggle() {
+    await expect(this.gateKeeperToggle).toBeVisible();
+    await expect(this.gateKeeperToggleLabel).toBeVisible();
+  }
+  async expectGateKeeperEmptyState() {
+    await expect(this.gateKeeperEmptyState).toBeVisible();
+  }
+  async expectGateKeeperMessage() {
+    await expect(this.gateKeeperEmptyMessage).toBeVisible();
   }
 }
