@@ -37,6 +37,7 @@ export interface QAMetadata {
   extracted_crop: string;
   extracted_state: string;
   extracted_district: string;
+  extracted_block?: string;
   extracted_domain?: string | string[];
   standardized_domains?: string | string[];
   extracted_season: string;
@@ -67,11 +68,12 @@ export class AccAgentService {
 
   async extractData(
     threadId: string,
-    transcript: string
+    transcript: string,
+    extractionType?: 'farmer_details' | 'query_details' | 'all'
   ): Promise<ExtractDataResponse> {
     const result = await apiFetch<ExtractDataResponse>(`${this.baseUrl}/acc-agent/extract`, {
       method: 'POST',
-      body: JSON.stringify({ threadId, transcript }),
+      body: JSON.stringify({ threadId, transcript, extractionType }),
     });
     if (!result) {
       throw new Error('Failed to extract data: no response from server');

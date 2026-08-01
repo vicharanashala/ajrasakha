@@ -20,6 +20,7 @@ export interface QueryFilterValues {
   domain: string;
   state: string;
   district: string;
+  block?: string;
   crop: string;
   season: string;
   startDate: string;
@@ -111,6 +112,7 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
         domain: filters.domain !== 'All' ? filters.domain : undefined,
         state: filters.state !== 'All' ? filters.state : undefined,
         district: filters.district || undefined,
+        block: filters.block || undefined,
         crop: filters.crop || undefined,
         season: filters.season !== 'All' ? filters.season : undefined
       });
@@ -129,6 +131,7 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
     (filters.state && filters.state !== 'All') ||
     (filters.season && filters.season !== 'All') ||
     filters.district ||
+    filters.block ||
     filters.crop ||
     filters.startDate ||
     filters.endDate ||
@@ -291,6 +294,21 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
               placeholder="Filter district..."
               value={filters.district}
               onChange={(e) => onFilterChange({ district: e.target.value })}
+              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
+            />
+          </div>
+
+          {/* Block Filter */}
+          <div className="space-y-1">
+            <label className="text-foreground font-medium flex items-center gap-1.5 text-[11px]">
+              <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+              Block
+            </label>
+            <input
+              type="text"
+              placeholder="Filter block..."
+              value={filters.block || ''}
+              onChange={(e) => onFilterChange({ block: e.target.value })}
               className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
             />
           </div>

@@ -107,7 +107,7 @@ export const IncomingCallBox = ({
   const languageManuallyChangedRef = useRef(false);
 
   // Collapsible UI Section States (secondary during call)
-  const [isFarmerInfoExpanded, setIsFarmerInfoExpanded] = useState(false);
+  const [isFarmerInfoExpanded, setIsFarmerInfoExpanded] = useState(true);
   const [isMessageExpanded, setIsMessageExpanded] = useState(false);
 
   // Voice-to-Text STT States
@@ -1298,19 +1298,19 @@ export const IncomingCallBox = ({
                 )}
 
                 {(callStatus === "connected" || callStatus === "held") && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 w-full">
                     <Button
                       onClick={handleToggleRecording}
                       size="sm"
                       variant="outline"
                       className={cn(
-                        "flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium transition-all",
+                        "flex items-center justify-center gap-2 h-10 rounded-xl text-base font-bold transition-all",
                         isRecording
-                          ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 dark:bg-red-500/20 border-red-500/30 animate-pulse font-semibold"
+                          ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 dark:bg-red-500/20 border-red-500/30 animate-pulse font-extrabold"
                           : "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 dark:bg-emerald-500/20 border-emerald-500/30 border",
                       )}
                     >
-                      <FileText className="h-3.5 w-3.5" />
+                      <FileText className="h-4.5 w-4.5" />
                       <span>{isRecording ? "Stop Transcript" : "Start Transcript"}</span>
                     </Button>
 
@@ -1318,16 +1318,16 @@ export const IncomingCallBox = ({
                       onClick={handleToggleHold}
                       size="sm"
                       variant="outline"
-                      className="flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50"
+                      className="flex items-center justify-center gap-2 h-10 rounded-xl text-base font-bold border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50"
                     >
                       {callStatus === "held" ? (
                         <>
-                          <Play className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
+                          <Play className="h-4.5 w-4.5 text-zinc-400 dark:text-zinc-500" />
                           <span>Resume</span>
                         </>
                       ) : (
                         <>
-                          <Pause className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
+                          <Pause className="h-4.5 w-4.5 text-zinc-400 dark:text-zinc-500" />
                           <span>Hold</span>
                         </>
                       )}
@@ -1338,19 +1338,19 @@ export const IncomingCallBox = ({
                       size="sm"
                       variant={isMuted ? "destructive" : "outline"}
                       className={cn(
-                        "flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50",
+                        "flex items-center justify-center gap-2 h-10 rounded-xl text-base font-bold border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50",
                         isMuted &&
-                        "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 dark:bg-orange-500/20 border-orange-500/30 font-semibold",
+                        "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 dark:bg-orange-500/20 border-orange-500/30 font-extrabold",
                       )}
                     >
                       {isMuted ? (
                         <>
-                          <VolumeX className="h-3.5 w-3.5" />
+                          <VolumeX className="h-4.5 w-4.5" />
                           <span>Unmute Agent</span>
                         </>
                       ) : (
                         <>
-                          <Volume2 className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
+                          <Volume2 className="h-4.5 w-4.5 text-zinc-400 dark:text-zinc-500" />
                           <span>Mute Agent</span>
                         </>
                       )}
@@ -1360,9 +1360,9 @@ export const IncomingCallBox = ({
                       onClick={handleHangup}
                       size="sm"
                       variant="destructive"
-                      className="flex items-center justify-center gap-1.5 h-8.5 rounded-lg shadow-md shadow-red-600/10 hover:shadow-lg hover:shadow-red-600/20 transition-all font-semibold text-xs bg-red-600 hover:bg-red-700 text-white"
+                      className="flex items-center justify-center gap-2 h-10 rounded-xl shadow-md shadow-red-600/10 hover:shadow-lg hover:shadow-red-600/20 transition-all font-extrabold text-base bg-red-600 hover:bg-red-700 text-white"
                     >
-                      <PhoneOff className="h-4 w-4" />
+                      <PhoneOff className="h-4.5 w-4.5" />
                       <span>Hang Up</span>
                     </Button>
                   </div>
@@ -1488,9 +1488,9 @@ export const IncomingCallBox = ({
         )}
       </Card>
 
-      {/* Floating Call Control Box when scrolled away from Telephony Panel */}
+      {/* Floating Call Control Box when scrolled away from Telephony Panel (Moved to Bottom Left) */}
       {isFloatingBoxVisible && (callStatus === "connected" || callStatus === "held") && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
+        <div className="fixed bottom-6 left-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
           <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 shadow-2xl rounded-2xl p-3 px-4 flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2.5 w-2.5">
@@ -1509,15 +1509,15 @@ export const IncomingCallBox = ({
 
             <div className="h-6 w-[1px] bg-zinc-200 dark:bg-zinc-800 mx-1" />
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <Button
                 onClick={handleToggleRecording}
                 size="sm"
                 variant="outline"
                 className={cn(
-                  "h-8 text-xs font-medium px-2.5 rounded-lg transition-all",
+                  "h-8.5 text-xs font-semibold px-3 rounded-lg transition-all",
                   isRecording
-                    ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/30 animate-pulse font-semibold"
+                    ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/30 animate-pulse font-bold"
                     : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                 )}
                 title={isRecording ? "Stop Transcript" : "Start Transcript"}
@@ -1531,7 +1531,7 @@ export const IncomingCallBox = ({
                 size="sm"
                 variant={isMuted ? "destructive" : "outline"}
                 className={cn(
-                  "h-8 text-xs px-2.5 rounded-lg",
+                  "h-8.5 text-xs px-3 font-semibold rounded-lg",
                   isMuted && "bg-orange-500/10 text-orange-500 border-orange-500/30"
                 )}
                 title={isMuted ? "Unmute Agent" : "Mute Agent"}
@@ -1543,7 +1543,7 @@ export const IncomingCallBox = ({
                 onClick={handleToggleHold}
                 size="sm"
                 variant="outline"
-                className="h-8 text-xs px-2.5 rounded-lg border-zinc-300 dark:border-zinc-800"
+                className="h-8.5 text-xs px-3 font-semibold rounded-lg border-zinc-300 dark:border-zinc-800"
                 title={callStatus === "held" ? "Resume Call" : "Hold Call"}
               >
                 {callStatus === "held" ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
@@ -1553,7 +1553,7 @@ export const IncomingCallBox = ({
                 onClick={handleHangup}
                 size="sm"
                 variant="destructive"
-                className="h-8 text-xs px-3 rounded-lg font-semibold bg-red-600 hover:bg-red-700 text-white"
+                className="h-8.5 text-xs px-3.5 rounded-lg font-bold bg-red-600 hover:bg-red-700 text-white"
                 title="Hang Up Call"
               >
                 <PhoneOff className="h-3.5 w-3.5 mr-1" />

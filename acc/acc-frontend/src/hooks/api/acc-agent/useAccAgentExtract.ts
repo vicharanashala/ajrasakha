@@ -6,9 +6,9 @@ const accAgentService = new AccAgentService();
 export const useAccAgentExtract = () => {
   return useMutation({
     mutationKey: ["accAgentExtract"],
-    mutationFn: async (params: { threadId: string; transcript: string }): Promise<ExtractDataResponse> => {
+    mutationFn: async (params: { threadId: string; transcript: string; extractionType?: 'farmer_details' | 'query_details' | 'all' }): Promise<ExtractDataResponse> => {
       try {
-        const result = await accAgentService.extractData(params.threadId, params.transcript);
+        const result = await accAgentService.extractData(params.threadId, params.transcript, params.extractionType);
         return result;
       } catch (error) {
         console.error('[useAccAgentExtract] Error:', error);

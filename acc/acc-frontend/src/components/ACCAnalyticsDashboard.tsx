@@ -141,13 +141,15 @@ export const ACCAnalyticsDashboard = () => {
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
   
-  // Search, Domain, State, District, Crop, Season & Pagination State
+  // Search, Domain, State, District, Block, Crop, Season & Pagination State
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("All");
   const [selectedState, setSelectedState] = useState("All");
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [debouncedDistrict, setDebouncedDistrict] = useState("");
+  const [selectedBlock, setSelectedBlock] = useState("");
+  const [debouncedBlock, setDebouncedBlock] = useState("");
   const [selectedCrop, setSelectedCrop] = useState("");
   const [debouncedCrop, setDebouncedCrop] = useState("");
   const [selectedSeason, setSelectedSeason] = useState("All");
@@ -155,7 +157,7 @@ export const ACCAnalyticsDashboard = () => {
   const [pageSize, setPageSize] = useState(10);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Debounce text inputs (search, crop, district)
+  // Debounce text inputs (search, crop, district, block)
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
@@ -180,6 +182,14 @@ export const ACCAnalyticsDashboard = () => {
     return () => clearTimeout(handler);
   }, [selectedDistrict]);
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedBlock(selectedBlock);
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [selectedBlock]);
+
   const { data: analytics, isLoading, error, refetch } = useACCAnalytics({
     startDate: customStartDate ? new Date(customStartDate).toISOString() : undefined,
     endDate: customEndDate ? new Date(customEndDate).toISOString() : undefined,
@@ -194,6 +204,7 @@ export const ACCAnalyticsDashboard = () => {
       selectedDomain,
       selectedState,
       debouncedDistrict,
+      debouncedBlock,
       debouncedCrop,
       selectedSeason,
       currentPage,
@@ -208,6 +219,7 @@ export const ACCAnalyticsDashboard = () => {
           domain: selectedDomain !== "All" ? selectedDomain : undefined,
           state: selectedState !== "All" ? selectedState : undefined,
           district: debouncedDistrict || undefined,
+          block: debouncedBlock || undefined,
           crop: debouncedCrop || undefined,
           season: selectedSeason !== "All" ? selectedSeason : undefined,
           limit: pageSize,
@@ -249,6 +261,21 @@ export const ACCAnalyticsDashboard = () => {
       }
       if (selectedDomain && selectedDomain !== "All") {
         params.append("domain", selectedDomain);
+      }
+      if (selectedState && selectedState !== "All") {
+        params.append("state", selectedState);
+      }
+      if (debouncedDistrict) {
+        params.append("district", debouncedDistrict);
+      }
+      if (debouncedBlock) {
+        params.append("block", debouncedBlock);
+      }
+      if (debouncedCrop) {
+        params.append("crop", debouncedCrop);
+      }
+      if (selectedSeason && selectedSeason !== "All") {
+        params.append("season", selectedSeason);
       }
 
       const firebaseUser = await getCurrentUser();
@@ -586,6 +613,7 @@ export const ACCAnalyticsDashboard = () => {
                   domain: selectedDomain,
                   state: selectedState,
                   district: selectedDistrict,
+                  block: selectedBlock,
                   crop: selectedCrop,
                   season: selectedSeason,
                   startDate: customStartDate,
@@ -596,6 +624,7 @@ export const ACCAnalyticsDashboard = () => {
                   if (newFilters.domain !== undefined) setSelectedDomain(newFilters.domain);
                   if (newFilters.state !== undefined) setSelectedState(newFilters.state);
                   if (newFilters.district !== undefined) setSelectedDistrict(newFilters.district);
+                  if (newFilters.block !== undefined) setSelectedBlock(newFilters.block);
                   if (newFilters.crop !== undefined) setSelectedCrop(newFilters.crop);
                   if (newFilters.season !== undefined) setSelectedSeason(newFilters.season);
                   if (newFilters.startDate !== undefined) setCustomStartDate(newFilters.startDate);
@@ -607,6 +636,7 @@ export const ACCAnalyticsDashboard = () => {
                   setSelectedDomain("All");
                   setSelectedState("All");
                   setSelectedDistrict("");
+                  setSelectedBlock("");
                   setSelectedCrop("");
                   setSelectedSeason("All");
                   setCustomStartDate("");

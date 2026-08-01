@@ -416,6 +416,7 @@ export class PlivoController {
     @QueryParam('domain') domain?: string,
     @QueryParam('state') state?: string,
     @QueryParam('district') district?: string,
+    @QueryParam('block') block?: string,
     @QueryParam('crop') crop?: string,
     @QueryParam('season') season?: string,
     @QueryParam('limit') limitStr?: string,
@@ -450,27 +451,27 @@ export class PlivoController {
         domain,
         state,
         district,
+        block,
         crop,
         season,
         limit,
         offset
       });
 
-      const phoneToFarmerNameCache = new Map<string, string>();
+      const phoneToFarmerCache = new Map<string, any>();
       const enrichedQueries = [];
 
       for (const qItem of queries) {
         const phone = qItem.from || '';
-        let farmerName = '';
+        let farmer: any = null;
 
         if (phone) {
-          if (phoneToFarmerNameCache.has(phone)) {
-            farmerName = phoneToFarmerNameCache.get(phone) || '';
+          if (phoneToFarmerCache.has(phone)) {
+            farmer = phoneToFarmerCache.get(phone);
           } else {
             try {
-              const farmer = await this.callFarmerRepository.findByPhoneNo(phone);
-              farmerName = farmer?.profile?.farmerName || '';
-              phoneToFarmerNameCache.set(phone, farmerName);
+              farmer = await this.callFarmerRepository.findByPhoneNo(phone);
+              phoneToFarmerCache.set(phone, farmer);
             } catch (err) {
               console.warn(`[PlivoController] Failed to look up farmer for phone ${phone}:`, err);
             }
@@ -478,6 +479,11 @@ export class PlivoController {
         }
 
         const metadata = qItem.metadata || {};
+        const farmerName = farmer?.profile?.farmerName || '';
+        const blockName = metadata.extracted_block || farmer?.profile?.blockName || '';
+        const stateName = metadata.extracted_state || farmer?.profile?.state || '';
+        const districtName = metadata.extracted_district || farmer?.profile?.district || '';
+
         enrichedQueries.push({
           id: qItem._id ? qItem._id.toString() : '',
           callUuid: qItem.callUuid,
@@ -485,8 +491,9 @@ export class PlivoController {
           phone,
           farmerName,
           crop: metadata.extracted_crop || '',
-          state: metadata.extracted_state || '',
-          district: metadata.extracted_district || '',
+          state: stateName,
+          district: districtName,
+          block: blockName,
           domain: metadata.standardized_domains?.length ? metadata.standardized_domains : (metadata.extracted_domain || []),
           season: metadata.extracted_season || '',
           question: qItem.question || '',
@@ -517,6 +524,7 @@ export class PlivoController {
     @QueryParam('domain') domain?: string,
     @QueryParam('state') state?: string,
     @QueryParam('district') district?: string,
+    @QueryParam('block') block?: string,
     @QueryParam('crop') crop?: string,
     @QueryParam('season') season?: string,
     @CurrentUser() user?: IUser
@@ -545,6 +553,7 @@ export class PlivoController {
         domain,
         state,
         district,
+        block,
         crop,
         season
       });
@@ -557,6 +566,7 @@ export class PlivoController {
         'Crop',
         'State',
         'District',
+        'Block',
         'Domain',
         'Season',
         'Question',
@@ -565,6 +575,28 @@ export class PlivoController {
         'Source Name',
         'Source Link'
       ];
+
+      const maskPhone = (phoneStr: string) => {
+        if (!phoneStr) return '';
+        const digitsOnly = phoneStr.replace(/\D/g, '');
+        if (digitsOnly.length <= 3) return phoneStr;
+        const last3 = digitsOnly.slice(-3);
+        const maskedPrefix = '*'.repeat(digitsOnly.length - 3);
+        return maskedPrefix + last3;
+      };
+
+      const stripMarkdown = (text: string): string => {
+        if (!text) return '';
+        return text
+          .replace(/^#+\s+/gm, '')
+          .replace(/(\*\*|__)(.*?)\1/g, '$2')
+          .replace(/(\*|_)(.*?)\1/g, '$2')
+          .replace(/`([^`]+)`/g, '$1')
+          .replace(/```[\s\S]*?```/g, '')
+          .replace(/^[\s]*[-*+]\s+/gm, '')
+          .replace(/^[\s]*\d+\.\s+/gm, '')
+          .trim();
+      };
 
       const escapeCSV = (field: any) => {
         if (field === null || field === undefined) return '""';
@@ -576,20 +608,19 @@ export class PlivoController {
       };
 
       const csvRows = [csvHeaders.join(',')];
-      const phoneToFarmerNameCache = new Map<string, string>();
+      const phoneToFarmerCache = new Map<string, any>();
 
       for (const qItem of queries) {
         const phone = qItem.from || '';
-        let farmerName = '';
+        let farmer: any = null;
 
         if (phone) {
-          if (phoneToFarmerNameCache.has(phone)) {
-            farmerName = phoneToFarmerNameCache.get(phone) || '';
+          if (phoneToFarmerCache.has(phone)) {
+            farmer = phoneToFarmerCache.get(phone);
           } else {
             try {
-              const farmer = await this.callFarmerRepository.findByPhoneNo(phone);
-              farmerName = farmer?.profile?.farmerName || '';
-              phoneToFarmerNameCache.set(phone, farmerName);
+              farmer = await this.callFarmerRepository.findByPhoneNo(phone);
+              phoneToFarmerCache.set(phone, farmer);
             } catch (err) {
               console.warn(`[PlivoController] CSV Lookup Failed for ${phone}:`, err);
             }
@@ -597,6 +628,11 @@ export class PlivoController {
         }
 
         const metadata = qItem.metadata || {};
+        const farmerName = farmer?.profile?.farmerName || '';
+        const blockName = metadata.extracted_block || farmer?.profile?.blockName || '';
+        const stateName = metadata.extracted_state || farmer?.profile?.state || '';
+        const districtName = metadata.extracted_district || farmer?.profile?.district || '';
+
         const domainStr = Array.isArray(metadata.extracted_domain)
           ? metadata.extracted_domain.join('; ')
           : (metadata.extracted_domain || (Array.isArray(metadata.standardized_domains) ? metadata.standardized_domains.join('; ') : ''));
@@ -604,15 +640,16 @@ export class PlivoController {
         const row = [
           escapeCSV(qItem.callUuid),
           escapeCSV(qItem.createdAt ? (qItem.createdAt instanceof Date ? qItem.createdAt.toISOString() : new Date(qItem.createdAt).toISOString()) : ''),
-          escapeCSV(phone),
+          escapeCSV(maskPhone(phone)),
           escapeCSV(farmerName),
           escapeCSV(metadata.extracted_crop || ''),
-          escapeCSV(metadata.extracted_state || ''),
-          escapeCSV(metadata.extracted_district || ''),
+          escapeCSV(stateName),
+          escapeCSV(districtName),
+          escapeCSV(blockName),
           escapeCSV(domainStr),
           escapeCSV(metadata.extracted_season || ''),
-          escapeCSV(qItem.question || ''),
-          escapeCSV(qItem.answer || ''),
+          escapeCSV(stripMarkdown(qItem.question || '')),
+          escapeCSV(stripMarkdown(qItem.answer || '')),
           escapeCSV(qItem.authorName || ''),
           escapeCSV(qItem.sourceName || ''),
           escapeCSV(qItem.sourceLink || '')

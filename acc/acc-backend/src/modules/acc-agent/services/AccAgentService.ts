@@ -42,7 +42,8 @@ export class AccAgentService {
    */
   async extractData(
     threadId: string,
-    transcript: string
+    transcript: string,
+    extractionType?: 'farmer_details' | 'query_details' | 'all'
   ): Promise<{
     extracted_query: string;
     extracted_crop: string;
@@ -59,13 +60,14 @@ export class AccAgentService {
   }> {
     const startTime = Date.now();
     try {
-      console.log(`[AccAgentService] Extracting data from transcript for thread ${threadId} (transcript length: ${transcript.length})`);
+      console.log(`[AccAgentService] Extracting data (${extractionType || 'all'}) from transcript for thread ${threadId} (transcript length: ${transcript.length})`);
       const response = await axios.post(
         `${this.BASE_URL}/threads/${threadId}/runs/wait`,
         {
           assistant_id: this.ASSISTANT_ID,
           input: {
             transcript: transcript,
+            ...(extractionType ? { extraction_type: extractionType } : {}),
           },
         },
         {
@@ -76,8 +78,8 @@ export class AccAgentService {
 
       const data = response.data;
 
-      if (!data.extracted_query) {
-        throw new InternalServerError('Invalid response from ACC Agent API: missing extracted_query');
+      if (!data && typeof data !== 'object') {
+        throw new InternalServerError('Invalid response from ACC Agent API: empty response');
       }
 
       // Check standardized_domains array from server, fall back to extracted_domain

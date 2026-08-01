@@ -495,6 +495,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       domain?: string;
       state?: string;
       district?: string;
+      block?: string;
       crop?: string;
       season?: string;
       limit?: number;
@@ -504,7 +505,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
   ): Promise<{ queries: any[]; total: number }> {
     try {
       await this.init();
-      const { startDate, endDate, search, domain, state, district, crop, season, limit, offset } = params;
+      const { startDate, endDate, search, domain, state, district, block, crop, season, limit, offset } = params;
 
       const matchCriteria: any = {};
       if (startDate || endDate) {
@@ -526,11 +527,48 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
       if (state && state.trim() && state !== 'All') {
-        matchCriteria['metadata.extracted_state'] = new RegExp(`^${escapeRegExp(state.trim())}$`, 'i');
+        matchCriteria['metadata.extracted_state'] = new RegExp(escapeRegExp(state.trim()), 'i');
       }
 
       if (district && district.trim() && district !== 'All') {
-        matchCriteria['metadata.extracted_district'] = new RegExp(`^${escapeRegExp(district.trim())}$`, 'i');
+        matchCriteria['metadata.extracted_district'] = new RegExp(escapeRegExp(district.trim()), 'i');
+      }
+
+      if (block && block.trim() && block !== 'All') {
+        const blockRegex = new RegExp(escapeRegExp(block.trim()), 'i');
+        let matchingCallUuids: string[] = [];
+        try {
+          const farmersColl = await this.db.getCollection('farmers');
+          const matchingFarmers = await farmersColl.find(
+            { 'profile.blockName': blockRegex },
+            { projection: { phoneNo: 1 } }
+          ).toArray();
+          const matchingFarmerPhones = matchingFarmers.map(f => f.phoneNo).filter(Boolean);
+
+          if (matchingFarmerPhones.length > 0) {
+            const matchingCalls = await this.callDetailsCollection.find(
+              { from: { $in: matchingFarmerPhones } },
+              { projection: { callUuid: 1 } }
+            ).toArray();
+            matchingCallUuids = matchingCalls.map(c => c.callUuid).filter(Boolean);
+          }
+        } catch (e) {
+          console.warn('[CallDetailsRepository] Error looking up farmers by block:', e);
+        }
+
+        matchCriteria.$and = matchCriteria.$and || [];
+        if (matchingCallUuids.length > 0) {
+          matchCriteria.$and.push({
+            $or: [
+              { 'metadata.extracted_block': blockRegex },
+              { callUuid: { $in: matchingCallUuids } }
+            ]
+          });
+        } else {
+          matchCriteria.$and.push({
+            'metadata.extracted_block': blockRegex
+          });
+        }
       }
 
       if (crop && crop.trim() && crop !== 'All') {
@@ -552,7 +590,8 @@ export class CallDetailsRepository implements ICallDetailsRepository {
           { 'metadata.extracted_crop': searchRegex },
           { 'metadata.extracted_domain': searchRegex },
           { 'metadata.extracted_state': searchRegex },
-          { 'metadata.extracted_district': searchRegex }
+          { 'metadata.extracted_district': searchRegex },
+          { 'metadata.extracted_block': searchRegex }
         ];
 
         if (matchCriteria.$and) {

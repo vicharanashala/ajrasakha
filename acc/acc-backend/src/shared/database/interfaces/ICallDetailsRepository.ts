@@ -17,6 +17,7 @@ export interface CallQuery {
     extracted_crop?: string;
     extracted_state?: string;
     extracted_district?: string;
+    extracted_block?: string;
     extracted_domain?: string | string[];
     extracted_season?: string;
     standardized_domains?: string[];
@@ -96,6 +97,7 @@ export interface ICallDetailsRepository {
       domain?: string;
       state?: string;
       district?: string;
+      block?: string;
       crop?: string;
       season?: string;
       limit?: number;

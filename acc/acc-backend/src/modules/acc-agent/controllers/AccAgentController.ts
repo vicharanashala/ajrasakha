@@ -51,16 +51,23 @@ export class AccAgentController {
   @Authorized()
   @OpenAPI({ summary: 'Extract data from transcript using ACC Agent' })
   async extractAccAgentData(
-    @Body() body: { threadId: string; transcript: string }
+    @Body() body: { threadId: string; transcript: string; extractionType?: 'farmer_details' | 'query_details' | 'all' }
   ): Promise<{
     extracted_query: string;
     extracted_crop: string;
     extracted_state: string;
     extracted_district: string;
     extracted_domain?: string | string[];
+    extracted_name?: string;
+    extracted_phone?: string;
+    extracted_age?: number;
+    extracted_gender?: string;
+    extracted_village?: string;
+    extracted_block?: string;
+    extracted_primary_crop?: string;
   }> {
     try {
-      const result = await this.accAgentService.extractData(body.threadId, body.transcript);
+      const result = await this.accAgentService.extractData(body.threadId, body.transcript, body.extractionType);
       return result;
     } catch (error) {
       console.error('[AccAgentController] extractAccAgentData: Error', error);
@@ -148,6 +155,7 @@ export class AccAgentController {
             extracted_crop: body.metadata.extracted_crop || '',
             extracted_state: body.metadata.extracted_state || '',
             extracted_district: body.metadata.extracted_district || '',
+            extracted_block: body.metadata.extracted_block || '',
             extracted_domain: body.metadata.extracted_domain || '',
             extracted_season: body.metadata.extracted_season || '',
             standardized_domains: body.metadata.standardized_domains || []
