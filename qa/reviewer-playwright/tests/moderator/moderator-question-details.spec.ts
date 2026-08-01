@@ -91,4 +91,31 @@ test.describe("Moderator Question Details", () => {
 
     await moderatorQuestionDetailsPage.expectLifeCycleDialog();
   });
+
+  test("MQD-009 Moderator sees Lifecycle timeline", async ({
+    moderatorQuestionDetailsPage,
+  }) => {
+    await moderatorQuestionDetailsPage.openLifeCycle();
+
+    await moderatorQuestionDetailsPage.expectLifeCycleTimeline();
+  });
+  test("MQD-010 Moderator sees Lifecycle summary", async ({
+    moderatorQuestionDetailsPage,
+  }) => {
+    await moderatorQuestionDetailsPage.openLifeCycle();
+
+    await moderatorQuestionDetailsPage.expectLifeCycleSummary();
+  });
+
+  test("MQD-011 Moderator can close Question LifeCycle", async ({
+    moderatorQuestionDetailsPage,
+  }) => {
+    await moderatorQuestionDetailsPage.openLifeCycle();
+
+    await moderatorQuestionDetailsPage.expectLifeCycleDialog();
+
+    await moderatorQuestionDetailsPage.closeLifeCycle();
+
+    await moderatorQuestionDetailsPage.expectLifeCycleClosed();
+  });
 });

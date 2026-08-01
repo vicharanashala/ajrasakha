@@ -349,3 +349,146 @@ Verify that a moderator can open the **Question LifeCycle** dialog from the Ques
 ### Status
 
 ✅ Passed
+
+# MQD-009 — Moderator sees Lifecycle timeline
+
+### Feature
+
+Question Lifecycle
+
+### Purpose
+
+Verify that the **Question Lifecycle** dialog displays the lifecycle timeline after it is opened.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Application loads successfully after login.
+- A valid question is created during test setup.
+- Moderator is viewing the Question Details page.
+
+### Test Flow
+
+1. Login as moderator.
+2. Create a valid question.
+3. Open the newly created question.
+4. Click **View Lifecycle**.
+5. Verify that the lifecycle timeline is displayed.
+
+### Assertions
+
+- Lifecycle dialog is open.
+- Lifecycle table is visible.
+- Timeline contains lifecycle events.
+- Timeline displays the expected columns:
+  - Timestamp
+  - User
+  - Duration
+  - Action
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/question-details.page.ts`
+- `tests/moderator/moderator-question-details.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQD-010 — Moderator sees Lifecycle summary
+
+### Feature
+
+Question Lifecycle
+
+### Purpose
+
+Verify that the **Lifecycle Summary** section is displayed below the lifecycle timeline.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Application loads successfully after login.
+- A valid question is created during test setup.
+- Moderator is viewing the Question Lifecycle dialog.
+
+### Test Flow
+
+1. Login as moderator.
+2. Create a valid question.
+3. Open the Question Details page.
+4. Open the **Question Lifecycle** dialog.
+5. Verify that the lifecycle summary cards are displayed.
+
+### Assertions
+
+- Lifecycle summary section is visible.
+- Summary information is displayed below the timeline.
+- Summary cards render successfully.
+
+> **Note:** This test validates the presence of the summary section only. It does not validate the calculated values or timings, which vary depending on workflow state.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/question-details.page.ts`
+- `tests/moderator/moderator-question-details.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQD-011 — Moderator can close Question Lifecycle
+
+### Feature
+
+Question Lifecycle
+
+### Purpose
+
+Verify that a moderator can close the **Question Lifecycle** dialog and return to the Question Details page.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Application loads successfully after login.
+- A valid question is created during test setup.
+- Moderator is viewing the Question Details page.
+
+### Test Flow
+
+1. Login as moderator.
+2. Create a valid question.
+3. Open the Question Details page.
+4. Open the **Question Lifecycle** dialog.
+5. Verify that the dialog is displayed.
+6. Close the dialog.
+7. Verify that the dialog is dismissed.
+
+### Assertions
+
+- Lifecycle dialog opens successfully.
+- Close button is functional.
+- Lifecycle dialog is no longer visible after closing.
+- User remains on the Question Details page.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/question-details.page.ts`
+- `tests/moderator/moderator-question-details.spec.ts`
+
+### Status
+
+✅ Passed

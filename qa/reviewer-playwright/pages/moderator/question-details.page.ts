@@ -12,6 +12,16 @@ export class ModeratorQuestionDetailsPage {
   readonly generateAiAnswerButton: Locator;
   readonly lifecycleDialog: Locator;
   readonly lifecycleDialogTitle: Locator;
+  readonly lifecycleTable: Locator;
+  readonly timestampHeader: Locator;
+  readonly userHeader: Locator;
+  readonly durationHeader: Locator;
+  readonly actionHeader: Locator;
+  readonly lifecycleSummary: Locator;
+  readonly lifecycleDuration: Locator;
+  readonly closeLifeCycleButton: Locator;
+  readonly auditDialog: Locator;
+  readonly auditDialogTitle: Locator;
 
   constructor(private readonly page: Page) {
     this.title = page.getByRole("heading", { level: 1 });
@@ -46,6 +56,32 @@ export class ModeratorQuestionDetailsPage {
     this.lifecycleDialog = page.getByRole("dialog");
 
     this.lifecycleDialogTitle = this.lifecycleDialog.getByRole("heading");
+    this.lifecycleTable = this.lifecycleDialog.getByRole("table");
+
+    this.timestampHeader = this.lifecycleTable.getByRole("columnheader", {
+      name: "Timestamp",
+    });
+
+    this.userHeader = this.lifecycleTable.getByRole("columnheader", {
+      name: "User",
+    });
+
+    this.durationHeader = this.lifecycleTable.getByRole("columnheader", {
+      name: "Duration",
+    });
+
+    this.actionHeader = this.lifecycleTable.getByRole("columnheader", {
+      name: "Action",
+    });
+    this.lifecycleSummary =
+      this.lifecycleDialog.getByText(/Lifecycle duration:/);
+
+    this.lifecycleDuration =
+      this.lifecycleDialog.getByText(/Lifecycle duration:/);
+
+    this.closeLifeCycleButton = this.lifecycleDialog.getByRole("button", {
+      name: "Close",
+    });
   }
 
   async expectOpened(): Promise<void> {
@@ -121,5 +157,28 @@ export class ModeratorQuestionDetailsPage {
   async expectLifeCycleDialog() {
     await expect(this.lifecycleDialog).toBeVisible();
     await expect(this.lifecycleDialogTitle).toBeVisible();
+  }
+
+  async expectLifeCycleTimeline() {
+    await expect(this.lifecycleTable).toBeVisible();
+
+    await expect(this.timestampHeader).toBeVisible();
+    await expect(this.userHeader).toBeVisible();
+    await expect(this.durationHeader).toBeVisible();
+    await expect(this.actionHeader).toBeVisible();
+  }
+
+  async expectLifeCycleSummary() {
+    await expect(this.lifecycleSummary).toBeVisible();
+
+    await expect(this.lifecycleDuration).toContainText("Lifecycle duration:");
+  }
+
+  async closeLifeCycle() {
+    await this.closeLifeCycleButton.click();
+  }
+
+  async expectLifeCycleClosed() {
+    await expect(this.lifecycleDialog).toBeHidden();
   }
 }
