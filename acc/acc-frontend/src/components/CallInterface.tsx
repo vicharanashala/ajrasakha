@@ -54,6 +54,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import { Checkbox } from "./atoms/checkbox";
 import { Input } from "./atoms/input";
+import { Textarea } from "./atoms/textarea";
 import { Label } from "./atoms/label";
 import {
   Select,
@@ -568,6 +569,14 @@ export const CallInterface = () => {
   const [editableDomain, setEditableDomain] = useState<string[]>([]);
   const [editableSeason, setEditableSeason] = useState("");
 
+  const handleToggleDomain = (domain: string) => {
+    setEditableDomain((prev) =>
+      prev.includes(domain)
+        ? prev.filter((d) => d !== domain)
+        : [...prev, domain]
+    );
+  };
+
   // Farmer Details HITL state
   const [editableFarmerName, setEditableFarmerName] = useState("");
   const [editableFarmerPhone, setEditableFarmerPhone] = useState("");
@@ -578,6 +587,7 @@ export const CallInterface = () => {
   const [editableFarmerPrimaryCrop, setEditableFarmerPrimaryCrop] = useState("");
   const [shouldUpdateFarmerProfile, setShouldUpdateFarmerProfile] = useState(true);
   const [activeExtractionModes, setActiveExtractionModes] = useState<Set<'farmer' | 'query'>>(new Set(['farmer', 'query']));
+  const [currentExtractionType, setCurrentExtractionType] = useState<'farmer_details' | 'query_details' | null>(null);
 
   // Live conversation simulation state
   const [isSimulatingMode, setIsSimulatingMode] = useState(false);
@@ -841,6 +851,7 @@ export const CallInterface = () => {
       return;
     }
 
+    setCurrentExtractionType(extractionType);
     setQuestions([]);
 
     if (extractionType === 'farmer_details') {
@@ -904,8 +915,8 @@ export const CallInterface = () => {
         if (data.extracted_village) setEditableFarmerVillage(data.extracted_village);
         if (data.extracted_block) setEditableFarmerBlock(data.extracted_block);
         if (data.extracted_primary_crop) setEditableFarmerPrimaryCrop(data.extracted_primary_crop);
-        if (data.extracted_state && !editableState) setEditableState(data.extracted_state);
-        if (data.extracted_district && !editableDistrict) setEditableDistrict(data.extracted_district);
+        if (data.extracted_state) setEditableState(data.extracted_state);
+        if (data.extracted_district) setEditableDistrict(data.extracted_district);
       }
 
       setIsHumanVerificationMode(true);
@@ -922,6 +933,8 @@ export const CallInterface = () => {
     } catch (err) {
       console.error("Error in HITL extraction", err);
       toast.error("Failed to extract data. Please try again.");
+    } finally {
+      setCurrentExtractionType(null);
     }
   };
 
@@ -1254,477 +1267,609 @@ export const CallInterface = () => {
 
       {/* Premium Read-Only Chat-Bubble Conversation View (3-Stage Vertical Elastic Box) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="col-span-1 h-fit border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
-          <CardHeader className="border border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2 sm:px-5 sm:py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              {/* Left Side: Title on top, UUID & Status stacked underneath */}
-              <div className="flex flex-col gap-1 min-w-0">
-                <div
-                  className="flex items-center gap-2 cursor-pointer select-none"
-                  onClick={() => setLiveConvState(liveConvState === "collapsed" ? "full" : "collapsed")}
-                >
-                  <MessageSquare className={`h-4 w-4 text-indigo-600 dark:text-indigo-400 ${isCallActive ? "animate-pulse" : ""}`} />
-                  <h3 className="font-bold text-lg sm:text-xl text-zinc-900 dark:text-zinc-100 tracking-tight">
-                    Live conversation Dialogue
-                  </h3>
-                </div>
+        {/* Left Column: Live Conversation Dialogue + Extracted Details below */}
+        <div className="space-y-6 flex flex-col">
+          <Card className="col-span-1 h-fit border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
+            <CardHeader className="border border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2 sm:px-5 sm:py-2.5">
+              <div className="flex items-center justify-between gap-3">
+                {/* Left Side: Title on top, UUID & Status stacked underneath */}
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div
+                    className="flex items-center gap-2 cursor-pointer select-none"
+                    onClick={() => setLiveConvState(liveConvState === "collapsed" ? "full" : "collapsed")}
+                  >
+                    <MessageSquare className={`h-4 w-4 text-indigo-600 dark:text-indigo-400 ${isCallActive ? "animate-pulse" : ""}`} />
+                    <h3 className="font-bold text-lg sm:text-xl text-zinc-900 dark:text-zinc-100 tracking-tight">
+                      Live conversation Dialogue
+                    </h3>
+                  </div>
 
-                {/* Sub-details: UUID & Status stacked vertically */}
-                <div className="flex flex-col gap-0.5 pl-6">
-                  {callUuid && (
-                    <span
-                      className="font-mono text-[11px] text-zinc-600 dark:text-zinc-400 font-medium truncate max-w-[200px] sm:max-w-[280px]"
-                      title={callUuid}
-                    >
-                      UUID: {callUuid}
-                    </span>
-                  )}
-
-                  <div>
-                    {isCallActive ? (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider animate-pulse">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        Streaming Live
-                      </span>
-                    ) : isSimulatingMode ? (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-400 font-semibold uppercase tracking-wider">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                        Simulation Mode
-                      </span>
-                    ) : transcriptsList.length > 0 ? (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">
-                        <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                        Call Concluded
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider">
-                        <span className="h-1.5 w-1.5 rounded-full bg-zinc-300 dark:bg-zinc-700" />
-                        Inactive
+                  {/* Sub-details: UUID & Status stacked vertically */}
+                  <div className="flex flex-col gap-0.5 pl-6">
+                    {callUuid && (
+                      <span
+                        className="font-mono text-[11px] text-zinc-600 dark:text-zinc-400 font-medium truncate max-w-[200px] sm:max-w-[280px]"
+                        title={callUuid}
+                      >
+                        UUID: {callUuid}
                       </span>
                     )}
+
+                    <div>
+                      {isCallActive ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider animate-pulse">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Streaming Live
+                        </span>
+                      ) : isSimulatingMode ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-400 font-semibold uppercase tracking-wider">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          Simulation Mode
+                        </span>
+                      ) : transcriptsList.length > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                          Call Concluded
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider">
+                          <span className="h-1.5 w-1.5 rounded-full bg-zinc-300 dark:bg-zinc-700" />
+                          Inactive
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Right Side: Buttons in 2 rows + Far-Right Dropdown Arrow */}
-              <div className="flex items-center gap-2.5 shrink-0">
-                <div className="flex flex-col items-end gap-1.5">
-                  {/* Top Row: Test & Reset Buttons */}
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      onClick={handleLoadTestTranscript}
-                      disabled={isCallActive || isExtracting || isResuming}
-                      size="sm"
-                      variant="outline"
-                      className="h-6.5 w-22 px-2.5 text-[11px] font-semibold border-amber-300 dark:border-amber-700/60 bg-amber-50/80 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 shadow-sm rounded-md flex items-center gap-1 transition-all"
-                      title="Load sample farmer transcript for testing AI response without a real phone call"
-                    >
-                      <FlaskConical className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                      <span>Test</span>
-                    </Button>
-
-                    <Button
-                      onClick={handleResetConversation}
-                      disabled={transcriptsList.length === 0}
-                      size="sm"
-                      variant="outline"
-                      className="h-6.5  w-23 px-2.5 text-[11px] border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900 rounded-md flex items-center gap-1 font-medium"
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                      <span>Reset</span>
-                    </Button>
-                  </div>
-
-                  {/* Bottom Row: Extract and Verify Dropdown Menu */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                {/* Right Side: Buttons in 2 rows + Far-Right Dropdown Arrow */}
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <div className="flex flex-col items-end gap-1.5">
+                    {/* Top Row: Test & Reset Buttons */}
+                    <div className="flex items-center gap-1.5">
                       <Button
-                        disabled={isExtracting || transcriptsList.length === 0}
+                        onClick={handleLoadTestTranscript}
+                        disabled={isCallActive || isExtracting || isResuming}
                         size="sm"
-                        className="h-9 px-3 text-sm sm:text-base font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-lg flex items-center gap-1.5 transition-all w-full justify-center"
+                        variant="outline"
+                        className="h-6.5 w-22 px-2.5 text-[11px] font-semibold border-amber-300 dark:border-amber-700/60 bg-amber-50/80 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 shadow-sm rounded-md flex items-center gap-1 transition-all"
+                        title="Load sample farmer transcript for testing AI response without a real phone call"
                       >
-                        <Sparkles className="h-4 w-4 text-indigo-200" />
-                        <span>{isExtracting ? "Extracting..." : "Extract and Verify"}</span>
-                        <ChevronDown className="h-4 w-4 ml-0.5 opacity-80" />
+                        <FlaskConical className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                        <span>Test</span>
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-60 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl rounded-xl p-1 z-50">
-                      <DropdownMenuItem
-                        onClick={() => handleExtractWithHITL("farmer_details")}
-                        className="flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+
+                      <Button
+                        onClick={handleResetConversation}
+                        disabled={transcriptsList.length === 0}
+                        size="sm"
+                        variant="outline"
+                        className="h-6.5  w-23 px-2.5 text-[11px] border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900 rounded-md flex items-center gap-1 font-medium"
                       >
-                        <User className="h-4 w-4 text-emerald-600" />
-                        <span>Extract Farmer Details</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleExtractWithHITL("query_details")}
-                        className="flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                      >
-                        <FileText className="h-4 w-4 text-amber-600" />
-                        <span>Extract Query Details</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <RotateCcw className="h-3 w-3" />
+                        <span>Reset</span>
+                      </Button>
+                    </div>
+
+                    {/* Bottom Row: Extract and Verify Dropdown Menu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          disabled={isExtracting || transcriptsList.length === 0}
+                          size="sm"
+                          className="h-9 px-3 text-sm sm:text-base font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-lg flex items-center gap-1.5 transition-all w-full justify-center"
+                        >
+                          <Sparkles className="h-4 w-4 text-indigo-200" />
+                          <span>
+                            {isExtracting
+                              ? currentExtractionType === "farmer_details"
+                                ? "Extracting Farmer..."
+                                : currentExtractionType === "query_details"
+                                ? "Extracting Query..."
+                                : "Extracting..."
+                              : "Extract and Verify"}
+                          </span>
+                          <ChevronDown className="h-4 w-4 ml-0.5 opacity-80" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-60 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl rounded-xl p-1 z-50">
+                        <DropdownMenuItem
+                          onClick={() => handleExtractWithHITL("farmer_details")}
+                          className="flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        >
+                          <User className="h-4 w-4 text-emerald-600" />
+                          <span>Extract Farmer Details</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleExtractWithHITL("query_details")}
+                          className="flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        >
+                          <FileText className="h-4 w-4 text-amber-600" />
+                          <span>Extract Query Details</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Far Right: Dropdown Chevron Button */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLiveConvState(liveConvState === "collapsed" ? "full" : "collapsed")}
+                    className="h-10 w-10 p-0 text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 border border-zinc-300/80 dark:border-zinc-700/80 rounded-xl shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95"
+                    title={liveConvState === "collapsed" ? "Expand Live Conversation" : "Collapse Live Conversation"}
+                  >
+                    {liveConvState === "collapsed" ? (
+                      <ChevronDown className="h-6.5 w-6.5 stroke-[2.5]" />
+                    ) : (
+                      <ChevronUp className="h-6.5 w-6.5 stroke-[2.5]" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+
+            <div
+              className={`transition-all duration-500 ease-in-out overflow-hidden ${liveConvState !== "collapsed"
+                ? "max-h-[1200px] opacity-100"
+                : "max-h-0 opacity-0 hidden"
+                }`}
+            >
+              <CardContent className="p-3 sm:p-4 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-2.5">
+                <div
+                  ref={chatContainerRef}
+                  className={`space-y-3 overflow-y-auto pr-2 sm:pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col border-b border-zinc-100 dark:border-zinc-900 pb-2 transition-all duration-300 ${liveConvState === "full" ? "h-[420px]" : "h-[210px]"
+                    }`}
+                >
+                  {transcriptsList.length > 0 ? (
+                    transcriptsList.map((msg, index) => {
+                      const isCaller = msg.track === "inbound";
+                      const speakerLabel = isCaller ? "Farmer" : "Expert";
+                      return (
+                        <div
+                          key={index}
+                          className={`flex flex-col ${isCaller ? "items-start" : "items-end"} space-y-1.5 animate-in fade-in-50 slide-in-from-bottom-3 duration-300`}
+                        >
+                          {/* Speaker & Timestamp */}
+                          <div
+                            className={`flex items-center gap-2 px-2 text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold tracking-wider uppercase ${!isCaller ? "flex-row-reverse" : ""}`}
+                          >
+                            <span>{speakerLabel}</span>
+                            <span>•</span>
+                            <span>
+                              {msg.timestamp
+                                ? new Date(msg.timestamp).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  second: "2-digit",
+                                })
+                                : new Date().toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  second: "2-digit",
+                                })}
+                            </span>
+                          </div>
+
+                          {/* Chat Bubble Card */}
+                          <div
+                            className={`max-w-[80%] px-4 py-3 rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-md ${isCaller
+                              ? "bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none"
+                              : "bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 border-indigo-500 text-white rounded-tr-none shadow-indigo-500/10 dark:shadow-indigo-500/5"
+                              }`}
+                          >
+                            {/* English Translation (Primary) */}
+                            <p className="text-[13px] leading-relaxed whitespace-pre-wrap font-medium">
+                              {msg.translatedText || msg.text}
+                            </p>
+
+                            {/* Original text & language metadata (Secondary) */}
+                            {msg.originalText && (
+                              <div
+                                className={`mt-2 pt-1.5 border-t text-[11px] flex flex-col gap-1 ${isCaller
+                                  ? "border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400"
+                                  : "border-white/20 text-white/80"
+                                  }`}
+                              >
+                                <div className="flex items-center gap-1 font-bold tracking-wider uppercase text-[9px]">
+                                  <Globe className="h-3 w-3 animate-spin-slow" />
+                                  <span>
+                                    Original ({msg.detectedLanguage || "unknown"})
+                                  </span>
+                                </div>
+                                <p className="italic leading-normal">
+                                  {msg.originalText}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : isCallActive ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <span
+                          className="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 animate-bounce"
+                          style={{ animationDelay: "0ms" }}
+                        />
+                        <span
+                          className="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 animate-bounce"
+                          style={{ animationDelay: "150ms" }}
+                        />
+                        <span
+                          className="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 animate-bounce"
+                          style={{ animationDelay: "300ms" }}
+                        />
+                      </div>
+                      <p className="text-sm font-semibold tracking-wide uppercase text-indigo-600 dark:text-indigo-400 animate-pulse">
+                        Listening for conversation...
+                      </p>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+                        Speak into the line to stream transcripts in real-time.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-zinc-400 dark:text-zinc-500">
+                      <FlaskConical className="h-8 w-8 mb-2 opacity-50" />
+                      <p className="text-xs font-semibold uppercase tracking-wider">Simulation Mode Inactive</p>
+                      <p className="text-[11px] mt-0.5">Click "Test" above to switch to test simulation mode.</p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Far Right: Dropdown Chevron Button */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLiveConvState(liveConvState === "collapsed" ? "full" : "collapsed")}
-                  className="h-10 w-10 p-0 text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 border border-zinc-300/80 dark:border-zinc-700/80 rounded-xl shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95"
-                  title={liveConvState === "collapsed" ? "Expand Live Conversation" : "Collapse Live Conversation"}
-                >
-                  {liveConvState === "collapsed" ? (
-                    <ChevronDown className="h-6.5 w-6.5 stroke-[2.5]" />
-                  ) : (
-                    <ChevronUp className="h-6.5 w-6.5 stroke-[2.5]" />
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
+                {/* Interactive Conversation Simulation Bar (Only Available in Test/Simulation Mode) */}
+                {isSimulatingMode && (
+                  <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 space-y-2 bg-amber-500/5 dark:bg-amber-950/20 p-3 rounded-xl border border-amber-500/20">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                        <FlaskConical className="h-3.5 w-3.5" />
+                        <span>Simulate Conversation Message</span>
+                      </div>
 
-          <div
-            className={`transition-all duration-500 ease-in-out overflow-hidden ${liveConvState !== "collapsed"
-              ? "max-h-[1200px] opacity-100"
-              : "max-h-0 opacity-0 hidden"
-              }`}
-          >
-            <CardContent className="p-3 sm:p-4 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-2.5">
-              <div
-                ref={chatContainerRef}
-                className={`space-y-3 overflow-y-auto pr-2 sm:pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col border-b border-zinc-100 dark:border-zinc-900 pb-2 transition-all duration-300 ${liveConvState === "full" ? "h-[420px]" : "h-[210px]"
-                  }`}
-              >
-                {transcriptsList.length > 0 ? (
-                  transcriptsList.map((msg, index) => {
-                    const isCaller = msg.track === "inbound";
-                    const speakerLabel = isCaller ? "Farmer" : "Expert";
-                    return (
-                      <div
-                        key={index}
-                        className={`flex flex-col ${isCaller ? "items-start" : "items-end"} space-y-1.5 animate-in fade-in-50 slide-in-from-bottom-3 duration-300`}
-                      >
-                        {/* Speaker & Timestamp */}
-                        <div
-                          className={`flex items-center gap-2 px-2 text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold tracking-wider uppercase ${!isCaller ? "flex-row-reverse" : ""}`}
-                        >
-                          <span>{speakerLabel}</span>
-                          <span>•</span>
-                          <span>
-                            {msg.timestamp
-                              ? new Date(msg.timestamp).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                second: "2-digit",
-                              })
-                              : new Date().toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                second: "2-digit",
-                              })}
-                          </span>
-                        </div>
-
-                        {/* Chat Bubble Card */}
-                        <div
-                          className={`max-w-[80%] px-4 py-3 rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-md ${isCaller
-                            ? "bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none"
-                            : "bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 border-indigo-500 text-white rounded-tr-none shadow-indigo-500/10 dark:shadow-indigo-500/5"
+                      {/* Role Selection Toggle */}
+                      <div className="flex items-center gap-1 bg-zinc-200/70 dark:bg-zinc-800/80 p-0.5 rounded-lg text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setSimRole("inbound")}
+                          className={`px-2.5 py-1 rounded-md font-semibold text-[11px] transition-all flex items-center gap-1.5 ${simRole === "inbound"
+                            ? "bg-amber-500 text-white shadow-sm"
+                            : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
                             }`}
                         >
-                          {/* English Translation (Primary) */}
-                          <p className="text-[13px] leading-relaxed whitespace-pre-wrap font-medium">
-                            {msg.translatedText || msg.text}
-                          </p>
-
-                          {/* Original text & language metadata (Secondary) */}
-                          {msg.originalText && (
-                            <div
-                              className={`mt-2 pt-1.5 border-t text-[11px] flex flex-col gap-1 ${isCaller
-                                ? "border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400"
-                                : "border-white/20 text-white/80"
-                                }`}
-                            >
-                              <div className="flex items-center gap-1 font-bold tracking-wider uppercase text-[9px]">
-                                <Globe className="h-3 w-3 animate-spin-slow" />
-                                <span>
-                                  Original ({msg.detectedLanguage || "unknown"})
-                                </span>
-                              </div>
-                              <p className="italic leading-normal">
-                                {msg.originalText}
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                          <User className="h-3 w-3" />
+                          <span>Farmer (Inbound)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSimRole("outbound")}
+                          className={`px-2.5 py-1 rounded-md font-semibold text-[11px] transition-all flex items-center gap-1.5 ${simRole === "outbound"
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                            }`}
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                          <span>Agent / Expert (Outbound)</span>
+                        </button>
                       </div>
-                    );
-                  })
-                ) : isCallActive ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                    <div className="flex items-center gap-1.5 mb-3">
-                      <span
-                        className="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 animate-bounce"
-                        style={{ animationDelay: "0ms" }}
-                      />
-                      <span
-                        className="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 animate-bounce"
-                        style={{ animationDelay: "150ms" }}
-                      />
-                      <span
-                        className="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 animate-bounce"
-                        style={{ animationDelay: "300ms" }}
-                      />
                     </div>
-                    <p className="text-sm font-semibold tracking-wide uppercase text-indigo-600 dark:text-indigo-400 animate-pulse">
-                      Listening for conversation...
-                    </p>
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
-                      Speak into the line to stream transcripts in real-time.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-zinc-400 dark:text-zinc-500">
-                    <FlaskConical className="h-8 w-8 mb-2 opacity-50" />
-                    <p className="text-xs font-semibold uppercase tracking-wider">Simulation Mode Inactive</p>
-                    <p className="text-[11px] mt-0.5">Click "Test" above to switch to test simulation mode.</p>
+
+                    {/* Text Input & Send Button */}
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={simText}
+                        onChange={(e) => setSimText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleAddSimulatedMessage();
+                          }
+                        }}
+                        placeholder={`Type simulated ${simRole === "inbound" ? "Farmer query..." : "Agent response..."}`}
+                        className="h-8.5 text-xs bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-inner focus-visible:ring-amber-500"
+                      />
+
+                      <Button
+                        onClick={handleAddSimulatedMessage}
+                        disabled={!simText.trim()}
+                        size="sm"
+                        className="h-8.5 px-3.5 text-xs bg-amber-600 hover:bg-amber-700 text-white shadow-sm rounded-lg flex items-center gap-1.5 shrink-0 transition-all"
+                      >
+                        <Send className="h-3 w-3" />
+                        <span>Add</span>
+                      </Button>
+                    </div>
+
+                    {/* Expandable Original Language Input */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowOriginalInput(!showOriginalInput)}
+                        className="text-[11px] text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 font-medium flex items-center gap-1 transition-colors"
+                      >
+                        <Globe className="h-3 w-3" />
+                        <span>{showOriginalInput ? "Hide original native language text" : "+ Add original native language text (e.g. Marathi/Hindi)"}</span>
+                      </button>
+                      {showOriginalInput && (
+                        <Input
+                          value={simOriginalText}
+                          onChange={(e) => setSimOriginalText(e.target.value)}
+                          placeholder="Original native language text (e.g. माझ्या कपाशीच्या पिकावर पांढरी माशी आहे...)"
+                          className="h-8 text-xs mt-1.5 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+                        />
+                      )}
+                    </div>
                   </div>
                 )}
-              </div>
-
-              {/* Interactive Conversation Simulation Bar (Only Available in Test/Simulation Mode) */}
-              {isSimulatingMode && (
-                <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 space-y-2 bg-amber-500/5 dark:bg-amber-950/20 p-3 rounded-xl border border-amber-500/20">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                      <FlaskConical className="h-3.5 w-3.5" />
-                      <span>Simulate Conversation Message</span>
-                    </div>
-
-                    {/* Role Selection Toggle */}
-                    <div className="flex items-center gap-1 bg-zinc-200/70 dark:bg-zinc-800/80 p-0.5 rounded-lg text-xs">
-                      <button
-                        type="button"
-                        onClick={() => setSimRole("inbound")}
-                        className={`px-2.5 py-1 rounded-md font-semibold text-[11px] transition-all flex items-center gap-1.5 ${simRole === "inbound"
-                          ? "bg-amber-500 text-white shadow-sm"
-                          : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-                          }`}
-                      >
-                        <User className="h-3 w-3" />
-                        <span>Farmer (Inbound)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSimRole("outbound")}
-                        className={`px-2.5 py-1 rounded-md font-semibold text-[11px] transition-all flex items-center gap-1.5 ${simRole === "outbound"
-                          ? "bg-indigo-600 text-white shadow-sm"
-                          : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-                          }`}
-                      >
-                        <MessageSquare className="h-3 w-3" />
-                        <span>Agent / Expert (Outbound)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Text Input & Send Button */}
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={simText}
-                      onChange={(e) => setSimText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleAddSimulatedMessage();
-                        }
-                      }}
-                      placeholder={`Type simulated ${simRole === "inbound" ? "Farmer query..." : "Agent response..."}`}
-                      className="h-8.5 text-xs bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-inner focus-visible:ring-amber-500"
-                    />
-
-                    <Button
-                      onClick={handleAddSimulatedMessage}
-                      disabled={!simText.trim()}
-                      size="sm"
-                      className="h-8.5 px-3.5 text-xs bg-amber-600 hover:bg-amber-700 text-white shadow-sm rounded-lg flex items-center gap-1.5 shrink-0 transition-all"
-                    >
-                      <Send className="h-3 w-3" />
-                      <span>Add</span>
-                    </Button>
-                  </div>
-
-                  {/* Expandable Original Language Input */}
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setShowOriginalInput(!showOriginalInput)}
-                      className="text-[11px] text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 font-medium flex items-center gap-1 transition-colors"
-                    >
-                      <Globe className="h-3 w-3" />
-                      <span>{showOriginalInput ? "Hide original native language text" : "+ Add original native language text (e.g. Marathi/Hindi)"}</span>
-                    </button>
-                    {showOriginalInput && (
-                      <Input
-                        value={simOriginalText}
-                        onChange={(e) => setSimOriginalText(e.target.value)}
-                        placeholder="Original native language text (e.g. माझ्या कपाशीच्या पिकावर पांढरी माशी आहे...)"
-                        className="h-8 text-xs mt-1.5 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
-                      />
+                <div className="flex justify-end pt-0.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setLiveConvState(liveConvState === "full" ? "half" : "full")}
+                    className="h-6 w-6 p-0 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-md shrink-0 ml-auto"
+                    title={liveConvState === "full" ? "Compress height" : "Expand height"}
+                  >
+                    {liveConvState === "full" ? (
+                      <Minimize2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <Maximize2 className="h-3.5 w-3.5" />
                     )}
-                  </div>
+                  </Button>
                 </div>
-              )}
-              <div className="flex justify-end pt-0.5">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setLiveConvState(liveConvState === "full" ? "half" : "full")}
-                  className="h-6 w-6 p-0 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-md shrink-0 ml-auto"
-                  title={liveConvState === "full" ? "Compress height" : "Expand height"}
-                >
-                  {liveConvState === "full" ? (
-                    <Minimize2 className="h-3.5 w-3.5" />
-                  ) : (
-                    <Maximize2 className="h-3.5 w-3.5" />
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </div>
-        </Card>
+              </CardContent>
+            </div>
+          </Card>
 
-        <div className="space-y-6 flex flex-col h-full">
-          {isSummaryOpen && (
+          {/* Extracted Farmer Details Card (Left Column - directly below Live Conversation Dialogue) */}
+          {isSummaryOpen && activeExtractionModes.has('farmer') && (
             <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 animate-in fade-in-50 slide-in-from-top-2">
-              <CardHeader
-                className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4 transition-colors"
-              >
+              <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-5 py-3 transition-colors">
+                <CardTitle className="flex items-center justify-between text-sm font-semibold">
+                  <span className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                    <User className="h-4 w-4" />
+                    Extracted Farmer Profile Details
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-3">
+                {isExtracting && currentExtractionType === 'farmer_details' ? (
+                  <div className="flex flex-col space-y-3">
+                    <Skeleton className="h-4 w-3/4 rounded-md" />
+                    <Skeleton className="h-4 w-full rounded-md" />
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="farmerName" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                          Farmer Name
+                        </Label>
+                        <Input
+                          id="farmerName"
+                          value={editableFarmerName}
+                          onChange={(e) => setEditableFarmerName(e.target.value)}
+                          className="text-sm"
+                          placeholder="Farmer name..."
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="farmerPhone" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                          Phone Number
+                        </Label>
+                        <Input
+                          id="farmerPhone"
+                          value={editableFarmerPhone}
+                          onChange={(e) => setEditableFarmerPhone(e.target.value)}
+                          className="text-sm"
+                          placeholder="Phone number..."
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="farmerAge" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                          Age
+                        </Label>
+                        <Input
+                          id="farmerAge"
+                          type="number"
+                          value={editableFarmerAge}
+                          onChange={(e) => setEditableFarmerAge(e.target.value)}
+                          className="text-sm"
+                          placeholder="Age..."
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="farmerGender" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                          Gender
+                        </Label>
+                        <Input
+                          id="farmerGender"
+                          value={editableFarmerGender}
+                          onChange={(e) => setEditableFarmerGender(e.target.value)}
+                          className="text-sm"
+                          placeholder="Gender..."
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="farmerVillage" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                          Village
+                        </Label>
+                        <Input
+                          id="farmerVillage"
+                          value={editableFarmerVillage}
+                          onChange={(e) => setEditableFarmerVillage(e.target.value)}
+                          className="text-sm"
+                          placeholder="Village..."
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="farmerBlock" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                          Block
+                        </Label>
+                        <Input
+                          id="farmerBlock"
+                          value={editableFarmerBlock}
+                          onChange={(e) => setEditableFarmerBlock(e.target.value)}
+                          className="text-sm"
+                          placeholder="Block..."
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="farmerDistrict" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                          District
+                        </Label>
+                        <Input
+                          id="farmerDistrict"
+                          value={editableDistrict}
+                          onChange={(e) => setEditableDistrict(e.target.value)}
+                          className="text-sm"
+                          placeholder="District..."
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="farmerState" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                          State
+                        </Label>
+                        <Input
+                          id="farmerState"
+                          value={editableState}
+                          onChange={(e) => setEditableState(e.target.value)}
+                          className="text-sm"
+                          placeholder="State..."
+                        />
+                      </div>
+
+                      <div className="col-span-2 sm:col-span-1">
+                        <Label htmlFor="farmerPrimaryCrop" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                          Primary Crop
+                        </Label>
+                        <Input
+                          id="farmerPrimaryCrop"
+                          value={editableFarmerPrimaryCrop}
+                          onChange={(e) => setEditableFarmerPrimaryCrop(e.target.value)}
+                          className="text-sm"
+                          placeholder="Primary crop..."
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                      <Checkbox
+                        id="update-farmer-profile"
+                        checked={shouldUpdateFarmerProfile}
+                        onCheckedChange={(checked) => setShouldUpdateFarmerProfile(!!checked)}
+                      />
+                      <label
+                        htmlFor="update-farmer-profile"
+                        className="text-xs font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer"
+                      >
+                        Save/update farmer profile in database on approval
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Right Column: Extracted Query Details & Generated Answers */}
+        <div className="space-y-6 flex flex-col h-full">
+          {/* Extracted Query Details & Summary Card (Right Column) */}
+          {isSummaryOpen && activeExtractionModes.has('query') && (
+            <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 animate-in fade-in-50 slide-in-from-top-2">
+              <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4 transition-colors">
                 <CardTitle className="flex items-center justify-between text-sm font-semibold">
                   <span
                     className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 cursor-pointer"
                     onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
                   >
                     <FileText className="h-4 w-4" />
-                    Conversation Summary
+                    Extracted Query Details & Summary
                   </span>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleGenerateQuestions();
-                      }}
-                      disabled={
-                        isGeneratingQuestions ||
-                        !(editableQuery.trim() || editableSummaryText.trim() || transcriptsList.length > 0)
-                      }
-                      size="sm"
-                      className="h-9 px-4 text-xs md:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      <Lightbulb className="h-4 w-4 text-indigo-200" />
-                      <span>
-                        {isGeneratingQuestions ? "Generating..." : "Generate Question"}
-                      </span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 hover:bg-transparent"
-                      onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
-                    >
-                      {isSummaryExpanded ? (
-                        <ChevronUp className="h-4 w-4 text-zinc-500" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-zinc-500" />
-                      )}
-                    </Button>
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-transparent"
+                    onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                  >
+                    {isSummaryExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-zinc-500" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-zinc-500" />
+                    )}
+                  </Button>
                 </CardTitle>
               </CardHeader>
               <div
-                className={`transition-all duration-300 ease-in-out overflow-hidden ${isSummaryExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${isSummaryExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"}`}
               >
                 <CardContent className="p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
-                  {isExtracting ? (
+                  {isExtracting && currentExtractionType === 'query_details' ? (
                     <div className="flex flex-col space-y-3">
                       <Skeleton className="h-4 w-3/4 rounded-md" />
                       <Skeleton className="h-4 w-full rounded-md" />
                       <Skeleton className="h-4 w-5/6 rounded-md" />
                     </div>
-                  ) : isHumanVerificationMode ? (
+                  ) : (
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 mb-4">
                         <Edit3 className="h-4 w-4 text-indigo-600" />
                         <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                          Review & Edit Extracted Data
+                          Review & Edit Extracted Query Data
                         </span>
                       </div>
 
-                      {activeExtractionModes.has('query') && (
-                        <div className="space-y-3">
+                      <div className="space-y-3">
+                        <div>
+                          <Label
+                            htmlFor="queryText"
+                            className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                          >
+                            Extracted Query
+                          </Label>
+                          <Textarea
+                            id="queryText"
+                            value={editableQuery}
+                            onChange={(e) => setEditableQuery(e.target.value)}
+                            className="min-h-[80px] text-sm"
+                            placeholder="Edit extracted query..."
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label
-                              htmlFor="query"
+                              htmlFor="cropName"
                               className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
                             >
-                              Query / Question
+                              Crop
                             </Label>
                             <Input
-                              id="query"
-                              value={editableQuery}
-                              onChange={(e) => setEditableQuery(e.target.value)}
+                              id="cropName"
+                              value={editableCrop}
+                              onChange={(e) => setEditableCrop(e.target.value)}
                               className="text-sm"
-                              placeholder="Extracted question..."
+                              placeholder="Crop..."
                             />
                           </div>
 
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <Label
-                                htmlFor="crop"
-                                className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
-                              >
-                                Crop
-                              </Label>
-                              <Input
-                                id="crop"
-                                value={editableCrop}
-                                onChange={(e) => setEditableCrop(e.target.value)}
-                                className="text-sm"
-                                placeholder="Crop..."
-                              />
-                            </div>
-
-                            <div>
-                              <Label
-                                htmlFor="state"
-                                className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
-                              >
-                                State
-                              </Label>
-                              <Input
-                                id="state"
-                                value={editableState}
-                                onChange={(e) => setEditableState(e.target.value)}
-                                className="text-sm"
-                                placeholder="State..."
-                              />
-                            </div>
-                          </div>
-
                           <div>
                             <Label
-                              htmlFor="district"
+                              htmlFor="districtName"
                               className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
                             >
                               District
                             </Label>
                             <Input
-                              id="district"
+                              id="districtName"
                               value={editableDistrict}
                               onChange={(e) =>
                                 setEditableDistrict(e.target.value)
@@ -1734,43 +1879,22 @@ export const CallInterface = () => {
                             />
                           </div>
 
-                          <div className="md:col-span-2">
-                            <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2 block">
-                              Domain (Select multiple)
+                          <div>
+                            <Label
+                              htmlFor="stateName"
+                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                            >
+                              State
                             </Label>
-                            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2.5 border border-zinc-200/60 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-zinc-900 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800">
-                              {DOMAIN_OPTIONS.map((domain) => (
-                                <div
-                                  key={domain}
-                                  className="flex items-center gap-2"
-                                >
-                                  <Checkbox
-                                    id={`domain-${domain}`}
-                                    checked={editableDomain.includes(domain)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setEditableDomain([
-                                          ...editableDomain,
-                                          domain,
-                                        ]);
-                                      } else {
-                                        setEditableDomain(
-                                          editableDomain.filter(
-                                            (d) => d !== domain,
-                                          ),
-                                        );
-                                      }
-                                    }}
-                                  />
-                                  <label
-                                    htmlFor={`domain-${domain}`}
-                                    className="text-xs font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer"
-                                  >
-                                    {domain}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
+                            <Input
+                              id="stateName"
+                              value={editableState}
+                              onChange={(e) =>
+                                setEditableState(e.target.value)
+                              }
+                              className="text-sm"
+                              placeholder="State..."
+                            />
                           </div>
 
                           <div>
@@ -1784,166 +1908,58 @@ export const CallInterface = () => {
                               value={editableSeason}
                               onValueChange={setEditableSeason}
                             >
-                              <SelectTrigger className="text-sm">
-                                <SelectValue placeholder="Select season..." />
+                              <SelectTrigger id="season" className="text-sm">
+                                <SelectValue placeholder="Select Season" />
                               </SelectTrigger>
                               <SelectContent>
-                                {SEASON_OPTIONS.map((season) => (
-                                  <SelectItem key={season} value={season}>
-                                    {season}
-                                  </SelectItem>
-                                ))}
+                                <SelectItem value="Kharif">Kharif</SelectItem>
+                                <SelectItem value="Rabi">Rabi</SelectItem>
+                                <SelectItem value="Zaid">Zaid</SelectItem>
+                                <SelectItem value="Whole Year">
+                                  Whole Year
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                         </div>
-                      )}
 
-                      {/* Farmer Details Sub-form */}
-                      {activeExtractionModes.has('farmer') && (
-                        <div className="border-t border-zinc-200 dark:border-zinc-800 my-4 pt-4 space-y-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <User className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
-                              Farmer Profile Details
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <Label htmlFor="farmerName" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                                Farmer Name
-                              </Label>
-                              <Input
-                                id="farmerName"
-                                value={editableFarmerName}
-                                onChange={(e) => setEditableFarmerName(e.target.value)}
-                                className="text-sm"
-                                placeholder="Farmer name..."
-                              />
-                            </div>
-
-                            <div>
-                              <Label htmlFor="farmerPhone" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                                Phone Number
-                              </Label>
-                              <Input
-                                id="farmerPhone"
-                                value={editableFarmerPhone}
-                                onChange={(e) => setEditableFarmerPhone(e.target.value)}
-                                className="text-sm"
-                                placeholder="Phone number..."
-                              />
-                            </div>
-
-                            <div>
-                              <Label htmlFor="farmerAge" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                                Age
-                              </Label>
-                              <Input
-                                id="farmerAge"
-                                type="number"
-                                value={editableFarmerAge}
-                                onChange={(e) => setEditableFarmerAge(e.target.value)}
-                                className="text-sm"
-                                placeholder="Age..."
-                              />
-                            </div>
-
-                            <div>
-                              <Label htmlFor="farmerGender" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                                Gender
-                              </Label>
-                              <Input
-                                id="farmerGender"
-                                value={editableFarmerGender}
-                                onChange={(e) => setEditableFarmerGender(e.target.value)}
-                                className="text-sm"
-                                placeholder="Gender..."
-                              />
-                            </div>
-
-                            <div>
-                              <Label htmlFor="farmerVillage" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                                Village
-                              </Label>
-                              <Input
-                                id="farmerVillage"
-                                value={editableFarmerVillage}
-                                onChange={(e) => setEditableFarmerVillage(e.target.value)}
-                                className="text-sm"
-                                placeholder="Village..."
-                              />
-                            </div>
-
-                            <div>
-                              <Label htmlFor="farmerBlock" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                                Block
-                              </Label>
-                              <Input
-                                id="farmerBlock"
-                                value={editableFarmerBlock}
-                                onChange={(e) => setEditableFarmerBlock(e.target.value)}
-                                className="text-sm"
-                                placeholder="Block..."
-                              />
-                            </div>
-
-                            <div className="col-span-2">
-                              <Label htmlFor="farmerPrimaryCrop" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                                Primary Crop
-                              </Label>
-                              <Input
-                                id="farmerPrimaryCrop"
-                                value={editableFarmerPrimaryCrop}
-                                onChange={(e) => setEditableFarmerPrimaryCrop(e.target.value)}
-                                className="text-sm"
-                                placeholder="Primary crop..."
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 mt-3 pt-2">
-                            <Checkbox
-                              id="update-farmer-profile"
-                              checked={shouldUpdateFarmerProfile}
-                              onCheckedChange={(checked) => setShouldUpdateFarmerProfile(!!checked)}
-                            />
-                            <label
-                              htmlFor="update-farmer-profile"
-                              className="text-xs font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer"
-                            >
-                              Save/update farmer profile in database on approval
-                            </label>
+                        {/* Domain selection list with check icons */}
+                        <div>
+                          <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 block">
+                            Domains (Select All That Apply)
+                          </Label>
+                          <div className="grid grid-cols-2 gap-1.5 p-2 bg-zinc-100/50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 max-h-48 overflow-y-auto">
+                            {DOMAIN_OPTIONS.map((domain) => {
+                              const isSelected =
+                                editableDomain.includes(domain);
+                              return (
+                                <div
+                                  key={domain}
+                                  onClick={() => handleToggleDomain(domain)}
+                                  className={`flex items-center justify-between p-2 rounded-lg text-xs font-medium cursor-pointer transition-all ${isSelected
+                                    ? "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-semibold border border-indigo-500/20"
+                                    : "hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400"
+                                    }`}
+                                >
+                                  <span className="truncate">{domain}</span>
+                                  {isSelected && (
+                                    <Check className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 ml-1" />
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
-                      )}
+                      </div>
 
-                      <div className="flex justify-end gap-2 mt-4">
+                      <div className="flex items-center justify-end gap-3 mt-5 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
                         <Button
                           onClick={() => setIsHumanVerificationMode(false)}
                           variant="outline"
                           size="sm"
-                          className="text-xs"
+                          className="h-10 px-4 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl transition-all"
                         >
                           Cancel
-                        </Button>
-                        <Button
-                          onClick={handleGenerateQuestions}
-                          disabled={
-                            isGeneratingQuestions ||
-                            !(editableQuery.trim() || editableSummaryText.trim())
-                          }
-                          variant="outline"
-                          size="sm"
-                          className="h-10 px-4 text-xs md:text-sm font-semibold border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                          <Lightbulb className="h-4 w-4 text-indigo-500" />
-                          <span>
-                            {isGeneratingQuestions
-                              ? "Generating..."
-                              : "Generate Question"}
-                          </span>
                         </Button>
                         <Button
                           onClick={handleApproveAndResume}
@@ -1954,46 +1970,16 @@ export const CallInterface = () => {
                             !editableSeason
                           }
                           size="sm"
-                          className="h-10 px-5 text-xs md:text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25 border border-emerald-400/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                          className="h-10 px-5 text-xs md:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
                         >
-                          <Sparkles className="h-4 w-4 text-emerald-200" />
+                          <CheckCircle2 className="h-4 w-4 text-indigo-200" />
                           <span>
                             {isResuming
-                              ? "Generating..."
+                              ? "Generating Answer..."
                               : "Approve & Generate Answer"}
                           </span>
                         </Button>
                       </div>
-                    </div>
-                  ) : (
-                    <textarea
-                      value={editableSummaryText}
-                      onChange={(e) => setEditableSummaryText(e.target.value)}
-                      readOnly={hasGeneratedQuestions}
-                      className={`w-full p-3 text-sm leading-relaxed rounded-xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-all duration-300 dark:text-zinc-100 shadow-inner ${hasGeneratedQuestions
-                        ? "min-h-[60px] max-h-[100px] resize-none overflow-y-auto bg-zinc-50/50 dark:bg-zinc-900/50 opacity-90 text-zinc-600 dark:text-zinc-400 text-xs"
-                        : "min-h-[150px] resize-y overflow-y-auto focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
-                        }`}
-                      placeholder="Conversation summary will appear here..."
-                    />
-                  )}
-                  {!hasGeneratedQuestions && !isHumanVerificationMode && (
-                    <div className="flex justify-end mt-4">
-                      <Button
-                        onClick={handleGenerateQuestions}
-                        disabled={
-                          isGeneratingQuestions || !editableSummaryText.trim()
-                        }
-                        size="sm"
-                        className="h-10 px-5 text-xs md:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/25 border border-indigo-400/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                      >
-                        <Lightbulb className="h-4 w-4 text-indigo-200" />
-                        <span>
-                          {isGeneratingQuestions
-                            ? "Generating..."
-                            : "Generate Question"}
-                        </span>
-                      </Button>
                     </div>
                   )}
                 </CardContent>
@@ -2001,6 +1987,7 @@ export const CallInterface = () => {
             </Card>
           )}
 
+          {/* Right Column: Generated Questions & Answers List */}
           <Card className="flex-1 min-h-[400px] md:h-auto border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
             <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4">
               <CardTitle className="flex items-center justify-between text-sm font-semibold">

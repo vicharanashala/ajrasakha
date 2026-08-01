@@ -274,16 +274,16 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
   const dayTimeString = `${now.toLocaleDateString("en-US", { weekday: "long" })}, ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 
   return (
-    <Card className="border border-zinc-200/50 dark:border-zinc-800/80 shadow-2xl bg-zinc-950/90 text-zinc-100 backdrop-blur-xl overflow-hidden rounded-2xl transition-all duration-300">
-      <CardHeader className="border-b border-zinc-800/70 bg-zinc-900/60 px-5 py-3.5">
+    <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg text-zinc-900 dark:text-zinc-100 overflow-hidden rounded-2xl transition-all duration-300">
+      <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-5 py-3.5">
         <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
           {/* Location Header */}
-          <div className="flex items-center gap-2 text-zinc-200">
-            <MapPin className="h-4 w-4 text-indigo-400" />
+          <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+            <MapPin className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
             <span className="font-bold text-sm sm:text-base">
               {stateInfo.city}, {selectedState}
             </span>
-            <Badge variant="outline" className="text-[10px] bg-indigo-950/50 text-indigo-300 border-indigo-800/50 ml-1 font-mono">
+            <Badge variant="outline" className="text-[10px] bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50 ml-1 font-mono">
               {weather?.source || "IMD"} Weather
             </Badge>
           </div>
@@ -291,12 +291,12 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
           {/* Controls: State Selector Dropdown & Refresh */}
           <div className="flex items-center gap-2">
             <Select value={selectedState} onValueChange={setSelectedState}>
-              <SelectTrigger className="h-8 text-xs bg-zinc-900 border-zinc-700 text-zinc-100 w-[180px]">
+              <SelectTrigger className="h-8 text-xs bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 w-[180px] shadow-sm">
                 <SelectValue placeholder="Select State..." />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100 max-h-60">
+              <SelectContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 max-h-60 z-50">
                 {Object.keys(INDIAN_STATES_COORDINATES).map((st) => (
-                  <SelectItem key={st} value={st} className="text-xs focus:bg-indigo-600 focus:text-white">
+                  <SelectItem key={st} value={st} className="text-xs focus:bg-indigo-50 dark:focus:bg-indigo-950 focus:text-indigo-600 dark:focus:text-indigo-300">
                     {st}
                   </SelectItem>
                 ))}
@@ -308,7 +308,7 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
               disabled={isLoading}
               size="sm"
               variant="outline"
-              className="h-8 w-8 p-0 border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+              className="h-8 w-8 p-0 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-sm"
               title="Refresh Weather"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
@@ -320,13 +320,13 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
       <CardContent className="p-5 space-y-6">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-3">
-            <RefreshCw className="h-8 w-8 text-indigo-400 animate-spin" />
-            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">Fetching live weather data...</p>
+            <RefreshCw className="h-8 w-8 text-indigo-600 dark:text-indigo-400 animate-spin" />
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium uppercase tracking-wider">Fetching live weather data...</p>
           </div>
         ) : error || !weather ? (
-          <div className="text-center py-8 text-zinc-400 space-y-2">
-            <p className="text-sm font-semibold text-red-400">Failed to load weather forecast.</p>
-            <Button onClick={fetchWeatherData} size="sm" variant="outline" className="text-xs border-zinc-700">
+          <div className="text-center py-8 text-zinc-500 dark:text-zinc-400 space-y-2">
+            <p className="text-sm font-semibold text-red-500 dark:text-red-400">Failed to load weather forecast.</p>
+            <Button onClick={fetchWeatherData} size="sm" variant="outline" className="text-xs border-zinc-200 dark:border-zinc-800">
               Try Again
             </Button>
           </div>
@@ -338,20 +338,20 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
               <div className="flex items-center gap-4">
                 <div className="shrink-0">{getWeatherCondition(weather.weatherCode).icon}</div>
                 <div className="flex items-start">
-                  <span className="text-5xl font-extrabold tracking-tight text-white font-mono">
+                  <span className="text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-white font-mono">
                     {displayTemp(weather.currentTemp)}
                   </span>
                   <div className="flex items-center text-sm font-semibold ml-2 text-zinc-400 pt-1">
                     <button
                       onClick={() => setUnit("C")}
-                      className={`hover:text-white transition-colors ${unit === "C" ? "text-white font-bold underline" : ""}`}
+                      className={`hover:text-zinc-900 dark:hover:text-white transition-colors ${unit === "C" ? "text-zinc-900 dark:text-white font-bold underline" : "text-zinc-400"}`}
                     >
                       °C
                     </button>
                     <span className="mx-1">|</span>
                     <button
                       onClick={() => setUnit("F")}
-                      className={`hover:text-white transition-colors ${unit === "F" ? "text-white font-bold underline" : ""}`}
+                      className={`hover:text-zinc-900 dark:hover:text-white transition-colors ${unit === "F" ? "text-zinc-900 dark:text-white font-bold underline" : "text-zinc-400"}`}
                     >
                       °F
                     </button>
@@ -359,39 +359,39 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
                 </div>
 
                 {/* Additional Stats: Precipitation, Humidity, Wind */}
-                <div className="border-l border-zinc-800 pl-4 space-y-1 text-xs text-zinc-400">
+                <div className="border-l border-zinc-200 dark:border-zinc-800 pl-4 space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
                   <div className="flex items-center gap-1.5">
-                    <Droplets className="h-3.5 w-3.5 text-blue-400" />
-                    <span>Precipitation: <strong className="text-zinc-200">{weather.precipitationProb}%</strong></span>
+                    <Droplets className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+                    <span>Precipitation: <strong className="text-zinc-900 dark:text-zinc-200">{weather.precipitationProb}%</strong></span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Thermometer className="h-3.5 w-3.5 text-amber-400" />
-                    <span>Humidity: <strong className="text-zinc-200">{weather.humidity}%</strong></span>
+                    <Thermometer className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
+                    <span>Humidity: <strong className="text-zinc-900 dark:text-zinc-200">{weather.humidity}%</strong></span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Wind className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>Wind: <strong className="text-zinc-200">{weather.windSpeed} km/h</strong></span>
+                    <Wind className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
+                    <span>Wind: <strong className="text-zinc-900 dark:text-zinc-200">{weather.windSpeed} km/h</strong></span>
                   </div>
                 </div>
               </div>
 
               {/* Right Column: Condition & Day/Time */}
               <div className="text-left md:text-right space-y-1">
-                <h4 className="text-xl font-bold text-zinc-100">{weather.conditionText}</h4>
-                <p className="text-xs text-zinc-400 font-medium">{dayTimeString}</p>
+                <h4 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{weather.conditionText}</h4>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">{dayTimeString}</p>
               </div>
             </div>
 
             {/* Interactive Tabs for Graph View */}
             <div className="space-y-3">
-              <div className="flex items-center gap-4 border-b border-zinc-800 pb-2 text-xs font-semibold">
+              <div className="flex items-center gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-2 text-xs font-semibold">
                 {(["Temperature", "Precipitation", "Wind"] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`transition-all pb-1.5 border-b-2 ${activeTab === tab
-                        ? "border-amber-400 text-amber-400 font-bold"
-                        : "border-transparent text-zinc-400 hover:text-zinc-200"
+                        ? "border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400 font-bold"
+                        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
                       }`}
                   >
                     {tab}
@@ -400,7 +400,7 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
               </div>
 
               {/* Hourly Temperature / Metric SVG Smooth Curve Chart */}
-              <div className="relative pt-6 pb-2 px-2 bg-zinc-900/40 border border-zinc-800/50 rounded-xl overflow-hidden">
+              <div className="relative pt-6 pb-2 px-2 bg-zinc-100/50 dark:bg-zinc-900/40 border border-zinc-200/60 dark:border-zinc-800/50 rounded-xl overflow-hidden">
                 <svg className="w-full h-20 overflow-visible" viewBox="0 0 800 100" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
@@ -437,14 +437,14 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
                 <div className="grid grid-cols-8 gap-1 text-center mt-2">
                   {weather.hourly.map((item, idx) => (
                     <div key={idx} className="flex flex-col items-center space-y-1">
-                      <span className="text-[11px] font-bold text-zinc-200">
+                      <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200">
                         {activeTab === "Temperature"
                           ? `${displayTemp(item.temp)}°`
                           : activeTab === "Precipitation"
                             ? `${item.precipitationProb}%`
                             : `${item.windSpeed}k`}
                       </span>
-                      <span className="text-[10px] text-zinc-400">{item.time}</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{item.time}</span>
                     </div>
                   ))}
                 </div>
@@ -452,8 +452,8 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
             </div>
 
             {/* 7-Day Forecast Cards Strip */}
-            <div className="pt-2 border-t border-zinc-800">
-              <h5 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">7-Day Weather Forecast</h5>
+            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
+              <h5 className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">7-Day Weather Forecast</h5>
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
                 {weather.daily.map((day, idx) => {
                   const cond = getWeatherCondition(day.weatherCode);
@@ -461,15 +461,15 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
                     <div
                       key={idx}
                       className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${idx === 0
-                          ? "bg-zinc-800/80 border-indigo-500/50 shadow-lg"
-                          : "bg-zinc-900/30 border-zinc-800/60 hover:bg-zinc-800/40"
+                          ? "bg-indigo-50/80 dark:bg-zinc-800/80 border-indigo-500/50 shadow-md"
+                          : "bg-zinc-50/50 dark:bg-zinc-900/30 border-zinc-200/60 dark:border-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800/40"
                         }`}
                     >
-                      <span className="text-xs font-semibold text-zinc-300">{idx === 0 ? "Today" : day.dayName}</span>
+                      <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{idx === 0 ? "Today" : day.dayName}</span>
                       <div className="my-1.5">{cond.icon}</div>
                       <div className="flex items-center gap-1 text-xs font-bold font-mono">
-                        <span className="text-zinc-100">{displayTemp(day.tempMax)}°</span>
-                        <span className="text-zinc-500 text-[10px]">{displayTemp(day.tempMin)}°</span>
+                        <span className="text-zinc-900 dark:text-zinc-100">{displayTemp(day.tempMax)}°</span>
+                        <span className="text-zinc-400 dark:text-zinc-500 text-[10px]">{displayTemp(day.tempMin)}°</span>
                       </div>
                     </div>
                   );
