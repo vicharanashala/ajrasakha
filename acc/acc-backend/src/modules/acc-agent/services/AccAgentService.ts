@@ -43,7 +43,7 @@ export class AccAgentService {
   async extractData(
     threadId: string,
     transcript: string,
-    extractionType?: 'farmer_details' | 'query_details' | 'all'
+    extractionType?: 'farmer_details' | 'query_details'
   ): Promise<{
     extracted_query: string;
     extracted_crop: string;

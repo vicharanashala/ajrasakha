@@ -69,7 +69,7 @@ export class AccAgentService {
   async extractData(
     threadId: string,
     transcript: string,
-    extractionType?: 'farmer_details' | 'query_details' | 'all'
+    extractionType?: 'farmer_details' | 'query_details'
   ): Promise<ExtractDataResponse> {
     const result = await apiFetch<ExtractDataResponse>(`${this.baseUrl}/acc-agent/extract`, {
       method: 'POST',

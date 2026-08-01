@@ -831,11 +831,11 @@ export const CallInterface = () => {
     if (isHumanVerificationMode && threadId) {
       await handleApproveAndResume();
     } else {
-      await handleExtractWithHITL();
+      await handleExtractWithHITL("query_details");
     }
   };
 
-  const handleExtractWithHITL = async (extractionType: 'farmer_details' | 'query_details' | 'all' = 'all') => {
+  const handleExtractWithHITL = async (extractionType: 'farmer_details' | 'query_details') => {
     if (transcriptsList.length === 0) {
       toast.info("No transcripts available to extract.");
       return;
@@ -855,8 +855,6 @@ export const CallInterface = () => {
       } else {
         setActiveExtractionModes((prev) => new Set([...prev, 'query']));
       }
-    } else {
-      setActiveExtractionModes(new Set(['farmer', 'query']));
     }
 
     const allTranscriptText = transcriptsList
@@ -883,7 +881,7 @@ export const CallInterface = () => {
       });
       setExtractedData(data);
 
-      if (extractionType === 'query_details' || extractionType === 'all') {
+      if (extractionType === 'query_details') {
         if (data.extracted_query) setEditableQuery(data.extracted_query);
         if (data.extracted_crop) setEditableCrop(data.extracted_crop);
         if (data.extracted_state) setEditableState(data.extracted_state);
@@ -898,7 +896,7 @@ export const CallInterface = () => {
         setEditableSeason(getAutoSelectedSeason());
       }
 
-      if (extractionType === 'farmer_details' || extractionType === 'all') {
+      if (extractionType === 'farmer_details') {
         if (data.extracted_name) setEditableFarmerName(data.extracted_name);
         if (data.extracted_phone) setEditableFarmerPhone(data.extracted_phone);
         if (data.extracted_age !== undefined && data.extracted_age !== null) setEditableFarmerAge(String(data.extracted_age));
@@ -919,7 +917,7 @@ export const CallInterface = () => {
       if (data.extracted_crop) setExtractedCrop(data.extracted_crop);
 
       toast.success(
-        `Data (${extractionType === 'farmer_details' ? 'Farmer Details' : extractionType === 'query_details' ? 'Query Details' : 'Full'}) extracted successfully. Please review and edit if needed.`,
+        `Data (${extractionType === 'farmer_details' ? 'Farmer Details' : 'Query Details'}) extracted successfully. Please review and edit if needed.`,
       );
     } catch (err) {
       console.error("Error in HITL extraction", err);
@@ -1054,7 +1052,6 @@ export const CallInterface = () => {
         callUuid: targetCallUuid,
         metadata,
       });
-      setIsHumanVerificationMode(false);
 
       // Reset lastCallUuid after successful Q/A storage to prevent re-association
       if (targetCallUuid) {
@@ -1352,13 +1349,6 @@ export const CallInterface = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-60 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl rounded-xl p-1 z-50">
-                      <DropdownMenuItem
-                        onClick={() => handleExtractWithHITL("all")}
-                        className="flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
-                      >
-                        <Sparkles className="h-4 w-4 text-indigo-500" />
-                        <span>Extract All (Full Extract & Verify)</span>
-                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleExtractWithHITL("farmer_details")}
                         className="flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"

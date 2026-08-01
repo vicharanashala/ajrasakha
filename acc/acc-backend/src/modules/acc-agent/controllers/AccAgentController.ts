@@ -51,7 +51,7 @@ export class AccAgentController {
   @Authorized()
   @OpenAPI({ summary: 'Extract data from transcript using ACC Agent' })
   async extractAccAgentData(
-    @Body() body: { threadId: string; transcript: string; extractionType?: 'farmer_details' | 'query_details' | 'all' }
+    @Body() body: { threadId: string; transcript: string; extractionType?: 'farmer_details' | 'query_details' }
   ): Promise<{
     extracted_query: string;
     extracted_crop: string;
