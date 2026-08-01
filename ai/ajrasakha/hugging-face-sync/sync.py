@@ -161,7 +161,7 @@ class GoldenToHuggingFaceSync:
                 # Question fields
                 "question_id": question_id,
                 "question": question_text,
-                "priority": details.get("priority"),
+                "priority": q.get("priority"),
                 "source": q.get("source"),
                 "state": details.get("state"),
                 "district": details.get("district"),
