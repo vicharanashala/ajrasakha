@@ -7180,8 +7180,8 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $lookup: {
                 from: 'questions',
-                localField: 'messageId',
-                foreignField: 'messageId',
+                localField: 'conversationId',
+                foreignField: 'threadId',
                 as: '_questionDoc',
               },
             },
@@ -20800,8 +20800,8 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $lookup: {
                 from: 'questions',
-                localField: 'messageId',
-                foreignField: 'messageId',
+                localField: 'conversationId',
+                foreignField: 'threadId',
                 as: '_questionDoc',
               },
             },
