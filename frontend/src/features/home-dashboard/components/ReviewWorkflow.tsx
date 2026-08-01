@@ -167,7 +167,7 @@ export const ReviewWorkflow: React.FC = () => {
                   borderRadius: "12px",
                   display: "flex",
                   alignItems: "center",
-                  justify: "space-between",
+                  justifyContent: "space-between",
                   fontSize: "0.95rem",
                 }}
               >

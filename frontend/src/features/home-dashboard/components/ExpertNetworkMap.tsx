@@ -230,6 +230,34 @@ const createCustomMarkerIcon = (
   });
 };
 
+interface ExpertStatePathProps {
+  st: { id: string; name: string; pathD: string };
+  isHovered: boolean;
+}
+
+const ExpertStatePath: React.FC<ExpertStatePathProps> = React.memo(({ st, isHovered }) => {
+  return (
+    <path
+      d={st.pathD}
+      data-state-name={st.name}
+      fill={isHovered ? "url(#stateHoverGrad)" : "url(#stateDefaultGrad)"}
+      stroke={isHovered ? "#ffffff" : "rgba(86, 185, 138, 0.65)"}
+      strokeWidth={isHovered ? 1.8 : 0.75}
+      style={{
+        cursor: "pointer",
+        transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+        transformBox: "fill-box",
+        transformOrigin: "center",
+        transform: isHovered ? "scale(1.008) translateZ(10px)" : "scale(1)",
+        filter: isHovered ? "url(#glowGold)" : "none",
+      }}
+    >
+      <title>{st.name} — Click to view its users</title>
+    </path>
+  );
+});
+ExpertStatePath.displayName = "ExpertStatePath";
+
 interface ExpertNetworkMapProps {
   publicUsers?: PublicUserItem[] | null;
   className?: string;
@@ -248,8 +276,19 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
   const [activePinId, setActivePinId] = useState<string | null>(null);
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
   const [flyTarget, setFlyTarget] = useState<L.LatLngBoundsExpression | null>(null);
+  // Pins are hidden on initial load — only shown after user clicks a state or list item
+  const [pinsVisible, setPinsVisible] = useState(false);
   const activeProfileId = selectedPinId || activePinId;
   const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
+
+  // Reset pins + selection whenever the tab/mode changes
+  useEffect(() => {
+    setPinsVisible(false);
+    setSelectedState(null);
+    setActivePinId(null);
+    setSelectedPinId(null);
+    setFlyTarget(null);
+  }, [mode]);
 
   const { statesGeo } = useGeoJson();
 
@@ -444,12 +483,10 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
       else if (rawRole === "expert") roleLabel = "AGRONOMY EXPERT";
       else roleLabel = rawRole.toUpperCase();
 
-      const crop = safeString(u.preference?.crop);
-      const domain = safeString(u.preference?.domain);
+      const crop = safeString(u.preference?.crops?.[0]);
 
       const expertiseList: string[] = [];
       if (crop && crop.toLowerCase() !== "all") expertiseList.push(crop);
-      if (domain && domain.toLowerCase() !== "all") expertiseList.push(domain);
       if (expertiseList.length === 0) {
         const defaultExpertiseSets = [
           ["Organic Farming", "Crop Protection"],
@@ -507,7 +544,6 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
 
   const activeStateName = selectedState;
 
-  const nounSingular = mode === "kvk" ? "KVK" : mode === "sau" ? "SAU" : "expert";
   const nounPlural = mode === "kvk" ? "KVKs" : mode === "sau" ? "SAUs" : "experts";
   const networkTitle =
     mode === "kvk"
@@ -718,7 +754,7 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
             />
 
-            {statesGeo && (
+            {Boolean(statesGeo) && (
               <GeoJSON
                 key={`states-${selectedState}-${hoveredState}`}
                 data={statesGeo as any}
@@ -762,6 +798,7 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
                       setSelectedState((prev) =>
                         prev && normalizeState(prev) === norm ? null : stName,
                       );
+                      setPinsVisible(true);
                       const bounds = (layer as L.Polygon).getBounds?.();
                       if (bounds) setFlyTarget(bounds);
                     },
@@ -770,7 +807,7 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
               />
             )}
 
-            {visibleExperts.map((exp) => {
+            {pinsVisible && visibleExperts.map((exp) => {
               const isPinHovered = activeProfileId === exp.id;
               const avatarHref = failedAvatars[exp.id]
                 ? getInitialsAvatarUrl(exp.name)
@@ -832,7 +869,24 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
               </filter>
             </defs>
 
-            <g>
+            <g
+              onMouseOver={(e) => {
+                const target = e.target as SVGPathElement;
+                const stateName = target.getAttribute("data-state-name");
+                if (stateName && stateName !== hoveredState) {
+                  setHoveredState(stateName);
+                }
+              }}
+              onMouseLeave={() => setHoveredState(null)}
+              onClick={(e) => {
+                const target = e.target as SVGPathElement;
+                const stateName = target.getAttribute("data-state-name");
+                if (stateName) {
+                  setSelectedState((prev) => (prev === stateName ? null : stateName));
+                  setPinsVisible(true);
+                }
+              }}
+            >
               {REAL_OFFICIAL_INDIA_MAP.map((st, stIdx) => {
                 const matches = (name: string | null) =>
                   Boolean(name) &&
@@ -841,33 +895,16 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
                 const isHovered = matches(selectedState) || matches(hoveredState);
 
                 return (
-                  <path
+                  <ExpertStatePath
                     key={`${st.id}-${stIdx}`}
-                    d={st.pathD}
-                    fill={isHovered ? "url(#stateHoverGrad)" : "url(#stateDefaultGrad)"}
-                    stroke={isHovered ? "#ffffff" : "rgba(86, 185, 138, 0.65)"}
-                    strokeWidth={isHovered ? 1.8 : 0.75}
-                    style={{
-                      cursor: "pointer",
-                      transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-                      transformBox: "fill-box",
-                      transformOrigin: "center",
-                      transform: isHovered ? "scale(1.008) translateZ(10px)" : "scale(1)",
-                      filter: isHovered ? "url(#glowGold)" : "none",
-                    }}
-                    onMouseEnter={() => setHoveredState(st.name)}
-                    onMouseLeave={() => setHoveredState(null)}
-                    onClick={() =>
-                      setSelectedState((prev) => (prev === st.name ? null : st.name))
-                    }
-                  >
-                    <title>{st.name} — Click to view its users</title>
-                  </path>
+                    st={st}
+                    isHovered={isHovered}
+                  />
                 );
               })}
             </g>
 
-            {visibleExperts.map((exp) => {
+            {pinsVisible && visibleExperts.map((exp) => {
               const isPinHovered = activeProfileId === exp.id;
               const avatarHref = failedAvatars[exp.id]
                 ? getInitialsAvatarUrl(exp.name)

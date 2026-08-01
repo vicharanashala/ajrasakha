@@ -1,0 +1,471 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   KNOWLEDGE RIVER (THREE.JS WEBGL SECTION) — CSS STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.knowledge-river-section {
+  position: relative;
+  width: 100%;
+  min-height: 140vh;
+  padding: 120px 0 160px;
+  background: #06140b;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ─── Three.js Canvas ────────────────────────────────────────────────────── */
+.knowledge-river-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── Atmospheric Vignette & Grid ────────────────────────────────────────── */
+.kr-overlay-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 100% 70% at 50% 20%, transparent 20%, rgba(4, 12, 7, 0.65) 75%, #040c07 100%),
+    linear-gradient(to bottom, rgba(6, 20, 11, 0.7) 0%, transparent 25%, transparent 75%, rgba(6, 20, 11, 0.95) 100%);
+}
+
+.kr-overlay-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 70%);
+}
+
+/* ─── Content Shell ──────────────────────────────────────────────────────── */
+.kr-content-shell {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ─── Header ─────────────────────────────────────────────────────────────── */
+.kr-header {
+  text-align: center;
+  max-width: 720px;
+  margin-bottom: 40px;
+}
+
+.kr-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(240, 210, 123, 0.1);
+  border: 1px solid rgba(240, 210, 123, 0.28);
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
+  margin-bottom: 18px;
+}
+
+.kr-eyebrow span {
+  font-family: Manrope, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: rgba(240, 210, 123, 0.95);
+  text-transform: uppercase;
+}
+
+.kr-title {
+  margin: 0 0 16px;
+  font-family: Newsreader, serif;
+  font-size: clamp(32px, 3.8vw, 56px);
+  font-weight: 400;
+  line-height: 1.1;
+  color: #f2f0e6;
+  letter-spacing: -0.03em;
+}
+
+.kr-title em {
+  font-style: italic;
+  color: rgba(240, 210, 123, 0.92);
+}
+
+.kr-subtitle {
+  margin: 0;
+  font-family: Manrope, sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(242, 240, 230, 0.65);
+}
+
+/* ─── 7 Vertical Source Badges (Field Layout) ────────────────────────────── */
+.kr-source-field {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  margin-bottom: 40px;
+}
+
+.kr-source-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  cursor: pointer;
+  will-change: transform;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.kr-source-node:hover {
+  transform: translate(-50%, -50%) scale(1.08);
+  z-index: 10;
+}
+
+.kr-source-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 8px 10px;
+  background: rgba(8, 22, 14, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50px;
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 12px 32px rgba(0, 0, 0, 0.45);
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    background 0.3s ease;
+  white-space: nowrap;
+}
+
+.kr-source-node--active .kr-source-pill,
+.kr-source-pill:hover {
+  border-color: var(--node-accent, #f0d27b);
+  background: rgba(12, 32, 20, 0.92);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.15) inset,
+    0 14px 40px rgba(0, 0, 0, 0.5),
+    0 0 24px var(--node-accent, rgba(240, 210, 123, 0.3));
+}
+
+.kr-source-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  display: grid;
+  place-items: center;
+  color: var(--node-accent, #f0d27b);
+  flex-shrink: 0;
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+
+.kr-source-node--active .kr-source-icon {
+  background: rgba(240, 210, 123, 0.2);
+  transform: scale(1.1);
+}
+
+.kr-source-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kr-source-info strong {
+  font-family: Manrope, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f2f0e6;
+  line-height: 1.2;
+}
+
+.kr-source-info small {
+  font-family: Manrope, sans-serif;
+  font-size: 8.5px;
+  font-weight: 600;
+  color: var(--node-accent, rgba(240, 210, 123, 0.85));
+  letter-spacing: 0.04em;
+}
+
+/* Popover hover card */
+.kr-source-popover {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  width: 240px;
+  padding: 14px 16px;
+  background: rgba(10, 26, 17, 0.95);
+  border: 1px solid var(--node-accent, rgba(240, 210, 123, 0.4));
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.6),
+    0 0 30px var(--node-accent, rgba(240, 210, 123, 0.2));
+  z-index: 20;
+  pointer-events: none;
+  animation: kr-popover-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes kr-popover-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.92); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(12px) scale(1); }
+}
+
+.kr-popover-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.kr-popover-header span {
+  font-family: Manrope, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #f2f0e6;
+}
+
+.kr-source-popover p {
+  margin: 0 0 10px;
+  font-family: Manrope, sans-serif;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: rgba(242, 240, 230, 0.7);
+}
+
+.kr-popover-badge {
+  display: inline-block;
+  font-family: Manrope, sans-serif;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--node-accent, #f0d27b);
+  padding: 3px 8px;
+  background: rgba(240, 210, 123, 0.1);
+  border-radius: 999px;
+}
+
+/* ─── Convergence Flow Indicator ─────────────────────────────────────────── */
+.kr-convergence-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  background: rgba(20, 26, 20, 0.95);
+  border: 1px solid rgba(240, 210, 123, 0.3);
+  border-radius: 999px;
+  margin-bottom: 50px;
+  will-change: opacity, transform;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.kr-pulse-ring {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f0d27b;
+  box-shadow: 0 0 12px rgba(240, 210, 123, 0.9);
+  animation: kr-pulse-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes kr-pulse-glow {
+  0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 10px rgba(240, 210, 123, 0.9); }
+  50%       { transform: scale(1.4); opacity: 0.6; box-shadow: 0 0 24px rgba(240, 210, 123, 0.5); }
+}
+
+.kr-convergence-indicator span {
+  font-family: Manrope, sans-serif;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(240, 210, 123, 0.95);
+  text-transform: uppercase;
+}
+
+/* ─── Final CTA Card (Convergence Destination) ──────────────────────────── */
+.kr-final-cta-card {
+  position: relative;
+  width: min(640px, 90vw);
+  padding: 44px 48px 40px;
+  text-align: center;
+  border: 1px solid rgba(240, 210, 123, 0.35);
+  border-radius: 28px;
+
+  /* Frosted multi-layer glass */
+  background: linear-gradient(
+    145deg,
+    rgba(10, 28, 18, 0.88) 0%,
+    rgba(6, 18, 11, 0.94) 100%
+  );
+  backdrop-filter: blur(32px) saturate(1.6);
+  -webkit-backdrop-filter: blur(32px) saturate(1.6);
+
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.15) inset,
+    0 30px 90px rgba(0, 0, 0, 0.65),
+    0 0 80px rgba(240, 210, 123, 0.18),
+    0 0 0 1px rgba(240, 210, 123, 0.12);
+
+  will-change: opacity, transform;
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kr-cta-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.kr-cta-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f0d27b;
+  box-shadow: 0 0 8px rgba(240, 210, 123, 0.8);
+}
+
+.kr-cta-eyebrow span {
+  font-family: Manrope, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: rgba(240, 210, 123, 0.85);
+  text-transform: uppercase;
+}
+
+.kr-cta-headline {
+  margin: 0 0 18px;
+  font-family: Newsreader, serif;
+  font-size: clamp(30px, 3.2vw, 48px);
+  font-weight: 400;
+  line-height: 1.1;
+  color: #f2f0e6;
+  letter-spacing: -0.03em;
+}
+
+.kr-cta-headline em {
+  font-style: italic;
+  color: rgba(240, 210, 123, 0.95);
+}
+
+.kr-cta-body {
+  margin: 0 0 30px;
+  font-family: Manrope, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: rgba(242, 240, 230, 0.68);
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.kr-cta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 34px;
+  border: 1px solid rgba(240, 210, 123, 0.5);
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    rgba(240, 210, 123, 0.25) 0%,
+    rgba(200, 160, 70, 0.15) 100%
+  );
+  color: #f2f0e6;
+  font-family: Manrope, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow:
+    0 10px 32px rgba(212, 172, 87, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+  transition:
+    transform 0.3s cubic-bezier(0.34, 1.25, 0.64, 1),
+    box-shadow 0.3s ease,
+    background 0.3s ease,
+    border-color 0.3s ease;
+}
+
+.kr-cta-button:hover {
+  transform: translateY(-3px) scale(1.03);
+  background: linear-gradient(
+    135deg,
+    rgba(240, 210, 123, 0.38) 0%,
+    rgba(200, 160, 70, 0.25) 100%
+  );
+  border-color: rgba(240, 210, 123, 0.8);
+  box-shadow:
+    0 14px 44px rgba(212, 172, 87, 0.4),
+    0 0 20px rgba(240, 210, 123, 0.25);
+}
+
+.kr-cta-button svg {
+  transition: transform 0.3s ease;
+}
+
+.kr-cta-button:hover svg {
+  transform: translateX(4px);
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .kr-source-field {
+    height: 480px;
+  }
+
+  .kr-source-node:nth-child(1) { left: 8% !important; top: 12% !important; }
+  .kr-source-node:nth-child(2) { left: 32% !important; top: 14% !important; }
+  .kr-source-node:nth-child(3) { left: 62% !important; top: 16% !important; }
+  .kr-source-node:nth-child(4) { left: 86% !important; top: 18% !important; }
+  .kr-source-node:nth-child(5) { left: 18% !important; top: 40% !important; }
+  .kr-source-node:nth-child(6) { left: 50% !important; top: 44% !important; }
+  .kr-source-node:nth-child(7) { left: 82% !important; top: 42% !important; }
+}
+
+@media (max-width: 640px) {
+  .knowledge-river-section {
+    padding: 80px 0 100px;
+  }
+
+  .kr-source-field {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    height: auto;
+    justify-content: center;
+    position: static;
+    margin-bottom: 30px;
+  }
+
+  .kr-source-node {
+    position: static !important;
+    transform: none !important;
+  }
+
+  .kr-final-cta-card {
+    padding: 28px 24px 24px;
+    border-radius: 20px;
+  }
+
+  .kr-cta-headline {
+    font-size: 24px;
+  }
+}

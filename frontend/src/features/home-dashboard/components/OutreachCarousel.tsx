@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronLeft, ChevronRight, MapPin, Users, CheckCircle, ArrowRight } from "lucide-react";
+import { ChevronLeft, MapPin, Users, CheckCircle, ArrowRight } from "lucide-react";
 
 interface Story {
   id: number;

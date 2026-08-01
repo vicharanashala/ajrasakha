@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Globe,
@@ -7,32 +7,21 @@ import {
   ChevronRight,
   ArrowRight,
   ArrowLeft,
-  Play,
   X,
   Menu,
   Check,
   CloudSun,
-  Database,
-  TrendingUp,
-  Satellite,
   BookOpen,
   Sprout,
-  Radio,
-  Cpu,
-  Sparkles,
   ShieldCheck,
   Award,
   Layers,
   MapPin,
-  Users,
-  Compass,
   FileCheck,
   FlaskConical,
   Landmark,
   MessageSquare,
   Lock,
-  Droplets,
-  CalendarClock,
   Loader2,
   Monitor,
   MessageCircle,
@@ -42,10 +31,14 @@ import {
   Shield,
 } from "lucide-react";
 import "./home-dashboard.css";
-import OrbCanvas from "./components/OrbCanvas";
-import HeroNetwork from "./components/HeroNetwork";
-import IndiaCoverageMap, { SVGIndiaMap } from "./components/IndiaCoverageMap";
-import ExpertNetworkMap from "./components/ExpertNetworkMap";
+import CinematicHero from "./components/hero/CinematicHero";
+import IndiaCoverageMap from "./components/IndiaCoverageMap";
+
+// Lazy-load heavy components — deferred until they near the viewport
+const KnowledgeRiverThree = lazy(() => import("./components/KnowledgeRiverThree"));
+const ExpertNetworkMap = lazy(() =>
+  import("./components/ExpertNetworkMap").then((m) => ({ default: m.ExpertNetworkMap }))
+);
 import {
   usePublicDashboardItems,
   usePublicDashboardUsers,
@@ -76,6 +69,50 @@ const getYouTubeEmbedUrl = (url?: string): string | null => {
   return null;
 };
 
+// Defined outside the component — never recreated on re-render
+const FUTURE_SLIDES = [
+  {
+    id: "khc-agent-interface",
+    title: "KHC Agent Interface",
+    subtitle: "Knowledge Hub Center Workflow",
+    tag: "AGENT WORKFLOW",
+    image: "/assets/learning-campus.png",
+    description: "Unified expert desk interface for organizing, reviewing, and approving agricultural advisory datasets.",
+  },
+  {
+    id: "annadatha-app",
+    title: "AnnaDatha - Question Collection",
+    subtitle: "Farmer Query Intake App",
+    tag: "QUERY COLLECTION",
+    image: "/assets/farmer-network.png",
+    description: "Multilingual voice and text mobile application for collecting ground-level farmer questions across India.",
+  },
+  {
+    id: "npk-calculator",
+    title: "NPK Calculator",
+    subtitle: "Precision Soil Nutrient Balancing",
+    tag: "AGRI CALCULATOR",
+    image: "/assets/future-crops.png",
+    description: "Smart fertilizer dosage engine calculating optimal Nitrogen, Phosphorus, and Potassium ratios per crop type.",
+  },
+  {
+    id: "soil-health-card-reader",
+    title: "Soil Health Card Reader",
+    subtitle: "AI Optical Document Scanner",
+    tag: "SMART SCANNER",
+    image: "/assets/green-field.jpg",
+    description: "Instant OCR scanner extracting soil parameters from physical Soil Health Cards into digital recommendations.",
+  },
+  {
+    id: "predictive-analysis-engine",
+    title: "Predictive Analysis Engine",
+    subtitle: "Crop & Weather Risk Modeling",
+    tag: "PREDICTIVE AI",
+    image: "/assets/future-crops.png",
+    description: "Advanced forecasting engine predicting pest infestation, disease outbreaks, and yield trajectories.",
+  },
+];
+
 export const HomeDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { data: publicUsers, isLoading: isUsersLoading } =
@@ -91,105 +128,78 @@ export const HomeDashboard: React.FC = () => {
   const [activeStoryIdx, setActiveStoryIdx] = useState(0);
   const [activeFutureSlideIdx, setActiveFutureSlideIdx] = useState(0);
   const [reviewStage, setReviewStage] = useState(0);
-  const [livePulseCount, setLivePulseCount] = useState(12842);
   const [activeStatesCount, setActiveStatesCount] = useState<number | null>(null);
   const [activeNetworkTab, setActiveNetworkTab] = useState<"experts" | "kvk" | "sau">("experts");
   const [hoveredKvkIdx, setHoveredKvkIdx] = useState<number | null>(null);
   const [isNavScrolled, setIsNavScrolled] = useState(false);
 
-  // Scroll listener for floating navbar effect
+  // Intersection Observer: Detach navbar when #knowledge section enters view (0% scroll overhead)
   useEffect(() => {
-    const handleNavScroll = () => {
-      if (window.scrollY > 25) {
-        setIsNavScrolled(true);
-      } else {
-        setIsNavScrolled(false);
+    const knowledgeEl = document.getElementById("knowledge");
+    if (!knowledgeEl) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsNavScrolled(entry.isIntersecting);
+      },
+      {
+        rootMargin: "0px 0px -15% 0px",
+        threshold: 0,
       }
-    };
-    window.addEventListener("scroll", handleNavScroll, { passive: true });
-    handleNavScroll();
-    return () => window.removeEventListener("scroll", handleNavScroll);
+    );
+    observer.observe(knowledgeEl);
+    return () => observer.disconnect();
   }, []);
 
-  const futureSlides = [
-    {
-      id: "khc-agent-interface",
-      title: "KHC Agent Interface",
-      subtitle: "Knowledge Hub Center Workflow",
-      tag: "AGENT WORKFLOW",
-      image: "/assets/learning-campus.png",
-      description: "Unified expert desk interface for organizing, reviewing, and approving agricultural advisory datasets.",
-    },
-    {
-      id: "annadatha-app",
-      title: "AnnaDatha - Question Collection",
-      subtitle: "Farmer Query Intake App",
-      tag: "QUERY COLLECTION",
-      image: "/assets/farmer-network.png",
-      description: "Multilingual voice and text mobile application for collecting ground-level farmer questions across India.",
-    },
-    {
-      id: "npk-calculator",
-      title: "NPK Calculator",
-      subtitle: "Precision Soil Nutrient Balancing",
-      tag: "AGRI CALCULATOR",
-      image: "/assets/future-crops.png",
-      description: "Smart fertilizer dosage engine calculating optimal Nitrogen, Phosphorus, and Potassium ratios per crop type.",
-    },
-    {
-      id: "soil-health-card-reader",
-      title: "Soil Health Card Reader",
-      subtitle: "AI Optical Document Scanner",
-      tag: "SMART SCANNER",
-      image: "/assets/green-field.jpg",
-      description: "Instant OCR scanner extracting soil parameters from physical Soil Health Cards into digital recommendations.",
-    },
-    {
-      id: "predictive-analysis-engine",
-      title: "Predictive Analysis Engine",
-      subtitle: "Crop & Weather Risk Modeling",
-      tag: "PREDICTIVE AI",
-      image: "/assets/hero-landscape.png",
-      description: "Advanced forecasting engine predicting pest infestation, disease outbreaks, and yield trajectories.",
-    },
-  ];
-
-  // Live pulse counter ticker
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setLivePulseCount((prev) => prev + Math.floor(Math.random() * 3) + 1);
-    }, 4200);
-    return () => clearInterval(timer);
-  }, []);
+  const futureSlides = FUTURE_SLIDES;
 
   // Pinned Sticky Scroll Listener for Review Workflow Stages (Section 4)
+  // Uses IntersectionObserver to restrict scroll handler execution only when section is visible
   useEffect(() => {
+    const section = document.getElementById("engine");
+    if (!section) return;
+
+    let isVisible = false;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting;
+      },
+      { threshold: 0 }
+    );
+    io.observe(section);
+
+    let rafId: number | null = null;
     const handleScroll = () => {
-      const section = document.getElementById("engine");
-      if (!section) return;
+      if (!isVisible) return;
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const rect = section.getBoundingClientRect();
+        const sectionHeight = section.offsetHeight;
+        const windowHeight = window.innerHeight;
+        const scrolled = -rect.top;
+        const maxScroll = sectionHeight - windowHeight;
 
-      const rect = section.getBoundingClientRect();
-      const sectionHeight = section.offsetHeight;
-      const windowHeight = window.innerHeight;
-
-      // Distance scrolled from top of section
-      const scrolled = -rect.top;
-      const maxScroll = sectionHeight - windowHeight;
-
-      if (scrolled <= 0) {
-        setReviewStage(0);
-      } else if (scrolled >= maxScroll * 0.98) {
-        setReviewStage(4);
-      } else {
-        const progress = Math.max(0, Math.min(1, scrolled / maxScroll)); // 0.0 to 1.0
-        const stage = Math.min(4, Math.floor(progress * 5));
-        setReviewStage(stage);
-      }
+        let nextStage: number;
+        if (scrolled <= 0) {
+          nextStage = 0;
+        } else if (scrolled >= maxScroll * 0.98) {
+          nextStage = 4;
+        } else {
+          const progress = Math.max(0, Math.min(1, scrolled / maxScroll));
+          nextStage = Math.min(4, Math.floor(progress * 5));
+        }
+        setReviewStage((prev) => (prev !== nextStage ? nextStage : prev));
+      });
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      io.disconnect();
+      window.removeEventListener("scroll", handleScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   const scrollToStage = (stageIdx: number) => {
@@ -339,16 +349,6 @@ export const HomeDashboard: React.FC = () => {
     { value: isUsersLoading ? spinner : String(kvkCount), label: "KVKs covered", icon: Landmark },
     { value: isUsersLoading ? spinner : String(sauCount), label: "SAUs collaborated with", icon: BookOpen },
     { value: isItemsLoading ? spinner : readStat(STAT_AGROCLIMATIC_ZONES, "126"), label: "Agroclimatic Zones", icon: CloudSun },
-  ];
-
-  const sourceNodes = [
-    { label: "Government schemes", icon: Landmark, x: "4.5%", y: "34%" },
-    { label: "ICAR research", icon: FlaskConical, x: "13%", y: "20%" },
-    { label: "KVKs & field observations", icon: Sprout, x: "27%", y: "11%" },
-    { label: "Research institutions", icon: BookOpen, x: "42.5%", y: "4.5%" },
-    { label: "Experts & scientists", icon: Users, x: "54.8%", y: "6.5%" },
-    { label: "SAUs & institutions", icon: ShieldCheck, x: "72.5%", y: "14.5%" },
-    { label: "Farmer conversations", icon: MessageSquare, x: "85.8%", y: "30%" },
   ];
 
   const reviewStages = [
@@ -640,256 +640,240 @@ export const HomeDashboard: React.FC = () => {
         </nav>
       )}
 
-      {/* 2. Hero Section Redesigned */}
-      <section className="hero" id="overview">
-        <img className="hero-background" src="/assets/hero-bg-new.jpg" alt="Agricultural landscape" />
-        <div className="hero-wash" />
+      {/* 2. Cinematic Hero — scroll-driven 68-frame image sequence */}
+      <CinematicHero
+        heroMetrics={heroMetrics}
+        onWatchStory={() => setIsStoryModalOpen(true)}
+      />
 
-        <div className="hero-main-container page-shell">
-          {/* Left Column: Title, Subtitle, Actions, Metrics Dashboard */}
-          <div className="hero-left-col">
-            <span className="eyebrow">AN IIT ROPAR NATIONAL MISSION</span>
-            <h1 className="hero-title">No farmer should farm alone.</h1>
-            <p className="hero-subtitle">
-              Connecting every farmer to the wisdom of experts, institutions and the power of trusted intelligence.
-            </p>
+      {/* 3. Knowledge Engine & Data Sources — Three.js Scroll River */}
+      <Suspense fallback={<div style={{ height: "100vh", background: "#06140b" }} />}>
+        <KnowledgeRiverThree />
+      </Suspense>
 
-            <div className="hero-actions">
-              <button
-                type="button"
-                className="watch-button-filled"
-                onClick={() => setIsStoryModalOpen(true)}
-              >
-                <span className="play-icon-circle">
-                  <Play size={14} fill="currentColor" />
-                </span>
-                Watch the story
-              </button>
-
-              <a href="#knowledge" className="explore-mission-link">
-                Explore mission <ArrowRight size={16} />
-              </a>
-            </div>
-
-            {/* Glassmorphism Metrics Dashboard Box */}
-            <div className="hero-metrics-box">
-              {heroMetrics.map(({ value, label, icon: Icon }) => (
-                <div className="metric-cell" key={label}>
-                  <div className="metric-icon">
-                    <Icon size={18} />
-                  </div>
-                  <div className="metric-info">
-                    <strong>{value}</strong>
-                    <small>{label}</small>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right Column: Interactive Network & Floating Avatars */}
-          <div className="hero-right-col">
-            <HeroNetwork />
-
-            {/* Floating Live Knowledge Pulse Card */}
-            <div className="live-knowledge-pulse-card">
-              <div className="pulse-card-header">
-                <span className="pulse-green-dot" />
-                <span>LIVE KNOWLEDGE PULSE</span>
-              </div>
-              <div className="pulse-counter-val">
-                {livePulseCount.toLocaleString()}
-              </div>
-              <div className="pulse-card-foot">
-                <span>validated updates today</span>
-                <svg className="mini-trend-chart" viewBox="0 0 60 20">
-                  <path
-                    d="M 0 16 Q 15 19, 30 11 T 60 4"
-                    fill="none"
-                    stroke="#488661"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M 0 16 Q 15 19, 30 11 T 60 4 L 60 20 L 0 20 Z"
-                    fill="rgba(72, 134, 97, 0.25)"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Horizontal Vision Banner */}
-        <div className="hero-vision-bar">
-          <div className="vision-bar-content page-shell">
-            <div className="vision-statement">
-              <Sprout size={22} className="vision-leaf-icon" />
-              <span>
-                <strong>Our vision:</strong> An India where every farmer has the knowledge, confidence and support to thrive.
-              </span>
-            </div>
-
-            <div className="vision-pillars">
-              <div className="pillar-item">
-                <ShieldCheck size={18} className="pillar-icon" />
-                <div>
-                  <strong>Trusted</strong>
-                  <small>Verified by experts</small>
-                </div>
-              </div>
-
-              <div className="pillar-item">
-                <Lock size={18} className="pillar-icon" />
-                <div>
-                  <strong>Inclusive</strong>
-                  <small>In every language</small>
-                </div>
-              </div>
-
-              <div className="pillar-item">
-                <Users size={18} className="pillar-icon" />
-                <div>
-                  <strong>Impactful</strong>
-                  <small>Better decisions, better lives</small>
-                </div>
-              </div>
-
-              <div className="pillar-item">
-                <Sprout size={18} className="pillar-icon" />
-                <div>
-                  <strong>Sustainable</strong>
-                  <small>For today and tomorrow</small>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. Knowledge Engine & Data Sources */}
-      <section className="knowledge-section" id="knowledge">
-        <img className="knowledge-background" src="/assets/knowledge-rivers.png" alt="Knowledge river networks" />
-        <div className="knowledge-overlay" />
-
-        <div className="page-shell knowledge-content">
-          <div className="section-heading light-heading">
-            <span className="eyebrow">Knowledge origin · Our foundation</span>
-            <h2>
-              From thousands of sources.<br />
-              One trusted.
-            </h2>
-            <a
-              className="solid-button"
-              href="https://chat.annam.ai/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Start Asking <ArrowRight size={15} />
-            </a>
-          </div>
-
-          <div className="source-field" aria-label="Knowledge sources">
-            {sourceNodes.map(({ label, icon: Icon, x, y }) => (
-              <div
-                className="source-node"
-                key={label}
-                style={{ left: x, top: y }}
-              >
-                <span>
-                  <Icon size={20} />
-                </span>
-                {label}
-              </div>
-            ))}
-          </div>
-
-
-        </div>
-      </section>
-
-      {/* 4. Review & Validation Workflow Section */}
+      {/* 4. Review & Validation Workflow — The Evolution of Knowledge */}
       <section className="review-growth" id="engine">
         <div className="review-sticky">
-          <div className="page-shell review-layout">
-            <div className="review-copy">
-              <span className="eyebrow">Review & validation workflow</span>
 
-              <div key={reviewStage} className="stage-content-animated">
-                <span className="stage-kicker">{reviewStages[reviewStage].kicker}</span>
-                <h2>{reviewStages[reviewStage].label}</h2>
-                <p>{reviewStages[reviewStage].body}</p>
+          {/* Section Background Elements */}
+          <div className="evo-bg-gradient" />
+          <div className="evo-bg-grid" />
+          <div className="evo-bg-fog" />
+
+          <div className="page-shell evo-shell">
+
+            {/* ── Top heading row ── */}
+            <div className="evo-topbar">
+              <div className="evo-topbar-left">
+                <span className="eyebrow">Review &amp; validation workflow</span>
+                <h2 className="evo-headline">
+                  The evolution of<br />
+                  <em>trusted knowledge</em>
+                </h2>
               </div>
 
-              <div className="stage-list" aria-label="Review workflow stages">
-                {reviewStages.map((stage, idx) => (
-                  <div
-                    key={stage.label}
-                    className={idx <= reviewStage ? "active" : ""}
-                    onClick={() => scrollToStage(idx)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <span>0{idx + 1}</span>
-                    <strong>{stage.label}</strong>
+              {/* Stage counter + stepper */}
+              <div className="evo-topbar-right">
+                <div className="evo-stage-counter">
+                  <div>
+                    <span className="evo-stage-label">ACTIVE STAGE</span>
+                    <span className="evo-stage-num">0{reviewStage + 1}<small>/05</small></span>
                   </div>
-                ))}
+                  <div className="evo-stage-counter-divider" />
+                  <div>
+                    <span className="evo-stage-label">CURRENT</span>
+                    <span className="evo-stage-name">{reviewStages[reviewStage].kicker}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className={`tree-stage tree-stage-${reviewStage}`}>
-              <div className="tree-aura" />
-
-              <img
-                className="tree-image"
-                src={reviewStages[reviewStage].image}
-                alt={reviewStages[reviewStage].label}
-              />
-
-              {reviewStage >= 2 && (
-                <>
-                  <div className="reviewer-badge" style={{ left: "17%", top: "32%" }}>
-                    <ShieldCheck size={16} />
-                    <span>Reviewer 1 <small>Verified</small></span>
-                  </div>
-                  <div className="reviewer-badge" style={{ left: "71%", top: "26%" }}>
-                    <ShieldCheck size={16} />
-                    <span>Reviewer 2 <small>Verified</small></span>
-                  </div>
-                  <div className="reviewer-badge" style={{ left: "6%", top: "58%" }}>
-                    <ShieldCheck size={16} />
-                    <span>Reviewer 3 <small>Verified</small></span>
-                  </div>
-                  <div className="reviewer-badge" style={{ left: "77%", top: "58%" }}>
-                    <ShieldCheck size={16} />
-                    <span>Reviewer 4 <small>Verified</small></span>
-                  </div>
-                </>
-              )}
-              {reviewStage >= 3 && (
-                <div className="moderator-badge" style={{ left: "50%", top: "19%" }}>
-                  <Award size={18} />
-                  <span>Moderator approval <small>Consensus reached</small></span>
-                </div>
-              )}
-              {reviewStage >= 4 && (
-                <div className="golden-badge" style={{ left: "50%", top: "10%" }}>
-                  <Layers size={18} />
-                  <span>Golden database <small>Trusted national knowledge</small></span>
-                </div>
-              )}
-
-              <div className="soil-line" />
-            </div>
-
-            <div className="review-progress">
-              {reviewStages.map((stage, idx) => (
-                <span
-                  key={stage.label}
-                  className={idx === reviewStage ? "active" : ""}
-                  onClick={() => scrollToStage(idx)}
-                  style={{ cursor: "pointer" }}
+            {/* ── Horizontal progress spine ── */}
+            <div className="evo-spine-bar" role="tablist" aria-label="Evolution stages">
+              <div className="evo-spine-track">
+                <div
+                  className="evo-spine-fill"
+                  style={{ width: `${(reviewStage / 4) * 100}%` }}
                 />
-              ))}
+              </div>
+              {reviewStages.map((stage, idx) => {
+                const state = idx === reviewStage ? "active" : idx < reviewStage ? "done" : "future";
+                return (
+                  <button
+                    key={stage.label}
+                    className={`evo-spine-node evo-node--${state}`}
+                    onClick={() => scrollToStage(idx)}
+                    type="button"
+                    role="tab"
+                    aria-selected={idx === reviewStage}
+                    aria-label={`Stage ${idx + 1}: ${stage.label}`}
+                    style={{ left: `${(idx / 4) * 100}%` }}
+                  >
+                    <span className="evo-node-ring">
+                      {state === "done" ? (
+                        <Check size={13} strokeWidth={3} />
+                      ) : (
+                        <span className="evo-node-idx">0{idx + 1}</span>
+                      )}
+                    </span>
+                    <span className="evo-node-tip">
+                      <span className="evo-node-tip-stage">Stage 0{idx + 1}</span>
+                      <span className="evo-node-tip-name">{stage.label}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ── Main evolution stage panel ── */}
+            <div className="evo-main-panel">
+
+              {/* Left: Rich text copy */}
+              <div key={reviewStage} className="evo-copy-pane">
+                <span className="evo-copy-kicker">{reviewStages[reviewStage].kicker}</span>
+                <h3 className="evo-copy-title">{reviewStages[reviewStage].label}</h3>
+                <p className="evo-copy-body">{reviewStages[reviewStage].body}</p>
+
+                {/* Inline stage list navigation */}
+                <nav className="evo-stage-nav" aria-label="All stages">
+                  {reviewStages.map((stage, idx) => (
+                    <button
+                      key={stage.label}
+                      className={`evo-stage-row ${idx === reviewStage ? "current" : idx < reviewStage ? "visited" : ""}`}
+                      onClick={() => scrollToStage(idx)}
+                      type="button"
+                    >
+                      <span className="evo-row-dot" />
+                      <span className="evo-row-num">0{idx + 1}</span>
+                      <span className="evo-row-name">{stage.label}</span>
+                      {idx === reviewStage && <ChevronRight size={13} className="evo-row-arrow" />}
+                    </button>
+                  ))}
+                </nav>
+
+                {/* Prev/Next controls */}
+                <div className="evo-nav-controls">
+                  <button
+                    type="button"
+                    className="evo-ctrl-btn evo-ctrl-prev"
+                    disabled={reviewStage === 0}
+                    onClick={() => scrollToStage(Math.max(0, reviewStage - 1))}
+                    aria-label="Previous stage"
+                  >
+                    <ChevronLeft size={18} />
+                    <span>Previous</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="evo-ctrl-btn evo-ctrl-next"
+                    disabled={reviewStage === 4}
+                    onClick={() => scrollToStage(Math.min(4, reviewStage + 1))}
+                    aria-label="Next stage"
+                  >
+                    <span>Next</span>
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Right: Cinematic stage figure parade */}
+              <div className="evo-scene-pane">
+
+                {/* Ground plane fog/glow */}
+                <div className="evo-ground-glow" />
+                <div className="evo-ground-line" />
+
+                {/* Figures parade */}
+                <div
+                  className="evo-figures-track"
+                  style={{
+                    transform: `translateX(calc(${(2 - reviewStage) * 22}% + ${(2 - reviewStage) * 40}px))`,
+                  }}
+                >
+                  {reviewStages.map((stage, idx) => {
+                    const isActive = idx === reviewStage;
+                    const isPassed = idx < reviewStage;
+                    const dist = Math.abs(idx - reviewStage);
+
+                    return (
+                      <div
+                        key={stage.label}
+                        className={`evo-fig ${isActive ? "evo-fig--active" : isPassed ? "evo-fig--passed" : "evo-fig--future"}`}
+                        onClick={() => scrollToStage(idx)}
+                        style={{
+                          zIndex: 10 - dist,
+                          '--fig-scale': isActive ? 1.0 : isPassed ? (0.82 - (reviewStage - idx - 1) * 0.04) : (0.75 - (idx - reviewStage - 1) * 0.04),
+                        } as React.CSSProperties}
+                      >
+                        {/* Active figure glow halo */}
+                        {isActive && <div className="evo-fig-halo" />}
+                        {isActive && <div className="evo-fig-spotlight" />}
+
+                        {/* Figure image */}
+                        <div className="evo-fig-img-wrap">
+                          <img
+                            src={stage.image}
+                            alt={stage.label}
+                            className="evo-fig-img"
+                          />
+                        </div>
+
+                        {/* Label beneath figure */}
+                        <div className="evo-fig-label">
+                          <span className="evo-fig-label-idx">0{idx + 1}</span>
+                          <span className="evo-fig-label-name">{stage.label}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Stage badges — overlaid directly on scene pane so they never clip */}
+                {reviewStage === 2 && (
+                  <div className="evo-badges-cluster" key="cluster-reviewer">
+                    <div className="reviewer-badge rb-tl">
+                      <ShieldCheck size={14} />
+                      <span>Reviewer 1 <small>Verified</small></span>
+                    </div>
+                    <div className="reviewer-badge rb-tr">
+                      <ShieldCheck size={14} />
+                      <span>Reviewer 2 <small>Verified</small></span>
+                    </div>
+                    <div className="reviewer-badge rb-bl">
+                      <ShieldCheck size={14} />
+                      <span>Reviewer 3 <small>Verified</small></span>
+                    </div>
+                    <div className="reviewer-badge rb-br">
+                      <ShieldCheck size={14} />
+                      <span>Reviewer 4 <small>Verified</small></span>
+                    </div>
+                  </div>
+                )}
+                {reviewStage === 3 && (
+                  <div className="moderator-badge evo-mod-badge" key="badge-mod">
+                    <Award size={16} />
+                    <span>Moderator approval <small>Consensus reached</small></span>
+                  </div>
+                )}
+                {reviewStage === 4 && (
+                  <div className="golden-badge evo-gold-badge" key="badge-gold">
+                    <Layers size={16} />
+                    <span>Golden database <small>Trusted national knowledge</small></span>
+                  </div>
+                )}
+
+                {/* Dot pagination overlay */}
+                <div className="evo-scene-dots">
+                  {reviewStages.map((_, idx) => (
+                    <span
+                      key={idx}
+                      className={`evo-scene-dot ${idx === reviewStage ? "on" : idx < reviewStage ? "past" : ""}`}
+                      onClick={() => scrollToStage(idx)}
+                    />
+                  ))}
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -1105,7 +1089,9 @@ export const HomeDashboard: React.FC = () => {
 
           <div className="expert-map-card">
             <div className="night-map" style={{ padding: "8px", overflow: "visible" }}>
-              <ExpertNetworkMap publicUsers={publicUsers} mode={activeNetworkTab} />
+              <Suspense fallback={<div style={{ height: 540, borderRadius: 18, background: "#061710" }} />}>
+                <ExpertNetworkMap publicUsers={publicUsers} mode={activeNetworkTab} />
+              </Suspense>
               <div className="night-map-label" style={{ marginTop: "12px" }}>
                 <span className="live-dot" />
                 <span>

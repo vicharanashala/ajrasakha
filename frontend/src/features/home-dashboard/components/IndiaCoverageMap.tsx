@@ -16,6 +16,52 @@ interface IndiaMapProps {
   className?: string;
 }
 
+interface StatePathProps {
+  st: { id: string; name: string; pathD: string };
+  isSelected: boolean;
+  isHovered: boolean;
+  strokeColor: string;
+  strokeWidth: number;
+  fillColor: string;
+  selectedColor: string;
+  hoverColor: string;
+}
+
+// Memoized state path rendering to prevent full 36-path SVG layout recalculations
+const StatePath: React.FC<StatePathProps> = React.memo(({
+  st,
+  isSelected,
+  isHovered,
+  strokeColor,
+  strokeWidth,
+  fillColor,
+  selectedColor,
+  hoverColor,
+}) => {
+  let fill = fillColor;
+  if (isSelected) fill = selectedColor;
+  else if (isHovered) fill = hoverColor;
+
+  return (
+    <path
+      d={st.pathD}
+      data-state-name={st.name}
+      fill={fill}
+      stroke={strokeColor}
+      strokeWidth={strokeWidth}
+      style={{
+        cursor: "pointer",
+        transition: "fill 0.18s ease, transform 0.18s ease",
+        transformBox: "fill-box",
+        transformOrigin: "center",
+      }}
+    >
+      <title>{st.name}</title>
+    </path>
+  );
+});
+StatePath.displayName = "StatePath";
+
 export const SVGIndiaMap: React.FC<IndiaMapProps> = ({
   fillColor = "#dfe9cd",
   strokeColor = "#f6f2e8",
@@ -30,20 +76,37 @@ export const SVGIndiaMap: React.FC<IndiaMapProps> = ({
 }) => {
   const [hoveredState, setHoveredState] = useState<string | null>(null);
 
-  const handleMouseEnter = (stName: string) => {
-    setHoveredState(stName);
-    if (onStateHover) onStateHover(stName);
+  // Parent event delegation to avoid attaching event listeners on 36 child path elements
+  const handleSvgMouseEnter = (e: React.MouseEvent<SVGGElement>) => {
+    const target = e.target as SVGPathElement;
+    const stateName = target.getAttribute("data-state-name");
+    if (stateName && stateName !== hoveredState) {
+      setHoveredState(stateName);
+      if (onStateHover) onStateHover(stateName);
+    }
   };
 
-  const handleMouseLeave = () => {
+  const handleSvgMouseLeave = () => {
     setHoveredState(null);
     if (onStateHover) onStateHover(null);
+  };
+
+  const handleSvgClick = (e: React.MouseEvent<SVGGElement>) => {
+    const target = e.target as SVGPathElement;
+    const stateName = target.getAttribute("data-state-name");
+    if (stateName && onStateSelect) {
+      onStateSelect(stateName);
+    }
   };
 
   return (
     <div className={`coverage-map ${className}`} style={{ position: "relative", width: "100%" }}>
       <svg viewBox="0 0 600 660" style={{ width: "100%", height: "auto", display: "block" }}>
-        <g>
+        <g
+          onMouseOver={handleSvgMouseEnter}
+          onMouseLeave={handleSvgMouseLeave}
+          onClick={handleSvgClick}
+        >
           {REAL_OFFICIAL_INDIA_MAP.map((st, stIdx) => {
             const isSelected =
               Boolean(selectedStateKey) &&
@@ -51,29 +114,18 @@ export const SVGIndiaMap: React.FC<IndiaMapProps> = ({
                selectedStateKey.toLowerCase() === st.id.toLowerCase());
             const isHovered = hoveredState === st.name;
 
-            let fill = fillColor;
-            if (isSelected) fill = selectedColor;
-            else if (isHovered) fill = hoverColor;
-
             return (
-              <path
+              <StatePath
                 key={`${st.id}-${stIdx}`}
-                d={st.pathD}
-                fill={fill}
-                stroke={strokeColor}
+                st={st}
+                isSelected={isSelected}
+                isHovered={isHovered}
+                strokeColor={strokeColor}
                 strokeWidth={strokeWidth}
-                style={{
-                  cursor: "pointer",
-                  transition: "fill 0.18s ease, transform 0.18s ease",
-                  transformBox: "fill-box",
-                  transformOrigin: "center",
-                }}
-                onMouseEnter={() => handleMouseEnter(st.name)}
-                onMouseLeave={handleMouseLeave}
-                onClick={() => onStateSelect && onStateSelect(st.name)}
-              >
-                <title>{st.name}</title>
-              </path>
+                fillColor={fillColor}
+                selectedColor={selectedColor}
+                hoverColor={hoverColor}
+              />
             );
           })}
         </g>
@@ -142,6 +194,13 @@ export interface IndiaCoverageMapProps {
   isLoading?: boolean;
   onStatesCountChange?: (count: number) => void;
 }
+
+// Extracted markers constant outside component render loop to prevent re-creation
+const MAP_HOTSPOT_MARKERS = [
+  { id: "delhi", label: "Delhi", x: 217, y: 229, color: "#d7b765" },
+  { id: "mumbai", label: "Mumbai", x: 153, y: 384, color: "#d7b765" },
+  { id: "bengaluru", label: "Bengaluru", x: 223, y: 479, color: "#d7b765" },
+];
 
 // Main Export Component for Section 5 (Pan-India Coverage Layer)
 export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({
@@ -334,11 +393,7 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({
           selectedStateKey={activeStateName || ""}
           onStateSelect={setSelectedState}
           onStateHover={setHoveredState}
-          markers={[
-            { id: "delhi", label: "Delhi", x: 217, y: 229, color: "#d7b765" },
-            { id: "mumbai", label: "Mumbai", x: 153, y: 384, color: "#d7b765" },
-            { id: "bengaluru", label: "Bengaluru", x: 223, y: 479, color: "#d7b765" },
-          ]}
+          markers={MAP_HOTSPOT_MARKERS}
         />
         <div className="map-caption">
           <div>HOVER OR TAP A STATE</div>
