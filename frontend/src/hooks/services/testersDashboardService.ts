@@ -11,6 +11,7 @@ export interface ITestersDashboardDataResponse {
     success: boolean;
     totalRecords: number;
     records: ITestersDashboardRecord[];
+    lastSyncedAt: string | null;
 }
 
 export class TestersDashboardService {
