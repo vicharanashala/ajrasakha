@@ -141,6 +141,135 @@ Await confirmation from the development team whether:
 
 ---
 
+# MQD-006 — AI Generated Answer generation unavailable in test environment
+
+## Test
+
+**File**
+
+```text
+tests/moderator/moderator-question-details.spec.ts
+```
+
+**Current Test Name**
+
+```text
+MQD-006 Moderator can generate an AI answer
+```
+
+---
+
+## Current Implementation
+
+```ts
+await moderatorQuestionDetailsPage.expandAiGeneratedAnswerSection();
+
+await moderatorQuestionDetailsPage.generateAiAnswer();
+
+await moderatorQuestionDetailsPage.expectAiAnswerGenerated();
+```
+
+---
+
+## Execution
+
+```bash
+pnpm exec playwright test -g "MQD-006" --headed
+```
+
+---
+
+## Result
+
+**Status**
+
+❌ Failed (Expected)
+
+---
+
+## Failure
+
+The AI answer is not generated after clicking **Generate AI Answer**.
+
+The test fails while verifying that an AI-generated response replaces the default empty state.
+
+---
+
+## Investigation
+
+### AI Generation Behaviour
+
+Current application behaviour:
+
+```
+Question Details
+        │
+        ▼
+Expand AI Generated Answer
+        │
+        ▼
+Click "Generate AI Answer"
+        │
+        ▼
+No AI response generated
+```
+
+Expected behaviour:
+
+```
+Question Details
+        │
+        ▼
+Expand AI Generated Answer
+        │
+        ▼
+Click "Generate AI Answer"
+        │
+        ▼
+Loading state
+        │
+        ▼
+AI-generated response displayed
+```
+
+---
+
+## Root Cause
+
+The failure is **not** caused by:
+
+- incorrect Playwright locators
+- synchronization or timing issues
+- page object implementation
+
+The failure occurs because AI answer generation is currently unavailable in the target environment. The backend service responsible for generating responses is not enabled (or is not returning a generated answer), so the UI remains in its default empty state.
+
+---
+
+## Current Status
+
+| Item               | Status                                        |
+| ------------------ | --------------------------------------------- |
+| AI generation test | Added                                         |
+| Test result        | Failing (Expected)                            |
+| Root cause         | AI generation unavailable in test environment |
+
+---
+
+## Next Steps
+
+Await availability of AI answer generation in the target environment.
+
+Once available:
+
+- verify loading state during generation
+- verify successful API completion
+- verify "No AI answer available" is removed
+- verify generated AI response is rendered
+- verify generated content is non-empty
+
+---
+
 ---
 
 # Future Investigations
@@ -158,5 +287,3 @@ Add subsequent failing test investigations below using the same structure.
 ### Root Cause
 
 ### Resolution
-
----

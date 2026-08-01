@@ -5,9 +5,11 @@ test.describe("Moderator Question Details", () => {
 
   test.beforeEach(async ({ moderatorDashboard, createQuestionPage }) => {
     question = `PW_E2E_${Date.now()}`;
+    console.log("Creating question:", question);
 
     await moderatorDashboard.waitForShell();
     await moderatorDashboard.openAllQuestions();
+    // await moderatorDashboard.openManualQuestions();
     await moderatorDashboard.openCreateQuestionDialog();
 
     await createQuestionPage.fillQuestion(question);
@@ -19,8 +21,11 @@ test.describe("Moderator Question Details", () => {
     await createQuestionPage.selectDomain("Fertilizer Use and Availability");
 
     await createQuestionPage.submit();
+    console.log("Submitted:", question);
 
     await moderatorDashboard.expectQuestionCreated();
+
+    await moderatorDashboard.expectQuestionVisible(question);
 
     await moderatorDashboard.openQuestion(question);
   });
@@ -57,5 +62,33 @@ test.describe("Moderator Question Details", () => {
     moderatorQuestionDetailsPage,
   }) => {
     await moderatorQuestionDetailsPage.expectAiGeneratedAnswerSection();
+  });
+
+  test("MQD-006 Moderator can generate an AI answer", async ({
+    moderatorQuestionDetailsPage,
+  }) => {
+    // TODO:
+    // This test is expected to fail until AI answer generation
+    // is enabled in the target environment.
+    await moderatorQuestionDetailsPage.expandAiGeneratedAnswerSection();
+
+    await moderatorQuestionDetailsPage.generateAiAnswer();
+
+    await moderatorQuestionDetailsPage.expectAiAnswerGenerated();
+  });
+  test("MQD-007 Moderator can exit Question Details", async ({
+    moderatorDashboard,
+    moderatorQuestionDetailsPage,
+  }) => {
+    await moderatorQuestionDetailsPage.exit();
+
+    await moderatorDashboard.expectAllQuestionsPage();
+  });
+  test("MQD-008 Moderator can open Question LifeCycle", async ({
+    moderatorQuestionDetailsPage,
+  }) => {
+    await moderatorQuestionDetailsPage.openLifeCycle();
+
+    await moderatorQuestionDetailsPage.expectLifeCycleDialog();
   });
 });

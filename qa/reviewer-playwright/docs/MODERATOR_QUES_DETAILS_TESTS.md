@@ -1,4 +1,3 @@
-```md
 # SCOPE
 
 Moderator UI login → `/home` → **All Questions** → Create Question → Open **Question Details**
@@ -209,4 +208,144 @@ Verify that the **AI Generated Answer** section is rendered on the Question Deta
 ### Status
 
 ✅ Passed
-```
+
+---
+
+## MQD-006 — Moderator can generate an AI answer _(Planned)_
+
+### Feature
+
+Question Details
+
+### Purpose
+
+Verify that a moderator can generate an AI answer for a question from the **AI Generated Answer** section.
+
+### Preconditions
+
+- Moderator is authenticated.
+- Question Details page is open.
+- AI answer generation service is available and enabled for the target environment.
+
+### Test Flow
+
+1. Login as moderator.
+2. Create a question.
+3. Open Question Details.
+4. Expand the **AI Generated Answer** section.
+5. Click **Generate AI Answer**.
+6. Wait for AI generation to complete.
+7. Verify the generated response is displayed.
+
+### Assertions
+
+- AI Generated Answer section can be expanded.
+- Generate AI Answer button is clickable.
+- AI generation request completes successfully.
+- "No AI answer available" message is no longer displayed.
+- Generated AI answer is visible and non-empty.
+
+### Implementation
+
+- `pages/moderator/question-details.page.ts`
+- `tests/moderator/moderator-question-details.spec.ts`
+
+### Status
+
+🟡 Planned
+
+> **Note**
+>
+> This test is intentionally expected to fail until AI answer generation is available in the test environment. Once the backend service is enabled (or appropriately mocked), the test will be updated to validate the generated response.
+
+## MQD-007 — Moderator can exit Question Details
+
+### Feature
+
+Question Details
+
+### Purpose
+
+Verify that a moderator can exit the **Question Details** page and return to the **All Questions** view.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Application loads successfully after login.
+- A valid question is created during test setup.
+- Question Details page is open.
+
+### Test Flow
+
+1. Login as moderator.
+2. Wait for the moderator dashboard to load.
+3. Open the **All Questions** tab.
+4. Open the **Create Question** dialog.
+5. Create a valid question.
+6. Submit the question.
+7. Open the newly created question.
+8. Click the **Exit** button.
+9. Verify that the moderator is returned to the **All Questions** page.
+
+### Assertions
+
+- Exit button is visible and clickable.
+- Question Details page closes successfully.
+- All Questions page is displayed.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/question-details.page.ts`
+- `tests/moderator/moderator-question-details.spec.ts`
+
+### Status
+
+✅ Passed
+
+## MQD-008 — Moderator can open Question LifeCycle
+
+### Feature
+
+Question Details
+
+### Purpose
+
+Verify that a moderator can open the **Question LifeCycle** dialog from the Question Details page.
+
+### Preconditions
+
+- Moderator account exists and is authenticated.
+- Application loads successfully after login.
+- A valid question is created during test setup.
+- Moderator is on the Question Details page.
+
+### Test Flow
+
+1. Login as moderator.
+2. Wait for the moderator dashboard to load.
+3. Open the **All Questions** tab.
+4. Create and submit a valid question.
+5. Open the newly created question.
+6. Click the **View LifeCycle** button.
+7. Verify that the Question LifeCycle dialog opens.
+
+### Assertions
+
+- View LifeCycle button is visible and clickable.
+- Question LifeCycle dialog is displayed.
+- Lifecycle dialog title is visible.
+
+### Implementation
+
+- `fixtures/moderator.fixture.ts`
+- `pages/moderator/dashboard.page.ts`
+- `pages/moderator/create-question.page.ts`
+- `pages/moderator/question-details.page.ts`
+- `tests/moderator/moderator-question-details.spec.ts`
+
+### Status
+
+✅ Passed

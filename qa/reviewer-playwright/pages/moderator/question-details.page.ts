@@ -9,6 +9,9 @@ export class ModeratorQuestionDetailsPage {
   readonly detailsCard: Locator;
   readonly aiAnswerHeading: Locator;
   readonly viewDetailsLabel: Locator;
+  readonly generateAiAnswerButton: Locator;
+  readonly lifecycleDialog: Locator;
+  readonly lifecycleDialogTitle: Locator;
 
   constructor(private readonly page: Page) {
     this.title = page.getByRole("heading", { level: 1 });
@@ -36,6 +39,13 @@ export class ModeratorQuestionDetailsPage {
     });
 
     this.viewDetailsLabel = page.getByText("View Details", { exact: true });
+
+    this.generateAiAnswerButton = page.getByRole("button", {
+      name: "Generate AI Answer",
+    });
+    this.lifecycleDialog = page.getByRole("dialog");
+
+    this.lifecycleDialogTitle = this.lifecycleDialog.getByRole("heading");
   }
 
   async expectOpened(): Promise<void> {
@@ -75,5 +85,41 @@ export class ModeratorQuestionDetailsPage {
   async expectAiGeneratedAnswerSection() {
     await expect(this.aiAnswerHeading).toBeVisible();
     await expect(this.viewDetailsLabel).toBeVisible();
+  }
+  async expandAiGeneratedAnswerSection() {
+    await this.viewDetailsLabel.click();
+  }
+
+  async generateAiAnswer() {
+    await this.generateAiAnswerButton.click();
+  }
+
+  async expectAiAnswerGenerated() {
+    // TODO:
+    // Replace this with a stable assertion once the AI generation
+    // API is available and the response format is finalized.
+    await expect(
+      this.page.getByText("No AI answer available", {
+        exact: true,
+      }),
+    ).toBeHidden();
+
+    await expect(
+      this.page.getByText("No AI answer available", {
+        exact: true,
+      }),
+    ).not.toBeVisible();
+  }
+  async exit() {
+    await this.exitButton.click();
+  }
+
+  async openLifeCycle() {
+    await this.lifecycleButton.click();
+  }
+
+  async expectLifeCycleDialog() {
+    await expect(this.lifecycleDialog).toBeVisible();
+    await expect(this.lifecycleDialogTitle).toBeVisible();
   }
 }

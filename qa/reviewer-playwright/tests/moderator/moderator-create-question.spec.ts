@@ -10,6 +10,7 @@ test.describe("Moderator Create Question", () => {
     await moderatorDashboard.waitForShell();
 
     await moderatorDashboard.openAllQuestions();
+    // await moderatorDashboard.openManualQuestions();
 
     await moderatorDashboard.openCreateQuestionDialog();
 

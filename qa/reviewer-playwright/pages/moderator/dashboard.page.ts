@@ -4,6 +4,7 @@ export class ModeratorDashboardPage {
   readonly allQuestionsTab: Locator;
   readonly addQuestionButton: Locator;
   readonly successToast: Locator;
+  readonly manualTab: Locator;
 
   constructor(private readonly page: Page) {
     this.allQuestionsTab = page.getByRole("tab", {
@@ -15,6 +16,7 @@ export class ModeratorDashboardPage {
     this.successToast = page.getByText("Question submitted successfully.", {
       exact: true,
     });
+    this.manualTab = page.getByRole("tab", { name: "Manual" });
   }
 
   async pause(): Promise<void> {
@@ -51,5 +53,15 @@ export class ModeratorDashboardPage {
       .getByRole("table")
       .getByText(question, { exact: true })
       .click();
+  }
+  async expectAllQuestionsPage() {
+    await expect(
+      this.page.getByRole("tab", {
+        name: "All Questions",
+      }),
+    ).toBeVisible();
+  }
+  async openManualQuestions() {
+    await this.manualTab.click();
   }
 }
