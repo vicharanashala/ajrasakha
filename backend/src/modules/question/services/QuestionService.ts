@@ -8046,6 +8046,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     limit = 50,
     startTime?: Date,
     endTime?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<QueueSectionResult> {
     const safePage = Math.max(1, Math.floor(page) || 1);
     const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 50), 200);
@@ -8095,6 +8097,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           endTime,
           expertSources,
           requirePaeNotDone,
+          isTrainingUser,
+          isAdmin
         );
         return { count, items: items.map(r => this.rawToQueueItem(r)) };
       }
@@ -8108,6 +8112,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           endTime,
           expertSources,
           requirePaeNotDone,
+          isTrainingUser,
+          isAdmin
         );
         const byQuestion = new Map<string, string | null>();
         const ids: string[] = [];
@@ -8600,6 +8606,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQueueDetails(
     startTime?: Date,
     endTime?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<QueueDetailsResponse> {
     const PAGE = 1;
     const LIMIT = 50;
@@ -8615,6 +8623,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           LIMIT,
           startTime,
           endTime,
+          isTrainingUser,
+          isAdmin
         );
       } catch (err: any) {
         console.error(

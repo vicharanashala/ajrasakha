@@ -39,6 +39,8 @@ export interface IQuestionRepository {
     endTime?: Date,
     sources?: string[],
     requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{count: number; items: RawQueueQuestionRow[]}>;
 
   /** Per-status counts for the "Questions Received" section — used so tab badges

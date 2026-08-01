@@ -570,7 +570,7 @@ export interface IQuestionService {
 
   /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
    *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */
-  getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse>;
+  getQueueDetails(startTime?: Date, endTime?: Date, isTrainingUser?: boolean, isAdmin?: boolean): Promise<QueueDetailsResponse>;
 
   /** One server-side paginated section (exact total + requested page of items). */
   getQueueSection(
