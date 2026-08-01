@@ -26,6 +26,14 @@ export class ModeratorAllocationQueuePage {
   readonly gateKeeperToggleLabel: Locator;
   readonly gateKeeperEmptyMessage: Locator;
 
+  readonly auditorSection: Locator;
+  readonly auditorHeading: Locator;
+  readonly auditorSubtitle: Locator;
+  readonly auditorToggle: Locator;
+  readonly auditorToggleLabel: Locator;
+  readonly auditorEmptyState: Locator;
+  readonly auditorEmptyMessage: Locator;
+
   constructor(private readonly page: Page) {
     this.heading = page.getByRole("heading", {
       name: "Allocation Queue",
@@ -94,6 +102,34 @@ export class ModeratorAllocationQueuePage {
     this.gateKeeperEmptyMessage = page.getByText(
       /No gate keeper is currently assigned/,
     );
+
+    this.auditorSection = this.page.locator(".w-full.space-y-6").filter({
+      has: this.page.getByRole("heading", {
+        name: "Auditor Queue",
+      }),
+    });
+
+    this.auditorHeading = this.auditorSection.getByRole("heading", {
+      name: "Auditor Queue",
+    });
+
+    this.auditorSubtitle = this.auditorSection.locator("p").first();
+
+    this.auditorToggle = this.page.getByRole("switch", {
+      name: "Auto-allocate Auditor",
+    });
+
+    this.auditorToggleLabel = this.page.getByText("Auto-allocate Auditor", {
+      exact: true,
+    });
+
+    this.auditorEmptyState = this.auditorSection.getByRole("heading", {
+      name: "No auditor assigned",
+    });
+
+    this.auditorEmptyMessage = this.auditorSection.getByText(
+      /No auditor is currently assigned/,
+    );
   }
 
   //   FUNCTIONS======================================
@@ -155,5 +191,21 @@ export class ModeratorAllocationQueuePage {
   }
   async expectGateKeeperMessage() {
     await expect(this.gateKeeperEmptyMessage).toBeVisible();
+  }
+  async expectAuditorOpened() {
+    await expect(this.auditorHeading).toBeVisible();
+  }
+
+  async expectAuditorToggle() {
+    await expect(this.auditorToggle).toBeVisible();
+    await expect(this.auditorToggleLabel).toBeVisible();
+  }
+
+  async expectAuditorEmptyState() {
+    await expect(this.auditorEmptyState).toBeVisible();
+  }
+
+  async expectAuditorMessage() {
+    await expect(this.auditorEmptyMessage).toBeVisible();
   }
 }
