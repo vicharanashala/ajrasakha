@@ -3751,6 +3751,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async findUnallocatedTimeBoundQuestions(
     sources: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'],
     requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<IQuestionSubmission[]> {
     await this.init();
 
@@ -3761,6 +3763,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     const questions = await this.QuestionCollection.find({
       source: { $in: sources },
       isAutoAllocate: true,
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser
+          ? true
+          : { $ne: true },
+      }),
       status: {$in: ['open', 'delayed']},
       firstAllocationAt: null,
       isOnHold: {$ne: true},

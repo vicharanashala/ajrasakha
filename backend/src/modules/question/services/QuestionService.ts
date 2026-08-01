@@ -8155,6 +8155,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin
           )) as any[];
         const pageSubs = subs.slice(skip, skip + safeLimit);
         return {
@@ -8173,7 +8175,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Free = experts with no active time-bound allocation. busyMap is the
         // authoritative "currently holding pending work" set the cron uses.
         const free = (allExperts as any[]).filter(
-          e => !busyMap.has(e._id.toString()),
+          e => !busyMap.has(e._id.toString()) &&
+            (isAdmin ||
+              (isTrainingUser
+                ? e.isTrainingUser === true
+                : e.isTrainingUser !== true)),
         );
         const items: QueueExpertItem[] = free
           .slice(skip, skip + safeLimit)
@@ -8336,6 +8342,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin
           ),
           this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
             expertSources,

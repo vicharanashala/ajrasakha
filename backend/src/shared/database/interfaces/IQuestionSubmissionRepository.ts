@@ -256,6 +256,8 @@ export interface IQuestionSubmissionRepository {
   findUnallocatedTimeBoundQuestions(
     sources?: QuestionSource[],
     requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
 
   /** Find time-bound submissions the current expert opened > 45 min ago but still
