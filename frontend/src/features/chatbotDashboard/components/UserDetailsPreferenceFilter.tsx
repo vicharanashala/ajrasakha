@@ -41,12 +41,14 @@ import {
 import { cn } from "@/lib/utils";
 import {motion} from "framer-motion";
 import {
-  BLOCKS,
   CROPS,
-  DISTRICTS,
-  STATES,
-  VILLAGES,
 } from "../utils/metaData";
+import {
+  useGetStates,
+  useGetDistricts,
+  useGetBlocks,
+  useGetVillages,
+} from "@/hooks/api/location/useLocations";
 
 export interface UserDetailsFilters {
   search: string;
@@ -171,11 +173,28 @@ export function UserDetailsPreferenceFilter({
     ? getInactiveDateError(draft.startTime, draft.endTime)
     : "";
   const cropOptions = CROPS;
-  const districtOptions = draft.state ? DISTRICTS[draft.state] ?? [] : [];
-  const blockOptions = draft.district ? BLOCKS[draft.district] ?? [] : [];
-  const villageOptions = draft.district
-    ? (VILLAGES as Record<string, string[]>)[draft.district] ?? []
-    : [];
+
+  const { data: states = [] } = useGetStates();
+  const selectedStateCode = states.find(
+    (s) => s.stateNameEnglish === draft.state,
+  )?.stateCode;
+
+  const { data: districts = [] } = useGetDistricts(selectedStateCode);
+  const selectedDistrictCode = districts.find(
+    (d) => d.districtNameEnglish === draft.district,
+  )?.districtCode;
+
+  const { data: blocks = [] } = useGetBlocks(selectedDistrictCode);
+  const selectedBlockCode = blocks.find(
+    (b) => b.blockNameEnglish === draft.block,
+  )?.blockCode;
+
+  const { data: villages = [] } = useGetVillages(selectedBlockCode);
+
+  const districtOptions = districts.map((d) => d.districtNameEnglish);
+  const blockOptions = blocks.map((b) => b.blockNameEnglish);
+  const villageOptions = villages.map((v) => v.villageNameEnglish);
+
   const farmerRoleSelected = draft.roles.some(
     (role) => role.toUpperCase() === "FARMER",
   );
@@ -441,9 +460,9 @@ export function UserDetailsPreferenceFilter({
                       </SelectTrigger>
                       <SelectContent className="z-[10002]">
                         <SelectItem value="all">All States</SelectItem>
-                        {STATES.map((state) => (
-                          <SelectItem key={state} value={state}>
-                            {state}
+                        {states.map((state) => (
+                          <SelectItem key={state.stateCode} value={state.stateNameEnglish}>
+                            {state.stateNameEnglish}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -765,8 +784,7 @@ function SearchableSingleSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const filteredOptions = options
-    .filter((option) => option.toLowerCase().includes(query.toLowerCase()))
-    .slice(0, 10);
+    .filter((option) => option.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <div className="relative min-w-0">
@@ -787,7 +805,7 @@ function SearchableSingleSelect({
         className={cn(inputClass, disabled && "cursor-not-allowed opacity-60")}
       />
       {open && !disabled && (
-        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-hidden rounded-lg border border-border bg-card shadow-xl">
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
           {filteredOptions.length > 0 ? (
             filteredOptions.map((option) => (
               <button
@@ -833,8 +851,7 @@ function SearchableMultiSelect({
   const [query, setQuery] = useState("");
   const selectedSet = new Set(selected);
   const filteredOptions = options
-    .filter((option) => option.toLowerCase().includes(query.toLowerCase()))
-    .slice(0, 10);
+    .filter((option) => option.toLowerCase().includes(query.toLowerCase()));
   const selectedSummary = selected.join(", ");
 
   const remove = (option: string) => {
@@ -896,7 +913,7 @@ function SearchableMultiSelect({
           />
         </button>
         {open && (
-          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-hidden rounded-lg border border-border bg-card shadow-xl">
+          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => {
                 const isSelected = selectedSet.has(option);

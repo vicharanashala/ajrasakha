@@ -74,6 +74,8 @@ import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAudit
 import { UserService } from '#root/modules/user/index.js';
 import { IContextService } from '#root/modules/context/interfaces/index.js';
 import { restoreBackupBson } from '#root/utils/DBMigration.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
+import { CheckOverlapsService } from '../services/CheckOverlapsService.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -95,6 +97,9 @@ export class QuestionController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(CORE_TYPES.CheckOverlapsService)
+    private readonly checkOverlapsService: CheckOverlapsService,
   ) { }
 
   @Post('/status-summary')
@@ -111,10 +116,12 @@ export class QuestionController {
 
   @Get('/queue-details')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors get the same read-only queue visibility as moderators —
+  // they work the same queues and need to see who is holding what.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({
     summary:
-      'Queue details for moderators/admins. No params → all sections (counts + page 1). With ?section=&page= → one paginated section (exact count + that page of items).',
+      'Queue details for moderators/admins/gate keepers/auditors. No params → all sections (counts + page 1). With ?section=&page= → one paginated section (exact count + that page of items).',
   })
   async getQueueDetails(
     @QueryParams()
@@ -171,7 +178,7 @@ export class QuestionController {
   ): Promise<QuestionResponse[]> {
     const userId = user._id.toString();
     const canViewQueue =
-      user.role === 'admin' || user.role === 'moderator';
+      user.role === 'admin' || user.role === 'moderator' || user.role === 'gate_keeper' || user.role === 'auditor';
     const targetUserId =
       canViewQueue && query.user && query.user !== 'all'
         ? query.user
@@ -264,6 +271,13 @@ export class QuestionController {
     extracted_state: string;
     extracted_district: string;
     extracted_domain?: string | string[];
+    extracted_name?: string;
+    extracted_phone?: string;
+    extracted_age?: number;
+    extracted_gender?: string;
+    extracted_village?: string;
+    extracted_block?: string;
+    extracted_primary_crop?: string;
   }> {
     try {
       const result = await this.questionService.extractAccAgentData(body.threadId, body.transcript);
@@ -288,6 +302,13 @@ export class QuestionController {
         district: string;
         domain: string | string[];
         season: string;
+        farmerName?: string;
+        farmerPhone?: string;
+        farmerAge?: number;
+        farmerGender?: string;
+        farmerVillage?: string;
+        farmerBlock?: string;
+        farmerPrimaryCrop?: string;
       };
     }
   ): Promise<{ success: boolean }> {
@@ -359,6 +380,8 @@ export class QuestionController {
 
       // Read directly from req.body (multer-parsed) to avoid class-transformer dropping fields
       const rawBody = req.body || {};
+      const isTrainingQuestion =
+        rawBody.isTrainingQuestion === 'true' || body.isTrainingQuestion === true;
       const allocationMode = rawBody.allocationMode || body.allocationMode || 'expert';
       const paeExpertId: string | undefined = rawBody.paeExpertId || body.paeExpertId;
       console.log('[BulkUpload] rawBody:', rawBody);
@@ -411,6 +434,7 @@ export class QuestionController {
           this.auditTrailsService,
           isRequiredAiInitialAnswer,
           isOutreachQuestion,
+          isTrainingQuestion,
           payload,
           allocationMode,
           paeExpertId
@@ -662,7 +686,8 @@ export class QuestionController {
       },
     };
     try {
-      data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate);
+      const isAdmin = user.role === 'admin'
+      data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate, user.isTrainingUser??false,isAdmin??false);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
@@ -704,6 +729,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin'
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
 
@@ -729,7 +755,7 @@ export class QuestionController {
       },
     };
     try {
-      data = await this.questionService.generateOverallQuestionReport(startDate, endDate);
+      data = await this.questionService.generateOverallQuestionReport(startDate, endDate,user.isTrainingUser??false,isAdmin??false);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
@@ -859,6 +885,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
     const auditPayload: ModeratorAuditTrail = {
@@ -875,7 +902,7 @@ export class QuestionController {
       createdAt: new Date(),
     };
     try {
-      const data = await this.questionService.generateDuplicateQuestionReport(startDate, endDate);
+      const data = await this.questionService.generateDuplicateQuestionReport(startDate, endDate, user.isTrainingUser ?? false, isAdmin ?? false);
       if (!data) {
         this.auditTrailsService.createAuditTrail({
           ...auditPayload,
@@ -906,6 +933,76 @@ export class QuestionController {
       });
       throw err;
     }
+  }
+
+  // NOTE: must be declared BEFORE the '/:questionId' routes below, otherwise
+  // routing-controllers matches '/role-dashboard' against '/:questionId' first and its
+  // ObjectId validator rejects it ("Invalid params").
+  @Get('/role-dashboard')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary:
+      'Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts and their paginated questions.',
+  })
+  async getRoleDashboard(
+    @CurrentUser() user: IUser,
+    @QueryParams()
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      userId?: string;
+      role?: 'gate_keeper' | 'auditor';
+      startDate?: string;
+      endDate?: string;
+      dateFilterType?: 'assigned' | 'completed' | 'both';
+    },
+  ) {
+    // Managers (admin / moderator) may view a specific gate keeper's / auditor's
+    // dashboard by passing that user's id + role. Everyone else sees their own.
+    const isManager = user.role === 'admin' || user.role === 'moderator';
+    const viewingOther =
+      isManager &&
+      !!query.userId &&
+      (query.role === 'gate_keeper' || query.role === 'auditor');
+
+    const targetUserId = viewingOther ? query.userId! : user._id.toString();
+    const role = viewingOther
+      ? query.role!
+      : user.role === 'gate_keeper' || user.role === 'auditor'
+        ? user.role
+        : null;
+    if (!role) {
+      throw new BadRequestError(
+        'This dashboard is only available for gate keepers and auditors.',
+      );
+    }
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 11;
+
+    // Parse date range - ensure startDate has 00:00:00 and endDate has 23:59:59
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
+    if (query.startDate) {
+      startDate = new Date(query.startDate);
+      startDate.setHours(0, 0, 0, 0);
+    }
+    if (query.endDate) {
+      endDate = new Date(query.endDate);
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    return this.questionService.getRoleAssigneeDashboard(
+      targetUserId,
+      role,
+      page,
+      limit,
+      query.search,
+      startDate,
+      endDate,
+      query.dateFilterType || 'both',
+    );
   }
 
   @Get('/:questionId/submission-exists')
@@ -943,7 +1040,7 @@ export class QuestionController {
   ) {
     const { questionId } = params;
     const userId = user._id.toString();
-    const { question, approved_moderator, assigned_moderator, isAssignedModerator } = await this.questionService.getQuestionFullData(
+    const { question, approved_moderator, assigned_moderator, assigned_gate_keeper, assigned_auditor, isAssignedModerator, isAssignedGateKeeper, isAssignedAuditor } = await this.questionService.getQuestionFullData(
       questionId,
       userId,
     );
@@ -952,7 +1049,7 @@ export class QuestionController {
       throw new NotFoundError(`Question with id ${questionId} not found`);
     }
 
-    return { success: true, data: { ...question, approved_moderator, assigned_moderator, isAssignedModerator } };
+    return { success: true, data: { ...question, approved_moderator, assigned_moderator, assigned_gate_keeper, assigned_auditor, isAssignedModerator, isAssignedGateKeeper, isAssignedAuditor } };
   }
 
   @Patch('/:questionId/toggle-auto-allocate')
@@ -1044,7 +1141,8 @@ export class QuestionController {
 
   @Patch('/:questionId/moderator')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors triage questions onward, so they assign moderators too.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({ summary: 'Change the moderator assigned to a question' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async changeModerator(
@@ -1128,7 +1226,8 @@ export class QuestionController {
 
   @Delete('/:questionId/moderator')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  // Gate keepers and auditors triage questions onward, so they assign moderators too.
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({ summary: 'Remove the moderator assigned to a question' })
   @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
   async removeModerator(
@@ -1194,6 +1293,224 @@ export class QuestionController {
         throw new InternalServerError(err.message);
       }
       throw new BadRequestError(err?.message || 'Failed to remove moderator');
+    }
+  }
+
+  // ── Gate keeper / auditor role assignee (re)assign, remove & allocation toggle ──
+
+  /** Shared actor block + user label helper for role-queue audit entries. */
+  private roleAuditActor(user: IUser) {
+    return {
+      id: user._id.toString(),
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      role: user.role,
+      avatar: user?.avatar || '',
+    };
+  }
+  private userLabel(u: any): string | null {
+    return u
+      ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() +
+          (u.email ? ` (${u.email})` : '')
+      : null;
+  }
+
+  @Patch('/:questionId/role-assignee')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Assign a gate keeper / auditor to a question' })
+  async changeRoleAssignee(
+    @Params() params: QuestionIdParam,
+    @Body() body: { role: 'gate_keeper' | 'auditor'; userId: string },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    const { questionId } = params;
+    const { role, userId } = body;
+    if (role !== 'gate_keeper' && role !== 'auditor') {
+      throw new BadRequestError("role must be 'gate_keeper' or 'auditor'");
+    }
+    if (!userId) throw new BadRequestError('userId is required');
+
+    const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: role === 'gate_keeper' ? AuditAction.SELECT_GATE_KEEPER : AuditAction.SELECT_AUDITOR,
+      actor: this.roleAuditActor(user),
+      context: { questionId },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevUser: any;
+    let newUser: any;
+    try {
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
+      const prevId = (questionDetails as any)?.[role === 'gate_keeper' ? 'gateKeeperId' : 'auditorId']?.toString();
+      [prevUser, newUser] = await Promise.all([
+        prevId && ObjectId.isValid(prevId) ? this.userService.getUserById(prevId) : null,
+        this.userService.getUserById(userId),
+      ]);
+
+      await this.questionService.changeQuestionRoleAssignee(
+        questionId,
+        role,
+        userId,
+        `${user.firstName} ${user.lastName ?? ''}`.trim(),
+      );
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { [noun]: this.userLabel(prevUser) ?? 'Unassigned' },
+          after: { [noun]: this.userLabel(newUser) ?? userId },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return { success: true, message: `${noun} updated successfully` };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { [noun]: this.userLabel(prevUser) ?? 'Unassigned' } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || `Failed to change ${noun}`,
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || `Failed to change ${noun}`);
+    }
+  }
+
+  @Delete('/:questionId/role-assignee')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Remove the gate keeper / auditor assigned to a question' })
+  async removeRoleAssignee(
+    @Params() params: QuestionIdParam,
+    @Body() body: { role: 'gate_keeper' | 'auditor' },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    const { questionId } = params;
+    const { role } = body;
+    if (role !== 'gate_keeper' && role !== 'auditor') {
+      throw new BadRequestError("role must be 'gate_keeper' or 'auditor'");
+    }
+
+    const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: role === 'gate_keeper' ? AuditAction.DELETE_GATE_KEEPER : AuditAction.DELETE_AUDITOR,
+      actor: this.roleAuditActor(user),
+      context: { questionId },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevUser: any;
+    try {
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
+      const prevId = (questionDetails as any)?.[role === 'gate_keeper' ? 'gateKeeperId' : 'auditorId']?.toString();
+      prevUser = prevId && ObjectId.isValid(prevId) ? await this.userService.getUserById(prevId) : null;
+
+      await this.questionService.removeQuestionRoleAssignee(
+        questionId,
+        role,
+        `${user.firstName} ${user.lastName ?? ''}`.trim(),
+      );
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { [noun]: this.userLabel(prevUser) ?? 'Unassigned' },
+          after: { [noun]: 'Unassigned' },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return { success: true, message: `${noun} removed successfully` };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { [noun]: this.userLabel(prevUser) ?? 'Unassigned' } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || `Failed to remove ${noun}`,
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || `Failed to remove ${noun}`);
+    }
+  }
+
+  @Patch('/:questionId/role-allocation')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Toggle gate keeper / auditor auto-allocation for a question' })
+  async toggleRoleAllocation(
+    @Params() params: QuestionIdParam,
+    @Body() body: { role: 'gate_keeper' | 'auditor'; enabled: boolean },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    const { questionId } = params;
+    const { role, enabled } = body;
+    if (role !== 'gate_keeper' && role !== 'auditor') {
+      throw new BadRequestError("role must be 'gate_keeper' or 'auditor'");
+    }
+    const field = role === 'gate_keeper' ? 'autoAllocateGateKeeper' : 'autoAllocateAuditor';
+    const label = role === 'gate_keeper' ? 'Gate keeper' : 'Auditor';
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.QUESTION,
+      action: role === 'gate_keeper' ? AuditAction.TOGGLE_GATE_KEEPER_ALLOCATION : AuditAction.TOGGLE_AUDITOR_ALLOCATION,
+      actor: this.roleAuditActor(user),
+      context: { questionId },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    try {
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
+      // Default is ON (true) unless explicitly false.
+      const before = (questionDetails as any)?.[field] !== false;
+
+      await this.questionService.updateQuestion(questionId, { [field]: enabled } as any);
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { [`${label} auto-allocation`]: before ? 'On' : 'Off' },
+          after: { [`${label} auto-allocation`]: enabled ? 'On' : 'Off' },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return { success: true, message: `${label} auto-allocation turned ${enabled ? 'on' : 'off'}` };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to toggle allocation',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || 'Failed to toggle allocation');
     }
   }
 
@@ -1413,13 +1730,15 @@ export class QuestionController {
       }
     }
 
-    // ─── Moderator auto-allocation toggle — audited as TOGGLE_MODERATOR_ALLOCATION ──
-    // The moderator queue toggle sends { autoAllocateModerator } through this generic
-    // update; record it as its own action (on/off) instead of a plain "Question Updated".
-    if (updates.autoAllocateModerator !== undefined) {
-      const toggleAudit: ModeratorAuditTrail = {
-        category: AuditCategory.EXPERTS_CATEGORY,
-        action: AuditAction.TOGGLE_MODERATOR_ALLOCATION,
+    // ─── Push to Auditor — Gate Keeper hand-off → status 'auditor_review',
+    //     audited as PUSH_TO_AUDITOR ─────────────────────────────────────────────
+    if (updates.status === 'auditor_review') {
+      // The comment is sent in the body for the audit trail only — neither it nor a
+      // push timestamp are persisted on the question (both live in the audit trail).
+      const gateKeeperComment = ((updates as any).gateKeeperComment ?? '').trim();
+      const auditPayload: ModeratorAuditTrail = {
+        category: AuditCategory.QUESTION,
+        action: AuditAction.PUSH_TO_AUDITOR,
         actor: {
           id: user._id.toString(),
           name: `${user.firstName} ${user.lastName}`,
@@ -1427,31 +1746,37 @@ export class QuestionController {
           role: user.role,
           avatar: user?.avatar || '',
         },
-        context: { questionId },
-        outcome: { status: OutComeStatus.SUCCESS },
+        context: { questionId, reason: gateKeeperComment },
         createdAt: new Date(),
       };
+
       try {
-        // Use getQuestionDataById (raw IQuestion) — getQuestionById returns a trimmed
-        // object WITHOUT autoAllocateModerator, which would make `before` always false.
-        const prev = await this.questionService.getQuestionDataById(questionId);
-        response = await this.questionService.updateQuestion(questionId, updates);
+        prevQuestion = await this.questionService.getQuestionById(questionId);
+        // Record what the question was (dynamic vs duplicate) before the hand-off so the
+        // Auditor can show the right action even though the status is now auditor_review.
+        const auditorReviewType: 'dynamic' | 'duplicate' =
+          prevQuestion?.status === 'dynamic' ? 'dynamic' : 'duplicate';
+        const pushUpdates: Partial<IQuestion> = {
+          status: 'auditor_review',
+          auditorReviewType,
+        };
+        response = await this.questionService.updateQuestion(questionId, pushUpdates);
         this.auditTrailsService.createAuditTrail({
-          ...toggleAudit,
-          context: { ...toggleAudit.context, question: (prev as any)?.question },
+          ...auditPayload,
           changes: {
-            before: { autoAllocateModerator: prev?.autoAllocateModerator ?? false },
-            after: { autoAllocateModerator: updates.autoAllocateModerator },
+            before: { status: prevQuestion?.status },
+            after: { status: 'auditor_review', auditorReviewType, gateKeeperComment },
           },
+          outcome: { status: OutComeStatus.SUCCESS },
         });
         return response;
       } catch (err: any) {
         this.auditTrailsService.createAuditTrail({
-          ...toggleAudit,
+          ...auditPayload,
           outcome: {
             status: OutComeStatus.FAILED,
             errorCode: err?.errorCode || 'INTERNAL_ERROR',
-            errorMessage: err?.message || 'Failed to toggle moderator allocation',
+            errorMessage: err?.message || 'Failed to push to auditor',
             errorName: err?.name || 'Error',
             errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
           },
@@ -1459,7 +1784,73 @@ export class QuestionController {
         if (err instanceof InternalServerError) {
           throw new InternalServerError(err.message);
         }
-        throw new BadRequestError(err?.message || 'Failed to toggle moderator allocation');
+        throw new BadRequestError(err?.message || 'Failed to push to auditor');
+      }
+    }
+
+    // ─── Cancel Duplicate — reopen the question, audited as CANCEL_DUPLICATE ──
+    if (updates.isDuplicateCancelled === true) {
+      // Reason is sent in the body for the audit trail only — it is never persisted
+      // on the question, so it is read via cast rather than from the IQuestion type.
+      const cancelReason = ((updates as any).duplicateCancelReason ?? '').trim();
+      // Persist only the flag + reopen the question, and set auto-allocation per the
+      // moderator's confirmation choice. The cancel reason and timestamp are recorded
+      // in the audit trail below, NOT stored on the question document.
+      const cancelUpdates: Partial<IQuestion> = {
+        status: 'open',
+        isDuplicateCancelled: true,
+        isAutoAllocate: updates.isAutoAllocate === true,
+      };
+
+      const auditPayload: ModeratorAuditTrail = {
+        category: AuditCategory.QUESTION,
+        action: AuditAction.CANCEL_DUPLICATE,
+        actor: {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user?.avatar || '',
+        },
+        context: { questionId, reason: cancelReason },
+        createdAt: new Date(),
+      };
+
+      try {
+        prevQuestion = await this.questionService.getQuestionById(questionId);
+        response = await this.questionService.updateQuestion(questionId, cancelUpdates);
+        this.auditTrailsService.createAuditTrail({
+          ...auditPayload,
+          changes: {
+            before: { status: prevQuestion?.status, isAutoAllocate: prevQuestion?.isAutoAllocate },
+            after: {
+              status: 'open',
+              isDuplicateCancelled: true,
+              isAutoAllocate: cancelUpdates.isAutoAllocate,
+              duplicateCancelReason: cancelReason,
+            },
+          },
+          outcome: { status: OutComeStatus.SUCCESS },
+        });
+        return response;
+      } catch (err: any) {
+        this.auditTrailsService.createAuditTrail({
+          ...auditPayload,
+          changes: prevQuestion
+            ? { before: { status: prevQuestion.status, question: prevQuestion.text } }
+            : {},
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorCode: err?.errorCode || 'INTERNAL_ERROR',
+            errorMessage: err?.message || 'Failed to cancel duplicate',
+            errorName: err?.name || 'Error',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+          },
+        });
+        if (err instanceof InternalServerError) {
+          throw new InternalServerError(err.message);
+        }
+        throw new BadRequestError(err?.message || 'Failed to cancel duplicate');
       }
     }
 
@@ -2324,6 +2715,29 @@ export class QuestionController {
     return result;
   }
 
+  @Post('/reallocate-manual-queue')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Reallocate manual-queue (AGRI_EXPERT/OUTREACH) questions — assigns authors/reviewers for the single-allocation manual flow' })
+  async reallocateManualQueue(@CurrentUser() user: IUser) {
+    const result = await this.questionService.reallocateManualQuestions();
+    this.auditTrailsService.createAuditTrail({
+      category: AuditCategory.QUESTION,
+      action: AuditAction.REALLOCATE_QUESTIONS,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      changes: { after: { type: 'manual', ...result } },
+      outcome: { status: OutComeStatus.SUCCESS },
+      createdAt: new Date(),
+    });
+    return result;
+  }
+
   @Post('/:questionId/mark-opened')
   @HttpCode(200)
   @Authorized()
@@ -2334,5 +2748,168 @@ export class QuestionController {
   ) {
     await this.questionService.markQuestionOpened(questionId, user._id.toString());
     return { success: true };
+  }
+
+  // ─── Migration endpoints (internal API key auth) ──────────────────────────
+
+  @Post('/background/process')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Background process for repo actions' })
+  async backgroundProcessAction(
+    @Body() body: { userId: string },
+  ) {
+    const { userId } = body;
+    if (!userId) {
+      throw new BadRequestError('userId is required');
+    }
+    const result = await this.questionService.backgroundProcessAction(userId);
+    return result;
+  }
+
+  @Post('/background/remove-history-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Remove a submission history entry by index (internal data fix)',
+  })
+  async removeSubmissionHistoryEntry(
+    @Body() body: { questionId: string; index: number },
+  ) {
+    const { questionId, index } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (index === undefined || index === null) {
+      throw new BadRequestError('index is required');
+    }
+    return await this.questionService.removeSubmissionHistoryEntry(
+      questionId,
+      Number(index),
+    );
+  }
+
+  @Post('/background/remove-queue-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Remove an expert from a submission queue by index (internal data fix)',
+  })
+  async removeSubmissionQueueEntry(
+    @Body() body: { questionId: string; index: number },
+  ) {
+    const { questionId, index } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (index === undefined || index === null) {
+      throw new BadRequestError('index is required');
+    }
+    return await this.questionService.removeSubmissionQueueEntry(
+      questionId,
+      Number(index),
+    );
+  }
+
+  @Post('/background/add-queue-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Add an expert to a submission queue (internal data fix)',
+  })
+  async addSubmissionQueueEntry(
+    @Body() body: { questionId: string; expertId: string },
+  ) {
+    const { questionId, expertId } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (!expertId) {
+      throw new BadRequestError('expertId is required');
+    }
+    return await this.questionService.addSubmissionQueueEntry(
+      questionId,
+      expertId,
+    );
+  }
+
+  @Post('/background/add-history-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Add a submission history entry (internal data fix)',
+  })
+  async addSubmissionHistoryEntry(
+    @Body() body: { questionId: string; entry: Record<string, any> },
+  ) {
+    const { questionId, entry } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (!entry || typeof entry !== 'object') {
+      throw new BadRequestError('entry object is required');
+    }
+    return await this.questionService.addSubmissionHistoryEntry(
+      questionId,
+      entry,
+    );
+  }
+
+  @Post('/background/normalize-state')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Standardise a state name across all questions (internal data fix). Sets details.state to `standardizedTo` for every question whose details.state is one of `current`.',
+  })
+  async normalizeQuestionState(
+    @Body() body: { current: string[]; standardizedTo: string },
+  ) {
+    const { current, standardizedTo } = body;
+    if (!Array.isArray(current) || current.length === 0) {
+      throw new BadRequestError('current must be a non-empty array of state values');
+    }
+    if (!standardizedTo || typeof standardizedTo !== 'string') {
+      throw new BadRequestError('standardizedTo is required');
+    }
+    return await this.questionService.normalizeQuestionState(
+      current,
+      standardizedTo,
+    );
+  }
+  // ─── Check overlaps endpoint (internal API key auth) ──────────────────────
+
+  @Post('/check-overlaps')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Check for overlapping documents between staging and production databases' })
+  async checkOverlaps() {
+    console.log('[QuestionController] checkOverlaps: Starting overlap check...');
+    const result = await this.checkOverlapsService.checkOverlaps();
+    return result;
+  }
+
+  // ─── Run migration endpoint (internal API key auth) ──────────────────────
+
+  @Post('/run-migration')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Run migration from staging to production database' })
+  async runMigration() {
+    console.log('[QuestionController] runMigration: Starting migration...');
+    const result = await this.checkOverlapsService.runMigration();
+    return result;
+  }
+
+  // ─── Migrate Firebase users endpoint (internal API key auth) ──────────────────────
+
+  @Post('/migrate-firebase-users')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Migrate Firebase users for staging users - creates new Firebase users and updates their UIDs' })
+  async migrateFirebaseUsers() {
+    console.log('[QuestionController] migrateFirebaseUsers: Starting Firebase user migration...');
+    const result = await this.checkOverlapsService.migrateFirebaseUsers();
+    return result;
   }
 }

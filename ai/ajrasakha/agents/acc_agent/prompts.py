@@ -53,6 +53,46 @@ CRITICAL INSTRUCTIONS:
 - START your response immediately with the `{` character.
 """
 
+ACC_QUERY_DETAILS_PROMPT = """You are an agricultural call-center transcript analyst.
+
+Extract only the details needed to understand and answer the farmer's current query:
+1. "query": A concise agricultural question that captures the farmer's core problem. Keep it short and searchable.
+2. "state": The Indian state relevant to the current query. Use "All" if unclear.
+3. "district": The district relevant to the current query. Use "All" if unclear.
+4. "crop": The crop involved in the current query. Use "All" if unclear.
+5. "standardized_domains": An array containing one or more matching domain names.
+
+""" + DOMAIN_TAXONOMY + """
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY a valid JSON object with the keys "query", "state", "district", "crop", and "standardized_domains".
+- "standardized_domains" MUST be an array of strings.
+- Do not include farmer profile fields such as name, phone, age, gender, village, block, or primary crop.
+- Do not output markdown, a preamble, reasoning, or conversational text.
+- Start the response immediately with the `{` character.
+"""
+
+ACC_FARMER_DETAILS_PROMPT = """You are an agricultural call-center transcript analyst.
+
+Extract only the farmer's profile details that are explicitly stated in the transcript:
+1. "name": Farmer's name. Use null if not mentioned.
+2. "phone": Farmer's phone number. Use null if not mentioned.
+3. "age": Farmer's age as an integer. Use null if not mentioned.
+4. "gender": Farmer's gender, such as "Male", "Female", or "Other". Use null if not mentioned.
+5. "village": Farmer's village. Use null if not mentioned.
+6. "block": Farmer's block or tehsil. Use null if not mentioned.
+7. "state": Farmer's Indian state. Use "All" if unclear.
+8. "district": Farmer's district. Use "All" if unclear.
+9. "primary_crop": Farmer's main or primary crop. Use null if not mentioned; if only one crop is discussed, you may use that crop.
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY a valid JSON object with the keys "name", "phone", "age", "gender", "village", "block", "state", "district", and "primary_crop".
+- Use null for profile fields that are not clearly present. Do not invent values.
+- Do not include query, crop, or standardized_domains.
+- Do not output markdown, a preamble, reasoning, or conversational text.
+- Start the response immediately with the `{` character.
+"""
+
 ACC_PLANNER_PROMPT = """You are an intelligent routing agent for an agricultural call center.
 You have access to specific sub-agent tools that can fetch agricultural data.
 

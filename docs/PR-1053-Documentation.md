@@ -7,7 +7,7 @@
 | Field | Details |
 |---|---|
 | **PR URL** | https://github.com/vicharanashala/ajrasakha/pull/1053 |
-| **Title** | fix(frontend): fix 24 bugs, resolve all TS errors, add 52 tests |
+| **Title** | fix(frontend): fix 18 bugs, resolve all TS errors, add 52 tests |
 | **Branch** | `fix/bug-fixes-and-ts-errors` → `main` |
 | **Repository** | `vicharanashala/ajrasakha` |
 | **Author** | Ujjeef |
@@ -22,22 +22,21 @@
 The Ajrasakha frontend (React 19 + TypeScript) had accumulated multiple classes of issues over time:
 
 1. **Runtime crash bugs** — null/undefined access causing white screens for users
-2. **Auth memory leaks** — Firebase auth listener never cleaned up, causing stale state
-3. **Data integrity issues** — form validation bypassed, role-based access missing
-4. **Security concerns** — credential logging visible in production builds
-5. **528 TypeScript errors** — type safety completely eroded, making refactoring risky
-6. **Zero test coverage** — no automated verification for any of the above fixes
+2. **Data integrity issues** — form validation bypassed, role-based access missing
+3. **Security concerns** — credential logging visible in production builds
+4. **528 TypeScript errors** — type safety completely eroded, making refactoring risky
+5. **Zero test coverage** — no automated verification for any of the above fixes
 
 ---
 
 ### Approach
 
-The work was done in three phases:
+The work was done in four phases:
 
 **Phase 1: Bug Discovery & Classification**
 - Systematic code review of the frontend codebase (`frontend/src/`)
-- Identified patterns: missing null checks, incorrect type usage, memory leak patterns
-- Classified 24 bugs into 5 categories: Crash, Auth, Data Integrity, Error Handling, Security
+- Identified patterns: missing null checks, incorrect type usage, unsafe logging
+- Classified 18 bugs into 3 categories: Crash, Data Integrity, Security
 
 **Phase 2: Bug Fixes**
 - Each fix was minimal and targeted — no refactoring, no style changes
@@ -58,6 +57,8 @@ The work was done in three phases:
 
 ### Changes by Category
 
+> **Note:** This PR fixed **18 bugs** in total, covering exactly three categories — **12 crash fixes, 3 data integrity fixes, and 3 security fixes**. Other work in this PR (TypeScript error resolution, new features, and tests) is documented in its own sections below.
+
 #### A. Crash Fixes (12 bugs)
 
 | # | File | Line | Bug | Fix |
@@ -75,42 +76,149 @@ The work was done in three phases:
 | 11 | `DistrictDetails.tsx` | 109 | Accessing properties on possibly null district | Optional chaining |
 | 12 | 4 expert files | various | `expert.userName.toLowerCase` crashes when undefined | Optional chaining on all 4 files |
 
-#### B. Auth Fixes (2 bugs)
+#### B. Data Integrity Fixes (3 bugs)
 
 | # | File | Bug | Fix |
 |---|---|---|---|
-| 13 | `auth-store.ts` | `initAuthListener` never returns unsubscribe, causing memory leak | Store and return the unsubscribe function from `onAuthStateChanged` |
-| 14 | `routes/index.tsx` | Auth listener in `useEffect` never cleaned up on unmount | Added cleanup via returned unsubscribe in `useEffect` return |
+| 13 | `EditFarmerModal.tsx` | Form validation was commented out, allowing invalid data | Re-enabled validation with proper error handling |
+| 14 | `auth-form.tsx` | `setErrors({})` in `finally` block cleared errors on network failure | Removed `setErrors` from `finally` — errors now persist until next submission |
+| 15 | `AnswerActions.tsx` | `canModerate` didn't check for admin role | Added `userRole === "admin"` to the `canModerate` condition |
 
-#### C. Data Integrity Fixes (3 bugs)
-
-| # | File | Bug | Fix |
-|---|---|---|---|
-| 15 | `EditFarmerModal.tsx` | Form validation was commented out, allowing invalid data | Re-enabled validation with proper error handling |
-| 16 | `auth-form.tsx` | `setErrors({})` in `finally` block cleared errors on network failure | Removed `setErrors` from `finally` — errors now persist until next submission |
-| 17 | `AnswerActions.tsx` | `canModerate` didn't check for admin role | Added `userRole === "admin"` to the `canModerate` condition |
-
-#### D. Error Handling (1 bug)
+#### C. Security Fixes (3 bugs)
 
 | # | File | Bug | Fix |
 |---|---|---|---|
-| 18 | `FarmerAnalyticsHeatMap.tsx` | 4 Promise chains had no `.catch()`, causing unhandled rejections | Added `.catch()` with error logging to all 4 chains |
+| 16 | `SelectedPannel.tsx` | `console.log` outputting sensitive question data in production | Removed the `console.log` statements |
+| 17 | `IncomingCallBox.tsx` | Credentials logged to console in production builds | Wrapped in `import.meta.env.DEV` guard — only logs in dev |
+| 18 | `plivoWebSocketService.ts` | WebSocket credentials logged unconditionally | Wrapped in `import.meta.env.DEV` guard |
 
-#### E. Security Fixes (3 bugs)
+---
 
-| # | File | Bug | Fix |
-|---|---|---|---|
-| 19 | `SelectedPannel.tsx` | `console.log` outputting sensitive question data in production | Removed the `console.log` statements |
-| 20 | `IncomingCallBox.tsx` | Credentials logged to console in production builds | Wrapped in `import.meta.env.DEV` guard — only logs in dev |
-| 21 | `plivoWebSocketService.ts` | WebSocket credentials logged unconditionally | Wrapped in `import.meta.env.DEV` guard |
+### Features Added (6)
 
-#### F. TypeScript Fixes (3 bugs)
+In addition to the bug fixes, this PR added **6 new frontend features**:
 
-| # | File | Bug | Fix |
-|---|---|---|---|
-| 22 | `types.ts` | `IUser` and `IUserRef` missing `userName` field used by backend | Added `userName?: string` to both interfaces |
-| 23 | `MapLegend.tsx` / `AnalyticsMap.tsx` | `MapLegend` component didn't accept `dark` and `allStatesDataAndUser` props | Added optional props to `MapLegendProps` interface |
-| 24 | `AnswerModeSwitcher.tsx` | Dead comparison with `"dynamic"` (removed from MODES enum) | Removed the `id === "dynamic"` check |
+| # | Feature | File | What It Does | Tab Access |
+|---|---|---|---|---|
+| 1 | **Error Boundaries** | `frontend/src/components/atoms/ErrorBoundary.tsx` | Wraps every tab and lazy-loaded component so a crash in one section shows a fallback UI instead of killing the entire app. Three levels: root, page, section. | All |
+| 2 | **Dark Mode Toggle** | `frontend/src/components/atoms/ThemeToggle.tsx` | Compact light/dark/system theme toggle added to the sidebar footer and profile page header. | All |
+| 3 | **System Health Monitor** | `frontend/src/features/chatbotDashboard/components/SystemHealthMonitor.tsx` | Real-time status dashboard for all backend services (Frontend, Backend API, MongoDB, AI Agent, Redis, Firebase, Sarvam AI, Plivo) with auto-refresh (30s), latency tracking, uptime percentages (24h/7d), and a system-info panel. | Admin + Moderator |
+| 4 | **Bulk Operations Panel** | `frontend/src/features/chatbotDashboard/components/BulkOperationsPanel.tsx` | Admin tool for bulk actions on multiple questions at once — bulk assign to experts, bulk re-route, bulk status changes, CSV/Excel import, and operation history. | Admin only |
+| 5 | **Expert Availability Dashboard** | `frontend/src/features/chatbotDashboard/components/ExpertAvailabilityDashboard.tsx` | Real-time grid of expert/moderator/call-agent availability (Online/Busy/Idle/Offline/Blocked), shift coverage, per-expert stats (questions handled, avg response time), search/filter, auto-refresh (60s). | Admin only |
+| 6 | **Question Tracking Page** | `frontend/src/features/chatbotDashboard/components/QuestionTrackingPage.tsx` | Farmer-facing question status tracker — status pipeline (Submitted → Under Review → Answered → Delivered → Feedback), expandable timeline with timestamps, search, status filters, category badges, language tags. | All non-call-agent roles |
+
+> **Note:** Features 3–6 are wired into `frontend/src/components/play-ground.tsx` as new tabs (`system_health`, `bulk_operations`, `expert_availability`, `question_tracking`) and currently run on **mock data** for UI demonstration.
+
+### Feature Deep-Dives
+
+#### Feature 1: React Error Boundaries
+
+**Where:** `frontend/src/components/atoms/ErrorBoundary.tsx`
+
+**What it does:** A React class component that catches errors thrown by any component inside it. Before this feature, a crash in one dashboard tab crashed the **entire app** (blank white screen). Now, only the broken section shows a friendly "This section failed to load" message and the rest of the app keeps working.
+
+**How it works (key pieces):**
+- `getDerivedStateFromError` — React calls this when a child throws; it flips `hasError` to `true`, telling React to render the fallback UI instead of the crashed component.
+- `componentDidCatch` — logs the error + the **component stack** (which component failed) for debugging. Detailed logs are gated behind `import.meta.env.DEV`.
+- `level: "root" | "page" | "section"` — three sizes of fallback UI: **root** (full-screen, with "Try Again" + "Go to Dashboard" buttons), **page** (for a single page), and **section** (a small inline card).
+- `handleReset` / `handleGoHome` — the "Try Again" button resets the error state and re-renders the children.
+
+**Where it's wired in:**
+- `frontend/src/components/play-ground.tsx` — every tab's content is wrapped in `<ErrorBoundary level="section">` (12+ places).
+- `frontend/src/routes/__root.tsx` — the whole app is wrapped at **root** level.
+- `frontend/src/features/chatbotDashboard/AnnamDashboard_dev.tsx` — lazy-loaded dashboard sections wrapped individually.
+
+**Why it matters:** Error isolation. A bug in one feature can no longer take down the entire reviewer system.
+
+---
+
+#### Feature 2: Dark Mode Toggle
+
+**Where:** `frontend/src/components/atoms/ThemeToggle.tsx`
+
+**What it does:** A small button that toggles the app between **light** and **dark** themes. Useful for reviewers who work in low-light conditions.
+
+**How it works (key pieces):**
+- Uses the `next-themes` `useTheme` hook — `theme` and `setTheme` manage the theme state.
+- Shows a **Sun** icon in dark mode (click → light) and a **Moon** icon in light mode (click → dark), animated with Tailwind `dark:` classes.
+- `useEffect(() => setMounted(true), [])` — waits for the client to mount before rendering, avoiding a hydration mismatch between server and browser.
+- `if (!mounted) return null` — returns nothing on the first render so the icon doesn't flash.
+
+**Where it's wired in:** The sidebar footer and the profile page header.
+
+**Why it matters:** Accessibility/comfort — lets each user choose a theme, and the existing dark-mode CSS (Tailwind `dark:` classes) gets a UI to control it.
+
+---
+
+#### Feature 3: System Health Monitor
+
+**Where:** `frontend/src/features/chatbotDashboard/components/SystemHealthMonitor.tsx`
+
+**What it does:** A real-time dashboard that shows the health of every backend service in one place — MongoDB Atlas, Redis, AI Agent Service, Weather MCP, Market MCP, etc.
+
+**How it works (key pieces):**
+- `ServiceStatus` interface — `name`, `status` (`healthy | degraded | down | unknown`), `latencyMs`, `lastChecked`, `uptime24h`, `uptime7d`, `errorMessage`, `url`.
+- `HealthData` interface — an array of `ServiceStatus` plus `overallStatus` and a `systemInfo` panel (`nodeVersion`, `platform`, `memoryUsageMb`, `cpuUsagePercent`, `activeConnections`, `uptimeSeconds`).
+- `MOCK_SERVICES` array — hard-coded service entries with status, latency, and uptime percentages (currently **mock data**).
+- Auto-refresh every **30 seconds**, latency shown in ms, uptime percentages for 24h/7d.
+
+**Where it's wired in:** Admin + Moderator dashboard → **System Health** tab (`system_health`).
+
+**Why it matters:** Ops visibility — an admin can see at a glance whether a slow review experience is caused by a degraded backend service instead of guessing.
+
+---
+
+#### Feature 4: Bulk Operations Panel
+
+**Where:** `frontend/src/features/chatbotDashboard/components/BulkOperationsPanel.tsx`
+
+**What it does:** Lets an admin act on **many questions at once** instead of one by one.
+
+**How it works (key pieces):**
+- `BulkOperation` interface — `id`, `type`, `status` (`pending | processing | completed | failed`), `totalItems`, `processedItems`, `createdAt`, `description`.
+- Four operation tabs: **assign** (bulk-assign questions to an expert), **reroute** (bulk re-route), **status** (bulk status changes like open → closed), and **upload** (CSV/Excel file import for mass operations).
+- `MOCK_HISTORY` array — a record of past operations (e.g., "Assigned 45 questions to Dr. Patel") shown as an operation history log.
+- Uses `useRef` for the hidden file input, and `toast` (sonner) for feedback.
+
+**Where it's wired in:** Admin only → **Bulk Operations** tab (`bulk_operations`).
+
+**Why it matters:** Efficiency — without it, closing 30 duplicate questions means 30 manual clicks.
+
+---
+
+#### Feature 5: Expert Availability Dashboard
+
+**Where:** `frontend/src/features/chatbotDashboard/components/ExpertAvailabilityDashboard.tsx`
+
+**What it does:** A live grid showing the availability of every expert, moderator, and call agent.
+
+**How it works (key pieces):**
+- `Expert` interface — `name`, `email`, `role`, `status` (`online | idle | busy | offline | blocked`), `lastActive`, `currentTask`, `questionsHandledToday`, `avgResponseTimeMin`, `shift`, `isCallAgent`.
+- `MOCK_EXPERTS` array — 12 hard-coded experts across roles and statuses.
+- `getStatusConfig(status)` — a `switch` that maps each status to a color, badge, and ring style (green = online, amber = busy, orange = idle, gray = offline, red = blocked).
+- Search/filter by name and status, per-expert stats cards, and a 60-second auto-refresh.
+
+**Where it's wired in:** Admin only → **Expert Availability** tab (`expert_availability`).
+
+**Why it matters:** Workload planning — an admin can instantly see who is free before allocating questions, instead of guessing.
+
+---
+
+#### Feature 6: Question Tracking Page
+
+**Where:** `frontend/src/features/chatbotDashboard/components/QuestionTrackingPage.tsx`
+
+**What it does:** A farmer-facing status tracker showing the journey of each question from submission to delivery.
+
+**How it works (key pieces):**
+- `TrackingStep` interface — `label`, `status` (`completed | active | pending`), `timestamp`, `icon` — used to render a **pipeline** of steps.
+- `QuestionTracking` interface — `id`, `questionText`, `category`, `farmerName`, `farmerLocation`, `status` (`submitted | under_review | answered | delivered | feedback_given`), per-stage timestamps (`submittedAt`, `reviewedAt`, `answeredAt`, `deliveredAt`, `feedbackAt`), `assignedExpert`, `upvotes`, `language`.
+- `MOCK_TRACKING` array — sample questions with different statuses.
+- Search by question text / farmer name / ID, filter by status, expandable timeline with timestamps, category badges, language tags.
+
+**Where it's wired in:** All non-call-agent roles → **Question Tracking** tab (`question_tracking`).
+
+**Why it matters:** Transparency — shows a farmer (or support staff) exactly where their question is in the pipeline and when it moved, instead of "we'll get back to you."
 
 ---
 
@@ -144,6 +252,8 @@ The work was done in three phases:
 ---
 
 ## Task 2: Bug Deep-Dives
+
+> **Note:** The deep-dives below cover only the **18 bugs** fixed in the three categories above (Crash, Data Integrity, Security).
 
 ---
 
@@ -296,57 +406,7 @@ phoneNumber?.toLowerCase().includes(searchTerm)
 
 ---
 
-### Bug 13: Auth Listener Memory Leak — `auth-store.ts`
-
-**Where:** `frontend/src/stores/auth-store.ts`
-
-**How it was found:** Code review of the Zustand auth store. `initAuthListener` calls `onAuthStateChanged` but the returned unsubscribe function is discarded. Every time `initAuthListener` is called, a new listener is registered but can never be removed.
-
-**What was happening:**
-```ts
-// BEFORE — unsubscribe is lost
-onAuthStateChanged(auth, (user) => {
-  set({ user, isLoading: false });
-});
-```
-
-**How it was fixed:**
-```ts
-// AFTER — unsubscribe is stored and returned
-const unsubscribe = onAuthStateChanged(auth, (user) => {
-  set({ user, isLoading: false });
-});
-return unsubscribe;
-```
-
----
-
-### Bug 14: Auth Listener Never Cleaned Up — `routes/index.tsx`
-
-**Where:** `frontend/src/routes/index.tsx`
-
-**How it was found:** Code review. The `useEffect` that calls `initAuthListener` doesn't return a cleanup function, so the listener persists even after the component unmounts.
-
-**What was happening:**
-```tsx
-// BEFORE — no cleanup
-useEffect(() => {
-  initAuthListener();
-}, []);
-```
-
-**How it was fixed:**
-```tsx
-// AFTER — cleanup on unmount
-useEffect(() => {
-  const unsubscribe = initAuthListener();
-  return () => unsubscribe?.();
-}, []);
-```
-
----
-
-### Bug 15: Form Validation Bypassed — `EditFarmerModal.tsx`
+### Bug 13: Form Validation Bypassed — `EditFarmerModal.tsx`
 
 **Where:** `frontend/src/features/chatbotDashboard/components/EditFarmerModal.tsx`, line 291
 
@@ -356,7 +416,7 @@ useEffect(() => {
 
 ---
 
-### Bug 16: Error State Cleared on Network Failure — `auth-form.tsx`
+### Bug 14: Error State Cleared on Network Failure — `auth-form.tsx`
 
 **Where:** `frontend/src/components/auth-form.tsx`, line 205
 
@@ -377,7 +437,7 @@ try {
 
 ---
 
-### Bug 17: Admin Can't Moderate Answers — `AnswerActions.tsx`
+### Bug 15: Admin Can't Moderate Answers — `AnswerActions.tsx`
 
 **Where:** `frontend/src/features/question_details/components/answer_item/AnswerActions.tsx`, line 113
 
@@ -397,22 +457,7 @@ const canModerate = userRole === "expert" || userRole === "admin";
 
 ---
 
-### Bug 18: Unhandled Promise Rejections — `FarmerAnalyticsHeatMap.tsx`
-
-**Where:** `frontend/src/features/chatbotDashboard/components/FarmerAnalyticsHeatMap.tsx`
-
-**How it was found:** Code review of Promise chains. 4 API calls in the heatmap component had no `.catch()` handlers. If any API fails (network timeout, server error), the browser throws an unhandled promise rejection warning and the component may render with partial/broken data.
-
-**How it was fixed:** Added `.catch()` with error logging to all 4 Promise chains:
-```ts
-fetchData()
-  .then(data => setData(data))
-  .catch(err => console.error("Failed to fetch heatmap data:", err));
-```
-
----
-
-### Bug 19: Sensitive Data in Console — `SelectedPannel.tsx`
+### Bug 16: Sensitive Data in Console — `SelectedPannel.tsx`
 
 **Where:** `frontend/src/components/SelectedPannel.tsx`, lines 26-27
 
@@ -422,7 +467,7 @@ fetchData()
 
 ---
 
-### Bug 20: Credentials Logged in Production — `IncomingCallBox.tsx`
+### Bug 17: Credentials Logged in Production — `IncomingCallBox.tsx`
 
 **Where:** `frontend/src/components/IncomingCallBox.tsx`, lines 326-327 and 607
 
@@ -437,60 +482,10 @@ if (import.meta.env.DEV) {
 
 ---
 
-### Bug 21: WebSocket Credentials Logged — `plivoWebSocketService.ts`
+### Bug 18: WebSocket Credentials Logged — `plivoWebSocketService.ts`
 
 **Where:** `frontend/src/hooks/services/plivoWebSocketService.ts`, line 67
 
 **How it was found:** Security audit. The WebSocket service logs connection tokens on every reconnection. In production, this creates a steady stream of credential leaks in the console.
 
-**How it was fixed:** Wrapped in `import.meta.env.DEV` guard, same pattern as Bug 20.
-
----
-
-### Bug 22: Missing `userName` in TypeScript Interfaces — `types.ts`
-
-**Where:** `frontend/src/types.ts`, lines 26-61 (`IUser`) and 406-410 (`IUserRef`)
-
-**How it was found:** TypeScript compilation. 5+ files reference `expert.userName` but `userName` doesn't exist on `IUser` or `IUserRef`. The backend returns `userName` in its API responses — the TypeScript types were out of sync with the actual API contract.
-
-**How it was fixed:**
-```ts
-// Added to both interfaces
-userName?: string;
-```
-
----
-
-### Bug 23: `MapLegend` Props Mismatch — `MapLegend.tsx` / `AnalyticsMap.tsx`
-
-**Where:**
-- `frontend/src/features/chatbotDashboard/components/map/components/MapLegend.tsx:104`
-- `frontend/src/features/chatbotDashboard/components/map/AnalyticsMap.tsx:477`
-
-**How it was found:** TypeScript compilation error TS2322. The `AnalyticsMap` component passes `dark` and `allStatesDataAndUser` props to `MapLegend`, but `MapLegendProps` doesn't declare them.
-
-**How it was fixed:** Added optional props to the interface:
-```ts
-interface MapLegendProps {
-  // ... existing props
-  dark?: boolean;
-  allStatesDataAndUser?: any;
-}
-```
-
----
-
-### Bug 24: Dead `"dynamic"` Comparison — `AnswerModeSwitcher.tsx`
-
-**Where:** `frontend/src/features/question-table-page/AnswerModeSwitcher.tsx`, line 136
-
-**How it was found:** TypeScript compilation error TS2367. The `MODES` array previously included `{ id: "dynamic" }` but it was commented out. The comparison `id === "dynamic"` is unreachable dead code since `id` can never be `"dynamic"`.
-
-**How it was fixed:** Removed the `|| id === "dynamic"` from the condition:
-```tsx
-// BEFORE
-{(id === "draft" || id === "pae" || id === "non_agri" || id === "dynamic") && <TopRightBadge />}
-
-// AFTER
-{(id === "draft" || id === "pae" || id === "non_agri") && <TopRightBadge />}
-```
+**How it was fixed:** Wrapped in `import.meta.env.DEV` guard, same pattern as Bug 17.

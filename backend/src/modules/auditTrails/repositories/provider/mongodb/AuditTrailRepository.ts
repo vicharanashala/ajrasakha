@@ -213,6 +213,8 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
     shift: "morning" | "evening" | "all",
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<
     {
@@ -254,6 +256,47 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
                 shift,
                 from,
                 to
+              ),
+            },
+          },
+
+          {
+            $lookup: {
+              from: "users",
+              let: { actorId: "$actor.id" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: ["$_id", "$$actorId"],
+                    },
+                  },
+                },
+                {
+                  $project: {
+                    _id: 0,
+                    isTrainingUser: 1,
+                  },
+                },
+              ],
+              as: "actorUser",
+            },
+          },
+          {
+            $unwind: {
+              path: "$actorUser",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+
+          {
+            $match: {
+              ...(
+                !isAdmin && isTrainingUser === true
+                  ? { "actorUser.isTrainingUser": true }
+                  : !isAdmin && isTrainingUser === false
+                    ? { "actorUser.isTrainingUser": { $ne: true } }
+                    : {}
               ),
             },
           },

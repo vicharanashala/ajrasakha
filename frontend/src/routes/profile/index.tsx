@@ -1,5 +1,5 @@
 import { pae_domains as DOMAINS } from "@/components/MetaData";
-import { useGetStates } from "@/hooks/api/location/useLocations";
+import { useGetStates, useGetDistricts } from "@/hooks/api/location/useLocations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
 import { MultiSelect } from "@/components/atoms/MultiSelect";
 import { Button } from "@/components/atoms/button";
@@ -32,12 +32,13 @@ import {
   XCircle,
   ShieldCheck,
   Settings,
-  AlertTriangle,
   KeyRound,
   Check,
   EyeOff,
   Eye,
   Camera,
+  Plus,
+  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -60,7 +61,7 @@ export default function ProfilePage() {
   const { data: user, isLoading } = useGetCurrentUser({});
   const navigate = useNavigate();
   const { mutateAsync: updateUser, isPending: isUpdating } = useEditUser();
-  const { success: toastSuccess, loading:toastLoading, dismiss: toastDismiss} = useToast();
+  const { success: toastSuccess, loading: toastLoading, dismiss: toastDismiss } = useToast();
 
   useEffect(() => {
     if (user && isCoordinatorRole(user.role)) {
@@ -69,7 +70,7 @@ export default function ProfilePage() {
   }, [navigate, user]);
 
   const handleSubmit = async (data: IUser, showToast: boolean = true, id?: string) => {
-    let currentToastId;
+    let currentToastId: string | number | undefined;
     if (showToast) {
       currentToastId = toastLoading("Saving profile...", {
         desc: "Please wait while we update your details.",
@@ -79,10 +80,14 @@ export default function ProfilePage() {
     }
     try {
       await updateUser(data);
-      if (showToast) {
-        toast.success("Profile updated!");
+      if (showToast && currentToastId) {
+        toastDismiss(currentToastId);
+        toastSuccess("Profile updated!");
       }
     } catch (error) {
+      if (showToast && currentToastId) {
+        toastDismiss(currentToastId);
+      }
       console.error(error);
       throw error;
     }
@@ -161,6 +166,9 @@ type ProfileFormProps = {
 
 const OTHER_DOMAIN_VALUE = "other";
 
+/** One KVK-covered entry: a state, district and KVK name. */
+type KvkItem = { state: string; district: string; name: string };
+
 const isPresetDomain = (domain?: string | string[]) => {
   if (!domain || Array.isArray(domain)) return false;
   return domain === "all" || DOMAINS.includes(domain);
@@ -229,6 +237,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     ...user,
     preference: {
       state: user?.preference?.state ?? "",
+      district: user?.preference?.district ?? "",
       crop: user?.preference?.crop ?? "",
       domain: user?.preference?.domain ?? "all",
     },
@@ -251,6 +260,85 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   );
   const [paeOtherDomain, setPaeOtherDomain] = useState("");
   const [paeOtherDomainError, setPaeOtherDomainError] = useState("");
+
+  // KVKs are stored as an array of { state, district, name } objects (Title-Cased).
+  // Seed from the saved value, tolerating legacy shapes (string[] or { name: [] }).
+  const toTitleCase = (s: string) =>
+    (s ?? "").trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const [kvkList, setKvkList] = useState<KvkItem[]>(() => {
+    const saved = user?.kvkCovered as unknown;
+    if (Array.isArray(saved)) {
+      return saved
+        .map((it: any) =>
+          it && typeof it === "object"
+            ? { state: it.state ?? "", district: it.district ?? "", name: it.name ?? "" }
+            : { state: "", district: "", name: typeof it === "string" ? it : "" }
+        )
+        .filter((k) => k.name);
+    }
+    if (saved && typeof saved === "object" && Array.isArray((saved as any).name)) {
+      return (saved as any).name
+        .filter(Boolean)
+        .map((n: string) => ({ state: "", district: "", name: n }));
+    }
+    return [];
+  });
+  const [kvkDraft, setKvkDraft] = useState<KvkItem>({ state: "", district: "", name: "" });
+  // Fallback to free-text state/district when the location dropdowns don't work for the user.
+  const [kvkManualEntry, setKvkManualEntry] = useState(false);
+  const [prefManualEntry, setPrefManualEntry] = useState(false);
+
+  const addKvk = () => {
+    // Dropdown values are canonical (keep as-is); manually typed / free-text values are
+    // Title-cased so everything stores consistently ("kl university" → "Kl University").
+    const item: KvkItem = {
+      state: kvkManualEntry ? toTitleCase(kvkDraft.state) : kvkDraft.state.trim(),
+      district: kvkManualEntry ? toTitleCase(kvkDraft.district) : kvkDraft.district.trim(),
+      name: toTitleCase(kvkDraft.name),
+    };
+    // State, district and KVK name are all required.
+    if (!item.state) {
+      toast.error("Please select a state.");
+      return;
+    }
+    if (!item.district) {
+      toast.error("Please select a district.");
+      return;
+    }
+    if (!item.name) {
+      toast.error("Please enter the KVK name.");
+      return;
+    }
+    // Skip duplicates (same state + district + name, case-insensitive).
+    const dup = kvkList.some(
+      (k) =>
+        k.name.toLowerCase() === item.name.toLowerCase() &&
+        k.state.toLowerCase() === item.state.toLowerCase() &&
+        k.district.toLowerCase() === item.district.toLowerCase()
+    );
+    if (!dup) setKvkList((prev) => [...prev, item]);
+    setKvkDraft({ state: "", district: "", name: "" });
+  };
+
+  const removeKvk = (idx: number) => {
+    setKvkList((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  // Districts for the KVK add-form, driven by the selected draft state — same source the
+  // create-question dialog uses (states → stateCode → districts).
+  const kvkDraftStateCode = statesResponse.find(
+    (s) => s.stateNameEnglish === kvkDraft.state
+  )?.stateCode;
+  const { data: kvkDistricts = [] } = useGetDistricts(kvkDraftStateCode);
+  const kvkDistrictNames = kvkDistricts.map((d) => d.districtNameEnglish);
+
+  // Districts for the Preferences section, driven by the selected preference state.
+  const prefStateCode = statesResponse.find(
+    (s) => s.stateNameEnglish === formData.preference?.state
+  )?.stateCode;
+  const { data: prefDistricts = [] } = useGetDistricts(prefStateCode);
+  const prefDistrictNames = prefDistricts.map((d) => d.districtNameEnglish);
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
@@ -404,8 +492,10 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         ...formData,
         mobile: formData.mobile?.trim(),
         university: formData.university?.trim(),
+        kvkCovered: kvkList.length > 0 ? kvkList : undefined,
         preference: {
           state: formData.preference?.state ?? "",
+          district: formData.preference?.district ?? "",
           crop: formData.preference?.crop ?? "",
           domain: user.role === "pae_expert"
             ? (() => {
@@ -766,6 +856,149 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
           </div>
         </div>
 
+        {/* KVK Covered */}
+        <div className="space-y-2">
+          <Label htmlFor="kvkCovered">KVK Covered <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {kvkManualEntry ? (
+              <>
+                <Input
+                  disabled={!isEditMode}
+                  value={kvkDraft.state}
+                  onChange={(e) => setKvkDraft((d) => ({ ...d, state: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addKvk();
+                    }
+                  }}
+                  placeholder="State"
+                />
+                <Input
+                  disabled={!isEditMode}
+                  value={kvkDraft.district}
+                  onChange={(e) => setKvkDraft((d) => ({ ...d, district: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addKvk();
+                    }
+                  }}
+                  placeholder="District"
+                />
+              </>
+            ) : (
+              <>
+                <Select
+                  value={kvkDraft.state || undefined}
+                  disabled={!isEditMode}
+                  onValueChange={(val) =>
+                    setKvkDraft((d) => ({ ...d, state: val, district: "" }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="State" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All States">All States</SelectItem>
+                    {stateOptions.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        <MapPin className="h-4 w-4 mr-2 inline" /> {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={kvkDraft.district || undefined}
+                  disabled={!isEditMode || !kvkDraft.state}
+                  onValueChange={(val) => setKvkDraft((d) => ({ ...d, district: val }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="District" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All Districts">All Districts</SelectItem>
+                    {kvkDistrictNames.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+            <Input
+              id="kvkCovered"
+              disabled={!isEditMode}
+              value={kvkDraft.name}
+              onChange={(e) => setKvkDraft((d) => ({ ...d, name: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addKvk();
+                }
+              }}
+              placeholder="KVK name"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              disabled={
+                !isEditMode ||
+                !kvkDraft.state.trim() ||
+                !kvkDraft.district.trim() ||
+                !kvkDraft.name.trim()
+              }
+              onClick={addKvk}
+              aria-label="Add KVK"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          {isEditMode && (
+            <button
+              type="button"
+              onClick={() => {
+                setKvkManualEntry((v) => !v);
+                setKvkDraft((d) => ({ ...d, state: "", district: "" }));
+              }}
+              className="text-xs text-primary underline underline-offset-2 hover:text-primary/80 transition-colors w-fit"
+            >
+              {kvkManualEntry
+                ? "Use state / district dropdowns"
+                : "Can't find your state / district? Type manually"}
+            </button>
+          )}
+          {kvkList.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {kvkList.map((kvk, idx) => {
+                const location = [kvk.district, kvk.state].filter(Boolean).join(", ");
+                return (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                  >
+                    {kvk.name}
+                    {location && <span className="opacity-70">· {location}</span>}
+                    {isEditMode && (
+                      <button
+                        type="button"
+                        onClick={() => removeKvk(idx)}
+                        className="hover:text-emerald-900 dark:hover:text-emerald-100"
+                        aria-label={`Remove ${kvk.name}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Email + Password */}
         <div className="grid gap-6 md:grid-cols-2">
           {/* Email */}
@@ -1015,7 +1248,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       </div>
 
       {/* Preferences */}
-      {user.role !== "moderator" && user.role !== "tester" && (
+      {(
         <div className="space-y-6 rounded-lg border bg-card p-6">
           <div>
             <h3 className="text-base font-semibold flex items-center gap-2">
@@ -1026,42 +1259,112 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               Configure your preferences to receive personalized questions for
               better responses.
             </p>
-            {user.role === "admin" && (
-              <p className="text-sm text-yellow-600 mt-2 flex items-center gap-1">
-                <AlertTriangle className="w-4 h-4" />
-                Admin cannot set preferences at this moment.
-              </p>
-            )}
           </div>
           <Separator />
 
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2 w-full">
               <Label htmlFor="state">State</Label>
-              <Select
-                value={formData.preference?.state}
-                disabled={!isEditMode || user.role == "admin"}
-                onValueChange={(val) => handleChange("preference.state", val)}
-              >
-                <SelectTrigger id="state" className="w-full">
-                  <SelectValue placeholder="Select state" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All States</SelectItem>
-                  {stateOptions.map((state) => (
-                    <SelectItem key={state} value={state}>
-                      <MapPin className="h-4 w-4 mr-2 inline" /> {state}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {prefManualEntry ? (
+                <Input
+                  id="state"
+                  disabled={!isEditMode}
+                  value={formData.preference?.state === "all" ? "" : formData.preference?.state ?? ""}
+                  onChange={(e) => handleChange("preference.state", e.target.value)}
+                  placeholder="Enter state"
+                />
+              ) : (
+                <Select
+                  value={formData.preference?.state}
+                  disabled={!isEditMode}
+                  onValueChange={(val) => {
+                    handleChange("preference.state", val);
+                    handleChange("preference.district", "");
+                  }}
+                >
+                  <SelectTrigger id="state" className="w-full">
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All States</SelectItem>
+                    {/* Show the saved value even if it isn't in the canonical list
+                        (e.g. an older manually-typed state), so it doesn't render blank. */}
+                    {formData.preference?.state &&
+                      formData.preference.state !== "all" &&
+                      !stateOptions.includes(formData.preference.state) && (
+                        <SelectItem value={formData.preference.state}>
+                          <MapPin className="h-4 w-4 mr-2 inline" /> {formData.preference.state}
+                        </SelectItem>
+                      )}
+                    {stateOptions.map((state) => (
+                      <SelectItem key={state} value={state}>
+                        <MapPin className="h-4 w-4 mr-2 inline" /> {state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="space-y-2 w-full">
+              <Label htmlFor="district">District</Label>
+              {prefManualEntry ? (
+                <Input
+                  id="district"
+                  disabled={!isEditMode}
+                  value={formData.preference?.district === "all" ? "" : formData.preference?.district ?? ""}
+                  onChange={(e) => handleChange("preference.district", e.target.value)}
+                  placeholder="Enter district"
+                />
+              ) : (
+                <Select
+                  value={formData.preference?.district || undefined}
+                  disabled={!isEditMode || !formData.preference?.state}
+                  onValueChange={(val) => handleChange("preference.district", val)}
+                >
+                  <SelectTrigger id="district" className="w-full">
+                    <SelectValue placeholder="Select district" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Districts</SelectItem>
+                    {/* Show the saved value even if it isn't in the canonical list
+                        (e.g. "Chittor" typed manually vs "Chittoor"), so it doesn't render blank. */}
+                    {formData.preference?.district &&
+                      formData.preference.district !== "all" &&
+                      !prefDistrictNames.includes(formData.preference.district) && (
+                        <SelectItem value={formData.preference.district}>
+                          <MapPin className="h-4 w-4 mr-2 inline" /> {formData.preference.district}
+                        </SelectItem>
+                      )}
+                    {prefDistrictNames.map((district) => (
+                      <SelectItem key={district} value={district}>
+                        <MapPin className="h-4 w-4 mr-2 inline" /> {district}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="md:col-span-2 -mt-2">
+              {isEditMode && (
+                <button
+                  type="button"
+                  onClick={() => setPrefManualEntry((v) => !v)}
+                  className="text-xs text-primary underline underline-offset-2 hover:text-primary/80 transition-colors w-fit"
+                >
+                  {prefManualEntry
+                    ? "Use state / district dropdowns"
+                    : "Dropdowns not working? Type state / district manually"}
+                </button>
+              )}
             </div>
 
             {/* <div className="space-y-2 w-full">
               <Label htmlFor="crop">Crop Type</Label>
               <Select
                 value={formData.preference?.crop}
-                disabled={!isEditMode || user.role == "admin"}
+                disabled={!isEditMode}
                 onValueChange={(val) => handleChange("preference.crop", val)}
               >
                 <SelectTrigger id="crop" className="w-full">
@@ -1184,7 +1487,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
               <>
                 <Select
                   value={domainSelection}
-                  disabled={!isEditMode || user.role == "admin"}
+                  disabled={!isEditMode}
                   onValueChange={(val) => {
                     setDomainError("");
                     setDomainSelection(val);
@@ -1216,7 +1519,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                   <div className="space-y-2">
                     <Input
                       id="custom-domain"
-                      disabled={!isEditMode || user.role == "admin"}
+                      disabled={!isEditMode}
                       value={customDomain}
                       onChange={(e) => {
                         const value = e.target.value;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent } from "@/components/atoms/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
 import {
   ListTodo,
   Award,
@@ -7,11 +7,20 @@ import {
   Loader2,
   Trophy,
   Clock,
-  Target,
   CheckCircle,
   AlertCircle,
   History,
+  Briefcase,
+  CalendarClock,
+  CircleCheckBig,
+  CircleOff,
+  Filter,
+  ShieldAlert,
+  ShieldCheck,
+  UserRound,
 } from "lucide-react";
+import { UserHistoryView } from "@/components/UserHistoryView";
+import { useGetWorkingHours } from "@/hooks/api/user/useGetWorkingHours";
 import { useNavigate } from "@tanstack/react-router";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
@@ -40,6 +49,11 @@ import { QuestionDetails } from "./question-details";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import type { IQuestion } from "@/types";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
+import { useReviewerLifecycle } from "@/hooks/api/user/useReviewerLifecycle";
+import { ReviewerLifecycle } from "./ReviewerTimeline";
+import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
+import { WorkingHoursTrendChart } from "@/features/chatbotDashboard/working-hours-trend";
+
 interface ExpertDashboardProps {
   expertId?: string | null;
   goBack?: () => void;
@@ -78,6 +92,70 @@ export const ExpertDashboard = ({
   } else {
     userId = user?._id?.toString();
   }
+  const weekStart = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  }, []);
+
+  const weekEnd = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? 0 : 7);
+    const sunday = new Date(now.setDate(diff));
+    sunday.setHours(23, 59, 59, 999);
+    return sunday;
+  }, []);
+
+  const { data: weeklyWorkingHoursData, isLoading: isLoadingWeeklyHistory } = useGetWorkingHours(
+    userId,
+    weekStart.toISOString(),
+    weekEnd.toISOString(),
+  );
+
+  const startDate = useMemo(() => {
+const date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return date;
+  }, []);
+
+  const endDate = useMemo(() => {
+    const date = new Date();
+    date.setHours(23, 59, 59, 999);
+    return date;
+  }, []);
+
+const [dateRange, setDateRange] = useState<
+  import("react-day-picker").DateRange | undefined
+>(() => {
+  const to = new Date();
+  const from = new Date();
+
+  from.setMonth(from.getMonth() - 1);
+
+  return {
+    from,
+    to,
+  };
+});
+
+  const userTimelineRange = useMemo(
+    () => getISOStringsForDateRange(dateRange),
+    [dateRange],
+  );
+
+  const { data: reviewerLifecycleData, isLoading: isReviewerLifecycle } = useReviewerLifecycle(
+    userId ?? "" ,
+    userTimelineRange.startTime ?? "",
+    userTimelineRange.endTime ?? "",
+  );
+
+  // console.log("reviewerLifecycleData----", reviewerLifecycleData);
+
+  const weeklyWorkingHours = weeklyWorkingHoursData?.workingHours ?? 0;
+
   const { data: reviewLevel, isLoading: isLoadingReviewLevel } =
     useGetReviewLevel({
       userId,
@@ -148,6 +226,12 @@ export const ExpertDashboard = ({
     refetch: refetchSelectedQuestion,
     isLoading: isLoadingSelectedQuestion,
   } = useGetQuestionFullDataById(selectedQuestionId || null);
+
+  const loggedInUserRole = currentUserRole || viewerUser?.role;
+  const isViewerAdminOrModerator =
+    loggedInUserRole === "admin" ||
+    loggedInUserRole === "moderator" ||
+    loggedInUserRole === "tester";
 
   const formatReviewLevel = (rawLevel: string | number | undefined) => {
     if (rawLevel === undefined || rawLevel === null) return "N/A";
@@ -315,7 +399,7 @@ export const ExpertDashboard = ({
       [key]: value,
     }));
   };
-  console.log("questtions ", paginatedQuestions)
+  // console.log("questtions ", paginatedQuestions)
 
   // When a question is opened from the Questions tab, show its full details
   // (same view used across the app) instead of the dashboard.
@@ -567,7 +651,13 @@ export const ExpertDashboard = ({
                   <p className="text-xs text-muted-foreground mb-1">
                     Working Hours
                   </p>
-                  <p className="text-3xl font-bold text-foreground">{"N/A"}</p>
+                  <p className="text-3xl font-bold text-foreground">
+                    {isLoadingWeeklyHistory ? (
+                      <span className="text-sm font-normal text-muted-foreground">Loading...</span>
+                    ) : (
+                      `${weeklyWorkingHours} hrs`
+                    )}
+                  </p>
                   <p className="text-xs text-green-600 mt-2 font-medium">
                     Total Working Hours Per Week
                   </p>
@@ -576,41 +666,26 @@ export const ExpertDashboard = ({
               </div>
             </CardContent>
           </Card>
-          {/*QA Target*/}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">
-                    QA Target
-                  </p>
-                  <p className="text-3xl font-bold text-foreground">{"N/A"}</p>
-                  <p className="text-xs text-green-600 mt-2 font-medium">
-                    Target For 1 month
-                  </p>
-                </div>
-                <Target className="w-8 h-8 text-chart-3 opacity-60 text-green-400" />
-              </div>
-            </CardContent>
-          </Card>
-          {/*QA Complete*/}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">
-                    QA Completed
-                  </p>
-                  <p className="text-3xl font-bold text-foreground">{"N/A"}</p>
-                  <p className="text-xs text-green-600 mt-2 font-medium">
-                    Completed Task
-                  </p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-chart-3 opacity-60 text-green-400" />
-              </div>
-            </CardContent>
-          </Card>
         </div>
+    
+        <ReviewerLifecycle
+          data={reviewerLifecycleData}
+          isLoading={isReviewerLifecycle}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+        />
+
+        {isViewerAdminOrModerator && userId && (
+          <div className="mb-6 mt-8 p-6 rounded-xl border border-border bg-card/30 shadow-sm">
+            <div className="flex items-center gap-2 mb-6">
+              <History className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-bold text-foreground">User Activity History</h2>
+            </div>
+            <UserHistoryView userId={userId} isEmbedded />
+          </div>
+        )}
+
+        {isViewerAdminOrModerator && userId && <WorkingHoursTrendChart userId={userId}/>}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-10">
           <TabsList>
             <TabsTrigger value="review_level">Review Level</TabsTrigger>

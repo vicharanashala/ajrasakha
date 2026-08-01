@@ -21,6 +21,7 @@ export interface KnowledgeAwarenessCardProps {
   isRefreshing: boolean;
   onRefresh: () => void;
   className?: string;
+  onMetricClick?: (metric: "kcc" | "agri", value: "yes" | "no") => void;
 }
 
 interface AwarenessMetricProps {
@@ -30,6 +31,7 @@ interface AwarenessMetricProps {
   setHover: (value: string | null) => void;
   color: string;
   gradId: string;
+  onMetricClick?: (value: "yes" | "no") => void;
 }
 
 function AwarenessMetric({
@@ -39,6 +41,7 @@ function AwarenessMetric({
   setHover,
   color,
   gradId,
+  onMetricClick,
 }: AwarenessMetricProps) {
   const yes = data?.[0]?.count || 0;
   const no = data?.[1]?.count || 0;
@@ -95,6 +98,7 @@ function AwarenessMetric({
             className="cursor-pointer transition-[stroke-width] duration-200"
             onMouseEnter={() => setHover("yes")}
             onMouseLeave={() => setHover(null)}
+            onClick={() => onMetricClick?.("yes")}
           />
 
           {/* No arc */}
@@ -111,6 +115,7 @@ function AwarenessMetric({
             transform={`rotate(-90 ${cx} ${cy})`}
             onMouseEnter={() => setHover("no")}
             onMouseLeave={() => setHover(null)}
+            onClick={() => onMetricClick?.("no")}
           />
 
           {/* Center text */}
@@ -141,7 +146,10 @@ function AwarenessMetric({
 
       <div className="flex flex-col items-center gap-1">
         <span className="text-xs font-medium text-foreground">{label}</span>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums cursor-pointer hover:bg-muted/80 transition-colors"
+          onClick={() => onMetricClick?.("yes")}
+        >
           <span
             className="w-1.5 h-1.5 rounded-full"
             style={{ backgroundColor: color }}
@@ -162,6 +170,7 @@ export function KnowledgeAwarenessCard({
   isRefreshing,
   onRefresh,
   className,
+  onMetricClick,
 }: KnowledgeAwarenessCardProps) {
   return (
     <div
@@ -205,6 +214,7 @@ export function KnowledgeAwarenessCard({
           setHover={setHovered}
           color="hsl(142 71% 45%)"
           gradId="kccGrad"
+          onMetricClick={(val) => onMetricClick?.("kcc", val)}
         />
         <AwarenessMetric
           label="Uses Agri Apps"
@@ -213,6 +223,7 @@ export function KnowledgeAwarenessCard({
           setHover={setAgriHovered}
           color="hsl(217 91% 60%)"
           gradId="agriGrad"
+          onMetricClick={(val) => onMetricClick?.("agri", val)}
         />
       </div>
     </div>

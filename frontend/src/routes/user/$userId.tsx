@@ -1,9 +1,9 @@
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
-import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useAuthStore } from "@/stores/auth-store";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { DateRange } from "react-day-picker";
 import {
   useUserProfile,
   type UserDetail,
@@ -11,6 +11,7 @@ import {
 import { FarmerDetailsContent } from "@/components/user/FarmerDetailsContent";
 import {
   AlertCircle,
+  ArrowLeft,
   Home,
   Loader2,
   MessageSquareText,
@@ -56,8 +57,12 @@ import {
 } from "@/features/chatbotDashboard/components/CoordinatorDashboardSections";
 import {
   FarmerDashboardAnalytics,
+  UserQuestionMetricsCards,
   type FarmerDashboardData,
 } from "@/features/chatbotDashboard/components/FarmerDashboardAnalytics";
+import { CoordinatorKpiCards } from "@/features/chatbotDashboard/components/CoordinatorKpiCards";
+import { CoordinatorGrowthAndAlerts } from "@/features/chatbotDashboard/components/CoordinatorGrowthAndAlerts";
+import { getISOStringsForDateRange } from "@/features/chatbotDashboard/utils/dateUtils";
 import {
   CoordinatorNotificationDialog,
   UserNotificationHistorySheet,
@@ -85,14 +90,37 @@ function RouteComponent() {
   const { data: currentUser } = useGetCurrentUser({
     enabled: !!user,
   });
+  const handleBack = () => {
+    if (currentUser?.role === "admin") {
+      navigate({ to: "/chatbot" });
+    } else if (currentUser?.role && isCoordinatorRole(currentUser.role)) {
+      navigate({
+        to: "/user/$userId",
+        params: { userId: currentUser?._id || "" },
+      });
+    } else {
+      navigate({ to: "/home" });
+    }
+  };
   const { userId } = Route.useParams();
   const canFetchProfile = isLikelyObjectId(userId);
+  const [engagementDateRange, setEngagementDateRange] =
+    useState<DateRange | undefined>(undefined);
+  const engagementRange = useMemo(
+    () => getISOStringsForDateRange(engagementDateRange),
+    [engagementDateRange],
+  );
 
   const {
     data: userProfile,
     isLoading: userProfileLoading,
     error: userProfileError,
-  } = useUserProfile(userId, canFetchProfile);
+  } = useUserProfile(
+    userId,
+    canFetchProfile,
+    engagementRange.startTime,
+    engagementRange.endTime,
+  );
 
   useEffect(() => {
     if (!user) {
@@ -430,7 +458,7 @@ function RouteComponent() {
       <DashboardMessage
         title="Invalid farmer ID"
         description="Please open this dashboard from a farmer name in the listing."
-        onBack={() => navigate({ to: "/home" })}
+        onBack={handleBack}
       />
     );
   }
@@ -440,7 +468,7 @@ function RouteComponent() {
       <DashboardMessage
         title="Farmer not found"
         description="This farmer profile could not be loaded. The user may have been removed or the ID is incorrect."
-        onBack={() => navigate({ to: "/home" })}
+        onBack={handleBack}
       />
     );
   }
@@ -481,11 +509,20 @@ function RouteComponent() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate({ to: "/home" })}
+          onClick={handleBack}
             className="h-11 gap-2 rounded-md px-4 text-base"
         >
-          <Home className="h-4 w-4 mr-2" />
-          Home
+          {currentUser?.role === "admin" || !currentUserOwnsViewedProfile ? (
+            <>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </>
+          ) : (
+            <>
+              <Home className="mr-2 h-4 w-4" />
+              Home
+            </>
+          )}
         </Button>
         <h1 className="min-w-0 text-center text-lg font-semibold tracking-tight sm:text-xl">
           {viewedProfileIsCoordinator ? "Coordinator Dashboard" : "User Dashboard"}
@@ -513,18 +550,25 @@ function RouteComponent() {
               }
             />
           )}
-          <ThemeToggleCompact />
-          <UserProfileActions />
+          {currentUser?.role !== "admin" && <UserProfileActions />}
         </div>
       </header>
       <main className="space-y-8">
         {showCoordinatorSummary ? (
-          <CoordinatorDashboardSummary
-            user={userProfile}
-            assignedCount={assignedUsers.length}
-            availableCount={availableUsers.length}
-            isReadOnly={isCoordinatorReadOnlyView}
-          />
+          <>
+            <CoordinatorDashboardSummary
+              user={userProfile}
+              assignedCount={assignedUsers.length}
+              availableCount={availableUsers.length}
+              isReadOnly={isCoordinatorReadOnlyView}
+            />
+            <UserQuestionMetricsCards userId={userId} />
+            <CoordinatorKpiCards userId={userId} />
+            <CoordinatorGrowthAndAlerts
+              userId={userId}
+              isDistrictCoordinator={userProfile?.userRole === "district_coordinator"}
+            />
+          </>
         ) : (
         <FarmerDetailsContent
           user={userProfile}
@@ -550,8 +594,21 @@ function RouteComponent() {
             parentCoordinator={parentCoordinator}
           />
         )}
+        {currentUser?.role === "admin" && viewedProfileIsCoordinator && (
+          <>
+          <UserQuestionMetricsCards userId={userId} />
+          <CoordinatorKpiCards userId={userId} />
+            <CoordinatorGrowthAndAlerts
+              userId={userId}
+              isDistrictCoordinator={userProfile?.userRole === "district_coordinator"}
+            />
+          </>
+        )}
         <FarmerDashboardAnalytics
           dashboard={userProfile?.farmerDashboard as FarmerDashboardData}
+          userId={String(userProfile?.userId || userId)}
+          engagementDateRange={engagementDateRange}
+          onEngagementDateRangeChange={setEngagementDateRange}
           afterEngagementTrends={
             viewedProfileIsCoordinator ? (
               <CoordinatorDuplicateQuestionHeatMap
@@ -559,6 +616,7 @@ function RouteComponent() {
               />
             ) : undefined
           }
+          hideQuestionMetrics={viewedProfileIsCoordinator || showCoordinatorSummary}
         />
         {canManageAssignments && (
             <>
@@ -782,7 +840,6 @@ function DashboardMessage({
         </Button>
         <h1 className="text-base font-semibold">User Dashboard</h1>
         <div className="flex items-center gap-2">
-          <ThemeToggleCompact />
           <UserProfileActions />
         </div>
       </header>

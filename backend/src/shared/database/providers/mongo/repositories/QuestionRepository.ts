@@ -268,6 +268,28 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Data fix: standardise a state name. Sets details.state = standardizedTo for every
+   *  question whose details.state currently matches one of currentValues (exact match). */
+  async normalizeQuestionState(
+    currentValues: string[],
+    standardizedTo: string,
+    session?: ClientSession,
+  ): Promise<{ matched: number; modified: number }> {
+    try {
+      await this.init();
+      const result = await this.QuestionCollection.updateMany(
+        {'details.state': {$in: currentValues}},
+        {$set: {'details.state': standardizedTo, updatedAt: new Date()}},
+        {session},
+      );
+      return {matched: result.matchedCount, modified: result.modifiedCount};
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to normalize question state: ${error}`,
+      );
+    }
+  }
+
   async getById(
     questionId: string,
     session?: ClientSession,
@@ -302,6 +324,22 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Find questions that reference the given question (referenceQuestionId), optionally
+   *  filtered by status. Used to propagate a close to queue-duplicate children. */
+  async findByReferenceQuestionId(
+    referenceQuestionId: string,
+    status?: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    if (!isValidObjectId(referenceQuestionId)) return [];
+    const filter: Record<string, unknown> = {
+      referenceQuestionId: new ObjectId(referenceQuestionId),
+    };
+    if (status) filter.status = status;
+    return this.QuestionCollection.find(filter, {session}).toArray();
+  }
+
   async findDetailedQuestions(
     query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
     body?: DetailedQuestionsBodyDto,
@@ -334,6 +372,7 @@ export class QuestionRepository implements IQuestionRepository {
         endTime,
         domain,
         user,
+        assignedUser,
         page = 1,
         limit = 10,
         review_level,
@@ -351,13 +390,17 @@ export class QuestionRepository implements IQuestionRepository {
         pae_review,
         is_non_agri,
         is_testing,
+        isTrainingQuestion,
         moderatorId,
+        gateKeeperId,
+        auditorId,
       } = query;
       //  const filter: any = {};
       const filter: any = {
         // isHidden: { $ne: true }, // default to exclude hidden questions
         // isOnHold: { $ne: true }, // default to exclude on hold questions
         isTesting:{$ne:true},
+        isTrainingQuestion:{$ne:true},
       };
       if (pae_review) {
         filter.pae_review = {$eq: true};
@@ -489,6 +532,13 @@ export class QuestionRepository implements IQuestionRepository {
         filter.isTesting = true;
       }
 
+      // --- Training tab filter ---
+      // Training questions are excluded from every tab by the base `isTrainingQuestion: {$ne:true}`
+      // filter. The Training tab opts back IN: override it to show ONLY training questions.
+      if (isTrainingQuestion === 'true' || isTrainingQuestion === true) {
+        filter.isTrainingQuestion = true;
+      }
+
       // --- Dedicated (moderator-assigned) tab filter ---
       // When filtering by moderatorId, always restrict to active statuses only
       // (in-review, re-routed, duplicate or pae_submitted), overriding any status filter
@@ -510,6 +560,26 @@ export class QuestionRepository implements IQuestionRepository {
         // A moderator's assignments span all question types (including PAE questions),
         // so drop the pae_review restriction applied above for the normal tabs —
         // otherwise pae_review:true assignments would be hidden from "My Assignments".
+        delete filter.$or;
+        delete filter.pae_review;
+      }
+
+      // --- Gate keeper "My Assignments" tab: questions assigned to this gate keeper,
+      // restricted to the gate-keeper handling statuses. ---
+      if (gateKeeperId) {
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({ gateKeeperId: new ObjectId(gateKeeperId as string) });
+        filter.status = { $in: ['dynamic', 'duplicate', 'queue_duplicate'] };
+        delete filter.$or;
+        delete filter.pae_review;
+      }
+
+      // --- Auditor "My Assignments" tab: questions assigned to this auditor,
+      // restricted to the auditor_review status. ---
+      if (auditorId) {
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({ auditorId: new ObjectId(auditorId as string) });
+        filter.status = { $in: ['auditor_review'] };
         delete filter.$or;
         delete filter.pae_review;
       }
@@ -720,6 +790,59 @@ export class QuestionRepository implements IQuestionRepository {
         }
 
         filter._id = {$in: questionIdsByUser.map(id => new ObjectId(id))};
+      }
+
+      if (assignedUser && assignedUser !== 'all') {
+        const userObjId = new ObjectId(assignedUser);
+        const userStr = assignedUser.toString();
+
+        const submissions = await this.QuestionSubmissionCollection.find({
+          $or: [
+            {
+              $and: [
+                { history: { $size: 0 } },
+                { queue: { $size: 1 } },
+                { $or: [{ 'queue.0': userObjId }, { 'queue.0': userStr }] },
+              ],
+            },
+            {
+              $and: [
+                { history: { $not: { $size: 0 } } },
+                {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $arrayElemAt: ['$history.status', -1] }, 'in-review'] },
+                      {
+                        $in: [
+                          { $arrayElemAt: ['$history.updatedBy', -1] },
+                          [userObjId, userStr],
+                        ],
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        })
+          .project({ questionId: 1 })
+          .toArray();
+
+        const assignedQuestionIds = submissions.map(s => s.questionId.toString());
+
+        if (assignedQuestionIds.length === 0) {
+          return { questions: [], totalPages: 0, totalCount: 0 };
+        }
+
+        if (filter._id) {
+          filter._id = {
+            $in: assignedQuestionIds
+              .map(id => new ObjectId(id))
+              .filter(id => filter._id.$in.some((existing: any) => existing.equals(id))),
+          };
+        } else {
+          filter._id = { $in: assignedQuestionIds.map(id => new ObjectId(id)) };
+        }
       }
       // --- review_level filter (Level 1–9) ---
       // --- review_level filter ---
@@ -2115,10 +2238,15 @@ export class QuestionRepository implements IQuestionRepository {
         updatedAt: submission?.updatedAt,
       };
 
-      // 7.2 If question is closed with no submission queue, fetch the final answer directly
+      // 7.2 If question is closed with no submission queue, fetch the final answer directly.
+      // `dynamic_closed` (dynamic questions finalised via the Auditor "Notify User" flow)
+      // and `duplicate_closed` (duplicate questions finalised the same way) are treated the
+      // same as `closed` so their final answer shows in the timeline too.
       let closedFinalAnswer: any = null;
       if (
-        question.status === 'closed' &&
+        (question.status === 'closed' ||
+          question.status === 'dynamic_closed' ||
+          question.status === 'duplicate_closed') &&
         (submission?.queue?.length ?? 0) === 0
       ) {
         const fa = await this.AnswersCollection.findOne({
@@ -2213,6 +2341,9 @@ export class QuestionRepository implements IQuestionRepository {
               : aiApprovedAnswer,
           contextId: question.contextId?.toString(),
           isAutoAllocate: question.isAutoAllocate ?? true,
+          referenceQuestionId: question.referenceQuestionId
+            ? question.referenceQuestionId.toString()
+            : undefined,
         },
         _id: question._id?.toString(),
         userId: question.userId?.toString(),
@@ -2294,6 +2425,25 @@ export class QuestionRepository implements IQuestionRepository {
                   },
                   'delayed',
                   '$status',
+                ],
+              },
+
+              isDelayed: {
+                $cond: [
+                  {
+                    $lte: [
+                      {
+                        $add: [
+                          '$createdAt',
+                          twoHoursMs,
+                          { $ifNull: ['$accumulatedHoldMs', 0] },
+                        ],
+                      },
+                      now,
+                    ],
+                  },
+                  true,
+                  { $ifNull: ['$isDelayed', false] },
                 ],
               },
             },
@@ -2430,7 +2580,19 @@ export class QuestionRepository implements IQuestionRepository {
         delete (updates as any).context;
       }
 
+      // Test-question toggle: `isTesting: false` means "remove from testing" — drop
+      // the flag entirely rather than persisting a `false`. `isTesting: true` is a
+      // normal $set below (and the caller also sends isAutoAllocate: false alongside).
+      const removeTestingFlag = (updates as any).isTesting === false;
+      if (removeTestingFlag) {
+        delete (updates as any).isTesting;
+      }
+
       const updateOperation: any = {$set: {...updates, updatedAt: new Date()}};
+
+      if (removeTestingFlag) {
+        updateOperation.$unset = {...(updateOperation.$unset || {}), isTesting: ''};
+      }
 
       if (contextValue) {
         const q = await this.QuestionCollection.findOne(
@@ -2445,7 +2607,10 @@ export class QuestionRepository implements IQuestionRepository {
           );
         }
         // Unset the context field from the question document to ensure it uses the one from context collection
-        (updateOperation as any).$unset = {context: 1};
+        (updateOperation as any).$unset = {
+          ...((updateOperation as any).$unset || {}),
+          context: 1,
+        };
       }
 
       const result = await this.QuestionCollection.updateOne(
@@ -2724,10 +2889,22 @@ export class QuestionRepository implements IQuestionRepository {
     return await this.QuestionCollection.find({status}, {session}).toArray();
   }
 
-  async getClosedQuestionsCount(session?: ClientSession): Promise<number> {
+  async getClosedQuestionsCount(isTrainingUser?: boolean, isAdmin?: boolean,session?: ClientSession): Promise<number> {
     await this.init();
     return await this.QuestionCollection.countDocuments(
-      {status: 'closed'},
+      {
+        status: 'closed',
+        ...(!isAdmin && {
+          ...(isTrainingUser
+            ? { isTrainingQuestion: true }
+            : {
+              $or: [
+                { isTrainingQuestion: false },
+                { isTrainingQuestion: { $exists: false } },
+              ],
+            }),
+        }),
+      },
       {session},
     );
   }
@@ -2736,12 +2913,14 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedYear: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     yearData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -2757,8 +2936,12 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Build match condition with optional time filtering
     const matchCondition: any = {
-      createdAt: {$gte: startDate, $lt: endDate},
-      status: {$ne: 'pass'},
+      createdAt: { $gte: startDate, $lt: endDate },
+      status: { $ne: 'pass' },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
     };
 
     const closedMatchCondition: any = {
@@ -2767,6 +2950,10 @@ export class QuestionRepository implements IQuestionRepository {
         $gte: startDate,
         $lt: endDate,
       },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
     };
 
     // Add time filtering if provided
@@ -2916,7 +3103,7 @@ export class QuestionRepository implements IQuestionRepository {
         };
       },
     );
-
+    
     const [closedStats] = await this.QuestionCollection.aggregate(
       [
         {
@@ -2935,6 +3122,8 @@ export class QuestionRepository implements IQuestionRepository {
 
     const totalVerifiedByType = closedStats?.totalVerified ?? 0;
     const {moderatorBreakdown} = await this.getTodayApproved(
+      isTrainingUser,
+      isAdmin,
       session,
       startDate,
       endDate,
@@ -2978,6 +3167,8 @@ export class QuestionRepository implements IQuestionRepository {
       endDate,
       customStartTime,
       customEndTime,
+      isTrainingUser,
+      isAdmin
     );
     return {
       yearData: formattedData,
@@ -2999,17 +3190,20 @@ export class QuestionRepository implements IQuestionRepository {
    * @returns A promise that resolves to question document
    */
   async getTodayApproved(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
     startDate?: Date,
     endDate?: Date,
   ): Promise<{
     todayApproved: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number; moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
   }> {
     await this.init();
 
     let start = startDate;
     let end = endDate;
+    const now = new Date();
 
     if (!start || !end) {
       start = new Date();
@@ -3019,87 +3213,266 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get moderator breakdown
-   const moderatorBreakdown = (await this.AnswersCollection.aggregate(
-  [
-    {
-      $match: {
-        status: 'approved',
-        isFinalAnswer: true,
-        approvedBy: {$exists: true, $ne: null},
-      },
-    },
-
-    // Lookup question
-    {
-      $lookup: {
-        from: 'questions',
-        localField: 'questionId',
-        foreignField: '_id',
-        as: 'question',
-      },
-    },
-
-    {
-      $unwind: {
-        path: '$question',
-        preserveNullAndEmptyArrays: false,
-      },
-    },
-
-    // Filter by question.closedAt
-    {
-      $match: {
-        'question.closedAt': {
-          $gte: start,
-          $lt: end,
+    const moderatorBreakdown = (await this.AnswersCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'approved',
+            isFinalAnswer: true,
+            approvedBy: { $exists: true, $ne: null },
+          },
         },
-      },
-    },
 
-    {
-      $group: {
-        _id: '$approvedBy',
-        count: {$sum: 1},
-      },
-    },
-
-    {
-      $lookup: {
-        from: 'users',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'moderator',
-      },
-    },
-
-    {
-      $unwind: {
-        path: '$moderator',
-        preserveNullAndEmptyArrays: false,
-      },
-    },
-
-    {
-      $project: {
-        _id: 0,
-        moderatorName: {
-          $concat: [
-            '$moderator.firstName',
-            ' ',
-            {$ifNull: ['$moderator.lastName', '']},
-          ],
+        // Lookup question
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
         },
-        count: 1,
-      },
-    },
 
-    {
-      $sort: {count: -1},
-    },
-  ],
-  {session},
-).toArray()) as {moderatorName: string; count: number}[];
+        {
+          $unwind: {
+            path: '$question',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
 
+        // Filter by question.closedAt
+        {
+          $match: {
+            'question.closedAt': {
+              $gte: start,
+              $lt: end,
+            },
+            ...(!isAdmin &&
+              (isTrainingUser
+                ? {
+                    'question.isTrainingQuestion': true,
+                  }
+                : {
+                    'question.isTrainingQuestion': { $ne: true },
+                  })),
+          },
+        },
+
+        // Group by moderator
+        {
+          $group: {
+            _id: '$approvedBy',
+            count: { $sum: 1 },
+          },
+        },
+
+        // Lookup moderator details
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'moderator',
+          },
+        },
+
+        {
+          $unwind: {
+            path: '$moderator',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+
+        // Lookup moderator role history
+        {
+          $lookup: {
+            from: 'user_role_history',
+            let: {
+              moderatorId: '$_id',
+              reportStart: start,
+              reportEnd: end,
+              currentTime: now,
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$userId', '$$moderatorId'] },
+                      {
+                        $in: ['$role', ['moderator', 'auditor', 'gate_keeper']],
+                      },
+                      {
+                        $eq: [
+                          { $ifNull: ['$isBlocked', false] },
+                          false,
+                        ],
+                      },
+
+                      // Role started before report ended
+                      { $lt: ['$from', '$$reportEnd'] },
+
+                      // Role ended after report started OR is still active
+                      {
+                        $or: [
+                          { $eq: ['$to', null] },
+                          { $gt: ['$to', '$$reportStart'] },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+              {
+                $project: {
+                  role:1,
+                  hours: {
+                    $divide: [
+                      {
+                        $subtract: [
+                          // Effective end
+                          {
+                            $min: [
+                              {
+                                $ifNull: ['$to', '$$currentTime'],
+                              },
+                              '$$reportEnd',
+                            ],
+                          },
+
+                          // Effective start
+                          {
+                            $max: [
+                              '$from',
+                              '$$reportStart',
+                            ],
+                          },
+                        ],
+                      },
+                      1000 * 60 * 60,
+                    ],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: '$role',
+                  hours: {
+                    $sum: '$hours',
+                  },
+                },
+              },
+            ],
+            as: 'roleHistory',
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+            moderatorName: {
+              $concat: [
+                '$moderator.firstName',
+                ' ',
+                { $ifNull: ['$moderator.lastName', ''] },
+              ],
+            },
+            count: 1,
+
+            moderatorHours: {
+              $round: [
+                {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'moderator'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+              ],
+            },
+
+            auditorHours: {
+              $round: [
+                {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'auditor'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+              ],
+            },
+
+            gateKeeperHours: {
+              $round: [
+                {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'gate_keeper'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+              ],
+            },
+          },
+        },
+
+        {
+          $sort: {
+            count: -1,
+          },
+        },
+      ],
+      { session },
+    ).toArray()) as {
+      moderatorName: string;
+      count: number;
+      moderatorHours: number;
+      auditorHours: number;
+      gateKeeperHours: number;
+    }[];
     // Calculate total from the breakdown
     const totalApproved = moderatorBreakdown.reduce(
       (sum, item) => sum + item.count,
@@ -3612,12 +3985,14 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedMonth: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     weeksData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -3651,8 +4026,12 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Build match condition with optional time filtering
     const matchCondition: any = {
-      createdAt: {$gte: startDate, $lt: endDate},
-      status: {$ne: 'pass'},
+      createdAt: { $gte: startDate, $lt: endDate },
+      status: { $ne: 'pass' },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
     };
 
     const closedMatchCondition: any = {
@@ -3661,6 +4040,10 @@ export class QuestionRepository implements IQuestionRepository {
         $gte: startDate,
         $lt: endDate,
       },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
     };
 
     // Add time filtering if provided
@@ -3819,6 +4202,8 @@ export class QuestionRepository implements IQuestionRepository {
    const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     const {moderatorBreakdown} = await this.getTodayApproved(
+      isTrainingUser,
+      isAdmin,
       session,
       startDate,
       endDate,
@@ -3862,6 +4247,8 @@ export class QuestionRepository implements IQuestionRepository {
       endDate,
       customStartTime,
       customEndTime,
+      isTrainingUser,
+      isAdmin
     );
     return {
       weeksData,
@@ -3883,12 +4270,14 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedWeek: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     dailyData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -3927,8 +4316,12 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Build match condition with optional time filtering
     const matchCondition: any = {
-      createdAt: {$gte: startDate, $lt: endDate},
-      status: {$ne: 'pass'},
+      createdAt: { $gte: startDate, $lt: endDate },
+      status: { $ne: 'pass' },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
     };
 
     const closedMatchCondition: any = {
@@ -3937,6 +4330,10 @@ export class QuestionRepository implements IQuestionRepository {
         $gte: startDate,
         $lt: endDate,
       },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
     };
 
     // Add time filtering if provided
@@ -4095,6 +4492,8 @@ export class QuestionRepository implements IQuestionRepository {
     const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     const {moderatorBreakdown} = await this.getTodayApproved(
+      isTrainingUser,
+      isAdmin,
       session,
       startDate,
       endDate,
@@ -4138,6 +4537,8 @@ export class QuestionRepository implements IQuestionRepository {
       endDate,
       customStartTime,
       customEndTime,
+      isTrainingUser,
+      isAdmin
     );
     return {
       dailyData,
@@ -4160,12 +4561,14 @@ export class QuestionRepository implements IQuestionRepository {
     goldenDataSelectedDay: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -4218,16 +4621,24 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Build match condition with optional time filtering
     const matchCondition: any = {
-      createdAt: {$gte: startDate, $lt: endDate},
-      status: {$ne: 'pass'},
+      createdAt: { $gte: startDate, $lt: endDate },
+      status: { $ne: 'pass' },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
     };
 
     const closedMatchCondition: any = {
-      status: 'closed',
+      // status: 'closed',
       closedAt: {
         $gte: startDate,
         $lt: endDate,
       },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
     };
 
     // Add time filtering if provided
@@ -4476,7 +4887,7 @@ export class QuestionRepository implements IQuestionRepository {
       current.setDate(current.getDate() + 1);
     }
 
-    let moderatorBreakdown: {moderatorName: string; count: number}[] = [];
+    let moderatorBreakdown: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[] = [];
     let questionSourceBreakdown: {whatsapp: number; ajrasakha: number} = {
       whatsapp: 0,
       ajrasakha: 0,
@@ -4499,6 +4910,8 @@ export class QuestionRepository implements IQuestionRepository {
       const specificDayEnd = new Date(specificDayStart);
       specificDayEnd.setDate(specificDayEnd.getDate() + 1);
       const result = await this.getTodayApproved(
+        isTrainingUser,
+        isAdmin,
         session,
         specificDayStart,
         specificDayEnd,
@@ -4545,6 +4958,8 @@ export class QuestionRepository implements IQuestionRepository {
       endDate,
       customStartTime,
       customEndTime,
+      isTrainingUser,
+      isAdmin
     );
 
     return {
@@ -4564,12 +4979,14 @@ export class QuestionRepository implements IQuestionRepository {
   async getCustomRangeAnalytics(
     customStartDateTime: string,
     customEndDateTime: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     customData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -4627,6 +5044,8 @@ export class QuestionRepository implements IQuestionRepository {
     );
 
     const {moderatorBreakdown} = await this.getTodayApproved(
+      isTrainingUser,
+      isAdmin,
       session,
       startDate,
       endDate,
@@ -4661,6 +5080,8 @@ export class QuestionRepository implements IQuestionRepository {
 
   async getCountBySource(
     timeRange: string, // 90d, 30d, 7d ,...
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<DashboardResponse['questionContributionTrend']> {
     await this.init();
@@ -4676,7 +5097,11 @@ export class QuestionRepository implements IQuestionRepository {
       [
         {
           $match: {
-            createdAt: {$gte: startDate},
+            createdAt: { $gte: startDate },
+            ...(!isAdmin &&
+              (isTrainingUser
+                ? { isTrainingQuestion: true }
+                : { isTrainingQuestion: { $ne: true } })),
           },
         },
         {
@@ -4729,13 +5154,23 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   async getQuestionOverviewByStatus(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<QuestionStatusOverview[]> {
     await this.init();
 
     const results = await this.QuestionCollection.aggregate(
       [
-        {$match: {status: {$ne: 'pass'}}},
+        {
+          $match: {
+            status: { $ne: 'pass' },
+            ...(!isAdmin &&
+              (isTrainingUser
+                ? { isTrainingQuestion: true }
+                : { isTrainingQuestion: { $ne: true } })),
+          }
+        },
         {
           $group: {
             _id: '$status',
@@ -4773,6 +5208,8 @@ export class QuestionRepository implements IQuestionRepository {
     state?: string[],
     source?: string[],
     crop?: string[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{analytics: Analytics}> {
     await this.init();
 
@@ -4780,7 +5217,12 @@ export class QuestionRepository implements IQuestionRepository {
     if (startTime) filterDate.$gte = new Date(`${startTime}T00:00:00.000Z`);
     if (endTime) filterDate.$lte = new Date(`${endTime}T23:59:59.999Z`);
 
-    const matchStage: any = {};
+    const matchStage: any = {
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
+    };
     if (status?.length) {
       matchStage.status = {$in: status};
     }
@@ -4948,30 +5390,48 @@ export class QuestionRepository implements IQuestionRepository {
   async getModeratorApprovalRate(
     currentUserId: string,
     session?: ClientSession,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ModeratorApprovalRate> {
     try {
       await this.init();
 
       const pending = await this.QuestionCollection.countDocuments(
-        {status: 'in-review'},
-        {session},
+        {
+          status: 'in-review',
+          ...(
+            !isAdmin &&
+            (isTrainingUser
+              ? { isTrainingQuestion: true }
+              : { isTrainingQuestion: { $ne: true } })
+          ),
+        },
+        { session },
       );
 
       const approved = await this.QuestionCollection.countDocuments(
-        {status: 'closed'},
-        {session},
+        {
+          status: 'closed',
+          ...(
+            !isAdmin &&
+            (isTrainingUser
+              ? { isTrainingQuestion: true }
+              : { isTrainingQuestion: { $ne: true } })
+          ),
+        },
+        { session },
       );
 
       const totalReviews = pending + approved || 0;
 
-      const approvedCount = await this.QuestionCollection.countDocuments(
-        {status: 'closed'},
-        {session},
-      );
+      // const approvedCount = await this.QuestionCollection.countDocuments(
+      //   {status: 'closed'},
+      //   {session},
+      // );
 
       const approvalRate =
         totalReviews > 0
-          ? Number(((approvedCount / totalReviews) * 100).toFixed(2))
+          ? Number(((approved / totalReviews) * 100).toFixed(2))
           : 0;
 
       return {
@@ -5600,6 +6060,8 @@ export class QuestionRepository implements IQuestionRepository {
   async getMonthlyQuestionStats(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     Array<{
@@ -5642,6 +6104,13 @@ export class QuestionRepository implements IQuestionRepository {
         {
           $match: {
             createdAt: {$gte: defaultStartDate, $lte: defaultEndDate},
+            ...(
+              !isAdmin && isTrainingUser === true
+                ? { isTrainingQuestion: true }
+                : !isAdmin && isTrainingUser === false
+                  ? { isTrainingQuestion: { $ne: true } }
+                  : {}
+            ),
           },
         },
         {
@@ -5663,6 +6132,31 @@ export class QuestionRepository implements IQuestionRepository {
         {
           $match: {
             createdAt: {$gte: defaultStartDate, $lte: defaultEndDate},
+          },
+        },
+
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+
+        {
+          $unwind: '$question',
+        },
+
+        {
+          $match: {
+            ...(
+              !isAdmin && isTrainingUser === true
+                ? { isTrainingQuestion: true }
+                : !isAdmin && isTrainingUser === false
+                  ? { isTrainingQuestion: { $ne: true } }
+                  : {}
+            ),
           },
         },
 
@@ -6147,6 +6641,8 @@ export class QuestionRepository implements IQuestionRepository {
     endDate?: Date,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{
     assigned: number;
     submitted: number;
@@ -6154,8 +6650,19 @@ export class QuestionRepository implements IQuestionRepository {
   }> {
     await this.init();
 
-    const matchCondition: any = {status: {$ne: 'pass'}};
-    const closedMatchCondition: any = {};
+    const matchCondition: any = {
+      status: { $ne: 'pass' },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
+    };
+    const closedMatchCondition: any = {
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
+    };
 
     if (startDate && endDate) {
       // Filter by createdAt in IST format for assigned and submitted
@@ -6336,6 +6843,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     openAtMidnight: number;
@@ -6369,6 +6878,13 @@ export class QuestionRepository implements IQuestionRepository {
         : source === 'whatsapp'
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
+    
+    const trainingFilter = !isAdmin && isTrainingUser === true
+      ? { isTrainingQuestion: true }
+      : !isAdmin && isTrainingUser === false
+        ? { isTrainingQuestion: { $ne: true } }
+        : {}
+
 
     const [
       openAtMidnight,
@@ -6387,6 +6903,7 @@ export class QuestionRepository implements IQuestionRepository {
             $lte: end,
           },
           source: sourceFilter,
+           ...trainingFilter,
           $or: [
             { closedAt: null },
             { closedAt: { $gte: midnight } },
@@ -6403,6 +6920,7 @@ export class QuestionRepository implements IQuestionRepository {
             $lte: end,
           },
           source: sourceFilter,
+           ...trainingFilter,
           closedAt: {
             $gte: midnight,
             $lt: sixAM,
@@ -6422,6 +6940,7 @@ export class QuestionRepository implements IQuestionRepository {
           },
 
           source: sourceFilter,
+           ...trainingFilter,
           
           ...createdAtShiftFilter,
         },
@@ -6441,6 +6960,7 @@ export class QuestionRepository implements IQuestionRepository {
           },
 
           source: sourceFilter,
+           ...trainingFilter,
 
           ...closedAtShiftFilter,
         },
@@ -6469,6 +6989,7 @@ export class QuestionRepository implements IQuestionRepository {
               },
 
               source: sourceFilter,
+               ...trainingFilter,
 
               ...createdAtShiftFilter,
             },
@@ -6517,6 +7038,7 @@ export class QuestionRepository implements IQuestionRepository {
               },
 
               source: sourceFilter,
+               ...trainingFilter,
 
               ...createdAtShiftFilter,
             },
@@ -6552,6 +7074,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     {
@@ -6573,6 +7097,12 @@ export class QuestionRepository implements IQuestionRepository {
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
 
+   const trainingFilter = !isAdmin && isTrainingUser === true
+      ? { isTrainingQuestion: true }
+      : !isAdmin && isTrainingUser === false
+        ? { isTrainingQuestion: { $ne: true } }
+        : {}
+
     /**
      * Added Questions Aggregation
      */
@@ -6585,6 +7115,7 @@ export class QuestionRepository implements IQuestionRepository {
               $lte: end,
             },
              source: sourceFilter,
+            ...trainingFilter,
             ...getShiftFilter('createdAt', shift, from, to),
           },
         },
@@ -6626,6 +7157,7 @@ export class QuestionRepository implements IQuestionRepository {
               $lte: end,
             },
              source: sourceFilter,
+            ...trainingFilter,
             ...getShiftFilter('closedAt', shift, from, to),
           },
         },
@@ -6714,6 +7246,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     {
@@ -6734,6 +7268,12 @@ export class QuestionRepository implements IQuestionRepository {
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
 
+  const trainingFilter = !isAdmin && isTrainingUser === true
+      ? { isTrainingQuestion: true }
+      : !isAdmin && isTrainingUser === false
+        ? { isTrainingQuestion: { $ne: true } }
+        : {}
+
     const result = await this.QuestionCollection.aggregate(
       [
         /**
@@ -6746,6 +7286,7 @@ export class QuestionRepository implements IQuestionRepository {
               $lte: end,
             },
              source: sourceFilter,
+            ...trainingFilter,
             ...getShiftFilter('createdAt', shift, from, to),
           },
         },
@@ -6787,6 +7328,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     {
@@ -6806,6 +7349,12 @@ export class QuestionRepository implements IQuestionRepository {
         : source === 'whatsapp'
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
+
+    const trainingFilter = !isAdmin && isTrainingUser === true
+      ? { isTrainingQuestion: true }
+      : !isAdmin && isTrainingUser === false
+        ? { isTrainingQuestion: { $ne: true } }
+        : {}
 
     const result = await this.QuestionSubmissionCollection.aggregate(
       [
@@ -6841,6 +7390,7 @@ export class QuestionRepository implements IQuestionRepository {
         {
           $match: {
             'question.source': sourceFilter,
+            ...trainingFilter
           },
         },
 
@@ -6934,6 +7484,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     {
@@ -6957,6 +7509,12 @@ export class QuestionRepository implements IQuestionRepository {
         : source === 'whatsapp'
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
+
+    const trainingFilter = !isAdmin && isTrainingUser === true
+      ? { isTrainingQuestion: true }
+      : !isAdmin && isTrainingUser === false
+        ? { isTrainingQuestion: { $ne: true } }
+        : {}
 
     const result = await this.QuestionSubmissionCollection.aggregate<{
       userId: ObjectId;
@@ -6983,6 +7541,7 @@ export class QuestionRepository implements IQuestionRepository {
                     $eq: ['$_id', '$$questionId'],
                   },
                   source: sourceFilter,
+                  ...trainingFilter,
                 },
               },
             ],
@@ -7117,6 +7676,8 @@ export class QuestionRepository implements IQuestionRepository {
     source: 'annam' | 'whatsapp' | 'agri_expert',
     from: string,
     to:string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<
     {
@@ -7137,6 +7698,12 @@ export class QuestionRepository implements IQuestionRepository {
         : source === 'whatsapp'
           ? 'WHATSAPP'
           : 'AGRI_EXPERT';
+
+    const trainingFilter = !isAdmin && isTrainingUser === true
+      ? { isTrainingQuestion: true }
+      : !isAdmin && isTrainingUser === false
+        ? { isTrainingQuestion: { $ne: true } }
+        : {}
 
     const result = await this.AnswersCollection.aggregate<{
       userId: ObjectId;
@@ -7171,6 +7738,7 @@ export class QuestionRepository implements IQuestionRepository {
                     $eq: ['$_id', '$$questionId'],
                   },
                   source: sourceFilter,
+                  ...trainingFilter,
                 },
               },
             ],
@@ -7269,7 +7837,7 @@ export class QuestionRepository implements IQuestionRepository {
     // New questions default the field to true on creation.
     // When `sources` is provided, restricts to that source group (time-bound / manual).
     const filter: Record<string, unknown> = {
-      status: { $in: ['in-review', 'duplicate', 'pae_submitted'] },
+      status: { $in: ['in-review', 'pae_submitted'] },
       autoAllocateModerator: true,
       $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
     };
@@ -7316,6 +7884,198 @@ export class QuestionRepository implements IQuestionRepository {
       },
     );
   }
+
+  /** Unassigned questions in the given statuses eligible for role auto-allocation
+   *  (gate keeper / auditor). Returns oldest-first questions whose assignee field is
+   *  null/missing and whose autoAllocate flag is not explicitly false. */
+  async findUnassignedQuestionsForRole(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+  ): Promise<IQuestion[]> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: statuses },
+      // Gate keeper / auditor only handle time-bound (chatbot) questions.
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+      [assigneeField]: { $in: [null, undefined] },
+      // Only fetch when auto-allocation is explicitly ON — a missing field or `false`
+      // both mean "don't auto-assign".
+      [autoAllocateField]: { $eq: true },
+      isOnHold: { $ne: true },
+    };
+    return this.QuestionCollection.find(filter as any)
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Questions currently assigned to a given role assignee (gateKeeperId / auditorId),
+   *  restricted to the statuses that role handles. Used to compute per-user busy state. */
+  async findQuestionsAssignedToRole(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection.find({
+      [assigneeField]: { $ne: null, $exists: true },
+      status: { $in: statuses },
+      // Gate keeper / auditor only handle time-bound (chatbot) questions.
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+    } as any)
+      .toArray();
+  }
+
+  /** Dashboard data for a gate keeper / auditor: the total questions ever assigned to
+   *  them (assigneeField == userId), how many they've submitted (finishedAt set), and a
+   *  paginated list of those questions (newest assignment first, optional text search).
+   *  Supports optional date range filtering by assigned date, completed date, or both. */
+  async getRoleAssigneeDashboard(
+    userId: string,
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    finishedField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType: 'assigned' | 'completed' | 'both' = 'both',
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }> {
+    await this.init();
+    if (!isValidObjectId(userId)) {
+      return { assignedCount: 0, submittedCount: 0, questions: [], totalPages: 0, totalCount: 0 };
+    }
+    const oid = new ObjectId(userId);
+    const baseMatch: Record<string, unknown> = { [assigneeField]: oid };
+    if (search && search.trim()) {
+      baseMatch.question = { $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+    }
+
+    // Apply date range filters based on filter type
+    if (startDate && endDate) {
+      if (dateFilterType === 'assigned') {
+        baseMatch[assignedAtField] = {
+          $gte: startDate,
+          $lte: endDate,
+        };
+      } else if (dateFilterType === 'completed') {
+        baseMatch[finishedField] = {
+          $gte: startDate,
+          $lte: endDate,
+        };
+      } else {
+        // 'both' - questions that were either assigned OR completed within the range
+        baseMatch.$or = [
+          { [assignedAtField]: { $gte: startDate, $lte: endDate } },
+          { [finishedField]: { $gte: startDate, $lte: endDate } },
+        ];
+      }
+    }
+
+    const safePage = Math.max(1, Math.floor(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 11), 100);
+
+    // Build count queries with date filters
+    const assignedCountMatch: Record<string, unknown> = { [assigneeField]: oid };
+    const submittedCountMatch: Record<string, unknown> = { [assigneeField]: oid, [finishedField]: { $ne: null } };
+
+    if (startDate && endDate) {
+      if (dateFilterType === 'assigned') {
+        assignedCountMatch[assignedAtField] = { $gte: startDate, $lte: endDate };
+        submittedCountMatch[assignedAtField] = { $gte: startDate, $lte: endDate };
+      } else if (dateFilterType === 'completed') {
+        assignedCountMatch[finishedField] = { $gte: startDate, $lte: endDate };
+        submittedCountMatch[finishedField] = { $gte: startDate, $lte: endDate };
+      } else {
+        assignedCountMatch.$or = [
+          { [assignedAtField]: { $gte: startDate, $lte: endDate } },
+          { [finishedField]: { $gte: startDate, $lte: endDate } },
+        ];
+        submittedCountMatch.$or = [
+          { [assignedAtField]: { $gte: startDate, $lte: endDate } },
+          { [finishedField]: { $gte: startDate, $lte: endDate } },
+        ];
+      }
+    }
+
+    const [assignedCount, submittedCount, totalCount, questions] = await Promise.all([
+      this.QuestionCollection.countDocuments(assignedCountMatch as any),
+      this.QuestionCollection.countDocuments(submittedCountMatch as any),
+      this.QuestionCollection.countDocuments(baseMatch as any),
+      this.QuestionCollection.find(baseMatch as any, {
+        projection: {
+          _id: 1, question: 1, status: 1, source: 1, priority: 1, createdAt: 1,
+          [assignedAtField]: 1, [finishedField]: 1,
+          'details.state': 1, 'details.crop': 1,
+        },
+      })
+        .sort({ [assignedAtField]: -1, createdAt: -1 } as any)
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .toArray(),
+    ]);
+
+    return {
+      assignedCount,
+      submittedCount,
+      // Stringify _id so the client gets a plain id (avoids "[object Object]" in URLs).
+      questions: questions.map(q => ({ ...q, _id: q._id?.toString() })),
+      totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / safeLimit)),
+    };
+  }
+
+  /** Sets or clears a role assignee (gateKeeperId / auditorId) and its assignedAt
+   *  timestamp on a question. Resets the matching finishedAt (a new/removed assignment
+   *  starts a fresh turn). */
+  async setRoleAssignee(
+    questionId: string,
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
+    assigneeId: string | null,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const now = new Date();
+    const finishedAtField =
+      assigneeField === 'gateKeeperId'
+        ? 'gateKeeperFinishedAt'
+        : 'auditorFinishedAt';
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      {
+        $set: {
+          [assigneeField]: assigneeId ? new ObjectId(assigneeId) : null,
+          [assignedAtField]: assigneeId ? now : null,
+          [finishedAtField]: null,
+          updatedAt: now,
+        },
+      },
+      { session },
+    );
+  }
+
+  /** Stamps the finished-at time for a role assignee (gate keeper / auditor) when they
+   *  act on the question. The assignee id is intentionally kept for history. */
+  async markRoleFinished(
+    questionId: string,
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    finishedAt: Date,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { $set: { [finishedAtField]: finishedAt, updatedAt: new Date() } },
+      { session },
+    );
+  }
   /** One page (skip/limit) + exact total for a Queue-Details question section.
    *  kind: 'received' | 'allocated' | 'autoOff'. Status scope: open/delayed/duplicate.
    *  Optional createdAt range (startTime/endTime) scopes every kind by date. */
@@ -7325,6 +8085,8 @@ export class QuestionRepository implements IQuestionRepository {
     limit: number,
     startTime?: Date,
     endTime?: Date,
+    sources: string[] = ['AJRASAKHA', 'WHATSAPP'],
+    requirePaeReviewNotDone: boolean = false,
   ): Promise<{count: number; items: RawQueueQuestionRow[]}> {
     await this.init();
 
@@ -7334,34 +8096,43 @@ export class QuestionRepository implements IQuestionRepository {
     if (endTime) createdAtFilter.$lte = endTime;
     const dateScope = startTime || endTime ? {createdAt: createdAtFilter} : {};
 
+    // Manual single-allocation: restrict to questions not yet PAE-reviewed
+    // (pae_review false or missing), mirroring the manual cron's fetch filter.
+    const paeScope = requirePaeReviewNotDone ? {pae_review: {$ne: true}} : {};
+
     const receivedMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
      // isAutoAllocate: true,
     //  status: {$in: ['open', 'delayed', 'duplicate']},
+      ...paeScope,
       ...dateScope,
     };
     const allocatedMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
       isAutoAllocate: {$eq: true},
      // firstAllocationAt: {$exists: true, $ne: null},
       status: {$in: ['open', 'delayed']},
+      ...paeScope,
       // ...dateScope,
     };
     const autoOffMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
       isAutoAllocate: {$eq: true},
       status: {$in: ['open', 'delayed']},
+      ...paeScope,
     //  ...dateScope,
     };
     const autoAllocateOpenMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
       isAutoAllocate: {$eq: true},
       status: 'open',
+      ...paeScope,
     };
     const autoAllocateDelayedMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
       isAutoAllocate: {$eq: true},
       status: 'delayed',
+      ...paeScope,
     };
 
     const lookupStages = [
@@ -7381,6 +8152,7 @@ export class QuestionRepository implements IQuestionRepository {
         question: 1,
         status: 1,
         source: 1,
+        isTrainingQuestion: 1,
         priority: 1,
         createdAt: 1,
         firstAllocationAt: 1,
@@ -7498,6 +8270,7 @@ export class QuestionRepository implements IQuestionRepository {
   async getReceivedStatusCounts(
     startTime?: Date,
     endTime?: Date,
+    sources: string[] = ['AJRASAKHA', 'WHATSAPP'],
   ): Promise<{status: string; count: number}[]> {
     await this.init();
 
@@ -7507,7 +8280,7 @@ export class QuestionRepository implements IQuestionRepository {
     const dateScope = startTime || endTime ? {createdAt: createdAtFilter} : {};
 
     const match = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: sources},
       ...dateScope,
     };
 
@@ -7518,5 +8291,22 @@ export class QuestionRepository implements IQuestionRepository {
     ]).toArray();
 
     return rows.map(r => ({status: r._id ?? 'unknown', count: r.count}));
+  }
+
+  async getCountByStatus () :Promise<any>{
+    const statusCount = await this.QuestionCollection.aggregate([
+        {
+          $match: {
+            isTesting: { $ne: true },
+          },
+        },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 }
+          }
+        }
+      ]).toArray();
+    return statusCount;
   }
 }

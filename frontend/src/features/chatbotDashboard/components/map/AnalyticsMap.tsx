@@ -41,7 +41,9 @@ export default function IndiaAnalyticsMap({
   todayActiveFarmersData,
   analyticsData,
   weeklyAnalyticsData,
-  monthlyAnalyticsData
+  monthlyAnalyticsData,
+  questionStatusRange,
+  questionStatusDateRange
 }: any) {
   // Hooks
 
@@ -60,8 +62,8 @@ export default function IndiaAnalyticsMap({
   const { data: questionStatusData } = useClosedAndNotifedData(
     source,
     userType,
-    undefined,
-    undefined,
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
   );
   const {
     level,
@@ -87,6 +89,8 @@ export default function IndiaAnalyticsMap({
   } = useAllStatesandUserData({
     source: source as string,
     userType: userType as string,
+    startDate: questionStatusRange.startTime,
+    endDate: questionStatusRange.endTime,
     enabled: true,
   });
   // setAllStatesDataandUser(allStatesData);
@@ -101,10 +105,9 @@ export default function IndiaAnalyticsMap({
     selectedStateCode,
     source,
     userType,
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
   );
-
-  // console.log("Analytics of all state", allStatesData)
-  // console.log("District analytics of data", districtAnalytics)
 
   const { statesWithData, districtsOfState, activeGeo, minV, maxV } =
     useMapAnalytics({
@@ -117,14 +120,14 @@ export default function IndiaAnalyticsMap({
       // @ts-ignore
       districtAnalytics,
       metric,
+      startDate: questionStatusRange.startTime !== undefined? new Date(questionStatusRange.startTime): undefined,
+      endDate: questionStatusRange.endTime !== undefined ? new Date(questionStatusRange.endTime) : undefined,
     });
 
   // Fly target state
   const [flyTarget, setFlyTarget] = useState<L.LatLngBoundsExpression | null>(
     null,
   );
-  const state = selectedState;
-  // const {data: stateAndUserData} = useMapandUserData({state, source, userType})
 
   // Fly to helper
   const handleFlyTo = useCallback((feature: unknown) => {
@@ -166,42 +169,6 @@ export default function IndiaAnalyticsMap({
     },
     [navigateToDistrict, handleFlyTo],
   );
-
-  // Style + events
-//   const styleFn = useCallback(
-//     (feat: {
-//       properties: { _analytics: Analytics & {rank?: number;}; _name: string};
-//     }): L.PathOptions => {
-//       const analytics = feat.properties._analytics;
-
-// // const actualValue =
-// //   metric === "questions"
-// //     ? analytics.questions
-// //     : metric === "users"
-// //       ? analytics.users
-// //       : analytics.activeUsers;
-
-// // const v = level === "state"
-// //   ? analytics.rank
-// //   : actualValue;
-// const v = analytics.rank ?? 0;
-//       const name = feat.properties._name;
-//       const isHovered = hovered === name;
-//       const isSelected =
-//         (level === "india" && selectedState === name) ||
-//         (level !== "india" && selectedDistrict === name);
-//       return {
-//         fillColor:
-//    analytics.rank === -1
-//     ? "#dc2626"
-//     : colorFor(v, minV, maxV, dark),
-//         fillOpacity: isSelected ? 0.95 : isHovered ? 0.85 : 0.7,
-//         color: dark ? "#0f172a" : "#ffffff",
-//         weight: isSelected ? 2.5 : isHovered ? 2 : 1,
-//       };
-//     },
-//     [hovered, minV, maxV, dark, level, selectedState, selectedDistrict, metric],
-//   );
 
 const styleFn = useCallback(
   (feat: {
@@ -264,19 +231,35 @@ const styleFn = useCallback(
     ) => {
       const name = feat.properties._name;
       const a: Analytics = feat.properties._analytics;
-      const tip = `
-        <div style="font-family: inherit; min-width: 160px;">
-          <div style="font-weight:600; margin-bottom:4px;">${name}</div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;opacity:.85;">
-            <span>Questions</span><span><b>${a.questions.toLocaleString()}</b></span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;opacity:.85;">
-            <span>Users</span><span><b>${a.users.toLocaleString()}</b></span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;opacity:.85;">
-            <span>Active</span><span><b>${a.activeUsers.toLocaleString()}</b></span>
-          </div>
-        </div>`;
+     const hasDateFilter =
+  !!questionStatusRange?.startTime ||
+  !!questionStatusRange?.endTime;
+
+const tip = `
+<div style="font-family: inherit; min-width: 160px;">
+  <div style="font-weight:600; margin-bottom:4px;">${name}</div>
+
+  <div style="display:flex;justify-content:space-between;font-size:12px;">
+    <span>Questions</span>
+    <span><b>${a.questions.toLocaleString()}</b></span>
+  </div>
+
+  ${
+    !hasDateFilter
+      ? `
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span>Users</span>
+        <span><b>${a.users.toLocaleString()}</b></span>
+      </div>
+      `
+      : ""
+  }
+
+  <div style="display:flex;justify-content:space-between;font-size:12px;">
+    <span>Active Users</span>
+    <span><b>${a.activeUsers.toLocaleString()}</b></span>
+  </div>
+</div>`;;
       (layer as L.Path).bindTooltip(tip, {
         sticky: true,
         className: "india-tooltip",
@@ -306,9 +289,6 @@ const styleFn = useCallback(
     },
     [level, navigateToState, navigateToDistrict, setHovered, allStatesData],
   );
-
-  // GeoJSON key forces re-render on level/state change
-  // const geoKey = `${level}:${selectedState ?? ""}:${dark ? "d" : "l"}:${minV}-${maxV}:${selectedDistrict ?? ""}`;
 
   const geoKey = `${level}:${selectedState}:${metric}:${dark}:${minV}-${maxV}:${selectedDistrict}`;
 
@@ -393,14 +373,14 @@ const styleFn = useCallback(
               Questions
             </button>
 
-            <button
+            {source !== "whatsapp" && <button
               className={`px-3 py-1 text-sm ${
                 metric === "users" ? "bg-primary text-white" : "bg-background"
               }`}
               onClick={() => setMetric("users")}
             >
               Users
-            </button>
+            </button>}
           </div>
 
           <SearchBar
@@ -505,6 +485,8 @@ const styleFn = useCallback(
         analyticsData= {analyticsData}
         weeklyAnalyticsData= {weeklyAnalyticsData}
         monthlyAnalyticsData={monthlyAnalyticsData}
+        questionStatusRange={questionStatusRange}
+        questionStatusDateRange={questionStatusDateRange}
       />
     </div>
   );

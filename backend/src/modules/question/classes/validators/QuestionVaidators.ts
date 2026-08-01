@@ -352,6 +352,11 @@ class QuestionResponse {
     'duplicate',
     'non_agri',
     'pending',
+    'dynamic',
+    'queue_progress',
+    'auditor_review',
+    'dynamic_closed',
+    'duplicate_closed',
   ])
   status?: QuestionStatus;
 
@@ -471,6 +476,15 @@ class AddQuestionBodyDto {
   @IsArray()
   @IsString({ each: true })
   tools_used?: string[];
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  isTrainingQuestion?: boolean;
 }
 
 class GenerateQuestionsBody {
@@ -669,6 +683,15 @@ class GetDetailedQuestionsQuery {
   @IsOptional()
   @IsString()
   user?: string;
+
+  @JSONSchema({
+    description: 'Filter based on assigned userId',
+    example: '1234567890',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  assignedUser?: string;
 
   @JSONSchema({
     description: 'Minimum number of answers',
@@ -886,6 +909,19 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   moderatorId?: string;
+
+  @JSONSchema({
+    description: 'filter questions with isTrainingQuestion=true (Training tab)',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  isTrainingQuestion?: string | boolean;
+  @IsOptional()
+  gateKeeperId?: string;
+
+  @IsOptional()
+  auditorId?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

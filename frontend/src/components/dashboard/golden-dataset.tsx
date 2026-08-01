@@ -19,7 +19,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, Database, CheckCircle2, Users} from "lucide-react";
+import { TrendingUp, Database, CheckCircle2, Users, Clock} from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -41,6 +41,15 @@ import { Spinner } from "@/components/atoms/spinner";
 import { TimePicker } from "./time-picker";
 import { TopRightBadge } from "../NewBadge";
 
+// Helper function to safely convert decimal hours to formatted "Xh Ym"
+// We convert entirely to minutes first to avoid floating point issues (e.g., "0h 60m")
+const formatTime = (decimalHours = 0) => {
+  const totalMinutes = Math.round(decimalHours * 60);
+  const hrs = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const formattedHrs = new Intl.NumberFormat('en-IN').format(hrs);
+  return `${formattedHrs}h ${mins}m`;
+};
 
 const monthNames = [
   "January",
@@ -63,7 +72,7 @@ export interface GoldenDataset {
   totalVerifiedByType: number;
   verifiedEntries: number;
   todayApproved?: number;
-  moderatorBreakdown?: { moderatorName: string; count: number }[];
+  moderatorBreakdown?: { moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
   questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
   questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
   averageResponseTime?: { whatsapp: number; ajrasakha: number };
@@ -263,36 +272,70 @@ export const GoldenDatasetOverview = ({
               </p>
             </DialogHeader>
             
-            <div className="mt-4 max-h-[320px] overflow-y-auto scrollbar-hiding space-y-2">
+            <div className="mt-4 max-h-[420px] overflow-y-auto scrollbar-hiding space-y-3">
               {moderatorBreakdown.map((mod, idx) => {
-                
+                // Extract the distinct hours, defaulting to 0 if undefined/null
+                const modHours = mod.moderatorHours ?? 0;
+                const audHours = mod.auditorHours ?? 0;
+                const gkHours = mod.gateKeeperHours ?? 0;
+
+                // Calculate the total sum
+                const totalHours = modHours + audHours + gkHours;
+
+                // Format all values using the helper function
+                const modDisplay = formatTime(modHours);
+                const audDisplay = formatTime(audHours);
+                const gkDisplay = formatTime(gkHours);
+                const totalDisplay = formatTime(totalHours);
+
                 const percentage = totalApprovals ? (mod.count / totalApprovals) * 100 : 0;
                 return (
                   <div
                     key={idx}
-                    className="p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                    className="p-3 border rounded-lg transition-colors"
                   >
+                    {/* Top Section: User Info, Total Hours, and Count */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
-                          <span className="text-xs font-semibold text-primary">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-semibold text-green-700">
                             {(mod.moderatorName ?? '').charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <p className="font-medium text-foreground text-sm">
-                          {mod.moderatorName}
+                        <div>
+                          <p className="font-medium dark:text-white text-gray-900 text-sm">
+                            {mod.moderatorName}
+                          </p>
+                          <p className="text-xs font-medium text-primary mt-0.5 flex items-center gap-1">
+                            <Clock size={12} className="text-primary" />
+                            {totalDisplay}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold dark:text-white text-primary">
+                          {mod.count}
                         </p>
                       </div>
-                      <p className="text-lg font-bold text-primary">
-                        {mod.count}
-                      </p>
                     </div>
 
-                                {/* Progress Bar */}
-                   <p className="text-xs text-muted-foreground mt-2">
-  {percentage.toFixed(1)}% of total approvals
-</p>
-
+                    {/* Bottom Section: Breakdown of hours and Percentage */}
+                    <div className="mt-3 pt-2 border-t flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-3 text-[11px] text-gray-500">
+                        <span title="Moderator Hours">
+                          Mod: <strong className=" dark:text-white text-gray-700 font-medium">{modDisplay}</strong>
+                        </span>
+                        <span title="Auditor Hours">
+                          Aud: <strong className=" dark:text-white text-gray-700 font-medium">{audDisplay}</strong>
+                        </span>
+                        <span title="Gatekeeper Hours">
+                          GK: <strong className=" dark:text-white text-gray-700 font-medium">{gkDisplay}</strong>
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-medium dark:text-white text-gray-500">
+                        {percentage.toFixed(1)}% <span className="hidden sm:inline">of total approvals</span>
+                      </p>
+                    </div>
                   </div>
                 );
               })}

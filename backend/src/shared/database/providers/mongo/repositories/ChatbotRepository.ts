@@ -456,6 +456,18 @@ const WEATHER_CONCERN_LABELS: Record<keyof typeof WEATHER_CONCERNS, string> = {
   cyclone: 'Cyclone',
 };
 
+type TatStats = {
+  tatMinutes: number;
+  averageTimeToAuthorMinutes: number;
+  averageReviewAcceptMinutes: number;
+  averageReviewModifyMinutes: number;
+  averageReviewRejectReauthorMinutes: number;
+  averageModeratingMinutes: number;
+  averageGatekeepingMinutes: number;
+  averageAuditingMinutes: number;
+  averageReroutedCompletionMinutes: number;
+};
+
 @injectable()
 export class ChatbotRepository implements IChatbotRepository {
   private users!: Collection<IUser>;
@@ -503,6 +515,7 @@ export class ChatbotRepository implements IChatbotRepository {
   private QuestionSubmissionsCollection: Collection<IQuestionSubmission>;
   private Reroutes: Collection<any>;
   private ReviewUsers: Collection<any>;
+  private UserRoleHistoryCollection: Collection<any>;
   private async initReviewSystem() {
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
@@ -513,6 +526,7 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.Reroutes = await this.db.getCollection<any>('reroutes');
     this.ReviewUsers = await this.db.getCollection<any>('users');
+    this.UserRoleHistoryCollection = await this.db.getCollection<any>('user_role_history');
   }
 
   private buildActiveSessionFilter(userIds: ObjectId[], now = new Date()) {
@@ -703,7 +717,7 @@ export class ChatbotRepository implements IChatbotRepository {
   private readonly coordinatorsRoles = COORDINATOR_ROLES;
 
   private async getSourceAdherenceStats(
-    source: 'WHATSAPP' | 'AJRASAKHA',
+    source: 'WHATSAPP' | 'AJRASAKHA' | 'MANUAL',
     userType = 'all',
     startTime?: string,
     endTime?: string,
@@ -714,16 +728,70 @@ export class ChatbotRepository implements IChatbotRepository {
     closedQuestionsCount: number;
     passedQuestionsCount: number;
     answeredWithin120Min: number;
+    totalResponded: number;
+    averageResponseGDBMinutes: number;
+    averageResponseNonGDBMinutes: number;
     averageResponseMinutes: number;
     inReviewCount: number;
     openCount: number;
     delayedCount: number;
+    closedCount: number;
+    pendingCount: number;
+    nonAgriCount:number; 
+    dynamicCount: number;
+    duplicateCount: number;
+    holdCount: number;
+    paeSubmitedCount:number; 
+    dynamicCLosedCount: number;
+    reroutedCount: number;
+    passCount: number;
+    duplicateClosedCount:number;
     dynamicWeatherCount: number;
     dynamicMarketCount: number;
     dynamicSchemesCount: number;
     markedDuplicateGdbCount: number;
+    // nonGdbWithin120: number;
+    manualTotal?: number;
+    agriexpertTotal?: number;
+    outreachTotal?: number;
+    answeredWithin120MinClosed: number;
+    answeredWithin120MinPass: number;
+    answeredWithin120MinDynamicClosed: number;
+    answeredWithin120MinDuplicateClosed: number;
+    dynamicWeatherDynamicCount: number;
+    dynamicWeatherStaticDynamicCount: number;
+    dynamicMarketDynamicCount: number;
+    dynamicMarketStaticDynamicCount: number;
+    dynamicSchemesDynamicCount: number;
+    dynamicSchemesStaticDynamicCount: number;
+    answeredAfter120Min: number;
+    answeredAfter120MinClosed: number;
+    answeredAfter120MinPass: number;
+    answeredAfter120MinDynamicClosed: number;
+    answeredAfter120MinDuplicateClosed: number;
+    tatMinutes: number;
+    averageTimeToAuthorMinutes: number;
+    averageReviewAcceptMinutes: number;
+    averageReviewModifyMinutes: number;
+    averageReviewRejectReauthorMinutes: number;
+    averageModeratingMinutes: number;
+    averageGatekeepingMinutes: number;
+    averageAuditingMinutes: number;
+    averageReroutedCompletionMinutes: number;
+    averageEndToEndQnaCompletionMinutes: number;
+    averageEndToEndUniqueMinutes: number;
+    averageEndToEndDynamicMinutes: number;
+    averageEndToEndDuplicateMinutes: number;
+    paeAssignedQuestions: number;
+    paeContributionToGDB: number;
+    paeContributionToGDBPct: number;
   }> {
     const matchQuery = buildBaseQuestionMatch(source);
+    if(source === "MANUAL"){
+      matchQuery.source = {
+        $nin: ['AJRASAKHA', 'WHATSAPP'],
+      };    
+    }
     if (startTime || endTime) {
       matchQuery.createdAt = {};
       if (startTime) matchQuery.createdAt.$gte = new Date(startTime);
@@ -738,7 +806,7 @@ export class ChatbotRepository implements IChatbotRepository {
     if (query && Object.keys(query).length > 0) {
       matchQuery.$and.push(query);
     }
-
+    console.log("matchquery---", matchQuery);
     const result = await this.QuestionCollection.aggregate(
       [
         {$match: matchQuery},
@@ -756,6 +824,12 @@ export class ChatbotRepository implements IChatbotRepository {
                   },
                 },
               ],
+            },
+            _isMarkedDuplicate: {
+              $ne: [
+                { $type: "$referenceQuestionId" },
+                "missing"
+              ]
             },
             _isDynamicCategory: {
               $regexMatch: {
@@ -789,6 +863,13 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $addFields: {
             _isPassed: {$eq: ['$_statusLower', 'pass']},
+            _normalizedStatus: {
+              $replaceAll: {
+                input: '$_statusLower',
+                find: '-',
+                replacement: '_',
+              },
+            },
             _operationalCompletionAt: {
               $switch: {
                 branches: [
@@ -901,10 +982,21 @@ export class ChatbotRepository implements IChatbotRepository {
             inReview: [{$match: {status: 'in-review'}}, {$count: 'count'}],
             open: [{$match: {status: 'open'}}, {$count: 'count'}],
             delayed: [{$match: {status: 'delayed'}}, {$count: 'count'}],
+            closed: [{$match: {status: 'closed'}}, {$count: 'count'}],
+            pending: [{$match: {status: 'pending'}}, {$count: 'count'}],
+            nonAgri: [{$match: {status: 'non_agri'}}, {$count: 'count'}],
+            dynamic: [{$match: {status: 'dynamic'}}, {$count: 'count'}],
+            duplicate: [{$match: {status: 'duplicate'}}, {$count: 'count'}],
+            hold: [{$match: {status: 'hold'}}, {$count: 'count'}],
+            paeSubmited: [{$match: {status: 'pae_submited'}}, {$count: 'count'}],
+            dynamicCLosed: [{$match: {status: 'dynamic_closed'}}, {$count: 'count'}],
+            rerouted: [{$match: {status: 're-routed'}}, {$count: 'count'}],
+            pass: [{$match: {status: 'pass'}}, {$count: 'count'}],
+            duplicateClosed: [{$match: {status: 'duplicate_closed'}}, {$count: 'count'}],
             markedDuplicateGdb: [
               {
                 $match: {
-                  _isGdbDuplicate: true,
+                  _isMarkedDuplicate: true,
                 },
               },
               {$count: 'count'},
@@ -912,59 +1004,528 @@ export class ChatbotRepository implements IChatbotRepository {
             dynamicWeather: [
               {
                 $match: {
-                  status: 'dynamic',
+                  // status: 'dynamic',
                   $or: [
                     {'details.domain': /weather/i},
                     {'details.category': /weather/i},
                   ],
                 },
               },
-              {$count: 'count'},
+                {
+                  $group: {
+                    _id: {
+                      $cond: [
+                        {
+                          $eq: [
+                            { $toLower: { $ifNull: ['$tag', ''] } },
+                            'static_dynamic',
+                          ],
+                        },
+                        'static_dynamic',
+                        'dynamic',
+                      ],
+                    },
+                    count: { $sum: 1 },
+                  },
+                },
             ],
             dynamicMarket: [
               {
                 $match: {
-                  status: 'dynamic',
+                  // status: 'dynamic',
                   $or: [
                     {'details.domain': /market/i},
                     {'details.category': /market/i},
                   ],
                 },
               },
-              {$count: 'count'},
+                {
+                $group: {
+                  _id: {
+                    $cond: [
+                      {
+                        $eq: [
+                          { $toLower: { $ifNull: ['$tag', ''] } },
+                          'static_dynamic',
+                        ],
+                      },
+                      'static_dynamic',
+                      'dynamic',
+                    ],
+                  },
+                  count: { $sum: 1 },
+                },
+              },
             ],
             dynamicSchemes: [
               {
                 $match: {
-                  status: 'dynamic',
+                  // status: 'dynamic',
                   $or: [
                     {'details.domain': /scheme/i},
                     {'details.category': /scheme/i},
                   ],
                 },
               },
-              {$count: 'count'},
+                {
+                $group: {
+                  _id: {
+                    $cond: [
+                      {
+                        $eq: [
+                          { $toLower: { $ifNull: ['$tag', ''] } },
+                          'static_dynamic',
+                        ],
+                      },
+                      'static_dynamic',
+                      'dynamic',
+                    ],
+                  },
+                  count: { $sum: 1 },
+                },
+              },
             ],
+            answeredWithin120MinBreakdown: [
+              {
+                $match: {
+                  _operationalCompletionAt: { $ne: null },
+                  _normalizedStatus: {
+                    $in: [
+                      'closed',
+                      'pass',
+                      'dynamic_closed',
+                      'duplicate_closed',
+                    ],
+                  },
+                },
+              },
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $gte: ['$_operationalCompletionAt', '$createdAt'] },
+                      {
+                        $lte: [
+                          {
+                            $subtract: [
+                              '$_operationalCompletionAt',
+                              '$createdAt',
+                            ],
+                          },
+                          120 * 60 * 1000,
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: '$_normalizedStatus',
+                  count: { $sum: 1 },
+                },
+              },
+            ],
+            answeredAfter120MinBreakdown: [
+              {
+                $match: {
+                  _operationalCompletionAt: { $ne: null },
+                  isDelayed: true,
+                  _normalizedStatus: {
+                    $in: [
+                      'closed',
+                      'pass',
+                      'dynamic_closed',
+                      'duplicate_closed',
+                    ],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: '$_normalizedStatus',
+                  count: { $sum: 1 },
+                },
+              },
+            ],
+            totalResponded: [ { $match: { operationalCompletionAt: { $ne: null }, normalizedStatus: { $in: [ 'closed', 'pass', 'dynamic_closed', 'duplicate_closed', ], }, }, }, { $count: 'count', }, ],
+
+            averageResponseGdb: [
+  {
+    $match: {
+      _operationalCompletionAt: { $ne: null },
+      _normalizedStatus: 'closed',
+    },
+  },
+  {
+    $match: {
+      $expr: {
+        $gte: ['$_operationalCompletionAt', '$createdAt'],
+      },
+    },
+  },
+  {
+    $group: {
+      _id: null,
+      avgMinutes: {
+        $avg: {
+          $divide: [
+            {
+              $subtract: [
+                '$_operationalCompletionAt',
+                '$createdAt',
+              ],
+            },
+            60 * 1000,
+          ],
+        },
+      },
+    },
+  },
+            ],
+            
+            averageResponseNonGdb: [
+              {
+                $match: {
+                  _operationalCompletionAt: { $ne: null },
+                  _normalizedStatus: {
+                    $in: [
+                      'pass',
+                      'dynamic_closed',
+                      'duplicate_closed',
+                    ],
+                  },
+                },
+              },
+              {
+                $match: {
+                  $expr: {
+                    $gte: ['$_operationalCompletionAt', '$createdAt'],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgMinutes: {
+                    $avg: {
+                      $divide: [
+                        {
+                          $subtract: [
+                            '$_operationalCompletionAt',
+                            '$createdAt',
+                          ],
+                        },
+                        60 * 1000,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+
+            averageEndToEndQnaCompletion: [
+              {
+                $match: {
+                  _operationalCompletionAt: {$ne: null},
+                  _normalizedStatus: {
+                    $in: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
+                  },
+                },
+              },
+              {
+                $match: {
+                  $expr: {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgMinutes: {
+                    $avg: {
+                      $divide: [
+                        {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                        60 * 1000,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+
+            averageEndToEndUnique: [
+              {
+                $match: {
+                  _operationalCompletionAt: {$ne: null},
+                  _normalizedStatus: 'closed',
+                },
+              },
+              {
+                $match: {
+                  $expr: {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgMinutes: {
+                    $avg: {
+                      $divide: [
+                        {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                        60 * 1000,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+
+            averageEndToEndDynamic: [
+              {
+                $match: {
+                  _operationalCompletionAt: {$ne: null},
+                  _normalizedStatus: 'dynamic_closed',
+                },
+              },
+              {
+                $match: {
+                  $expr: {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgMinutes: {
+                    $avg: {
+                      $divide: [
+                        {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                        60 * 1000,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+
+            averageEndToEndDuplicate: [
+              {
+                $match: {
+                  _operationalCompletionAt: {$ne: null},
+                  _normalizedStatus: 'duplicate_closed',
+                },
+              },
+              {
+                $match: {
+                  $expr: {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgMinutes: {
+                    $avg: {
+                      $divide: [
+                        {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                        60 * 1000,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+            paeAssignedQuestions: [
+              {
+                $match: {
+                  _statusLower: 'open',
+                  pae_review: true,
+                },
+              },
+              {
+                $count: 'count',
+              },
+            ],
+
+            paeContributionToGDB: [
+              {
+                $match: {
+                  _statusLower: 'closed',
+                  pae_review: true,
+                },
+              },
+              {
+                $count: 'count',
+              },
+            ],
+
           },
         },
       ],
       {session},
     ).toArray();
+    let manualTotal, agriexpertTotal, outreachTotal;
+    if (source === "MANUAL") {
+      [manualTotal, agriexpertTotal, outreachTotal] =
+        await Promise.all([
+          this.QuestionCollection.countDocuments({
+            ...matchQuery,
+            source: "MANUAL",
+          }),
+          this.QuestionCollection.countDocuments({
+            ...matchQuery,
+            source: "AGRI_EXPERT",
+          }),
+          this.QuestionCollection.countDocuments({
+            ...matchQuery,
+            source: "OUTREACH",
+          }),
+        ]);
+    }
 
     const row = result[0] ?? {};
+    const paeAssignedQuestions =
+      row.paeAssignedQuestions?.[0]?.count ?? 0;
+
+    const paeContributionToGDB =
+      row.paeContributionToGDB?.[0]?.count ?? 0;
+
+    const totalClosedQuestions =
+      row.closed?.[0]?.count ?? 0;
+
+    const paeContributionToGDBPct =
+      totalClosedQuestions > 0
+        ? Math.round(
+            (paeContributionToGDB / totalClosedQuestions) * 100 * 100,
+          ) / 100
+        : 0;
+    const answeredWithin120minBreakdown = Object.fromEntries(
+      (row.answeredWithin120MinBreakdown ?? []).map(
+        (item: { _id: string; count: number }) => [
+          item._id,
+          item.count,
+        ],
+      ),
+    );
+    const getCount = (
+      items: { _id: string; count: number }[] = [],
+      type: 'dynamic' | 'static_dynamic',
+    ) => items.find(item => item._id === type)?.count ?? 0;
+
+    const answeredWithin120Min = (
+      row.answeredWithin120MinBreakdown ?? []
+    ).reduce((total, item) => total + item.count, 0);
+
+    const weatherDynamic = getCount(row.dynamicWeather, 'dynamic');
+    const weatherStaticDynamic = getCount(
+      row.dynamicWeather,
+      'static_dynamic',
+    );
+    const marketDynamic = getCount(row.dynamicmarket, 'dynamic');
+    const marketStaticDynamic = getCount(
+      row.dynamicWeather,
+      'static_dynamic',
+    );
+    const schemesDynamic = getCount(row.dynamicSchemes, 'dynamic');
+    const schemesStaticDynamic = getCount(
+      row.dynamicWeather,
+      'static_dynamic',
+    );
+    const answeredAfter120MinBreakdown = Object.fromEntries(
+      (row.answeredAfter120MinBreakdown ?? []).map(
+        (item: { _id: string; count: number }) => [
+          item._id,
+          item.count,
+        ],
+      ),
+    )
+    const answeredAfter120Min = (
+      row.answeredAfter120MinBreakdown ?? []
+    ).reduce(
+      (total: number, item: { _id: string; count: number }) =>
+        total + item.count,
+      0,
+    );
+
+    const tatStats = await this.getTatStats(matchQuery);
+
     return {
       questionAsked: row.questionAsked?.[0]?.count ?? 0,
       closedQuestionsCount: row.closedQuestions?.[0]?.count ?? 0,
       passedQuestionsCount: row.passedQuestions?.[0]?.count ?? 0,
-      answeredWithin120Min: row.answeredWithin120Min?.[0]?.count ?? 0,
+      answeredWithin120Min,
+      totalResponded: row.totalResponded?.[0]?.count ?? 0,
+      averageResponseGDBMinutes: row.averageResponseGdb?.[0]?.avgMinutes ?? 0,
+      averageResponseNonGDBMinutes: row.averageResponseNonGdb?.[0]?.avgMinutes ?? 0,
       averageResponseMinutes: row.averageResponse?.[0]?.avgMinutes ?? 0,
       inReviewCount: row.inReview?.[0]?.count ?? 0,
       openCount: row.open?.[0]?.count ?? 0,
       delayedCount: row.delayed?.[0]?.count ?? 0,
-      dynamicWeatherCount: row.dynamicWeather?.[0]?.count ?? 0,
-      dynamicMarketCount: row.dynamicMarket?.[0]?.count ?? 0,
-      dynamicSchemesCount: row.dynamicSchemes?.[0]?.count ?? 0,
+      closedCount: row.closed?.[0]?.count ?? 0,
+      pendingCount: row.pending?.[0]?.count ?? 0,
+      nonAgriCount: row.nonAgri?.[0]?.count ?? 0,
+      dynamicCount: row.dynamic?.[0]?.count ?? 0,
+      duplicateCount: row.duplicate?.[0]?.count ?? 0,
+      holdCount: row.hold?.[0]?.count ?? 0,
+      paeSubmitedCount: row.paeSubmited?.[0]?.count ?? 0,
+      dynamicCLosedCount: row.dynamicCLosed?.[0]?.count ?? 0,
+      reroutedCount: row.rerouted?.[0]?.count ?? 0,
+      passCount: row.pass?.[0]?.count ?? 0,
+      duplicateClosedCount: row.duplicateClosed?.[0]?.count ?? 0,
+      dynamicWeatherCount:  weatherDynamic + weatherStaticDynamic,
+      dynamicMarketCount: marketDynamic + marketStaticDynamic,
+      dynamicSchemesCount: schemesDynamic + schemesStaticDynamic,
       markedDuplicateGdbCount: row.markedDuplicateGdb?.[0]?.count ?? 0,
+      // nonGdbWithin120: row.nonGdbWithin120?.[0]?.count ?? 0,
+      manualTotal,
+      agriexpertTotal,
+      outreachTotal,
+      answeredWithin120MinClosed:
+        answeredWithin120minBreakdown.closed ?? 0,
+      answeredWithin120MinPass:
+        answeredWithin120minBreakdown.pass ?? 0,
+      answeredWithin120MinDynamicClosed:
+        answeredWithin120minBreakdown.dynamic_closed ?? 0,
+      answeredWithin120MinDuplicateClosed:
+        answeredWithin120minBreakdown.duplicate_closed ?? 0,
+      dynamicWeatherDynamicCount: weatherDynamic?? 0,
+      dynamicWeatherStaticDynamicCount: weatherStaticDynamic?? 0,
+      dynamicMarketDynamicCount: marketDynamic?? 0,
+      dynamicMarketStaticDynamicCount: marketStaticDynamic?? 0,
+      dynamicSchemesDynamicCount: schemesDynamic?? 0,
+      dynamicSchemesStaticDynamicCount: schemesStaticDynamic?? 0,
+      answeredAfter120Min,
+      answeredAfter120MinClosed:
+        answeredAfter120MinBreakdown.closed ?? 0,
+      answeredAfter120MinPass:
+        answeredAfter120MinBreakdown.pass ?? 0,
+      answeredAfter120MinDynamicClosed:
+        answeredAfter120MinBreakdown.dynamic_closed ?? 0,
+      answeredAfter120MinDuplicateClosed:
+        answeredAfter120MinBreakdown.duplicate_closed ?? 0,
+        // TAT
+      tatMinutes: tatStats.tatMinutes,
+      averageTimeToAuthorMinutes:
+        tatStats.averageTimeToAuthorMinutes,
+      averageReviewAcceptMinutes:
+        tatStats.averageReviewAcceptMinutes,
+      averageReviewModifyMinutes:
+        tatStats.averageReviewModifyMinutes,
+      averageReviewRejectReauthorMinutes:
+        tatStats.averageReviewRejectReauthorMinutes,
+      averageModeratingMinutes:
+        tatStats.averageModeratingMinutes,
+      averageGatekeepingMinutes:
+        tatStats.averageGatekeepingMinutes,
+      averageAuditingMinutes:
+        tatStats.averageAuditingMinutes,
+      averageReroutedCompletionMinutes:
+        tatStats.averageReroutedCompletionMinutes,
+      averageEndToEndQnaCompletionMinutes: row.averageEndToEndQnaCompletion?.[0]?.avgMinutes ?? 0,
+      averageEndToEndUniqueMinutes: row.averageEndToEndUnique?.[0]?.avgMinutes ?? 0,
+      averageEndToEndDynamicMinutes: row.averageEndToEndDynamic?.[0]?.avgMinutes ?? 0,
+      averageEndToEndDuplicateMinutes: row.averageEndToEndDuplicate?.[0]?.avgMinutes ?? 0,
+      paeAssignedQuestions,
+      paeContributionToGDB,
+      paeContributionToGDBPct,
     };
   }
 
@@ -979,7 +1540,7 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.init(source);
       await this.initReviewSystem();
 
-      const [whatsapp, ajrasakha] = await Promise.all([
+      const [whatsapp, ajrasakha, manual] = await Promise.all([
         this.getSourceAdherenceStats(
           'WHATSAPP',
           userType,
@@ -990,6 +1551,14 @@ export class ChatbotRepository implements IChatbotRepository {
         ),
         this.getSourceAdherenceStats(
           'AJRASAKHA',
+          userType,
+          startTime,
+          endTime,
+          source,
+          session,
+        ),
+        this.getSourceAdherenceStats(
+          'MANUAL',
           userType,
           startTime,
           endTime,
@@ -1129,21 +1698,37 @@ export class ChatbotRepository implements IChatbotRepository {
       const ajrasakhaQueriesAsked = totalUserMessages;
 
       const whatsappAdherencePct =
-        whatsapp.questionAsked > 0
+        whatsapp.totalResponded > 0
           ? Math.round(
-              (whatsapp.answeredWithin120Min / whatsapp.questionAsked) *
+              (whatsapp.answeredWithin120Min / whatsapp.totalResponded) *
                 100 *
                 100,
             ) / 100
           : 0;
       const ajrasakhaAdherencePct =
-        ajrasakha.questionAsked > 0
+        ajrasakha.totalResponded > 0
           ? Math.round(
-              (ajrasakha.answeredWithin120Min / ajrasakha.questionAsked) *
+              (ajrasakha.answeredWithin120Min / ajrasakha.totalResponded) *
                 100 *
                 100,
             ) / 100
           : 0;
+      const manualAdherencePct =         
+        manual.totalResponded > 0
+          ? Math.round(
+              (manual.answeredWithin120Min / manual.totalResponded) *
+                100 *
+                100,
+            ) / 100
+          : 0;
+      const whatsappSlaBreachedCount =
+        Math.max(0, whatsapp.totalResponded - whatsapp.answeredWithin120Min);
+
+      const ajrasakhaSlaBreachedCount =
+        Math.max(0, ajrasakha.totalResponded - ajrasakha.answeredWithin120Min);
+
+      const manualSlaBreachedCount =
+        Math.max(0, manual.totalResponded - manual.answeredWithin120Min);
 
       const startReference = startTime ? new Date(startTime) : new Date();
       const endReference = endTime ? new Date(endTime) : new Date();
@@ -1156,45 +1741,239 @@ export class ChatbotRepository implements IChatbotRepository {
       const hh = String(endIst.getHours()).padStart(2, '0');
       const mm = String(endIst.getMinutes()).padStart(2, '0');
       const date = startIst.toLocaleDateString('en-GB').split('/').join('-');
-      const whatsappNonGdbWithin120 = whatsapp.closedQuestionsCount;
-      const ajrasakhaNonGdbWithin120 = ajrasakha.closedQuestionsCount;
-
+      // const whatsappNonGdbWithin120 = whatsapp.nonGdbWithin120;
+      // const ajrasakhaNonGdbWithin120 = ajrasakha.nonGdbWithin120;
+      // const manualNonGdbWithin120 = manual.nonGdbWithin120;
+      // console.log("manual----", manual);
       return {
         date,
         time: `${hh}:${mm}`,
         timeWindow: `[00:00-${hh}:${mm}]`,
         whatsappQueriesAsked,
         ajrasakhaQueriesAsked,
+        manualQueriesAsked: 0,
         whatsappPushedToReviewer: whatsapp.questionAsked,
         ajrasakhaPushedToReviewer: ajrasakha.questionAsked,
+        manualPushedToReviewer: manual.questionAsked,
         whatsappAnsweredWithin120Min: whatsapp.answeredWithin120Min,
         ajrasakhaAnsweredWithin120Min: ajrasakha.answeredWithin120Min,
+        manualAnsweredWithin120Min: manual.answeredWithin120Min,
         whatsappPassedQuestions: whatsapp.passedQuestionsCount,
         ajrasakhaPassedQuestions: ajrasakha.passedQuestionsCount,
+        manualPassedQuestions: manual.passedQuestionsCount,
         whatsappMarkedDuplicate: whatsapp.markedDuplicateGdbCount,
         ajrasakhaMarkedDuplicate: ajrasakha.markedDuplicateGdbCount,
+        manualMarkedDuplicate: manual.markedDuplicateGdbCount,
         whatsappDynamicWeather,
         ajrasakhaDynamicWeather,
+        manualDynamicWeather: manual.dynamicWeatherCount,
         whatsappDynamicMarket,
         ajrasakhaDynamicMarket,
+        manualDynamicMarket: manual.dynamicMarketCount,
         whatsappDynamicSchemes,
         ajrasakhaDynamicSchemes,
-        whatsappNonGdbWithin120,
-        ajrasakhaNonGdbWithin120,
+        manualDynamicSchemes: manual.dynamicSchemesCount,
+        // whatsappNonGdbWithin120,
+        // ajrasakhaNonGdbWithin120,
+        // manualNonGdbWithin120,
         whatsappInReview: whatsapp.inReviewCount,
         ajrasakhaInReview: ajrasakha.inReviewCount,
+        manualInReview: manual.inReviewCount,
         whatsappOpen: whatsapp.openCount,
         ajrasakhaOpen: ajrasakha.openCount,
+        manualOpen: manual.openCount,
         whatsappDelayed: whatsapp.delayedCount,
         ajrasakhaDelayed: ajrasakha.delayedCount,
+        manualDelayed: manual.delayedCount,
+
+        whatsappClosedCount: whatsapp.closedCount,
+        whatsappPendingCount: whatsapp.pendingCount,
+        whatsappNonAgriCount: whatsapp. nonAgriCount,
+        whatsappDynamicCount: whatsapp.dynamicCount,
+        whatsappDuplicateCount: whatsapp.duplicateCount,
+        whatsappHoldCount: whatsapp.holdCount,
+        whatsappPaeSubmitedCount: whatsapp.paeSubmitedCount,
+        whatsappDynamicCLosedCount: whatsapp.dynamicCLosedCount,
+        whatsappReroutedCount: whatsapp.reroutedCount,
+        whatsappPassCount: whatsapp.passCount,
+        whatsappDuplicateClosedCount: whatsapp.duplicateClosedCount,
+
+      ajrasakhaClosedCount: ajrasakha.closedCount,
+    ajrasakhaPendingCount: ajrasakha.pendingCount,
+    ajrasakhaNonAgriCount:ajrasakha.nonAgriCount ,
+    ajrasakhaDynamicCount: ajrasakha.dynamicCount,
+    ajrasakhaDuplicateCount: ajrasakha.duplicateCount,
+    ajrasakhaHoldCount: ajrasakha.holdCount,
+    ajrasakhaPaeSubmitedCount:ajrasakha.paeSubmitedCount ,
+    ajrasakhaDynamicCLosedCount: ajrasakha.dynamicCLosedCount,
+    ajrasakhaReroutedCount: ajrasakha.reroutedCount,
+    ajrasakhaPassCount: ajrasakha.passCount,
+    ajrasakhaDuplicateClosedCount:ajrasakha.duplicateClosedCount,
+
+      manualClosedCount: manual.closedCount,
+    manualPendingCount: manual.pendingCount,
+    manualNonAgriCount:manual. nonAgriCount,
+    manualDynamicCount: manual.dynamicCount,
+    manualDuplicateCount: manual.duplicateCount,
+    manualHoldCount: manual.holdCount,
+    manualPaeSubmitedCount:manual.paeSubmitedCount ,
+    manualDynamicCLosedCount: manual.dynamicCLosedCount,
+    manualReroutedCount: manual.reroutedCount,
+    manualPassCount: manual.passCount,
+    manualDuplicateClosedCount:manual.duplicateClosedCount,
+      manualAverageResponseGBDMinutes: manual.averageResponseGDBMinutes,
+    manualAverageResponseNonGBDMinutes: manual.averageResponseNonGDBMinutes,
+            whatsappAverageResponseGBDMinutes: whatsapp.averageResponseGDBMinutes,
+        whatsappAverageResponseNonGBDMinutes: whatsapp.averageResponseNonGDBMinutes,
+            ajrasakhaAverageResponseGBDMinutes: ajrasakha.averageResponseGDBMinutes,
+    ajrasakhaAverageResponseNonGBDMinutes: ajrasakha.averageResponseNonGDBMinutes,
+
         whatsappAverageResponseMinutes:
           Math.round(whatsapp.averageResponseMinutes * 100) / 100,
         ajrasakhaAverageResponseMinutes:
           Math.round(ajrasakha.averageResponseMinutes * 100) / 100,
+        manualAverageResponseMinutes:
+          Math.round(manual.averageResponseMinutes * 100) / 100,
         whatsappAdherencePct,
         ajrasakhaAdherencePct,
+        manualAdherencePct,
+        manualTotal : manual.manualTotal,
+        agriexpertTotal: manual.agriexpertTotal,
+        outreachTotal: manual.outreachTotal,
+        answeredWithin120MinClosedwhatsapp: whatsapp.answeredWithin120MinClosed,
+        answeredWithin120MinPasswhatsapp: whatsapp.answeredWithin120MinPass,
+        answeredWithin120MinDynamicClosedwhatsapp: whatsapp.answeredWithin120MinDynamicClosed,
+        answeredWithin120MinDuplicateClosedwhatsapp: whatsapp.answeredWithin120MinDuplicateClosed,
+        answeredWithin120MinClosedajrasakha: ajrasakha.answeredWithin120MinClosed,
+        answeredWithin120MinPassajrasakha: ajrasakha.answeredWithin120MinPass,
+        answeredWithin120MinDynamicClosedajrasakha: ajrasakha.answeredWithin120MinDynamicClosed,
+        answeredWithin120MinDuplicateClosedajrasakha: ajrasakha.answeredWithin120MinDuplicateClosed,
+        answeredWithin120MinClosedmanual: manual.answeredWithin120MinClosed,
+        answeredWithin120MinPassmanual: manual.answeredWithin120MinPass,
+        answeredWithin120MinDynamicClosedmanual: manual.answeredWithin120MinDynamicClosed,
+        answeredWithin120MinDuplicateClosedmanual: manual.answeredWithin120MinDuplicateClosed,
+
+        whatsappdynamicWeatherDynamicCount: whatsapp.dynamicWeatherDynamicCount,
+        whatsappdynamicWeatherStaticDynamicCount: whatsapp.dynamicWeatherStaticDynamicCount,
+        ajrasakhadynamicWeatherDynamicCount: ajrasakha.dynamicWeatherDynamicCount,
+        ajrasakhadynamicWeatherStaticDynamicCount: ajrasakha.dynamicWeatherStaticDynamicCount,
+        manualdynamicWeatherDynamicCount: manual.dynamicWeatherDynamicCount,
+        manualdynamicWeatherStaticDynamicCount: manual.dynamicWeatherStaticDynamicCount,
+
+        whatsappdynamicMarketDynamicCount: whatsapp.dynamicMarketDynamicCount,
+        whatsappdynamicMarketStaticDynamicCount: whatsapp.dynamicMarketStaticDynamicCount,
+        ajrasakhadynamicMarketDynamicCount: ajrasakha.dynamicMarketDynamicCount,
+        ajrasakhadynamicMarketStaticDynamicCount: ajrasakha.dynamicMarketStaticDynamicCount,
+        manualdynamicMarketDynamicCount: manual.dynamicMarketDynamicCount,
+        manualdynamicMarketStaticDynamicCount: manual.dynamicMarketStaticDynamicCount,
+
+        whatsappdynamicSchemesDynamicCount: whatsapp.dynamicSchemesDynamicCount,
+        whatsappdynamicSchemesStaticDynamicCount: whatsapp.dynamicSchemesStaticDynamicCount,
+        ajrasakhadynamicSchemesDynamicCount: ajrasakha.dynamicSchemesDynamicCount,
+        ajrasakhadynamicSchemesStaticDynamicCount: ajrasakha.dynamicSchemesStaticDynamicCount,
+        manualdynamicSchemesDynamicCount: manual.dynamicSchemesDynamicCount,
+        manualdynamicSchemesStaticDynamicCount: manual.dynamicSchemesStaticDynamicCount,
+
+        totalDynamicWhatsappCount: whatsapp.dynamicWeatherDynamicCount + whatsapp.dynamicMarketDynamicCount + whatsapp.dynamicSchemesDynamicCount,
+        totalDynamicAjrasakhaCount: ajrasakha.dynamicWeatherDynamicCount + ajrasakha.dynamicWeatherDynamicCount + ajrasakha.dynamicSchemesDynamicCount,
+        totalDynamicManualCount: manual.dynamicWeatherDynamicCount + manual.dynamicMarketDynamicCount + manual.dynamicSchemesDynamicCount,
+
+        totalStaticDynamicWhatsappCount: whatsapp.dynamicWeatherStaticDynamicCount + whatsapp.dynamicMarketStaticDynamicCount + whatsapp.dynamicSchemesStaticDynamicCount,
+        totalStaticDynamicAjrasakhaCount: ajrasakha.dynamicWeatherStaticDynamicCount + ajrasakha.dynamicMarketStaticDynamicCount + ajrasakha.dynamicSchemesStaticDynamicCount,
+        totalStaticDynamicManualCount: manual.dynamicWeatherStaticDynamicCount + manual.dynamicMarketStaticDynamicCount + manual.dynamicSchemesStaticDynamicCount,
+
+        whatsAppAnsweredAfter120Min: whatsapp.answeredAfter120Min,
+        ajrasakhaAnsweredAfter120Min: ajrasakha.answeredAfter120Min,
+        manualAnsweredAfter120Min: manual.answeredAfter120Min,
+
+        whatsAppAnsweredAfter120MinClosed: whatsapp.answeredAfter120MinClosed,
+        whatsAppAnsweredAfter120MinPass: whatsapp.answeredAfter120MinPass,
+        whatsAppAnsweredAfter120MinDynamicClosed: whatsapp.answeredAfter120MinDynamicClosed,
+        whatsAppAnsweredAfter120MinDuplicateClosed: whatsapp.answeredAfter120MinDuplicateClosed,
+
+        ajrasakhaAnsweredAfter120MinClosed: ajrasakha.answeredAfter120MinClosed,
+        ajrasakhaAnsweredAfter120MinPass: ajrasakha.answeredAfter120MinPass,
+        ajrasakhaAnsweredAfter120MinDynamicClosed: ajrasakha.answeredAfter120MinDynamicClosed,
+        ajrasakhaAnsweredAfter120MinDuplicateClosed: ajrasakha.answeredAfter120MinDuplicateClosed,
+
+        manualAnsweredAfter120MinClosed: manual.answeredAfter120MinClosed,
+        manualAnsweredAfter120MinPass: manual.answeredAfter120MinPass,
+        manualAnsweredAfter120MinDynamicClosed: manual.answeredAfter120MinDynamicClosed,
+        manualAnsweredAfter120MinDuplicateClosed: manual.answeredAfter120MinDuplicateClosed,
+
+        whatsappSlaBreachedCount,
+        ajrasakhaSlaBreachedCount,
+        manualSlaBreachedCount,
+
+        // WhatsApp TAT
+        whatsappTatMinutes: whatsapp.tatMinutes,
+        whatsappAverageTimeToAuthorMinutes: whatsapp.averageTimeToAuthorMinutes,
+        whatsappAverageReviewAcceptMinutes: whatsapp.averageReviewAcceptMinutes,
+        whatsappAverageReviewModifyMinutes: whatsapp.averageReviewModifyMinutes,
+        whatsappAverageReviewRejectReauthorMinutes:
+          whatsapp.averageReviewRejectReauthorMinutes,
+        whatsappAverageModeratingMinutes: whatsapp.averageModeratingMinutes,
+        whatsappAverageGatekeepingMinutes: whatsapp.averageGatekeepingMinutes,
+        whatsappAverageAuditingMinutes: whatsapp.averageAuditingMinutes,
+        whatsappAverageReroutedCompletionMinutes:
+          whatsapp.averageReroutedCompletionMinutes,
+
+        // Ajrasakha TAT
+        ajrasakhaTatMinutes: ajrasakha.tatMinutes,
+        ajrasakhaAverageTimeToAuthorMinutes: ajrasakha.averageTimeToAuthorMinutes,
+        ajrasakhaAverageReviewAcceptMinutes: ajrasakha.averageReviewAcceptMinutes,
+        ajrasakhaAverageReviewModifyMinutes: ajrasakha.averageReviewModifyMinutes,
+        ajrasakhaAverageReviewRejectReauthorMinutes:
+          ajrasakha.averageReviewRejectReauthorMinutes,
+        ajrasakhaAverageModeratingMinutes: ajrasakha.averageModeratingMinutes,
+        ajrasakhaAverageGatekeepingMinutes: ajrasakha.averageGatekeepingMinutes,
+        ajrasakhaAverageAuditingMinutes: ajrasakha.averageAuditingMinutes,
+        ajrasakhaAverageReroutedCompletionMinutes:
+          ajrasakha.averageReroutedCompletionMinutes,
+
+        // Manual TAT
+        manualTatMinutes: manual.tatMinutes,
+        manualAverageTimeToAuthorMinutes: manual.averageTimeToAuthorMinutes,
+        manualAverageReviewAcceptMinutes: manual.averageReviewAcceptMinutes,
+        manualAverageReviewModifyMinutes: manual.averageReviewModifyMinutes,
+        manualAverageReviewRejectReauthorMinutes:
+          manual.averageReviewRejectReauthorMinutes,
+        manualAverageModeratingMinutes: manual.averageModeratingMinutes,
+        manualAverageGatekeepingMinutes: manual.averageGatekeepingMinutes,
+        manualAverageAuditingMinutes: manual.averageAuditingMinutes,
+        manualAverageReroutedCompletionMinutes:
+          manual.averageReroutedCompletionMinutes,
+        whatsappAverageEndToEndQnaCompletionMinutes: whatsapp.averageEndToEndQnaCompletionMinutes,
+        ajrasakhaAverageEndToEndQnaCompletionMinutes: ajrasakha.averageEndToEndQnaCompletionMinutes,
+        manualAverageEndToEndQnaCompletionMinutes: manual.averageEndToEndQnaCompletionMinutes,
+
+        whatsappAverageEndToEndUniqueMinutes: whatsapp.averageEndToEndUniqueMinutes,
+        ajrasakhaAverageEndToEndUniqueMinutes: ajrasakha.averageEndToEndUniqueMinutes,
+        manualAverageEndToEndUniqueMinutes: manual.averageEndToEndUniqueMinutes,
+
+        whatsappAverageEndToEndDynamicMinutes: whatsapp.averageEndToEndDynamicMinutes,
+        ajrasakhaAverageEndToEndDynamicMinutes: ajrasakha.averageEndToEndDynamicMinutes,
+        manualAverageEndToEndDynamicMinutes: manual.averageEndToEndDynamicMinutes,
+
+        whatsappAverageEndToEndDuplicateMinutes: whatsapp.averageEndToEndDuplicateMinutes,
+        ajrasakhaAverageEndToEndDuplicateMinutes: ajrasakha.averageEndToEndDuplicateMinutes,
+        manualAverageEndToEndDuplicateMinutes: manual.averageEndToEndDuplicateMinutes,
+
+        // PAE Assigned Questions
+        whatsappPaeAssignedQuestions: whatsapp.paeAssignedQuestions,
+        ajrasakhaPaeAssignedQuestions: ajrasakha.paeAssignedQuestions,
+        manualPaeAssignedQuestions: manual.paeAssignedQuestions,
+        // PAE Contribution to GDB
+        whatsappPaeContributionToGDB: whatsapp.paeContributionToGDB,
+        ajrasakhaPaeContributionToGDB: ajrasakha.paeContributionToGDB,
+        manualPaeContributionToGDB: manual.paeContributionToGDB,
+        // PAE Contribution to GDB %
+        whatsappPaeContributionToGDBPct: whatsapp.paeContributionToGDBPct,
+        ajrasakhaPaeContributionToGDBPct: ajrasakha.paeContributionToGDBPct,
+        manualPaeContributionToGDBPct: manual.paeContributionToGDBPct,
       };
     } catch (error) {
+      console.log("error------", error);
       throw new InternalServerError(
         `Failed to get response adherence table: ${error}`,
       );
@@ -1259,7 +2038,10 @@ export class ChatbotRepository implements IChatbotRepository {
   // }
 
   //without unwind
-  private buildUserTypeLookupStages(userType: string): any[] {
+  private buildUserTypeLookupStages(
+    userType: string,
+    keepUserDoc: boolean = false,
+  ): any[] {
     if (userType === 'all') return [];
 
     const userRoleMatch =
@@ -1295,7 +2077,7 @@ export class ChatbotRepository implements IChatbotRepository {
         $match: userRoleMatch,
       },
       {
-        $unset: ['_userOid', '_userDoc'],
+        $unset: keepUserDoc ? ['_userOid'] : ['_userOid', '_userDoc'],
       },
     ];
   }
@@ -2003,17 +2785,19 @@ export class ChatbotRepository implements IChatbotRepository {
     _source = 'annam',
     session?: ClientSession,
     userType = 'all',
+    coordinatorId?: string,
   ): Promise<QueryCategoryEntry[]> {
     try {
       await this.initReviewSystem();
 
       // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-      const matchQuery = buildBaseQuestionMatch(source);
-
-      matchQuery['details.domain'] = {
-        $exists: true,
-        $nin: [null, ''],
+      const matchQuery: any = {
+        ...buildBaseQuestionMatch(source),
+        'details.domain': {
+          $exists: true,
+          $nin: [null, ''],
+        },
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -2022,7 +2806,16 @@ export class ChatbotRepository implements IChatbotRepository {
       );
 
       if (query && Object.keys(query).length) {
+        if (!matchQuery.$and) matchQuery.$and = [];
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length) {
+          if (!matchQuery.$and) matchQuery.$and = [];
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
       const pipeline = [
         {
@@ -2137,6 +2930,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
     userType = 'all',
     search?: string,
+    coordinatorId?: string,
   ): Promise<PaginatedQueryCategoryQuestions> {
     try {
       await this.initReviewSystem();
@@ -2146,11 +2940,12 @@ export class ChatbotRepository implements IChatbotRepository {
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
 
-      const baseMatch = buildBaseQuestionMatch(_source);
-
-      baseMatch['details.domain'] = {
-        $exists: true,
-        $nin: [null, ''],
+      const baseMatch: any = {
+        ...buildBaseQuestionMatch(_source),
+        'details.domain': {
+          $exists: true,
+          $nin: [null, ''],
+        },
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -2159,7 +2954,16 @@ export class ChatbotRepository implements IChatbotRepository {
       );
 
       if (query && Object.keys(query).length > 0) {
+        if (!baseMatch.$and) baseMatch.$and = [];
         baseMatch.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          if (!baseMatch.$and) baseMatch.$and = [];
+          baseMatch.$and.push(coordinatorMatch);
+        }
       }
       const categoryLabel = category?.trim();
       if (!categoryLabel) {
@@ -2363,524 +3167,20 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  // async getDistrictAnalyticsByState(
-  //   _source = 'annam',
-  //   state: string,
-  //   session?: ClientSession,
-  //   userType = 'all',
-  // ): Promise<DistrictAnalyticsEntry[]> {
-  //   try {
-  //     console.log('State is', state);
-  //     await this.initReviewSystem();
-  //     if (_source === 'whatsapp') {
-  //       _source = 'WHATSAPP';
-  //     } else {
-  //       _source = 'AJRASAKHA';
-  //     }
-  //     const districts = DISTRICTS[state];
-
-  //     if (!districts || districts.length === 0) {
-  //       return [];
-  //     }
-
-  //     // Normalize district names
-  //     const normalizedDistricts = districts.map(d => d.toLowerCase().trim());
-
-  //     const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-
-  //     const pipeline = [
-  //       {
-  //         $match: {
-  //           source: _source,
-
-  //           'details.district': {
-  //             $exists: true,
-  //             $ne: null,
-  //           },
-  //         },
-  //       },
-
-  //       ...lookupStages,
-
-  //       // Normalize district from DB
-  //       {
-  //         $addFields: {
-  //           normalizedDistrict: {
-  //             $toLower: '$details.district',
-  //           },
-  //         },
-  //       },
-
-  //       // Keep only districts belonging to selected state
-  //       {
-  //         $match: {
-  //           normalizedDistrict: {
-  //             $in: normalizedDistricts,
-  //           },
-  //         },
-  //       },
-
-  //       {
-  //         $project: {
-  //           district: '$details.district',
-
-  //           isDuplicate: {
-  //             $cond: [
-  //               {
-  //                 $eq: ['$status', 'duplicate'],
-  //               },
-  //               1,
-  //               0,
-  //             ],
-  //           },
-  //         },
-  //       },
-
-  //       {
-  //         $group: {
-  //           _id: '$district',
-
-  //           totalQuestions: {
-  //             $sum: 1,
-  //           },
-
-  //           duplicateQuestions: {
-  //             $sum: '$isDuplicate',
-  //           },
-
-  //           uniqueQuestions: {
-  //             $sum: {
-  //               $cond: [
-  //                 {
-  //                   $eq: ['$isDuplicate', 0],
-  //                 },
-  //                 1,
-  //                 0,
-  //               ],
-  //             },
-  //           },
-  //         },
-  //       },
-
-  //       {
-  //         $sort: {
-  //           totalQuestions: -1,
-  //         },
-  //       },
-  //     ];
-
-  //     const raw = await this.QuestionCollection.aggregate(pipeline, {
-  //       session,
-  //     }).toArray();
-
-  //     const districtMap = new Map(
-  //       raw.map(item => [
-  //         item._id.toLowerCase().trim(),
-  //         {
-  //           district: item._id,
-  //           totalQuestions: item.totalQuestions,
-  //           uniqueQuestions: item.uniqueQuestions,
-  //           duplicateQuestions: item.duplicateQuestions,
-  //         },
-  //       ]),
-  //     );
-
-  //     const normalizedResult: DistrictAnalyticsEntry[] = districts.map(
-  //       district => {
-  //         const normalizedDistrict = district.toLowerCase().trim();
-
-  //         const existing = districtMap.get(normalizedDistrict);
-
-  //         return (
-  //           existing || {
-  //             district,
-
-  //             totalQuestions: 0,
-
-  //             uniqueQuestions: 0,
-
-  //             duplicateQuestions: 0,
-  //           }
-  //         );
-  //       },
-  //     );
-
-  //     return normalizedResult.sort(
-  //       (a, b) => b.totalQuestions - a.totalQuestions,
-  //     );
-  //   } catch (error) {
-  //     throw new Error(`Failed to fetch district analytics: ${error}`);
-  //   }
-  // }
-
-  //   async getDistrictAnalyticsByState(
-  //     _source = 'annam',
-  //     state: string,
-  //     session?: ClientSession,
-  //     userType = 'all',
-  //   ): Promise<DistrictAnalyticsEntry[]> {
-  //     try {
-  //       await this.initReviewSystem();
-
-  //       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-
-  //       const districts = ['All', ...(DISTRICTS[state] || [])];
-
-  //       if (!districts || districts.length === 0) {
-  //         return [];
-  //       }
-
-  //       const normalizedDistricts = districts.map(d =>
-  //         this.normalizeDistrictName(d),
-  //       );
-
-  //       const matchQuery: any = {
-  //         source,
-  //         'details.state': state,
-  //         'details.district': {
-  //           $exists: true,
-  //           $ne: null,
-  //         },
-  //         $and: [
-  //           {
-  //             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-  //           },
-  //         ],
-  //         status: {$ne: 'non_agri'},
-  //       };
-
-  //       const query = await this.buildQuestionUserTypeMatchQuery(
-  //         _source,
-  //         userType,
-  //       );
-
-  //       if (query && Object.keys(query).length > 0) {
-  //         matchQuery.$and.push(query);
-  //       }
-
-  //       // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-
-  //       const pipeline = [
-  //         {
-  //           $match: matchQuery,
-  //         },
-
-  //         // ...lookupStages,
-  //         // ...lookupStages,
-
-  //         {
-  //           $project: {
-  //             district: '$details.district',
-
-  //             isDuplicate: {
-  //               $cond: [
-  //                 {
-  //                   $eq: ['$status', 'duplicate'],
-  //                 },
-  //                 1,
-  //                 0,
-  //               ],
-  //             },
-  //             isClosed: {
-  //               $cond: [
-  //                 {
-  //                   $eq: ['$status', 'closed'],
-  //                 },
-  //                 1,
-  //                 0,
-  //               ],
-  //             },
-  //           },
-  //         },
-
-  //         {
-  //           $group: {
-  //             _id: '$district',
-
-  //             totalQuestions: {
-  //               $sum: 1,
-  //             },
-
-  //             closedQuestions: {
-  //               $sum: '$isClosed',
-  //             },
-
-  //             duplicateQuestions: {
-  //               $sum: '$isDuplicate',
-  //             },
-
-  //             uniqueQuestions: {
-  //               $sum: {
-  //                 $cond: [
-  //                   {
-  //                     $eq: ['$isDuplicate', 0],
-  //                   },
-  //                   1,
-  //                   0,
-  //                 ],
-  //               },
-  //             },
-  //           },
-  //         },
-  //       ];
-
-  //       const raw = await this.QuestionCollection.aggregate(pipeline, {
-  //         session,
-  //       }).toArray();
-
-  //       const rawDistrictTotal = raw.reduce(
-  //   (sum, d) => sum + d.totalQuestions,
-  //   0,
-  // );
-
-  // console.log(
-  //   'Raw district total:',
-  //   rawDistrictTotal,
-  // );
-
-  //       const missingDistrictCount =
-  //   await this.QuestionCollection.countDocuments({
-  //     source,
-  //     'details.state': state,
-  //     $or: [
-  //       { 'details.district': { $exists: false } },
-  //       { 'details.district': null },
-  //       { 'details.district': '' },
-  //     ],
-  //     status: { $ne: 'non_agri' },
-  //   });
-
-  // console.log(
-  //   'Questions without district:',
-  //   missingDistrictCount,
-  // );
-
-  //       await this.init(_source);
-
-  //       const todayStart = new Date();
-  //       todayStart.setHours(0, 0, 0, 0);
-
-  //       const todayEnd = new Date();
-  //       todayEnd.setHours(23, 59, 59, 999);
-
-  //       const districtUsers = await this.users
-  //         .aggregate([
-  //           {
-  //             $match: {
-  //               isVerified: true,
-  //               'farmerProfile.state': {
-  //                 $regex: `^${state}$`,
-  //                 $options: 'i',
-  //               },
-  //               'farmerProfile.district': {
-  //                 $exists: true,
-  //                 $ne: null,
-  //               },
-  //             },
-  //           },
-  //           {
-  //             $group: {
-  //               _id: '$farmerProfile.district',
-
-  //               totalUsers: {
-  //                 $sum: 1,
-  //               },
-
-  //               activeUsers: {
-  //                 $sum: {
-  //                   $cond: [
-  //                     {
-  //                       $and: [
-  //                         {$gte: ['$lastActiveAt', todayStart]},
-  //                         {$lte: ['$lastActiveAt', todayEnd]},
-  //                       ],
-  //                     },
-  //                     1,
-  //                     0,
-  //                   ],
-  //                 },
-  //               },
-
-  //               coordinators: {
-  //   $sum: {
-  //     $cond: [
-  //       {
-  //         $in: [
-  //           '$userRole',
-  //           this.coordinatorsRoles,
-  //         ],
-  //       },
-  //       1,
-  //       0,
-  //     ],
-  //   },
-  // }
-  //             },
-  //           },
-  //         ])
-  //         .toArray();
-
-  //       const userMap = new Map();
-
-  //       for (const item of districtUsers) {
-  //         userMap.set(this.normalizeDistrictName(item._id), item);
-  //       }
-
-  //       const districtMap = new Map<
-  //   string,
-  //   {
-  //     district: string;
-  //     totalQuestions: number;
-  //     closedQuestions: number;
-  //     uniqueQuestions: number;
-  //     duplicateQuestions: number;
-  //   }
-  // >();
-
-  // const skippedDistricts: Array<{
-  //   district: string;
-  //   totalQuestions: number;
-  //   closedQuestions: number;
-  //   uniqueQuestions: number;
-  //   duplicateQuestions: number;
-  // }> = [];
-
-  // for (const item of raw) {
-  //   const normalizedDistrict = this.normalizeDistrictName(
-  //     item._id,
-  //   );
-
-  //   if (
-  //     !normalizedDistricts.includes(
-  //       normalizedDistrict,
-  //     )
-  //   ) {
-  //     skippedDistricts.push({
-  //       district: item._id,
-  //       totalQuestions: item.totalQuestions,
-  //       closedQuestions: item.closedQuestions,
-  //       uniqueQuestions: item.uniqueQuestions,
-  //       duplicateQuestions: item.duplicateQuestions,
-  //     });
-
-  //     continue;
-  //   }
-
-  //   districtMap.set(normalizedDistrict, {
-  //     district: item._id,
-  //     totalQuestions: item.totalQuestions,
-  //     closedQuestions: item.closedQuestions,
-  //     uniqueQuestions: item.uniqueQuestions,
-  //     duplicateQuestions: item.duplicateQuestions,
-  //   });
-  // }
-
-  //     const others = skippedDistricts.reduce(
-  //   (acc, item) => ({
-  //     totalQuestions:
-  //       acc.totalQuestions + item.totalQuestions,
-
-  //     closedQuestions:
-  //       acc.closedQuestions + item.closedQuestions,
-
-  //     uniqueQuestions:
-  //       acc.uniqueQuestions + item.uniqueQuestions,
-
-  //     duplicateQuestions:
-  //       acc.duplicateQuestions +
-  //       item.duplicateQuestions,
-  //   }),
-  //   {
-  //     totalQuestions: 0,
-  //     closedQuestions: 0,
-  //     uniqueQuestions: 0,
-  //     duplicateQuestions: 0,
-  //   },
-  // );
-
-  // const result: DistrictAnalyticsEntry[] =
-  //   districts.map(district => {
-  //     const normalizedDistrict =
-  //       this.normalizeDistrictName(district);
-
-  //     const existing =
-  //       districtMap.get(normalizedDistrict);
-
-  //     const userData =
-  //       userMap.get(normalizedDistrict);
-
-  //     return {
-  //       district,
-
-  //       totalQuestions:
-  //         existing?.totalQuestions ?? 0,
-
-  //       closedQuestions:
-  //         existing?.closedQuestions ?? 0,
-
-  //       uniqueQuestions:
-  //         existing?.uniqueQuestions ?? 0,
-
-  //       duplicateQuestions:
-  //         existing?.duplicateQuestions ?? 0,
-
-  //       totalUsers:
-  //         userData?.totalUsers ?? 0,
-
-  //       activeUsers:
-  //         userData?.activeUsers ?? 0,
-
-  //       coordinators:
-  //         userData?.coordinators ?? 0,
-  //     };
-  //   });
-  // if (others.totalQuestions > 0) {
-  //   result.push({
-  //     district: 'Others',
-
-  //     totalQuestions:
-  //       others.totalQuestions,
-
-  //     closedQuestions:
-  //       others.closedQuestions,
-
-  //     uniqueQuestions:
-  //       others.uniqueQuestions,
-
-  //     duplicateQuestions:
-  //       others.duplicateQuestions,
-
-  //     totalUsers: 0,
-  //     activeUsers: 0,
-  //     coordinators: 0,
-  //   });
-  // }
-
-  //       const data = result.sort((a, b) => {
-  //         if (a.district.toLowerCase() === 'all') return 1;
-  //         if (b.district.toLowerCase() === 'all') return -1;
-
-  //         return b.totalQuestions - a.totalQuestions;
-  //       });
-  //       return data;
-  //     } catch (error) {
-  //       throw new Error('Failed to fetch district analytics: ${error}');
-  //     }
-  //   }
-
   async getDistrictAnalyticsByState(
     state: string,
     district?: ILocationDistrict[],
     _source = 'annam',
     session?: ClientSession,
     userType = 'all',
+    startDate?: Date,
+    endDate?: Date,
+    coordinatorId?: string,
   ): Promise<DistrictAnalyticsEntry[]> {
     try {
       await this.initReviewSystem();
 
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-
-      console.log("District data", district)
 
       const districts = district.map(d => {
         if (d.districtNameEnglish === 'S.A.S Nagar') {
@@ -2918,6 +3218,18 @@ export class ChatbotRepository implements IChatbotRepository {
         status: {$ne: 'non_agri'},
       };
 
+      if (startDate || endDate) {
+        matchQuery.createdAt = {};
+
+        if (startDate) {
+          matchQuery.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          matchQuery.createdAt.$lte = endDate;
+        }
+      }
+
       const query = await this.buildQuestionUserTypeMatchQuery(
         _source,
         userType,
@@ -2925,6 +3237,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
 
       const raw = await this.QuestionCollection.aggregate(
@@ -2939,25 +3258,6 @@ export class ChatbotRepository implements IChatbotRepository {
               isDuplicate: {
                 $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
               },
-
-              // isClosed: {
-              //   $cond: [{$eq: ['$status', 'closed']}, 1, 0],
-              // },
-
-              // closeTimeMs: {
-              //   $cond: [
-              //     {
-              //       $and: [
-              //         {$eq: ['$status', 'closed']},
-              //         {$ne: ['$closedAt', null]},
-              //       ],
-              //     },
-              //     {
-              //       $subtract: ['$closedAt', '$createdAt'],
-              //     },
-              //     0,
-              //   ],
-              // },
             },
           },
           {
@@ -2967,14 +3267,6 @@ export class ChatbotRepository implements IChatbotRepository {
               totalQuestions: {
                 $sum: 1,
               },
-
-              // closedQuestions: {
-              //   $sum: '$isClosed',
-              // },
-
-              // duplicateQuestions: {
-              //   $sum: '$isDuplicate',
-              // },
 
               uniqueQuestions: {
                 $sum: {
@@ -2987,9 +3279,6 @@ export class ChatbotRepository implements IChatbotRepository {
                   ],
                 },
               },
-              // totalCloseTimeMs: {
-              //   $sum: '$closeTimeMs',
-              // },
             },
           },
         ],
@@ -3005,15 +3294,29 @@ export class ChatbotRepository implements IChatbotRepository {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
+      const feedbackMatch: any = {
+        feedback: {$ne: null},
+        'feedback.rating': {$exists: true},
+        isCreatedByUser: false,
+        isDeleted: {$ne: true},
+      };
+
+      if (startDate || endDate) {
+        feedbackMatch.createdAt = {};
+
+        if (startDate) {
+          feedbackMatch.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          feedbackMatch.createdAt.$lte = endDate;
+        }
+      }
+
       const feedbackRaw = await this.messagesCollection
         .aggregate([
           {
-            $match: {
-              feedback: {$ne: null},
-              'feedback.rating': {$exists: true},
-              isCreatedByUser: false,
-              isDeleted: {$ne: true},
-            },
+            $match: feedbackMatch,
           },
           {
             $addFields: {
@@ -3072,101 +3375,157 @@ export class ChatbotRepository implements IChatbotRepository {
         ])
         .toArray();
 
-  
+      let districtUsers;
+      const messageMatch: any = {
+        isCreatedByUser: true,
+        isDeleted: {$ne: true},
+      };
 
-      const districtUsers = await this.users
-        .aggregate([
-          {
-            $match: {
-              'farmerProfile.state': {
-                $regex: `^${state}$`,
-                $options: 'i',
-              },
+      if (startDate || endDate) {
+        messageMatch.createdAt = {};
 
-              'farmerProfile.district': {
-                $exists: true,
-                $ne: null,
-              },
-              ...userDocFilter,
+        if (startDate) {
+          messageMatch.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          messageMatch.createdAt.$lte = endDate;
+        }
+      }
+      if (startDate || endDate) {
+        districtUsers = await this.messagesCollection
+          .aggregate([
+            {
+              $match: messageMatch,
             },
-          },
-
-          {
-            $group: {
-              _id: '$farmerProfile.district',
-
-              totalUsers: {
-                $sum: 1,
+            {
+              $group: {
+                _id: '$user',
               },
-
-              activeUsers: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        {
-                          $gte: ['$lastActiveAt', todayStart],
-                        },
-                        {
-                          $lte: ['$lastActiveAt', todayEnd],
-                        },
-                      ],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-
-              coordinators: {
-                $sum: {
-                  $cond: [
-                    {
-                      $in: ['$userRole', this.coordinatorsRoles],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-
-              villageVolunteer: {
-                $sum: {
-                  $cond: [{$eq: ['$userRole', 'village_volunteer']}, 1, 0],
-                },
-              },
-
-              districtCoordinator: {
-                $sum: {
-                  $cond: [{$eq: ['$userRole', 'district_coordinator']}, 1, 0],
-                },
-              },
-
-              blockCoordinator: {
-                $sum: {
-                  $cond: [{$eq: ['$userRole', 'block_coordinator']}, 1, 0],
+            },
+            {
+              $addFields: {
+                userObjectId: {
+                  $toObjectId: '$_id',
                 },
               },
             },
-          },
-        ])
-        .toArray();
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'userObjectId',
+                foreignField: '_id',
+                as: 'user',
+              },
+            },
+            {
+              $unwind: '$user',
+            },
+            {
+              $match: {
+                ...userDocFilter,
+                'user.farmerProfile.state': {
+                  $regex: `^${state}$`,
+                  $options: 'i',
+                },
+                'user.farmerProfile.district': {
+                  $exists: true,
+                  $ne: null,
+                },
+              },
+            },
+            {
+              $group: {
+                _id: '$user.farmerProfile.district',
 
-        const debugUsers = await this.users.find({
-  "farmerProfile.state": {
-    $regex: `^${state}$`,
-    $options: "i",
-  },
-}).toArray();
+                activeUsers: {
+                  $sum: 1,
+                },
+              },
+            },
+          ])
+          .toArray();
+      } else {
+        districtUsers = await this.users
+          .aggregate([
+            {
+              $match: {
+                'farmerProfile.state': {
+                  $regex: `^${state}$`,
+                  $options: 'i',
+                },
 
+                'farmerProfile.district': {
+                  $exists: true,
+                  $ne: null,
+                },
+                ...userDocFilter,
+              },
+            },
 
+            {
+              $group: {
+                _id: '$farmerProfile.district',
+
+                totalUsers: {
+                  $sum: 1,
+                },
+
+                activeUsers: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          {
+                            $gte: ['$lastActiveAt', todayStart],
+                          },
+                          {
+                            $lte: ['$lastActiveAt', todayEnd],
+                          },
+                        ],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                coordinators: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $in: ['$userRole', this.coordinatorsRoles],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                villageVolunteer: {
+                  $sum: {
+                    $cond: [{$eq: ['$userRole', 'village_volunteer']}, 1, 0],
+                  },
+                },
+
+                districtCoordinator: {
+                  $sum: {
+                    $cond: [{$eq: ['$userRole', 'district_coordinator']}, 1, 0],
+                  },
+                },
+
+                blockCoordinator: {
+                  $sum: {
+                    $cond: [{$eq: ['$userRole', 'block_coordinator']}, 1, 0],
+                  },
+                },
+              },
+            },
+          ])
+          .toArray();
+      }
       const feedbackMap = new Map();
-
       for (const item of feedbackRaw) {
         const key = this.normalizeDistrictName(item._id);
-
         const existing = feedbackMap.get(key);
-
         if (existing) {
           existing.totalFeedbacks += item.totalFeedbacks;
           existing.positiveFeedbacks += item.positiveFeedbacks;
@@ -3175,188 +3534,124 @@ export class ChatbotRepository implements IChatbotRepository {
           feedbackMap.set(key, {...item});
         }
       }
-
       const userMap = new Map();
-
       for (const item of districtUsers) {
         const key = this.normalizeDistrictName(item._id);
-
         const existing = userMap.get(key);
-
         if (existing) {
-          existing.totalUsers += item.totalUsers;
-          existing.activeUsers += item.activeUsers;
-          existing.coordinators += item.coordinators;
-          existing.villageVolunteer += item.villageVolunteer;
-          existing.districtCoordinator += item.districtCoordinator;
-          existing.blockCoordinator += item.blockCoordinator;
+          if (startDate || endDate) {
+            existing.activeUsers += item.activeUsers;
+          } else {
+            existing.totalUsers += item.totalUsers;
+            existing.activeUsers += item.activeUsers;
+            existing.coordinators += item.coordinators;
+            existing.villageVolunteer += item.villageVolunteer;
+            existing.districtCoordinator += item.districtCoordinator;
+            existing.blockCoordinator += item.blockCoordinator;
+          }
         } else {
           userMap.set(key, {...item});
         }
       }
-
       const districtMap = new Map<
         string,
         {
           district: string;
           totalQuestions: number;
-          // closedQuestions: number;
-
           uniqueQuestions: number;
           duplicateQuestions: number;
-          // avgCloseTimeHours: number;
         }
       >();
-
       const skippedDistricts: Array<{
         district: string;
         totalQuestions: number;
-        // closedQuestions: number;
         uniqueQuestions: number;
         duplicateQuestions: number;
       }> = [];
-
       const duplicateKeys = new Map<string, string[]>();
-
       for (const item of raw) {
         const normalizedDistrict = this.normalizeDistrictName(item._id);
-
         // Track duplicate normalized keys
         if (duplicateKeys.has(normalizedDistrict)) {
           duplicateKeys.get(normalizedDistrict)!.push(item._id);
         } else {
           duplicateKeys.set(normalizedDistrict, [item._id]);
         }
-
         // District not present in master list
         if (!districtCodeMap.has(normalizedDistrict)) {
           skippedDistricts.push({
             district: item._id,
             totalQuestions: item.totalQuestions,
-            // closedQuestions: item.closedQuestions,
             uniqueQuestions: item.uniqueQuestions,
             duplicateQuestions: item.duplicateQuestions,
           });
-
           continue;
         }
-
         // IMPORTANT:
         // Merge duplicates instead of overwriting
         const existing = districtMap.get(normalizedDistrict);
-
         if (existing) {
           existing.totalQuestions += item.totalQuestions;
-
-          // existing.closedQuestions += item.closedQuestions;
-
           existing.uniqueQuestions += item.uniqueQuestions;
-
           existing.duplicateQuestions += item.duplicateQuestions;
-
-          // existing.avgCloseTimeHours += item.totalCloseTimeMs;
         } else {
           districtMap.set(normalizedDistrict, {
             district: item._id,
             totalQuestions: item.totalQuestions,
-            // closedQuestions: item.closedQuestions,
             uniqueQuestions: item.uniqueQuestions,
             duplicateQuestions: item.duplicateQuestions,
-            // avgCloseTimeHours:
-            //   item.closedQuestions > 0
-            //     ? item.totalCloseTimeMs / item.closedQuestions / 1000 / 60 / 60
-            //     : 0,
           });
         }
       }
-
       const others = skippedDistricts.reduce(
         (acc, item) => ({
           totalQuestions: acc.totalQuestions + item.totalQuestions,
-
-          // closedQuestions: acc.closedQuestions + item.closedQuestions,
-
           uniqueQuestions: acc.uniqueQuestions + item.uniqueQuestions,
-
           duplicateQuestions: acc.duplicateQuestions + item.duplicateQuestions,
         }),
         {
           totalQuestions: 0,
-          // closedQuestions: 0,
           uniqueQuestions: 0,
           duplicateQuestions: 0,
         },
       );
-
       const result: DistrictAnalyticsEntry[] = districts.map(district => {
         const normalizedDistrict = this.normalizeDistrictName(district);
-
         const existing = districtMap.get(normalizedDistrict);
-
         const userData = userMap.get(normalizedDistrict);
-
         const districtMeta = districtCodeMap.get(normalizedDistrict);
-
         const feedbackData = feedbackMap.get(normalizedDistrict);
-
-
         return {
           district,
-
           districtCode: districtMeta?.districtCode,
-
           totalQuestions: existing?.totalQuestions ?? 0,
-
-          // closedQuestions: existing?.closedQuestions ?? 0,
-
           uniqueQuestions: existing?.uniqueQuestions ?? 0,
-
           duplicateQuestions: existing?.duplicateQuestions ?? 0,
-
           totalUsers: userData?.totalUsers ?? 0,
-
           activeUsers: userData?.activeUsers ?? 0,
-
           coordinators: userData?.coordinators ?? 0,
-          // avgClosingMsTime: existing?.avgCloseTimeHours ?? 0,
-
           villageVolunteer: userData?.villageVolunteer ?? 0,
-
           districtCoordinator: userData?.districtCoordinator ?? 0,
-
           blockCoordinator: userData?.blockCoordinator ?? 0,
-
           totalFeedbacks: feedbackData?.totalFeedbacks ?? 0,
-
           positiveFeedbacks: feedbackData?.positiveFeedbacks ?? 0,
-
           negativeFeedbacks: feedbackData?.negativeFeedbacks ?? 0,
         };
       });
-
       if (others.totalQuestions > 0) {
         result.push({
           district: 'Others',
-
           totalQuestions: others.totalQuestions,
-
-          // closedQuestions: others.closedQuestions,
-
           uniqueQuestions: others.uniqueQuestions,
-
           duplicateQuestions: others.duplicateQuestions,
-
           totalUsers: 0,
           activeUsers: 0,
           coordinators: 0,
         });
       }
-
       return result.sort((a, b) => {
         if (a.district.toLowerCase() === 'all') return 1;
-
         if (b.district.toLowerCase() === 'all') return -1;
-
         return b.totalQuestions - a.totalQuestions;
       });
     } catch (error) {
@@ -3375,6 +3670,8 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     search?: string,
     knownDistricts?: string[],
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -3383,7 +3680,20 @@ export class ChatbotRepository implements IChatbotRepository {
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
       const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+
       const baseMatch = buildBaseQuestionMatch(sourceType);
+
+      if (startDate || endDate) {
+        baseMatch.createdAt = {};
+
+        if (startDate) {
+          baseMatch.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          baseMatch.createdAt.$lte = endDate;
+        }
+      }
 
       baseMatch['details.district'] = {
         $exists: true,
@@ -3653,6 +3963,7 @@ export class ChatbotRepository implements IChatbotRepository {
         totalQuestions: 0,
         duplicateQuestions: 0,
         closedQuestions: 0,
+        nonGdbQuestions: 0,
         notifiedQuestions: 0,
         averageClosureTimeMinutes: 0,
       });
@@ -4133,6 +4444,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: number;
           duplicateQuestions: number;
           closedQuestions: number;
+          nonGdbQuestions: number;
           notifiedQuestions: number;
           closureTotalMinutes: number;
           closureCount: number;
@@ -4171,6 +4483,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: 0,
           duplicateQuestions: 0,
           closedQuestions: 0,
+          nonGdbQuestions: 0,
           notifiedQuestions: 0,
           closureTotalMinutes: 0,
           closureCount: 0,
@@ -4209,6 +4522,11 @@ export class ChatbotRepository implements IChatbotRepository {
           existing.duplicateQuestions = existing.duplicateQuestionKeys.size;
         }
 
+        const statusLower = status.toLowerCase();
+        if (statusLower === 'pass' || statusLower === 'dynamic-closed' || statusLower === 'dynamic_closed' || statusLower === 'duplicate_closed' || statusLower === 'duplicate-closed') {
+          existing.nonGdbQuestions += 1;
+        }
+
         if (status === 'closed') {
           existing.closedQuestions += 1;
           if (row.isCustomerNotified === true) {
@@ -4237,7 +4555,9 @@ export class ChatbotRepository implements IChatbotRepository {
       ): FarmerHeatMapMetricTotals => {
         const activeFarmerIds = new Set<string>();
         let totalQuestions = 0;
+        let duplicateQuestionsCount = 0;
         let closedQuestions = 0;
+        let nonGdbQuestions = 0;
         let notifiedQuestions = 0;
         let closureTotalMinutes = 0;
         const duplicateQuestionKeys = new Set<string>();
@@ -4265,6 +4585,7 @@ export class ChatbotRepository implements IChatbotRepository {
               duplicateQuestionKeys.add(duplicateQuestionKey);
             }
             closedQuestions += questionMetrics.closedQuestions;
+            nonGdbQuestions += questionMetrics.nonGdbQuestions || 0;
             notifiedQuestions += questionMetrics.notifiedQuestions;
             closureTotalMinutes += questionMetrics.closureTotalMinutes;
           }
@@ -4275,6 +4596,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions,
           duplicateQuestions: duplicateQuestionKeys.size,
           closedQuestions,
+          nonGdbQuestions,
           notifiedQuestions,
           averageClosureTimeMinutes:
             totalQuestions > 0
@@ -4304,6 +4626,7 @@ export class ChatbotRepository implements IChatbotRepository {
             totalQuestions: questionMetrics?.totalQuestions ?? 0,
             duplicateQuestions: questionMetrics?.duplicateQuestions ?? 0,
             closedQuestions: questionMetrics?.closedQuestions ?? 0,
+            nonGdbQuestions: questionMetrics?.nonGdbQuestions ?? 0,
             notifiedQuestions: questionMetrics?.notifiedQuestions ?? 0,
             averageClosureTimeMinutes,
             statusDistribution: questionMetrics?.statusDistribution ?? {},
@@ -4343,6 +4666,10 @@ export class ChatbotRepository implements IChatbotRepository {
               acc.closedQuestions,
               cell.closedQuestions,
             );
+            acc.nonGdbQuestions = Math.max(
+              acc.nonGdbQuestions,
+              cell.nonGdbQuestions ?? 0,
+            );
             acc.notifiedQuestions = Math.max(
               acc.notifiedQuestions,
               cell.notifiedQuestions,
@@ -4359,6 +4686,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: 0,
           duplicateQuestions: 0,
           closedQuestions: 0,
+          nonGdbQuestions: 0,
           notifiedQuestions: 0,
           averageClosureTimeMinutes: 0,
         },
@@ -4751,6 +5079,7 @@ export class ChatbotRepository implements IChatbotRepository {
     source: string,
     userType?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{totalQuestions: number; topCrops: any[]}> {
     try {
       await this.initReviewSystem();
@@ -4770,6 +5099,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchStage.$and.push(coordinatorMatch);
+        }
       }
       const cropFieldRaw = {
         $ifNull: ['$details.normalised_crop', '$details.crop'],
@@ -5042,60 +5378,61 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.init(source);
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
 
-      const result = await this.messagesCollection
-        .aggregate(
-          [
-            {
-              $match: {
-                isCreatedByUser: true,
-              },
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              isCreatedByUser: true,
             },
+          },
 
-            ...userTypeLookupStages,
+          ...userTypeLookupStages,
 
-            {
-              $group: {
-                _id: {
-                  $dateToString: {
-                    format: '%Y-%m',
-                    date: '$createdAt',
-                    timezone: '+05:30',
-                  },
-                },
-
-                count: {
-                  $sum: 1,
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
                 },
               },
-            },
 
-            {
-              $project: {
-                month: '$_id',
-                count: 1,
-                _id: 0,
+              count: {
+                $sum: 1,
               },
             },
+          },
 
-            {
-              $sort: {
-                month: 1,
-              },
+          {
+            $project: {
+              month: '$_id',
+              count: 1,
+              _id: 0,
             },
-          ],
-          {session},
-        )
-        .toArray();
+          },
 
-      return result as MonthlyQueryCountEntry[];
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to get monthly query counts: ${error}`,
-      );
-    }
+          {
+            $sort: {
+              month: 1,
+            },
+          },
+        ],
+        {session},
+      )
+      .toArray();
+
+    return result as MonthlyQueryCountEntry[];
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get monthly query counts: ${error}`,
+    );
   }
+}
 
   async getQuerySummaryByPeriod(
     period: 'daily' | 'weekly' | 'monthly',
@@ -6457,147 +6794,12 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  // async getFeedbackData(
-  //   source = 'annam',
-  //   session?: ClientSession,
-  //   userType = 'all',
-  // ): Promise<FeedbackData> {
-  //   try {
-  //     await this.init(source);
-
-  //     const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
-
-  //     const result = await this.messagesCollection
-  //       .aggregate(
-  //         [
-  //           {
-  //             $match: {
-  //               feedback: {$exists: true},
-  //               isCreatedByUser: false,
-  //               isDeleted: {$ne: true},
-  //             },
-  //           },
-
-  //           ...userTypeLookupStages,
-
-  //           {
-  //             $addFields: {
-  //               numericRating: {
-  //                 $switch: {
-  //                   branches: [
-  //                     {
-  //                       case: {
-  //                         $eq: ['$feedback.rating', 'thumbsUp'],
-  //                       },
-  //                       then: 1,
-  //                     },
-  //                     {
-  //                       case: {
-  //                         $eq: ['$feedback.rating', 'thumbsDown'],
-  //                       },
-  //                       then: 0,
-  //                     },
-  //                   ],
-  //                   default: null,
-  //                 },
-  //               },
-  //             },
-  //           },
-
-  //           {
-  //             $facet: {
-  //               positiveFeedbacks: [
-  //                 {
-  //                   $match: {
-  //                     'feedback.rating': 'thumbsUp',
-  //                   },
-  //                 },
-  //                 {
-  //                   $project: {
-  //                     _id: 0,
-  //                     rating: '$feedback.rating',
-  //                     tag: '$feedback.tag',
-  //                   },
-  //                 },
-  //               ],
-
-  //               negativeFeedbacks: [
-  //                 {
-  //                   $match: {
-  //                     'feedback.rating': 'thumbsDown',
-  //                   },
-  //                 },
-  //                 {
-  //                   $project: {
-  //                     _id: 0,
-  //                     rating: '$feedback.rating',
-  //                     tag: '$feedback.tag',
-  //                   },
-  //                 },
-  //               ],
-
-  //               stats: [
-  //                 {
-  //                   $group: {
-  //                     _id: null,
-
-  //                     positiveCount: {
-  //                       $sum: {
-  //                         $cond: [
-  //                           {
-  //                             $eq: ['$feedback.rating', 'thumbsUp'],
-  //                           },
-  //                           1,
-  //                           0,
-  //                         ],
-  //                       },
-  //                     },
-
-  //                     negativeCount: {
-  //                       $sum: {
-  //                         $cond: [
-  //                           {
-  //                             $eq: ['$feedback.rating', 'thumbsDown'],
-  //                           },
-  //                           1,
-  //                           0,
-  //                         ],
-  //                       },
-  //                     },
-
-  //                     averageRating: {
-  //                       $avg: '$numericRating',
-  //                     },
-
-  //                     totalFeedbacks: {
-  //                       $sum: 1,
-  //                     },
-  //                   },
-  //                 },
-  //               ],
-  //             },
-  //           },
-  //         ],
-  //         {session},
-  //       )
-  //       .toArray();
-
-  //     const data = result[0];
-
-  //     return {
-  //       positiveFeedbacks: data.positiveFeedbacks,
-  //       negativeFeedbacks: data.negativeFeedbacks,
-  //       stats: data.stats[0],
-  //     };
-  //   } catch (error) {
-  //     throw new InternalServerError(`Failed to get feedback data: ${error}`);
-  //   }
-  // }
-
   async getFeedbackData(
     source = 'annam',
     session?: ClientSession,
     userType = 'all',
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<FeedbackData> {
     try {
       await this.init(source);
@@ -6626,6 +6828,24 @@ export class ChatbotRepository implements IChatbotRepository {
         ],
       };
 
+      const matchStage: any = {
+        feedback: {$exists: true},
+        isCreatedByUser: false,
+        isDeleted: {$ne: true},
+      };
+
+      if (startDate || endDate) {
+        matchStage.createdAt = {};
+
+        if (startDate) {
+          matchStage.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          matchStage.createdAt.$lte = endDate;
+        }
+      }
+
       // ─────────────────────────────────────
       // AGGREGATION
       // ─────────────────────────────────────
@@ -6634,11 +6854,7 @@ export class ChatbotRepository implements IChatbotRepository {
         .aggregate(
           [
             {
-              $match: {
-                feedback: {$exists: true},
-                isCreatedByUser: false,
-                isDeleted: {$ne: true},
-              },
+              $match: matchStage,
             },
 
             ...userTypeLookupStages,
@@ -6885,7 +7101,10 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<PaginatedFeedbackMessages> {
     try {
       await this.init(source);
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(
+        userType,
+        true,
+      );
 
       const matchStage: any = {
         feedback: {$exists: true, $ne: null},
@@ -6973,8 +7192,9 @@ export class ChatbotRepository implements IChatbotRepository {
               $project: {
                 _id: 1,
                 conversationId: 1,
-                messageId: 1,
                 userId: '$_userDoc._id',
+                name: '$_userDoc.name',
+                username: '$_userDoc.username',
                 farmerName: '$_userDoc.farmerProfile.farmerName',
                 email: '$_userDoc.email',
                 village: '$_userDoc.farmerProfile.villageName',
@@ -6998,29 +7218,6 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
       const totalFeedbacks = result[0]?.metadata[0]?.total || 0;
       const messages = result[0]?.data || [];
-
-      // Look up questionId from the questions collection (review system db)
-      // by matching each message's messageId to the question's messageId field
-      if (messages.length > 0) {
-        await this.initReviewSystem();
-        const messageIds = messages
-          .map((m: any) => m.messageId)
-          .filter((id: any) => id != null && id !== '');
-        if (messageIds.length > 0) {
-          const questions = await this.QuestionCollection.find(
-            {messageId: {$in: messageIds}},
-            {projection: {_id: 1, messageId: 1}},
-          ).toArray();
-          const messageIdToQuestionId = new Map<string, string>(
-            questions.map((q: any) => [String(q.messageId), String(q._id)]),
-          );
-          for (const msg of messages) {
-            msg.questionId = msg.messageId
-              ? messageIdToQuestionId.get(String(msg.messageId)) ?? null
-              : null;
-          }
-        }
-      }
 
       return {
         messages,
@@ -7395,8 +7592,10 @@ export class ChatbotRepository implements IChatbotRepository {
     activeTodayByProfile = false,
     missingDemographicField = '',
     isVerfied?: boolean,
+    fromMap?: boolean,
     loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
+    console.log("Profile completed----", profileCompleted)
     try {
       await this.init(source);
 
@@ -7436,6 +7635,11 @@ export class ChatbotRepository implements IChatbotRepository {
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
       };
+      if(fromMap === true){
+       userFilter['farmerProfile.state'] ={
+        $nin: [null, ''],
+       }
+      }
       if (isVerfied !== undefined) {
         userFilter.isVerified = isVerfied;
       }
@@ -7558,32 +7762,22 @@ export class ChatbotRepository implements IChatbotRepository {
           {'farmerProfile.state': stateRegex},
         ];
       }
-      // if (district && district.trim()) {
-      //   const districtRegex = {
-      //     $regex: `^${district.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
-      //     $options: 'i',
-      //   };
-      //   userFilter.$and = [
-      //     ...(userFilter.$and ?? []),
-      //     {'farmerProfile.district': districtRegex},
-      //   ];
-      // }
 
       if (district && district.trim()) {
-  const escapedDistrict = district
-    .trim()
-    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedDistrict = district
+          .trim()
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  userFilter.$and = [
-    ...(userFilter.$and ?? []),
-    {
-      'farmerProfile.district': {
-        $regex: `^${escapedDistrict}(\\s*\\(.*\\))?$`,
-        $options: 'i',
-      },
-    },
-  ];
-}
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            'farmerProfile.district': {
+              $regex: `^${escapedDistrict}(\\s*\\(.*\\))?$`,
+              $options: 'i',
+            },
+          },
+        ];
+      }
       if (block && block.trim()) {
         const blockRegex = {
           $regex: `^${block.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
@@ -7600,6 +7794,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {farmerProfile: {$exists: true, $ne: null}},
         ];
       } else if (profileCompleted === 'no') {
+        console.log("profile completed?", profileCompleted);
         userFilter.$and = [
           ...(userFilter.$and ?? []),
           {$or: [{farmerProfile: {$exists: false}}, {farmerProfile: null}]},
@@ -7658,41 +7853,42 @@ export class ChatbotRepository implements IChatbotRepository {
       // console.log('useres::',allUsers)
       // console.log('type of isverified:', isVerfied);
       // Merge
-      const merged: UserDetailEntry[] = allUsers.map(u => ({
-        userId: String(u._id),
-        name: u.name || u.username || 'Unknown',
-        email: u.email || '',
-        role: u.role || '',
-        userRole: u.userRole || '',
-        totalQuestions: countMap.get(String(u._id)) ?? 0,
-        createdAt: u.createdAt,
-        isVerified: u.isVerified ?? true,
-        farmerProfile: u.farmerProfile
-          ? // {
-            //     farmerName: u.farmerProfile.farmerName,
-            //     age: u.farmerProfile.age,
-            //     gender: u.farmerProfile.gender,
-            //     villageName: u.farmerProfile.villageName,
-            //     blockName: u.farmerProfile.blockName,
-            //     district: u.farmerProfile.district,
-            //     state: u.farmerProfile.state,
-            //     phoneNo: u.farmerProfile.phoneNo,
-            //     languagePreference: u.farmerProfile.languagePreference,
-            //     yearsOfExperience: u.farmerProfile.yearsOfExperience,
-            //     cropsCultivated: u.farmerProfile.cropsCultivated,
-            //     primaryCrop: u.farmerProfile.primaryCrop,
-            //     secondaryCrop: u.farmerProfile.secondaryCrop,
-            //     awarenessOfKCC: u.farmerProfile.awarenessOfKCC,
-            //     usesAgriApps: u.farmerProfile.usesAgriApps,
-            //     highestEducatedPerson: u.farmerProfile.highestEducatedPerson,
-            //     numberOfSmartphones: u.farmerProfile.numberOfSmartphones,
-            //     platform: u.farmerProfile.platform,
-            //     platformHistory: u.farmerProfile.platformHistory,
-            //     location: u.farmerProfile.location,
-            //   }
-            u.farmerProfile
-          : undefined,
-      }));
+      // const merged: UserDetailEntry[] = allUsers.map(u => ({
+      //   userId: String(u._id),
+      //   name: u.name || u.username || 'Unknown',
+      //   email: u.email || '',
+      //   role: u.role || '',
+      //   userRole: u.userRole || '',
+      //   totalQuestions: countMap.get(String(u._id)) ?? 0,
+      //   createdAt: u.createdAt,
+      //   isVerified: u.isVerified ?? true,
+      //   farmerProfile: u.farmerProfile
+      //     ?
+      //       u.farmerProfile
+      //     : undefined,
+      // }));
+
+      const merged: UserDetailEntry[] = allUsers
+        .filter(u => {
+          // If no date filter, keep everyone
+          if (!startDate && !endDate) {
+            return true;
+          }
+
+          // With a date filter, only keep users who asked questions
+          return (countMap.get(String(u._id)) ?? 0) > 0;
+        })
+        .map(u => ({
+          userId: String(u._id),
+          name: u.name || u.username || 'Unknown',
+          email: u.email || '',
+          role: u.role || '',
+          userRole: u.userRole || '',
+          totalQuestions: countMap.get(String(u._id)) ?? 0,
+          createdAt: u.createdAt,
+          isVerified: u.isVerified ?? true,
+          farmerProfile: u.farmerProfile ?? undefined,
+        }));
 
       const withSessionCounts =
         loginStatus !== 'all'
@@ -9182,6 +9378,24 @@ export class ChatbotRepository implements IChatbotRepository {
         if (value.startsWith('Large'))
           return {'farmerProfile.landhold': {$gte: 10}};
         break;
+
+      case 'kccAwareness':
+      case 'awarenessOfKCC':
+        if (value.toLowerCase() === 'yes') {
+          return {'farmerProfile.awarenessOfKCC': true};
+        } else if (value.toLowerCase() === 'no') {
+          return {'farmerProfile.awarenessOfKCC': {$ne: true}};
+        }
+        break;
+
+      case 'agriAppUsage':
+      case 'usesAgriApps':
+        if (value.toLowerCase() === 'yes') {
+          return {'farmerProfile.usesAgriApps': true};
+        } else if (value.toLowerCase() === 'no') {
+          return {'farmerProfile.usesAgriApps': {$ne: true}};
+        }
+        break;
     }
 
     return {};
@@ -9204,6 +9418,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
+        isVerified: true,
+        farmerProfile: {$exists: true, $ne: null},
       };
 
       if (search && search.trim()) {
@@ -9298,6 +9514,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
+        isVerified: true,
+        farmerProfile: {$exists: true, $ne: null},
       };
 
       const normalizedPlatform = platform?.trim();
@@ -9745,9 +9963,18 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate: Date,
     endDate: Date,
     session?: ClientSession,
+    coordinatorId?: string,
   ) {
     try {
       await this.init('annam');
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length === 0) return [];
+        coordinatorMatch = { _id: { $in: targetUserIds } };
+      }
+
       const userMatch =
         userType === 'all'
           ? {}
@@ -9762,6 +9989,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $match: {
               createdAt: {$gte: startDate, $lte: endDate},
               ...userMatch,
+              ...coordinatorMatch,
             },
           },
           {
@@ -9788,9 +10016,18 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate: Date,
     endDate: Date,
     session?: ClientSession,
+    coordinatorId?: string,
   ) {
     try {
       await this.init('annam');
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length === 0) return [];
+        coordinatorMatch = { _id: { $in: targetUserIds } };
+      }
+
       const userMatch =
         userType === 'all'
           ? {}
@@ -9806,6 +10043,7 @@ export class ChatbotRepository implements IChatbotRepository {
               farmerProfile: {$exists: true, $ne: null},
               updatedAt: {$gte: startDate, $lte: endDate},
               ...userMatch,
+              ...coordinatorMatch,
             },
           },
           {
@@ -9832,9 +10070,19 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate: Date,
     endDate: Date,
     session?: ClientSession,
+    coordinatorId?: string,
   ) {
     try {
       await this.init('annam');
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length === 0) return [];
+        const targetUserIdStrings = targetUserIds.map(id => id.toString());
+        coordinatorMatch = { user: { $in: targetUserIdStrings } };
+      }
+
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
       const result = await this.messagesCollection
         .aggregate([
@@ -9842,6 +10090,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $match: {
               createdAt: {$gte: startDate, $lte: endDate},
               isDeleted: {$ne: true},
+              ...coordinatorMatch,
             },
           },
           ...userTypeLookupStages,
@@ -9935,6 +10184,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getDuplicateQuestions(
     source = 'annam',
+    coordinatorId?: string,
     session?: ClientSession,
   ): Promise<DuplicateQuestionEntry[]> {
     try {
@@ -9945,12 +10195,19 @@ export class ChatbotRepository implements IChatbotRepository {
       if (source === 'whatsapp') {
         return await this.getWhatsAppDuplicateQuestions();
       }
+
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+      }
+
       // 1. Fetch duplicate questions from the main review DB
       const dupeQuestions = await this.QuestionCollection.find(
         {
           similarityScore: {$exists: true},
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           status: {$ne: 'non_agri'},
+          ...coordinatorMatch,
         },
         {session},
       )
@@ -10067,7 +10324,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDomainSpikes(days = 60, session?: ClientSession) {
+  async getDomainSpikes(days = 60, coordinatorId?: string, session?: ClientSession) {
     try {
       await this.initReviewSystem();
 
@@ -10114,17 +10371,27 @@ export class ChatbotRepository implements IChatbotRepository {
         },
       };
 
+      let coordinatorMatch = {};
+      if (coordinatorId) {
+        coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+      }
+
+      const matchStage = {
+        ...domainMatch,
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+        status: {$ne: 'non_agri'},
+        ...coordinatorMatch,
+      };
+
       const pipeline: any[] = [
         {
-          $match: domainMatch,
-          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          status: {$ne: 'non_agri'},
+          $match: matchStage,
         },
         groupStage,
         {
           $unionWith: {
             coll: 'duplicate_questions',
-            pipeline: [{$match: domainMatch}, groupStage],
+            pipeline: [{$match: matchStage}, groupStage],
           },
         },
         {
@@ -10213,7 +10480,7 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
 
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10303,6 +10570,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{question: string; count: number}>> {
     try {
       if (source === 'whatsapp') {
@@ -10316,6 +10584,17 @@ export class ChatbotRepository implements IChatbotRepository {
         isDeleted: {$ne: true},
         text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
+
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length > 0) {
+          queryMatch.user = {
+            $in: targetUserIds.map(id => id.toString()),
+          };
+        } else {
+          queryMatch.user = null;
+        }
+      }
 
       if (startTime || endTime) {
         queryMatch.createdAt = {};
@@ -10362,10 +10641,11 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{questionId: string; question: string; count: number}>> {
     try {
       await this.initReviewSystem();
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10384,6 +10664,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
 
       // const userTypeLookupStages =
@@ -10459,6 +10746,7 @@ export class ChatbotRepository implements IChatbotRepository {
     page: number = 1,
     limit: number = 10,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{
     data: any[];
     total: number;
@@ -10467,8 +10755,9 @@ export class ChatbotRepository implements IChatbotRepository {
     totalPages: number;
   }> {
     try {
+      await this.init(dbSource);
       await this.initReviewSystem();
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10487,6 +10776,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          matchQuery.$and.push(coordinatorMatch);
+        }
       }
 
       let qId;
@@ -10528,8 +10824,8 @@ export class ChatbotRepository implements IChatbotRepository {
                     status: 1,
                     source: 1,
                     userRole: 1,
-                    farmerId: 1,
-                    coordinatorId: 1,
+                    userId: 1,
+                    messageId: 1,
                   },
                 },
               ],
@@ -10540,11 +10836,25 @@ export class ChatbotRepository implements IChatbotRepository {
       ).toArray();
 
       const total = result[0]?.metadata[0]?.total || 0;
-      const data = result[0]?.data || [];
+      const rawData = result[0]?.data || [];
       const totalPages = Math.ceil(total / limit);
 
+      const resolved = await this.resolveQuestionUsers(rawData);
+      const userMap = resolved.userMap;
+      const questionUserMap = resolved.questionUserMap;
+
+      const enrichedData = rawData.map((question: any) => {
+        const questionId = question.questionId ?? question._id?.toString();
+        const resolvedUserId = questionUserMap.get(questionId);
+        const user = resolvedUserId ? userMap.get(resolvedUserId) : undefined;
+        return {
+          ...question,
+          email: user?.email || null,
+        };
+      });
+
       return {
-        data,
+        data: enrichedData,
         total,
         page,
         limit,
@@ -11479,6 +11789,70 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
+            duplicateClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'duplicate_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            duplicateClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'duplicate_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by period
@@ -11505,6 +11879,18 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
+            },
+            duplicateClosedTimedCount: {
+              $sum: '$duplicateClosedTimedCount',
+            },
+            duplicateClosedTimeSum: {
+              $sum: '$duplicateClosedTimeSum',
             },
           },
         },
@@ -11550,25 +11936,15 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
-            combinedAverageTimeMinutes: {
+            averageDynamicCloseTimeMinutes: {
               $cond: [
-                {
-                  $gt: [
-                    {$add: ['$closedTimedCount', '$passedTimedCount']},
-                    0,
-                  ],
-                },
+                {$gt: ['$dynamicClosedTimedCount', 0]},
                 {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
-                        {
-                          $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
-                            60000,
-                          ],
-                        },
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
                       ],
                     },
                     2,
@@ -11577,6 +11953,71 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDuplicateCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$duplicateClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$duplicateClosedTimeSum',
+                        {$multiply: ['$duplicateClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            combinedAverageTimeMinutes: {
+              $cond: [
+                {
+                  $gt: [
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                        '$duplicateClosedTimedCount',
+                      ],
+                    },
+                    0,
+                  ],
+                },
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                            '$duplicateClosedTimeSum',
+                          ],
+                        },
+                        {
+                          $multiply: [
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                                '$duplicateClosedTimedCount',
+                              ],
+                            },
+                              60000,
+                            ],
+                          },
+                        ],
+                      },
+                      2,
+                    ],
+                  },
+                  0,
+                ],
+              },
           },
         },
         {
@@ -11602,9 +12043,7 @@ export class ChatbotRepository implements IChatbotRepository {
       closedInSelectedTime.map(item => [item._id, item.closedInPeriod]),
     );
 
-    const analyticsMap = new Map(
-      analytics.map(item => [item.period, item]),
-    );
+    const analyticsMap = new Map(analytics.map(item => [item.period, item]));
 
     const dateStrings: string[] = [];
     const tempDate = new Date(start);
@@ -11613,9 +12052,18 @@ export class ChatbotRepository implements IChatbotRepository {
     tempEnd.setHours(12, 0, 0, 0);
 
     while (tempDate <= tempEnd) {
-      const year = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric' });
-      const month = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', month: '2-digit' });
-      const day = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', day: '2-digit' });
+      const year = tempDate.toLocaleString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+      });
+      const month = tempDate.toLocaleString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        month: '2-digit',
+      });
+      const day = tempDate.toLocaleString('en-US', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+      });
       const dateStr = `${year}-${month}-${day}`;
       if (!dateStrings.includes(dateStr)) {
         dateStrings.push(dateStr);
@@ -11625,13 +12073,23 @@ export class ChatbotRepository implements IChatbotRepository {
 
     const result = dateStrings.map(dateStr => {
       const existing = analyticsMap.get(dateStr);
+      const averages = [
+        existing?.averageCloseTimeMinutes || 0,
+        existing?.averagePassTimeMinutes || 0,
+        existing?.averageDynamicCloseTimeMinutes || 0,
+        existing?.averageDuplicateCloseTimeMinutes || 0,
+      ].filter(v => v > 0);
+      const normalAvg = averages.length > 0
+        ? Number((averages.reduce((a, b) => a + b, 0) / averages.length).toFixed(2))
+        : 0;
+
       return {
         period: dateStr,
         totalQuestions: existing?.totalQuestions || 0,
         statuses: existing?.statuses || {},
         averageCloseTimeMinutes: existing?.averageCloseTimeMinutes || 0,
         averagePassTimeMinutes: existing?.averagePassTimeMinutes || 0,
-        combinedAverageTimeMinutes: existing?.combinedAverageTimeMinutes || 0,
+        combinedAverageTimeMinutes: normalAvg,
         closedInPeriod: closedMap.get(dateStr) || 0,
         carryForward: 0,
       };
@@ -11766,6 +12224,70 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
+            duplicateClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'duplicate_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            duplicateClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'duplicate_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by week
@@ -11792,6 +12314,18 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
+            },
+            duplicateClosedTimedCount: {
+              $sum: '$duplicateClosedTimedCount',
+            },
+            duplicateClosedTimeSum: {
+              $sum: '$duplicateClosedTimeSum',
             },
           },
         },
@@ -11837,11 +12371,52 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDynamicCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$dynamicClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            averageDuplicateCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$duplicateClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$duplicateClosedTimeSum',
+                        {$multiply: ['$duplicateClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
             combinedAverageTimeMinutes: {
               $cond: [
                 {
                   $gt: [
-                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                        '$duplicateClosedTimedCount',
+                      ],
+                    },
                     0,
                   ],
                 },
@@ -11849,10 +12424,24 @@ export class ChatbotRepository implements IChatbotRepository {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                            '$duplicateClosedTimeSum',
+                          ],
+                        },
                         {
                           $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                                '$duplicateClosedTimedCount',
+                              ],
+                            },
                             60000,
                           ],
                         },
@@ -11879,10 +12468,23 @@ export class ChatbotRepository implements IChatbotRepository {
       closedInSelectedTime.map(item => [item._id, item.closedInPeriod]),
     );
 
-    return analytics.map(item => ({
-      ...item,
-      closedInPeriod: closedMap.get(item.period) || 0,
-    }));
+    return analytics.map(item => {
+      const averages = [
+        item.averageCloseTimeMinutes || 0,
+        item.averagePassTimeMinutes || 0,
+        item.averageDynamicCloseTimeMinutes || 0,
+        item.averageDuplicateCloseTimeMinutes || 0,
+      ].filter(v => v > 0);
+      const normalAvg = averages.length > 0
+        ? Number((averages.reduce((a, b) => a + b, 0) / averages.length).toFixed(2))
+        : 0;
+
+      return {
+        ...item,
+        combinedAverageTimeMinutes: normalAvg,
+        closedInPeriod: closedMap.get(item.period) || 0,
+      };
+    });
   }
 
   async getMonthlyAnalyticsForWhatsApp(): Promise<any[]> {
@@ -12002,6 +12604,70 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
+            duplicateClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'duplicate_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            duplicateClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'duplicate_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by month
@@ -12028,6 +12694,18 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
+            },
+            duplicateClosedTimedCount: {
+              $sum: '$duplicateClosedTimedCount',
+            },
+            duplicateClosedTimeSum: {
+              $sum: '$duplicateClosedTimeSum',
             },
           },
         },
@@ -12073,11 +12751,52 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDynamicCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$dynamicClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            averageDuplicateCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$duplicateClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$duplicateClosedTimeSum',
+                        {$multiply: ['$duplicateClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
             combinedAverageTimeMinutes: {
               $cond: [
                 {
                   $gt: [
-                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                        '$duplicateClosedTimedCount',
+                      ],
+                    },
                     0,
                   ],
                 },
@@ -12085,10 +12804,24 @@ export class ChatbotRepository implements IChatbotRepository {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                            '$duplicateClosedTimeSum',
+                          ],
+                        },
                         {
                           $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                                '$duplicateClosedTimedCount',
+                              ],
+                            },
                             60000,
                           ],
                         },
@@ -12115,10 +12848,23 @@ export class ChatbotRepository implements IChatbotRepository {
       closedInSelectedTime.map(item => [item._id, item.closedInPeriod]),
     );
 
-    return analytics.map(item => ({
-      ...item,
-      closedInPeriod: closedMap.get(item.period) || 0,
-    }));
+    return analytics.map(item => {
+      const averages = [
+        item.averageCloseTimeMinutes || 0,
+        item.averagePassTimeMinutes || 0,
+        item.averageDynamicCloseTimeMinutes || 0,
+        item.averageDuplicateCloseTimeMinutes || 0,
+      ].filter(v => v > 0);
+      const normalAvg = averages.length > 0
+        ? Number((averages.reduce((a, b) => a + b, 0) / averages.length).toFixed(2))
+        : 0;
+
+      return {
+        ...item,
+        combinedAverageTimeMinutes: normalAvg,
+        closedInPeriod: closedMap.get(item.period) || 0,
+      };
+    });
   }
 
   async getWhatsAppDuplicateQuestions(
@@ -12294,11 +13040,58 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  private async buildUserQuestionScope(userId?: string): Promise<any | null> {
+    if (!userId) return null;
+
+    const userMatches: any[] = [{userId}];
+    if (ObjectId.isValid(userId)) {
+      const objectId = new ObjectId(userId);
+      userMatches.push({userId: objectId});
+
+      await this.init('annam');
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: objectId.toString(),
+            isDeleted: {$ne: true},
+          },
+          {
+            projection: {
+              messageId: 1,
+              threadId: 1,
+              conversationId: 1,
+            },
+          },
+        )
+        .toArray();
+
+      const messageIds = [
+        ...new Set(
+          userMessages.map((message: any) => message.messageId).filter(Boolean),
+        ),
+      ];
+      const threadIds = [
+        ...new Set(
+          userMessages
+            .map((message: any) => message.threadId || message.conversationId)
+            .filter(Boolean),
+        ),
+      ];
+
+      if (messageIds.length > 0)
+        userMatches.push({messageId: {$in: messageIds}});
+      if (threadIds.length > 0) userMatches.push({threadId: {$in: threadIds}});
+    }
+
+    return {$or: userMatches};
+  }
+
   async getClosedVsTotalQuestions(
     source: string,
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -12317,6 +13110,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
       }
       if (source === 'both') {
         matchStage.source = {
@@ -12366,7 +13163,7 @@ export class ChatbotRepository implements IChatbotRepository {
             totalQuestions: {$sum: 1},
             completedQuestions: {
               $sum: {
-                $cond: [{$in: ['$_statusLower', ['closed', 'pass']]}, 1, 0],
+                $cond: [{$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed', 'duplicate_closed']]}, 1, 0],
               },
             },
             timedCompletedQuestions: {
@@ -12374,7 +13171,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$_statusLower', ['closed', 'pass']]},
+                      {$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed', 'duplicate_closed']]},
                       {$ne: ['$createdAt', null]},
                       {$ne: ['$_operationalCompletionAt', null]},
                       {$gte: ['$_operationalCompletionAt', '$createdAt']},
@@ -12390,7 +13187,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$_statusLower', ['closed', 'pass']]},
+                      {$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed', 'duplicate_closed']]},
                       {$ne: ['$createdAt', null]},
                       {$ne: ['$_operationalCompletionAt', null]},
                       {$gte: ['$_operationalCompletionAt', '$createdAt']},
@@ -12460,6 +13257,20 @@ export class ChatbotRepository implements IChatbotRepository {
                         $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
                       },
                     },
+                    dynamicClosedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {$eq: ['$_statusLower', 'dynamic_closed']},
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    duplicateClosedQuestions: {
+                      $sum: {
+                        $cond: [{$eq: ['$_statusLower', 'duplicate_closed']}, 1, 0],
+                      },
+                    },
                     // Closed metrics
                     closedTimedQuestions: {
                       $sum: {
@@ -12525,6 +13336,76 @@ export class ChatbotRepository implements IChatbotRepository {
                           },
                           {
                             $subtract: ['$passedAt', '$createdAt'],
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    // Dynamic Closed metrics
+                    dynamicClosedTimedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'dynamic_closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    dynamicClosedTimeSumMs: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'dynamic_closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          {
+                            $subtract: ['$closedAt', '$createdAt'],
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    // Duplicate Closed metrics
+                    duplicateClosedTimedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'duplicate_closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    duplicateClosedTimeSumMs: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'duplicate_closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          {
+                            $subtract: ['$closedAt', '$createdAt'],
                           },
                           0,
                         ],
@@ -12637,12 +13518,122 @@ export class ChatbotRepository implements IChatbotRepository {
                   ],
                 },
               },
+              dynamicClosed: {
+                count: '$metrics.dynamicClosedQuestions',
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: ['$metrics.dynamicClosedTimedQuestions', 0],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            '$metrics.dynamicClosedTimeSumMs',
+                            {
+                              $multiply: [
+                                '$metrics.dynamicClosedTimedQuestions',
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
+              duplicateClosed: {
+                count: '$metrics.duplicateClosedQuestions',
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: ['$metrics.duplicateClosedTimedQuestions', 0],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            '$metrics.duplicateClosedTimeSumMs',
+                            {
+                              $multiply: [
+                                '$metrics.duplicateClosedTimedQuestions',
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
               statuses: 1,
+              nonGdb: {
+                count: {
+                  $add: [
+                    '$metrics.passedQuestions',
+                    '$metrics.dynamicClosedQuestions',
+                    '$metrics.duplicateClosedQuestions',
+                  ],
+                },
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: [
+                        {
+                          $add: [
+                            '$metrics.passedTimedQuestions',
+                            '$metrics.dynamicClosedTimedQuestions',
+                            '$metrics.duplicateClosedTimedQuestions',
+                          ],
+                        },
+                        0,
+                      ],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            {
+                              $add: [
+                                '$metrics.passedTimeSumMs',
+                                '$metrics.dynamicClosedTimeSumMs',
+                                '$metrics.duplicateClosedTimeSumMs',
+                              ],
+                            },
+                            {
+                              $multiply: [
+                                {
+                                  $add: [
+                                    '$metrics.passedTimedQuestions',
+                                    '$metrics.dynamicClosedTimedQuestions',
+                                    '$metrics.duplicateClosedTimedQuestions',
+                                  ],
+                                },
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
               combined: {
                 count: {
                   $add: [
                     '$metrics.closedQuestions',
                     '$metrics.passedQuestions',
+                    '$metrics.dynamicClosedQuestions',
+                    '$metrics.duplicateClosedQuestions',
                   ],
                 },
                 avgTimeMinutes: {
@@ -12653,6 +13644,8 @@ export class ChatbotRepository implements IChatbotRepository {
                           $add: [
                             '$metrics.closedTimedQuestions',
                             '$metrics.passedTimedQuestions',
+                            '$metrics.dynamicClosedTimedQuestions',
+                            '$metrics.duplicateClosedTimedQuestions',
                           ],
                         },
                         0,
@@ -12666,6 +13659,8 @@ export class ChatbotRepository implements IChatbotRepository {
                               $add: [
                                 '$metrics.closedTimeSumMs',
                                 '$metrics.passedTimeSumMs',
+                                '$metrics.dynamicClosedTimeSumMs',
+                                '$metrics.duplicateClosedTimeSumMs',
                               ],
                             },
                             {
@@ -12674,6 +13669,8 @@ export class ChatbotRepository implements IChatbotRepository {
                                   $add: [
                                     '$metrics.closedTimedQuestions',
                                     '$metrics.passedTimedQuestions',
+                                    '$metrics.dynamicClosedTimedQuestions',
+                                    '$metrics.duplicateClosedTimedQuestions',
                                   ],
                                 },
                                 60000,
@@ -12699,17 +13696,29 @@ export class ChatbotRepository implements IChatbotRepository {
           ...avgCloseTimeStages,
         ]).toArray(),
       ]);
-      // console.log("result---", result)
+      const data = result[0] || {
+        totalQuestions: 0,
+        closedQuestions: 0,
+        inReviewQuestions: 0,
+        avgCloseTimeMinutes: 0,
+        combined: { count: 0, avgTimeMinutes: 0 },
+        closed: { count: 0, avgTimeMinutes: 0 },
+        pass: { count: 0, avgTimeMinutes: 0 },
+        nonGdb: { count: 0, avgTimeMinutes: 0 },
+      };
+
+      const closedAvg = data.closed?.avgTimeMinutes ?? 0;
+      const nonGdbAvg = data.nonGdb?.avgTimeMinutes ?? 0;
+      const normalAvg = (closedAvg > 0 && nonGdbAvg > 0)
+        ? (closedAvg + nonGdbAvg) / 2
+        : (closedAvg || nonGdbAvg || 0);
+
+      if (data.combined) {
+        data.combined.avgTimeMinutes = Number(normalAvg.toFixed(2));
+      }
+
       return {
-        ...(result[0] || {
-          totalQuestions: 0,
-          closedQuestions: 0,
-          inReviewQuestions: 0,
-          avgCloseTimeMinutes: 0,
-          combined: 0,
-          closed: 0,
-          pass: 0,
-        }),
+        ...data,
         previousMonthAvgCloseTimeMinutes:
           previousMonthResult[0]?.avgCloseTimeMinutes || 0,
       };
@@ -12725,6 +13734,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -12741,6 +13751,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
       }
       if (source === 'both') {
         matchStage.source = {
@@ -12762,7 +13776,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$status', ['closed']]},
+                      {$in: ['$status', ['closed', 'dynamic_closed', 'duplicate_closed']]},
                       {$eq: ['$isCustomerNotified', false]},
                     ],
                   },
@@ -12776,7 +13790,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$status', ['closed']]},
+                      {$in: ['$status', ['closed', 'dynamic_closed', 'duplicate_closed']]},
                       {$eq: ['$isCustomerNotified', true]},
                     ],
                   },
@@ -12800,7 +13814,7 @@ export class ChatbotRepository implements IChatbotRepository {
         await this.QuestionCollection.countDocuments({
           ...matchStage,
           status: {
-            $in: ['closed'],
+            $in: ['closed', 'dynamic_closed', 'duplicate_closed'],
           },
           isCustomerNotified: {$exists: false},
         });
@@ -12824,6 +13838,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -12842,13 +13857,17 @@ export class ChatbotRepository implements IChatbotRepository {
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
+      }
       if (source === 'both') {
         matchStage.source = {
           $in: ['WHATSAPP', 'AJRASAKHA'],
         };
       }
       matchStage.status = {
-        $in: ['closed', 'pass'],
+        $in: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
       };
 
       const [totalCountResult, lastTwoHoursResult] = await Promise.all([
@@ -12876,6 +13895,16 @@ export class ChatbotRepository implements IChatbotRepository {
               passCount: {
                 $sum: {
                   $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
+                },
+              },
+              dynamicClosedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'dynamic_closed']}, 1, 0],
+                },
+              },
+              duplicateClosedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'duplicate_closed']}, 1, 0],
                 },
               },
             },
@@ -12941,7 +13970,7 @@ export class ChatbotRepository implements IChatbotRepository {
           },
           {
             $match: {
-              _statusLower: {$in: ['closed', 'pass']},
+              _statusLower: {$in: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed']},
               _operationalCompletionAt: {$ne: null},
               $expr: {
                 $and: [
@@ -12979,6 +14008,16 @@ export class ChatbotRepository implements IChatbotRepository {
                   $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
                 },
               },
+              dynamicClosedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'dynamic_closed']}, 1, 0],
+                },
+              },
+              duplicateClosedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'duplicate_closed']}, 1, 0],
+                },
+              },
             },
           },
         ]).toArray(),
@@ -12987,8 +14026,12 @@ export class ChatbotRepository implements IChatbotRepository {
       return {
         totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
         totalPassCount: totalCountResult[0]?.passCount ?? 0,
+        totalDynamicClosedCount: totalCountResult[0]?.dynamicClosedCount ?? 0,
+        totalDuplicateClosedCount: totalCountResult[0]?.duplicateClosedCount ?? 0,
         closedInTwoHoursCount: lastTwoHoursResult[0]?.closedCount ?? 0,
         passInTwoHoursCount: lastTwoHoursResult[0]?.passCount ?? 0,
+        dynamicClosedInTwoHoursCount: lastTwoHoursResult[0]?.dynamicClosedCount ?? 0,
+        duplicateClosedInTwoHoursCount: lastTwoHoursResult[0]?.duplicateClosedCount ?? 0,
       };
     } catch (error) {
       throw new InternalServerError(
@@ -13353,15 +14396,39 @@ export class ChatbotRepository implements IChatbotRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       await this.init(source);
+      let totalFarmerProfileUsers = 1;
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        totalFarmerProfileUsers = Math.max(targetUserIds.length, 1);
+      } else {
+        totalFarmerProfileUsers = Math.max(
+          await this.users.countDocuments(
+            {farmerProfile: {$exists: true, $ne: null}},
+            {session},
+          ),
+          1,
+        );
+      }
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
       const queryMatch: any = {
         isCreatedByUser: true,
         isDeleted: {$ne: true},
         text: {$exists: true, $ne: null, $nin: ['', ' ']},
       };
+      if (coordinatorId) {
+        const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+        if (targetUserIds.length > 0) {
+          queryMatch.user = {
+            $in: targetUserIds.map(id => id.toString()),
+          };
+        } else {
+          queryMatch.user = null;
+        }
+      }
       if (startTime || endTime) {
         queryMatch.createdAt = {};
         if (startTime) {
@@ -13460,7 +14527,10 @@ export class ChatbotRepository implements IChatbotRepository {
                       _id: null,
                       avgQuestionsPerUserDay: {
                         $avg: {
-                          $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
+                          $divide: [
+                            '$dayTotalQuestions',
+                            totalFarmerProfileUsers,
+                          ],
                         },
                       },
                     },
@@ -13557,7 +14627,10 @@ export class ChatbotRepository implements IChatbotRepository {
                         _id: null,
                         avgQuestionsPerUserDay: {
                           $avg: {
-                            $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
+                            $divide: [
+                              '$dayTotalQuestions',
+                              totalFarmerProfileUsers,
+                            ],
                           },
                         },
                       },
@@ -13899,12 +14972,26 @@ export class ChatbotRepository implements IChatbotRepository {
   }> {
     const directUserIds = new Set<string>();
     const messageIds: string[] = [];
+    const threadPhones = new Set<string>();
 
     for (const question of questions) {
       if (question.userId) {
         directUserIds.add(question.userId.toString());
-      } else if (question.messageId) {
+      }
+      if (question.messageId) {
         messageIds.push(question.messageId);
+      }
+      if (question.threadId) {
+        const match = question.threadId.match(/^(\d+)/);
+        if (match) {
+          const phone = match[1];
+          threadPhones.add(phone);
+          if (phone.length === 12 && phone.startsWith('91')) {
+            threadPhones.add(phone.slice(2));
+          } else if (phone.length === 10) {
+            threadPhones.add('91' + phone);
+          }
+        }
       }
     }
 
@@ -13931,24 +15018,79 @@ export class ChatbotRepository implements IChatbotRepository {
       messages.map(message => [message.messageId, message.user?.toString()]),
     );
 
-    const resolvedUserIds = new Set<string>(directUserIds);
+    // Resolve threadId (phone) -> user
+    const phoneUsers =
+      threadPhones.size > 0
+        ? await this.users
+            .find({
+              $or: [
+                {phoneNo: {$in: Array.from(threadPhones)}},
+                {phone: {$in: Array.from(threadPhones)}},
+                {username: {$in: Array.from(threadPhones)}},
+                {'farmerProfile.phoneNo': {$in: Array.from(threadPhones)}},
+                {'farmerProfile.phone': {$in: Array.from(threadPhones)}},
+              ],
+            })
+            .toArray()
+        : [];
 
+    const userMapByPhone = new Map<string, any>();
+    for (const u of phoneUsers) {
+      const uAny = u as any;
+      const addPhone = (p: any) => {
+        if (!p) return;
+        const cleaned = String(p).replace(/\D/g, '');
+        if (cleaned) {
+          userMapByPhone.set(cleaned, u);
+          if (cleaned.length === 12 && cleaned.startsWith('91')) {
+            userMapByPhone.set(cleaned.slice(2), u);
+          } else if (cleaned.length === 10) {
+            userMapByPhone.set('91' + cleaned, u);
+          }
+        }
+      };
+      addPhone(uAny.phoneNo);
+      addPhone(uAny.phone);
+      addPhone(uAny.username);
+      addPhone(uAny.farmerProfile?.phoneNo);
+      addPhone(uAny.farmerProfile?.phone);
+    }
+
+    const resolvedUserIds = new Set<string>(directUserIds);
     const questionUserMap = new Map<string, string>();
+    const userMap = new Map<string, any>();
+
+    // Put phoneUsers in userMap directly by ID
+    for (const u of phoneUsers) {
+      userMap.set(u._id.toString(), u);
+    }
 
     for (const question of questions) {
       const questionId = question.questionId ?? question._id?.toString();
-
       let resolvedUserId: string | undefined;
 
-      if (question.userId) {
-        resolvedUserId = question.userId.toString();
-      } else if (question.messageId) {
-        resolvedUserId = messageUserMap.get(question.messageId);
+      if (question.threadId) {
+        const match = question.threadId.match(/^(\d+)/);
+        if (match) {
+          const phone = match[1];
+          const matchedUser = userMapByPhone.get(phone);
+          if (matchedUser) {
+            resolvedUserId = matchedUser._id.toString();
+            userMap.set(resolvedUserId, matchedUser);
+          }
+        }
+      }
+
+      if (!resolvedUserId) {
+        if (question.userId) {
+          resolvedUserId = question.userId.toString();
+        } else if (question.messageId) {
+          resolvedUserId = messageUserMap.get(question.messageId);
+        }
       }
 
       if (resolvedUserId) {
         resolvedUserIds.add(resolvedUserId);
-
         if (questionId) {
           questionUserMap.set(questionId, resolvedUserId);
         }
@@ -13966,7 +15108,9 @@ export class ChatbotRepository implements IChatbotRepository {
             .toArray()
         : [];
 
-    const userMap = new Map(users.map(user => [user._id.toString(), user]));
+    for (const user of users) {
+      userMap.set(user._id.toString(), user);
+    }
 
     return {
       userMap,
@@ -14127,6 +15271,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
     userType = 'all',
     search?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -14282,6 +15427,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (Object.keys(userTypeMatch).length) {
         finalMatch.$and.push(userTypeMatch);
+      }
+
+      if (coordinatorId) {
+        const coordinatorMatch = await this.buildCoordinatorMatchQuery(coordinatorId);
+        if (coordinatorMatch && Object.keys(coordinatorMatch).length > 0) {
+          finalMatch.$and.push(coordinatorMatch);
+        }
       }
 
       const result = await this.QuestionCollection.aggregate(
@@ -14443,6 +15595,7 @@ export class ChatbotRepository implements IChatbotRepository {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -14470,9 +15623,14 @@ export class ChatbotRepository implements IChatbotRepository {
           $in: ['closed'],
         };
       }
+      if (status === 'non_gdb') {
+        matchQuery.status = {
+          $in: ['pass', 'dynamic_closed', 'duplicate_closed'],
+        };
+      }
       if (status === 'pending') {
         matchQuery.status = {
-          $nin: ['closed', 'pass'],
+          $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
         };
       }
 
@@ -14507,6 +15665,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
       // Search by name/email
       if (search?.trim()) {
@@ -14662,9 +15824,13 @@ export class ChatbotRepository implements IChatbotRepository {
     endDate?: Date,
     isPassed?: string,
     tag?: string,
+    userId?: string,
+    state?: string,
+    district?: string,
   ): Promise<any> {
     await this.initReviewSystem();
     await this.init('annam');
+    console.log('State is coming to be', state)
 
     const safePage = Math.max(Number(page) || 1, 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
@@ -14682,9 +15848,23 @@ export class ChatbotRepository implements IChatbotRepository {
         $in: ['closed'],
       };
       if (isPassed === 'true') {
-        matchQuery.status = {
-          $in: ['pass'],
-        };
+        if (tag === 'pass') {
+          matchQuery.status = {
+            $in: ['pass'],
+          };
+        } else if (tag === 'dynamic_closed') {
+          matchQuery.status = {
+            $in: ['dynamic_closed'],
+          };
+        } else if (tag === 'duplicate_closed') {
+          matchQuery.status = {
+            $in: ['duplicate_closed'],
+          };
+        } else {
+          matchQuery.status = {
+            $in: ['pass', 'dynamic_closed', 'duplicate_closed'],
+          };
+        }
       }
     }
     const validStartDate =
@@ -14708,10 +15888,29 @@ export class ChatbotRepository implements IChatbotRepository {
       }
     }
 
+          if (state) {
+        matchQuery['details.state'] = {
+          $regex: `^${state}$`,
+          $options: 'i',
+        };
+      }
+
+      if (district) {
+        matchQuery['details.district'] = {
+          $regex: `^${district}$`,
+          $options: 'i',
+        };
+      }
+
+
     const query = await this.buildQuestionUserTypeMatchQuery(source, userType);
 
     if (query && Object.keys(query).length > 0) {
       matchQuery.$and.push(query);
+    }
+    const userScope = await this.buildUserQuestionScope(userId);
+    if (userScope) {
+      matchQuery.$and.push(userScope);
     }
 
     // search logic same as other methods
@@ -14850,7 +16049,7 @@ export class ChatbotRepository implements IChatbotRepository {
       },
       {
         $match: {
-          _statusLower: {$in: ['closed', 'pass']},
+          _statusLower: {$in: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed']},
           _operationalCompletionAt: {$ne: null},
           $expr: {
             $and: [
@@ -14953,6 +16152,7 @@ export class ChatbotRepository implements IChatbotRepository {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       // console.log("startdate enddate-------", startDate, endDate);
@@ -15004,6 +16204,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
       // console.log("getQuestionsByNotificationStatus", notificationType, JSON.stringify(matchQuery, null, 2))
       // Notification filter
@@ -15495,6 +16699,9 @@ export class ChatbotRepository implements IChatbotRepository {
     source: string,
     userType: string,
     allStates: ILocationState[],
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -15504,7 +16711,17 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userDocFilter = this.buildUserDocFilter(userType);
       const matchQuery = buildBaseQuestionMatch(sourceType);
+      if (startDate || endDate) {
+        matchQuery.createdAt = {};
 
+        if (startDate) {
+          matchQuery.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          matchQuery.createdAt.$lte = endDate;
+        }
+      }
       matchQuery['details.state'] = {
         $nin: [null, '', 'all', '<unknown>', 'Not Specified', 'All'],
       };
@@ -15529,63 +16746,32 @@ export class ChatbotRepository implements IChatbotRepository {
             totalQuestions: {
               $sum: 1,
             },
-
-            // closedQuestions: {
-            //   $sum: {
-            //     $cond: [{$eq: ['$status', 'closed']}, 1, 0],
-            //   },
-            // },
-
-            // totalCloseTimeMs: {
-            //   $sum: {
-            //     $cond: [
-            //       {
-            //         $and: [
-            //           {$eq: ['$status', 'closed']},
-            //           {$ne: ['$closedAt', null]},
-            //         ],
-            //       },
-            //       {
-            //         $subtract: ['$closedAt', '$createdAt'],
-            //       },
-            //       0,
-            //     ],
-            //   },
-            // },
           },
         },
         {
           $project: {
             totalQuestions: 1,
-            // closedQuestions: 1,
-
-            // avgCloseTimeHours: {
-            //   $cond: [
-            //     {$gt: ['$closedQuestions', 0]},
-            //     {
-            //       $divide: [
-            //         {
-            //           $divide: ['$totalCloseTimeMs', '$closedQuestions'],
-            //         },
-            //         1000 * 60 * 60,
-            //       ],
-            //     },
-            //     0,
-            //   ],
-            // },
           },
         },
       ]).toArray();
 
+      const feedbackMatch: any = {
+        feedback: {$ne: null},
+        'feedback.rating': {$exists: true},
+        isCreatedByUser: false,
+        isDeleted: {$ne: true},
+      };
+
+      if (startDate || endDate) {
+        feedbackMatch.createdAt = {};
+        if (startDate) feedbackMatch.createdAt.$gte = startDate;
+        if (endDate) feedbackMatch.createdAt.$lte = endDate;
+      }
+
       const feedbackByState = await this.messagesCollection
         .aggregate([
           {
-            $match: {
-              feedback: {$ne: null},
-              'feedback.rating': {$exists: true},
-              isCreatedByUser: false,
-              isDeleted: {$ne: true},
-            },
+            $match: feedbackMatch,
           },
           {
             $addFields: {
@@ -15643,93 +16829,152 @@ export class ChatbotRepository implements IChatbotRepository {
         ])
         .toArray();
 
-
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
 
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
+      let usersByState;
+      const messageMatch: any = {
+        isCreatedByUser: true,
+        isDeleted: {$ne: true},
+      };
 
-      const usersByState = await this.users
-        .aggregate([
-          {
-            $match: {
-              isVerified: true,
-              'farmerProfile.state': {$exists: true},
-              ...userDocFilter,
+      if (startDate || endDate) {
+        messageMatch.createdAt = {};
+
+        if (startDate) {
+          messageMatch.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          messageMatch.createdAt.$lte = endDate;
+        }
+      }
+      if (startDate || endDate) {
+        usersByState = await this.messagesCollection
+          .aggregate([
+            {
+              $match: messageMatch,
             },
-          },
-          {
-            $group: {
-              _id: '$farmerProfile.state',
-
-              totalUsers: {
-                $sum: 1,
+            {
+              $group: {
+                _id: '$user',
               },
-
-              activeUsers: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        {$gte: ['$lastActiveAt', todayStart]},
-                        {$lte: ['$lastActiveAt', todayEnd]},
-                      ],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-
-              districtCoordinators: {
-                $sum: {
-                  $cond: [
-                    {
-                      $eq: ['$userRole', 'district_coordinator'],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-
-              blockCoordinators: {
-                $sum: {
-                  $cond: [
-                    {
-                      $eq: ['$userRole', 'block_coordinator'],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-
-              villageVolunteers: {
-                $sum: {
-                  $cond: [
-                    {
-                      $eq: ['$userRole', 'village_volunteer'],
-                    },
-                    1,
-                    0,
-                  ],
+            },
+            {
+              $addFields: {
+                userObjectId: {
+                  $toObjectId: '$_id',
                 },
               },
             },
-          },
-        ])
-        .toArray();
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'userObjectId',
+                foreignField: '_id',
+                as: 'user',
+              },
+            },
+            {
+              $unwind: '$user',
+            },
+            {
+              // $match:{
+              //   ...userDocFilter
+              // }
+              $match: {
+                ...userDocFilter,
+                'user.farmerProfile.state': {
+                  $nin: [null, '', 'all', 'All', '<unknown>', 'Not Specified'],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: '$user.farmerProfile.state',
 
-      //         console.log(
-      //   JSON.stringify(usersByState, null, 2),
-      // );
+                activeUsers: {
+                  $sum: 1,
+                },
+              },
+            },
+          ])
+          .toArray();
+      } else {
+        usersByState = await this.users
+          .aggregate([
+            {
+              $match: {
+                isVerified: true,
+                'farmerProfile.state': {$exists: true},
+                ...userDocFilter,
+              },
+            },
+            {
+              $group: {
+                _id: '$farmerProfile.state',
 
-      // const totalActiveFromStates = usersByState.reduce(
-      //   (sum, s) => sum + s.activeUsers,
-      //   0,
-      // );
+                totalUsers: {
+                  $sum: 1,
+                },
+
+                activeUsers: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $and: [
+                          {$gte: ['$lastActiveAt', todayStart]},
+                          {$lte: ['$lastActiveAt', todayEnd]},
+                        ],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+
+                districtCoordinators: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $eq: ['$userRole', 'district_coordinator'],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+
+                blockCoordinators: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $eq: ['$userRole', 'block_coordinator'],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+
+                villageVolunteers: {
+                  $sum: {
+                    $cond: [
+                      {
+                        $eq: ['$userRole', 'village_volunteer'],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+              },
+            },
+          ])
+          .toArray();
+      }
 
       const stateMap = new Map();
 
@@ -15742,14 +16987,11 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Add question counts
       for (const q of questionsByState) {
-        // const key = this.normalizeState(String(q._id));
         const key = String(q._id).toLowerCase();
         stateMap.set(key, {
           state: q._id,
           stateCode: stateCodeMap.get(key) ?? null,
           totalQuestions: q.totalQuestions,
-          // closedQuestions: q.closedQuestions,
-          // avgCloseTimeHours: q.avgCloseTimeHours,
           totalUsers: 0,
           activeUsers: 0,
 
@@ -15799,49 +17041,69 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Merge user counts
       for (const u of usersByState) {
-        // const key = this.normalizeState(String(u._id));
         const key = String(u._id).toLowerCase();
         if (stateMap.has(key)) {
           const existing = stateMap.get(key);
+          if (startDate || endDate) {
+            existing.activeUsers += u.activeUsers;
+          } else {
+            existing.totalUsers += u.totalUsers;
+            existing.activeUsers += u.activeUsers;
 
-          existing.totalUsers += u.totalUsers;
-          existing.activeUsers += u.activeUsers;
+            existing.districtCoordinators += u.districtCoordinators ?? 0;
 
-          existing.districtCoordinators += u.districtCoordinators ?? 0;
+            existing.blockCoordinators += u.blockCoordinators ?? 0;
 
-          existing.blockCoordinators += u.blockCoordinators ?? 0;
+            existing.villageVolunteers += u.villageVolunteers ?? 0;
 
-          existing.villageVolunteers += u.villageVolunteers ?? 0;
-
-          existing.coordinators =
-            existing.districtCoordinators +
-            existing.blockCoordinators +
-            existing.villageVolunteers;
+            existing.coordinators =
+              existing.districtCoordinators +
+              existing.blockCoordinators +
+              existing.villageVolunteers;
+          }
         } else {
-          stateMap.set(key, {
-            state: u._id,
-            stateCode: stateCodeMap.get(key) ?? null,
-            totalQuestions: 0,
-            // closedQuestions: 0,
-            // avgCloseTimeHours: 0,
-            totalUsers: u.totalUsers,
-            activeUsers: u.activeUsers,
+          if (!startDate || !endDate) {
+            stateMap.set(key, {
+              state: u._id,
+              stateCode: stateCodeMap.get(key) ?? null,
+              totalQuestions: 0,
+              totalUsers: u.totalUsers,
+              activeUsers: u.activeUsers,
 
-            totalFeedbacks: 0,
-            positiveFeedbacks: 0,
-            negativeFeedbacks: 0,
+              totalFeedbacks: 0,
+              positiveFeedbacks: 0,
+              negativeFeedbacks: 0,
 
-            districtCoordinators: u.districtCoordinators ?? 0,
+              districtCoordinators: u.districtCoordinators ?? 0,
 
-            blockCoordinators: u.blockCoordinators ?? 0,
+              blockCoordinators: u.blockCoordinators ?? 0,
 
-            villageVolunteers: u.villageVolunteers ?? 0,
+              villageVolunteers: u.villageVolunteers ?? 0,
 
-            coordinators:
-              (u.districtCoordinators ?? 0) +
-              (u.blockCoordinators ?? 0) +
-              (u.villageVolunteers ?? 0),
-          });
+              coordinators:
+                (u.districtCoordinators ?? 0) +
+                (u.blockCoordinators ?? 0) +
+                (u.villageVolunteers ?? 0),
+            });
+          } else {
+            stateMap.set(key, {
+              state: u._id,
+              stateCode: stateCodeMap.get(key) ?? null,
+
+              totalQuestions: 0,
+              totalUsers: 0,
+              activeUsers: u.activeUsers,
+
+              totalFeedbacks: 0,
+              positiveFeedbacks: 0,
+              negativeFeedbacks: 0,
+
+              districtCoordinators: 0,
+              blockCoordinators: 0,
+              villageVolunteers: 0,
+              coordinators: 0,
+            });
+          }
         }
       }
       return Array.from(stateMap.values());
@@ -15925,7 +17187,217 @@ export class ChatbotRepository implements IChatbotRepository {
     messageId?: string | undefined;
   }) {}
 
-  async getUserProfile(userId: string, session?: ClientSession): Promise<any> {
+  async getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page = 1,
+    limit = 10,
+    session?: ClientSession,
+  ): Promise<any> {
+    try {
+      await this.init('annam');
+      await this.initReviewSystem();
+
+      const isValidObjectId =
+        ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
+      const users = isValidObjectId
+        ? await this.users.find({_id: new ObjectId(userId)}).toArray()
+        : await this.users
+            .find({$or: [{firebaseUID: userId}, {email: userId}]})
+            .toArray();
+
+      if (!users.length) {
+        return {total: 0, totalPages: 1, currentPage: page, limit, items: []};
+      }
+
+      const userObjectId =
+        users[0]._id instanceof ObjectId
+          ? users[0]._id
+          : new ObjectId(users[0]._id);
+      const userIdString = userObjectId.toString();
+      const skip = (page - 1) * limit;
+      const paginate = (items: any[]) => ({
+        total: items.length,
+        totalPages: Math.max(1, Math.ceil(items.length / limit)),
+        currentPage: page,
+        limit,
+        items: items.slice(skip, skip + limit),
+      });
+      const getConversationKey = (record: any) =>
+        record.threadId ||
+        record.conversationId ||
+        record.messageId ||
+        record._id?.toString?.() ||
+        String(record._id || '');
+      const toMessageItem = (message: any) => ({
+        _id:
+          message.messageId || message._id?.toString?.() || String(message._id),
+        message: message.text || '',
+        createdAt: message.createdAt,
+      });
+
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: userIdString,
+            isDeleted: {$ne: true},
+          },
+          {session},
+        )
+        .project({
+          _id: 1,
+          text: 1,
+          messageId: 1,
+          threadId: 1,
+          conversationId: 1,
+          isCreatedByUser: 1,
+          createdAt: 1,
+        })
+        .sort({createdAt: 1})
+        .toArray();
+
+      const userOnlyMessages = userMessages
+        .filter((message: any) => message.isCreatedByUser === true)
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        );
+
+      if (metric === 'userMessages') {
+        return paginate(userOnlyMessages.map(toMessageItem));
+      }
+
+      if (metric === 'lastMessageSentAt') {
+        return paginate(userOnlyMessages.slice(0, 1).map(toMessageItem));
+      }
+
+      const conversationsByKey = new Map<string, any[]>();
+      userMessages.forEach((message: any) => {
+        const key = getConversationKey(message);
+        if (!conversationsByKey.has(key)) conversationsByKey.set(key, []);
+        conversationsByKey.get(key)!.push(message);
+      });
+      const conversations = [...conversationsByKey.entries()]
+        .map(([conversationKey, messages]) => {
+          const sortedMessages = [...messages].sort(
+            (a, b) =>
+              new Date(a.createdAt || 0).getTime() -
+              new Date(b.createdAt || 0).getTime(),
+          );
+          const latestMessage = sortedMessages[sortedMessages.length - 1];
+          const messageCount = sortedMessages.length;
+          const threadId =
+            latestMessage?.threadId ||
+            latestMessage?.conversationId ||
+            conversationKey;
+          return {
+            _id: conversationKey,
+            message: `${messageCount} message${messageCount === 1 ? '' : 's'}\nThread: ${threadId}${
+              latestMessage?.text ? `\nLatest: ${latestMessage.text}` : ''
+            }`,
+            createdAt: latestMessage?.createdAt,
+            messageCount,
+            messages: sortedMessages,
+          };
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        );
+
+      if (
+        metric === 'conversations' ||
+        metric === 'averageMessagesPerConversation'
+      ) {
+        return paginate(
+          conversations.map(({messages, ...conversation}) => conversation),
+        );
+      }
+
+      if (metric === 'longestConversation') {
+        const longestConversation = [...conversations].sort(
+          (a, b) => (b.messageCount ?? 0) - (a.messageCount ?? 0),
+        )[0];
+        return paginate(
+          (longestConversation?.messages ?? []).map(toMessageItem),
+        );
+      }
+
+      if (metric === 'questionsFromMessages') {
+        const userMessageIds = [
+          ...new Set(
+            userMessages
+              .map((message: any) => message.messageId)
+              .filter(Boolean),
+          ),
+        ];
+        const userThreadIds = [
+          ...new Set(
+            userMessages
+              .map((message: any) => message.threadId || message.conversationId)
+              .filter(Boolean),
+          ),
+        ];
+        const questionUserMatches: any[] = [
+          {userId: userIdString},
+          {userId: userObjectId},
+        ];
+        if (userMessageIds.length > 0) {
+          questionUserMatches.push({messageId: {$in: userMessageIds}});
+        }
+        if (userThreadIds.length > 0) {
+          questionUserMatches.push({threadId: {$in: userThreadIds}});
+        }
+        const userQuestionFilter: any = buildBaseQuestionMatch('AJRASAKHA');
+        userQuestionFilter.$and.push({$or: questionUserMatches});
+
+        const questions = await this.QuestionCollection.find(
+          {
+            ...userQuestionFilter,
+            $or: [
+              {messageId: {$exists: true, $ne: null}},
+              {threadId: {$exists: true, $ne: null}},
+            ],
+          },
+          {session},
+        )
+          .project({
+            _id: 1,
+            question: 1,
+            status: 1,
+            createdAt: 1,
+            messageId: 1,
+            threadId: 1,
+          })
+          .sort({createdAt: -1})
+          .toArray();
+
+        return paginate(
+          questions.map((question: any) => ({
+            _id: question._id?.toString?.() || String(question._id),
+            question: question.question,
+            status: question.status,
+            createdAt: question.createdAt,
+          })),
+        );
+      }
+
+      return {total: 0, totalPages: 1, currentPage: page, limit, items: []};
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get user message metric details: ${error}`,
+      );
+    }
+  }
+
+  async getUserProfile(
+    userId: string,
+    session?: ClientSession,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any> {
     try {
       await this.init('annam');
       await this.initReviewSystem();
@@ -16068,6 +17540,17 @@ export class ChatbotRepository implements IChatbotRepository {
         record._id?.toString?.() ||
         String(record._id || '');
       const formatBucketDate = (date: Date) => date.toISOString().slice(0, 10);
+      const trendStartDate = startDate ? new Date(startDate) : null;
+      const trendEndDate = endDate ? new Date(endDate) : null;
+      const hasValidTrendStart = isValidDate(trendStartDate);
+      const hasValidTrendEnd = isValidDate(trendEndDate);
+      const isInsideTrendRange = (record: any) => {
+        const createdAt = toDate(record.createdAt);
+        if (!isValidDate(createdAt)) return false;
+        if (hasValidTrendStart && createdAt! < trendStartDate!) return false;
+        if (hasValidTrendEnd && createdAt! > trendEndDate!) return false;
+        return true;
+      };
       const startOfWeek = (date: Date) => {
         const copy = new Date(date);
         copy.setHours(0, 0, 0, 0);
@@ -16133,7 +17616,7 @@ export class ChatbotRepository implements IChatbotRepository {
         conversationsByKey.get(key)!.push(message);
       });
 
-      const recentConversations = [...conversationsByKey.entries()]
+      const conversations = [...conversationsByKey.entries()]
         .map(([conversationKey, messages]) => {
           const sortedMessages = [...messages].sort(
             (a, b) =>
@@ -16171,48 +17654,69 @@ export class ChatbotRepository implements IChatbotRepository {
           (a, b) =>
             new Date(b.conversationDate || 0).getTime() -
             new Date(a.conversationDate || 0).getTime(),
-        )
-        .slice(0, 10);
+        );
+      const recentConversations = conversations.slice(0, 10);
 
       const conversationLookup = new Map(
-        recentConversations.map(conversation => [
+        conversations.map(conversation => [
           conversation.conversationKey,
           conversation,
         ]),
       );
+      const mapQuestionForDashboard = (question: any) => {
+        const conversationKey = getConversationKey(question);
+        const matchedConversation =
+          conversationLookup.get(conversationKey) ||
+          conversations.find(conversation =>
+            conversation.messages.some(
+              (message: any) => message.messageId === question.messageId,
+            ),
+          );
+        return {
+          id: question._id?.toString?.() || String(question._id),
+          question: question.question,
+          status: question.status,
+          crop:
+            question.details?.normalised_crop ||
+            question.details?.crop?.name ||
+            question.details?.crop ||
+            '',
+          category:
+            question.details?.domain || question.details?.category || '',
+          source: question.source,
+          createdAt: question.createdAt,
+          closedAt: getOperationalCompletionAt(question),
+          isDuplicate: isDuplicateQuestion(question),
+          conversationKey:
+            matchedConversation?.conversationKey || conversationKey,
+          messages: matchedConversation?.messages || [],
+        };
+      };
       const recentQuestions = userQuestions
         .slice(0, 10)
-        .map((question: any) => {
-          const conversationKey = getConversationKey(question);
-          const matchedConversation =
-            conversationLookup.get(conversationKey) ||
-            recentConversations.find(conversation =>
-              conversation.messages.some(
-                (message: any) => message.messageId === question.messageId,
-              ),
-            );
-          return {
-            id: question._id?.toString?.() || String(question._id),
-            question: question.question,
-            status: question.status,
-            crop:
-              question.details?.normalised_crop ||
-              question.details?.crop?.name ||
-              question.details?.crop ||
-              '',
-            category:
-              question.details?.domain || question.details?.category || '',
-            source: question.source,
-            createdAt: question.createdAt,
-            closedAt: getOperationalCompletionAt(question),
-            isDuplicate: isDuplicateQuestion(question),
-            conversationKey:
-              matchedConversation?.conversationKey || conversationKey,
-            messages: matchedConversation?.messages || [],
-          };
-        });
+        .map(mapQuestionForDashboard);
+      const questionsFromMessages = userQuestions
+        .filter((question: any) => question.messageId || question.threadId)
+        .map(mapQuestionForDashboard);
+      const dashboardUserMessages = userMessages
+        .filter((message: any) => message.isCreatedByUser === true)
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        )
+        .map((message: any) => ({
+          id: message._id?.toString?.() || String(message._id),
+          text: message.text || '',
+          isCreatedByUser: Boolean(message.isCreatedByUser),
+          createdAt: message.createdAt,
+          messageId: message.messageId,
+        }));
+      const trendQuestions = userQuestions.filter(isInsideTrendRange);
+      const trendUserMessages =
+        dashboardUserMessages.filter(isInsideTrendRange);
       const totalMessages = userMessages.length;
-      const conversationCounts = recentConversations.map(
+      const conversationCounts = conversations.map(
         conversation => conversation.messageCount,
       );
       const farmerDashboard = {
@@ -16250,24 +17754,22 @@ export class ChatbotRepository implements IChatbotRepository {
               : 0,
           longestConversation:
             conversationCounts.length > 0 ? Math.max(...conversationCounts) : 0,
-          latestConversationDate:
-            recentConversations[0]?.conversationDate || null,
-          questionsDerivedFromMessages: userQuestions.filter(
-            (question: any) => question.messageId || question.threadId,
-          ).length,
+          latestConversationDate: conversations[0]?.conversationDate || null,
+          latestUserMessageDate: dashboardUserMessages[0]?.createdAt || null,
+          questionsDerivedFromMessages: questionsFromMessages.length,
         },
         engagementTrends: {
           daily: {
-            questions: buildTrend(userQuestions, 'daily'),
-            messages: buildTrend(userMessages, 'daily'),
+            questions: buildTrend(trendQuestions, 'daily'),
+            messages: buildTrend(trendUserMessages, 'daily'),
           },
           weekly: {
-            questions: buildTrend(userQuestions, 'weekly'),
-            messages: buildTrend(userMessages, 'weekly'),
+            questions: buildTrend(trendQuestions, 'weekly'),
+            messages: buildTrend(trendUserMessages, 'weekly'),
           },
           monthly: {
-            questions: buildTrend(userQuestions, 'monthly'),
-            messages: buildTrend(userMessages, 'monthly'),
+            questions: buildTrend(trendQuestions, 'monthly'),
+            messages: buildTrend(trendUserMessages, 'monthly'),
           },
         },
         recentQuestions,
@@ -16417,6 +17919,233 @@ export class ChatbotRepository implements IChatbotRepository {
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user profile: ${error}`);
+    }
+  }
+
+  async getHierarchyUserIds(userId: string): Promise<ObjectId[]> {
+    let rootUser = null;
+
+    const isValidObjectId =
+      ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
+
+    if (isValidObjectId) {
+      rootUser = await this.users.findOne({ _id: new ObjectId(userId) });
+    } else {
+      rootUser = await this.users.findOne({
+        $or: [{ firebaseUID: userId }, { email: userId }]
+      });
+    }
+
+    if (!rootUser && isValidObjectId) {
+      const centralUser = await this.ReviewUsers.findOne({ _id: new ObjectId(userId) });
+      if (centralUser) {
+        const orConditions = [];
+        if (centralUser.firebaseUID) orConditions.push({ firebaseUID: centralUser.firebaseUID });
+        if (centralUser.email) orConditions.push({ email: centralUser.email });
+
+        if (orConditions.length > 0) {
+          rootUser = await this.users.findOne({ $or: orConditions });
+        }
+      }
+    }
+
+    if (!rootUser) return [];
+
+    const ids = [rootUser._id, ...(rootUser.assignedCoordinators || [])];
+    return ids.map(id => new ObjectId(id));
+  }
+
+  async buildCoordinatorMatchQuery(coordinatorId?: string): Promise<any> {
+    if (!coordinatorId) return {};
+    const targetUserIds = await this.getHierarchyUserIds(coordinatorId);
+    if (targetUserIds.length === 0) return { _id: null };
+    const targetUserIdStrings = targetUserIds.map(id => id.toString());
+    const targetUserObjects = targetUserIds.map(id => new ObjectId(id));
+    return {
+      userId: {
+        $in: [...targetUserObjects, ...targetUserIdStrings]
+      }
+    };
+  }
+
+  async getCoordinatorKpiSummary(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<any> {
+    try {
+      await this.init('annam');
+      await this.initReviewSystem();
+
+      const targetUserIds = await this.getHierarchyUserIds(userId);
+      const targetUserIdStrings = targetUserIds.map(id => id.toString());
+
+      const [totalUsers, totalAppInstalls] = await Promise.all([
+        this.users.countDocuments({ _id: { $in: targetUserIds } }, { session }),
+        this.users.countDocuments(
+          {
+            _id: { $in: targetUserIds },
+            farmerProfile: { $exists: true, $ne: null },
+            isVerified: true
+          },
+          { session }
+        )
+      ]);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const activeUsersToday = await this.messagesCollection.distinct('user', {
+        user: { $in: targetUserIdStrings },
+        createdAt: { $gte: today },
+        isCreatedByUser: true,
+        isDeleted: { $ne: true }
+      }, { session });
+
+      const todayQueries = await this.messagesCollection.countDocuments({
+        user: { $in: targetUserIdStrings },
+        createdAt: { $gte: today },
+        isCreatedByUser: true,
+        isDeleted: { $ne: true }
+      }, { session });
+
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      threeDaysAgo.setHours(0, 0, 0, 0);
+
+      const activeUsers3Days = await this.messagesCollection.distinct('user', {
+        user: { $in: targetUserIdStrings },
+        createdAt: { $gte: threeDaysAgo },
+        isCreatedByUser: true,
+        isDeleted: { $ne: true }
+      }, { session });
+
+      const inactiveUsersLast3Days = Math.max(0, totalUsers - activeUsers3Days.length);
+
+      const coordinatorMatch = await this.buildCoordinatorMatchQuery(userId);
+      const duplicateQuestionsCount = await this.QuestionCollection.countDocuments({
+        similarityScore: { $exists: true },
+        $or: [{ isTesting: { $exists: false } }, { isTesting: { $ne: true } }],
+        status: { $ne: 'non_agri' },
+        ...coordinatorMatch,
+      }, { session });
+
+      const usersWithFeedback = await this.messagesCollection.distinct('user', {
+        user: { $in: targetUserIdStrings },
+        feedback: { $exists: true },
+        isCreatedByUser: false,
+        isDeleted: { $ne: true }
+      }, { session });
+      const lowFeedbackUsersCount = Math.max(0, totalUsers - usersWithFeedback.length);
+
+      const sessionStats = await this.conversations
+        .aggregate([
+          {
+            $match: {
+              user: { $in: targetUserIdStrings }
+            }
+          },
+          {
+            $project: {
+              durationMs: { $max: [0, { $subtract: ['$updatedAt', '$createdAt'] }] }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              avg: { $avg: '$durationMs' }
+            }
+          }
+        ], { session })
+        .toArray();
+
+      const avgSessionDurationMs = sessionStats[0]?.avg ?? 0;
+      const avgSessionDurationMin = avgSessionDurationMs / 60000;
+
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+      const [dauTrendRaw, queriesTrendRaw] = await Promise.all([
+        this.messagesCollection.aggregate([
+          {
+            $match: {
+              user: { $in: targetUserIdStrings },
+              createdAt: { $gte: thirtyDaysAgo },
+              isCreatedByUser: true,
+              isDeleted: { $ne: true }
+            }
+          },
+          {
+            $group: {
+              _id: {
+                day: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+                user: '$user'
+              }
+            }
+          },
+          {
+            $group: {
+              _id: '$_id.day',
+              activeCount: { $sum: 1 }
+            }
+          },
+          { $sort: { _id: 1 } }
+        ], { session }).toArray(),
+
+        this.messagesCollection.aggregate([
+          {
+            $match: {
+              user: { $in: targetUserIdStrings },
+              createdAt: { $gte: thirtyDaysAgo },
+              isCreatedByUser: true,
+              isDeleted: { $ne: true }
+            }
+          },
+          {
+            $group: {
+              _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { _id: 1 } }
+        ], { session }).toArray()
+      ]);
+
+      const dauTrendMap = new Map(dauTrendRaw.map(d => [d._id, d.activeCount]));
+      const queriesTrendMap = new Map(queriesTrendRaw.map(q => [q._id, q.count]));
+
+      const dauTrend = [];
+      const queriesTrend = [];
+
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10);
+        dauTrend.push({
+          date: dateStr,
+          count: dauTrendMap.get(dateStr) ?? 0
+        });
+        queriesTrend.push({
+          date: dateStr,
+          count: queriesTrendMap.get(dateStr) ?? 0
+        });
+      }
+
+      return {
+        totalUsers,
+        totalAppInstalls,
+        dauActiveCount: activeUsersToday.length,
+        dauTotalCount: totalAppInstalls,
+        todayQueries,
+        avgSessionDurationMin,
+        dauTrend,
+        queriesTrend,
+        inactiveUsersLast3Days,
+        duplicateQuestionsCount,
+        lowFeedbackUsersCount
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get coordinator KPI: ${error}`);
     }
   }
 
@@ -17213,6 +18942,8 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
     userType = 'all',
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -17225,6 +18956,18 @@ export class ChatbotRepository implements IChatbotRepository {
       const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
       const baseMatch = buildBaseQuestionMatch(sourceType);
+
+      if (startDate || endDate) {
+        baseMatch.createdAt = {};
+
+        if (startDate) {
+          baseMatch.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          baseMatch.createdAt.$lte = endDate;
+        }
+      }
 
       baseMatch['details.state'] = {
         $exists: true,
@@ -18009,8 +19752,11 @@ export class ChatbotRepository implements IChatbotRepository {
     isPassed?: string,
     tag?: string,
     notificationType?: string,
+    userId?: string,
     page = 1,
     limit = 1000,
+    manualSource?: string,
+    effectiveDate?: string,
   ) {
     try {
       await this.initReviewSystem();
@@ -18029,9 +19775,13 @@ export class ChatbotRepository implements IChatbotRepository {
           matchQuery.status = {
             $in: ['closed'],
           };
+        } else if (status === 'non_gdb') {
+          matchQuery.status = {
+            $in: ['pass', 'dynamic_closed', 'duplicate_closed'],
+          };
         } else if (status === 'pending') {
           matchQuery.status = {
-            $nin: ['closed', 'pass'],
+            $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
           };
         } else if (status !== 'all') {
           matchQuery.status = status;
@@ -18039,7 +19789,7 @@ export class ChatbotRepository implements IChatbotRepository {
       } else if (tag === 'sla') {
         if (isPassed === 'true') {
           matchQuery.status = {
-            $in: ['pass'],
+            $in: ['pass', 'dynamic_closed', 'duplicate_closed'],
           };
         }
         if (isPassed === 'false') {
@@ -18060,6 +19810,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
 
       if (startDate || endDate) {
@@ -18136,7 +19890,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               _statusLower: {
-                $in: ['closed', 'pass'],
+                $in: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
               },
               _operationalCompletionAt: {
                 $ne: null,
@@ -18174,7 +19928,7 @@ export class ChatbotRepository implements IChatbotRepository {
         questionIds = result.map(x => x._id.toString());
       } else if (tag === 'slabreached') {
         matchQuery.status = {
-          $in: ['closed', 'pass'],
+          $in: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
         };
 
         const breachedQuestions = await this.QuestionCollection.aggregate([
@@ -18209,7 +19963,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               _statusLower: {
-                $in: ['closed', 'pass'],
+                $in: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
               },
               _operationalCompletionAt: {
                 $ne: null,
@@ -18246,6 +20000,26 @@ export class ChatbotRepository implements IChatbotRepository {
 
         questionIds = breachedQuestions.map(q => q._id.toString());
       } else if (tag === 'notify') {
+        questionIds = await this.QuestionCollection.find(matchQuery, {
+          projection: {
+            _id: 1,
+          },
+        })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .map(x => x._id.toString())
+          .toArray();
+      } else if (manualSource) {
+        matchQuery.source = manualSource;
+        const parsedEffectiveDate = new Date(`${effectiveDate}T00:00:00+05:30`);
+        if (isNaN(parsedEffectiveDate.getTime())) {
+          throw new BadRequestError('Invalid effectiveDate');
+        }
+        const endOfDay = new Date(`${effectiveDate}T23:59:59.999+05:30`);
+        matchQuery.createdAt = {
+          $gte: parsedEffectiveDate,
+          $lte: endOfDay,
+        };
         questionIds = await this.QuestionCollection.find(matchQuery, {
           projection: {
             _id: 1,
@@ -18844,6 +20618,8 @@ export class ChatbotRepository implements IChatbotRepository {
     district?: string,
     search?: string,
     session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<PaginatedFeedbackMessages> {
     try {
       await this.init(source);
@@ -18863,6 +20639,18 @@ export class ChatbotRepository implements IChatbotRepository {
           $ne: true,
         },
       };
+
+      if (startDate || endDate) {
+        matchStage.createdAt = {};
+
+        if (startDate) {
+          matchStage.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          matchStage.createdAt.$lte = endDate;
+        }
+      }
 
       if (
         rating &&
@@ -19061,64 +20849,387 @@ export class ChatbotRepository implements IChatbotRepository {
       );
     }
   }
-async getClosedInLastTwoHoursByLocation(
-  source?: string,
-  userType?: string,
-  state?: string,
-  district?: string,
-): Promise<any> {
-  try {
-    await this.initReviewSystem();
 
-    const matchStage = buildBaseQuestionMatch(source);
+  async getClosedInLastTwoHoursByLocation(
+    source?: string,
+    userType?: string,
+    state?: string,
+    district?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    try {
+      await this.initReviewSystem();
 
-    const query = await this.buildQuestionUserTypeMatchQuery(
-      source,
-      userType,
-    );
+      const matchStage = buildBaseQuestionMatch(source);
 
-    if (query && Object.keys(query).length > 0) {
-      matchStage.$and.push(query);
-    }
+      const query = await this.buildQuestionUserTypeMatchQuery(
+        source,
+        userType,
+      );
 
-    if (source === 'both') {
-      matchStage.source = {
-        $in: ['WHATSAPP', 'AJRASAKHA'],
+      if (query && Object.keys(query).length > 0) {
+        matchStage.$and.push(query);
+      }
+
+      if (source === 'both') {
+        matchStage.source = {
+          $in: ['WHATSAPP', 'AJRASAKHA'],
+        };
+      }
+
+      matchStage.status = {
+        $in: ['closed', 'pass', 'dynamic_closed'],
       };
-    }
 
-    matchStage.status = {
-      $in: ['closed', 'pass'],
+      if (state) {
+        matchStage['details.state'] = {
+          $regex: `^${state}$`,
+          $options: 'i',
+        };
+      }
+
+      if (district) {
+        matchStage['details.district'] = {
+          $regex: `^${district}$`,
+          $options: 'i',
+        };
+      }
+
+      if (startDate || endDate) {
+        matchStage.createdAt = {};
+
+        if (startDate) {
+          matchStage.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          matchStage.createdAt.$lte = endDate;
+        }
+      }
+
+      const [totalCountResult, lastTwoHoursResult] = await Promise.all([
+        this.QuestionCollection.aggregate([
+          {
+            $match: matchStage,
+          },
+          {
+            $addFields: {
+              _statusLower: {
+                $toLower: {
+                  $ifNull: ['$status', ''],
+                },
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+
+              closedCount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: ['$_statusLower', 'closed'],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              passCount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $in: ['$_statusLower', ['pass', 'dynamic_closed']],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ]).toArray(),
+
+        this.QuestionCollection.aggregate([
+          {
+            $match: matchStage,
+          },
+          {
+            $addFields: {
+              _statusLower: {
+                $toLower: {
+                  $ifNull: ['$status', ''],
+                },
+              },
+
+              _operationalCompletionAt: {
+                $cond: [
+                  {
+                    $eq: [
+                      {
+                        $toLower: {
+                          $ifNull: ['$status', ''],
+                        },
+                      },
+                      'pass',
+                    ],
+                  },
+                  '$passedAt',
+                  '$closedAt',
+                ],
+              },
+
+              _effectiveCreatedAt: {
+                $let: {
+                  vars: {
+                    istHour: {
+                      $hour: {
+                        date: '$createdAt',
+                        timezone: 'Asia/Kolkata',
+                      },
+                    },
+
+                    istDateTrunc: {
+                      $dateTrunc: {
+                        date: '$createdAt',
+                        unit: 'day',
+                        timezone: 'Asia/Kolkata',
+                      },
+                    },
+                  },
+
+                  in: {
+                    $cond: {
+                      if: {
+                        $gte: ['$$istHour', 22],
+                      },
+
+                      then: {
+                        $dateAdd: {
+                          startDate: '$$istDateTrunc',
+                          unit: 'hour',
+                          amount: 30,
+                        },
+                      },
+
+                      else: {
+                        $cond: {
+                          if: {
+                            $lt: ['$$istHour', 6],
+                          },
+
+                          then: {
+                            $dateAdd: {
+                              startDate: '$$istDateTrunc',
+                              unit: 'hour',
+                              amount: 6,
+                            },
+                          },
+
+                          else: '$createdAt',
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          {
+            $match: {
+              _statusLower: {
+                $in: ['closed', 'pass', 'dynamic_closed'],
+              },
+
+              _operationalCompletionAt: {
+                $ne: null,
+              },
+
+              $expr: {
+                $and: [
+                  {
+                    $gte: ['$_operationalCompletionAt', '$createdAt'],
+                  },
+                  {
+                    $lte: [
+                      {
+                        $max: [
+                          0,
+                          {
+                            $subtract: [
+                              '$_operationalCompletionAt',
+                              '$_effectiveCreatedAt',
+                            ],
+                          },
+                        ],
+                      },
+                      2 * 60 * 60 * 1000,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+
+              closedCount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: ['$_statusLower', 'closed'],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              passCount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $in: ['$_statusLower', ['pass', 'dynamic_closed']],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ]).toArray(),
+      ]);
+
+      return {
+        totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
+        totalPassCount: totalCountResult[0]?.passCount ?? 0,
+
+        closedInTwoHoursCount: lastTwoHoursResult[0]?.closedCount ?? 0,
+
+        passInTwoHoursCount: lastTwoHoursResult[0]?.passCount ?? 0,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get closed questions by location: ${error}`,
+      );
+    }
+  }
+
+  async getActiveUsersDetailsByQuestions(
+    page = 1,
+    limit = 10,
+    source: string,
+    userType = 'all',
+    session?: ClientSession,
+    state?: string,
+    district?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    await this.init(source);
+
+    const safePage = Math.max(Number(page) || 1, 1);
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+    const skip = (safePage - 1) * safeLimit;
+
+    // Build message match (same as getUserDetails)
+    const messageMatch: Record<string, any> = {
+      isCreatedByUser: true,
+      isDeleted: {$ne: true},
     };
 
-    if (state) {
-      matchStage['details.state'] = {
-        $regex: `^${state}$`,
-        $options: 'i',
-      };
+    if (startDate || endDate) {
+      messageMatch.createdAt = {};
+
+      if (startDate) {
+        messageMatch.createdAt.$gte = startDate;
+      }
+
+      if (endDate) {
+        messageMatch.createdAt.$lte = endDate;
+      }
     }
 
-    if (district) {
-      matchStage['details.district'] = {
-        $regex: `^${district}$`,
-        $options: 'i',
-      };
-    }
-
-    const [totalCountResult, lastTwoHoursResult] = await Promise.all([
-      this.QuestionCollection.aggregate([
-        {
-          $match: matchStage,
-        },
-        {
-          $addFields: {
-            _statusLower: {
-              $toLower: {
-                $ifNull: ['$status', ''],
+    // Get question counts from messages collection
+    const messageCounts = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: messageMatch,
+          },
+          {
+            $group: {
+              _id: '$user',
+              totalQuestions: {
+                $sum: 1,
               },
             },
           },
+        ],
+        {session},
+      )
+      .toArray();
+
+    const questionCountMap = new Map<string, number>();
+
+    for (const item of messageCounts) {
+      questionCountMap.set(String(item._id), item.totalQuestions);
+    }
+
+    // Build user filter (same pattern as getUserDetails)
+    const userFilter: Record<string, any> = {
+      ...this.buildUserDocFilter(userType),
+      isVerified: true,
+      'farmerProfile.state': {
+        $nin: [null, ''],
+      },
+    };
+
+    if (state?.trim()) {
+      const stateRegex = {
+        $regex: `^${state.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+        $options: 'i',
+      };
+
+      userFilter.$and = [
+        ...(userFilter.$and ?? []),
+        {
+          'farmerProfile.state': stateRegex,
         },
+      ];
+    }
+
+    if (district?.trim()) {
+      const escapedDistrict = district
+        .trim()
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      userFilter.$and = [
+        ...(userFilter.$and ?? []),
+        {
+          'farmerProfile.district': {
+            $regex: `^${escapedDistrict}(\\s*\\(.*\\))?$`,
+            $options: 'i',
+          },
+        },
+      ];
+    }
+
+    if (search?.trim()) {
+      const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = {
+        $regex: escaped,
+        $options: 'i',
+      };
+
+      userFilter.$and = [
+        ...(userFilter.$and ?? []),
         {
           $group: {
             _id: null,
@@ -19139,7 +21250,7 @@ async getClosedInLastTwoHoursByLocation(
               $sum: {
                 $cond: [
                   {
-                    $eq: ['$_statusLower', 'pass'],
+                    $in: ['$_statusLower', ['pass', 'dynamic_closed', 'duplicate_closed']],
                   },
                   1,
                   0,
@@ -19148,178 +21259,1232 @@ async getClosedInLastTwoHoursByLocation(
             },
           },
         },
-      ]).toArray(),
+      ];
+    }
 
-      this.QuestionCollection.aggregate([
-        {
-          $match: matchStage,
-        },
-        {
-          $addFields: {
-            _statusLower: {
-              $toLower: {
-                $ifNull: ['$status', ''],
-              },
-            },
+    // Get all matching users
+    const allUsers = await this.users.find(userFilter, {session}).toArray();
 
-            _operationalCompletionAt: {
-              $cond: [
-                {
-                  $eq: [
-                    {
-                      $toLower: {
-                        $ifNull: ['$status', ''],
-                      },
-                    },
-                    'pass',
-                  ],
-                },
-                '$passedAt',
-                '$closedAt',
-              ],
-            },
+    // Keep only active users
+    const filteredUsers = allUsers.filter(
+      user => (questionCountMap.get(user._id.toString()) ?? 0) > 0,
+    );
 
-            _effectiveCreatedAt: {
-              $let: {
-                vars: {
-                  istHour: {
-                    $hour: {
-                      date: '$createdAt',
-                      timezone: 'Asia/Kolkata',
-                    },
-                  },
+    // Sort by createdAt desc
+    filteredUsers.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
 
-                  istDateTrunc: {
-                    $dateTrunc: {
-                      date: '$createdAt',
-                      unit: 'day',
-                      timezone: 'Asia/Kolkata',
-                    },
-                  },
-                },
+      return timeB - timeA;
+    });
 
-                in: {
-                  $cond: {
-                    if: {
-                      $gte: ['$$istHour', 22],
-                    },
+    const total = filteredUsers.length;
 
-                    then: {
-                      $dateAdd: {
-                        startDate: '$$istDateTrunc',
-                        unit: 'hour',
-                        amount: 30,
-                      },
-                    },
+    const users = filteredUsers.slice(skip, skip + safeLimit);
 
-                    else: {
-                      $cond: {
-                        if: {
-                          $lt: ['$$istHour', 6],
-                        },
-
-                        then: {
-                          $dateAdd: {
-                            startDate: '$$istDateTrunc',
-                            unit: 'hour',
-                            amount: 6,
-                          },
-                        },
-
-                        else: '$createdAt',
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        {
-          $match: {
-            _statusLower: {
-              $in: ['closed', 'pass'],
-            },
-
-            _operationalCompletionAt: {
-              $ne: null,
-            },
-
-            $expr: {
-              $and: [
-                {
-                  $gte: [
-                    '$_operationalCompletionAt',
-                    '$createdAt',
-                  ],
-                },
-                {
-                  $lte: [
-                    {
-                      $max: [
-                        0,
-                        {
-                          $subtract: [
-                            '$_operationalCompletionAt',
-                            '$_effectiveCreatedAt',
-                          ],
-                        },
-                      ],
-                    },
-                    2 * 60 * 60 * 1000,
-                  ],
-                },
-              ],
-            },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-
-            closedCount: {
-              $sum: {
-                $cond: [
-                  {
-                    $eq: ['$_statusLower', 'closed'],
-                  },
-                  1,
-                  0,
-                ],
-              },
-            },
-
-            passCount: {
-              $sum: {
-                $cond: [
-                  {
-                    $eq: ['$_statusLower', 'pass'],
-                  },
-                  1,
-                  0,
-                ],
-              },
-            },
-          },
-        },
-      ]).toArray(),
-    ]);
+    const formattedUsers = users.map(user => ({
+      userId: user._id.toString(),
+      farmerName: user.farmerProfile?.farmerName ?? user.name ?? '',
+      name: user.name ?? '',
+      email: user.email ?? '',
+      phoneNumber: user.farmerProfile?.phoneNo,
+      village: user.farmerProfile?.villageName,
+      block: user.farmerProfile?.blockName,
+      district: user.farmerProfile?.district,
+      state: user.farmerProfile?.state,
+      role: user.userRole,
+      totalQuestions: questionCountMap.get(user._id.toString()) ?? 0,
+      createdAt: user.createdAt,
+    }));
 
     return {
-      totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
-      totalPassCount: totalCountResult[0]?.passCount ?? 0,
-
-      closedInTwoHoursCount:
-        lastTwoHoursResult[0]?.closedCount ?? 0,
-
-      passInTwoHoursCount:
-        lastTwoHoursResult[0]?.passCount ?? 0,
+      users: formattedUsers,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / safeLimit)),
+      page: safePage,
+      limit: safeLimit,
     };
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get closed questions by location: ${error}`,
-    );
   }
-}
 
+  async getQuestionByManualSource(
+    manualSource: 'MANUAL' | 'AGRI_EXPERT' | 'OUTREACH',
+    effectiveDate: string,
+    userType = 'all',
+    page = 1,
+    limit = 10,
+    search?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedQueryCategoryQuestions> {
+    try {
+      if (!manualSource) {
+        throw new BadRequestError('manualSource is required');
+      }
+
+      if (!effectiveDate) {
+        throw new BadRequestError('effectiveDate is required');
+      }
+
+      await this.initReviewSystem();
+      await this.init('annam');
+
+      const safePage = Math.max(Number(page) || 1, 1);
+      const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+      const skip = (safePage - 1) * safeLimit;
+
+      /*
+      * Base MANUAL filter gives us:
+      * - isTesting != true
+      * - status != non_agri
+      *
+      * We override source below based on manualSource.
+      */
+      const matchQuery: any = buildBaseQuestionMatch('MANUAL');
+
+      // --------------------------------------------------
+      // Manual source
+      // --------------------------------------------------
+
+      matchQuery.source = manualSource;
+
+      // --------------------------------------------------
+      // Effective date
+      // --------------------------------------------------
+
+      const parsedEffectiveDate = new Date(`${effectiveDate}T00:00:00+05:30`);
+
+      if (isNaN(parsedEffectiveDate.getTime())) {
+        throw new BadRequestError('Invalid effectiveDate');
+      }
+
+      const endOfDay = new Date(`${effectiveDate}T23:59:59.999+05:30`);
+
+      matchQuery.createdAt = {
+        $gte: parsedEffectiveDate,
+        $lte: endOfDay,
+      };
+
+      // --------------------------------------------------
+      // User type
+      // --------------------------------------------------
+
+      const userTypeQuery = await this.buildQuestionUserTypeMatchQuery(
+        'annam',
+        userType,
+      );
+
+      if (
+        userTypeQuery &&
+        Object.keys(userTypeQuery).length > 0
+      ) {
+        matchQuery.$and.push(userTypeQuery);
+      }
+
+      console.log("matchQuery----", matchQuery);
+
+      // --------------------------------------------------
+      // Search by user name / email
+      // --------------------------------------------------
+
+      if (search?.trim()) {
+        const escapedSearch = this.escapeRegex(search.trim());
+
+        const matchingUsers = await this.users
+          .find({
+            $or: [
+              {
+                email: {
+                  $regex: escapedSearch,
+                  $options: 'i',
+                },
+              },
+              {
+                name: {
+                  $regex: escapedSearch,
+                  $options: 'i',
+                },
+              },
+              {
+                firstName: {
+                  $regex: escapedSearch,
+                  $options: 'i',
+                },
+              },
+              {
+                lastName: {
+                  $regex: escapedSearch,
+                  $options: 'i',
+                },
+              },
+              {
+                'farmerProfile.farmerName': {
+                  $regex: escapedSearch,
+                  $options: 'i',
+                },
+              },
+            ],
+          })
+          .project({
+            _id: 1,
+          })
+          .toArray();
+
+        const userIds = matchingUsers.map(user =>
+          user._id.toString(),
+        );
+
+        matchQuery.userId = {
+          $in: userIds,
+        };
+      }
+
+      // --------------------------------------------------
+      // Questions
+      // --------------------------------------------------
+
+      const result = await this.QuestionCollection.aggregate(
+        [
+          {
+            $match: matchQuery,
+          },
+
+          {
+            $sort: {
+              createdAt: -1,
+            },
+          },
+
+          {
+            $facet: {
+              data: [
+                {
+                  $skip: skip,
+                },
+                {
+                  $limit: safeLimit,
+                },
+                {
+                  $project: {
+                    _id: 0,
+
+                    questionId: {
+                      $toString: '$_id',
+                    },
+
+                    userId: 1,
+                    threadId: 1,
+                    messageId: 1,
+                    question: 1,
+                    status: 1,
+                    source: 1,
+                    createdAt: 1,
+                    isCustomerNotified: 1,
+
+                    questionType: {
+                      $cond: [
+                        {
+                          $eq: ['$status', 'duplicate'],
+                        },
+                        'duplicate',
+                        'unique',
+                      ],
+                    },
+
+                    district: '$details.district',
+
+                    crop: {
+                      $ifNull: [
+                        '$details.normalised_crop',
+                        '$details.crop',
+                      ],
+                    },
+
+                    village: '$details.village',
+                    block: '$details.block',
+                  },
+                },
+              ],
+
+              metadata: [
+                {
+                  $count: 'total',
+                },
+              ],
+            },
+          },
+        ],
+        {
+          session,
+        },
+      ).toArray();
+
+      // --------------------------------------------------
+      // Pagination metadata
+      // --------------------------------------------------
+
+      const total =
+        result[0]?.metadata?.[0]?.total ?? 0;
+
+      const questions =
+        result[0]?.data ?? [];
+
+      // --------------------------------------------------
+      // Resolve question -> user
+      // --------------------------------------------------
+
+      const {
+        userMap,
+        questionUserMap,
+      } = await this.resolveQuestionUsers(questions);
+
+      // --------------------------------------------------
+      // Enrich questions
+      // --------------------------------------------------
+
+      const enrichedQuestions = questions.map(question => {
+        const resolvedUserId =
+          questionUserMap.get(question.questionId);
+
+        const user = resolvedUserId
+          ? userMap.get(resolvedUserId)
+          : undefined;
+
+        return {
+          ...question,
+
+          userId:
+            resolvedUserId ??
+            (question.userId?.toString
+              ? question.userId.toString()
+              : question.userId),
+
+          farmerName:
+            user?.farmerProfile?.farmerName ??
+            user?.name ??
+            null,
+
+          name:
+            `${user?.name ?? ''} ${user?.lastName ?? ''}`.trim(),
+
+          email:
+            user?.email ?? null,
+
+          village:
+            question.village ??
+            user?.farmerProfile?.villageName,
+
+          block:
+            question.block ??
+            user?.farmerProfile?.blockName,
+
+          district:
+            question.district ??
+            user?.farmerProfile?.district,
+
+          state:
+            user?.farmerProfile?.state,
+        };
+      });
+
+      return {
+        questions: enrichedQuestions,
+        total,
+        totalPages: Math.max(
+          1,
+          Math.ceil(total / safeLimit),
+        ),
+        page: safePage,
+        limit: safeLimit,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+
+      throw new InternalServerError(
+        `Failed to fetch questions for manual source ${manualSource}: ${error}`,
+      );
+    }
+  }
+
+  async getReviewerLifecycle(
+    userId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    // console.log("getReviewerLifecycle---", userId, startDate, endDate);
+    try {
+      await this.initReviewSystem();
+
+      const start = startDate ? new Date(startDate) : undefined;
+      const end = endDate ? new Date(endDate) : undefined;
+
+      if (end) {
+        end.setHours(23, 59, 59, 999);
+      }
+
+      const userObjectId = new ObjectId(userId);
+
+      const roleHistory = await this.UserRoleHistoryCollection.find({
+        userId: userObjectId,
+        ...(start || end
+          ? {
+              from: {
+                ...(end ? { $lte: end } : {}),
+              },
+              $or: [
+                { to: null },
+                {
+                  to: {
+                    ...(start ? { $gte: start } : {}),
+                  },
+                },
+              ],
+            }
+          : {}),
+      })
+        .sort({ from: 1 })
+        .toArray();
+
+      const submissions = await this.QuestionSubmissionsCollection.find({
+        history: {
+          $elemMatch: {
+            updatedBy: userObjectId,
+            ...(start || end
+              ? {
+                  createdAt: {
+                    ...(start ? {$gte: start} : {}),
+                    ...(end ? {$lte: end} : {}),
+                  },
+                }
+              : {}),
+          },
+        },
+      }).toArray();
+
+      const activities: any[] = [];
+
+      const rerouteDocs = await this.Reroutes.find({
+        reroutes: {
+          $elemMatch: {
+            reroutedTo: userObjectId,
+            ...(start || end
+              ? {
+                  reroutedAt: {
+                    ...(start ? {$gte: start} : {}),
+                    ...(end ? {$lte: end} : {}),
+                  },
+                }
+              : {}),
+          },
+        },
+      }).toArray();
+
+      for (const rerouteDoc of rerouteDocs) {
+        for (const reroute of rerouteDoc.reroutes ?? []) {
+          const isModeratedByUser =
+            reroute.reroutedTo?.toString() === userId;
+
+          if (!isModeratedByUser) {
+            continue;
+          }
+
+          const startAt = new Date(reroute.reroutedAt);
+
+          if (start && startAt < start) continue;
+          if (end && startAt > end) continue;
+
+          const endAt = reroute.updatedAt
+            ? new Date(reroute.updatedAt)
+            : null;
+
+          activities.push({
+            questionId: rerouteDoc.questionId?.toString(),
+
+            startAt,
+            endAt,
+
+            durationMs: endAt
+              ? endAt.getTime() - startAt.getTime()
+              : null,
+
+            // Main lifecycle classification
+            status: 'moderated',
+            activityType: "moderated",
+
+            // Preserve what moderator actually did
+            outcome: reroute.status,
+
+            reroutedBy: reroute.reroutedBy?.toString(),
+            comment: reroute.comment ?? '',
+          });
+        }
+      }
+
+      const questionIds = submissions
+        .map((submission) => submission.questionId)
+        .filter(Boolean);
+
+      const questions = await this.QuestionCollection.find(
+        {
+          _id: { $in: questionIds },
+        },
+        {
+          projection: {
+            _id: 1,
+            firstAllocationAt: 1,
+          },
+        },
+      ).toArray();
+
+      const questionMap = new Map(
+        questions.map((question) => [
+          question._id.toString(),
+          question,
+        ]),
+      );
+
+      for (const submission of submissions) {
+        const question = questionMap.get(
+          submission.questionId?.toString(),
+        );
+
+        const userHistories = (submission.history ?? [])
+          .map((history, originalIndex) => ({
+            history,
+            originalIndex,
+          }))
+          .filter(({ history }) => {
+            if (history.updatedBy?.toString() !== userId) {
+              return false;
+            }
+
+            const historyCreatedAt = new Date(history.createdAt);
+
+            if (start && historyCreatedAt < start) return false;
+            if (end && historyCreatedAt > end) return false;
+
+            return true;
+          });
+
+          for (const { history, originalIndex } of userHistories) {
+            const historyCreatedAt = new Date(history.createdAt);
+
+            const historyUpdatedAt = history.updatedAt
+              ? new Date(history.updatedAt)
+              : null;
+
+            if (!historyUpdatedAt) continue;
+
+            let activityStart = historyCreatedAt;
+
+            // firstAllocationAt ONLY for actual first submission activity
+            if (originalIndex === 0 && question?.firstAllocationAt) {
+              const firstAllocationAt = new Date(question.firstAllocationAt);
+
+              if (
+                firstAllocationAt <= historyUpdatedAt &&
+                (!start || firstAllocationAt >= start) &&
+                (!end || firstAllocationAt <= end)
+              ) {
+                activityStart = firstAllocationAt;
+              }
+            }
+
+            if (activityStart >= historyUpdatedAt) continue;
+
+            const activityType =
+              originalIndex === 0
+                ? "authored"
+                : "reviewed";
+
+            activities.push({
+              questionId: submission.questionId?.toString(),
+              startAt: activityStart,
+              endAt: historyUpdatedAt,
+              durationMs:
+                historyUpdatedAt.getTime() -
+                activityStart.getTime(),
+              status: history.status,
+              activityType,
+            });
+          }
+      }
+
+      activities.sort(
+        (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+      );
+
+      const moderatorQuery: any = {
+        moderatorId: userObjectId,
+        moderatorAssignedAt: { $ne: null },
+
+        $or: [
+          { closedAt: { $ne: null } },
+          { passedAt: { $ne: null } },
+        ],
+      };
+
+      // Apply selected date range on when moderation started
+      if (start || end) {
+        moderatorQuery.moderatorAssignedAt = {
+          $ne: null,
+          ...(start ? { $gte: start } : {}),
+          ...(end ? { $lte: end } : {}),
+        };
+      }
+
+      const moderatedQuestions = await this.QuestionCollection.find(
+        moderatorQuery,
+        {
+          projection: {
+            _id: 1,
+            status: 1,
+            moderatorId: 1,
+            moderatorAssignedAt: 1,
+            closedAt: 1,
+            passedAt: 1,
+          },
+        },
+      ).toArray();
+
+      for (const question of moderatedQuestions) {
+        if (!question.moderatorAssignedAt) {
+          continue;
+        }
+
+        const startAt = new Date(question.moderatorAssignedAt);
+
+        // Depending on final question state
+        const endAt = question.closedAt
+          ? new Date(question.closedAt)
+          : question.passedAt
+            ? new Date(question.passedAt)
+            : null;
+
+        if (!endAt) {
+          continue;
+        }
+
+        activities.push({
+          questionId: question._id.toString(),
+
+          startAt,
+          endAt,
+
+          durationMs:
+            endAt.getTime() - startAt.getTime(),
+
+          status: 'moderated',
+          activityType: "moderated",
+
+          // Optional: useful for UI/debugging
+          outcome: question.closedAt
+            ? 'closed'
+            : 'passed',
+        });
+      }
+
+      const filteredActivities = activities
+        .filter((activity) => activity.endAt)
+        .map((activity) => {
+          let activityStart = new Date(activity.startAt);
+          let activityEnd = new Date(activity.endAt);
+
+          // No overlap
+          if (start && activityEnd < start) return null;
+          if (end && activityStart > end) return null;
+
+          // Clip to requested range
+          if (start && activityStart < start) {
+            activityStart = new Date(start);
+          }
+
+          if (end && activityEnd > end) {
+            activityEnd = new Date(end);
+          }
+
+          if (activityStart >= activityEnd) {
+            return null;
+          }
+
+          return {
+            ...activity,
+            startAt: activityStart,
+            endAt: activityEnd,
+            durationMs:
+              activityEnd.getTime() - activityStart.getTime(),
+          };
+        })
+        .filter(Boolean);
+
+      const groupedLifecycle =
+        this.groupReviewerLifecycleByHour(filteredActivities);
+
+      return {
+        reviewerId: userId,
+        startDate: start,
+        endDate: end,
+        roleHistory: roleHistory.map(role => ({
+          role: role.role,
+          from: role.from,
+          to: role.to,
+        })),
+        lifecycle: groupedLifecycle,
+      };
+    } catch (err) {
+      console.log('error in getReviewerLifecycle:', err);
+      throw Error(err);
+    }
+  }
+
+  private groupReviewerLifecycleByHour(activities: any[]): any[] {
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+    const grouped = new Map<
+      string,
+      Map<
+        string,
+        {
+          hourStart: Date;
+          hourEnd: Date;
+          activities: any[];
+        }
+      >
+    >();
+
+    for (const activity of activities) {
+      const originalStart = new Date(activity.startAt);
+
+      // Do not calculate working duration for unfinished activities.
+      // We know when it started, but we don't know how long the reviewer
+      // actually worked on it.
+      if (!activity.endAt) {
+        continue;
+      }
+
+      const originalEnd = new Date(activity.endAt);
+
+      let currentStart = new Date(originalStart);
+
+      while (currentStart < originalEnd) {
+        /*
+         * Convert currentStart to IST so we can determine
+         * the correct IST hourly boundary.
+         */
+        const istTime = new Date(currentStart.getTime() + IST_OFFSET_MS);
+
+        // Next IST hour
+        const nextHourIST = new Date(istTime);
+        nextHourIST.setUTCMinutes(0, 0, 0);
+        nextHourIST.setUTCHours(nextHourIST.getUTCHours() + 1);
+
+        // Convert boundary back to UTC
+        const nextHourUTC = new Date(nextHourIST.getTime() - IST_OFFSET_MS);
+
+        const segmentEnd =
+          originalEnd < nextHourUTC ? originalEnd : nextHourUTC;
+
+        const durationMs = segmentEnd.getTime() - currentStart.getTime();
+
+        /*
+         * Determine the IST date/hour for grouping.
+         */
+        const segmentIST = new Date(currentStart.getTime() + IST_OFFSET_MS);
+
+        const year = segmentIST.getUTCFullYear();
+        const month = String(segmentIST.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(segmentIST.getUTCDate()).padStart(2, '0');
+
+        const hour = segmentIST.getUTCHours();
+
+        const dateKey = `${year}-${month}-${day}`;
+        const hourKey = `${hour}`;
+
+        if (!grouped.has(dateKey)) {
+          grouped.set(dateKey, new Map());
+        }
+
+        const dayGroup = grouped.get(dateKey)!;
+
+        if (!dayGroup.has(hourKey)) {
+          /*
+           * Build actual UTC timestamps representing
+           * this IST hour.
+           */
+          const hourStartIST = new Date(
+            Date.UTC(year, Number(month) - 1, Number(day), hour),
+          );
+
+          const hourStartUTC = new Date(hourStartIST.getTime() - IST_OFFSET_MS);
+
+          const hourEndUTC = new Date(hourStartUTC.getTime() + 60 * 60 * 1000);
+
+          dayGroup.set(hourKey, {
+            hourStart: hourStartUTC,
+            hourEnd: hourEndUTC,
+            activities: [],
+          });
+        }
+
+      dayGroup.get(hourKey)!.activities.push({
+        questionId: activity.questionId,
+        startAt: currentStart,
+        endAt: segmentEnd,
+        durationMs,
+
+        status: activity.status,
+        activityType: activity.activityType,
+
+        outcome: activity.outcome,
+        reroutedBy: activity.reroutedBy,
+        comment: activity.comment,
+
+        isSplit:
+          originalStart.getTime() !== currentStart.getTime() ||
+          originalEnd.getTime() !== segmentEnd.getTime(),
+
+        originalStartAt: originalStart,
+        originalEndAt: originalEnd,
+      });
+
+        currentStart = segmentEnd;
+      }
+    }
+
+    // Convert Maps → arrays
+    return Array.from(grouped.entries())
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .map(([date, hours]) => ({
+        date,
+
+        hours: Array.from(hours.values())
+          .sort((a, b) => a.hourStart.getTime() - b.hourStart.getTime())
+          .map(hour => ({
+            ...hour,
+
+            totalQuestions: new Set(
+              hour.activities.map(activity => activity.questionId),
+            ).size,
+
+            totalWorkDurationMs: hour.activities.reduce(
+              (total, activity) => total + (activity.durationMs ?? 0),
+              0,
+            ),
+          })),
+    }));
+  }
+
+  async getTatStats(
+    matchQuery: Record<string, any>,
+  ): Promise<TatStats> {
+    await this.init();
+
+    // ------------------------------------------------
+    // 1. GET QUESTIONS
+    // ------------------------------------------------
+
+    const questions = await this.QuestionCollection
+      .find(matchQuery)
+      .project({
+        _id: 1,
+        createdAt: 1,
+        status: 1,
+        closedAt: 1,
+        passedAt: 1,
+        firstAllocationAt: 1,
+        moderatorAssignedAt: 1,
+
+        // Add these once actual fields are confirmed:
+        gateKeeperAssignedAt: 1,
+        gateKeeperFinishedAt: 1,
+        auditorAssignedAt: 1,
+        auditorFinishedAt: 1,
+      })
+      .toArray();
+
+    if (!questions.length) {
+      return {
+        tatMinutes: 0,
+        averageTimeToAuthorMinutes: 0,
+        averageReviewAcceptMinutes: 0,
+        averageReviewModifyMinutes: 0,
+        averageReviewRejectReauthorMinutes: 0,
+        averageModeratingMinutes: 0,
+        averageGatekeepingMinutes: 0,
+        averageAuditingMinutes: 0,
+        averageReroutedCompletionMinutes: 0,
+      };
+    }
+
+    const questionIds = questions.map(q => q._id);
+
+    // ------------------------------------------------
+    // 2. FETCH SUBMISSIONS + REROUTES
+    // ------------------------------------------------
+
+    const [submissions, reroutes] = await Promise.all([
+      this.QuestionSubmissionsCollection
+        .find({
+          questionId: {$in: questionIds},
+        })
+        .toArray(),
+
+      this.Reroutes
+        .find({
+          questionId: {$in: questionIds},
+        })
+        .toArray(),
+    ]);
+
+    // ------------------------------------------------
+    // MAP DATA BY QUESTION ID
+    // ------------------------------------------------
+
+    const submissionMap = new Map(
+      submissions.map(submission => [
+        submission.questionId.toString(),
+        submission,
+      ]),
+    );
+
+    const rerouteMap = new Map(
+      reroutes.map(reroute => [
+        reroute.questionId.toString(),
+        reroute,
+      ]),
+    );
+
+    // ------------------------------------------------
+    // 3. ACCUMULATORS
+    // ------------------------------------------------
+
+    const stats = {
+      author: {
+        total: 0,
+        count: 0,
+      },
+
+      accept: {
+        total: 0,
+        count: 0,
+      },
+
+      modify: {
+        total: 0,
+        count: 0,
+      },
+
+      rejectReauthor: {
+        total: 0,
+        count: 0,
+      },
+
+      moderator: {
+        total: 0,
+        count: 0,
+      },
+
+      gatekeeper: {
+        total: 0,
+        count: 0,
+      },
+
+      auditor: {
+        total: 0,
+        count: 0,
+      },
+
+      rerouted: {
+        total: 0,
+        count: 0,
+      },
+    };
+
+    // ------------------------------------------------
+    // HELPER: ADD VALID DURATION
+    // ------------------------------------------------
+
+    const addDuration = (
+      stat: {total: number; count: number},
+      from?: Date | string | null,
+      to?: Date | string | null,
+    ) => {
+      if (!from || !to) {
+        return;
+      }
+
+      const fromTime = new Date(from).getTime();
+      const toTime = new Date(to).getTime();
+
+      const diff = toTime - fromTime;
+
+      if (diff >= 0) {
+        stat.total += diff;
+        stat.count++;
+      }
+    };
+
+    // ------------------------------------------------
+    // 4. PROCESS EACH QUESTION
+    // ------------------------------------------------
+// console.log("questions----", questions.length);
+    for (const question of questions) {
+      const questionId = question._id.toString();
+
+      const submission =
+        submissionMap.get(questionId);
+
+      const reroute =
+        rerouteMap.get(questionId);
+
+      const completionAt =
+        question.closedAt ??
+        question.passedAt ??
+        null;
+
+      // ==================================================
+      // A. AVERAGE TIME TO AUTHOR
+      //
+      // First allocation -> first answer submitted
+      // ==================================================
+
+      if (submission?.history?.length) {
+        const history = [...submission.history].sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() -
+            new Date(b.createdAt).getTime(),
+        );
+
+        const firstAnswer = history.find(
+          item => item.answer,
+        );
+
+        if (firstAnswer) {
+          addDuration(
+            stats.author,
+
+            question.firstAllocationAt ??
+              question.createdAt,
+
+            firstAnswer.createdAt,
+          );
+        }
+
+        // ==================================================
+        // B. REVIEW LIFECYCLE
+        // ==================================================
+
+        for (
+          let index = 0;
+          index < history.length;
+          index++
+        ) {
+          const item = history[index];
+
+          // ================================================
+          // REVIEWING + ACCEPTING
+          //
+          // Reviewer gets item -> approves answer
+          // ================================================
+
+          if (item.approvedAnswer) {
+            addDuration(
+              stats.accept,
+              item.createdAt,
+              item.updatedAt,
+            );
+          }
+
+          // ================================================
+          // REVIEWING + MODIFYING
+          //
+          // Reviewer gets item -> modifies answer
+          // ================================================
+
+          if (item.modifiedAnswer) {
+            addDuration(
+              stats.modify,
+              item.createdAt,
+              item.updatedAt,
+            );
+          }
+
+          // ================================================
+          // REVIEWING + REJECTING + RE-AUTHORING
+          //
+          // Review starts
+          //      ↓
+          // rejected
+          //      ↓
+          // author submits replacement answer
+          // ================================================
+
+          if (item.status === 'rejected') {
+            const nextAnswer = history
+              .slice(index + 1)
+              .find(nextItem => {
+                if (!nextItem.answer) {
+                  return false;
+                }
+
+                return (
+                  new Date(
+                    nextItem.createdAt,
+                  ).getTime() >
+                  new Date(
+                    item.createdAt,
+                  ).getTime()
+                );
+              });
+
+            if (nextAnswer) {
+              addDuration(
+                stats.rejectReauthor,
+                item.createdAt,
+                nextAnswer.createdAt,
+              );
+            }
+          }
+        }
+      }
+
+      // ==================================================
+      // C. MODERATING
+      //
+      // moderatorAssignedAt -> moderation completion
+      // ==================================================
+
+      if (question.moderatorAssignedAt && completionAt) {
+        addDuration(
+          stats.moderator,
+          question.moderatorAssignedAt,
+          completionAt,
+        );
+      }
+
+      // ==================================================
+      // D. GATEKEEPING
+      // ==================================================
+
+      
+      if (
+        question.gateKeeperAssignedAt &&
+        question.gateKeeperFinishedAt
+      ) {
+        addDuration(
+          stats.gatekeeper,
+          question.gateKeeperAssignedAt,
+          question.gateKeeperFinishedAt,
+        );
+      }
+      
+
+      // ==================================================
+      // E. AUDITING
+      // ==================================================
+
+      
+      if (
+        question.auditorAssignedAt &&
+        question.auditorFinishedAt
+      ) {
+        addDuration(
+          stats.auditor,
+          question.auditorAssignedAt,
+          question.auditorFinishedAt,
+        );
+      }
+      
+
+      // ==================================================
+      // F. REROUTED QUESTION -> COMPLETION
+      // ==================================================
+
+      if (reroute?.reroutes?.length) {
+        for (const event of reroute.reroutes) {
+          addDuration(
+            stats.rerouted,
+            event.reroutedAt,
+            event.updatedAt,
+          );
+        }
+      }
+    }
+
+    // ------------------------------------------------
+    // 5. CONVERT MILLISECONDS -> AVERAGE MINUTES
+    // ------------------------------------------------
+
+    const averageMinutes = (
+      stat: {
+        total: number;
+        count: number;
+      },
+    ): number => {
+      if (!stat.count) {
+        return 0;
+      }
+
+      return (
+        Math.round(
+          (stat.total /
+            stat.count /
+            (60 * 1000)) *
+            100,
+        ) / 100
+      );
+    };
+
+    // ------------------------------------------------
+    // 6. CALCULATE EACH TAT COMPONENT
+    // ------------------------------------------------
+
+    const averageTimeToAuthorMinutes =
+      averageMinutes(stats.author);
+    const averageReviewAcceptMinutes =
+      averageMinutes(stats.accept);
+    const averageReviewModifyMinutes =
+      averageMinutes(stats.modify);
+    const averageReviewRejectReauthorMinutes =
+      averageMinutes(stats.rejectReauthor);
+    const averageModeratingMinutes =
+      averageMinutes(stats.moderator);
+    const averageGatekeepingMinutes =
+      averageMinutes(stats.gatekeeper);
+    const averageAuditingMinutes =
+      averageMinutes(stats.auditor);
+    const averageReroutedCompletionMinutes =
+      averageMinutes(stats.rerouted);
+
+    // ------------------------------------------------
+    // 7. TOTAL TAT = SUM OF ALL BIFURCATIONS
+    // ------------------------------------------------
+
+    const tatMinutes =
+      averageTimeToAuthorMinutes +
+      averageReviewAcceptMinutes +
+      averageReviewModifyMinutes +
+      averageReviewRejectReauthorMinutes +
+      averageModeratingMinutes +
+      averageGatekeepingMinutes +
+      averageAuditingMinutes +
+      averageReroutedCompletionMinutes;
+
+    // ------------------------------------------------
+    // 8. RETURN
+    // ------------------------------------------------
+
+    return {
+      tatMinutes:
+        Math.round(tatMinutes * 100) / 100,
+      averageTimeToAuthorMinutes,
+      averageReviewAcceptMinutes,
+      averageReviewModifyMinutes,
+      averageReviewRejectReauthorMinutes,
+      averageModeratingMinutes,
+      averageGatekeepingMinutes,
+      averageAuditingMinutes,
+      averageReroutedCompletionMinutes,
+    };
+  }
 }

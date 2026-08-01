@@ -1,23 +1,41 @@
 import 'reflect-metadata';
-import axios from 'axios';
-import {injectable} from 'inversify';
+import {inject, injectable} from 'inversify';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
+import {spawn} from 'child_process';
+import path from 'path';
+import {fileURLToPath} from 'url';
+import {MongoDatabase} from '#shared/database/providers/mongo/MongoDatabase.js';
+import {GLOBAL_TYPES} from '#root/types.js';
 import type {
   ILocationService,
   ILocationState,
   ILocationDistrict,
   ILocationBlock,
   ILocationVillage,
+  IKvk,
+  IKvkSyncResult,
 } from '../interfaces/ILocationService.js';
+
+// build/modules/lgd/services/locationService.js -> ../../../../scripts (i.e.
+// backend/scripts, which the Dockerfile copies to /app/scripts alongside
+// /app/build) — same resolution used by src/jobs/lgd-sync/run.ts.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const KVK_SCRIPT_PATH = path.resolve(__dirname, '../../../../scripts/create-lgd-kvks-collection.mjs');
 
 @injectable()
 export class LocationService implements ILocationService {
+  constructor(
+    @inject(GLOBAL_TYPES.Database)
+    private readonly db: MongoDatabase,
+  ) {}
+
   public async getStates(): Promise<ILocationState[]> {
-    const records = await this.fetchStates();
+    const collection = await this.db.getCollection<any>('states');
+    const records = await collection.find({}).sort({ stateCode: 1 }).toArray();
 
     return records.map((record: any) => ({
-      stateCode: record.state_code,
-      stateNameEnglish: record.state_name_english,
+      stateCode: record.stateCode,
+      stateNameEnglish: record.stateNameEnglish,
     }));
   }
 
@@ -26,12 +44,16 @@ export class LocationService implements ILocationService {
       throw new BadRequestError('stateCode is required');
     }
 
-    const records = await this.fetchDistricts({ state_code: stateCode });
+    const collection = await this.db.getCollection<any>('districts');
+    const records = await collection
+      .find({ stateCode: Number(stateCode) })
+      .sort({ districtCode: 1 })
+      .toArray();
 
     return records.map((record: any) => ({
-      districtCode: record.district_code,
-      districtNameEnglish: record.district_name_english,
-      stateCode: record.state_code,
+      districtCode: record.districtCode,
+      districtNameEnglish: record.districtNameEnglish,
+      stateCode: record.stateCode,
     }));
   }
 
@@ -40,12 +62,16 @@ export class LocationService implements ILocationService {
       throw new BadRequestError('districtCode is required');
     }
 
-    const records = await this.fetchSubDistricts({ district_code: districtCode });
+    const collection = await this.db.getCollection<any>('blocks');
+    const records = await collection
+      .find({ districtCode: Number(districtCode) })
+      .sort({ blockCode: 1 })
+      .toArray();
 
     return records.map((record: any) => ({
-      blockCode: record.subdistrict_code,
-      blockNameEnglish: record.subdistrict_name_english,
-      districtCode: record.district_code,
+      blockCode: record.blockCode,
+      blockNameEnglish: record.blockNameEnglish,
+      districtCode: record.districtCode,
     }));
   }
 
@@ -54,93 +80,86 @@ export class LocationService implements ILocationService {
       throw new BadRequestError('blockCode is required');
     }
 
-    const records = await this.fetchVillages({ subdistrictCode: blockCode });
+    const collection = await this.db.getCollection<any>('villages');
+    const records = await collection
+      .find({ blockCode: Number(blockCode) })
+      .sort({ villageCode: 1 })
+      .toArray();
 
     return records.map((record: any) => ({
       villageCode: record.villageCode,
       villageNameEnglish: record.villageNameEnglish,
-      blockCode: blockCode,
-      pincode: record.pincode,
+      blockCode: record.blockCode,
+      pincode: record.pincode || 0, // Fallback since it might not be in DB
     }));
   }
 
-  private async fetchStates(): Promise<any[]> {
-    const apiUrl = process.env.LGD_STATES_API_URL;
-    if (!apiUrl) {
-      console.warn('LGD_STATES_API_URL not configured, returning empty states');
-      return [];
+  public async getKvks(districtCode: number): Promise<IKvk[]> {
+    if (!districtCode) {
+      throw new BadRequestError('districtCode is required');
     }
-    return this.makeLGDRequest(apiUrl);
+
+    const collection = await this.db.getCollection<any>('kvks');
+    const records = await collection
+      .find({ districtCode: Number(districtCode) })
+      .sort({ kvkName: 1 })
+      .toArray();
+
+    return records.map((record: any) => ({
+      kvkId: record.kvkId,
+      kvkName: record.kvkName,
+      kvkAddress: record.kvkAddress,
+      districtCode: record.districtCode,
+      stateCode: record.stateCode,
+      latitude: record.latitude,
+      longitude: record.longitude,
+    }));
   }
 
-  private async fetchDistricts(filters?: Record<string, string | number>): Promise<any[]> {
-    const apiUrl = process.env.LGD_DISTRICTS_API_URL;
-    if (!apiUrl) {
-      console.warn('LGD_DISTRICTS_API_URL not configured, returning empty districts');
-      return [];
-    }
-    return this.makeLGDRequest(apiUrl, filters);
-  }
+  // Runs the existing standalone `create-lgd-kvks-collection.mjs --apply` script
+  // (reads the KVK registry CSV and upserts it into the `kvks` collection). No
+  // sync logic is reimplemented here — this mirrors the same spawn pattern the
+  // `lgd-sync` Cloud Run Job uses to run the sibling LGD scripts, just exposed
+  // synchronously over HTTP instead of on a schedule.
+  public async syncKvks(): Promise<IKvkSyncResult> {
+    const summary = await new Promise<string>((resolve, reject) => {
+      let stdout = '';
+      let stderr = '';
 
-  private async fetchSubDistricts(filters?: Record<string, string | number>): Promise<any[]> {
-    const apiUrl = process.env.LGD_SUBDISTRICTS_API_URL;
-    if (!apiUrl) {
-      console.warn('LGD_SUBDISTRICTS_API_URL not configured, returning empty blocks');
-      return [];
-    }
-    return this.makeLGDRequest(apiUrl, filters);
-  }
-
-  private async fetchVillages(filters?: Record<string, string | number>): Promise<any[]> {
-    const apiUrl = process.env.LGD_VILLAGES_API_URL;
-    if (!apiUrl) {
-      console.warn('LGD_VILLAGES_API_URL not configured, returning empty villages');
-      return [];
-    }
-    return this.makeLGDRequest(apiUrl, filters);
-  }
-
-  private async makeLGDRequest(apiUrl: string, filters?: Record<string, string | number>): Promise<any[]> {
-    const apiKey = process.env.LGD_API_KEY;
-
-    if (!apiKey) {
-      console.warn('LGD_API_KEY not configured, returning empty results');
-      return [];
-    }
-
-    const params: Record<string, string | number> = {
-      'api-key': apiKey,
-      format: 'json',
-      limit: 10000,
-      offset: 0,
-    };
-
-    if (filters) {
-      for (const [key, value] of Object.entries(filters)) {
-        params[`filters[${key}]`] = value;
-      }
-    }
-
-    try {
-      const response = await axios.get(apiUrl, {
-        params,
-        timeout: 30000,
+      const child = spawn('node', [KVK_SCRIPT_PATH, '--apply'], {
+        env: process.env,
       });
 
-      if (!response?.data?.records) {
-        throw new InternalServerError('Invalid LGD API response: records missing');
-      }
+      child.stdout.on('data', chunk => {
+        const text = chunk.toString();
+        stdout += text;
+        console.log(`[kvk-sync] ${text.trimEnd()}`);
+      });
+      child.stderr.on('data', chunk => {
+        const text = chunk.toString();
+        stderr += text;
+        console.error(`[kvk-sync] ${text.trimEnd()}`);
+      });
 
-      return response.data.records;
-    } catch (error: any) {
-      if (error instanceof InternalServerError) {
-        throw error;
-      }
+      child.on('error', err => {
+        reject(new InternalServerError(`Failed to start KVK sync script: ${err.message}`));
+      });
 
-      const message =
-        error?.response?.data?.message || error?.message || 'Failed to fetch LGD locations';
+      child.on('exit', (code, signal) => {
+        if (code === 0) {
+          const lastLine = stdout.trim().split('\n').filter(Boolean).pop();
+          resolve(lastLine || 'KVK sync completed successfully.');
+        } else {
+          const detail = stderr.trim().split('\n').filter(Boolean).pop() || `exit code ${code}`;
+          reject(
+            new InternalServerError(
+              `KVK sync script exited with code ${code}${signal ? ` (signal ${signal})` : ''}: ${detail}`,
+            ),
+          );
+        }
+      });
+    });
 
-      throw new InternalServerError(`LGD service error: ${message}`);
-    }
+    return {success: true, message: summary};
   }
 }

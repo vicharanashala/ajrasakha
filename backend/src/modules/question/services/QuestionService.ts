@@ -21,6 +21,7 @@ import {
   IAuthorsHistory,
   QuestionStatus,
   QuestionSource,
+  UserRole,
   TIME_BOUND_SOURCES,
   MANUAL_SOURCES,
 } from '#root/shared/interfaces/models.js';
@@ -101,6 +102,9 @@ import type { ICallDetailsRepository, QAPairs, QAMetadata } from '#root/shared/d
  */
 let isReallocatingTimeBound = false;
 
+/** Same guard as above, for the manual (AGRI_EXPERT/OUTREACH) single-allocation cron. */
+let isReallocatingManual = false;
+
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
   constructor(
@@ -170,6 +174,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (!questionText) return 'Question';
     if (questionText.length <= maxLength) return questionText;
     return questionText.substring(0, maxLength) + '...';
+  }
+
+  private isQuestionUserTrainingTypeMatch(
+    user: IUser,
+    question: IQuestion,
+  ): boolean {
+    return (question.isTrainingQuestion === true) === (user.isTrainingUser === true);
   }
 
   async createBulkQuestions(
@@ -354,6 +365,28 @@ export class QuestionService extends BaseService implements IQuestionService {
     } catch (error) {
       throw new InternalServerError(`Failed to get questions: ${error}`);
     }
+  }
+
+  /** Standardise a state name across all questions: any question whose details.state matches
+   *  one of `currentValues` (e.g. "punjab", "PUNJAB", "पंजाब") is set to `standardizedTo`
+   *  (e.g. "Punjab"). Returns how many matched/were modified. */
+  async normalizeQuestionState(
+    currentValues: string[],
+    standardizedTo: string,
+  ): Promise<{ matched: number; modified: number }> {
+    const cleaned = (currentValues ?? [])
+      .map(v => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean);
+    const target = (standardizedTo ?? '').trim();
+    if (cleaned.length === 0) {
+      throw new BadRequestError('current values must be a non-empty array of strings');
+    }
+    if (!target) {
+      throw new BadRequestError('standardizedTo is required');
+    }
+    return this._withTransaction(async (session: ClientSession) => {
+      return this.questionRepo.normalizeQuestionState(cleaned, target, session);
+    });
   }
 
   async getAllocatedQuestions(
@@ -655,6 +688,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     extracted_state: string;
     extracted_district: string;
     extracted_domain?: string | string[];
+    extracted_name?: string;
+    extracted_phone?: string;
+    extracted_age?: number;
+    extracted_gender?: string;
+    extracted_village?: string;
+    extracted_block?: string;
+    extracted_primary_crop?: string;
   }> {
     try {
       const result = await this.accAgentService.extractData(threadId, transcript);
@@ -678,6 +718,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       district: string;
       domain: string | string[];
       season: string;
+      farmerName?: string;
+      farmerPhone?: string;
+      farmerAge?: number;
+      farmerGender?: string;
+      farmerVillage?: string;
+      farmerBlock?: string;
+      farmerPrimaryCrop?: string;
     }
   ): Promise<void> {
     try {
@@ -1292,6 +1339,31 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
 
+    if (result.isQueueDuplicate) {
+      const refId = result.referenceQuestionId instanceof ObjectId
+        ? result.referenceQuestionId
+        : result.referenceQuestionId
+          ? new ObjectId(String(result.referenceQuestionId))
+          : null;
+      const canMarkQueue =
+        question.status === 'open' || question.status === 'delayed';
+      await this.questionRepo.updateQuestion(questionId, {
+        ...(canMarkQueue ? { status: 'queue_duplicate', isAutoAllocate: false } : {}),
+        similarityScore: result.similarityScore,
+        referenceQuestionId: refId,
+        referenceQuestion: result.referenceQuestion,
+        referenceSource: result.referenceSource,
+        isDuplicateChecked: true,
+      });
+      return {
+        message: canMarkQueue
+          ? 'Found in the GDB pending-duplicate queue.'
+          : `In GDB queue; status left unchanged (question is '${question.status}').`,
+        isDuplicate: false,
+        referenceQuestionId: refId?.toString(),
+      };
+    }
+
     if (result.isNonAgri) {
       await this.questionRepo.updateQuestion(questionId, {
         status: 'non_agri',
@@ -1312,6 +1384,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     logData: Record<string, any>,
   ): Promise<{
     isDuplicate: boolean;
+    isQueueDuplicate?: boolean;
     isNonAgri?: boolean;
     referenceQuestionId?: ObjectId | string | null;
     referenceQuestion?: string;
@@ -1330,7 +1403,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       rephrased_query: baseQuestion.question,
     });
 
-    console.log('[runDuplicateCheckPipeline] gdbResult:', gdbResult);
 
     const extractObjectId = (id: any): ObjectId | null => {
       const raw = id?.$oid ?? id;
@@ -1379,7 +1451,46 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
     }
 
-    // No GDB match — call LLM directly to classify non-agri vs agri (no embedding search)
+    // No GDB duplicate match — check the GDB pending-duplicate queue before falling
+    // through to the LLM, so the LLM classification only runs when the question is
+    // neither a duplicate nor already in the queue (single LLM call site).
+    try {
+      const pendingResult = await this.aiService.checkPendingDuplicate({
+        rephrased_query: baseQuestion.question,
+        crop: cropName,
+        state: details.state,
+        createdAt: baseQuestion.createdAt,
+      });
+      // A `detail` field means the GDB server didn't find a queued match.
+      // Reference details come from the top-level response (duplicate_question_id /
+      // query / similarity_score), not the candidates_checked array.
+      const dupId =
+        pendingResult?.duplicate_question_id ?? pendingResult?.matched_question_id;
+      // Only treat as a queue-duplicate when the GDB returned a usable reference id —
+      // a null/undefined duplicate_question_id means no queued match.
+      const foundInGdbQueue =
+        !!pendingResult &&
+        !pendingResult.detail &&
+        typeof dupId === 'string' &&
+        dupId.trim().length > 0;
+      if (foundInGdbQueue) {
+        const refId = /^[a-f\d]{24}$/i.test(dupId) ? new ObjectId(dupId) : null;
+        return {
+          isDuplicate: false,
+          isQueueDuplicate: true,
+          referenceQuestionId: refId,
+          referenceQuestion: pendingResult!.query,
+          referenceSource: 'reviewer',
+          similarityScore: Number(((pendingResult!.similarity_score ?? 0) * 100).toFixed(2)),
+        };
+      }
+    } catch (queueError: any) {
+      console.warn(
+        `[runDuplicateCheckPipeline] check-pending-duplicate failed: ${queueError?.message}`,
+      );
+    }
+
+    // No GDB match and not in the queue — call LLM to classify non-agri vs agri.
     try {
       const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
       if (llmResult.isNonAgri) {
@@ -1410,8 +1521,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
       const popContextFromBody = body.popContext;
       const toolsUsed = body.tools_used || [];
-      body = normalizeKeysToLower(body);
+      const isTrainingQuestion =
+        body.isTrainingQuestion === true;
 
+      body = normalizeKeysToLower(body);
       let {
         question,
         priority,
@@ -1555,6 +1668,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           contextId,
           details,
           isAutoAllocate: !(source === 'AJRASAKHA' || source === 'WHATSAPP'),
+          // New questions are eligible for gate-keeper / auditor auto-allocation by
+          // default; the cron only picks them up once they reach a matching status.
+          autoAllocateGateKeeper: true,
+          autoAllocateAuditor: true,
           embedding: textEmbedding,
           metrics: null,
           aiInitialAnswer,
@@ -1562,6 +1679,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           toolsUsed,
           createdAt: new Date(),
           updatedAt: new Date(),
+          isTrainingQuestion,
           ...(source !== 'AGRI_EXPERT' && { originalQuestion: originalquestion }),
           ...(messageId && { messageId }),
           ...(threadId && { threadId }),
@@ -1649,37 +1767,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     const { questionId, source, details, baseQuestion, logData } = params;
     try {
       if (source === 'AGRI_EXPERT') {
-        const users = await this.userRepo.findExpertsByPreference(
-          details as PreferenceDto,
+        // Manual single-allocation: AGRI_EXPERT questions are no longer bulk-allocated
+        // on creation. They are left unallocated (empty queue, no firstAllocationAt)
+        // and picked up one-at-a-time by the manual single-allocation cron
+        // (reallocateManualQuestions), mirroring the time-bound flow.
+        console.log(
+          `[ManualSingle] Question ${questionId} left for single-allocation cron (source=AGRI_EXPERT)`,
         );
-        const initialUsersToAllocate = users.slice(
-          0,
-          DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-        );
-        const queue: ObjectId[] = initialUsersToAllocate.map(
-          u => new ObjectId(u._id.toString()),
-        );
-
-        await this.questionSubmissionRepo.updateQueue(questionId, queue);
-
-        if (initialUsersToAllocate[0]) {
-          await Promise.all([
-            this.userRepo.updateReputationScore(
-              initialUsersToAllocate[0]._id.toString(),
-              true,
-            ),
-            this.notificationService.saveTheNotifications(
-              `A Question has been assigned for answering`,
-              'Answer Creation Assigned',
-              questionId,
-              initialUsersToAllocate[0]._id.toString(),
-              'answer_creation',
-            ),
-            this.questionRepo.updateQuestion(questionId, {
-              firstAllocationAt: new Date(),
-            }),
-          ]);
-        }
       } else {
         const isTimeBoundedQuestion =
           source === 'AJRASAKHA' || source === 'WHATSAPP';
@@ -1807,6 +1901,13 @@ export class QuestionService extends BaseService implements IQuestionService {
               logData,
             );
 
+            const refId = result.referenceQuestionId instanceof ObjectId
+              ? result.referenceQuestionId
+              : result.referenceQuestionId
+                ? new ObjectId(String(result.referenceQuestionId))
+                : null;
+
+            // 1. Duplicate
             if (result.isDuplicate) {
               const refId =
                 result.referenceQuestionId instanceof ObjectId
@@ -1827,6 +1928,21 @@ export class QuestionService extends BaseService implements IQuestionService {
               return;
             }
 
+            // 2. Found in the GDB pending-duplicate queue → carry the matched reference
+            //    details and turn auto-allocate off.
+            if (result.isQueueDuplicate) {
+              await this.questionRepo.updateQuestion(questionId, {
+                status: 'queue_duplicate',
+                isAutoAllocate: false,
+                similarityScore: result.similarityScore,
+                referenceQuestionId: refId,
+                referenceQuestion: result.referenceQuestion,
+                referenceSource: result.referenceSource,
+              });
+              return;
+            }
+
+            // 3. Non-agri (LLM) → non_agri, else → open.
             if (result.isNonAgri) {
               await this.questionRepo.updateQuestion(questionId, {
                 status: 'non_agri',
@@ -1840,7 +1956,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             });
           } catch (pipelineError: any) {
             console.error(
-              '[processQuestionInBackground] Duplicate check pipeline failed, proceeding as open:',
+              '[processQuestionInBackground] duplicate/queue pipeline failed, proceeding as open:',
               pipelineError?.message,
             );
             await this.questionRepo.updateQuestion(questionId, {
@@ -1861,8 +1977,12 @@ export class QuestionService extends BaseService implements IQuestionService {
             ? 'question_from_ajrasakha'
             : 'question_from_whatsapp';
 
+        const moderators = [...allModerators, ...taskForceModerators].filter(
+          (moderator) => moderator.isTrainingUser !== true,
+        );
+
         await Promise.all(
-          [...allModerators, ...taskForceModerators].map((moderator: any) =>
+          moderators.map((moderator: any) =>
             this.notificationService.saveTheNotifications(
               message,
               'New Question Received',
@@ -2120,7 +2240,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           updates.details.normalised_crop = normalised_crop;
         }
       }
-      return this._withTransaction(async (session: ClientSession) => {
+      const result = await this._withTransaction(async (session: ClientSession) => {
         const existingQuestion = await this.questionRepo.getById(
           questionId,
           session,
@@ -2205,8 +2325,40 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
           }
         }
-        return this.questionRepo.updateQuestion(questionId, updates, session);
+        // Auditor "Notify User" flow closes dynamic questions as `dynamic_closed` and
+        // duplicate questions as `duplicate_closed`. Stamp closedAt/isClosed just like the
+        // regular `closed` transition so analytics and closed-question filters treat them
+        // consistently.
+        if (
+          updates.status === 'dynamic_closed' ||
+          updates.status === 'duplicate_closed'
+        ) {
+          updates.isClosed = true;
+          if (!updates.closedAt) updates.closedAt = new Date();
+        }
+        const updateResult = await this.questionRepo.updateQuestion(
+          questionId,
+          updates,
+          session,
+        );
+
+        // In-transaction: if the status changed, free any gate keeper / auditor whose
+        // handling scope the question has now left (pass / push-to-auditor / close, etc.)
+        // so the status change and the release commit atomically — a failure here rolls
+        // back the whole update, preventing a stuck assignee. (The queue cron still
+        // reconciles as a backstop for any release missed by other paths.)
+        if (!threadUpdate && updates.status) {
+          await this.freeRoleAssigneeOnStatusChange(
+            questionId,
+            updates.status,
+            session,
+          );
+        }
+
+        return updateResult;
       });
+
+      return result;
     } catch (error) {
       throw new InternalServerError(`Failed to update question: ${error}`);
     }
@@ -2230,10 +2382,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
       return { data: [], status: false };
     }
-    const isTimeBound =
-      question.source === 'AJRASAKHA' || question.source === 'WHATSAPP';
-    if (isTimeBound) {
-      const reason = `Auto-allocation is disabled for time-bound questions (source: ${question.source})`;
+    // Single-allocation sources (time-bound AJRASAKHA/WHATSAPP and manual
+    // AGRI_EXPERT/OUTREACH) are managed by the single-allocation cron — bulk
+    // auto-allocation is disabled for them here.
+    const isSingleAllocation =
+      TIME_BOUND_SOURCES.includes(question.source) ||
+      MANUAL_SOURCES.includes(question.source);
+    if (isSingleAllocation) {
+      const reason = `Auto-allocation is disabled for single-allocation questions (source: ${question.source})`;
       console.log(
         `[autoAllocateExperts] ${reason} — questionId: ${questionId}`,
       );
@@ -2277,32 +2433,65 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     let allExpertIds: string[] = [];
-    const isAjrasakha = question.source == 'AJRASAKHA' ? true : false;
-    if (isAjrasakha) {
-      const users = await this.userRepo.getExpertsWithFallback(
-        details,
-        session,
-      );
+      const isAjrasakha = question.source == 'AJRASAKHA' ? true : false;
+      const isTrainingQuestion = question.isTrainingQuestion === true;
+      if (isAjrasakha) {
+        const users = await this.userRepo.getExpertsWithFallback(
+          details,
+          session,
+        );
+        
+        allExpertIds = users
+          .filter(user => user.isTrainingUser !== true)
+          .map(user => user._id.toString());
+      } else {
+        const expertTMU = [];
+        const expertNormal = [];
+        const [users, preferredExperts] = await Promise.all([
+          this.userRepo.findAll(),
+          this.userRepo.findExpertsByPreference(details, session),
+        ]);
 
-      allExpertIds = users.map(user => user._id.toString());
-    } else {
-      const [users, preferredExperts] = await Promise.all([
-        this.userRepo.findAll(),
-        this.userRepo.findExpertsByPreference(details, session),
-      ]);
+        for (const user of users) {
+          if (user.role !== 'expert' || user.isBlocked === true) {
+            continue;
+          }
 
-      const expertIdsSet = new Set<string>();
+          if (user.isTrainingUser) {
+            expertTMU.push(user);
+          } else {
+            expertNormal.push(user);
+          }
+        }
 
-      // Add preferred experts first to the set to ensure they get priority in allocation
-      preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
+        const eligibleUsers = isTrainingQuestion ? expertTMU : expertNormal;
 
-      // Add remaining
-      users
-        .filter(user => user.role === 'expert' && user.isBlocked !== true)
-        .forEach(user => expertIdsSet.add(user._id.toString()));
+        const preferredTMU = [];
+        const preferredNormal = [];
 
-      allExpertIds = Array.from(expertIdsSet);
-    }
+        for (const user of preferredExperts) {
+          if (user.isTrainingUser) {
+            preferredTMU.push(user);
+          } else {
+            preferredNormal.push(user);
+          }
+        }
+        const eligiblePreferredExperts = isTrainingQuestion
+          ? preferredTMU
+          : preferredNormal;
+
+        const expertIdsSet = new Set<string>();
+
+        // Add preferred experts first to the set to ensure they get priority in allocation
+        eligiblePreferredExperts.forEach(user =>
+          expertIdsSet.add(user._id.toString()),
+        );
+
+        // Add remaining
+        eligibleUsers.forEach(user => expertIdsSet.add(user._id.toString()));
+
+        allExpertIds = Array.from(expertIdsSet);
+      }
 
     let updatedQueue;
 
@@ -2687,6 +2876,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
 
         //6. Allocate experts
+        // If the question is a duplicate and auto-allocate is OFF, it means the
+        // moderator intentionally toggled off auto-allocate and is now manually
+        // picking an expert. Reopen the question so the selected expert can see
+        // it in their dashboard (only open/delayed questions are visible there).
+        const updateData:any = {
+          firstAllocationAt: new Date(),
+        };
+        if (question.status === 'duplicate') {
+          updateData.status = 'open';
+        }
+
+        await this.questionRepo.updateQuestion(questionId,updateData,session,);
+
         const expertIds = experts.map(e => new ObjectId(e));
 
         // if the last expert is  reviewing other question  (if status is not reviewed or not submitted an answer)
@@ -3873,9 +4075,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
   ): Promise<{
     question: IQuestion | null;
-    approved_moderator: { name: string; email: string };
-    assigned_moderator: { name: string; email: string } | null;
+    approved_moderator: {name: string; email: string};
+    assigned_moderator: {name: string; email: string} | null;
+    assigned_gate_keeper: {name: string; email: string} | null;
+    assigned_auditor: {name: string; email: string} | null;
     isAssignedModerator: boolean;
+    isAssignedGateKeeper: boolean;
+    isAssignedAuditor: boolean;
   }> {
     try {
       const user = await this.userRepo.findById(userId);
@@ -3929,10 +4135,41 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
+      // Resolve the currently assigned gate keeper / auditor (role queue), same as
+      // the moderator resolution above.
+      let assigned_gate_keeper: {name: string; email: string} | null = null;
+      const assignedGateKeeperId = (question as any).gateKeeperId?.toString();
+      if (assignedGateKeeperId && ObjectId.isValid(assignedGateKeeperId)) {
+        const u = await this.userRepo.findById(assignedGateKeeperId);
+        if (u) {
+          assigned_gate_keeper = {
+            name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
+            email: u.email,
+          };
+        }
+      }
+      let assigned_auditor: {name: string; email: string} | null = null;
+      const assignedAuditorId = (question as any).auditorId?.toString();
+      if (assignedAuditorId && ObjectId.isValid(assignedAuditorId)) {
+        const u = await this.userRepo.findById(assignedAuditorId);
+        if (u) {
+          assigned_auditor = {
+            name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
+            email: u.email,
+          };
+        }
+      }
+
       // Whether the requesting user is the moderator this question is assigned to.
       // Used by the UI to gate the Pass / Accept / Push to GDB actions.
       const isAssignedModerator =
         !!assignedModeratorId && assignedModeratorId === userId;
+      // Same, for the gate keeper / auditor role queues — computed server-side to
+      // avoid ObjectId serialization mismatches when comparing ids on the client.
+      const isAssignedGateKeeper =
+        !!assignedGateKeeperId && assignedGateKeeperId === userId;
+      const isAssignedAuditor =
+        !!assignedAuditorId && assignedAuditorId === userId;
 
       // Resolve user email from conversation collection using threadId
       let threadUserEmail: string | null = null;
@@ -3950,7 +4187,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         },
         approved_moderator,
         assigned_moderator,
+        assigned_gate_keeper,
+        assigned_auditor,
         isAssignedModerator,
+        isAssignedGateKeeper,
+        isAssignedAuditor,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
@@ -4017,6 +4258,184 @@ export class QuestionService extends BaseService implements IQuestionService {
         previousModeratorId,
         questionId,
       );
+    }
+  }
+
+  /** Field mapping for the gate-keeper / auditor role assignee on a question. */
+  private roleAssigneeFields(role: 'gate_keeper' | 'auditor'): {
+    assigneeField: 'gateKeeperId' | 'auditorId';
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt';
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt';
+  } {
+    return role === 'gate_keeper'
+      ? {
+          assigneeField: 'gateKeeperId',
+          assignedAtField: 'gateKeeperAssignedAt',
+          finishedAtField: 'gateKeeperFinishedAt',
+        }
+      : {
+          assigneeField: 'auditorId',
+          assignedAtField: 'auditorAssignedAt',
+          finishedAtField: 'auditorFinishedAt',
+        };
+  }
+
+  /**
+   * Once a gate keeper / auditor has submitted their response (finishedAt is set) their
+   * assignment is settled — reassigning or removing it would orphan work that has already
+   * been recorded against them. Callers must re-open the question first.
+   */
+  private assertRoleNotFinished(
+    question: unknown,
+    role: 'gate_keeper' | 'auditor',
+  ): void {
+    const {finishedAtField} = this.roleAssigneeFields(role);
+    if ((question as any)?.[finishedAtField]) {
+      const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
+      throw new BadRequestError(
+        `This question's ${noun} has already submitted their response, so the ${noun} can no longer be changed.`,
+      );
+    }
+  }
+
+  /** Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts
+   *  plus their paginated question list. "Submitted" = they finished it (finishedAt set).
+   *  Supports optional date range filtering by assigned date, completed date, or both. */
+  async getRoleAssigneeDashboard(
+    userId: string,
+    role: 'gate_keeper' | 'auditor',
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
+  ) {
+    const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+    const finishedField =
+      role === 'gate_keeper' ? 'gateKeeperFinishedAt' : 'auditorFinishedAt';
+    return this.questionRepo.getRoleAssigneeDashboard(
+      userId,
+      assigneeField,
+      finishedField,
+      assignedAtField,
+      page,
+      limit,
+      search,
+      startDate,
+      endDate,
+      dateFilterType,
+    );
+  }
+
+  /** Manually (re)assign the gate keeper / auditor for a question — mirrors
+   *  changeQuestionModerator: pulls the question from the previous assignee's
+   *  assignedQuestionIds and appends it to the new assignee's. */
+  async changeQuestionRoleAssignee(
+    questionId: string,
+    role: 'gate_keeper' | 'auditor',
+    userId: string,
+    actorName?: string,
+  ): Promise<void> {
+    const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+    const question = await this.questionRepo.getById(questionId);
+    this.assertRoleNotFinished(question, role);
+    const previousId = (question as any)?.[assigneeField]?.toString();
+    const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
+
+    await this.questionRepo.setRoleAssignee(
+      questionId,
+      assigneeField,
+      assignedAtField,
+      userId,
+    );
+
+    if (previousId && ObjectId.isValid(previousId) && previousId !== userId) {
+      await this.userRepo.removeAssignedQuestion(previousId, questionId);
+
+      // Notify the replaced user that their allocation was taken away, naming who did it.
+      try {
+        const by = actorName ? ` by ${actorName}` : '';
+        await this.notificationService.saveTheNotifications(
+          `This question's ${noun} allocation has been removed${by}.`,
+          'Allocation Removed',
+          questionId,
+          previousId,
+          'moderator_approval',
+        );
+      } catch (err: any) {
+        console.error(
+          `[RoleAssignee] Failed to send reassignment-removal notification for ${questionId} → ${previousId}:`,
+          err?.message,
+        );
+      }
+    }
+    await this.userRepo.addAssignedQuestion(
+      userId,
+      questionId,
+      ((question as any)?.status ?? 'open') as QuestionStatus,
+      (question as any)?.source,
+    );
+
+    // Notify the newly-assigned user, mirroring the auto-allocation cron so a manual
+    // assignment by a moderator/admin triggers the same "Question Assigned" alert.
+    try {
+      await this.notificationService.saveTheNotifications(
+        role === 'gate_keeper'
+          ? 'A question has been assigned to you for review'
+          : 'A question has been assigned to you for audit',
+        'Question Assigned',
+        questionId,
+        userId,
+        'moderator_approval',
+      );
+    } catch (err: any) {
+      console.error(
+        `[RoleAssignee] Failed to send assignment notification for ${questionId} → ${userId}:`,
+        err?.message,
+      );
+    }
+  }
+
+  /** Remove the gate keeper / auditor currently assigned to a question. When an actor
+   *  name is supplied (manual removal by a moderator/admin), the removed user is notified
+   *  that their allocation was taken away and by whom. */
+  async removeQuestionRoleAssignee(
+    questionId: string,
+    role: 'gate_keeper' | 'auditor',
+    actorName?: string,
+  ): Promise<void> {
+    const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+    const question = await this.questionRepo.getById(questionId);
+    this.assertRoleNotFinished(question, role);
+    const previousId = (question as any)?.[assigneeField]?.toString();
+
+    await this.questionRepo.setRoleAssignee(
+      questionId,
+      assigneeField,
+      assignedAtField,
+      null,
+    );
+
+    if (previousId && ObjectId.isValid(previousId)) {
+      await this.userRepo.removeAssignedQuestion(previousId, questionId);
+
+      // Notify the user who lost the assignment, naming who removed it.
+      try {
+        const by = actorName ? ` by ${actorName}` : '';
+        await this.notificationService.saveTheNotifications(
+          `This question's ${role === 'gate_keeper' ? 'gate keeper' : 'auditor'} allocation has been removed${by}.`,
+          'Allocation Removed',
+          questionId,
+          previousId,
+          'moderator_approval',
+        );
+      } catch (err: any) {
+        console.error(
+          `[RoleAssignee] Failed to send removal notification for ${questionId} → ${previousId}:`,
+          err?.message,
+        );
+      }
     }
   }
 
@@ -4140,13 +4559,18 @@ export class QuestionService extends BaseService implements IQuestionService {
         questionId.toString(),
         session,
       );
-      if (question.isAutoAllocate === false) {
-        await this.questionRepo.updateAutoAllocate(
-          questionId.toString(),
-          true,
-          session,
+
+      // Do NOT reset isAutoAllocate here. If a moderator deliberately turned off
+      // auto-allocation for this question, that decision must be respected even
+      // when the absent-expert cleanup removes experts from the queue.
+      // Only attempt re-allocation when the question still has isAutoAllocate: true.
+      if (!question.isAutoAllocate) {
+        console.log(
+          `[AbsentExpert] Skipping auto-reallocation for question ${questionId} — isAutoAllocate is false (moderator override).`,
         );
+        continue;
       }
+
       const latestSubmission =
         await this.questionSubmissionRepo.getByQuestionId(
           questionId.toString(),
@@ -5112,11 +5536,15 @@ export class QuestionService extends BaseService implements IQuestionService {
     consecutiveApprovals?: number,
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ) {
     const result = await this.answerRepo.groupbyquestion(
       consecutiveApprovals,
       startDate,
       endDate,
+      isTrainingUser,
+      isAdmin
     );
 
     // Check if there's any data with reasons
@@ -5167,12 +5595,16 @@ export class QuestionService extends BaseService implements IQuestionService {
   async generateOverallQuestionReport(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       // Get monthly statistics from the repository
       const stats = await this.questionRepo.getMonthlyQuestionStats(
         startDate,
         endDate,
+        isTrainingUser,
+        isAdmin,
         session,
       );
 
@@ -5458,6 +5890,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   async generateDuplicateQuestionReport(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       if (!startDate || !endDate) {
@@ -5470,6 +5904,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         await this.duplicateQuestionRepository.findDuplicatesByDateRange(
           startDate,
           endDate,
+          isTrainingUser,
+          isAdmin,
           session,
         );
 
@@ -6348,14 +6784,17 @@ export class QuestionService extends BaseService implements IQuestionService {
     try {
       const question = await this.questionRepo.getById(questionId);
       if (!question) return;
-      // Always call the repo — it clears previous openedAt on other questions,
-      // and only sets it on the current question if it's time-bound.
-      const isTimeBound =
-        question.source === 'WHATSAPP' || question.source === 'AJRASAKHA';
+      // Always call the repo — it clears previous openedAt on other questions, and
+      // sets it on the current question for any single-allocation source (time-bound
+      // OR manual AGRI_EXPERT/OUTREACH) so the reallocation crons don't reassign a
+      // question the expert is actively working on.
+      const isSingleAllocation =
+        TIME_BOUND_SOURCES.includes(question.source) ||
+        MANUAL_SOURCES.includes(question.source);
       await this.questionSubmissionRepo.markQuestionOpenedByExpert(
         questionId,
         userId,
-        isTimeBound,
+        isSingleAllocation,
       );
     } catch (error) {
       // Non-fatal — log and swallow so the UI is never blocked by this
@@ -6422,16 +6861,21 @@ export class QuestionService extends BaseService implements IQuestionService {
       let failedAssignments = 0;
 
       // Assign one question per available moderator within a single source group.
+      // Training questions must only go to training moderators, and non-training
+      // questions must only go to non-training moderators.
       const runPass = async (
         label: string,
         moderators: IUser[],
         questions: IQuestion[],
+        canAssignQuestion?: (moderator: IUser, question: IQuestion) => boolean,
       ) => {
         for (const moderator of moderators) {
           const moderatorId = moderator._id!.toString();
 
           const nextQuestion = questions.find(
-            (q: any) => !claimedIds.has(q._id.toString()),
+            (q: any) =>
+              !claimedIds.has(q._id.toString()) &&
+              (canAssignQuestion ? canAssignQuestion(moderator, q) : true),
           );
           if (!nextQuestion) {
             // Moderator is free for this category but no more questions left in it.
@@ -6517,8 +6961,20 @@ export class QuestionService extends BaseService implements IQuestionService {
         );
       }
 
-      await runPass('time-bound', timeBoundModerators, timeBoundQuestions);
-      await runPass('manual', manualModerators, manualQuestions);
+      await runPass(
+        'time-bound',
+        timeBoundModerators,
+        timeBoundQuestions,
+        (moderator, question) =>
+          this.isQuestionUserTrainingTypeMatch(moderator, question),
+      );
+      await runPass(
+        'manual',
+        manualModerators,
+        manualQuestions,
+        (moderator, question) =>
+          this.isQuestionUserTrainingTypeMatch(moderator, question),
+      );
 
       console.log(
         `[ModeratorQueue] Done. assigned=${assigned}, availableWaiting=${availableWaiting}, failed=${failedAssignments}`,
@@ -6531,6 +6987,236 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
       throw new InternalServerError(
         `Moderator queue cron failed: ${error?.message}`,
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // GATE KEEPER / AUDITOR QUEUE CRON
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /** Statuses each role handles (drives both assignment and auto-freeing). */
+  private static readonly GATE_KEEPER_STATUSES: QuestionStatus[] = [
+    'dynamic',
+    'duplicate',
+    'queue_duplicate',
+  ];
+  private static readonly AUDITOR_STATUSES: QuestionStatus[] = ['auditor_review'];
+
+  /**
+   * Gate-keeper / auditor single-allocation cron. One question per user at a time:
+   *   - dynamic / duplicate / queue_duplicate  → a free gate keeper
+   *   - auditor_review                          → a free auditor
+   * The assignee is recorded on the question (gateKeeperId / auditorId) and on the
+   * user (assignedQuestionIds). They're freed when they act on the question — see
+   * freeRoleAssigneeOnStatusChange.
+   */
+  async runGateKeeperAuditorQueueCron(): Promise<{
+    gateKeeperAssigned: number;
+    auditorAssigned: number;
+  }> {
+    const gateKeeperAssigned = await this.assignRoleQueue({
+      label: 'GateKeeper',
+      role: 'gate_keeper',
+      statuses: QuestionService.GATE_KEEPER_STATUSES,
+      assigneeField: 'gateKeeperId',
+      assignedAtField: 'gateKeeperAssignedAt',
+      autoAllocateField: 'autoAllocateGateKeeper',
+      notificationTitle: 'Question Assigned',
+      notificationMessage: 'A question has been assigned to you for review',
+    });
+    const auditorAssigned = await this.assignRoleQueue({
+      label: 'Auditor',
+      role: 'auditor',
+      statuses: QuestionService.AUDITOR_STATUSES,
+      assigneeField: 'auditorId',
+      assignedAtField: 'auditorAssignedAt',
+      autoAllocateField: 'autoAllocateAuditor',
+      notificationTitle: 'Question Assigned',
+      notificationMessage: 'A question has been assigned to you for audit',
+    });
+    return { gateKeeperAssigned, auditorAssigned };
+  }
+
+  /** Assigns one unassigned question (in the given statuses) to each free user of a
+   *  role, updating both the question and the user's assigned list. Best-effort. */
+  private async assignRoleQueue(cfg: {
+    label: string;
+    role: UserRole;
+    statuses: QuestionStatus[];
+    assigneeField: 'gateKeeperId' | 'auditorId';
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt';
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor';
+    notificationTitle: string;
+    notificationMessage: string;
+  }): Promise<number> {
+    try {
+      const [users, questions] = await Promise.all([
+        this.userRepo.findAvailableUsersByRole(cfg.role),
+        this.questionRepo.findUnassignedQuestionsForRole(
+          cfg.statuses,
+          cfg.assigneeField,
+          cfg.autoAllocateField,
+        ),
+      ]);
+      if (!users.length || !questions.length) return 0;
+
+      let assigned = 0;
+      const claimed = new Set<string>();
+      for (const user of users) {
+        const userId = user._id!.toString();
+        const next = questions.find(q => !claimed.has(q._id!.toString()));
+        if (!next) break; // no more questions this run
+        const questionId = next._id!.toString();
+        claimed.add(questionId);
+        try {
+          // Run the three writes in one transaction so a failure in any of them
+          // rolls back the whole assignment (no half-assigned question / user).
+          await this._withTransaction(async (session: ClientSession) => {
+            await this.questionRepo.setRoleAssignee(
+              questionId,
+              cfg.assigneeField,
+              cfg.assignedAtField,
+              userId,
+              session,
+            );
+            await this.userRepo.addAssignedQuestion(
+              userId,
+              questionId,
+              next.status,
+              next.source,
+              session,
+            );
+            await this.notificationService.saveTheNotifications(
+              cfg.notificationMessage,
+              cfg.notificationTitle,
+              questionId,
+              userId,
+              'moderator_approval',
+              session,
+            );
+          });
+          console.log(
+            `[${cfg.label}] Assigned question ${questionId} → ${cfg.role} ${userId}`,
+          );
+          assigned++;
+        } catch (err: any) {
+          claimed.delete(questionId);
+          console.error(
+            `[${cfg.label}] Failed to assign ${questionId} → ${userId}:`,
+            err?.message,
+          );
+        }
+      }
+      console.log(`[${cfg.label}] Done. assigned=${assigned}`);
+      return assigned;
+    } catch (error: any) {
+      console.error(`[${cfg.label}] queue cron failed:`, error?.message);
+      return 0;
+    }
+  }
+
+  /**
+   * Free the gate keeper / auditor assigned to a question once its status moves out
+   * of that role's handling statuses (i.e. they've acted on it — pass / allocate
+   * experts / push to auditor for a gate keeper; push to GDB / notify user for an
+   * auditor). Clears the assignee field on the question and removes it from the
+   * user's assigned list so the cron can hand them another. Best-effort; never throws.
+   */
+  /**
+   * The exact time a role (gate keeper / auditor) finished with a question — taken from the
+   * audit trail (the createdAt of the latest action logged by an actor of that role) rather
+   * than fabricated with new Date().
+   *
+   * When called inside the update transaction (session present), the audit entry for the
+   * current action hasn't been written yet AND an older same-role entry could mislead — so
+   * there we use the action instant (now), which is exact. Post-commit / reconciliation
+   * (no session) reads the real historical time from the audit trail.
+   */
+  private async resolveRoleFinishTime(
+    questionId: string,
+    role: 'gate_keeper' | 'auditor',
+    session?: ClientSession,
+  ): Promise<Date> {
+    if (session) return new Date();
+    try {
+      const {data} = await this.auditTrailsService.getAuditTrailsByQuestionId(
+        questionId,
+        1,
+        25,
+        null,
+        'desc',
+      );
+      const entry = data.find(
+        a => (a as any)?.actor?.role === role && (a as any)?.createdAt,
+      );
+      if (entry?.createdAt) return new Date(entry.createdAt as any);
+    } catch (err: any) {
+      console.error(
+        `[RoleAssignee] audit-time lookup failed for ${questionId} (${role}):`,
+        err?.message,
+      );
+    }
+    return new Date();
+  }
+
+  async freeRoleAssigneeOnStatusChange(
+    questionId: string,
+    newStatus?: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<void> {
+    // When a session is supplied, the caller wants this to run inside their transaction —
+    // let failures propagate so the status change and the release roll back together.
+    // Without a session it stays best-effort (post-commit / other callers) and never throws.
+    const run = async () => {
+      const question = await this.questionRepo.getById(questionId, session);
+      if (!question) return;
+      // Fall back to the question's current status when the caller doesn't pass one —
+      // e.g. after an answer approval/close.
+      const status = newStatus ?? question.status;
+
+      // When the question leaves the role's handling statuses, the assignee has acted:
+      // free the user (assignedQuestionIds) and stamp finishedAt — but keep the assignee
+      // id on the question for history/timeline. Guarded by finishedAt so a later status
+      // change doesn't overwrite the original finish time.
+      const gkId = (question as any).gateKeeperId?.toString();
+      if (gkId && !QuestionService.GATE_KEEPER_STATUSES.includes(status)) {
+        await this.userRepo.removeAssignedQuestion(gkId, questionId, session);
+        if (!(question as any).gateKeeperFinishedAt) {
+          await this.questionRepo.markRoleFinished(
+            questionId,
+            'gateKeeperFinishedAt',
+            await this.resolveRoleFinishTime(questionId, 'gate_keeper', session),
+            session,
+          );
+        }
+      }
+
+      const audId = (question as any).auditorId?.toString();
+      if (audId && !QuestionService.AUDITOR_STATUSES.includes(status)) {
+        await this.userRepo.removeAssignedQuestion(audId, questionId, session);
+        if (!(question as any).auditorFinishedAt) {
+          await this.questionRepo.markRoleFinished(
+            questionId,
+            'auditorFinishedAt',
+            await this.resolveRoleFinishTime(questionId, 'auditor', session),
+            session,
+          );
+        }
+      }
+    };
+
+    if (session) {
+      await run();
+      return;
+    }
+
+    try {
+      await run();
+    } catch (err: any) {
+      console.error(
+        `[RoleAssignee] Failed to free assignee for ${questionId}:`,
+        err?.message,
       );
     }
   }
@@ -6555,13 +7241,70 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
     isReallocatingTimeBound = true;
+    try {
+      return await this._runSingleAllocation({
+        label: 'TimeBound',
+        sources: TIME_BOUND_SOURCES,
+        requirePaeReviewNotDone: false,
+      });
+    } finally {
+      isReallocatingTimeBound = false;
+    }
+  }
+
+  /**
+   * Manual single-allocation queue for AGRI_EXPERT / OUTREACH questions.
+   * Mirrors the time-bound flow exactly (one expert at a time, STF-first for
+   * never-allocated, 45-min stuck reallocation, reviewer assignment) but:
+   *   - operates on MANUAL_SOURCES instead of time-bound sources,
+   *   - only considers questions not yet PAE-reviewed (pae_review false/missing),
+   *   - uses an independent per-expert "1 active manual" cap.
+   */
+  async reallocateManualQuestions(): Promise<{
+    message: string;
+    reallocated: number;
+    skipped: number;
+  }> {
+    if (isReallocatingManual) {
+      console.log(
+        '[ManualSingle] Previous run still in progress — skipping this tick to avoid double-allocation.',
+      );
+      return {
+        message: 'Reallocation already in progress',
+        reallocated: 0,
+        skipped: 0,
+      };
+    }
+    isReallocatingManual = true;
+    try {
+      return await this._runSingleAllocation({
+        label: 'ManualSingle',
+        sources: MANUAL_SOURCES,
+        requirePaeReviewNotDone: true,
+      });
+    } finally {
+      isReallocatingManual = false;
+    }
+  }
+
+  /**
+   * Core single-question allocation engine shared by the time-bound and manual
+   * crons. Fetches stuck / never-allocated / needs-reviewer submissions for the
+   * given source group and allocates one expert at a time (cap enforced per group).
+   */
+  private async _runSingleAllocation(cfg: {
+    label: string;
+    sources: QuestionSource[];
+    requirePaeReviewNotDone: boolean;
+  }): Promise<{ message: string; reallocated: number; skipped: number }> {
+    const { label, sources, requirePaeReviewNotDone } = cfg;
     console.log(
-      '[TimeBound] Starting reallocation + initial-allocation + reviewer-assignment check...',
+      `[${label}] Starting reallocation + initial-allocation + reviewer-assignment check...`,
     );
     try {
       // 1. Fetch all cases in parallel.
       // NOTE: opened-but-idle reallocation is intentionally DISABLED — once an expert
-      // opens a time-bound question (currentExpertOpenedAt is set) it stays with them
+      // opens a question (currentExpertOpenedAt is set) it stays with them
       // and is never reallocated. The "stuck" path already excludes opened questions
       // (its query requires currentExpertOpenedAt to be null), so by not fetching the
       // openedIdle work here an opened question is reallocated by neither path.
@@ -6570,9 +7313,18 @@ export class QuestionService extends BaseService implements IQuestionService {
         unallocatedSubmissions,
         answeredNeedingReviewer,
       ] = await Promise.all([
-        this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
-        this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
-        this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
+        this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
+          sources,
+          requirePaeReviewNotDone,
+        ),
+        this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
+          sources,
+          requirePaeReviewNotDone,
+        ),
+        this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
+          sources,
+          requirePaeReviewNotDone,
+        ),
       ]);
 
       const byCreatedAt = (a: any, b: any) =>
@@ -6587,10 +7339,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         stuckSubmissions.length +
         unallocatedSubmissions.length +
         answeredNeedingReviewer.length;
-      console.log('the total work coming====', totalWork);
+      //console.log('the total work coming====', totalWork);
       if (!totalWork) {
         return {
-          message: 'No time-bound questions need attention',
+          message: `[${label}] No questions need attention`,
           reallocated: 0,
           skipped: 0,
         };
@@ -6604,6 +7356,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       const allExperts = await this.userRepo.findExpertsByReputationScore(
         {} as any,
       );
+      const TMU_experts = [];
+      const Normal_experts = [];
+      for (const expert of allExperts) {
+        if (expert.isTrainingUser === true) {
+          TMU_experts.push(expert);
+        } else {
+          Normal_experts.push(expert);
+        }
+      }
       if (!allExperts.length) {
         return {
           message: 'No experts available',
@@ -6611,6 +7372,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           skipped: totalWork,
         };
       }
+
+
+      const getEligibleExpertsForQuestion = (question?: IQuestion | null) => {
+        return question?.isTrainingQuestion === true
+          ? TMU_experts
+          : Normal_experts;
+      };
 
       // Audit a system (cron) allocation so it shows in the question's audit trail
       // tagged "System Allocated". Fire-and-forget — never blocks the allocation.
@@ -6648,10 +7416,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
       };
 
-      // 3. Get current time-bound workload per expert (single DB call)
+      // 3. Get current active workload per expert for THIS source group (single DB
+      //    call). Passing `sources` keeps the manual cap independent from time-bound.
       const timeBoundCounts =
-        await this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert();
-      const MAX_TIME_BOUND = 1; // Each expert handles at most 1 active time-bound question
+        await this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(
+          sources,
+        );
+      const MAX_TIME_BOUND = 1; // Each expert handles at most 1 active question in this group
       // Track provisional additions during this run to respect cap within batch
       const provisionalCounts = new Map<string, number>(timeBoundCounts);
 
@@ -6665,7 +7436,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         queue: (s.queue ?? []).map((q: any) => q?.toString()),
         createdAt: s.question?.createdAt ?? s.createdAt,
       });
-      console.log(
+     /* console.log(
         '[TimeBound][diag] stuck:',
         JSON.stringify(stuckSubmissions.map(summarizeSub)),
       );
@@ -6676,7 +7447,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       console.log(
         '[TimeBound][diag] needsReviewer:',
         JSON.stringify(answeredNeedingReviewer.map(summarizeSub)),
-      );
+      );*/
 
       const expertDiag = allExperts.map((e: any) => {
         const id = e._id.toString();
@@ -6692,11 +7463,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           free: active < MAX_TIME_BOUND,
         };
       });
-      console.log(
+    /*  console.log(
         `[TimeBound][diag] experts=${allExperts.length}, free=${expertDiag.filter(x => x.free).length}, ` +
         `freeSTF=${expertDiag.filter(x => x.free && x.stf).length}, busyMapSize=${timeBoundCounts.size}`,
       );
-      console.log('[TimeBound][diag] experts:', JSON.stringify(expertDiag));
+      console.log('[TimeBound][diag] experts:', JSON.stringify(expertDiag));*/
 
       // ── Merge all lists into one priority queue ordered by question.createdAt ──
       type WorkType = 'stuck' | 'openedIdle' | 'unallocated' | 'needsReviewer';
@@ -6760,18 +7531,29 @@ export class QuestionService extends BaseService implements IQuestionService {
       let initialAllocated = 0;
       let reviewersAssigned = 0;
 
-      // If this run has ANY never-allocated questions, STF experts are reserved
-      // exclusively for them (never-allocated → STF only; needsReviewer → non-STF
-      // only). Only when there are no never-allocated questions at all may STF
-      // experts take reviewer work. unallocatedProcessed is kept for logging.
+      // Never-allocated (author-level) questions REQUIRE an STF answer-creator, so STF
+      // experts are reserved for them — but only while such questions still remain to be
+      // processed this run. Because the work queue puts all never-allocated work BEFORE
+      // reviewer work, once they're all handled any STF still free (per the cap) is spare
+      // and MAY take reviewer work. `unallocatedRemaining` tracks how many never-allocated
+      // questions are still pending; the needsReviewer STF guard checks it (not a run-wide
+      // flag) so a free STF isn't wrongly blocked from review-level questions.
       const hasUnallocatedSubmissions = unallocatedSubmissions.length > 0;
       let unallocatedProcessed = 0;
+      let unallocatedRemaining = unallocatedSubmissions.length;
 
       for (const { type, submission } of workQueue) {
         const questionId = submission.questionId?.toString();
         const question = submission.question;
         const sourceLabel =
-          question?.source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
+          ({
+            AJRASAKHA: 'Ajrasakha',
+            WHATSAPP: 'WhatsApp',
+            AGRI_EXPERT: 'Agri Expert',
+            OUTREACH: 'Outreach',
+          } as Record<string, string>)[question?.source] ??
+          question?.source ??
+          'Unknown';
         const history: any[] = submission.history || [];
         const queue: any[] = submission.queue || [];
 
@@ -6794,7 +7576,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
 
           let assignedExpert: string | null = null;
-          for (const expert of allExperts) {
+          for (const expert of getEligibleExpertsForQuestion(question)) {
             const expertId = expert._id.toString();
             if (expertId === currentExpertId) continue;
             if (historyExpertIds.has(expertId)) continue;
@@ -6841,8 +7623,11 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionText: (question as any)?.question?.toString() ?? '',
           });
         } else if (type === 'unallocated') {
+          // This never-allocated question is now being handled — it no longer reserves an
+          // STF expert away from later reviewer work.
+          unallocatedRemaining--;
           let assignedExpert: string | null = null;
-          for (const expert of allExperts) {
+          for (const expert of getEligibleExpertsForQuestion(question)) {
             if (expert?.special_task_force !== true) continue;
             const expertId = expert._id.toString();
             const currentCount = provisionalCounts.get(expertId) ?? 0;
@@ -6861,27 +7646,48 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
 
           try {
-            await Promise.all([
-              this.questionSubmissionRepo.updateQueue(questionId, [
-                new ObjectId(assignedExpert),
-              ]),
-              this.userRepo.updateReputationScore(assignedExpert, true),
-              this.questionRepo.updateQuestion(questionId, {
-                isAutoAllocate: true,
-                firstAllocationAt: new Date(),
-              }),
-              this.questionSubmissionRepo.setCurrentExpertAllocatedAt(
+            // Atomic allocation: run the DB writes in one transaction so a failure in
+            // any of them rolls back the rest (no half-allocated question). Ops on a
+            // single session must run sequentially (no Promise.all inside).
+            await this._withTransaction(async (session: ClientSession) => {
+              await this.questionSubmissionRepo.updateQueue(
+                questionId,
+                [new ObjectId(assignedExpert)],
+                session,
+              );
+              await this.userRepo.updateReputationScore(
+                assignedExpert,
+                true,
+                session,
+              );
+              await this.questionRepo.updateQuestion(
+                questionId,
+                { isAutoAllocate: true, firstAllocationAt: new Date() },
+                session,
+              );
+              await this.questionSubmissionRepo.setCurrentExpertAllocatedAt(
                 questionId,
                 new Date(),
-              ),
-              this.notificationService.saveTheNotifications(
-                `A time-bound question from ${sourceLabel} has been assigned to you`,
+                session,
+              );
+            });
+
+            // Notification is best-effort and lives OUTSIDE the transaction so it can
+            // never roll back a committed allocation.
+            await this.notificationService
+              .saveTheNotifications(
+                `A question from ${sourceLabel} has been assigned to you`,
                 'Answer Creation Assigned',
                 questionId,
                 assignedExpert,
                 'answer_creation',
-              ),
-            ]);
+              )
+              .catch((err: any) =>
+                console.error(
+                  `[TimeBound] Failed to notify expert ${assignedExpert} for ${questionId}:`,
+                  err?.message,
+                ),
+              );
             writeSystemAllocationAudit(
               questionId,
               (question as any)?.question,
@@ -6908,25 +7714,24 @@ export class QuestionService extends BaseService implements IQuestionService {
           const queueExpertIds = new Set(queue.map((q: any) => q.toString()));
 
           let assignedReviewer: string | null = null;
-          for (const expert of allExperts) {
+          for (const expert of getEligibleExpertsForQuestion(question)) {
             const expertId = expert._id.toString();
             if (historyExpertIds.has(expertId)) continue;
             if (queueExpertIds.has(expertId)) continue;
 
-            // CRITICAL: Whenever this run has ANY never-allocated questions, STF
-            // experts are reserved EXCLUSIVELY for them — they are never assigned
-            // to reviewer tasks, even after every never-allocated question has been
-            // handled and they still have spare capacity. needsReviewer work goes
-            // to non-STF experts only. (Only when there are NO never-allocated
-            // questions at all this run may STF experts take reviewer work.)
+            // Reserve STF experts for never-allocated questions only while such
+            // questions still remain to be processed this run. Since never-allocated
+            // work is ordered BEFORE reviewer work, by the time we reach needsReviewer
+            // all of it has been handled (unallocatedRemaining === 0), so an STF expert
+            // that is still free (per the cap) is spare and may take review-level work.
             if (
-              hasUnallocatedSubmissions &&
+              unallocatedRemaining > 0 &&
               expert?.special_task_force === true
             ) {
               console.log(
-                `[TimeBound] Skipping STF expert ${expertId} for needsReviewer question ${questionId} — never-allocated questions present this run; STF reserved for them (${unallocatedProcessed}/${unallocatedSubmissions.length} allocated)`,
+                `[TimeBound] Skipping STF expert ${expertId} for needsReviewer question ${questionId} — ${unallocatedRemaining} never-allocated question(s) still pending; STF reserved for them`,
               );
-              continue; // STF reserved for never-allocated questions
+              continue; // STF reserved for still-pending never-allocated questions
             }
 
             const currentCount = provisionalCounts.get(expertId) ?? 0;
@@ -6945,21 +7750,37 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
 
           try {
-            await Promise.all([
-              this.questionSubmissionRepo.assignTimeBoundReviewer(
+            // Atomic reviewer assignment (see initial-allocation note above): DB writes
+            // run sequentially in one transaction; the notification is best-effort and
+            // lives outside so it can't roll back a committed assignment.
+            await this._withTransaction(async (session: ClientSession) => {
+              await this.questionSubmissionRepo.assignTimeBoundReviewer(
                 questionId,
                 assignedReviewer,
                 new Date(),
-              ),
-              this.userRepo.updateReputationScore(assignedReviewer, true),
-              this.notificationService.saveTheNotifications(
-                `A time-bound question from ${sourceLabel} needs your review`,
+                session,
+              );
+              await this.userRepo.updateReputationScore(
+                assignedReviewer,
+                true,
+                session,
+              );
+            });
+
+            await this.notificationService
+              .saveTheNotifications(
+                `A question from ${sourceLabel} needs your review`,
                 'New Review Assigned',
                 questionId,
                 assignedReviewer,
                 'peer_review',
-              ),
-            ]);
+              )
+              .catch((err: any) =>
+                console.error(
+                  `[TimeBound] Failed to notify reviewer ${assignedReviewer} for ${questionId}:`,
+                  err?.message,
+                ),
+              );
             writeSystemAllocationAudit(
               questionId,
               (question as any)?.question,
@@ -7055,20 +7876,18 @@ export class QuestionService extends BaseService implements IQuestionService {
       const totalReallocated =
         flatAssignments.length + initialAllocated + reviewersAssigned;
       return {
-        message: `Time-bound: reallocated=${flatAssignments.length}, initially-allocated=${initialAllocated}, reviewers-assigned=${reviewersAssigned}`,
+        message: `[${label}] reallocated=${flatAssignments.length}, initially-allocated=${initialAllocated}, reviewers-assigned=${reviewersAssigned}`,
         reallocated: totalReallocated,
         skipped,
       };
     } catch (error: any) {
       console.error(
-        '[TimeBound] reallocateTimeBoundQuestions failed:',
+        `[${label}] single-allocation run failed:`,
         error?.message,
       );
       throw new InternalServerError(
-        `Failed to reallocate time-bound questions: ${error?.message}`,
+        `Failed to run ${label} allocation: ${error?.message}`,
       );
-    } finally {
-      isReallocatingTimeBound = false;
     }
   }
 
@@ -7118,6 +7937,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       question: row.question ?? '',
       status: row.status ?? '',
       source: row.source ?? '',
+      isTrainingQuestion: row.isTrainingQuestion === true,
       priority: row.priority,
       createdAt: row.createdAt,
       state: row.state,
@@ -7134,6 +7954,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       question: q.question ?? '',
       status: q.status ?? '',
       source: q.source ?? '',
+      isTrainingQuestion: q.isTrainingQuestion === true,
       priority: q.priority,
       createdAt: q.createdAt,
       state: q.details?.state,
@@ -7190,6 +8011,32 @@ export class QuestionService extends BaseService implements IQuestionService {
     return map;
   }
 
+  private async resolveExpertMeta(
+    ids: string[],
+  ): Promise<Map<string, { name: string; isTrainingUser: boolean }>> {
+    const map = new Map<string, { name: string; isTrainingUser: boolean }>();
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (!unique.length) return map;
+    const users = await this.userRepo.getUsersByIds(unique);
+    for (const u of users) {
+      const name =
+        `${(u as any).firstName ?? ''} ${(u as any).lastName ?? ''}`.trim();
+      map.set(u._id.toString(), {
+        name: name || (u as any).email || 'Unknown',
+        isTrainingUser: (u as any).isTrainingUser === true,
+      });
+    }
+    return map;
+  }
+
+  private expertMetaToNames(
+    meta: Map<string, { name: string; isTrainingUser: boolean }>,
+  ): Map<string, string> {
+    return new Map(
+      Array.from(meta.entries()).map(([id, value]) => [id, value.name]),
+    );
+  }
+
   /** Server-side paginated single Queue-Details section: exact total `count`
    *  plus only the requested page of `items` (default 50). Touches no allocation
    *  state and reuses the same queries the reallocation cron relies on. */
@@ -7204,17 +8051,40 @@ export class QuestionService extends BaseService implements IQuestionService {
     const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 50), 200);
     const skip = (safePage - 1) * safeLimit;
 
-    switch (section) {
+    // Manual expert sections (suffix "Manual") reuse the time-bound section logic but
+    // scoped to MANUAL_SOURCES (AGRI_EXPERT/OUTREACH) with the not-yet-PAE-reviewed
+    // filter, mirroring the manual single-allocation cron. Moderator ...Manual sections
+    // have their own dedicated cases and are NOT remapped here.
+    const EXPERT_SECTIONS = new Set([
+      'received', 'autoAllocateOff', 'autoAllocateOpen', 'autoAllocateDelayed',
+      'allocated', 'waiting', 'freeExperts', 'stuck', 'needsReviewer', 'openedIdle', 'totalWork',
+    ]);
+    let baseSection: string = section;
+    let expertSources: QuestionSource[] = TIME_BOUND_SOURCES;
+    let requirePaeNotDone = false;
+    if (section.endsWith('Manual')) {
+      const stripped = section.slice(0, -'Manual'.length);
+      if (EXPERT_SECTIONS.has(stripped)) {
+        baseSection = stripped;
+        expertSources = MANUAL_SOURCES;
+        requirePaeNotDone = true;
+      }
+    }
+
+    switch (baseSection as QueueSectionName) {
       case 'received':
       case 'autoAllocateOff':
       case 'autoAllocateOpen':
       case 'autoAllocateDelayed': {
+        // Use baseSection (suffix-stripped) so the ...Manual variants map to the same
+        // kind as their base section — otherwise 'autoAllocateDelayedManual' etc. fall
+        // through to 'autoOff' and wrongly include open questions.
         const kind =
-          section === 'received'
+          baseSection === 'received'
             ? 'received'
-            : section === 'autoAllocateOpen'
+            : baseSection === 'autoAllocateOpen'
               ? 'autoAllocateOpen'
-              : section === 'autoAllocateDelayed'
+              : baseSection === 'autoAllocateDelayed'
                 ? 'autoAllocateDelayed'
                 : 'autoOff';
         const { count, items } = await this.questionRepo.getQueueQuestionSection(
@@ -7223,6 +8093,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           safeLimit,
           startTime,
           endTime,
+          expertSources,
+          requirePaeNotDone,
         );
         return { count, items: items.map(r => this.rawToQueueItem(r)) };
       }
@@ -7234,6 +8106,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           safeLimit,
           startTime,
           endTime,
+          expertSources,
+          requirePaeNotDone,
         );
         const byQuestion = new Map<string, string | null>();
         const ids: string[] = [];
@@ -7243,7 +8117,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           if (id) ids.push(id);
           for (const q of r.queue ?? []) ids.push(q?.toString());
         }
-        const names = await this.resolveExpertNames(ids);
+        const experts = await this.resolveExpertMeta(ids);
+        const names = this.expertMetaToNames(experts);
         return {
           count,
           items: items.map(r => {
@@ -7254,6 +8129,9 @@ export class QuestionService extends BaseService implements IQuestionService {
             return {
               ...this.rawToQueueItem(r),
               expertName: id ? (names.get(id) ?? 'Unknown') : undefined,
+              isTrainingUser: id
+                ? experts.get(id)?.isTrainingUser === true
+                : undefined,
               queueExpertNames: (r.queue ?? []).map(
                 q => names.get(q?.toString()) ?? 'Unknown',
               ),
@@ -7268,7 +8146,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         // "Never-allocated". No date filter / no DB-side limit — paginate the
         // full list in memory so the count always matches the console.
         const subs =
-          (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions()) as any[];
+          (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
+            expertSources,
+            requirePaeNotDone,
+          )) as any[];
         const pageSubs = subs.slice(skip, skip + safeLimit);
         return {
           count: subs.length,
@@ -7279,7 +8160,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       case 'freeExperts': {
         const [allExperts, busyMap] = await Promise.all([
           this.userRepo.findExpertsByReputationScore({} as any),
-          this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(),
+          this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(
+            expertSources,
+          ),
         ]);
         // Free = experts with no active time-bound allocation. busyMap is the
         // authoritative "currently holding pending work" set the cron uses.
@@ -7298,6 +8181,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             reputationScore: e.reputation_score,
             role: e.role,
             isSpecialTaskForce: e.special_task_force === true,
+            isTrainingUser: e.isTrainingUser === true,
           }));
         return { count: free.length, items };
       }
@@ -7306,7 +8190,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Same method (and therefore the same number) the cron logs as "Stuck".
         // No date filter so the count always matches the console.
         const stuckSubs =
-          (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation()) as any[];
+          (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
+            expertSources,
+            requirePaeNotDone,
+          )) as any[];
         const count = stuckSubs.length;
         const pageSubs = stuckSubs.slice(skip, skip + safeLimit);
         const byQuestion = new Map<string, string | null>();
@@ -7318,7 +8205,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           if (id) ids.push(id);
           for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
-        const names = await this.resolveExpertNames(ids);
+        const experts = await this.resolveExpertMeta(ids);
+        const names = this.expertMetaToNames(experts);
         const now = Date.now();
         const items: QueueQuestionItem[] = pageSubs.map(sub => {
           const item = this.submissionToQueueItem(sub);
@@ -7327,6 +8215,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           return {
             ...item,
             expertName: id ? (names.get(id) ?? 'Unknown') : undefined,
+            isTrainingUser: id
+              ? experts.get(id)?.isTrainingUser === true
+              : undefined,
             queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             allocatedAt,
             minutesSinceAllocated: allocatedAt
@@ -7341,7 +8232,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Opened by the current expert > 45 min ago but still no answer. No date
         // filter, mirroring the other time-bound sections.
         const subs =
-          (await this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions()) as any[];
+          (await this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions(
+            expertSources,
+          )) as any[];
         const count = subs.length;
         const pageSubs = subs.slice(skip, skip + safeLimit);
         const byQuestion = new Map<string, string | null>();
@@ -7353,7 +8246,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           if (id) ids.push(id);
           for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
-        const names = await this.resolveExpertNames(ids);
+        const experts = await this.resolveExpertMeta(ids);
+        const names = this.expertMetaToNames(experts);
         const now = Date.now();
         const items: QueueQuestionItem[] = pageSubs.map(sub => {
           const item = this.submissionToQueueItem(sub);
@@ -7362,6 +8256,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           return {
             ...item,
             expertName: id ? (names.get(id) ?? 'Unknown') : undefined,
+            isTrainingUser: id
+              ? experts.get(id)?.isTrainingUser === true
+              : undefined,
             queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             openedAt,
             minutesSinceOpened: openedAt
@@ -7377,7 +8274,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         // "NeedReviewer": answered/reviewed questions still awaiting the next
         // reviewer. No date filter so the count always matches the console.
         const subs =
-          (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer()) as any[];
+          (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
+            expertSources,
+            requirePaeNotDone,
+          )) as any[];
         const count = subs.length;
         const pageSubs = subs.slice(skip, skip + safeLimit);
         // Show every expert who completed a step on the question, in turn order (each
@@ -7393,7 +8293,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           ids.push(...completedIds);
           for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
-        const names = await this.resolveExpertNames(ids);
+        const experts = await this.resolveExpertMeta(ids);
+        const names = this.expertMetaToNames(experts);
         const items: QueueQuestionItem[] = pageSubs.map(sub => {
           const item = this.submissionToQueueItem(sub);
           const completedIds = byQuestion.get(item._id ?? '') ?? [];
@@ -7406,6 +8307,11 @@ export class QuestionService extends BaseService implements IQuestionService {
             queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             // Keep expertName as the most recent completer for backward compatibility.
             expertName: completedExpertNames[completedExpertNames.length - 1],
+            isTrainingUser:
+              completedIds.length > 0
+                ? experts.get(completedIds[completedIds.length - 1])?.isTrainingUser ===
+                  true
+                : undefined,
           };
         });
         return { count, items };
@@ -7417,9 +8323,18 @@ export class QuestionService extends BaseService implements IQuestionService {
         // (same as the cron) so this includes ALL such questions. Each item is tagged
         // with its workType so the UI can show which bucket it came from.
         const [stuckSubs, unallocatedSubs, reviewerSubs] = await Promise.all([
-          this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
-          this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
-          this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
+          this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
+            expertSources,
+            requirePaeNotDone,
+          ),
+          this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
+            expertSources,
+            requirePaeNotDone,
+          ),
+          this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
+            expertSources,
+            requirePaeNotDone,
+          ),
         ]);
 
         type Tagged = {
@@ -7493,11 +8408,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         const ids = pageQs
           .map(q => q.moderatorId?.toString())
           .filter(Boolean) as string[];
-        const names = await this.resolveExpertNames(ids);
+        const moderators = await this.resolveExpertMeta(ids);
         const items: QueueQuestionItem[] = pageQs.map(q => ({
           ...this.submissionToQueueItem({ question: q }),
           moderatorName: q.moderatorId
-            ? (names.get(q.moderatorId.toString()) ?? 'Unknown')
+            ? (moderators.get(q.moderatorId.toString())?.name ?? 'Unknown')
+            : undefined,
+          isTrainingUser: q.moderatorId
+            ? moderators.get(q.moderatorId.toString())?.isTrainingUser === true
             : undefined,
         }));
         return { count, items };
@@ -7520,6 +8438,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             reputationScore: m.reputation_score,
             role: m.role,
             isSpecialTaskForce: m.special_task_force === true,
+            isTrainingUser: m.isTrainingUser === true,
           }));
         return { count: mods.length, items };
       }
@@ -7558,11 +8477,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         const ids = pageQs
           .map(q => q.moderatorId?.toString())
           .filter(Boolean) as string[];
-        const names = await this.resolveExpertNames(ids);
+        const moderators = await this.resolveExpertMeta(ids);
         const items: QueueQuestionItem[] = pageQs.map(q => ({
           ...this.submissionToQueueItem({ question: q }),
           moderatorName: q.moderatorId
-            ? (names.get(q.moderatorId.toString()) ?? 'Unknown')
+            ? (moderators.get(q.moderatorId.toString())?.name ?? 'Unknown')
+            : undefined,
+          isTrainingUser: q.moderatorId
+            ? moderators.get(q.moderatorId.toString())?.isTrainingUser === true
             : undefined,
         }));
         return { count, items };
@@ -7589,8 +8511,81 @@ export class QuestionService extends BaseService implements IQuestionService {
             reputationScore: m.reputation_score,
             role: m.role,
             isSpecialTaskForce: m.special_task_force === true,
+            isTrainingUser: m.isTrainingUser === true,
           }));
         return { count: mods.length, items };
+      }
+
+      // ── Gate keeper / auditor role queues (mirror the moderator queue sections) ──
+      case 'gateKeeperWaiting':
+      case 'auditorWaiting': {
+        const isGK = section === 'gateKeeperWaiting';
+        const qs = await this.questionRepo.findUnassignedQuestionsForRole(
+          isGK
+            ? QuestionService.GATE_KEEPER_STATUSES
+            : QuestionService.AUDITOR_STATUSES,
+          isGK ? 'gateKeeperId' : 'auditorId',
+          isGK ? 'autoAllocateGateKeeper' : 'autoAllocateAuditor',
+        );
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        return {
+          count,
+          items: pageQs.map(q => this.submissionToQueueItem({question: q})),
+        };
+      }
+
+      case 'gateKeeperAllocated':
+      case 'auditorAllocated': {
+        const isGK = section === 'gateKeeperAllocated';
+        const assigneeField = isGK ? 'gateKeeperId' : 'auditorId';
+        const qs = await this.questionRepo.findQuestionsAssignedToRole(
+          assigneeField,
+          isGK
+            ? QuestionService.GATE_KEEPER_STATUSES
+            : QuestionService.AUDITOR_STATUSES,
+        );
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        const ids = pageQs
+          .map(q => (q as any)[assigneeField]?.toString())
+          .filter(Boolean) as string[];
+        const assignees = await this.resolveExpertMeta(ids);
+        const items: QueueQuestionItem[] = pageQs.map(q => {
+          const id = (q as any)[assigneeField]?.toString();
+          return {
+            ...this.submissionToQueueItem({question: q}),
+            assigneeName: id ? (assignees.get(id)?.name ?? 'Unknown') : undefined,
+            isTrainingUser: id
+              ? assignees.get(id)?.isTrainingUser === true
+              : undefined,
+          };
+        });
+        return {count, items};
+      }
+
+      case 'availableGateKeepers':
+      case 'availableAuditors': {
+        const role =
+          section === 'availableGateKeepers' ? 'gate_keeper' : 'auditor';
+        const users = (await this.userRepo.findAvailableUsersByRole(
+          role,
+        )) as any[];
+        const items: QueueExpertItem[] = users
+          .slice(skip, skip + safeLimit)
+          .map(u => ({
+            _id: u._id.toString(),
+            name:
+              `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+              u.email ||
+              'Unknown',
+            email: u.email,
+            reputationScore: u.reputation_score,
+            role: u.role,
+            isSpecialTaskForce: u.special_task_force === true,
+            isTrainingUser: u.isTrainingUser === true,
+          }));
+        return {count: users.length, items};
       }
 
       default:
@@ -7651,7 +8646,25 @@ export class QuestionService extends BaseService implements IQuestionService {
       moderatorAllocatedManual,
       availableModeratorsTimeBound,
       availableModeratorsManual,
+      gateKeeperWaiting,
+      gateKeeperAllocated,
+      availableGateKeepers,
+      auditorWaiting,
+      auditorAllocated,
+      availableAuditors,
       receivedStatusCounts,
+      // Manual expert-queue sections (AGRI_EXPERT/OUTREACH single-allocation)
+      receivedManual,
+      autoAllocateOffManual,
+      autoAllocateOpenManual,
+      autoAllocateDelayedManual,
+      allocatedManual,
+      waitingManual,
+      freeExpertsManual,
+      stuckManual,
+      needsReviewerManual,
+      openedIdleManual,
+      receivedStatusCountsManual,
     ] = await Promise.all([
       safe('received'),
       safe('autoAllocateOff'),
@@ -7673,6 +8686,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       safe('moderatorAllocatedManual'),
       safe('availableModeratorsTimeBound'),
       safe('availableModeratorsManual'),
+      safe('gateKeeperWaiting'),
+      safe('gateKeeperAllocated'),
+      safe('availableGateKeepers'),
+      safe('auditorWaiting'),
+      safe('auditorAllocated'),
+      safe('availableAuditors'),
       // Separate aggregation — not a paginatable section, so call directly
       this.questionRepo
         .getReceivedStatusCounts(startTime, endTime)
@@ -7682,6 +8701,25 @@ export class QuestionService extends BaseService implements IQuestionService {
             err?.message,
           );
           return [] as { status: string; count: number }[];
+        }),
+      safe('receivedManual'),
+      safe('autoAllocateOffManual'),
+      safe('autoAllocateOpenManual'),
+      safe('autoAllocateDelayedManual'),
+      safe('allocatedManual'),
+      safe('waitingManual'),
+      safe('freeExpertsManual'),
+      safe('stuckManual'),
+      safe('needsReviewerManual'),
+      safe('openedIdleManual'),
+      this.questionRepo
+        .getReceivedStatusCounts(startTime, endTime, MANUAL_SOURCES)
+        .catch((err: any) => {
+          console.error(
+            '[getQueueDetails] receivedStatusCountsManual failed:',
+            err?.message,
+          );
+          return [] as {status: string; count: number}[];
         }),
     ]);
 
@@ -7720,6 +8758,157 @@ export class QuestionService extends BaseService implements IQuestionService {
         availableModeratorsTimeBound as QueueDetailsResponse['availableModeratorsTimeBound'],
       availableModeratorsManual:
         availableModeratorsManual as QueueDetailsResponse['availableModeratorsManual'],
+
+      // ── Gate keeper / auditor role queues ──
+      gateKeeperWaiting:
+        gateKeeperWaiting as QueueDetailsResponse['gateKeeperWaiting'],
+      gateKeeperAllocated:
+        gateKeeperAllocated as QueueDetailsResponse['gateKeeperAllocated'],
+      availableGateKeepers:
+        availableGateKeepers as QueueDetailsResponse['availableGateKeepers'],
+      auditorWaiting: auditorWaiting as QueueDetailsResponse['auditorWaiting'],
+      auditorAllocated:
+        auditorAllocated as QueueDetailsResponse['auditorAllocated'],
+      availableAuditors:
+        availableAuditors as QueueDetailsResponse['availableAuditors'],
+      // ── Manual expert-queue sections ──
+      receivedManual: receivedManual as QueueDetailsResponse['receivedManual'],
+      receivedStatusCountsManual:
+        receivedStatusCountsManual as QueueDetailsResponse['receivedStatusCountsManual'],
+      autoAllocateOffManual:
+        autoAllocateOffManual as QueueDetailsResponse['autoAllocateOffManual'],
+      autoAllocateOpenManual:
+        autoAllocateOpenManual as QueueDetailsResponse['autoAllocateOpenManual'],
+      autoAllocateDelayedManual:
+        autoAllocateDelayedManual as QueueDetailsResponse['autoAllocateDelayedManual'],
+      allocatedManual: allocatedManual as QueueDetailsResponse['allocatedManual'],
+      waitingManual: waitingManual as QueueDetailsResponse['waitingManual'],
+      freeExpertsManual:
+        freeExpertsManual as QueueDetailsResponse['freeExpertsManual'],
+      stuckManual: stuckManual as QueueDetailsResponse['stuckManual'],
+      needsReviewerManual:
+        needsReviewerManual as QueueDetailsResponse['needsReviewerManual'],
+      openedIdleManual:
+        openedIdleManual as QueueDetailsResponse['openedIdleManual'],
     };
+  }
+
+  /**
+   * Remove the second entry from history and queue arrays in a question submission.
+   * This is used for migration purposes to fix duplicate entries.
+   * @param submissionId - The submission document ID
+   */
+  async backgroundProcessAction(userId: string): Promise<{ modifiedCount: number }> {
+        return await this.userRepo.clearAssignedQuestions(userId);
+  }
+
+  /** Admin utility: remove a submission history entry (by 0-based index) for a question. */
+  async removeSubmissionHistoryEntry(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: boolean; historyLength: number }> {
+    const updated = await this.questionSubmissionRepo.removeHistoryEntryByIndex(
+      questionId,
+      index,
+    );
+    return {
+      success: true,
+      historyLength: updated?.history?.length ?? 0,
+    };
+  }
+
+  /** Admin data-fix: remove a single expert from a question's submission queue by index. */
+  async removeSubmissionQueueEntry(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: boolean; queueLength: number }> {
+    const updated = await this.questionSubmissionRepo.removeQueueEntryByIndex(
+      questionId,
+      index,
+    );
+    return {
+      success: true,
+      queueLength: updated?.queue?.length ?? 0,
+    };
+  }
+
+  /** Admin utility: append an expert to a question's submission queue. */
+  async addSubmissionQueueEntry(
+    questionId: string,
+    expertId: string,
+  ): Promise<{ success: boolean; queueLength: number }> {
+    if (!expertId || !ObjectId.isValid(expertId)) {
+      throw new BadRequestError('A valid expertId is required');
+    }
+    const updated = await this.questionSubmissionRepo.addQueueEntry(
+      questionId,
+      expertId,
+    );
+    return { success: true, queueLength: updated?.queue?.length ?? 0 };
+  }
+
+  /** Admin utility: append a history entry to a question's submission history.
+   *  The raw entry's id/date fields are coerced to ObjectId/Date before storing. */
+  async addSubmissionHistoryEntry(
+    questionId: string,
+    rawEntry: Record<string, any>,
+  ): Promise<{ success: boolean; historyLength: number }> {
+    const entry = this.buildHistoryEntry(rawEntry);
+    const updated = await this.questionSubmissionRepo.addHistoryEntry(
+      questionId,
+      entry,
+    );
+    return {
+      success: true,
+      historyLength: updated?.history?.length ?? 0,
+    };
+  }
+
+  /** Coerce a raw JSON history entry into a stored ISubmissionHistory (ObjectIds + Dates). */
+  private buildHistoryEntry(raw: Record<string, any>): ISubmissionHistory {
+    if (!raw || typeof raw !== 'object') {
+      throw new BadRequestError('entry object is required');
+    }
+    const toOid = (v: unknown): ObjectId => {
+      if (!v || !ObjectId.isValid(String(v))) {
+        throw new BadRequestError(`Invalid ObjectId: ${String(v)}`);
+      }
+      return new ObjectId(String(v));
+    };
+    const toDate = (v: unknown): Date | undefined =>
+      v ? new Date(v as string) : undefined;
+
+    if (!raw.updatedBy) {
+      throw new BadRequestError('entry.updatedBy is required');
+    }
+    if (!raw.status) {
+      throw new BadRequestError('entry.status is required');
+    }
+
+    const entry: any = {
+      updatedBy: toOid(raw.updatedBy),
+      status: raw.status,
+      createdAt: toDate(raw.createdAt) ?? new Date(),
+      updatedAt: toDate(raw.updatedAt) ?? new Date(),
+    };
+
+    // Optional ObjectId fields.
+    if (raw.answer) entry.answer = toOid(raw.answer);
+    if (raw.reviewId) entry.reviewId = toOid(raw.reviewId);
+    if (raw.approvedAnswer) entry.approvedAnswer = toOid(raw.approvedAnswer);
+    if (raw.rejectedBy) entry.rejectedBy = toOid(raw.rejectedBy);
+    if (raw.rejectedAnswer) entry.rejectedAnswer = toOid(raw.rejectedAnswer);
+    if (raw.lastModifiedBy) entry.lastModifiedBy = toOid(raw.lastModifiedBy);
+    if (raw.modifiedAnswer) entry.modifiedAnswer = toOid(raw.modifiedAnswer);
+
+    // Optional string fields.
+    if (raw.reasonForRejection) {
+      entry.reasonForRejection = String(raw.reasonForRejection);
+    }
+    if (raw.reasonForLastModification) {
+      entry.reasonForLastModification = String(raw.reasonForLastModification);
+    }
+
+    return entry as ISubmissionHistory;
   }
 }

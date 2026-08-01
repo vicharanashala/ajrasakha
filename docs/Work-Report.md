@@ -12,7 +12,7 @@
 1. [What is Ajrasakha?](#1-what-is-ajrasakha)
 2. [Frontend Tech Stack](#2-frontend-tech-stack)
 3. [Work Summary](#3-work-summary)
-4. [Phase 1 — Bug Fixes (24 Bugs)](#4-phase-1--bug-fixes-24-bugs)
+4. [Phase 1 — Bug Fixes (18 Bugs)](#4-phase-1--bug-fixes-18-bugs)
 5. [Phase 2 — TypeScript Error Resolution](#5-phase-2--typescript-error-resolution)
 6. [Phase 3 — Feature Development (6 Features)](#6-phase-3--feature-development-6-features)
 7. [Phase 4 — Test Suite](#7-phase-4--test-suite)
@@ -64,7 +64,6 @@ The **frontend** is the web application that experts, moderators, and administra
 | Metric | Before | After |
 |---|---|---|
 | Runtime crash bugs | 12 | 0 |
-| Auth bugs | 2 | 0 |
 | Data integrity bugs | 3 | 0 |
 | Security vulnerabilities | 3 | 0 |
 | TypeScript errors | 528 | 0 |
@@ -74,9 +73,13 @@ The **frontend** is the web application that experts, moderators, and administra
 | Files changed | — | 149+ |
 | Lines added | — | 2,100+ |
 
+> **Note:** This PR fixed **18 bugs** in total, in exactly three categories — **12 crash fixes, 3 data integrity fixes, and 3 security fixes**.
+
 ---
 
-## 4. Phase 1 — Bug Fixes (24 Bugs)
+## 4. Phase 1 — Bug Fixes (18 Bugs)
+
+> **Note:** The bugs fixed in this PR fall into **three categories only** — **Crash (12), Data Integrity (3), and Security (3)** — 18 bugs in total.
 
 ### 4.1 Crash Fixes (12 bugs)
 
@@ -124,83 +127,41 @@ These bugs caused the application to **white-screen** (crash completely) when ce
 
 ---
 
-### 4.2 Auth Fixes (2 bugs)
+### 4.2 Data Integrity Fixes (3 bugs)
 
-#### Bug 13 — Auth listener memory leak
-- **File:** `auth-store.ts`
-- **Problem:** `onAuthStateChanged` returns an unsubscribe function, but it was being discarded. Every call to `initAuthListener` registered a new listener that could never be removed.
-- **Fix:** Store and return the unsubscribe function.
-
-#### Bug 14 — Auth listener never cleaned up
-- **File:** `routes/index.tsx`
-- **Problem:** The `useEffect` calling `initAuthListener` had no cleanup function. The listener persisted after component unmount.
-- **Fix:** `return () => unsubscribe?.();`
-
----
-
-### 4.3 Data Integrity Fixes (3 bugs)
-
-#### Bug 15 — Form validation bypassed
+#### Bug 13 — Form validation bypassed
 - **File:** `EditFarmerModal.tsx`
 - **Problem:** Validation was commented out with `// TODO: fix later`, allowing empty required fields.
 - **Fix:** Re-enabled validation.
 
-#### Bug 16 — Error state cleared on failure
+#### Bug 14 — Error state cleared on failure
 - **File:** `auth-form.tsx:205`
 - **Problem:** `setErrors({})` in a `finally` block cleared errors immediately after they were set by a failed API call.
 - **Fix:** Removed `setErrors({})` from `finally`.
 
-#### Bug 17 — Admin can't moderate
+#### Bug 15 — Admin can't moderate
 - **File:** `AnswerActions.tsx:113`
 - **Problem:** `canModerate` only checked for `role === "expert"`, excluding admins.
 - **Fix:** `userRole === "expert" || userRole === "admin"`
 
 ---
 
-### 4.4 Error Handling (1 bug)
+### 4.3 Security Fixes (3 bugs)
 
-#### Bug 18 — Unhandled promise rejections
-- **File:** `FarmerAnalyticsHeatMap.tsx`
-- **Problem:** 4 API calls had no `.catch()` handlers, causing unhandled rejections on network failure.
-- **Fix:** Added `.catch()` with error logging to all 4 chains.
-
----
-
-### 4.5 Security Fixes (3 bugs)
-
-#### Bug 19 — Sensitive data in console
+#### Bug 16 — Sensitive data in console
 - **File:** `SelectedPannel.tsx:26-27`
 - **Problem:** `console.log` outputting full question data (including farmer PII) in production.
 - **Fix:** Removed the statements.
 
-#### Bug 20 — Credentials logged in production
+#### Bug 17 — Credentials logged in production
 - **File:** `IncomingCallBox.tsx:326-327`
 - **Problem:** Plivo auth tokens logged to console in production builds.
 - **Fix:** Wrapped in `import.meta.env.DEV` guard.
 
-#### Bug 21 — WebSocket credentials logged
+#### Bug 18 — WebSocket credentials logged
 - **File:** `plivoWebSocketService.ts:67`
 - **Problem:** Connection tokens logged on every reconnection in production.
 - **Fix:** Wrapped in `import.meta.env.DEV` guard.
-
----
-
-### 4.6 TypeScript Fixes (3 bugs)
-
-#### Bug 22 — Missing `userName` in interfaces
-- **File:** `types.ts`
-- **Problem:** Backend returns `userName` but TypeScript interfaces (`IUser`, `IUserRef`) didn't declare it.
-- **Fix:** Added `userName?: string` to both interfaces.
-
-#### Bug 23 — `MapLegend` props mismatch
-- **Files:** `MapLegend.tsx`, `AnalyticsMap.tsx`
-- **Problem:** `AnalyticsMap` passes `dark` and `allStatesDataAndUser` props that `MapLegend` doesn't accept.
-- **Fix:** Added optional props to `MapLegendProps`.
-
-#### Bug 24 — Dead `"dynamic"` comparison
-- **File:** `AnswerModeSwitcher.tsx:136`
-- **Problem:** Compared `id === "dynamic"` but `"dynamic"` was removed from the `MODES` enum — unreachable dead code.
-- **Fix:** Removed the comparison.
 
 ---
 
@@ -367,19 +328,14 @@ frontend/src/components/play-ground.tsx          — Added 4 new tabs + dark mod
 frontend/src/routes/__root.tsx                   — Wrapped root with ErrorBoundary
 frontend/src/features/chatbotDashboard/AnnamDashboard_dev.tsx — Lazy-load error boundaries
 frontend/src/components/SelectedPannel.tsx       — 3 crash fixes + security fix
-frontend/src/stores/auth-store.ts                — Auth listener memory leak fix
-frontend/src/routes/index.tsx                    — Auth cleanup fix
 frontend/src/components/auth-form.tsx            — Error state persistence fix
-frontend/src/types.ts                            — Added userName to interfaces
+frontend/src/types.ts                            — Added userName field (null-safety for crash fix)
 frontend/src/features/question_details/components/answer_item/AnswerActions.tsx — Admin moderation fix
-frontend/src/features/chatbotDashboard/components/FarmerAnalyticsHeatMap.tsx — Promise catch handlers
 frontend/src/components/IncomingCallBox.tsx      — Dev-only logging
 frontend/src/hooks/services/plivoWebSocketService.ts — Dev-only logging
 frontend/src/components/dashboard/golden-dataset.tsx — Null guard
 frontend/src/features/chatbotDashboard/WhatsAppUsersView.tsx — Null guard
 frontend/src/features/chatbotDashboard/components/map/components/DistrictDetails.tsx — Null guard
-frontend/src/features/chatbotDashboard/components/map/components/MapLegend.tsx — Props update
-frontend/src/features/question-table-page/AnswerModeSwitcher.tsx — Dead code removal
 ```
 
 ### Test Files (all new)

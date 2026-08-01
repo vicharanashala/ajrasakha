@@ -162,6 +162,7 @@ export interface FarmerHeatMapMetricTotals {
   totalQuestions: number;
   duplicateQuestions: number;
   closedQuestions: number;
+  nonGdbQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
 }
@@ -200,6 +201,7 @@ export interface FarmerHeatMapCell {
   totalQuestions: number;
   duplicateQuestions: number;
   closedQuestions: number;
+  nonGdbQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
   statusDistribution: Record<string, number>;
@@ -224,6 +226,7 @@ export interface FarmerHeatMapResponse {
     totalQuestions: number;
     duplicateQuestions: number;
     closedQuestions: number;
+    nonGdbQuestions: number;
     notifiedQuestions: number;
     averageClosureTimeMinutes: number;
   };
@@ -445,32 +448,216 @@ export interface ResponseAdherenceTable {
   timeWindow: string;
   whatsappQueriesAsked: number;
   ajrasakhaQueriesAsked: number;
+  manualQueriesAsked: number;
   whatsappPushedToReviewer: number;
   ajrasakhaPushedToReviewer: number;
+  manualPushedToReviewer: number;
   whatsappAnsweredWithin120Min: number;
   ajrasakhaAnsweredWithin120Min: number;
+  manualAnsweredWithin120Min: number;
   whatsappPassedQuestions: number;
   ajrasakhaPassedQuestions: number;
+  manualPassedQuestions: number;
   whatsappMarkedDuplicate: number;
   ajrasakhaMarkedDuplicate: number;
+  manualMarkedDuplicate: number;
   whatsappDynamicWeather: number;
   ajrasakhaDynamicWeather: number;
+  manualDynamicWeather: number;
   whatsappDynamicMarket: number;
   ajrasakhaDynamicMarket: number;
+  manualDynamicMarket: number;
   whatsappDynamicSchemes: number;
   ajrasakhaDynamicSchemes: number;
-  whatsappNonGdbWithin120: number;
-  ajrasakhaNonGdbWithin120: number;
+  manualDynamicSchemes: number;
+  // whatsappNonGdbWithin120: number;
+  // ajrasakhaNonGdbWithin120: number;
+  // manualNonGdbWithin120: number;
   whatsappInReview: number;
   ajrasakhaInReview: number;
+  manualInReview: number;
   whatsappOpen: number;
   ajrasakhaOpen: number;
+  manualOpen: number;
   whatsappDelayed: number;
   ajrasakhaDelayed: number;
+  manualDelayed: number;
+
+          whatsappClosedCount: number;
+        whatsappPendingCount: number;
+        whatsappNonAgriCount: number;
+        whatsappDynamicCount: number;
+        whatsappDuplicateCount: number;
+        whatsappHoldCount: number;
+        whatsappPaeSubmitedCount: number;
+        whatsappDynamicCLosedCount: number;
+        whatsappReroutedCount: number;
+        whatsappPassCount: number;
+        whatsappDuplicateClosedCount: number;
+
+      ajrasakhaClosedCount: number;
+    ajrasakhaPendingCount: number;
+    ajrasakhaNonAgriCount: number;
+    ajrasakhaDynamicCount: number;
+    ajrasakhaDuplicateCount: number;
+    ajrasakhaHoldCount: number;
+    ajrasakhaPaeSubmitedCount:number;
+    ajrasakhaDynamicCLosedCount: number;
+    ajrasakhaReroutedCount: number;
+    ajrasakhaPassCount: number;
+    ajrasakhaDuplicateClosedCount:number;
+
+      manualClosedCount: number;
+    manualPendingCount: number;
+    manualNonAgriCount:number;
+    manualDynamicCount: number;
+    manualDuplicateCount: number;
+    manualHoldCount: number;
+    manualPaeSubmitedCount:number;
+    manualDynamicCLosedCount: number;
+    manualReroutedCount: number;
+    manualPassCount: number;
+    manualDuplicateClosedCount:number;
+          manualAverageResponseGBDMinutes: number;
+    manualAverageResponseNonGBDMinutes: number;
+            whatsappAverageResponseGBDMinutes: number;
+        whatsappAverageResponseNonGBDMinutes: number;
+            ajrasakhaAverageResponseGBDMinutes: number,
+    ajrasakhaAverageResponseNonGBDMinutes: number;
+
   whatsappAverageResponseMinutes: number;
   ajrasakhaAverageResponseMinutes: number;
+  manualAverageResponseMinutes: number;
   whatsappAdherencePct: number;
   ajrasakhaAdherencePct: number;
+  manualAdherencePct: number;
+  manualTotal?: number;
+  agriexpertTotal?: number;
+  outreachTotal?: number;
+  answeredWithin120MinClosedwhatsapp: number,
+  answeredWithin120MinPasswhatsapp: number,
+  answeredWithin120MinDynamicClosedwhatsapp: number,
+  answeredWithin120MinDuplicateClosedwhatsapp: number,
+  answeredWithin120MinClosedajrasakha: number,
+  answeredWithin120MinPassajrasakha: number,
+  answeredWithin120MinDynamicClosedajrasakha: number,
+  answeredWithin120MinDuplicateClosedajrasakha: number,
+  answeredWithin120MinClosedmanual: number,
+  answeredWithin120MinPassmanual: number,
+  answeredWithin120MinDynamicClosedmanual: number,
+  answeredWithin120MinDuplicateClosedmanual: number,
+
+  whatsappdynamicWeatherDynamicCount: number;
+  whatsappdynamicWeatherStaticDynamicCount: number;
+  ajrasakhadynamicWeatherDynamicCount: number;
+  ajrasakhadynamicWeatherStaticDynamicCount: number;
+  manualdynamicWeatherDynamicCount: number;
+  manualdynamicWeatherStaticDynamicCount: number;
+
+  whatsappdynamicMarketDynamicCount: number;
+  whatsappdynamicMarketStaticDynamicCount: number;
+  ajrasakhadynamicMarketDynamicCount: number;
+  ajrasakhadynamicMarketStaticDynamicCount: number;
+  manualdynamicMarketDynamicCount: number;
+  manualdynamicMarketStaticDynamicCount: number;
+
+  whatsappdynamicSchemesDynamicCount: number;
+  whatsappdynamicSchemesStaticDynamicCount: number;
+  ajrasakhadynamicSchemesDynamicCount: number;
+  ajrasakhadynamicSchemesStaticDynamicCount: number;
+  manualdynamicSchemesDynamicCount: number;
+  manualdynamicSchemesStaticDynamicCount: number;
+
+  totalDynamicWhatsappCount: number;
+  totalDynamicAjrasakhaCount: number;
+  totalDynamicManualCount: number;
+
+  totalStaticDynamicWhatsappCount: number;
+  totalStaticDynamicAjrasakhaCount: number;
+  totalStaticDynamicManualCount: number;
+
+  whatsAppAnsweredAfter120Min: number;
+  ajrasakhaAnsweredAfter120Min: number;
+  manualAnsweredAfter120Min: number;
+
+  whatsAppAnsweredAfter120MinClosed: number;
+  whatsAppAnsweredAfter120MinPass: number;
+  whatsAppAnsweredAfter120MinDynamicClosed: number;
+  whatsAppAnsweredAfter120MinDuplicateClosed: number;
+
+  ajrasakhaAnsweredAfter120MinClosed: number;
+  ajrasakhaAnsweredAfter120MinPass: number;
+  ajrasakhaAnsweredAfter120MinDynamicClosed: number;
+  ajrasakhaAnsweredAfter120MinDuplicateClosed: number;
+
+  manualAnsweredAfter120MinClosed: number;
+  manualAnsweredAfter120MinPass: number;
+  manualAnsweredAfter120MinDynamicClosed: number;
+  manualAnsweredAfter120MinDuplicateClosed: number;
+
+  whatsappSlaBreachedCount: number;
+  ajrasakhaSlaBreachedCount: number;
+  manualSlaBreachedCount: number;
+
+  // WhatsApp
+  whatsappTatMinutes: number;
+  whatsappAverageTimeToAuthorMinutes: number;
+  whatsappAverageReviewAcceptMinutes: number;
+  whatsappAverageReviewModifyMinutes: number;
+  whatsappAverageReviewRejectReauthorMinutes: number;
+  whatsappAverageModeratingMinutes: number;
+  whatsappAverageGatekeepingMinutes: number;
+  whatsappAverageAuditingMinutes: number;
+  whatsappAverageReroutedCompletionMinutes: number;
+
+  // Ajrasakha
+  ajrasakhaTatMinutes: number;
+  ajrasakhaAverageTimeToAuthorMinutes: number;
+  ajrasakhaAverageReviewAcceptMinutes: number;
+  ajrasakhaAverageReviewModifyMinutes: number;
+  ajrasakhaAverageReviewRejectReauthorMinutes: number;
+  ajrasakhaAverageModeratingMinutes: number;
+  ajrasakhaAverageGatekeepingMinutes: number;
+  ajrasakhaAverageAuditingMinutes: number;
+  ajrasakhaAverageReroutedCompletionMinutes: number;
+
+  // Manual
+  manualTatMinutes: number;
+  manualAverageTimeToAuthorMinutes: number;
+  manualAverageReviewAcceptMinutes: number;
+  manualAverageReviewModifyMinutes: number;
+  manualAverageReviewRejectReauthorMinutes: number;
+  manualAverageModeratingMinutes: number;
+  manualAverageGatekeepingMinutes: number;
+  manualAverageAuditingMinutes: number;
+  manualAverageReroutedCompletionMinutes: number;
+
+  whatsappAverageEndToEndQnaCompletionMinutes: number;
+  ajrasakhaAverageEndToEndQnaCompletionMinutes: number;
+  manualAverageEndToEndQnaCompletionMinutes: number;
+
+  whatsappAverageEndToEndUniqueMinutes: number;
+  ajrasakhaAverageEndToEndUniqueMinutes: number;
+  manualAverageEndToEndUniqueMinutes: number;
+
+  whatsappAverageEndToEndDynamicMinutes: number;
+  ajrasakhaAverageEndToEndDynamicMinutes: number;
+  manualAverageEndToEndDynamicMinutes: number;
+
+  whatsappAverageEndToEndDuplicateMinutes: number;
+  ajrasakhaAverageEndToEndDuplicateMinutes: number;
+  manualAverageEndToEndDuplicateMinutes: number;
+      whatsappPaeAssignedQuestions: number;
+    ajrasakhaPaeAssignedQuestions: number;
+    manualPaeAssignedQuestions: number;
+    // PAE Contribution to GDB
+    whatsappPaeContributionToGDB: number;
+    ajrasakhaPaeContributionToGDB: number;
+    manualPaeContributionToGDB: number;
+    // PAE Contribution to GDB %
+    whatsappPaeContributionToGDBPct: number;
+    ajrasakhaPaeContributionToGDBPct: number;
+    manualPaeContributionToGDBPct: number;
 }
 
 // ─── Single consolidated interface ───────────────────────────────────────────
@@ -516,6 +703,7 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    coordinatorId?: string,
   ): Promise<QueryCategoryEntry[]>;
 
   getQueryCategoryQuestions(
@@ -527,6 +715,7 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
     search?: string,
+    coordinatorId?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
 
   getWeatherConcernQueries(
@@ -551,12 +740,15 @@ export interface IChatbotRepository {
     userType?: string,
     search?: string,
     knownDistricts?: string[],
+    startDate?: Date,
+    endDate?: Date
   ): Promise<any>;
 
   getTopCrops(
     source?: string,
     userType?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{
     totalQuestions: number;
     topCrops: {name: string; count: number}[];
@@ -582,7 +774,8 @@ export interface IChatbotRepository {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
+    userId?: string
   ): Promise<any>;
 
   // getQuestionsByCrop(
@@ -596,7 +789,7 @@ export interface IChatbotRepository {
   //   search?: string,
   // ): Promise<any>;
 
-    getQuestionsByCrop(crop: string, crops?: string[] ,questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
+    getQuestionsByCrop(crop: string, crops?: string[] ,questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string, coordinatorId?: string): Promise<any>
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
@@ -707,6 +900,7 @@ export interface IChatbotRepository {
     activeTodayByProfile?: boolean,
     missingDemographicField?: string,
     isVerified?: boolean,
+    fromMap?: boolean,
     loginStatus?: 'all' | 'loggedIn' | 'loggedOut',
   ): Promise<PaginatedUserDetails>;
 
@@ -720,6 +914,14 @@ export interface IChatbotRepository {
     userType?: string,
     page?: number,
     limit?: number,
+  ): Promise<any>;
+
+  getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page?: number,
+    limit?: number,
+    session?: ClientSession,
   ): Promise<any>;
 
   getUsersMessages(
@@ -790,14 +992,16 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<KccAndAgriAppStats>;
 
-  getIdsCreated(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
-  getInstalls(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
-  getActiveUsers(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
+  getIdsCreated(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
+  getInstalls(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
+  getActiveUsers(userType: string, startDate:Date,endDate:Date, session?: ClientSession, coordinatorId?: string)
 
   getFeedbackData(
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<FeedbackData>;
 
   getFeedbackUsers(
@@ -835,12 +1039,14 @@ export interface IChatbotRepository {
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
   getDuplicateQuestions(
     source?: string,
+    coordinatorId?: string,
     session?: ClientSession,
   ): Promise<DuplicateQuestionEntry[]>;
 
   /** Domain query spikes: days where a domain's question count is ≥2× its 30-day rolling average. */
   getDomainSpikes(
     days?: number,
+    coordinatorId?: string,
     session?: ClientSession,
   ): Promise<DomainSpikeEntry[]>;
 
@@ -861,6 +1067,7 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{question: string; count: number}>>;
 
   /** 10 most frequently asked questions from the questions collection. */
@@ -870,6 +1077,7 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<Array<{questionId: string; question: string; count: number}>>;
 
   /** Get documents for a specific top question drill-down. */
@@ -882,6 +1090,7 @@ export interface IChatbotRepository {
     page?: number,
     limit?: number,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>;
   getResponseAdherenceTable(
     session?: ClientSession,
@@ -896,6 +1105,9 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
+    coordinatorId?: string,
   ): Promise<DistrictAnalyticsEntry[]>;
 
   getWeatherConcernAnalytics(
@@ -974,11 +1186,11 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<{label: string; totalQueries: number}>;
 
-  getClosedVsTotalQuestions(source: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
+  getClosedVsTotalQuestions(source: string, userType?: string, startDate?: Date, endDate?: Date, userId?: string):Promise<any>;
 
-  getNotifiedVsClosed(source?: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
+  getNotifiedVsClosed(source?: string, userType?: string, startDate?: Date, endDate?: Date, userId?: string):Promise<any>;
 
-  getClosedInLastTwoHours(source?: string, userType?: string, startDate?: Date, endDate?: Date): Promise<any>;
+  getClosedInLastTwoHours(source?: string, userType?: string, startDate?: Date, endDate?: Date, userId?: string): Promise<any>;
 
   getMonthlyChurnRate(source: string, userType: string): Promise<any>;
 
@@ -1004,6 +1216,7 @@ export interface IChatbotRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    coordinatorId?: string,
   ): Promise<any>;
 
   /**
@@ -1037,6 +1250,9 @@ export interface IChatbotRepository {
     endDate?: Date,
     isPassed?: string,
     tag?: string,
+    userId?: string,
+    state?: string,
+    district?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -1049,6 +1265,7 @@ export interface IChatbotRepository {
   search?: string,
   startDate?: Date,
   endDate?: Date,
+  userId?: string,
   ): Promise<any>
 
   getQueriesByPeriod (
@@ -1073,7 +1290,9 @@ export interface IChatbotRepository {
     source: string,
     userType: string,
     allState?:ILocationState[],
-    session?: string
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>
 
 
@@ -1083,7 +1302,16 @@ export interface IChatbotRepository {
     source: string,
   ): Promise<any>
 
-  getUserProfile(userId: string) : Promise<any>
+  getUserProfile(
+    userId: string,
+    session?: ClientSession,
+    startDate?: string,
+    endDate?: string,
+  ) : Promise<any>
+  getCoordinatorKpiSummary(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<any>;
   assignUsers(userId: string, targetIds: string[]): Promise<any>
   unAssignUsers(userId: string, targetIds: string[]): Promise<any>
 
@@ -1110,6 +1338,8 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>;
 
   getActiveUsersDetails(
@@ -1120,7 +1350,9 @@ export interface IChatbotRepository {
     session?:ClientSession, 
     state?:string, 
     district?:string, 
-    search?: string
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>
 
     getCoordinatorsDetails(
@@ -1142,8 +1374,11 @@ export interface IChatbotRepository {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      userId?: string,
       page?: number,
       limit?: number,
+      manualSource?: string,
+      effectiveDate?: string,
     ): Promise<any>
   
   getFeedbackByLocation(
@@ -1158,6 +1393,8 @@ export interface IChatbotRepository {
     district?: string,
     search?: string,
     session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<PaginatedFeedbackMessages>
 
   getClosedInLastTwoHoursByLocation(
@@ -1165,8 +1402,37 @@ export interface IChatbotRepository {
     userType?: string,
     state?: string,
     district?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>
-    
+
+  getActiveUsersDetailsByQuestions(
+    page: number,
+    limit: number,
+    source: string,
+    userType: string,
+    session?: ClientSession,
+    state?: string,
+    district?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any>
+  
+  getQuestionByManualSource(
+    manualSource: string, 
+    effectiveDate: string,
+    userType: string,
+    page: number,
+    limit: number,
+    search: string
+  ): Promise<any>
+
+  getReviewerLifecycle(
+    userId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any>
 }
 
 export interface ChatbotConversationData {
