@@ -248,6 +248,8 @@ export interface IQuestionSubmissionRepository {
   findTimeBoundQuestionsForReallocation(
     sources?: QuestionSource[],
     requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
 
   /** Find all single-allocation submissions that were never allocated — queue is
@@ -272,6 +274,8 @@ export interface IQuestionSubmissionRepository {
   findAnsweredQuestionsNeedingReviewer(
     sources?: QuestionSource[],
     requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
 
   /** Atomically push reviewer into queue, add an in-review history entry, and

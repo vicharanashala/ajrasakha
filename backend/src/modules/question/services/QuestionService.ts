@@ -8205,6 +8205,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin
           )) as any[];
         const count = stuckSubs.length;
         const pageSubs = stuckSubs.slice(skip, skip + safeLimit);
@@ -8289,6 +8291,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin,
           )) as any[];
         const count = subs.length;
         const pageSubs = subs.slice(skip, skip + safeLimit);
@@ -8338,6 +8342,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin
           ),
           this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
             expertSources,
@@ -8348,6 +8354,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin
           ),
         ]);
 
