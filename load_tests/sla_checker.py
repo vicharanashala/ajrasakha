@@ -44,7 +44,9 @@ def check_slas(stats_csv_path="reports/report_stats.csv"):
         
         # Determine target threshold for endpoint
         target_sla_ms = config.SLA_ANSWER_SUBMIT_MS
-        if "login" in name.lower():
+        if "health" in name.lower():
+            target_sla_ms = config.SLA_HEALTH_MS
+        elif "login" in name.lower():
             target_sla_ms = config.SLA_LOGIN_MS
         elif "allocate" in name.lower():
             target_sla_ms = config.SLA_ALLOCATION_SEC * 1000
@@ -54,7 +56,7 @@ def check_slas(stats_csv_path="reports/report_stats.csv"):
             status = f"[FAIL] (P95 {p95_val:.1f}ms > Target {target_sla_ms}ms)"
             sla_failures.append(f"{name}: P95 response time {p95_val:.1f}ms exceeded SLA threshold {target_sla_ms}ms")
             
-        print(f"• Endpoint: {name:<30} | P95: {p95_val:>7.1f}ms | Target: {target_sla_ms:>5}ms | Requests: {req_count:>5} | Status: {status}")
+        print(f"• Endpoint: {name:<35} | P95: {p95_val:>7.1f}ms | Target: {target_sla_ms:>5}ms | Requests: {req_count:>5} | Status: {status}")
 
     print("-" * 65)
     if sla_failures:
