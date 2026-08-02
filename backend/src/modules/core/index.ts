@@ -18,10 +18,12 @@ import { COMMENT_VALIDATORS } from '../comment/classes/validators/CommentValidat
 import { PerformanceController } from '../../modules/performance/controllers/PerformanceController.js';
 import { RequestController } from '../request/controllers/RequestController.js';
 import { REQUEST_VALIDATORS } from '../request/classes/validators/RequestValidators.js';
+import { AssignmentController } from '../question/controllers/AssignmentController.js';
 
 // Export names that loadAppModules expects
 export const coreModuleControllers: Function[] = [
   QuestionController,
+  AssignmentController,
   ContextController,
   AnswerController,
   CommentController,
@@ -53,6 +55,7 @@ export const coreModuleValidators: Function[] = [
 
 // Export all the main components for external use
 export * from '../../modules/question/controllers/QuestionController.js';
+export * from '../../modules/question/controllers/AssignmentController.js';
 export * from '../../modules/answer/controllers/AnswerController.js'
 export * from '../../modules/context/controllers/ContextController.js';
 export * from '../../modules/comment/controllers/CommentController.js';
@@ -60,6 +63,8 @@ export * from '../notification/controllers/NotificationController.js'
 export * from '../../modules/performance/controllers/PerformanceController.js'
 
 export * from '../../modules/question/services/QuestionService.js';
+export * from '../../modules/question/services/AssignmentEngineService.js';
+export * from '../../modules/question/services/WaitingQueueService.js';
 export * from '../../modules/answer/services/AnswerService.js'
 export * from '../../modules/context/services/ContextService.js';
 export * from '../../modules/comment/services/CommentService.js';

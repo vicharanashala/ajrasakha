@@ -93,6 +93,7 @@ import { toTitleCase } from '#root/utils/ToTitlecase.js';
 import axios from 'axios';
 import { AccAgentService } from '#root/modules/acc-agent/services/AccAgentService.js';
 import type { ICallDetailsRepository, QAPairs, QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+import type { AssignmentEngineService } from './AssignmentEngineService.js';
 
 /**
  * Module-level guard so two time-bound reallocation runs never overlap. The cron
@@ -160,6 +161,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     private readonly callDetailsRepository: ICallDetailsRepository,
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(CORE_TYPES.AssignmentEngineService)
+    private readonly assignmentEngine: AssignmentEngineService,
   ) {
     super(mongoDatabase);
   }
@@ -1974,6 +1978,10 @@ export class QuestionService extends BaseService implements IQuestionService {
               status: 'open',
               isAutoAllocate: true,
             });
+            // Immediately attempt priority-aware assignment
+            this.assignmentEngine.assignQuestion(questionId, baseQuestion.priority ?? 'high').catch((err: any) => {
+              console.error(`[processQuestionInBackground] assignQuestion failed for ${questionId}:`, err?.message);
+            });
           } catch (pipelineError: any) {
             console.error(
               '[processQuestionInBackground] duplicate/queue pipeline failed, proceeding as open:',
@@ -1982,6 +1990,10 @@ export class QuestionService extends BaseService implements IQuestionService {
             await this.questionRepo.updateQuestion(questionId, {
               status: 'open',
               isAutoAllocate: true,
+            });
+            // Immediately attempt priority-aware assignment
+            this.assignmentEngine.assignQuestion(questionId, baseQuestion.priority ?? 'high').catch((err: any) => {
+              console.error(`[processQuestionInBackground] assignQuestion failed for ${questionId}:`, err?.message);
             });
           }
         }
