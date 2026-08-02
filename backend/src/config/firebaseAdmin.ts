@@ -20,19 +20,26 @@ export function ensureFirebaseAdminInitialized(): void {
 
   const { projectId, clientEmail, privateKey } = appConfig.firebase;
 
+  const isRealKey =
+    projectId &&
+    clientEmail &&
+    privateKey &&
+    privateKey.includes('-----BEGIN PRIVATE KEY-----') &&
+    !privateKey.includes('dummy');
+
+  if (!isRealKey && !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+    process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
+    console.warn(
+      '[Firebase Admin] Local development mode active: Enabled FIREBASE_AUTH_EMULATOR_HOST to bypass Google OAuth credential checks.',
+    );
+  }
+
   try {
-    if (
-      projectId &&
-      clientEmail &&
-      privateKey &&
-      privateKey.includes('-----BEGIN PRIVATE KEY-----') &&
-      !privateKey.includes('dummy')
-    ) {
+    if (isRealKey) {
       admin.initializeApp({
         credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
       });
     } else {
-      console.warn('[Firebase Admin] Dummy credentials detected, initializing for local development.');
       admin.initializeApp({
         projectId: projectId || 'dummy-firebase-project-id',
       });
