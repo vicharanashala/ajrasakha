@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   UserCheck,
   BadgeCheck,
+  GraduationCap,
 } from "lucide-react";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
@@ -43,7 +44,9 @@ import { useToggleRole } from "@/hooks/api/user/useToggleRole";
 import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
 import { useVerifyUser } from "@/hooks/api/user/useVerifyUser";
 import { useToggleSTF } from "@/hooks/api/user/useToggleSTF";
+import { isCoordinatorRole } from "@/lib/roles";
 import AvatarComponent from "./avatar-component";
+import { useToggleTrainingUserStatus } from "@/hooks/api/user/useToggleTrainingUser";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -104,6 +107,7 @@ export const UsersTable = ({
         <Table className="min-w-[800px]">
           <TableHeader className="bg-card sticky top-0 z-10">
             <TableRow>
+              <TableHead className="text-center w-16">Sl. No</TableHead>
               <TableHead className="flex justify-start items-center w-52">
                 <p className="ml-5">User</p>
               </TableHead>
@@ -186,14 +190,14 @@ export const UsersTable = ({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-center py-10">
+                <TableCell colSpan={14} className="text-center py-10">
                   <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
                 </TableCell>
               </TableRow>
             ) : items?.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={13}
+                  colSpan={14}
                   rowSpan={10}
                   className="text-center py-10 text-muted-foreground"
                 >
@@ -262,15 +266,21 @@ const UserRow: React.FC<UserRowProps> = ({
   setRankPosition,
   userRole,
   showSensitive = false,
+  currentPage,
+  idx,
+  limit,
 }) => {
+  // 1-based serial number across pages.
+  const serialNo = ((currentPage ?? 1) - 1) * (limit ?? 0) + (idx ?? 0) + 1;
   const isBlocked = u.isBlocked || false;
   const navigate = useNavigate();
   const { mutate: updateActivity } = useUpdateActivity();
   const { mutate: verifyUser } = useVerifyUser();
   const { mutate: toggleSTF } = useToggleSTF();
+  const { mutate: toggleTrainingUserStatus } = useToggleTrainingUserStatus();
 
   //expert block/unblock modal state
-  type ConfirmAction = "block" | "unblock" | "switch-role" | "verify" | "make-stf" | "remove-stf" | null;
+  type ConfirmAction = "block" | "unblock" | "switch-role" | "verify" | "make-stf" | "remove-stf" | "assign-training-user" | "remove-training-user" | null;
 
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [actionUserId, setActionUserId] = useState<string>("");
@@ -297,6 +307,8 @@ const UserRow: React.FC<UserRowProps> = ({
     moderator: "Moderator",
     expert: "Expert",
     pae_expert: "PAE Expert",
+    gate_keeper: "Gate Keeper",
+    auditor: "Auditor",
     tester: "Tester",
   };
 
@@ -305,6 +317,9 @@ const UserRow: React.FC<UserRowProps> = ({
       key={String(u._id)}
       className="text-center"
     >
+      <TableCell className="text-center w-16 text-muted-foreground">
+        {serialNo}
+      </TableCell>
 
       {/* <TableCell className={`align-middle w-36 border-l-1 ${u.isVerified ? 'border-l-blue-500' : 'border-l-red-500'}`} title={u.firstName}>
         <div className="flex items-center gap-2">
@@ -417,6 +432,22 @@ const UserRow: React.FC<UserRowProps> = ({
                 </Tooltip>
               )}
 
+              {u?.isTrainingUser && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="bg-purple-50/50 hover:bg-purple-50 text-purple-700 border-purple-200 text-[9px] h-5 px-1.5 rounded-full flex items-center gap-1 transition-colors whitespace-nowrap"
+                    >
+                      <GraduationCap className="w-3.5 h-5 fill-violet-500" />
+                    </Badge>
+                  </TooltipTrigger>
+
+                  <TooltipContent>
+                    Training {u.role ?? 'user'}
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {u?.special_task_force_moderator && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -581,6 +612,7 @@ const UserRow: React.FC<UserRowProps> = ({
                 </DropdownMenuItem>
               )}
 
+              {isCoordinatorRole(u.role) && (
               <DropdownMenuItem
                 onSelect={(e) => {
                   e.preventDefault();
@@ -594,9 +626,14 @@ const UserRow: React.FC<UserRowProps> = ({
               >
                 <div className="flex items-center gap-2">
                   <History className="w-4 h-4 mr-2 text-blue-500" />
-                  View User History
+                  History
+                  <Badge
+                    variant="default"
+                    className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
+                  >New</Badge>
                 </div>
               </DropdownMenuItem>
+              )}
 
               <DropdownMenuItem
                 disabled={u.status === 'in-active' && isBlocked}
@@ -616,8 +653,8 @@ const UserRow: React.FC<UserRowProps> = ({
                   {isBlocked ? "Unblock" : "Block"}
                 </button>
               </DropdownMenuItem>
-              {/* Switch role from expert to moderator */}
-              {isAdmin && u.role !== "admin" && (
+              {/* Switch role — available to admins for any user (including other admins). */}
+              {isAdmin && (
                 <DropdownMenuItem
                   onSelect={(e) => {
                     e.preventDefault();
@@ -694,6 +731,39 @@ const UserRow: React.FC<UserRowProps> = ({
                   </div>
                 </DropdownMenuItem>
               )}
+
+              {/* handling training user status */}
+              {isAdmin && u.role !== 'admin' &&  (
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setIsOpen(false);
+                    setConfirmAction(u.isTrainingUser ? 'remove-training-user' : 'assign-training-user');
+                  }}
+                >
+                  <div className="flex items-center gap-2 w-full">
+                    <GraduationCap className="w-4 h-4 text-violet-500" />
+                    <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center justify-between gap-2 w-full">
+                    <span>{u.isTrainingUser ? 'Remove TMU' : 'Assign TMU'}</span>
+                    <Badge
+                      variant="default"
+                      className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
+                    >
+                      New
+                    </Badge>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {u.isTrainingUser ? 'Remove From Training User' : 'Assign Training User'}
+                  </TooltipContent>
+                </Tooltip>
+                    
+                  </div>
+                </DropdownMenuItem>
+              )}
+              
             </DropdownMenuContent>
           </DropdownMenu>
           <ConfirmationModal
@@ -710,6 +780,10 @@ const UserRow: React.FC<UserRowProps> = ({
                       ? "Assign STF Status?"
                       : confirmAction === "remove-stf"
                         ? "Remove STF Status?"
+                        : confirmAction === "assign-training-user"
+                          ? "Assign Training User Status?"
+                          : confirmAction === "remove-training-user"
+                            ? "Remove Training User Status?"
                         : "Unblock the User?"
             }
             description={
@@ -729,7 +803,11 @@ const UserRow: React.FC<UserRowProps> = ({
                         ? "This user will receive the highest priority for allocation of time-bound questions in the system. Are you sure you want to assign STF status?"
                         : confirmAction === "remove-stf"
                           ? "Are you sure you want to remove STF status from this user?"
-                          : `This will restore the ${actionRole} access and administrative permissions on the platform. Are you sure you want to unblock this user?`
+                          : confirmAction === "assign-training-user"
+                            ? "Are you sure you want to assign training user status to this user?"
+                            : confirmAction === "remove-training-user"
+                              ? "Are you sure you want to remove training user status from this user?"
+                              : `This will restore the ${actionRole} access and administrative permissions on the platform. Are you sure you want to unblock this user?`
             }
             confirmText={
               confirmAction === "switch-role"
@@ -742,6 +820,10 @@ const UserRow: React.FC<UserRowProps> = ({
                       ? "Assign STF"
                       : confirmAction === "remove-stf"
                         ? "Remove STF"
+                      : confirmAction === "assign-training-user"
+                        ? "Assign Training User"
+                        : confirmAction === "remove-training-user"
+                          ? "Remove Training User"
                         : "Unblock"
             }
             cancelText="Cancel"
@@ -756,6 +838,10 @@ const UserRow: React.FC<UserRowProps> = ({
                 toggleSTF({ userId: u._id!, action: 'assign' });
               } else if (confirmAction === "remove-stf") {
                 toggleSTF({ userId: u._id!, action: 'remove' });
+              } else if (confirmAction === "assign-training-user") {
+                toggleTrainingUserStatus({ userId: u._id!, action: 'assign' });
+              } else if (confirmAction === "remove-training-user") {
+                toggleTrainingUserStatus({ userId: u._id!, action: 'remove' });
               } else {
                 handleBlock();
               }
@@ -765,6 +851,7 @@ const UserRow: React.FC<UserRowProps> = ({
             selectedRole={selectRole}
             onRoleChange={setSelectRole}
             confirmAction={confirmAction || undefined}
+            canAssignAdmin={isAdmin}
           />
 
         </div>

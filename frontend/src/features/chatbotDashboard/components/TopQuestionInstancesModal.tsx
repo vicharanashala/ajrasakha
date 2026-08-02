@@ -56,6 +56,7 @@ interface TopQuestionInstancesModalProps {
   startDate?: Date;
   endDate?: Date;
   onClose: () => void;
+  coordinatorId?: string;
 }
 
 const PAGE_SIZE = 10;
@@ -70,6 +71,7 @@ export function TopQuestionInstancesModal({
   startDate,
   endDate,
   onClose,
+  coordinatorId,
 }: TopQuestionInstancesModalProps) {
   const { setSelectedQuestionId, setView } = useSelectedQuestion();
 
@@ -84,6 +86,7 @@ export function TopQuestionInstancesModal({
     page,
     limit: PAGE_SIZE,
     enabled: true,
+    coordinatorId,
   });
 
   // ── Columns ───────────────────────────────────────────────────────────────
@@ -100,11 +103,20 @@ export function TopQuestionInstancesModal({
         render: (row) => <CopyableIdCell id={row._id} />,
       },
       {
+        key: "email",
+        label: "Email",
+        sortable: true,
+        sortAccessor: (row) => row.email ?? "",
+        className: "w-[16%]",
+        cellClassName: "text-xs text-gray-500 truncate",
+        render: (row) => row.email || "Not Available",
+      },
+      {
         key: "question",
         label: "Question",
         sortable: true,
         sortAccessor: (row) => row.question,
-        className: "w-[44%]",
+        className: "w-[38%]",
         cellClassName: "overflow-hidden",
         render: (row) => (
           <button

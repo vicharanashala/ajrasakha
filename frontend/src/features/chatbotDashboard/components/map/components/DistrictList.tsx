@@ -16,12 +16,14 @@ interface DistrictListProps {
   } | null;
   selectedState: string;
   onSelectDistrict: (name: string, feature: GeoFeature) => void;
+  questionStatusRnage?:any
 }
 
 export function DistrictList({
   districtsOfState,
   selectedState,
   onSelectDistrict,
+  questionStatusRnage
 }: DistrictListProps) {
   if (!districtsOfState) return null;
 
@@ -45,7 +47,7 @@ export function DistrictList({
               </span>
               <span className="flex items-center gap-3">
               <span className="flex items-center text-xs text-muted-foreground tabular-nums">
-                <User className="h-3"/>{fmt((f.properties._analytics as {users: number}).users)}
+                <User className="h-3"/>{questionStatusRnage === undefined ? fmt((f.properties._analytics as {users: number}).users): fmt((f.properties._analytics as {activeUsers: number}).activeUsers)}
               </span>
               <div>|</div>
               <span className="flex items-center text-xs text-muted-foreground tabular-nums">

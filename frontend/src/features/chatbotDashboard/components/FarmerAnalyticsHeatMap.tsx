@@ -33,6 +33,7 @@ import {
   type FarmerHeatMapMetric,
   type FarmerHeatMapQuestionDetail,
   useFarmerHeatMapAnalytics,
+  type FarmerHeatMapResponse,
 } from "../hooks/useFarmerHeatMapAnalytics";
 import CountUp from "react-countup";
 import { QuestionActivityModal } from "./QuestionActivityModal";
@@ -65,8 +66,13 @@ const metricOptions: Array<{
   },
   {
     value: "closedQuestions",
-    label: "Closed Questions",
-    shortLabel: "Closed",
+    label: "GDB Questions",
+    shortLabel: "GDB",
+  },
+  {
+    value: "nonGdbQuestions",
+    label: "Non-GDB Questions",
+    shortLabel: "Non-GDB",
   },
   {
     value: "notifiedQuestions",
@@ -151,6 +157,27 @@ const getDuplicateGroupKey = (question: FarmerHeatMapQuestionDetail) => {
 const normalizeStatus = (status?: string) =>
   String(status || "unknown").trim().toLowerCase().replace(/_/g, "-");
 
+const getActivityDescription = (metric: FarmerHeatMapMetric) => {
+  switch (metric) {
+    case "activeFarmers":
+      return "Represents the number of unique farmers who interacted with the chatbot.";
+    case "totalQuestions":
+      return "The total volume of chatbot queries received from farmers.";
+    case "duplicateQuestions":
+      return "Queries identified as duplicates of already asked questions.";
+    case "closedQuestions":
+      return "Chatbot questions that have been resolved and closed (status is closed).";
+    case "nonGdbQuestions":
+      return "Chatbot questions that have been passed to experts or dynamically closed (status is pass or dynamic closed).";
+    case "notifiedQuestions":
+      return "Closed chatbot questions where the farmer has been successfully notified.";
+    case "averageClosureTimeMinutes":
+      return "The average time taken to resolve and close chatbot queries.";
+    default:
+      return "";
+  }
+};
+
 const isQuestionListingMetric = (metric: FarmerHeatMapMetric) =>
   metric !== "activeFarmers";
 
@@ -167,6 +194,12 @@ const getMetricQuestionDetails = (
   }
   if (metric === "closedQuestions" || metric === "averageClosureTimeMinutes") {
     return details.filter((item) => normalizeStatus(item.status) === "closed");
+  }
+  if (metric === "nonGdbQuestions") {
+    return details.filter((item) => {
+      const status = normalizeStatus(item.status);
+      return status === "pass" || status === "dynamic-closed" || status === "dynamic_closed";
+    });
   }
   if (metric === "notifiedQuestions") {
     return details.filter((item) => normalizeStatus(item.status) === "closed" && item.isCustomerNotified === true);
@@ -835,6 +868,20 @@ export function FarmerAnalyticsHeatMap({
             </SelectContent>
           </Select>
         </motion.div>
+
+        {/* Selected activity description */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={metric}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="flex items-center gap-2 rounded-lg border border-primary/10 bg-primary/5 px-3 py-1.5 text-xs text-muted-foreground shadow-sm mt-2"
+          >
+            <InfoIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span>{getActivityDescription(metric)}</span>
+          </motion.div>
+        </AnimatePresence>
       </CardHeader>
 
       <CardContent className="space-y-3 pt-4">
@@ -961,7 +1008,8 @@ export function FarmerAnalyticsHeatMap({
                             `Active farmers: ${cell.activeFarmers}`,
                             `Total questions: ${cell.totalQuestions}`,
                             `Duplicate questions: ${cell.duplicateQuestions}`,
-                            `Closed questions: ${cell.closedQuestions}`,
+                            `GDB questions: ${cell.closedQuestions}`,
+                            `Non-GDB questions: ${cell.nonGdbQuestions ?? 0}`,
                             `Notified questions: ${cell.notifiedQuestions}`,
                             `Average closure time: ${formatValue("averageClosureTimeMinutes", cell.averageClosureTimeMinutes)}`,
                             `Status distribution: ${formatStatusDistribution(cell.statusDistribution)}`,

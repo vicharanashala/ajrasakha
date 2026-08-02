@@ -29,6 +29,8 @@ interface FeedbackUsersModalProps {
   isMapComponent?: boolean;
   state?: string
   district?: string
+  startDate?: string
+  endDate?: string
 }
 
 const PAGE_SIZE = 10;
@@ -41,7 +43,9 @@ export function FeedbackUsersModal({
   setRating,
   isMapComponent,
   state,
-  district
+  district,
+  startDate,
+  endDate
 }: FeedbackUsersModalProps) {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -95,6 +99,8 @@ const feedbackLocationQuery = useFeedbackLocation({
   userType,
   state,
   district,
+  startDate,
+  endDate,
   enabled: !!isMapComponent,
 });
 

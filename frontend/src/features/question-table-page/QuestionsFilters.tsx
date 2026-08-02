@@ -9,7 +9,7 @@ import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
 
 import { Badge } from "../../components/atoms/badge";
-import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "../../components/atoms/select";
+// import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "../../components/atoms/select";
 
 import {
   ArrowDownNarrowWide,
@@ -45,6 +45,7 @@ import {
 import type {
   IDetailedQuestion,
   IMyPreference,
+  IUser,
   QuestionSource,
   QuestionStatus,
   UserRole,
@@ -73,7 +74,8 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
-import { QueueDetailsModal } from "./QueueDetailsModal";
+import { QueueDetailsModal, GateKeeperAuditorQueueModal } from "./QueueDetailsModal";
+import { canViewQueueDetails } from "@/lib/roles";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
@@ -96,6 +98,7 @@ type QuestionsFiltersProps = {
   setIsBulkUpload: (val: boolean) => void;
   refetch: () => void;
   totalQuestions: number;
+  currentUser?: IUser;
   userRole: UserRole;
   isSelectionModeOn: boolean;
   bulkDeletingQuestions: boolean;
@@ -115,7 +118,7 @@ type QuestionsFiltersProps = {
   onAnswerModeChange?: (mode: string) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
@@ -125,6 +128,7 @@ const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.source === "AGRI_EXPERT") return "manual";
   if (filter.source === "WHATSAPP") return "whatsapp";
   if (filter.source === "OUTREACH") return "outreach";
+  if (filter.isTrainingQuestion === true) return "training";
   return "ajraskha";
 };
 
@@ -150,6 +154,7 @@ export const QuestionsFilters = ({
   onReset,
   refetch,
   totalQuestions,
+  currentUser,
   userRole,
   isSelectionModeOn,
   handleBulkDelete,
@@ -189,6 +194,7 @@ export const QuestionsFilters = ({
     filterToAnswerMode(appliedFilters),
   );
   const prevAnswerModeRef = useRef<AnswerMode>(filterToAnswerMode(appliedFilters));
+  const isTrainingUser = currentUser?.isTrainingUser === true;
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -325,9 +331,12 @@ export const QuestionsFilters = ({
       if (mode !== "add") return;
       if (formData) {
         const isOutreach = formData.get("isOutreachQuestion") === "true";
+        const isTrainingQuestion = formData.get("isTrainingQuestion") === "true";
         await addQuestion(formData as any);
         // toast.success('File Uploaded succesfully')
-        handleAnswerModeChange(isOutreach ? "outreach" : "manual");
+        handleAnswerModeChange(
+          isTrainingQuestion ? "training" : isOutreach ? "outreach" : "manual",
+        );
         setAddQuestionErrors({});
         setAddOpen(false);
         return;
@@ -347,6 +356,7 @@ export const QuestionsFilters = ({
         details: updatedData.details,
         context: updatedData.context || "",
         aiInitialAnswer: updatedData.aiInitialAnswer || "",
+        isTrainingQuestion: updatedData.isTrainingQuestion ?? false,
       };
 
       const validationErrors: AddQuestionValidationErrors = {};
@@ -461,7 +471,7 @@ export const QuestionsFilters = ({
 
     if (nextAnswerMode === "search") {
       // Search Results tab → fetch all sources, reset client-side mode
-      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       prevAnswerModeRef.current = "search";
       setAnswerMode("search");
       setAdvanceFilterValues(nextFilters);
@@ -480,18 +490,22 @@ export const QuestionsFilters = ({
     }
 
     if (nextAnswerMode === "non_agri") {
-      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined };
+      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else if (nextAnswerMode === "draft") {
-      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
     } else if (nextAnswerMode === "dynamic") {
-      nextFilters = { ...advanceFilter, source: "all", status: "dynamic", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", status: "dynamic", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
     } else if (nextAnswerMode === "pae") {
-      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined, isTrainingQuestion: undefined };
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
+    } else if (nextAnswerMode === "training") {
+      nextFilters = { ...advanceFilter, source: "all", isTrainingQuestion: true, pae_review: undefined, is_non_agri: undefined, status: "all" };
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);
-      nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     }
 
@@ -500,6 +514,11 @@ export const QuestionsFilters = ({
     setAdvanceFilterValues(nextFilters);
     onChange(nextFilters);
   };
+
+  useEffect(() => {
+    if (!isTrainingUser || answerMode === "training") return;
+    handleAnswerModeChange("training");
+  }, [answerMode, isTrainingUser]);
 
   // Auto-switch to Search Results tab when user types; revert when cleared
   useEffect(() => {
@@ -549,6 +568,7 @@ export const QuestionsFilters = ({
       priority: advanceFilter.priority,
       domain: myPreference?.domain || advanceFilter.domain,
       user: advanceFilter.user,
+      assignedUser: advanceFilter.assignedUser,
       endTime: advanceFilter.endTime,
       startTime: advanceFilter.startTime,
       review_level: advanceFilter?.review_level,
@@ -563,6 +583,7 @@ export const QuestionsFilters = ({
       isOnHold: advanceFilter?.isOnHold,
       is_non_agri: advanceFilter?.is_non_agri,
       is_testing: advanceFilter?.is_testing,
+      isTrainingQuestion: advanceFilter?.isTrainingQuestion,
       unallocatedQuestions: advanceFilter?.unallocatedQuestions,
     });
   };
@@ -643,13 +664,19 @@ export const QuestionsFilters = ({
     delayed: { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
     "in-review": { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", dot: "bg-blue-500" },
     closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
+    dynamic_closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
+    duplicate_closed: { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500" },
     pass: { bg: "bg-teal-500/10", text: "text-teal-600 dark:text-teal-400", dot: "bg-teal-500" },
     hold: { bg: "bg-orange-500/10", text: "text-orange-600 dark:text-orange-400", dot: "bg-orange-500" },
     duplicate: { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500" },
     "re-routed": { bg: "bg-violet-500/10", text: "text-violet-600 dark:text-violet-400", dot: "bg-violet-500" },
     pae_submitted: { bg: "bg-cyan-500/10", text: "text-cyan-600 dark:text-cyan-400", dot: "bg-cyan-500" },
     draft: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-500" },
-    dynamic: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-6  00" },
+    dynamic: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-600" },
+    queue_progress: { bg: "bg-indigo-500/10", text: "text-indigo-600 dark:text-indigo-400", dot: "bg-indigo-500" },
+    auditor_review: { bg: "bg-fuchsia-500/10", text: "text-fuchsia-600 dark:text-fuchsia-400", dot: "bg-fuchsia-500" },
+    // dynamic_closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
+    // duplicate_closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
   };
   const defaultColor = { bg: "bg-purple-500/10", text: "text-purple-600 dark:text-purple-400", dot: "bg-purple-500" };
 
@@ -708,6 +735,7 @@ export const QuestionsFilters = ({
         mode="add"
         validationErrors={addQuestionErrors}
         onFieldValidatedChange={clearAddQuestionError}
+        defaultIsTrainingQuestion={answerMode === "training"}
       />
 
       {/* ── ROW 1: Tabs (full width, scrollable on small screens) ── */}
@@ -717,10 +745,16 @@ export const QuestionsFilters = ({
           if (viewMode === "dedicated") setViewMode("all");
           handleAnswerModeChange(mode);
         }}
+        currentUserIsTrainingUser={isTrainingUser}
+        currentUserIsAdmin={userRole === "admin"}
         hasSearch={!!search}
         sourceCounts={statusSummary?.sourceCounts}
         totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
-        showDedicated={userRole === "moderator"}
+        showDedicated={
+          userRole === "moderator" ||
+          userRole === "gate_keeper" ||
+          userRole === "auditor"
+        }
         isDedicatedView={viewMode === "dedicated"}
         onDedicatedClick={() => setViewMode(viewMode === "dedicated" ? "all" : "dedicated")}
       />
@@ -1049,7 +1083,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* WhatsApp History */}
-              {userRole !== "expert" && userRole !== 'tester' && (
+              {userRole !== "expert" && userRole !== 'tester' && !isTrainingUser && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative"
                   onClick={() => {
@@ -1131,7 +1165,7 @@ export const QuestionsFilters = ({
               )} */}
 
               {/* reallocate */}
-              {userRole !== "expert" && userRole !== "tester" && (
+              {userRole !== "expert" && userRole !== "tester" && !isTrainingUser && (
                 <button
                   className="relative w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1167,7 +1201,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* send outreach rport */}
-              {userRole !== "expert" && userRole !== "tester" && (
+              {userRole !== "expert" && userRole !== "tester" && !isTrainingUser && (
                 <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
               {/* preferences */}
@@ -1183,9 +1217,14 @@ export const QuestionsFilters = ({
                 setIsSidebarOpen={setIsSidebarOpen}
               />
 
-              {/* queue details — moderators & admins only */}
-              {(userRole === "admin" || userRole === "moderator") && (
+              {/* queue details — admins, moderators, gate keepers & auditors */}
+              {canViewQueueDetails(userRole) && (
                 <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
+
+              {/* gate keeper / auditor queue — admins, moderators, gate keepers & auditors */}
+              {canViewQueueDetails(userRole) && !isTrainingUser && (
+                <GateKeeperAuditorQueueModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
             </div>
           </section>
@@ -1236,6 +1275,7 @@ export const QuestionsFilters = ({
                   <DownloadShiftWiseReportButton
                     closeSideBar={() => setIsSidebarOpen(false)}
                     userRole={userRole}
+                    isTrainingUser={isTrainingUser}
                   />
                 </div>
 

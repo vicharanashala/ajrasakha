@@ -32,6 +32,47 @@ def test_heuristic_intent_search_markets():
     assert intent["action"] == "search_markets"
 
 
+def test_heuristic_intent_nearby_market_phrase():
+    intent = _heuristic_intent("nearby market for rice in Guwahati")
+    assert intent["action"] == "search_markets"
+    assert intent["nearest_market"] is True
+
+
+def test_normalize_intent_overrides_nearby_market_from_gemma_price():
+    intent = _normalize_intent(
+        {
+            "action": "get_today_price",
+            "market_name": "rice",
+            "nearest_market": True,
+        },
+        "nearby market for rice in Guwahati",
+    )
+    assert intent["action"] == "search_markets"
+    assert intent["market_name"] is None
+
+
+def test_build_tool_args_strips_crop_from_market_name():
+    base_fields = {
+        "nearest_market": True,
+        "radius_km": None,
+        "lookback_days": None,
+        "from_date": None,
+        "to_date": None,
+        "market_name": "rice",
+        "state": "Assam",
+        "sort_order": None,
+    }
+    args = _build_tool_args(
+        {"action": "get_today_price", "actions": ["get_today_price"], **base_fields},
+        lat=26.15,
+        lon=91.69,
+        crop="Paddy",
+        state="Assam",
+    )
+    assert "market_name" not in args
+    assert args["commodity_name"] == ["Paddy"]
+
+
 def test_normalize_intent_maps_legacy_get_prices():
     intent = _normalize_intent({"action": "get_prices"}, "price of onion today")
     assert intent["action"] == "get_today_price"
@@ -50,6 +91,69 @@ def test_normalize_intent_maps_legacy_get_prices_with_lookback():
 def test_normalize_intent_rejects_unknown_action():
     intent = _normalize_intent({"action": "get_unresolved_markets"}, "price of onion")
     assert intent["action"] == "search_markets"
+
+
+def test_normalize_intent_accepts_action_list():
+    intent = _normalize_intent(
+        {
+            "action": ["get_today_price", "search_markets"],
+            "nearest_market": True,
+            "radius_km": 50,
+        },
+        "wheat price today and mandis near me",
+    )
+    assert intent["actions"] == ["get_today_price", "search_markets"]
+    assert intent["action"] == "get_today_price"
+
+
+def test_build_tool_args_multi_action():
+    base_fields = {
+        "nearest_market": True,
+        "radius_km": 50,
+        "lookback_days": None,
+        "from_date": None,
+        "to_date": None,
+        "market_name": None,
+        "state": "Punjab",
+        "sort_order": None,
+    }
+    args = _build_tool_args(
+        {
+            "action": "get_today_price",
+            "actions": ["get_today_price", "search_markets"],
+            **base_fields,
+        },
+        lat=30.9,
+        lon=76.5,
+        crop="wheat",
+        state="Punjab",
+    )
+    assert args["action"] == ["get_today_price", "search_markets"]
+    assert args["commodity_name"] == ["wheat"]
+    assert args["state"] == "Punjab"
+    assert args["radius_km"] == 50
+
+
+def test_tool_result_is_empty_multi_action_all_empty():
+    payload = {
+        "actions": ["get_today_price", "search_markets"],
+        "results": {
+            "get_today_price": {"error": "no data"},
+            "search_markets": {"markets": []},
+        },
+    }
+    assert _tool_result_is_empty(payload)
+
+
+def test_tool_result_is_empty_multi_action_partial_data():
+    payload = {
+        "actions": ["get_today_price", "search_markets"],
+        "results": {
+            "get_today_price": {"price_records": [{"modal_price": 2500}]},
+            "search_markets": {"markets": []},
+        },
+    }
+    assert not _tool_result_is_empty(payload)
 
 
 def test_build_tool_args_today_price():

@@ -337,7 +337,11 @@ export function CoordinatorUserManagement({
                 user={user}
                 selected={selectedAssignedUsers.includes(user._id)}
                 onToggle={() => onToggleAssignedUser(user._id)}
-                name={<span className="font-semibold">{user.name}</span>}
+                name={
+                  <FarmerNameLink userId={user._id} className="font-semibold">
+                    {user.name}
+                  </FarmerNameLink>
+                }
                 actions={
                   <>
                     <Button

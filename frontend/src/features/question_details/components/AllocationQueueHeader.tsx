@@ -23,7 +23,7 @@ import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { initializeNotifications } from "@/services/pushService";
 import type { IQuestionFullData, ISubmission, IUser } from "@/types";
 import { DialogTitle } from "@radix-ui/react-dialog";
-import { Info, Loader2, User, UserPlus, Users, X } from "lucide-react";
+import { GraduationCap, Info, Loader2, User, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -38,8 +38,6 @@ export const AllocationQueueHeader = ({
   queue = [],
   currentUser,
 }: AllocationQueueHeaderProps) => {
-  const isDuplicate = question.status === "duplicate";
-
   const [autoAllocate, setAutoAllocate] = useState(question.isAutoAllocate);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -51,10 +49,19 @@ export const AllocationQueueHeader = ({
   const { mutateAsync: toggleAutoAllocateStatus, isPending: changingStatus } =
     useToggleAutoAllocateQuestion();
 
+  const isTrainingQuestion = question.isTrainingQuestion === true;
   const expertsIdsInQueue = new Set(queue.map((expert) => expert._id));
+
   const experts =
     usersData?.users.filter(
-      (user) => user.role === "expert" && !expertsIdsInQueue.has(user._id)
+      (user) => {
+        // Base filter: must be an expert and not already in queue
+        if (user.role !== "expert" || expertsIdsInQueue.has(user._id)) {
+          return false;
+        }
+
+        return true;
+      }
     ) || [];
   // let experts = [];
 
@@ -139,6 +146,27 @@ export const AllocationQueueHeader = ({
     setSelectedExperts([]);
     setIsModalOpen(false);
   };
+
+  // The auto-allocate toggle is shown to moderators/admins regardless of status (so
+  // they can turn allocation on/off ahead of time). The "Select Experts" action only
+  // shows when the question is actually in a normal expert-answering status — never for
+  // triage statuses (dynamic / queue_duplicate / auditor_review / non_agri).
+  //
+  // Exception — duplicate questions: when the moderator explicitly turns auto-allocate
+  // OFF on a duplicate question, "Select Experts" must appear so they can manually pick
+  // an expert. The backend will reopen the question to 'open' on allocation so the
+  // expert can see it in their dashboard.
+  // Gate keepers and auditors manage expert allocation alongside moderators/admins.
+  const canManageAllocation = currentUser.role !== "expert";
+  const isExpertStatus =
+    question.status !== "non_agri" &&
+    question.status !== "queue_duplicate" &&
+    question.status !== "auditor_review" &&
+    question.status !== "dynamic" &&
+    // For duplicate questions: allow "Select Experts" only when auto-allocate is OFF
+    // (moderator has consciously decided to assign manually).
+    (question.status !== "duplicate" || !autoAllocate);
+
   return (
     <div className="flex flex-col gap-4 pb-6 border-b border-border">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -161,8 +189,10 @@ export const AllocationQueueHeader = ({
         {/* RIGHT SECTION — for duplicate questions the auto-allocate toggle and
             "Select Experts" only show to the moderator the question is assigned to
             (i.e. from "My Assignment"); hidden on every other tab. Non-duplicate
-            questions are unaffected. */}
-        {currentUser.role !== "expert" && question.status!=='non_agri' && question.isTesting!==true && (!isDuplicate || question.isAssignedModerator) && (
+            questions are unaffected.
+            Queue-duplicate questions: NO auto-allocate / Select Experts until the
+            status is changed away from 'queue_duplicate'. */}
+        {canManageAllocation ? (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             {/* Auto-Allocate Block */}
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
@@ -201,8 +231,9 @@ export const AllocationQueueHeader = ({
               </TooltipProvider>
             </div>
 
-            {/* Select Experts Button */}
-            {!autoAllocate && (
+            {/* Select Experts Button — only when auto-allocate is OFF and the question
+                is in a normal expert-answering status (not a triage status). */}
+            {!autoAllocate && isExpertStatus && (
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 {/* <DialogTrigger asChild> */}
                 <Button variant="default" className="gap-2 w-full sm:w-auto"
@@ -290,13 +321,20 @@ export const AllocationQueueHeader = ({
 
                       {!isUsersLoading &&
                         filteredExperts.map((expert) => (
+                          (() => {
+                            const isTrainingExpert = expert.isTrainingUser === true;
+                            const isQuestionTypeMismatch =
+                              isTrainingQuestion !== isTrainingExpert;
+                            const isDisabled = expert.isBlocked || isQuestionTypeMismatch;
+
+                            return (
                           <div
                             key={expert._id}
-                            className={`flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${expert.isBlocked
-                              ? "blur-[0px] cursor-not-allowed"
-                              : "hover:bg-muted/50"
-                              }
-  `}
+                            className={`flex items-start space-x-3 p-3 rounded-lg transition-colors ${
+                              isDisabled
+                                ? "cursor-not-allowed opacity-60"
+                                : "hover:bg-muted/50"
+                            }`}
                           >
                             <div className="p-2 rounded-lg bg-primary/10 flex items-center justify-center">
                               <User className="w-5 h-5 text-primary" />
@@ -305,10 +343,11 @@ export const AllocationQueueHeader = ({
                             <Checkbox
                               id={`expert-${expert._id}`}
                               checked={selectedExperts.includes(expert._id)}
-                              onCheckedChange={() =>
-                                handleSelectExpert(expert._id)
-                              }
-                              disabled={expert.isBlocked}
+                              onCheckedChange={() => {
+                                if (isDisabled) return;
+                                handleSelectExpert(expert._id);
+                              }}
+                              disabled={isDisabled}
                               className="mt-1"
                             />
                             {/* {expert.isBlocked ? 'Blocked' : ''} */}
@@ -319,13 +358,17 @@ export const AllocationQueueHeader = ({
                             >
                               <div className="flex justify-between items-center w-full">
                                 <div className="flex flex-col">
-                                  <div
-                                    className="font-medium truncate"
-                                    title={expert.userName}
-                                  >
-                                    {expert?.userName?.slice(0, 48)}
-                                    {expert?.userName?.length > 48 ? "..." : ""}
-                                  </div>
+                                      <div
+                                        className="font-medium truncate flex gap-1"
+                                        title={expert.userName}
+                                      >
+                                        {
+                                          expert.isTrainingUser &&
+                                          <GraduationCap className="w-3.5 h-5 fill-violet-500 pb-2" />
+                                        }
+                                        {expert?.userName?.slice(0, 48)}
+                                        {expert?.userName?.length > 48 ? "..." : ""}
+                                      </div>
                                   <div
                                     className="text-xs text-muted-foreground truncate"
                                     title={expert.email}
@@ -338,6 +381,13 @@ export const AllocationQueueHeader = ({
                                       Blocked
                                     </span>
                                   )}
+                                  {isQuestionTypeMismatch && (
+                                    <div className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                                      {isTrainingQuestion
+                                        ? "Disabled: training questions require a training user."
+                                        : "Disabled: normal questions require a normal user."}
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="text-sm text-muted-foreground flex-shrink-0 ml-2 hidden md:block">
@@ -349,6 +399,8 @@ export const AllocationQueueHeader = ({
                               </div>
                             </Label>
                           </div>
+                            );
+                          })()
                         ))}
                     </div>
                   </ScrollArea>
@@ -373,6 +425,17 @@ export const AllocationQueueHeader = ({
                 </DialogContent>
               </Dialog>
             )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                autoAllocate ? "bg-green-500" : "bg-muted-foreground/50"
+              }`}
+            />
+            <span className="font-medium text-sm text-foreground">
+              Auto-allocate: {autoAllocate ? "On" : "Off"}
+            </span>
           </div>
         )}
       </div>

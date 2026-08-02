@@ -1,11 +1,23 @@
 import json
 import re
+
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from ajrasakha.agents.config import CLAUDE_MODEL, SANITIZER_MODEL
 from ajrasakha.agents.acc_agent.state import AccAgentState
-from ajrasakha.agents.acc_agent.prompts import ACC_EXTRACT_PROMPT, ACC_PLANNER_PROMPT, ACC_ASSEMBLER_PROMPT
+from ajrasakha.agents.acc_agent.extraction import (
+    build_extraction_update,
+    normalize_extraction_type,
+)
+from ajrasakha.agents.acc_agent.lgd_location import normalize_location_from_lgd
+from ajrasakha.agents.acc_agent.prompts import (
+    ACC_ASSEMBLER_PROMPT,
+    ACC_EXTRACT_PROMPT,
+    ACC_FARMER_DETAILS_PROMPT,
+    ACC_PLANNER_PROMPT,
+    ACC_QUERY_DETAILS_PROMPT,
+)
 
 from ajrasakha.agents.gdb_agent import gdb
 from ajrasakha.agents.weather_agent import weather
@@ -14,13 +26,20 @@ from ajrasakha.agents.schemes_agent import schemes
 from ajrasakha.agents.location_context import forward_geocode
 
 async def extract_node(state: AccAgentState):
-    """Extract query, state, district, crop, and standardized_domains from transcript."""
+    """Extract all details, farmer details, or query details from a transcript."""
     if not state.get("transcript"):
         return {}
-        
+
+    extraction_type = normalize_extraction_type(state.get("extraction_type"))
+    prompt_by_type = {
+        "all": ACC_EXTRACT_PROMPT,
+        "farmer_details": ACC_FARMER_DETAILS_PROMPT,
+        "query_details": ACC_QUERY_DETAILS_PROMPT,
+    }
+
     llm = ChatAnthropic(model=SANITIZER_MODEL)
     messages = [
-        SystemMessage(content=ACC_EXTRACT_PROMPT),
+        SystemMessage(content=prompt_by_type[extraction_type]),
         HumanMessage(content=state["transcript"])
     ]
     response = await llm.ainvoke(messages)
@@ -32,24 +51,27 @@ async def extract_node(state: AccAgentState):
             data = json.loads(json_match.group(1))
         else:
             data = json.loads(content)
-            
-        # Extract standardized_domains (can be one or more)
-        domains = data.get("standardized_domains", [])
-        if isinstance(domains, str):
-            domains = [domains]
-        if not domains:
-            domains = ["Others"]  # Default fallback
-            
-        return {
-            "extracted_query": data.get("query", ""),
-            "extracted_state": data.get("state", "All"),
-            "extracted_district": data.get("district", "All"),
-            "extracted_crop": data.get("crop", "All"),
-            "standardized_domains": domains,
-            "verified_by_human": False
-        }
+        extraction_update = build_extraction_update(data, extraction_type)
+        normalized_state, normalized_district = await normalize_location_from_lgd(
+            extraction_update.get("extracted_state"),
+            extraction_update.get("extracted_district"),
+        )
+        extraction_update["extracted_state"] = normalized_state
+        extraction_update["extracted_district"] = normalized_district
+        return extraction_update
     except Exception as e:
-        return {"extracted_query": f"Failed to parse: {str(e)}", "verified_by_human": False}
+        if extraction_type == "farmer_details":
+            return {
+                "extraction_type": extraction_type,
+                "extracted_state": "All",
+                "extracted_district": "All",
+                "verified_by_human": False,
+            }
+        return {
+            "extraction_type": extraction_type,
+            "extracted_query": f"Failed to parse: {str(e)}",
+            "verified_by_human": False,
+        }
 
 async def planner_node(state: AccAgentState):
     """Determine which sub-agent tool(s) to use based on verified inputs."""

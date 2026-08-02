@@ -53,6 +53,7 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.AssignmentEngineService).to(AssignmentEngineService).inSingletonScope();
   options.bind(CORE_TYPES.WaitingQueueService).to(WaitingQueueService).inSingletonScope();
   options.bind(GLOBAL_TYPES.AccAgentService).to(AccAgentService).inSingletonScope();
+  options.bind(CORE_TYPES.CheckOverlapsService).to(CheckOverlapsService).inSingletonScope();
   // Repositories
   options
     .bind(CORE_TYPES.QuestionSubmissionRepository)

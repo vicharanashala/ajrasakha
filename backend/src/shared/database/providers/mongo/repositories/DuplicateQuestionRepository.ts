@@ -75,6 +75,8 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
     startDate: Date,
     endDate: Date,
     // sources: 'AJRASAKHA',
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<ISimilarQuestion[]> {
     try {
@@ -90,10 +92,17 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
         },
       };
 
+      const trainingFilter = !isAdmin && isTrainingUser === true
+      ? { isTrainingQuestion: true }
+      : !isAdmin && isTrainingUser === false
+        ? { isTrainingQuestion: { $ne: true } }
+        : {}
+
       const duplicates = await this.DuplicateQuestionCollection.find(
         {
           // source: sources,
-          dateFilter,
+          ...dateFilter,
+          ...trainingFilter,
         },
         { session },
       ).toArray();
@@ -101,6 +110,7 @@ export class DuplicateQuestionRepository  implements IDuplicateQuestionRepositor
         const questionsWithScore = await this.QuestionCollection.find(
           {
             ...dateFilter,
+            ...trainingFilter,
             similarityScore: {$exists: true, $gt: 0},
           },
           {session},

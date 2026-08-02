@@ -21,6 +21,8 @@ interface DateRangeFilterProps {
   showWarning?: boolean;
   /** Warning message to display when showWarning is true */
   warningMessage?: string;
+  /** When true, hides the label above the button */
+  hideLabel?: boolean;
 }
 
 export const DateRangeFilter = ({
@@ -32,6 +34,7 @@ export const DateRangeFilter = ({
   helperText,
   showWarning,
   warningMessage,
+  hideLabel,
 }: DateRangeFilterProps) => {
   const [isCalendarVisible, setIsCalendarVisible] = React.useState(false);
   // Convert the flat startTime/endTime into the DateRange object for the Calendar
@@ -77,10 +80,12 @@ const handleDateSelect = (range: DateRange | undefined) => {
 
   return (
     <div className={`space-y-2 min-w-0 relative ${className || ""}`}>
-      <Label className="flex items-center gap-2 text-sm font-semibold">
-        <Clock className="h-4 w-4 text-primary" />
-       {customName || "Custom Date Range"}
-      </Label>
+      {!hideLabel && (
+        <Label className="flex items-center gap-2 text-sm font-semibold">
+          <Clock className="h-4 w-4 text-primary" />
+         {customName || "Custom Date Range"}
+        </Label>
+      )}
 
       {/* This Button now acts as a toggle */}
       <Button

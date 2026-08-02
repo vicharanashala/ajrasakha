@@ -2,11 +2,14 @@
    STAT CARD - Reusable statistics display card
 ============================================================ */
 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/atoms/tooltip";
+
 interface StatCardProps {
   label: string;
   value: string;
   icon: React.ReactNode;
     onClick?: () => void;
+  tooltip?:React.ReactNode 
 }
 
 export function StatCard({
@@ -14,8 +17,9 @@ export function StatCard({
   value,
   icon,
   onClick,
+  tooltip,
 }: StatCardProps) {
-  return (
+  const card = (
     <div
       onClick={onClick}
       className={`rounded-xl border border-border bg-card p-3 transition-all
@@ -36,5 +40,19 @@ export function StatCard({
         {value}
       </div>
     </div>
+  );
+  if (!tooltip) return card
+  return (
+          <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {card}
+        </TooltipTrigger>
+
+        <TooltipContent side="top" className="max-w-xs">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

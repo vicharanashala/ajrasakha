@@ -8,6 +8,7 @@ import type { IUser } from "@/types";
 import {
   CROPS,
   STATES,
+  type AdvanceFilterValues,
   type QuestionDateRangeFilter,
   type QuestionFilterStatus,
   type QuestionPriorityFilter,
@@ -85,12 +86,14 @@ export const QuestionsPage = ({
   const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
   const [isNonAgri, setIsNonAgri] = useState<boolean | undefined>(undefined);
   const [isTesting, setIsTesting] = useState<boolean | undefined>(undefined);
+  const [isTrainingQuestion, setIsTrainingQuestion] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
+  const [assignedUser, setAssignedUser] = useState("all");
   const [selectedQuestionId, setSelectedQuestionId] = useState(
     autoOpenQuestionId || "",
   );
@@ -173,6 +176,7 @@ export const QuestionsPage = ({
         priority,
         domain,
         user,
+        assignedUser,
         startTime,
         endTime,
         review_level,
@@ -189,8 +193,22 @@ export const QuestionsPage = ({
         pae_review: paeReview,
         is_non_agri: isNonAgri,
         is_testing: isTesting,
+        isTrainingQuestion,
         // Dedicated tab: filter to questions assigned to the current moderator
-        moderatorId: isDedicated ? (currentUser?._id?.toString() ?? undefined) : undefined,
+        // Dedicated ("My Assignment") tab: filter to questions assigned to the current
+        // user, by their role — moderator, gate keeper, or auditor.
+        moderatorId:
+          isDedicated && currentUser?.role === "moderator"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
+        gateKeeperId:
+          isDedicated && currentUser?.role === "gate_keeper"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
+        auditorId:
+          isDedicated && currentUser?.role === "auditor"
+            ? currentUser?._id?.toString() ?? undefined
+            : undefined,
       };
     },
     [
@@ -206,6 +224,7 @@ export const QuestionsPage = ({
       priority,
       domain,
       user,
+      assignedUser,
       startTime,
       endTime,
       review_level,
@@ -222,7 +241,13 @@ export const QuestionsPage = ({
       paeReview,
       isNonAgri,
       isTesting,
+      isTrainingQuestion,
       viewMode,
+      // Only the id and role are read above. Depending on the whole `currentUser` object
+      // rebuilt this filter on every window-focus refetch (react-query returns a new
+      // object identity even when the data is unchanged).
+      currentUser?._id,
+      currentUser?.role,
     ],
   );
 
@@ -273,11 +298,23 @@ export const QuestionsPage = ({
     }
   }, [autoOpenQuestionId, selectedQuestionId]);
 
+  // Close the open question when the LIST's filters change, so the detail view never
+  // shows a question that's no longer in the result set.
+  //
+  // Keyed on a serialised snapshot rather than the `filter` object: `filter` is memoised
+  // on `currentUser`, a react-query value that gets a new identity on every window-focus
+  // refetch. Depending on the object meant that simply switching browser tabs and coming
+  // back re-ran this effect and slammed the moderator's open question shut, losing edits.
+  const filterSignature = useMemo(
+    () => JSON.stringify(filter),
+    [filter],
+  );
+
   useEffect(() => {
     if (selectedQuestionId && !autoOpenQuestionId) {
       setSelectedQuestionId("");
     }
-  }, [filter, debouncedSearch]);
+  }, [filterSignature, debouncedSearch]);
 
   useEffect(() => {
     if (debouncedSearch === "") return;
@@ -301,6 +338,7 @@ export const QuestionsPage = ({
     if (searchTabMode === "non_agri") return questions.filter((q) => q.status === "non_agri");
     if (searchTabMode === "pae") return questions.filter((q) => (q as any).pae_review === true);
     if (searchTabMode === "dynamic") return questions.filter((q) => q.status === "dynamic");
+    if (searchTabMode === "training") return questions.filter((q) => q.isTrainingQuestion === true);
     return questions;
   }, [questionData, debouncedSearch, searchTabMode]);
 
@@ -336,7 +374,10 @@ export const QuestionsPage = ({
 
   const handleNext = () => {
     if (currentIndex < currentItems.length - 1) {
-      setSelectedQuestionId(currentItems[currentIndex + 1]._id);
+      const nextQuestionId = currentItems[currentIndex + 1]?._id;
+      if (nextQuestionId) {
+        setSelectedQuestionId(nextQuestionId);
+      }
     } else if (currentPageVal < totalPages) {
       setPendingNav("next");
       if (viewMode === "review-level") setReviewPage(prev => prev + 1);
@@ -346,7 +387,10 @@ export const QuestionsPage = ({
 
   const handlePrev = () => {
     if (currentIndex > 0) {
-      setSelectedQuestionId(currentItems[currentIndex - 1]._id);
+      const previousQuestionId = currentItems[currentIndex - 1]?._id;
+      if (previousQuestionId) {
+        setSelectedQuestionId(previousQuestionId);
+      }
     } else if (currentPageVal > 1) {
       setPendingNav("prev");
       if (viewMode === "review-level") setReviewPage(prev => prev - 1);
@@ -357,9 +401,15 @@ export const QuestionsPage = ({
   useEffect(() => {
     if (pendingNav && !isLoading && !isFetching && !isReviewLoading && currentItems.length > 0) {
       if (pendingNav === "next") {
-        setSelectedQuestionId(currentItems[0]._id);
+        const firstQuestionId = currentItems[0]?._id;
+        if (firstQuestionId) {
+          setSelectedQuestionId(firstQuestionId);
+        }
       } else {
-        setSelectedQuestionId(currentItems[currentItems.length - 1]._id);
+        const lastQuestionId = currentItems[currentItems.length - 1]?._id;
+        if (lastQuestionId) {
+          setSelectedQuestionId(lastQuestionId);
+        }
       }
       setPendingNav(null);
     }
@@ -376,6 +426,7 @@ export const QuestionsPage = ({
     normalisedCrops?: string[];
     domain?: string;
     user?: string;
+    assignedUser?: string;
     answersCount?: [number, number];
     dateRange?: QuestionDateRangeFilter;
     startTime?: Date | undefined;
@@ -407,6 +458,7 @@ export const QuestionsPage = ({
     if (next.priority !== undefined) setPriority(next.priority);
     if (next.domain !== undefined) setDomain(next.domain);
     if (next.user !== undefined) setUser(next.user);
+    if (next.assignedUser !== undefined) setAssignedUser(next.assignedUser);
     if (next.startTime !== undefined) setStartTime(next.startTime);
     if (next.endTime !== undefined) setEndTime(next.endTime);
     if (next.review_level !== undefined) setReviewLevel(next.review_level);
@@ -434,6 +486,8 @@ export const QuestionsPage = ({
       setIsNonAgri(next.is_non_agri);
     if ("is_testing" in next)
       setIsTesting(next.is_testing);
+    if ("isTrainingQuestion" in next)
+      setIsTrainingQuestion(next.isTrainingQuestion);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -460,6 +514,7 @@ export const QuestionsPage = ({
     setPriority("all");
     setDomain("all");
     setUser("all");
+    setAssignedUser("all");
     setReviewLevel("all");
     setStartTime(undefined);
     setEndTime(undefined);
@@ -474,6 +529,8 @@ export const QuestionsPage = ({
     setIsOnHold(false);
     setPaeReview(undefined);
     setIsNonAgri(undefined);
+    setIsTesting(undefined);
+    setIsTrainingQuestion(undefined);
   };
 
   const handleViewMore = (questoinId: string) => {
@@ -573,6 +630,7 @@ export const QuestionsPage = ({
               refetch();
             }}
             totalQuestions={displayTotal}
+            currentUser={currentUser}
             userRole={currentUser?.role!}
             isSelectionModeOn={isSelectionModeOn}
             handleBulkDelete={handleBulkDelete}

@@ -68,15 +68,20 @@ type QuestionListTableProps<T> = {
   tag?: string,
   notificationType?: string,
   totalClosedAndPassed?: number,
+  userId?: string,
   closedQuestions?: number,
   totalQuestions?: number,
   passedQuestions?: number,
   closedInLastTwoHours?: number,
   passedInLastTwoHours?: number,
+  dynamicClosedInLastTwoHours?: number,
+  duplicateClosedInLastTwoHours?: number,
   slaBreached?: number,
   safeNotified?: number,
   safeNotNotified?: number,
   safeUntracked?: number,
+  manualSource?: "MANUAL" | "AGRI_EXPERT" | "OUTREACH",
+  effectiveDate?: string,
 };
 
 const alignClasses = {
@@ -143,15 +148,20 @@ export function QuestionListTable<T>({
   tag,
   notificationType,
   totalClosedAndPassed,
+  userId,
   closedQuestions,
   totalQuestions,
   passedQuestions,
   closedInLastTwoHours,
   passedInLastTwoHours,
+  dynamicClosedInLastTwoHours,
+  duplicateClosedInLastTwoHours,
   slaBreached,
   safeNotified,
   safeNotNotified,
   safeUntracked,
+  manualSource,
+  effectiveDate,
 }: QuestionListTableProps<T>) {
   // console.log("notificationType----", notificationType, tag, status);
   const [sortKey, setSortKey] = useState(initialSortKey);
@@ -235,7 +245,7 @@ export function QuestionListTable<T>({
     tag === "closed"
       ? status === "closed"
         ? (closedQuestions ?? 0)
-        : status === "pass"
+        : status === "non_gdb"
           ? (passedQuestions ?? 0)
         : status === "pending"
           ? ((totalQuestions ?? 0) - (closedQuestions ?? 0) - (passedQuestions ?? 0))
@@ -244,6 +254,12 @@ export function QuestionListTable<T>({
         ? isPassed == false
           ? (closedInLastTwoHours ?? 0)
           : (passedInLastTwoHours ?? 0)
+      : tag === "pass"
+        ? (passedInLastTwoHours ?? 0)
+      : tag === "dynamic_closed"
+        ? (dynamicClosedInLastTwoHours ?? 0)
+      : tag === "duplicate_closed"
+        ? (duplicateClosedInLastTwoHours ?? 0)
       : tag === "slabreached"
         ? (slaBreached ?? 0)
       : tag === "notify"
@@ -409,6 +425,8 @@ export function QuestionListTable<T>({
         isPassed={isPassed}
         tag={tag}
         notificationType={notificationType}
+        totalClosedAndPassed={totalClosedAndPassed}
+        userId={userId}
         page={summaryPage}
         limit={summaryLimit}
         totalPages={lifecycleTotalPages}
@@ -418,6 +436,8 @@ export function QuestionListTable<T>({
             setSummaryLimit(limit);
             setSummaryPage(1);
         }}
+        manualSource={manualSource}
+        effectiveDate={effectiveDate}
       />)}
       {(viewMode === "table") && (shouldPaginate && totalPages > 1) && (
         <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-[#2a2a2a]">

@@ -18,6 +18,7 @@ interface WorkerData {
   dbName: string;
   isRequiredAiInitialAnswer?: boolean;
   isOutreachQuestion?: boolean;
+  isTrainingQuestion?: boolean;
   allocationMode?: 'expert' | 'draft' | 'pae_expert';
   paeExpertId?: string;
 }
@@ -29,6 +30,7 @@ const mongoUri = data.mongoUri;
 const dbName = data.dbName;
 const isRequiredAiInitialAnswer = data.isRequiredAiInitialAnswer ?? false;
 const isOutreachQuestion = data.isOutreachQuestion ?? false;
+const isTrainingQuestion = data.isTrainingQuestion ?? false;
 const allocationMode = data.allocationMode ?? 'expert';
 const paeExpertId = data.paeExpertId ?? null;
 console.log(
@@ -226,6 +228,7 @@ const {checkDuplicateQuestionHelper} =
         text: `Question: ${questionText}`,
         //  saved_to_draft: allocationMode === 'draft',
         pae_review: allocationMode === 'pae_expert',
+        isTrainingQuestion,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -309,7 +312,7 @@ const {checkDuplicateQuestionHelper} =
         console.log(`👤 PAE Expert mode — assigned question ${qId} to ${paeUserRef.email}`);
       } else {
         // Default 'expert' mode: auto-allocate to experts by reputation score
-        const users = await userRepo.findExpertsByReputationScore(
+      /*  const users = await userRepo.findExpertsByReputationScore(
           details as any,
         );
         const intialUsersToAllocate = users.slice(
@@ -325,7 +328,7 @@ const {checkDuplicateQuestionHelper} =
           await userRepo.updateReputationScore(firstUserId, IS_INCREMENT);
           notificationRecipient = firstUserId;
         }
-        console.log(`✅ Experts allocated for question ${qId}`);
+        console.log(`✅ Experts allocated for question ${qId}`);*/
       }
 
       if (queue.length > 0) {

@@ -37,6 +37,8 @@ export interface IQuestionRepository {
     limit: number,
     startTime?: Date,
     endTime?: Date,
+    sources?: string[],
+    requirePaeReviewNotDone?: boolean,
   ): Promise<{count: number; items: RawQueueQuestionRow[]}>;
 
   /** Per-status counts for the "Questions Received" section — used so tab badges
@@ -44,6 +46,7 @@ export interface IQuestionRepository {
   getReceivedStatusCounts(
     startTime?: Date,
     endTime?: Date,
+    sources?: string[],
   ): Promise<{status: string; count: number}[]>;
 
   /**
@@ -97,6 +100,25 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<IQuestion[]>;
 
+  normalizeQuestionState(
+    currentValues: string[],
+    standardizedTo: string,
+    session?: ClientSession,
+  ): Promise<{ matched: number; modified: number }>;
+
+  normalizeQuestionDistricts(
+    mappings: { existingName: string; standardiseTo: string }[],
+  ): Promise<{
+    results: {
+      existingName: string;
+      standardiseTo: string;
+      matchedInDistricts: boolean;
+      matched: number;
+      modified: number;
+    }[];
+    notMatching: { existingName: string; standardiseTo: string }[];
+  }>;
+
   /**
    * Retrieves all questions for a specific context.
    * @param questionId - The ID of the question.
@@ -104,6 +126,14 @@ export interface IQuestionRepository {
    * @returns A promise that resolves to an array of questions.
    */
   getById(questionId: string, session?: ClientSession): Promise<IQuestion>;
+
+  /** Find questions referencing the given question (referenceQuestionId), optionally
+   *  by status. Used to propagate a close to queue-duplicate children. */
+  findByReferenceQuestionId(
+    referenceQuestionId: string,
+    status?: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<IQuestion[]>;
 
   /**
    * Retrieves all questions for a specific context.
@@ -244,6 +274,8 @@ export interface IQuestionRepository {
   ): Promise<IQuestion[]>;
 
   getClosedQuestionsCount(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<number>;
   /**
@@ -258,8 +290,10 @@ export interface IQuestionRepository {
     goldenDataSelectedYear: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
- ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+ ): Promise<{yearData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
 
 
   /**
@@ -267,7 +301,7 @@ export interface IQuestionRepository {
   * @param session -MongoDB client session for transactions.
   * @returns A promise that resolves to question document
   */
-  getTodayApproved(session?:ClientSession):Promise<{todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number}[]}>;
+  getTodayApproved(isTrainingUser?: boolean, isAdmin?: boolean, session?:ClientSession):Promise<{todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[]}>;
 
   /**
    * get monthly analytics.
@@ -283,8 +317,10 @@ export interface IQuestionRepository {
     goldenDataSelectedMonth: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
-  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+  ): Promise<{weeksData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
 
 
   /**
@@ -303,8 +339,10 @@ export interface IQuestionRepository {
     goldenDataSelectedWeek: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
-  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
+  ): Promise<{dailyData: GoldenDatasetEntry[]; totalEntriesByType: number; totalVerifiedByType: number; moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[]; questionSourceBreakdown?: { whatsapp: number; ajrasakha: number }; questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number }; averageResponseTime?: { whatsapp: number; ajrasakha: number }; questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number }; questionStateBreakdown?: QuestionStateBreakdownBySource;paeMetrics?: { assigned: number; submitted: number; closed: number } }>;
 
 
   /**
@@ -323,12 +361,14 @@ export interface IQuestionRepository {
     goldenDataSelectedDay: string,
     customStartTime?: string,
     customEndTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: { moderatorName: string, count: number }[];
+    moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
     questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
     questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
     averageResponseTime?: { whatsapp: number; ajrasakha: number };
@@ -348,12 +388,14 @@ export interface IQuestionRepository {
   getCustomRangeAnalytics(
     customStartDateTime: string,
     customEndDateTime: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<{
     customData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: { moderatorName: string, count: number }[];
+    moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
     questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
     questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
     averageResponseTime?: { whatsapp: number; ajrasakha: number };
@@ -367,6 +409,8 @@ export interface IQuestionRepository {
    */
   getCountBySource(
     timeRange: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<DashboardResponse['questionContributionTrend']>;
 
@@ -375,6 +419,8 @@ export interface IQuestionRepository {
    * @param session - Optional MongoDB client session for transactions.
    */
   getQuestionOverviewByStatus(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<QuestionStatusOverview[]>;
 
@@ -391,6 +437,8 @@ export interface IQuestionRepository {
     state?: string[],
     source?: string[],
     crop?: string[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{analytics: Analytics}>;
 
   /**
@@ -401,6 +449,8 @@ export interface IQuestionRepository {
   getModeratorApprovalRate(
     currentUserId: string,
     session?: ClientSession,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<ModeratorApprovalRate>;
   getAll(session?: ClientSession): Promise<IQuestion[]>;
 
@@ -422,6 +472,8 @@ export interface IQuestionRepository {
   getMonthlyQuestionStats(
     startDate?: Date,
     endDate?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<Array<{
     year: number;
@@ -502,6 +554,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>;
 
@@ -512,6 +566,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>;
 
@@ -522,6 +578,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession,
   ): Promise<any>;
 
@@ -532,6 +590,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>
 
@@ -542,6 +602,8 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any> 
 
@@ -552,10 +614,54 @@ export interface IQuestionRepository {
     source: string,
     from: string,
     to: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
     session?: ClientSession
   ): Promise<any>
 
   findUnassignedInReviewQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
   findModeratorAssignedQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
+
+  /** Gate-keeper / auditor role allocation helpers. */
+  findUnassignedQuestionsForRole(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+  ): Promise<IQuestion[]>;
+  findQuestionsAssignedToRole(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+  ): Promise<IQuestion[]>;
+  getRoleAssigneeDashboard(
+    userId: string,
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    finishedField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
+    page: number,
+    limit: number,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+    dateFilterType?: 'assigned' | 'completed' | 'both',
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }>;
+  setRoleAssignee(
+    questionId: string,
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
+    assigneeId: string | null,
+    session?: ClientSession,
+  ): Promise<void>;
+  markRoleFinished(
+    questionId: string,
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    finishedAt: Date,
+    session?: ClientSession,
+  ): Promise<void>;
 }
