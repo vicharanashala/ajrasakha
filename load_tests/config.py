@@ -1,7 +1,7 @@
 import os
 
 # Base URL (Default to local backend, override with TARGET_URL env var if testing staging)
-BASE_URL = os.getenv("TARGET_URL", "http://localhost:3000")
+BASE_URL = os.getenv("TARGET_URL", "http://localhost:8080")
 
 # API Endpoints (Inspected directly from backend routing-controllers with /api routePrefix)
 HEALTH_ENDPOINT = "/api/health"
