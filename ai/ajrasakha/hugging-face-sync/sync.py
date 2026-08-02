@@ -98,7 +98,7 @@ class GoldenToHuggingFaceSync:
             "sources": answer_doc.get("sources") or [],
             "author_id": str(answer_doc.get("authorId")) if answer_doc.get("authorId") else None,
             "approval_count": answer_doc.get("approvalCount", 0),
-            "approved_by": self._get_user_display_name(answer_doc.get("approvedBy")),
+            "approved_by": str(answer_doc.get("approvedBy")) if answer_doc.get("approvedBy") else None,
         }
 
     def _extract_details(self, details: dict | None) -> dict[str, Any]:
