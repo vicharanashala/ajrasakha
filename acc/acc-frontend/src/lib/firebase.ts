@@ -56,6 +56,26 @@ export const loginWithEmail = async (email: string, password: string) => {
   }
 };
 
+export const signUpWithEmail = async (
+  firstName: string,
+  lastName: string,
+  email: string,
+  password: string
+) => {
+  try {
+    const displayName = `${firstName} ${lastName}`.trim();
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    if (result.user) {
+      await updateProfile(result.user, { displayName });
+      const idToken = await result.user.getIdToken();
+      await authService.accountSync(idToken);
+    }
+    return result;
+  } catch (error) {
+    throw error;
+  }
+};
+
 export const logout = () => {
   signOut(auth);
   useAuthStore.getState().clearUser();
