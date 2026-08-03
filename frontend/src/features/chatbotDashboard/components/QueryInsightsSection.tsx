@@ -3,6 +3,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import DashboardQueryCategories from "../DashboardQueryCategories";
 import { TopCropsCard } from "./TopCropsCard";
+import { GdbCoverageDebtCard } from "./GdbCoverageDebtCard";
 import { LazySectionSkeleton } from "../AnnamDashboard_dev";
 
 interface QueryInsightsSectionProps {
@@ -29,7 +30,7 @@ export function QueryInsightsSection({
     coordinatorId,
 }: QueryInsightsSectionProps) {
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -68,8 +69,24 @@ export function QueryInsightsSection({
                     <LazySectionSkeleton className="h-[360px]" />
                 )}
             </motion.div>
+
+            {/* GDB Coverage Debt Radar — third column, only for non-WhatsApp */}
+            {source !== "whatsapp" && (
+                <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, ease: "easeOut", delay: 0.16 }}
+                    className="h-full"
+                >
+                    {shouldLoadQueryInsights ? (
+                        <GdbCoverageDebtCard source={source} />
+                    ) : (
+                        <LazySectionSkeleton className="h-[360px]" />
+                    )}
+                </motion.div>
+            )}
         </div>
     );
 }
 
-export default QueryInsightsSection;
+export default QueryInsightsSection;

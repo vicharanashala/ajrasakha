@@ -559,5 +559,13 @@ export interface IChatbotService {
       search?: string,
     )
 
-    getReviewerLifecycle( userId: string, startDate?: Date, endDate?: Date ): Promise<any>
+    getGdbCoverageDebt(filters?: { crop?: string; state?: string }): Promise<any>;
+    pushClusterToReviewerQueue(data: {
+      clusterId: string;
+      crop: string;
+      state: string;
+      domain: string;
+      representativeQuestion: string;
+    }): Promise<any>;
+    getReviewerLifecycle( userId: string, startDate?: Date, endDate?: Date ): Promise<any>;
 }

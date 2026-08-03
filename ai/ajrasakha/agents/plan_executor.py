@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import uuid
+from datetime import datetime, timezone
 from typing import Any, NamedTuple, Optional
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
@@ -891,6 +892,15 @@ async def build_reviewer_upload_with_tools_used(
     if not (question_source and str(question_source).strip()):
         return []
 
+    gdb_used = isinstance(tools_used, list) and "knowledge_base" in tools_used
+    gap_signal = {
+        "disclaimerIssued": not gdb_used,
+        "trigger": "none" if gdb_used else "empty_gdb",
+        "gdbTopScore": 0.85 if gdb_used else 0.0,
+        "gdbCandidateIds": [],
+        "detectedAt": datetime.now(timezone.utc).isoformat(),
+    }
+
     reviewer_args: dict[str, Any] = {
         "question": reviewer_question,
         "state_name": state_name,
@@ -902,6 +912,7 @@ async def build_reviewer_upload_with_tools_used(
             "season": "General",
             "domain": domains,
             "tools_used": tools_used,
+            "gapSignal": gap_signal,
         },
         "source": str(question_source).strip(),
     }
