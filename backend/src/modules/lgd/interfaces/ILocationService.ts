@@ -32,7 +32,6 @@ export interface ILocationVillage {
   villageCode: number;
   villageNameEnglish: string;
   blockCode: number;
-  pincode: number;
 }
 
 export interface IKvk {
