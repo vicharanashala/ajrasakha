@@ -259,7 +259,12 @@ export interface IQuestionService {
   }>;
   findUnknownQuestionGeo(): Promise<{
     unknownStates: string[];
-    unknownDistricts: string[];
+    unknownDistricts: {
+      name: string;
+      foundIn: 'block' | 'village' | null;
+      districtCode: number | null;
+      stateCode: number | null;
+    }[];
   }>;
 
   /** Questions allocated to an expert */

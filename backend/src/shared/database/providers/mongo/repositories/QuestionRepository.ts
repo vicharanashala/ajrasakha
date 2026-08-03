@@ -365,10 +365,18 @@ export class QuestionRepository implements IQuestionRepository {
 
   /** Audit: scan every question's details.state / details.district and return the distinct
    *  values that don't exist in the `states` (stateNameEnglish) / `districts`
-   *  (districtNameEnglish) collections. Empty/null values are ignored. */
+   *  (districtNameEnglish) collections. Each unknown district is additionally looked up in the
+   *  `blocks` (blockNameEnglish) and `villages` (villageNameEnglish) collections — if it turns
+   *  out to be a block/village name, its districtCode + stateCode are attached so it can be
+   *  mapped back. Empty/null values are ignored. */
   async findUnknownQuestionGeo(): Promise<{
     unknownStates: string[];
-    unknownDistricts: string[];
+    unknownDistricts: {
+      name: string;
+      foundIn: 'block' | 'village' | null;
+      districtCode: number | null;
+      stateCode: number | null;
+    }[];
   }> {
     try {
       await this.init();
@@ -376,6 +384,16 @@ export class QuestionRepository implements IQuestionRepository {
         await this.db.getCollection<{stateNameEnglish?: string}>('states');
       const districtsCollection =
         await this.db.getCollection<{districtNameEnglish?: string}>('districts');
+      const blocksCollection = await this.db.getCollection<{
+        blockNameEnglish?: string;
+        districtCode?: number;
+        stateCode?: number;
+      }>('blocks');
+      const villagesCollection = await this.db.getCollection<{
+        villageNameEnglish?: string;
+        districtCode?: number;
+        stateCode?: number;
+      }>('villages');
 
       const [qStates, qDistricts, stateNames, districtNames] = await Promise.all([
         this.QuestionCollection.distinct('details.state'),
@@ -399,14 +417,69 @@ export class QuestionRepository implements IQuestionRepository {
         (s): s is string =>
           typeof s === 'string' && s.trim().length > 0 && !stateSet.has(s),
       );
-      const unknownDistricts = (qDistricts as unknown[]).filter(
+      const unknownDistrictNames = (qDistricts as unknown[]).filter(
         (d): d is string =>
           typeof d === 'string' && d.trim().length > 0 && !districtSet.has(d),
       );
 
+      // Resolve each unknown district against blocks/villages to recover its codes, matching
+      // by case-insensitive regex (so "chittoor" matches "Chittoor" etc.).
+      const escapeRegex = (s: string) =>
+        s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const nameRegexes = unknownDistrictNames.map(
+        n => new RegExp(`^${escapeRegex(n.trim())}$`, 'i'),
+      );
+      const [blockMatches, villageMatches] =
+        nameRegexes.length === 0
+          ? [[], []]
+          : await Promise.all([
+              blocksCollection
+                .find(
+                  {blockNameEnglish: {$in: nameRegexes}},
+                  {projection: {blockNameEnglish: 1, districtCode: 1, stateCode: 1, _id: 0}},
+                )
+                .toArray(),
+              villagesCollection
+                .find(
+                  {villageNameEnglish: {$in: nameRegexes}},
+                  {projection: {villageNameEnglish: 1, districtCode: 1, stateCode: 1, _id: 0}},
+                )
+                .toArray(),
+            ]);
+      // Key maps by lowercased name so the case-insensitive match lines back up.
+      const blockMap = new Map(
+        blockMatches.map(b => [(b.blockNameEnglish ?? '').toLowerCase(), b]),
+      );
+      const villageMap = new Map(
+        villageMatches.map(v => [(v.villageNameEnglish ?? '').toLowerCase(), v]),
+      );
+
+      const unknownDistricts = unknownDistrictNames.sort().map(name => {
+        const key = name.trim().toLowerCase();
+        const b = blockMap.get(key);
+        if (b) {
+          return {
+            name,
+            foundIn: 'block' as const,
+            districtCode: b.districtCode ?? null,
+            stateCode: b.stateCode ?? null,
+          };
+        }
+        const v = villageMap.get(key);
+        if (v) {
+          return {
+            name,
+            foundIn: 'village' as const,
+            districtCode: v.districtCode ?? null,
+            stateCode: v.stateCode ?? null,
+          };
+        }
+        return {name, foundIn: null, districtCode: null, stateCode: null};
+      });
+
       return {
         unknownStates: unknownStates.sort(),
-        unknownDistricts: unknownDistricts.sort(),
+        unknownDistricts,
       };
     } catch (error) {
       throw new InternalServerError(
