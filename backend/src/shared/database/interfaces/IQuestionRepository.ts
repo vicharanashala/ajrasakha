@@ -633,6 +633,11 @@ export interface IQuestionRepository {
     assigneeField: 'gateKeeperId' | 'auditorId',
     statuses: QuestionStatus[],
   ): Promise<IQuestion[]>;
+  findLeakedRoleAssignments(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    statuses: QuestionStatus[],
+  ): Promise<IQuestion[]>;
   getRoleAssigneeDashboard(
     userId: string,
     assigneeField: 'gateKeeperId' | 'auditorId',
