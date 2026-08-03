@@ -17,6 +17,7 @@ from typing import Any
 
 from bson import ObjectId
 from datasets import Dataset, DatasetDict
+from datasets import Features, Sequence, Value
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
@@ -56,8 +57,14 @@ class GoldenToHuggingFaceSync:
 
         log.info("Connected to MongoDB: %s/%s", MONGODB_URI.split("@")[-1], MONGODB_DATABASE)
 
-    def _get_user_display_name(self, user_doc: dict | None) -> str | None:
-        """Extract display name from user document."""
+    def _get_user_display_name(self, user_id: Any) -> str | None:
+        """Get user display name from user ID."""
+        if not user_id:
+            return None
+        user_doc = self.users_collection.find_one(
+            {"_id": user_id},
+            {"firstName": 1, "lastName": 1, "name": 1},
+        )
         if not user_doc:
             return None
         name = (user_doc.get("name") or "").strip()
@@ -68,29 +75,31 @@ class GoldenToHuggingFaceSync:
         full = " ".join(part for part in (first, last) if part)
         return full or None
 
-    def _get_final_answer(self, question_id: str) -> tuple[str | None, list, str | None]:
-        """Get final answer, sources, and author name for a question."""
+    def _get_final_answer(self, question_id: str) -> dict[str, Any] | None:
+        """Get full final answer document for a question."""
         answer_doc = self.answers_collection.find_one(
             {"questionId": ObjectId(question_id), "isFinalAnswer": True},
-            {"answer": 1, "sources": 1, "authorId": 1},
+            {
+                "_id": 1,
+                "answer": 1,
+                "sources": 1,
+                "authorId": 1,
+                "approvalCount": 1,
+                "approvedBy": 1,
+            },
         )
 
         if not answer_doc:
-            return None, [], None
+            return None
 
-        answer_text = answer_doc.get("answer")
-        sources = answer_doc.get("sources") or []
-
-        author_name = None
-        author_id = answer_doc.get("authorId")
-        if author_id:
-            user_doc = self.users_collection.find_one(
-                {"_id": author_id},
-                {"firstName": 1, "lastName": 1, "name": 1},
-            )
-            author_name = self._get_user_display_name(user_doc)
-
-        return answer_text, sources, author_name
+        return {
+            "answer_id": str(answer_doc["_id"]),
+            "answer_text": answer_doc.get("answer"),
+            "sources": answer_doc.get("sources") or [],
+            "author_id": str(answer_doc.get("authorId")) if answer_doc.get("authorId") else None,
+            "approval_count": answer_doc.get("approvalCount", 0),
+            "approved_by": str(answer_doc.get("approvedBy")) if answer_doc.get("approvedBy") else None,
+        }
 
     def _extract_details(self, details: dict | None) -> dict[str, Any]:
         """Extract and normalize details from question."""
@@ -102,6 +111,8 @@ class GoldenToHuggingFaceSync:
             crop = crop.get("name", "")
 
         return {
+            "priority": details.get("priority"),
+            "district": details.get("district"),
             "crop": str(crop).strip() if crop else None,
             "normalised_crop": details.get("normalised_crop"),
             "state": details.get("state"),
@@ -139,29 +150,36 @@ class GoldenToHuggingFaceSync:
             details = self._extract_details(q.get("details"))
 
             # Get final answer
-            answer_text, sources, author_name = self._get_final_answer(question_id)
+            answer_data = self._get_final_answer(question_id)
 
-            if not answer_text:
+            if not answer_data or not answer_data.get("answer_text"):
                 skipped_no_answer += 1
                 continue
 
-            # Create Q&A pair
+            # Create Q&A pair with new schema
             qa_pair = {
+                # Question fields
                 "question_id": question_id,
                 "question": question_text,
-                "answer": answer_text,
-                "author": author_name,
-                "sources": sources if isinstance(sources, list) else [],
+                "priority": q.get("priority"),
+                "source": q.get("source"),
+                "state": details.get("state"),
+                "district": details.get("district"),
                 "crop": details.get("crop"),
                 "normalised_crop": details.get("normalised_crop"),
-                "state": details.get("state"),
                 "season": details.get("season"),
                 "domain": details.get("domain"),
-                "status": q.get("status"),
-                "source": q.get("source"),
-                "created_at": (
+                "user_id": str(q.get("userId")) if q.get("userId") else None,
+                "question_created_at": (
                     q["createdAt"].isoformat() if q.get("createdAt") else None
                 ),
+                # Answer fields
+                "final_answer_id": answer_data.get("answer_id"),
+                "final_answer": answer_data.get("answer_text"),
+                "final_answer_approval_count": answer_data.get("approval_count", 0),
+                "final_answer_author_id": answer_data.get("author_id"),
+                "final_answer_approved_by": answer_data.get("approved_by"),
+                "final_answer_sources": answer_data.get("sources") if isinstance(answer_data.get("sources"), list) else [],
             }
 
             qa_pairs.append(qa_pair)
@@ -182,7 +200,31 @@ class GoldenToHuggingFaceSync:
             log.warning("No Q&A pairs to create dataset from!")
             return DatasetDict()
 
-        dataset = Dataset.from_list(qa_pairs)
+        # Define explicit features for new schema
+        features = Features({
+            # Question fields
+            "question_id": Value("string"),
+            "question": Value("string"),
+            "priority": Value("string"),
+            "source": Value("string"),
+            "state": Value("string"),
+            "district": Value("string"),
+            "crop": Value("string"),
+            "normalised_crop": Value("string"),
+            "season": Value("string"),
+            "domain": Value("string"),
+            "user_id": Value("string"),
+            "question_created_at": Value("string"),
+            # Answer fields
+            "final_answer_id": Value("string"),
+            "final_answer": Value("string"),
+            "final_answer_approval_count": Value("int32"),
+            "final_answer_author_id": Value("string"),
+            "final_answer_approved_by": Value("string"),
+            "final_answer_sources": Sequence(Value("string")),
+        })
+
+        dataset = Dataset.from_list(qa_pairs, features=features)
         dataset_dict = DatasetDict({"train": dataset})
 
         log.info("Created dataset with %d examples", len(dataset))
