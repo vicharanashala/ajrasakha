@@ -582,8 +582,38 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({
                   return (
                     <div key={c.crop} style={{ display: "grid", gap: "4px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 600, color: "var(--ink)" }}>
-                        <span>{c.crop}</span>
-                        <span style={{ color: "#173326b8" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                          {/* Crop icon on a soft-green badge, matched by exact crop name
+                              (e.g. "Paddy" → /crops/Paddy.svg). Hidden if no matching SVG exists. */}
+                          <span
+                            style={{
+                              flexShrink: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: "30px",
+                              height: "30px",
+                              borderRadius: "8px",
+                              background: "#e3f0e0",
+                              border: "1px solid #bcd9b6",
+                            }}
+                          >
+                            <img
+                              src={`/crops/${encodeURIComponent(c.crop)}.svg`}
+                              alt=""
+                              width={22}
+                              height={22}
+                              style={{ objectFit: "contain" }}
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          </span>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {c.crop}
+                          </span>
+                        </span>
+                        <span style={{ color: "#173326b8", flexShrink: 0 }}>
                           <strong>{cropTotal.toLocaleString("en-IN")}</strong> ({pct}%)
                         </span>
                       </div>
