@@ -1,4 +1,4 @@
 __pycache__/
 *.pyc
 reports/*.csv
-reports/*.html
+reports/seeded_users.json
