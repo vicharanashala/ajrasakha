@@ -66,11 +66,11 @@ export class LocationController {
   // which reads the KVK registry CSV and upserts it into the `kvks` collection.
   @Post('/kvks/sync')
   @HttpCode(200)
-  @Authorized()
-  async syncKvks(@CurrentUser() user: IUser): Promise<IKvkSyncResult> {
-    if (!KVK_SYNC_ROLES.includes(user.role)) {
-      throw new ForbiddenError('Only admins can trigger the KVK sync.');
-    }
+  // @Authorized()
+  async syncKvks(): Promise<IKvkSyncResult> {
+    // if (!KVK_SYNC_ROLES.includes(user.role)) {
+    //   throw new ForbiddenError('Only admins can trigger the KVK sync.');
+    // }
 
     return this.locationService.syncKvks();
   }

@@ -2854,6 +2854,58 @@ export class QuestionController {
       entry,
     );
   }
+
+  @Post('/background/normalize-state')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Standardise a state name across all questions (internal data fix). Sets details.state to `standardizedTo` for every question whose details.state is one of `current`.',
+  })
+  async normalizeQuestionState(
+    @Body() body: { current: string[]; standardizedTo: string },
+  ) {
+    const { current, standardizedTo } = body;
+    if (!Array.isArray(current) || current.length === 0) {
+      throw new BadRequestError('current must be a non-empty array of state values');
+    }
+    if (!standardizedTo || typeof standardizedTo !== 'string') {
+      throw new BadRequestError('standardizedTo is required');
+    }
+    return await this.questionService.normalizeQuestionState(
+      current,
+      standardizedTo,
+    );
+  }
+
+  @Post('/background/normalize-district')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Standardise question district names against the districts collection (internal data fix). Body: [{ existingName, standardiseTo }]. When `standardiseTo` is a known districtNameEnglish, questions with details.district === existingName are updated to it; names not found in the districts collection are returned in `notMatching`.',
+  })
+  async normalizeQuestionDistricts(
+    @Body() body: { existingName: string; standardiseTo: string }[],
+  ) {
+    if (!Array.isArray(body) || body.length === 0) {
+      throw new BadRequestError(
+        'body must be a non-empty array of { existingName, standardiseTo }',
+      );
+    }
+    return await this.questionService.normalizeQuestionDistricts(body);
+  }
+
+  @Get('/background/unknown-geo')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Audit question geo (internal). Scans every question\'s details.state / details.district and returns the distinct values that do NOT exist in the states (stateNameEnglish) / districts (districtNameEnglish) collections.',
+  })
+  async findUnknownQuestionGeo() {
+    return await this.questionService.findUnknownQuestionGeo();
+  }
   // ─── Check overlaps endpoint (internal API key auth) ──────────────────────
 
   @Post('/check-overlaps')

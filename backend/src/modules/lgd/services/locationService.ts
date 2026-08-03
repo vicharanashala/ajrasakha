@@ -90,7 +90,6 @@ export class LocationService implements ILocationService {
       villageCode: record.villageCode,
       villageNameEnglish: record.villageNameEnglish,
       blockCode: record.blockCode,
-      pincode: record.pincode || 0, // Fallback since it might not be in DB
     }));
   }
 

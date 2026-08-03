@@ -241,6 +241,33 @@ export interface IQuestionService {
 
   /** Get questions under a context */
   getByContextId(contextId: string): Promise<IQuestion[]>;
+  normalizeQuestionState(
+    currentValues: string[],
+    standardizedTo: string,
+  ): Promise<{ matched: number; modified: number }>;
+  normalizeQuestionDistricts(
+    mappings: { existingName: string; standardiseTo: string }[],
+  ): Promise<{
+    results: {
+      existingName: string;
+      standardiseTo: string;
+      matchedInDistricts: boolean;
+      matched: number;
+      modified: number;
+    }[];
+    notMatching: { existingName: string; standardiseTo: string }[];
+  }>;
+  findUnknownQuestionGeo(): Promise<{
+    unknownStates: string[];
+    matchedDistricts: {
+      name: string;
+      foundIn: 'block' | 'village';
+      districtCode: number | null;
+      stateCode: number | null;
+      districtNameEnglish: string | null;
+    }[];
+    notMatchingDistricts: string[];
+  }>;
 
   /** Questions allocated to an expert */
   getAllocatedQuestions(
