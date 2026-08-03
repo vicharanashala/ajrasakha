@@ -413,12 +413,14 @@ export class QuestionService extends BaseService implements IQuestionService {
    *  states / districts collections. */
   async findUnknownQuestionGeo(): Promise<{
     unknownStates: string[];
-    unknownDistricts: {
+    matchedDistricts: {
       name: string;
-      foundIn: 'block' | 'village' | null;
+      foundIn: 'block' | 'village';
       districtCode: number | null;
       stateCode: number | null;
+      districtNameEnglish: string | null;
     }[];
+    notMatchingDistricts: string[];
   }> {
     return this.questionRepo.findUnknownQuestionGeo();
   }

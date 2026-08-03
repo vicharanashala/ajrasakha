@@ -259,12 +259,14 @@ export interface IQuestionService {
   }>;
   findUnknownQuestionGeo(): Promise<{
     unknownStates: string[];
-    unknownDistricts: {
+    matchedDistricts: {
       name: string;
-      foundIn: 'block' | 'village' | null;
+      foundIn: 'block' | 'village';
       districtCode: number | null;
       stateCode: number | null;
+      districtNameEnglish: string | null;
     }[];
+    notMatchingDistricts: string[];
   }>;
 
   /** Questions allocated to an expert */
