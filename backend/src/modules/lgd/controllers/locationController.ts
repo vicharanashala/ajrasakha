@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import {JsonController, Get, Post, HttpCode, QueryParam, Authorized, CurrentUser, ForbiddenError} from 'routing-controllers';
+import {JsonController, Get, Post, Put, Body, Param, HttpCode, QueryParam, Authorized, CurrentUser, ForbiddenError, BadRequestError} from 'routing-controllers';
 import {inject, injectable} from 'inversify';
 import {LGD_TYPES} from '../types.js';
 import {IUser} from '#root/shared/interfaces/models.js';
@@ -30,12 +30,56 @@ export class LocationController {
     return this.locationService.getStates();
   }
 
+  // Admins/moderators manage the alternate names (aliases) for a state.
+  @Put('/states/:stateCode/aliases')
+  @HttpCode(200)
+  @Authorized()
+  async updateStateAliases(
+    @CurrentUser() user: IUser,
+    @Param('stateCode') stateCode: number,
+    @Body() body: { aliases: string[]; name?: string },
+  ): Promise<ILocationState> {
+    if (user.role !== 'admin' && user.role !== 'moderator') {
+      throw new ForbiddenError('Only admins and moderators can edit state aliases');
+    }
+    if (!Array.isArray(body?.aliases)) {
+      throw new BadRequestError('aliases must be an array of strings');
+    }
+    return this.locationService.updateStateAliases(
+      Number(stateCode),
+      body.aliases,
+      body.name,
+    );
+  }
+
   @Get('/districts')
   @HttpCode(200)
   async getDistricts(
     @QueryParam('stateCode') stateCode: number,
   ): Promise<ILocationDistrict[]> {
     return this.locationService.getDistricts(stateCode);
+  }
+
+  // Admins/moderators manage the alternate names (aliases) for a district.
+  @Put('/districts/:districtCode/aliases')
+  @HttpCode(200)
+  @Authorized()
+  async updateDistrictAliases(
+    @CurrentUser() user: IUser,
+    @Param('districtCode') districtCode: number,
+    @Body() body: { aliases: string[]; name?: string },
+  ): Promise<ILocationDistrict> {
+    if (user.role !== 'admin' && user.role !== 'moderator') {
+      throw new ForbiddenError('Only admins and moderators can edit district aliases');
+    }
+    if (!Array.isArray(body?.aliases)) {
+      throw new BadRequestError('aliases must be an array of strings');
+    }
+    return this.locationService.updateDistrictAliases(
+      Number(districtCode),
+      body.aliases,
+      body.name,
+    );
   }
 
   @Get('/blocks')

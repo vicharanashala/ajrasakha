@@ -36,7 +36,55 @@ export class LocationService implements ILocationService {
     return records.map((record: any) => ({
       stateCode: record.stateCode,
       stateNameEnglish: record.stateNameEnglish,
+      aliases: Array.isArray(record.aliases) ? record.aliases : [],
     }));
+  }
+
+  public async updateStateAliases(
+    stateCode: number,
+    aliases: string[],
+    name?: string,
+  ): Promise<ILocationState> {
+    if (stateCode === undefined || stateCode === null || Number.isNaN(Number(stateCode))) {
+      throw new BadRequestError('A valid stateCode is required');
+    }
+    // Trim, drop blanks, and de-duplicate (case-insensitive) the aliases.
+    const seen = new Set<string>();
+    const cleaned: string[] = [];
+    for (const a of Array.isArray(aliases) ? aliases : []) {
+      const trimmed = typeof a === 'string' ? a.trim() : '';
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cleaned.push(trimmed);
+    }
+
+    const set: Record<string, unknown> = { aliases: cleaned, updatedAt: new Date() };
+    // Optionally rename the canonical state name.
+    if (typeof name === 'string') {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        throw new BadRequestError('name cannot be empty');
+      }
+      set.stateNameEnglish = trimmedName;
+    }
+
+    const collection = await this.db.getCollection<any>('states');
+    const result = await collection.findOneAndUpdate(
+      { stateCode: Number(stateCode) },
+      { $set: set },
+      { returnDocument: 'after' },
+    );
+    const updated = (result as any)?.value ?? result;
+    if (!updated) {
+      throw new BadRequestError(`No state found for stateCode ${stateCode}`);
+    }
+    return {
+      stateCode: updated.stateCode,
+      stateNameEnglish: updated.stateNameEnglish,
+      aliases: Array.isArray(updated.aliases) ? updated.aliases : [],
+    };
   }
 
   public async getDistricts(stateCode: number): Promise<ILocationDistrict[]> {
@@ -54,7 +102,59 @@ export class LocationService implements ILocationService {
       districtCode: record.districtCode,
       districtNameEnglish: record.districtNameEnglish,
       stateCode: record.stateCode,
+      aliases: Array.isArray(record.aliases) ? record.aliases : [],
     }));
+  }
+
+  public async updateDistrictAliases(
+    districtCode: number,
+    aliases: string[],
+    name?: string,
+  ): Promise<ILocationDistrict> {
+    if (
+      districtCode === undefined ||
+      districtCode === null ||
+      Number.isNaN(Number(districtCode))
+    ) {
+      throw new BadRequestError('A valid districtCode is required');
+    }
+    const seen = new Set<string>();
+    const cleaned: string[] = [];
+    for (const a of Array.isArray(aliases) ? aliases : []) {
+      const trimmed = typeof a === 'string' ? a.trim() : '';
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cleaned.push(trimmed);
+    }
+
+    const set: Record<string, unknown> = { aliases: cleaned, updatedAt: new Date() };
+    // Optionally rename the canonical district name.
+    if (typeof name === 'string') {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        throw new BadRequestError('name cannot be empty');
+      }
+      set.districtNameEnglish = trimmedName;
+    }
+
+    const collection = await this.db.getCollection<any>('districts');
+    const result = await collection.findOneAndUpdate(
+      { districtCode: Number(districtCode) },
+      { $set: set },
+      { returnDocument: 'after' },
+    );
+    const updated = (result as any)?.value ?? result;
+    if (!updated) {
+      throw new BadRequestError(`No district found for districtCode ${districtCode}`);
+    }
+    return {
+      districtCode: updated.districtCode,
+      districtNameEnglish: updated.districtNameEnglish,
+      stateCode: updated.stateCode,
+      aliases: Array.isArray(updated.aliases) ? updated.aliases : [],
+    };
   }
 
   public async getBlocks(districtCode: number): Promise<ILocationBlock[]> {

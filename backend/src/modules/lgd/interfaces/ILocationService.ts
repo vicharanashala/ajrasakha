@@ -14,12 +14,16 @@ export interface ILgdLocation {
 export interface ILocationState {
   stateCode: number;
   stateNameEnglish: string;
+  /** Alternate spellings/names for this state, added by admins/moderators. */
+  aliases?: string[];
 }
 
 export interface ILocationDistrict {
   districtCode: number;
   districtNameEnglish: string;
   stateCode: number;
+  /** Alternate spellings/names for this district, added by admins/moderators. */
+  aliases?: string[];
 }
 
 export interface ILocationBlock {
@@ -51,7 +55,19 @@ export interface IKvkSyncResult {
 
 export interface ILocationService {
   getStates(): Promise<ILocationState[]>;
+  /** Update a state's aliases and (optionally) its canonical name (admin/moderator). */
+  updateStateAliases(
+    stateCode: number,
+    aliases: string[],
+    name?: string,
+  ): Promise<ILocationState>;
   getDistricts(stateCode: number): Promise<ILocationDistrict[]>;
+  /** Update a district's aliases and (optionally) its canonical name (admin/moderator). */
+  updateDistrictAliases(
+    districtCode: number,
+    aliases: string[],
+    name?: string,
+  ): Promise<ILocationDistrict>;
   getBlocks(districtCode: number): Promise<ILocationBlock[]>;
   getVillages(blockCode: number): Promise<ILocationVillage[]>;
   getKvks(districtCode: number): Promise<IKvk[]>;

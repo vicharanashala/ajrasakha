@@ -51,12 +51,14 @@ const LGD_STATE_CODES: Record<string, number> = {
 export interface ILocationState {
   stateCode: number;
   stateNameEnglish: string;
+  aliases?: string[];
 }
 
 export interface ILocationDistrict {
   districtCode: number;
   districtNameEnglish: string;
   stateCode: number;
+  aliases?: string[];
 }
 
 export interface ILocationBlock {
@@ -91,6 +93,36 @@ export class LocationService {
     } catch {
       return fallbackStates();
     }
+  }
+
+  /** Admin/moderator: replace a state's aliases and optionally rename it. */
+  async updateStateAliases(
+    stateCode: number,
+    aliases: string[],
+    name?: string,
+  ): Promise<ILocationState | null> {
+    return apiFetch<ILocationState>(
+      `${this._baseUrl}/states/${stateCode}/aliases`,
+      {
+        method: "PUT",
+        body: JSON.stringify(name !== undefined ? { aliases, name } : { aliases }),
+      },
+    );
+  }
+
+  /** Admin/moderator: replace a district's aliases and optionally rename it. */
+  async updateDistrictAliases(
+    districtCode: number,
+    aliases: string[],
+    name?: string,
+  ): Promise<ILocationDistrict | null> {
+    return apiFetch<ILocationDistrict>(
+      `${this._baseUrl}/districts/${districtCode}/aliases`,
+      {
+        method: "PUT",
+        body: JSON.stringify(name !== undefined ? { aliases, name } : { aliases }),
+      },
+    );
   }
 
   async getDistricts(stateCode: number): Promise<ILocationDistrict[] | null> {
