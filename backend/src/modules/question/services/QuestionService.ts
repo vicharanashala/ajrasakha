@@ -409,6 +409,15 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionRepo.normalizeQuestionDistricts(cleaned);
   }
 
+  /** Audit: distinct question details.state / details.district values that don't exist in the
+   *  states / districts collections. */
+  async findUnknownQuestionGeo(): Promise<{
+    unknownStates: string[];
+    unknownDistricts: string[];
+  }> {
+    return this.questionRepo.findUnknownQuestionGeo();
+  }
+
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,

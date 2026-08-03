@@ -119,6 +119,11 @@ export interface IQuestionRepository {
     notMatching: { existingName: string; standardiseTo: string }[];
   }>;
 
+  findUnknownQuestionGeo(): Promise<{
+    unknownStates: string[];
+    unknownDistricts: string[];
+  }>;
+
   /**
    * Retrieves all questions for a specific context.
    * @param questionId - The ID of the question.

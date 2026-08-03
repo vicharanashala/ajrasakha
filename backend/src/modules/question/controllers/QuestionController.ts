@@ -2895,6 +2895,17 @@ export class QuestionController {
     }
     return await this.questionService.normalizeQuestionDistricts(body);
   }
+
+  @Get('/background/unknown-geo')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Audit question geo (internal). Scans every question\'s details.state / details.district and returns the distinct values that do NOT exist in the states (stateNameEnglish) / districts (districtNameEnglish) collections.',
+  })
+  async findUnknownQuestionGeo() {
+    return await this.questionService.findUnknownQuestionGeo();
+  }
   // ─── Check overlaps endpoint (internal API key auth) ──────────────────────
 
   @Post('/check-overlaps')

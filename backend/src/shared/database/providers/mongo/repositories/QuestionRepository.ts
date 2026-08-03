@@ -363,6 +363,58 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Audit: scan every question's details.state / details.district and return the distinct
+   *  values that don't exist in the `states` (stateNameEnglish) / `districts`
+   *  (districtNameEnglish) collections. Empty/null values are ignored. */
+  async findUnknownQuestionGeo(): Promise<{
+    unknownStates: string[];
+    unknownDistricts: string[];
+  }> {
+    try {
+      await this.init();
+      const statesCollection =
+        await this.db.getCollection<{stateNameEnglish?: string}>('states');
+      const districtsCollection =
+        await this.db.getCollection<{districtNameEnglish?: string}>('districts');
+
+      const [qStates, qDistricts, stateNames, districtNames] = await Promise.all([
+        this.QuestionCollection.distinct('details.state'),
+        this.QuestionCollection.distinct('details.district'),
+        statesCollection.distinct('stateNameEnglish'),
+        districtsCollection.distinct('districtNameEnglish'),
+      ]);
+
+      const stateSet = new Set(
+        (stateNames as unknown[]).filter(
+          (s): s is string => typeof s === 'string' && s.length > 0,
+        ),
+      );
+      const districtSet = new Set(
+        (districtNames as unknown[]).filter(
+          (d): d is string => typeof d === 'string' && d.length > 0,
+        ),
+      );
+
+      const unknownStates = (qStates as unknown[]).filter(
+        (s): s is string =>
+          typeof s === 'string' && s.trim().length > 0 && !stateSet.has(s),
+      );
+      const unknownDistricts = (qDistricts as unknown[]).filter(
+        (d): d is string =>
+          typeof d === 'string' && d.trim().length > 0 && !districtSet.has(d),
+      );
+
+      return {
+        unknownStates: unknownStates.sort(),
+        unknownDistricts: unknownDistricts.sort(),
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to audit question geo values: ${error}`,
+      );
+    }
+  }
+
   async getById(
     questionId: string,
     session?: ClientSession,

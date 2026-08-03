@@ -257,6 +257,10 @@ export interface IQuestionService {
     }[];
     notMatching: { existingName: string; standardiseTo: string }[];
   }>;
+  findUnknownQuestionGeo(): Promise<{
+    unknownStates: string[];
+    unknownDistricts: string[];
+  }>;
 
   /** Questions allocated to an expert */
   getAllocatedQuestions(
