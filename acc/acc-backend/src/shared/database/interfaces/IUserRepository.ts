@@ -8,6 +8,8 @@ export interface IUserRepository {
   edit(userId: string, userData: Partial<IUser>, session?: ClientSession): Promise<IUser>;
   findCallAgents(session?: ClientSession): Promise<IUser[]>;
   findActiveCallAgents(session?: ClientSession): Promise<IUser[]>;
+  findCallCentreManagers(session?: ClientSession): Promise<IUser[]>;
+  findAllAdmins(session?: ClientSession): Promise<IUser[]>;
   findAndMarkAvailableAgent(callUuid: string, session?: ClientSession): Promise<IUser | null>;
   findAllUsers(page?: number, limit?: number, search?: string, session?: ClientSession): Promise<{ users: IUser[]; total: number }>;
 }

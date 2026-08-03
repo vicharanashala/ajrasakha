@@ -25,15 +25,27 @@ export class UserService extends BaseService {
     });
   }
 
+  async getCallCentreManagers(): Promise<IUser[]> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.userRepo.findCallCentreManagers(session);
+    });
+  }
+
+  async getAllAdminsList(): Promise<IUser[]> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.userRepo.findAllAdmins(session);
+    });
+  }
+
   async setCallAgentStatus(
     userId: string,
     isCallAgent: boolean,
     isCallAgentActive: boolean,
-    requestingUserRole?: string,
+    requestingUser: IUser,
   ): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
-      if (requestingUserRole !== 'admin') {
-        throw new ForbiddenError('Only admin can manage call agents');
+      if (requestingUser.role !== 'admin' || !requestingUser.Call_centre_manager) {
+        throw new ForbiddenError('Only an Admin who is a Call Centre Manager can manage call agents');
       }
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
@@ -41,19 +53,27 @@ export class UserService extends BaseService {
       }
 
       const newRole = isCallAgent ? 'call_agent' : 'expert';
-      const updatedUser = await this.userRepo.edit(userId, {
+      const updatePayload: Partial<IUser> = {
         role: newRole,
         isCallAgentActive,
-      }, session);
+      };
+
+      if (!isCallAgent) {
+        updatePayload.agent = 'not_available';
+        updatePayload.isBusy = false;
+        updatePayload.currentCallUuid = null;
+      }
+
+      const updatedUser = await this.userRepo.edit(userId, updatePayload, session);
 
       return updatedUser;
     });
   }
 
-  async toggleCallAgentActive(userId: string, requestingUserRole?: string): Promise<IUser> {
+  async toggleCallAgentActive(userId: string, requestingUser: IUser): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
-      if (requestingUserRole !== 'admin') {
-        throw new ForbiddenError('Only admin can toggle call agent active status');
+      if (requestingUser.role !== 'admin' || !requestingUser.Call_centre_manager) {
+        throw new ForbiddenError('Only an Admin who is a Call Centre Manager can toggle call agent active status');
       }
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
@@ -63,6 +83,46 @@ export class UserService extends BaseService {
       const updatedUser = await this.userRepo.edit(userId, {
         isCallAgentActive: !user.isCallAgentActive,
       }, session);
+
+      return updatedUser;
+    });
+  }
+
+  async setCallCentreManagerStatus(
+    targetUserId: string,
+    isManager: boolean,
+    requestingUser: IUser,
+  ): Promise<IUser> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      if (requestingUser.role !== 'admin' || !requestingUser.Call_centre_manager) {
+        throw new ForbiddenError('Only an Admin who is a Call Centre Manager can manage Call Centre Managers');
+      }
+
+      const targetUser = await this.userRepo.findById(targetUserId, session);
+      if (!targetUser) {
+        throw new NotFoundError(`User with ID ${targetUserId} not found`);
+      }
+
+      if (targetUser.role !== 'admin') {
+        throw new BadRequestError('Only users with admin role can be assigned as Call Centre Manager');
+      }
+
+      if (!isManager) {
+        if (targetUser._id?.toString() === requestingUser._id?.toString()) {
+          throw new BadRequestError('You cannot remove yourself as a Call Centre Manager');
+        }
+
+        const allManagers = await this.userRepo.findCallCentreManagers(session);
+        if (allManagers.length <= 1) {
+          throw new BadRequestError('Cannot remove the sole remaining Call Centre Manager');
+        }
+      }
+
+      const updatedUser = await this.userRepo.edit(
+        targetUserId,
+        { Call_centre_manager: isManager },
+        session,
+      );
 
       return updatedUser;
     });

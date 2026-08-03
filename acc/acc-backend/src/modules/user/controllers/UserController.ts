@@ -50,6 +50,20 @@ export class UserController {
     return await this.userService.getCallAgents();
   }
 
+  @Get('/call-centre-managers')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async getCallCentreManagers(): Promise<IUser[]> {
+    return await this.userService.getCallCentreManagers();
+  }
+
+  @Get('/admins')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async getAllAdmins(): Promise<IUser[]> {
+    return await this.userService.getAllAdminsList();
+  }
+
   @Post('/set-call-agents')
   @HttpCode(200)
   @Authorized(['admin'])
@@ -58,7 +72,18 @@ export class UserController {
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
     const { userId, isCallAgent, isCallAgentActive } = body;
-    return await this.userService.setCallAgentStatus(userId, isCallAgent, isCallAgentActive, currentUser.role);
+    return await this.userService.setCallAgentStatus(userId, isCallAgent, isCallAgentActive, currentUser);
+  }
+
+  @Post('/set-call-centre-manager')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async setCallCentreManagerStatus(
+    @Body() body: { userId: string; isManager: boolean },
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    const { userId, isManager } = body;
+    return await this.userService.setCallCentreManagerStatus(userId, isManager, currentUser);
   }
 
   @Patch('/call-agents/:id/toggle-active')
@@ -68,7 +93,7 @@ export class UserController {
     @Param('id') userId: string,
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
-    return await this.userService.toggleCallAgentActive(userId, currentUser.role);
+    return await this.userService.toggleCallAgentActive(userId, currentUser);
   }
 
   @Post('/call-agents/toggle-status')

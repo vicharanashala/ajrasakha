@@ -127,6 +127,44 @@ export class UserRepository implements IUserRepository {
     })) as IUser[];
   }
 
+  async findCallCentreManagers(session?: ClientSession): Promise<IUser[]> {
+    await this.init();
+    const managers = await this.usersCollection
+      .find(
+        {
+          role: { $regex: /^admin$/i },
+          $or: [
+            { Call_centre_manager: true },
+            { Call_centre_manager: "true" },
+          ],
+        },
+        { session },
+      )
+      .toArray();
+
+    return managers.map((manager) => ({
+      ...manager,
+      _id: manager._id.toString(),
+    })) as IUser[];
+  }
+
+  async findAllAdmins(session?: ClientSession): Promise<IUser[]> {
+    await this.init();
+    const admins = await this.usersCollection
+      .find(
+        {
+          role: { $regex: /^admin$/i },
+        },
+        { session },
+      )
+      .toArray();
+
+    return admins.map((admin) => ({
+      ...admin,
+      _id: admin._id.toString(),
+    })) as IUser[];
+  }
+
   async findAndMarkAvailableAgent(
     callUuid: string,
     session?: ClientSession,

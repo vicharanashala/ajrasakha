@@ -15,10 +15,25 @@ export class UserService {
     return apiFetch<IUser[]>(`${this._baseUrl}/call-agents`);
   }
 
+  async getCallCentreManagers(): Promise<IUser[] | null> {
+    return apiFetch<IUser[]>(`${this._baseUrl}/call-centre-managers`);
+  }
+
+  async getAllAdmins(): Promise<IUser[] | null> {
+    return apiFetch<IUser[]>(`${this._baseUrl}/admins`);
+  }
+
   async setCallAgentStatus(userId: string, isCallAgent: boolean, isCallAgentActive: boolean): Promise<IUser | null> {
     return apiFetch<IUser>(`${this._baseUrl}/set-call-agents`, {
       method: "POST",
       body: JSON.stringify({ userId, isCallAgent, isCallAgentActive }),
+    });
+  }
+
+  async setCallCentreManagerStatus(userId: string, isManager: boolean): Promise<IUser | null> {
+    return apiFetch<IUser>(`${this._baseUrl}/set-call-centre-manager`, {
+      method: "POST",
+      body: JSON.stringify({ userId, isManager }),
     });
   }
 
