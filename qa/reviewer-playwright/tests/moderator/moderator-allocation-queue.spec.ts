@@ -132,4 +132,24 @@ test.describe("Moderator Allocation Queue", () => {
   }) => {
     await moderatorAllocationQueuePage.expectModeratorMessage();
   });
+  test("MQA-019 Moderator sees Submission History", async ({
+  moderatorAllocationQueuePage,
+}) => {
+  await moderatorAllocationQueuePage.expectSubmissionHistoryOpened();
+});
+test("MQA-020 Moderator sees Refresh button", async ({
+  moderatorAllocationQueuePage,
+}) => {
+  await moderatorAllocationQueuePage.expectRefreshButton();
+});
+test("MQA-021 Moderator sees disabled Manage History button", async ({
+  moderatorAllocationQueuePage,
+}) => {
+  await moderatorAllocationQueuePage.expectManageHistoryButtonDisabled();
+});
+test("MQA-022 Moderator sees empty Submission History message", async ({
+  moderatorAllocationQueuePage,
+}) => {
+  await moderatorAllocationQueuePage.expectNoAnswersMessage();
+});
 });

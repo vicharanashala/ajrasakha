@@ -733,3 +733,167 @@ Verify that the informational message explaining Moderator assignment is display
 ### Status
 
 ✅ Passed
+
+## MQA-019 — Moderator sees Submission History
+
+### Feature
+
+Submission History
+
+### Purpose
+
+Verify that the **Submission History** section is displayed on the Question Details page.
+
+### Preconditions
+
+* Moderator account exists and is authenticated.
+* Application loads successfully after login.
+* A valid question is created during test setup.
+* Moderator opens the newly created question.
+
+### Test Flow
+
+1. Login as moderator.
+2. Navigate to **All Questions**.
+3. Create a valid question.
+4. Submit the question.
+5. Open the created question.
+6. Scroll to the **Submission History** section.
+7. Verify the section is displayed.
+
+### Assertions
+
+* Submission History heading is visible.
+
+### Implementation
+
+* `fixtures/moderator.fixture.ts`
+* `pages/moderator/dashboard.page.ts`
+* `pages/moderator/create-question.page.ts`
+* `pages/moderator/allocation-queue.page.ts`
+* `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-020 — Moderator sees Refresh button
+
+### Feature
+
+Submission History
+
+### Purpose
+
+Verify that the **Refresh** button is visible in the Submission History section.
+
+### Preconditions
+
+* Moderator account exists and is authenticated.
+* Question Details page is open.
+
+### Test Flow
+
+1. Open a question.
+2. Scroll to **Submission History**.
+3. Verify the Refresh button.
+
+### Assertions
+
+* Refresh button is visible.
+
+### Implementation
+
+* `fixtures/moderator.fixture.ts`
+* `pages/moderator/dashboard.page.ts`
+* `pages/moderator/create-question.page.ts`
+* `pages/moderator/allocation-queue.page.ts`
+* `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-021 — Moderator sees disabled Manage History button
+
+### Feature
+
+Submission History
+
+### Purpose
+
+Verify that the **Manage History** button is disabled when the question has no submissions.
+
+### Preconditions
+
+* Moderator account exists and is authenticated.
+* Newly created question.
+* No submissions exist.
+
+### Test Flow
+
+1. Open a question.
+2. Navigate to the **Submission History** section.
+3. Verify the state of the **Manage History** button.
+
+### Assertions
+
+* Manage History button is visible.
+* Manage History button is disabled.
+
+### Implementation
+
+* `fixtures/moderator.fixture.ts`
+* `pages/moderator/dashboard.page.ts`
+* `pages/moderator/create-question.page.ts`
+* `pages/moderator/allocation-queue.page.ts`
+* `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+
+---
+
+# MQA-022 — Moderator sees empty Submission History message
+
+### Feature
+
+Submission History
+
+### Purpose
+
+Verify that the Submission History displays the appropriate empty state when no answers have been submitted.
+
+### Preconditions
+
+* Moderator account exists and is authenticated.
+* Newly created question.
+* No expert submissions exist.
+
+### Test Flow
+
+1. Open a question.
+2. Navigate to the **Submission History** section.
+3. Observe the empty state.
+
+### Assertions
+
+* The message **"No answers yet."** is visible.
+
+### Implementation
+
+* `fixtures/moderator.fixture.ts`
+* `pages/moderator/dashboard.page.ts`
+* `pages/moderator/create-question.page.ts`
+* `pages/moderator/allocation-queue.page.ts`
+* `tests/moderator/moderator-allocation-queue.spec.ts`
+
+### Status
+
+✅ Passed
+

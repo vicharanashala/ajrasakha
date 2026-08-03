@@ -42,6 +42,11 @@ export class ModeratorAllocationQueuePage {
   readonly moderatorEmptyState: Locator;
   readonly moderatorEmptyMessage: Locator;
 
+  readonly submissionHistoryHeading: Locator;
+readonly refreshButton: Locator;
+readonly manageHistoryButton: Locator;
+readonly noAnswersMessage: Locator;
+
   constructor(private readonly page: Page) {
     this.heading = page.getByRole("heading", {
       name: "Allocation Queue",
@@ -165,6 +170,22 @@ export class ModeratorAllocationQueuePage {
     this.moderatorEmptyMessage = this.moderatorSection.getByText(
       /No moderator is currently assigned/,
     );
+
+    this.submissionHistoryHeading = page.getByRole("heading", {
+  name: "Submission History",
+});
+
+this.refreshButton = page.getByRole("button", {
+  name: "Refresh",
+});
+
+this.manageHistoryButton = page.getByRole("button", {
+  name: "Manage History",
+});
+
+this.noAnswersMessage = page.getByText("No answers yet.", {
+  exact: true,
+});
   }
 
   //   FUNCTIONS======================================
@@ -259,4 +280,20 @@ export class ModeratorAllocationQueuePage {
   async expectModeratorMessage() {
     await expect(this.moderatorEmptyMessage).toBeVisible();
   }
+
+  async expectSubmissionHistoryOpened() {
+  await expect(this.submissionHistoryHeading).toBeVisible();
+}
+
+async expectRefreshButton() {
+  await expect(this.refreshButton).toBeVisible();
+}
+
+async expectManageHistoryButtonDisabled() {
+  await expect(this.manageHistoryButton).toBeDisabled();
+}
+
+async expectNoAnswersMessage() {
+  await expect(this.noAnswersMessage).toBeVisible();
+}
 }
