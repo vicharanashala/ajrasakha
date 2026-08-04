@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import {JsonController, Get, Post, Put, Delete, Body, Param, HttpCode, QueryParam, Authorized, CurrentUser, ForbiddenError, BadRequestError} from 'routing-controllers';
+import {JsonController, Get, Post, Put, Delete, Body, Param, HttpCode, QueryParam, Authorized, CurrentUser, ForbiddenError, BadRequestError, ContentType, QueryParams, Res} from 'routing-controllers';
 import {inject, injectable} from 'inversify';
 import {LGD_TYPES} from '../types.js';
 import {IUser} from '#root/shared/interfaces/models.js';
@@ -236,4 +236,34 @@ export class LocationController {
 
     return this.locationService.syncKvks();
   }
+
+  // ─── DOWNLOAD STATES OR DISTRICTS AS EXCEL ─────────────────────────────────────────────
+  @Get('/download')
+  @HttpCode(200)
+  @Authorized()
+  @ContentType(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async downloadStateOrDistrictsReport(
+    @QueryParams() query: { type?: 'state' | 'district' },
+    @Res() response: any,
+  ): Promise<Buffer> {
+    const type = query.type;
+
+    const buffer = await this.locationService.getStateOrDistrictReport(type);
+
+    const filename =
+      type === 'state'
+        ? 'states_list.xlsx'
+        : 'districts_list.xlsx';
+
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename}"`,
+    );
+
+    return buffer;
+  }
+
+    
 }

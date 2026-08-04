@@ -133,4 +133,5 @@ export interface ILocationService {
   addAllDistrict(reason: string, actor: IAuditActor): Promise<ILocationDistrict>;
   /** The location add/delete audit trail, newest first. */
   getLocationAudits(limit?: number): Promise<ILocationAudit[]>;
+  getStateOrDistrictReport(type?: 'state' | 'district'): Promise<any>;
 }

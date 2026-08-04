@@ -7,6 +7,7 @@ import {fileURLToPath} from 'url';
 import {MongoDatabase} from '#shared/database/providers/mongo/MongoDatabase.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {toTitleCase} from '#root/utils/ToTitlecase.js';
+import * as XLSX from 'xlsx';
 import type {
   ILocationService,
   ILocationState,
@@ -598,6 +599,84 @@ export class LocationService implements ILocationService {
 
     return {success: true, message: summary};
   }
+
+  public async getStateOrDistrictReport(
+    type?: 'state' | 'district',
+  ): Promise<Buffer> {
+    if (type !== 'state' && type !== 'district') {
+      throw new BadRequestError('Invalid type');
+    }
+
+    const stateCollection = await this.db.getCollection<any>('states');
+    const districtCollection = await this.db.getCollection<any>('districts');
+
+    let rows: Record<string, string | number>[] = [];
+
+    if (type === 'state') {
+      const states = await stateCollection
+        .find({})
+        .sort({ stateNameEnglish: 1 })
+        .toArray();
+
+      rows = states.map((state) => ({
+        'State Code': state.stateCode ?? '',
+        'State Name English': state.stateNameEnglish?.trim() ?? '',
+        'State Name Local': state.stateNameLocal?.trim() ?? '',
+        'Aliases': Array.isArray(state.aliases)
+          ? state.aliases.join(', ')
+          : '',
+      }));
+    }
+
+    if (type === 'district') {
+      const districts = await districtCollection
+        .find({})
+        .sort({ districtNameEnglish: 1 })
+        .toArray();
+
+      rows = districts.map((district) => ({
+        'District Code': district.districtCode ?? '',
+        'District Name English': district.districtNameEnglish?.trim() ?? '',
+        'District Name Local': district.districtNameLocal?.trim() ?? '',
+        'State Code': district.stateCode ?? '',
+        'Aliases': Array.isArray(district.aliases)
+          ? district.aliases.join(', ')
+          : '',
+      }));
+    }
+
+    const sheetName = type === 'state' ? 'States' : 'Districts';
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Optional: set readable column widths
+    ws['!cols'] =
+      type === 'state'
+        ? [
+          { wch: 12 }, // State Code
+          { wch: 25 }, // English
+          { wch: 25 }, // Local
+          { wch: 50 }, // Aliases
+        ]
+        : [
+          { wch: 15 }, // District Code
+          { wch: 25 }, // English
+          { wch: 25 }, // Local
+          { wch: 12 }, // State Code
+          { wch: 50 }, // Aliases
+        ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+    return Buffer.from(
+      XLSX.write(wb, {
+        type: 'buffer',
+        bookType: 'xlsx',
+      }),
+    );
+  }
+  
 }
 
 // Escape user-supplied text for safe use inside a MongoDB $regex.
