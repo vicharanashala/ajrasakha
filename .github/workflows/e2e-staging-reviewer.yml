@@ -3,10 +3,11 @@ name: Reviewer System E2E Tests (Staging)
 on:
   workflow_dispatch:
   push:
-    branches: [main_staging]
+    branches: [test_cases/main_copy]
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   e2e:
@@ -31,16 +32,28 @@ jobs:
         working-directory: backend
         run: pnpm install
 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
+
+      - name: Fetch staging DB URL from GCP Secret Manager
+        id: secrets
+        uses: google-github-actions/get-secretmanager-secrets@v2
+        with:
+          secrets: |-
+            DB_URL:${{ secrets.GCP_PROJECT_ID }}/AJRASAKHA_REVIEWER_SYS_DB_URI_STAGING/latest
+
       - name: Seed test users
         working-directory: backend
         run: node scripts/seed-test-users.mjs
         env:
-          DB_URL: ${{ secrets.STAGING_MONGODB_URI }}
+          DB_URL: ${{ steps.secrets.outputs.DB_URL }}
           DB_NAME: ajrasakha-staging
 
       - name: Run staging e2e suite
         working-directory: backend
         run: pnpm exec vitest run --config vitest.e2e.staging.config.ts
         env:
-          DB_URL: ${{ secrets.STAGING_MONGODB_URI }}
+          DB_URL: ${{ steps.secrets.outputs.DB_URL }}
           DB_NAME: ajrasakha-staging
