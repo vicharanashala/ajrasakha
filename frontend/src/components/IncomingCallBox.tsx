@@ -1083,7 +1083,7 @@ export const IncomingCallBox = ({
                         size="sm"
                         variant="outline"
                         className={cn(
-                          "flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium transition-all",
+                          "flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-medium transition-all",
                           isRecording
                             ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 dark:bg-red-500/20 border-red-500/30 animate-pulse font-semibold"
                             : "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 dark:bg-emerald-500/20 border-emerald-500/30 border",
@@ -1106,7 +1106,7 @@ export const IncomingCallBox = ({
                         onClick={handleToggleHold}
                         size="sm"
                         variant="outline"
-                        className="flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50"
+                        className="flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50"
                       >
                         {callStatus === "held" ? (
                           <>
@@ -1126,7 +1126,7 @@ export const IncomingCallBox = ({
                         size="sm"
                         variant={isMuted ? "destructive" : "outline"}
                         className={cn(
-                          "col-span-2 flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50",
+                          "col-span-2 flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50",
                           isMuted &&
                           "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 dark:bg-orange-500/20 border-orange-500/30 font-semibold",
                         )}

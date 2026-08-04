@@ -146,7 +146,9 @@ const ModeratorCheckInControl = ({ user }: { user?: IUser | null }) => {
 
 export const Dashboard = () => {
 
-  localStorage.removeItem("animationsEnabled");
+  useEffect(() => {
+    localStorage.removeItem("animationsEnabled");
+  }, []);
 
   // ---- Golden Dataset Overview state filters ----- //
   const [viewType, setViewType] = useState<ViewType>("year");

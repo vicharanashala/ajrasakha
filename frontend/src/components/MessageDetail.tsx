@@ -93,10 +93,10 @@ const MessageDetail = ({
         //     >
         <div className="relative w-full rounded-xl p-[1px] overflow-hidden">
             {/* Animated border glow */}
-            <div className="absolute inset-0 rounded-xl bg-primary animate-pulse opacity-80 h-19" />
+            <div className="absolute inset-0 rounded-xl bg-primary animate-pulse opacity-80 h-20" />
 
             {/* Soft glow layer */}
-            <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md h-19" />
+            <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md h-20" />
 
             {/* Actual button */}
             <button
@@ -711,14 +711,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 questionId: question._id,
                 source: question.source,
                 isModeratorApproval: isAcceptFlow,
-            }),{
-                loading:"approving answer...",
-                success:isAcceptFlow
-                    ? "LLM answer submitted successfully for author review"
-                    : "Answer pushed to GDB successfully",
-                // error:"Failed to approve the answer. Please try again."
-                    error: (error:any) => error.message ? error.message : "Failed to approve the answer. Please try again."
-            };
+            });
             setApproved(true);
 
             toast.success(
