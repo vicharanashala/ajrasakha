@@ -99,61 +99,166 @@ def _build_success_html(
     newly_added: int,
     sync_time: datetime,
 ) -> str:
-    """Build HTML email body for successful sync."""
-    status_color = "#10B981"  # Green
-    status_text = "Success"
-
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }}
-            .header h1 {{ margin: 0; font-size: 24px; }}
-            .header p {{ margin: 5px 0 0; opacity: 0.9; }}
-            .content {{ background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }}
-            .status {{ display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; background: {status_color}; color: white; }}
-            .stats {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }}
-            .stat-box {{ background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
-            .stat-value {{ font-size: 28px; font-weight: bold; color: #667eea; }}
-            .stat-label {{ font-size: 12px; color: #6b7280; margin-top: 5px; }}
-            .footer {{ margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; }}
-            .link {{ color: #667eea; text-decoration: none; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>HuggingFace Sync Complete</h1>
-            <p>{sync_time.strftime('%B %d, %Y at %I:%M %p')} IST</p>
-        </div>
-        <div class="content">
-            <p><span class="status">{status_text}</span></p>
-            <div class="stats">
-                <div class="stat-box">
-                    <div class="stat-value">{existing_rows:,}</div>
-                    <div class="stat-label">Existing Rows<br>(Before Sync)</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value">{new_rows:,}</div>
-                    <div class="stat-label">New Rows<br>(After Sync)</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value">{'+' if newly_added >= 0 else ''}{newly_added:,}</div>
-                    <div class="stat-label">Newly Added</div>
-                </div>
-            </div>
-            <p>The dataset has been successfully synced to HuggingFace.</p>
-            <p>Dataset: <a href="{HF_DATASET_LINK}" class="link">{HF_DATASET_LINK}</a></p>
-            <div class="footer">
-                <p>This is an automated notification from the Ajrasakha Agri Platform.</p>
-                <p>Please do not reply to this email.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return html
+    """Build HTML email body for successful sync with inline CSS for email client compatibility."""
+    formatted_time = sync_time.strftime('%B %d, %Y at %I:%M %p')
+    change_indicator = f"+{newly_added:,}" if newly_added >= 0 else str(newly_added)
+    change_color = "#10B981" if newly_added >= 0 else "#EF4444"
+    
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HuggingFace Sync Complete</title>
+    <!--[if mso]>
+    <style type="text/css">
+        table {{border-collapse: collapse;}}
+        .stat-box {{border: 1px solid #E5E7EB;}}
+    </style>
+    <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; background-color: #F3F4F6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    
+    <!-- Preview Text -->
+    <div style="display: none; max-height: 0; overflow: hidden;">
+        HF Sync Complete • {newly_added} rows added
+    </div>
+    
+    <!-- Main Container -->
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F3F4F6;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                
+                <!-- Email Card -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 560px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%); padding: 32px 40px;">
+                            <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #FFFFFF; line-height: 1.3;">
+                                HuggingFace Sync Complete
+                            </h1>
+                            <p style="margin: 12px 0 0; font-size: 14px; color: rgba(255,255,255,0.9);">
+                                {formatted_time} IST
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Success Badge -->
+                    <tr>
+                        <td style="padding: 24px 40px 0;">
+                            <span style="display: inline-block; background-color: #10B981; color: #FFFFFF; font-size: 12px; font-weight: 600; padding: 6px 16px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                Success
+                            </span>
+                        </td>
+                    </tr>
+                    
+                    <!-- Stats Grid -->
+                    <tr>
+                        <td style="padding: 24px 40px;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                <tr>
+                                    <!-- Existing Rows -->
+                                    <td width="33.33%" style="padding-right: 12px;">
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F9FAFB; border-radius: 12px; border: 1px solid #E5E7EB;">
+                                            <tr>
+                                                <td style="padding: 20px 16px; text-align: center;">
+                                                    <p style="margin: 0; font-size: 32px; font-weight: 700; color: #667EEA; line-height: 1;">
+                                                        {existing_rows:,}
+                                                    </p>
+                                                    <p style="margin: 8px 0 0; font-size: 12px; color: #6B7280; line-height: 1.4;">
+                                                        Existing Rows<br>
+                                                        <span style="color: #9CA3AF; font-size: 11px;">Before Sync</span>
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                    
+                                    <!-- New Rows -->
+                                    <td width="33.33%" style="padding: 0 6px;">
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F9FAFB; border-radius: 12px; border: 1px solid #E5E7EB;">
+                                            <tr>
+                                                <td style="padding: 20px 16px; text-align: center;">
+                                                    <p style="margin: 0; font-size: 32px; font-weight: 700; color: #667EEA; line-height: 1;">
+                                                        {new_rows:,}
+                                                    </p>
+                                                    <p style="margin: 8px 0 0; font-size: 12px; color: #6B7280; line-height: 1.4;">
+                                                        New Rows<br>
+                                                        <span style="color: #9CA3AF; font-size: 11px;">After Sync</span>
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                    
+                                    <!-- Newly Added -->
+                                    <td width="33.33%" style="padding-left: 12px;">
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F9FAFB; border-radius: 12px; border: 1px solid #E5E7EB;">
+                                            <tr>
+                                                <td style="padding: 20px 16px; text-align: center;">
+                                                    <p style="margin: 0; font-size: 32px; font-weight: 700; color: {change_color}; line-height: 1;">
+                                                        {change_indicator}
+                                                    </p>
+                                                    <p style="margin: 8px 0 0; font-size: 12px; color: #6B7280; line-height: 1.4;">
+                                                        Newly Added
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Message -->
+                    <tr>
+                        <td style="padding: 0 40px;">
+                            <p style="margin: 0; font-size: 15px; color: #374151; line-height: 1.6;">
+                                The dataset has been successfully synced to HuggingFace.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Dataset Link -->
+                    <tr>
+                        <td style="padding: 20px 40px 24px;">
+                            <p style="margin: 0; font-size: 13px; color: #6B7280;">
+                                Dataset:
+                            </p>
+                            <a href="{HF_DATASET_LINK}" style="display: inline-block; margin-top: 4px; font-size: 14px; color: #667EEA; text-decoration: none; font-weight: 500; word-break: break-all;">
+                                {HF_DATASET_LINK}
+                            </a>
+                        </td>
+                    </tr>
+                    
+                    <!-- Divider -->
+                    <tr>
+                        <td style="padding: 0 40px;">
+                            <div style="border-top: 1px solid #E5E7EB;"></div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 24px 40px 32px;">
+                            <p style="margin: 0; font-size: 12px; color: #9CA3AF; line-height: 1.6; text-align: center;">
+                                This is an automated notification from the Ajrasakha Agri Platform.<br>
+                                Please do not reply to this email.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+                <!-- End Email Card -->
+                
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>"""
 
 
 def _send_error_email(error: str, sync_time: datetime | None) -> bool:
@@ -184,40 +289,100 @@ def _send_error_email(error: str, sync_time: datetime | None) -> bool:
 
 
 def _build_error_html(error: str, sync_time: datetime) -> str:
-    """Build HTML email body for failed sync."""
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }}
-            .header h1 {{ margin: 0; font-size: 24px; }}
-            .header p {{ margin: 5px 0 0; opacity: 0.9; }}
-            .content {{ background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }}
-            .status {{ display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; background: #ef4444; color: white; }}
-            .error-box {{ background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444; margin: 20px 0; }}
-            .error-message {{ font-family: monospace; font-size: 13px; color: #dc2626; margin: 0; white-space: pre-wrap; }}
-            .footer {{ margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>HuggingFace Sync Failed</h1>
-            <p>{sync_time.strftime('%B %d, %Y at %I:%M %p')} IST</p>
-        </div>
-        <div class="content">
-            <p><span class="status">Failed</span></p>
-            <div class="error-box">
-                <p class="error-message">{error}</p>
-            </div>
-            <p>Please check the logs for more details.</p>
-            <div class="footer">
-                <p>This is an automated notification from the Ajrasakha Agri Platform.</p>
-                <p>Please do not reply to this email.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return html
+    """Build HTML email body for failed sync with inline CSS for email client compatibility."""
+    formatted_time = sync_time.strftime('%B %d, %Y at %I:%M %p')
+    # Escape HTML entities in error message
+    error_escaped = error.replace('&', '&').replace('<', '<').replace('>', '>').replace('"', '"')
+    
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HuggingFace Sync Failed</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F3F4F6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    
+    <!-- Preview Text -->
+    <div style="display: none; max-height: 0; overflow: hidden;">
+        HF Sync Failed - Please check the error details
+    </div>
+    
+    <!-- Main Container -->
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F3F4F6;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                
+                <!-- Email Card -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 560px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+                    
+                    <!-- Header (Red) -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 32px 40px;">
+                            <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #FFFFFF; line-height: 1.3;">
+                                HuggingFace Sync Failed
+                            </h1>
+                            <p style="margin: 12px 0 0; font-size: 14px; color: rgba(255,255,255,0.9);">
+                                {formatted_time} IST
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Failed Badge -->
+                    <tr>
+                        <td style="padding: 24px 40px 0;">
+                            <span style="display: inline-block; background-color: #EF4444; color: #FFFFFF; font-size: 12px; font-weight: 600; padding: 6px 16px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                Failed
+                            </span>
+                        </td>
+                    </tr>
+                    
+                    <!-- Error Box -->
+                    <tr>
+                        <td style="padding: 24px 40px;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #FEF2F2; border-radius: 12px; border-left: 4px solid #EF4444;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p style="margin: 0; font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', 'Courier New', monospace; font-size: 13px; color: #DC2626; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">
+{error_escaped}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Message -->
+                    <tr>
+                        <td style="padding: 0 40px;">
+                            <p style="margin: 0; font-size: 15px; color: #374151; line-height: 1.6;">
+                                Please check the logs for more details.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Divider -->
+                    <tr>
+                        <td style="padding: 24px 40px 0;">
+                            <div style="border-top: 1px solid #E5E7EB;"></div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 24px 40px 32px;">
+                            <p style="margin: 0; font-size: 12px; color: #9CA3AF; line-height: 1.6; text-align: center;">
+                                This is an automated notification from the Ajrasakha Agri Platform.<br>
+                                Please do not reply to this email.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+                <!-- End Email Card -->
+                
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>"""
