@@ -9,6 +9,8 @@ const TYPES = {
   RequestController: Symbol.for('RequestController'),
   ReRouteController:Symbol.for('ReRouteController'),
   ChemicalController: Symbol.for('ChemicalController'),
+  SavedAnswerController: Symbol.for('SavedAnswerController'),
+    
 
   // Services
   UserService: Symbol.for('UserService'),
@@ -38,6 +40,7 @@ const TYPES = {
   CropRepository: Symbol.for('CropRepository'),
   ChemicalRepository: Symbol.for('ChemicalRepository'),
   MongoDatabase: Symbol.for('MongoDatabase'),
+  SavedAnswerRepository: Symbol.for('SavedAnswerRepository'),
   CropService: Symbol.for('CropService'),
   ChemicalService: Symbol.for('ChemicalService'),
 
