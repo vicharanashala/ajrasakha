@@ -10,12 +10,22 @@ import {
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
-import { Loader2, MapPin, Plus, Save, Search, X } from "lucide-react";
+import {
+  Loader2,
+  MapPin,
+  Plus,
+  Save,
+  Search,
+  X,
+  Trash2,
+  PlusCircle,
+} from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LocationService,
   type ILocationDistrict,
 } from "@/hooks/services/locationService";
+import { LocationReasonDialog } from "./LocationReasonDialog";
 
 const locationService = new LocationService();
 
@@ -60,11 +70,50 @@ export const DistrictAliasModal = ({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: districtsKey }),
   });
 
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: districtsKey });
+    queryClient.invalidateQueries({ queryKey: ["all-districts"] });
+    queryClient.invalidateQueries({ queryKey: ["location-audits"] });
+  };
+
+  const { mutateAsync: addDistrictMut, isPending: addingDistrict } = useMutation({
+    mutationKey: ["add-district"],
+    mutationFn: ({
+      name,
+      reason,
+      aliases,
+    }: {
+      name: string;
+      reason: string;
+      aliases: string[];
+    }) => locationService.addDistrict(stateCode as number, name, reason, aliases),
+    onSuccess: invalidateAll,
+  });
+
+  const { mutateAsync: deleteDistrictMut, isPending: deletingDistrict } =
+    useMutation({
+      mutationKey: ["delete-district"],
+      mutationFn: ({
+        districtCode,
+        reason,
+      }: {
+        districtCode: number;
+        reason: string;
+      }) => locationService.deleteDistrict(districtCode, reason),
+      onSuccess: invalidateAll,
+    });
+
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<number, string[]>>({});
   const [names, setNames] = useState<Record<number, string>>({});
   const [inputs, setInputs] = useState<Record<number, string>>({});
   const [savingCode, setSavingCode] = useState<number | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newReason, setNewReason] = useState("");
+  const [newAliases, setNewAliases] = useState<string[]>([]);
+  const [newAliasInput, setNewAliasInput] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<ILocationDistrict | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -135,8 +184,56 @@ export const DistrictAliasModal = ({
     return original.some((a, i) => a !== draft[i]);
   };
 
+  const addNewAlias = () => {
+    const value = newAliasInput.trim();
+    if (!value) return;
+    setNewAliases((prev) =>
+      prev.some((a) => a.toLowerCase() === value.toLowerCase())
+        ? prev
+        : [...prev, value],
+    );
+    setNewAliasInput("");
+  };
+
+  const handleAddDistrict = async () => {
+    const name = newName.trim();
+    const reason = newReason.trim();
+    if (stateCode == null) return;
+    if (!name) {
+      toast.error("District name is required.");
+      return;
+    }
+    if (!reason) {
+      toast.error("A reason is required to add a district.");
+      return;
+    }
+    try {
+      await addDistrictMut({ name, reason, aliases: newAliases });
+      toast.success(`District "${name}" added.`);
+      setNewName("");
+      setNewReason("");
+      setNewAliases([]);
+      setNewAliasInput("");
+      setShowAddForm(false);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to add district.");
+    }
+  };
+
+  const handleDeleteDistrict = async (reason: string) => {
+    if (!deleteTarget) return;
+    try {
+      await deleteDistrictMut({ districtCode: deleteTarget.districtCode, reason });
+      toast.success(`District "${deleteTarget.districtNameEnglish}" deleted.`);
+      setDeleteTarget(null);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete district.");
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[90vw] max-w-[680px] max-h-[88vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -157,6 +254,110 @@ export const DistrictAliasModal = ({
             className="pl-9"
           />
         </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            size="sm"
+            variant={showAddForm ? "secondary" : "default"}
+            onClick={() => setShowAddForm((v) => !v)}
+          >
+            <PlusCircle className="mr-1 h-4 w-4" />
+            Add District
+          </Button>
+        </div>
+
+        {showAddForm && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 space-y-2 dark:border-emerald-800 dark:bg-emerald-950/20">
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder={`New district name in ${stateName || "this state"}`}
+            />
+
+            {/* Optional aliases for the new district */}
+            <div className="flex items-center gap-2">
+              <Input
+                value={newAliasInput}
+                onChange={(e) => setNewAliasInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addNewAlias();
+                  }
+                }}
+                placeholder="Add an alias (optional)"
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={!newAliasInput.trim()}
+                onClick={addNewAlias}
+                aria-label="Add alias to new district"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {newAliases.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {newAliases.map((a, idx) => (
+                  <span
+                    key={`${a}-${idx}`}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                  >
+                    {a}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewAliases((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      aria-label={`Remove ${a}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <Input
+              value={newReason}
+              onChange={(e) => setNewReason(e.target.value)}
+              placeholder="Reason for adding (required)"
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setNewName("");
+                  setNewReason("");
+                  setNewAliases([]);
+                  setNewAliasInput("");
+                }}
+                disabled={addingDistrict}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleAddDistrict}
+                disabled={
+                  addingDistrict || !newName.trim() || !newReason.trim()
+                }
+              >
+                {addingDistrict ? (
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="mr-1 h-4 w-4" />
+                )}
+                Add
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto space-y-3 py-2 pr-1">
           {isLoading ? (
@@ -185,20 +386,31 @@ export const DistrictAliasModal = ({
                       className="text-sm font-semibold flex-1 h-8"
                       aria-label={`District name for ${d.districtNameEnglish}`}
                     />
-                    {isDirty(d) && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isDirty(d) && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleSave(d.districtCode)}
+                          disabled={saving && savingCode === d.districtCode}
+                        >
+                          {saving && savingCode === d.districtCode ? (
+                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Save className="mr-1 h-3.5 w-3.5" />
+                          )}
+                          Save
+                        </Button>
+                      )}
                       <Button
                         size="sm"
-                        onClick={() => handleSave(d.districtCode)}
-                        disabled={saving && savingCode === d.districtCode}
+                        variant="ghost"
+                        onClick={() => setDeleteTarget(d)}
+                        aria-label={`Delete ${d.districtNameEnglish}`}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
                       >
-                        {saving && savingCode === d.districtCode ? (
-                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Save className="mr-1 h-3.5 w-3.5" />
-                        )}
-                        Save
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -260,7 +472,19 @@ export const DistrictAliasModal = ({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+
+      <LocationReasonDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title={`Delete district "${deleteTarget?.districtNameEnglish ?? ""}"?`}
+        description="This removes the district from this state. This action is recorded in the audit trail."
+        confirmLabel="Delete district"
+        destructive
+        loading={deletingDistrict}
+        onConfirm={handleDeleteDistrict}
+      />
+    </>
   );
 };
 

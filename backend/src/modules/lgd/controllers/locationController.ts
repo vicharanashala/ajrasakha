@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import {JsonController, Get, Post, Put, Body, Param, HttpCode, QueryParam, Authorized, CurrentUser, ForbiddenError, BadRequestError} from 'routing-controllers';
+import {JsonController, Get, Post, Put, Delete, Body, Param, HttpCode, QueryParam, Authorized, CurrentUser, ForbiddenError, BadRequestError} from 'routing-controllers';
 import {inject, injectable} from 'inversify';
 import {LGD_TYPES} from '../types.js';
 import {IUser} from '#root/shared/interfaces/models.js';
@@ -11,6 +11,8 @@ import type {
   ILocationVillage,
   IKvk,
   IKvkSyncResult,
+  IAuditActor,
+  ILocationAudit,
 } from '../interfaces/ILocationService.js';
 
 // ── Allowed roles for triggering the KVK registry sync ──
@@ -23,6 +25,23 @@ export class LocationController {
     @inject(LGD_TYPES.LocationService)
     private readonly locationService: ILocationService,
   ) {}
+
+  // Only admins/moderators may add or delete states/districts.
+  private assertCanManage(user: IUser): void {
+    if (user.role !== 'admin' && user.role !== 'moderator') {
+      throw new ForbiddenError(
+        'Only admins and moderators can add or delete states and districts',
+      );
+    }
+  }
+
+  private toActor(user: IUser): IAuditActor {
+    return {
+      userId: user._id?.toString?.() ?? undefined,
+      email: user.email,
+      name: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || undefined,
+    };
+  }
 
   @Get('/states')
   @HttpCode(200)
@@ -52,12 +71,52 @@ export class LocationController {
     );
   }
 
+  // Add a new state. A reason is required and recorded in the audit trail.
+  @Post('/states')
+  @HttpCode(201)
+  @Authorized()
+  async addState(
+    @CurrentUser() user: IUser,
+    @Body() body: { name: string; reason: string },
+  ): Promise<ILocationState> {
+    this.assertCanManage(user);
+    return this.locationService.addState(
+      body?.name,
+      body?.reason,
+      this.toActor(user),
+    );
+  }
+
+  // Delete a state (districts are left intact). A reason is required and audited.
+  @Delete('/states/:stateCode')
+  @HttpCode(200)
+  @Authorized()
+  async deleteState(
+    @CurrentUser() user: IUser,
+    @Param('stateCode') stateCode: number,
+    @Body() body: { reason: string },
+  ): Promise<{ success: true }> {
+    this.assertCanManage(user);
+    return this.locationService.deleteState(
+      Number(stateCode),
+      body?.reason,
+      this.toActor(user),
+    );
+  }
+
   @Get('/districts')
   @HttpCode(200)
   async getDistricts(
     @QueryParam('stateCode') stateCode: number,
   ): Promise<ILocationDistrict[]> {
     return this.locationService.getDistricts(stateCode);
+  }
+
+  // All districts across every state (each carrying its stateName) for the Districts tab.
+  @Get('/districts/all')
+  @HttpCode(200)
+  async getAllDistricts(): Promise<ILocationDistrict[]> {
+    return this.locationService.getAllDistricts();
   }
 
   // Admins/moderators manage the alternate names (aliases) for a district.
@@ -80,6 +139,65 @@ export class LocationController {
       body.aliases,
       body.name,
     );
+  }
+
+  // Add a new district under a state. A reason is required and audited.
+  @Post('/districts')
+  @HttpCode(201)
+  @Authorized()
+  async addDistrict(
+    @CurrentUser() user: IUser,
+    @Body() body: { stateCode: number; name: string; reason: string; aliases?: string[] },
+  ): Promise<ILocationDistrict> {
+    this.assertCanManage(user);
+    return this.locationService.addDistrict(
+      Number(body?.stateCode),
+      body?.name,
+      body?.reason,
+      this.toActor(user),
+      body?.aliases,
+    );
+  }
+
+  // Add the single common "All" district (state-agnostic). A reason is required and audited.
+  @Post('/districts/all')
+  @HttpCode(201)
+  @Authorized()
+  async addAllDistrict(
+    @CurrentUser() user: IUser,
+    @Body() body: { reason: string },
+  ): Promise<ILocationDistrict> {
+    this.assertCanManage(user);
+    return this.locationService.addAllDistrict(body?.reason, this.toActor(user));
+  }
+
+  // Delete a district. A reason is required and audited.
+  @Delete('/districts/:districtCode')
+  @HttpCode(200)
+  @Authorized()
+  async deleteDistrict(
+    @CurrentUser() user: IUser,
+    @Param('districtCode') districtCode: number,
+    @Body() body: { reason: string },
+  ): Promise<{ success: true }> {
+    this.assertCanManage(user);
+    return this.locationService.deleteDistrict(
+      Number(districtCode),
+      body?.reason,
+      this.toActor(user),
+    );
+  }
+
+  // The add/delete audit trail for states & districts (newest first).
+  @Get('/audits')
+  @HttpCode(200)
+  @Authorized()
+  async getLocationAudits(
+    @CurrentUser() user: IUser,
+    @QueryParam('limit') limit?: number,
+  ): Promise<ILocationAudit[]> {
+    this.assertCanManage(user);
+    return this.locationService.getLocationAudits(limit);
   }
 
   @Get('/blocks')

@@ -10,13 +10,33 @@ import {
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
-import { Loader2, MapPin, Plus, Save, Search, X, ChevronRight } from "lucide-react";
+import {
+  Loader2,
+  MapPin,
+  Plus,
+  Save,
+  Search,
+  X,
+  ChevronRight,
+  Trash2,
+  History,
+  PlusCircle,
+} from "lucide-react";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/atoms/tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LocationService,
   type ILocationState,
 } from "@/hooks/services/locationService";
 import { DistrictAliasModal } from "./DistrictAliasModal";
+import { AllDistrictsPanel } from "./AllDistrictsPanel";
+import { LocationReasonDialog } from "./LocationReasonDialog";
+import { LocationAuditModal } from "./LocationAuditModal";
 
 const locationService = new LocationService();
 const STATES_KEY = ["states"];
@@ -56,6 +76,26 @@ export const StateDistrictAliasModal = ({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: STATES_KEY }),
   });
 
+  const { mutateAsync: addStateMut, isPending: addingState } = useMutation({
+    mutationKey: ["add-state"],
+    mutationFn: ({ name, reason }: { name: string; reason: string }) =>
+      locationService.addState(name, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: STATES_KEY });
+      queryClient.invalidateQueries({ queryKey: ["location-audits"] });
+    },
+  });
+
+  const { mutateAsync: deleteStateMut, isPending: deletingState } = useMutation({
+    mutationKey: ["delete-state"],
+    mutationFn: ({ stateCode, reason }: { stateCode: number; reason: string }) =>
+      locationService.deleteState(stateCode, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: STATES_KEY });
+      queryClient.invalidateQueries({ queryKey: ["location-audits"] });
+    },
+  });
+
   const [search, setSearch] = useState("");
   // Local editable aliases per stateCode + the "add alias" input per stateCode.
   const [drafts, setDrafts] = useState<Record<number, string[]>>({});
@@ -66,6 +106,13 @@ export const StateDistrictAliasModal = ({
   const [districtState, setDistrictState] = useState<
     { code: number; name: string } | null
   >(null);
+  // Add-state form + delete-confirm + audit viewer.
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newReason, setNewReason] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<ILocationState | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"states" | "districts">("states");
 
   // Seed drafts from the fetched states whenever the dialog opens / data changes.
   useEffect(() => {
@@ -135,6 +182,39 @@ export const StateDistrictAliasModal = ({
     return original.some((a, i) => a !== draft[i]);
   };
 
+  const handleAddState = async () => {
+    const name = newName.trim();
+    const reason = newReason.trim();
+    if (!name) {
+      toast.error("State name is required.");
+      return;
+    }
+    if (!reason) {
+      toast.error("A reason is required to add a state.");
+      return;
+    }
+    try {
+      await addStateMut({ name, reason });
+      toast.success(`State "${name}" added.`);
+      setNewName("");
+      setNewReason("");
+      setShowAddForm(false);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to add state.");
+    }
+  };
+
+  const handleDeleteState = async (reason: string) => {
+    if (!deleteTarget) return;
+    try {
+      await deleteStateMut({ stateCode: deleteTarget.stateCode, reason });
+      toast.success(`State "${deleteTarget.stateNameEnglish}" deleted.`);
+      setDeleteTarget(null);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete state.");
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -150,6 +230,26 @@ export const StateDistrictAliasModal = ({
           </DialogDescription>
         </DialogHeader>
 
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as "states" | "districts")}
+          className="flex-1 min-h-0 flex flex-col gap-2"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <TabsList>
+              <TabsTrigger value="states">States</TabsTrigger>
+              <TabsTrigger value="districts">Districts</TabsTrigger>
+            </TabsList>
+            <Button size="sm" variant="outline" onClick={() => setAuditOpen(true)}>
+              <History className="mr-1 h-4 w-4" />
+              Audit trail
+            </Button>
+          </div>
+
+          <TabsContent
+            value="states"
+            className="flex-1 min-h-0 flex flex-col gap-2 mt-0 data-[state=inactive]:hidden"
+          >
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -159,6 +259,58 @@ export const StateDistrictAliasModal = ({
             className="pl-9"
           />
         </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant={showAddForm ? "secondary" : "default"}
+            onClick={() => setShowAddForm((v) => !v)}
+          >
+            <PlusCircle className="mr-1 h-4 w-4" />
+            Add State
+          </Button>
+        </div>
+
+        {showAddForm && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 space-y-2 dark:border-emerald-800 dark:bg-emerald-950/20">
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="New state name"
+            />
+            <Input
+              value={newReason}
+              onChange={(e) => setNewReason(e.target.value)}
+              placeholder="Reason for adding (required)"
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setNewName("");
+                  setNewReason("");
+                }}
+                disabled={addingState}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleAddState}
+                disabled={addingState || !newName.trim() || !newReason.trim()}
+              >
+                {addingState ? (
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="mr-1 h-4 w-4" />
+                )}
+                Add
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto space-y-3 py-2 pr-1">
           {isLoading ? (
@@ -208,6 +360,15 @@ export const StateDistrictAliasModal = ({
                       >
                         Districts
                         <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDeleteTarget(s)}
+                        aria-label={`Delete ${s.stateNameEnglish}`}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -265,6 +426,15 @@ export const StateDistrictAliasModal = ({
             })
           )}
         </div>
+          </TabsContent>
+
+          <TabsContent
+            value="districts"
+            className="flex-1 min-h-0 flex flex-col mt-0 data-[state=inactive]:hidden"
+          >
+            <AllDistrictsPanel enabled={activeTab === "districts"} />
+          </TabsContent>
+        </Tabs>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -280,6 +450,19 @@ export const StateDistrictAliasModal = ({
         stateCode={districtState?.code ?? null}
         stateName={districtState?.name ?? ""}
       />
+
+      <LocationReasonDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title={`Delete state "${deleteTarget?.stateNameEnglish ?? ""}"?`}
+        description="This removes the state. Its districts are left intact. This action is recorded in the audit trail."
+        confirmLabel="Delete state"
+        destructive
+        loading={deletingState}
+        onConfirm={handleDeleteState}
+      />
+
+      <LocationAuditModal open={auditOpen} onOpenChange={setAuditOpen} />
     </>
   );
 };
