@@ -92,6 +92,35 @@ def test_thread_file_handler_routes_by_context(tmp_path: Path):
     assert (tmp_path / "thread-xyz.txt").read_text(encoding="utf-8").count("hello from thread xyz") == 1
 
 
+def test_thread_file_handler_closes_each_log_stream(tmp_path: Path, monkeypatch):
+    opened_streams = []
+    original_open = Path.open
+
+    def track_open(path: Path, *args, **kwargs):
+        stream = original_open(path, *args, **kwargs)
+        if path.parent == tmp_path:
+            opened_streams.append(stream)
+        return stream
+
+    monkeypatch.setattr(Path, "open", track_open)
+    handler = tl.ThreadFileLogHandler(tmp_path)
+    handler.addFilter(tl.ThreadLogFilter())
+    logger = logging.getLogger("ajrasakha.agents.tests.thread_logging_close")
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    try:
+        for index in range(3):
+            tl.set_thread_log_context(f"thread-close-{index}")
+            logger.info("log message %s", index)
+        tl.clear_thread_log_context()
+    finally:
+        logger.removeHandler(handler)
+
+    assert len(opened_streams) == 3
+    assert all(stream.closed for stream in opened_streams)
+
+
 def test_end_conversation_turn_syncs_turn_to_mongo(tmp_path: Path, monkeypatch):
     sync_calls: list[tuple[str, list]] = []
 

@@ -268,6 +268,279 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Data fix: standardise a state name. Sets details.state = standardizedTo for every
+   *  question whose details.state currently matches one of currentValues (exact match). */
+  async normalizeQuestionState(
+    currentValues: string[],
+    standardizedTo: string,
+    session?: ClientSession,
+  ): Promise<{ matched: number; modified: number }> {
+    try {
+      await this.init();
+      const result = await this.QuestionCollection.updateMany(
+        {'details.state': {$in: currentValues}},
+        {$set: {'details.state': standardizedTo, updatedAt: new Date()}},
+        {session},
+      );
+      return {matched: result.matchedCount, modified: result.modifiedCount};
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to normalize question state: ${error}`,
+      );
+    }
+  }
+
+  /** Data fix: standardise question district names, validated against the `districts`
+   *  collection. For each { existingName, standardiseTo }: only when `standardiseTo` exists
+   *  as a districtNameEnglish do we set details.district = standardiseTo for questions whose
+   *  details.district === existingName. Names whose `standardiseTo` isn't a known district
+   *  are returned in `notMatching` and left untouched. */
+  async normalizeQuestionDistricts(
+    mappings: {existingName: string; standardiseTo: string}[],
+  ): Promise<{
+    results: {
+      existingName: string;
+      standardiseTo: string;
+      matchedInDistricts: boolean;
+      matched: number;
+      modified: number;
+    }[];
+    notMatching: {existingName: string; standardiseTo: string}[];
+  }> {
+    try {
+      await this.init();
+      const districtsCollection =
+        await this.db.getCollection<{districtNameEnglish?: string}>('districts');
+
+      // Which of the target names actually exist in the districts collection?
+      const targets = Array.from(new Set(mappings.map(m => m.standardiseTo)));
+      const existingDocs = await districtsCollection
+        .find(
+          {districtNameEnglish: {$in: targets}},
+          {projection: {districtNameEnglish: 1, _id: 0}},
+        )
+        .toArray();
+      const validSet = new Set(
+        existingDocs.map(d => d.districtNameEnglish).filter(Boolean),
+      );
+
+      const results: {
+        existingName: string;
+        standardiseTo: string;
+        matchedInDistricts: boolean;
+        matched: number;
+        modified: number;
+      }[] = [];
+      const notMatching: {existingName: string; standardiseTo: string}[] = [];
+
+      for (const m of mappings) {
+        if (!validSet.has(m.standardiseTo)) {
+          notMatching.push({
+            existingName: m.existingName,
+            standardiseTo: m.standardiseTo,
+          });
+          results.push({...m, matchedInDistricts: false, matched: 0, modified: 0});
+          continue;
+        }
+        const res = await this.QuestionCollection.updateMany(
+          {'details.district': m.existingName},
+          {$set: {'details.district': m.standardiseTo, updatedAt: new Date()}},
+        );
+        results.push({
+          existingName: m.existingName,
+          standardiseTo: m.standardiseTo,
+          matchedInDistricts: true,
+          matched: res.matchedCount,
+          modified: res.modifiedCount,
+        });
+      }
+
+      return {results, notMatching};
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to normalize question districts: ${error}`,
+      );
+    }
+  }
+
+  /** Audit: scan every question's details.state / details.district and return the distinct
+   *  values that don't exist in the `states` (stateNameEnglish) / `districts`
+   *  (districtNameEnglish) collections. Each unknown district is additionally looked up in the
+   *  `blocks` (blockNameEnglish) and `villages` (villageNameEnglish) collections — if it turns
+   *  out to be a block/village name, its districtCode + stateCode are attached so it can be
+   *  mapped back. Empty/null values are ignored. */
+  async findUnknownQuestionGeo(): Promise<{
+    unknownStates: string[];
+    /** Unknown districts that WERE resolvable via a block/village → their real district. */
+    matchedDistricts: {
+      name: string;
+      foundIn: 'block' | 'village';
+      districtCode: number | null;
+      stateCode: number | null;
+      districtNameEnglish: string | null;
+    }[];
+    /** Unknown districts not found in districts, blocks or villages. */
+    notMatchingDistricts: string[];
+  }> {
+    try {
+      await this.init();
+      const statesCollection =
+        await this.db.getCollection<{stateNameEnglish?: string}>('states');
+      const districtsCollection =
+        await this.db.getCollection<{
+          districtNameEnglish?: string;
+          districtCode?: number;
+        }>('districts');
+      const blocksCollection = await this.db.getCollection<{
+        blockNameEnglish?: string;
+        districtCode?: number;
+        stateCode?: number;
+      }>('blocks');
+      const villagesCollection = await this.db.getCollection<{
+        villageNameEnglish?: string;
+        districtCode?: number;
+        stateCode?: number;
+      }>('villages');
+
+      const [qStates, qDistricts, stateNames, districtNames] = await Promise.all([
+        this.QuestionCollection.distinct('details.state'),
+        this.QuestionCollection.distinct('details.district'),
+        statesCollection.distinct('stateNameEnglish'),
+        districtsCollection.distinct('districtNameEnglish'),
+      ]);
+
+      const stateSet = new Set(
+        (stateNames as unknown[]).filter(
+          (s): s is string => typeof s === 'string' && s.length > 0,
+        ),
+      );
+      const districtSet = new Set(
+        (districtNames as unknown[]).filter(
+          (d): d is string => typeof d === 'string' && d.length > 0,
+        ),
+      );
+
+      const unknownStates = (qStates as unknown[]).filter(
+        (s): s is string =>
+          typeof s === 'string' && s.trim().length > 0 && !stateSet.has(s),
+      );
+      const unknownDistrictNames = (qDistricts as unknown[]).filter(
+        (d): d is string =>
+          typeof d === 'string' && d.trim().length > 0 && !districtSet.has(d),
+      );
+
+      // Resolve each unknown district against blocks/villages to recover its codes, matching
+      // by case-insensitive regex (so "chittoor" matches "Chittoor" etc.).
+      const escapeRegex = (s: string) =>
+        s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const nameRegexes = unknownDistrictNames.map(
+        n => new RegExp(`^${escapeRegex(n.trim())}$`, 'i'),
+      );
+      const [blockMatches, villageMatches] =
+        nameRegexes.length === 0
+          ? [[], []]
+          : await Promise.all([
+              blocksCollection
+                .find(
+                  {blockNameEnglish: {$in: nameRegexes}},
+                  {projection: {blockNameEnglish: 1, districtCode: 1, stateCode: 1, _id: 0}},
+                )
+                .toArray(),
+              villagesCollection
+                .find(
+                  {villageNameEnglish: {$in: nameRegexes}},
+                  {projection: {villageNameEnglish: 1, districtCode: 1, stateCode: 1, _id: 0}},
+                )
+                .toArray(),
+            ]);
+      // Key maps by lowercased name so the case-insensitive match lines back up.
+      const blockMap = new Map(
+        blockMatches.map(b => [(b.blockNameEnglish ?? '').toLowerCase(), b]),
+      );
+      const villageMap = new Map(
+        villageMatches.map(v => [(v.villageNameEnglish ?? '').toLowerCase(), v]),
+      );
+
+      // First pass: figure out where (if anywhere) each unknown district resolves.
+      const resolved = unknownDistrictNames.sort().map(name => {
+        const key = name.trim().toLowerCase();
+        const b = blockMap.get(key);
+        if (b) {
+          return {
+            name,
+            foundIn: 'block' as const,
+            districtCode: b.districtCode ?? null,
+            stateCode: b.stateCode ?? null,
+          };
+        }
+        const v = villageMap.get(key);
+        if (v) {
+          return {
+            name,
+            foundIn: 'village' as const,
+            districtCode: v.districtCode ?? null,
+            stateCode: v.stateCode ?? null,
+          };
+        }
+        return {name, foundIn: null as null, districtCode: null, stateCode: null};
+      });
+
+      // Resolve the real districtNameEnglish for the district codes we recovered.
+      const codes = Array.from(
+        new Set(
+          resolved
+            .map(r => r.districtCode)
+            .filter((c): c is number => typeof c === 'number'),
+        ),
+      );
+      const districtDocs = codes.length
+        ? await districtsCollection
+            .find(
+              {districtCode: {$in: codes}},
+              {projection: {districtCode: 1, districtNameEnglish: 1, _id: 0}},
+            )
+            .toArray()
+        : [];
+      const codeToName = new Map(
+        districtDocs.map(d => [d.districtCode, d.districtNameEnglish ?? null]),
+      );
+
+      const matchedDistricts: {
+        name: string;
+        foundIn: 'block' | 'village';
+        districtCode: number | null;
+        stateCode: number | null;
+        districtNameEnglish: string | null;
+      }[] = [];
+      const notMatchingDistricts: string[] = [];
+
+      for (const r of resolved) {
+        if (r.foundIn) {
+          matchedDistricts.push({
+            name: r.name,
+            foundIn: r.foundIn,
+            districtCode: r.districtCode,
+            stateCode: r.stateCode,
+            districtNameEnglish:
+              r.districtCode != null ? codeToName.get(r.districtCode) ?? null : null,
+          });
+        } else {
+          notMatchingDistricts.push(r.name);
+        }
+      }
+
+      return {
+        unknownStates: unknownStates.sort(),
+        matchedDistricts,
+        notMatchingDistricts,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to audit question geo values: ${error}`,
+      );
+    }
+  }
+
   async getById(
     questionId: string,
     session?: ClientSession,
@@ -2898,7 +3171,7 @@ export class QuestionRepository implements IQuestionRepository {
     yearData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -3175,12 +3448,13 @@ export class QuestionRepository implements IQuestionRepository {
     endDate?: Date,
   ): Promise<{
     todayApproved: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number; moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
   }> {
     await this.init();
 
     let start = startDate;
     let end = endDate;
+    const now = new Date();
 
     if (!start || !end) {
       start = new Date();
@@ -3190,95 +3464,266 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get moderator breakdown
-   const moderatorBreakdown = (await this.AnswersCollection.aggregate(
-  [
-    {
-      $match: {
-        status: 'approved',
-        isFinalAnswer: true,
-        approvedBy: {$exists: true, $ne: null},
-      },
-    },
-
-    // Lookup question
-    {
-      $lookup: {
-        from: 'questions',
-        localField: 'questionId',
-        foreignField: '_id',
-        as: 'question',
-      },
-    },
-
-    {
-      $unwind: {
-        path: '$question',
-        preserveNullAndEmptyArrays: false,
-      },
-    },
-
-    // Filter by question.closedAt
-       {
-         $match: {
-           'question.closedAt': {
-             $gte: start,
-             $lt: end,
-           },
-           ...(!isAdmin &&
-             (isTrainingUser
-               ? {
-                 'question.isTrainingQuestion': true,
-               }
-               : {
-                 'question.isTrainingQuestion': { $ne: true },
-               })),
-         },
-       },
-
-    {
-      $group: {
-        _id: '$approvedBy',
-        count: {$sum: 1},
-      },
-    },
-
-    {
-      $lookup: {
-        from: 'users',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'moderator',
-      },
-    },
-
-    {
-      $unwind: {
-        path: '$moderator',
-        preserveNullAndEmptyArrays: false,
-      },
-    },
-
-    {
-      $project: {
-        _id: 0,
-        moderatorName: {
-          $concat: [
-            '$moderator.firstName',
-            ' ',
-            {$ifNull: ['$moderator.lastName', '']},
-          ],
+    const moderatorBreakdown = (await this.AnswersCollection.aggregate(
+      [
+        {
+          $match: {
+            status: 'approved',
+            isFinalAnswer: true,
+            approvedBy: { $exists: true, $ne: null },
+          },
         },
-        count: 1,
-      },
-    },
 
-    {
-      $sort: {count: -1},
-    },
-  ],
-  {session},
-).toArray()) as {moderatorName: string; count: number}[];
+        // Lookup question
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
 
+        {
+          $unwind: {
+            path: '$question',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+
+        // Filter by question.closedAt
+        {
+          $match: {
+            'question.closedAt': {
+              $gte: start,
+              $lt: end,
+            },
+            ...(!isAdmin &&
+              (isTrainingUser
+                ? {
+                    'question.isTrainingQuestion': true,
+                  }
+                : {
+                    'question.isTrainingQuestion': { $ne: true },
+                  })),
+          },
+        },
+
+        // Group by moderator
+        {
+          $group: {
+            _id: '$approvedBy',
+            count: { $sum: 1 },
+          },
+        },
+
+        // Lookup moderator details
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'moderator',
+          },
+        },
+
+        {
+          $unwind: {
+            path: '$moderator',
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+
+        // Lookup moderator role history
+        {
+          $lookup: {
+            from: 'user_role_history',
+            let: {
+              moderatorId: '$_id',
+              reportStart: start,
+              reportEnd: end,
+              currentTime: now,
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$userId', '$$moderatorId'] },
+                      {
+                        $in: ['$role', ['moderator', 'auditor', 'gate_keeper']],
+                      },
+                      {
+                        $eq: [
+                          { $ifNull: ['$isBlocked', false] },
+                          false,
+                        ],
+                      },
+
+                      // Role started before report ended
+                      { $lt: ['$from', '$$reportEnd'] },
+
+                      // Role ended after report started OR is still active
+                      {
+                        $or: [
+                          { $eq: ['$to', null] },
+                          { $gt: ['$to', '$$reportStart'] },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+              {
+                $project: {
+                  role:1,
+                  hours: {
+                    $divide: [
+                      {
+                        $subtract: [
+                          // Effective end
+                          {
+                            $min: [
+                              {
+                                $ifNull: ['$to', '$$currentTime'],
+                              },
+                              '$$reportEnd',
+                            ],
+                          },
+
+                          // Effective start
+                          {
+                            $max: [
+                              '$from',
+                              '$$reportStart',
+                            ],
+                          },
+                        ],
+                      },
+                      1000 * 60 * 60,
+                    ],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: '$role',
+                  hours: {
+                    $sum: '$hours',
+                  },
+                },
+              },
+            ],
+            as: 'roleHistory',
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+            moderatorName: {
+              $concat: [
+                '$moderator.firstName',
+                ' ',
+                { $ifNull: ['$moderator.lastName', ''] },
+              ],
+            },
+            count: 1,
+
+            moderatorHours: {
+              $round: [
+                {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'moderator'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+              ],
+            },
+
+            auditorHours: {
+              $round: [
+                {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'auditor'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+              ],
+            },
+
+            gateKeeperHours: {
+              $round: [
+                {
+                  $ifNull: [
+                    {
+                      $first: {
+                        $map: {
+                          input: {
+                            $filter: {
+                              input: '$roleHistory',
+                              as: 'r',
+                              cond: { $eq: ['$$r._id', 'gate_keeper'] },
+                            },
+                          },
+                          as: 'r',
+                          in: '$$r.hours',
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+              ],
+            },
+          },
+        },
+
+        {
+          $sort: {
+            count: -1,
+          },
+        },
+      ],
+      { session },
+    ).toArray()) as {
+      moderatorName: string;
+      count: number;
+      moderatorHours: number;
+      auditorHours: number;
+      gateKeeperHours: number;
+    }[];
     // Calculate total from the breakdown
     const totalApproved = moderatorBreakdown.reduce(
       (sum, item) => sum + item.count,
@@ -3798,7 +4243,7 @@ export class QuestionRepository implements IQuestionRepository {
     weeksData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -4083,7 +4528,7 @@ export class QuestionRepository implements IQuestionRepository {
     dailyData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -4374,7 +4819,7 @@ export class QuestionRepository implements IQuestionRepository {
     dayHourlyData: Record<string, GoldenDatasetEntry[]>;
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};
@@ -4693,7 +5138,7 @@ export class QuestionRepository implements IQuestionRepository {
       current.setDate(current.getDate() + 1);
     }
 
-    let moderatorBreakdown: {moderatorName: string; count: number}[] = [];
+    let moderatorBreakdown: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[] = [];
     let questionSourceBreakdown: {whatsapp: number; ajrasakha: number} = {
       whatsapp: 0,
       ajrasakha: 0,
@@ -4792,7 +5237,7 @@ export class QuestionRepository implements IQuestionRepository {
     customData: GoldenDatasetEntry[];
     totalEntriesByType: number;
     totalVerifiedByType: number;
-    moderatorBreakdown?: {moderatorName: string; count: number}[];
+    moderatorBreakdown?: {moderatorName: string; count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[];
     questionSourceBreakdown?: {whatsapp: number; ajrasakha: number};
     questionsAnsweredWithin120Min?: {whatsapp: number; ajrasakha: number};
     averageResponseTime?: {whatsapp: number; ajrasakha: number};

@@ -241,7 +241,7 @@ export class UserRepository implements IUserRepository {
     );
     if (result.matchedCount === 0) return null;
 
-    if (roleChanged) {
+    if (roleChanged && !existingUser.isBlocked) {
       await Promise.all([
         this.userRoleHistoryCollection.updateOne(
           {
