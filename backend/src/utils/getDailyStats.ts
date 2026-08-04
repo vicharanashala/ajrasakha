@@ -1,5 +1,6 @@
 import {getContainer} from '#root/bootstrap/loadModules.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
+import {getISTStartOfToday} from '#root/utils/date.utils.js';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
 import {QuestionSubmissionRepository} from '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js';
 
@@ -127,8 +128,9 @@ export const getDailyStats = async (): Promise<DailyStats> => {
       CORE_TYPES.QuestionSubmissionRepository,
     );
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  // Start of "today" in IST (Asia/Kolkata). Using the server-local midnight here
+  // would be UTC on Cloud Run and drop rows closed between 00:00–05:30 IST.
+  const todayStart = getISTStartOfToday();
 
   /* -------------------------------------------------------
      PARALLEL LIGHTWEIGHT QUERIES
