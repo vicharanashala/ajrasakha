@@ -1219,7 +1219,7 @@ export const QuestionsFilters = ({
 
               {/* queue details — admins, moderators, gate keepers & auditors */}
               {canViewQueueDetails(userRole) && (
-                <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
+                <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} currentUserIsAdmin={userRole === "admin"} isTrainingUser={isTrainingUser} />
               )}
 
               {/* gate keeper / auditor queue — admins, moderators, gate keepers & auditors */}

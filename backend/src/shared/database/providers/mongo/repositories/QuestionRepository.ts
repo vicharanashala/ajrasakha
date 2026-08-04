@@ -8078,6 +8078,8 @@ export class QuestionRepository implements IQuestionRepository {
   /** Returns in-review questions with no moderator assigned yet, ordered oldest first. */
   async findUnassignedInReviewQuestions(
     sources?: QuestionSource[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<IQuestion[]> {
     await this.init();
     // Picks up in-review, duplicate and pae_submitted questions so the moderator-queue
@@ -8095,6 +8097,11 @@ export class QuestionRepository implements IQuestionRepository {
     if (sources && sources.length > 0) {
       filter.source = { $in: sources };
     }
+    if (isAdmin !== true && isTrainingUser !== undefined) {
+      filter.isTrainingQuestion = isTrainingUser
+        ? true
+        : { $ne: true };
+    }
     return this.QuestionCollection.find(filter)
       .sort({ createdAt: 1 })
       .toArray();
@@ -8106,6 +8113,8 @@ export class QuestionRepository implements IQuestionRepository {
    *  moderatorId) show up here too. Oldest first. */
   async findModeratorAssignedQuestions(
     sources?: QuestionSource[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IQuestion[]> {
     await this.init();
     const filter: Record<string, unknown> = {
@@ -8114,6 +8123,11 @@ export class QuestionRepository implements IQuestionRepository {
     };
     if (sources && sources.length > 0) {
       filter.source = { $in: sources };
+    }
+    if (isAdmin !== true && isTrainingUser !== undefined) {
+      filter.isTrainingQuestion = isTrainingUser
+        ? true
+        : { $ne: true };
     }
     return this.QuestionCollection.find(filter)
       .sort({ createdAt: 1 })
@@ -8338,6 +8352,8 @@ export class QuestionRepository implements IQuestionRepository {
     endTime?: Date,
     sources: string[] = ['AJRASAKHA', 'WHATSAPP'],
     requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{count: number; items: RawQueueQuestionRow[]}> {
     await this.init();
 
@@ -8425,6 +8441,17 @@ export class QuestionRepository implements IQuestionRepository {
       // entries from prior reviewers may well have answers; only the last entry checked.
       const base: any[] = [
         {$match: allocatedMatch},
+        ...(
+          !isAdmin
+            ? [
+              {
+                $match: isTrainingUser
+                  ? { isTrainingQuestion: true }
+                  : { isTrainingQuestion: { $ne: true } },
+              },
+            ]
+            : []
+        ),
         ...lookupStages,
         {$match: {'sub.queue.0': {$exists: true}}},
         {$addFields: {lastHistory: {$arrayElemAt: [{$ifNull: ['$sub.history', []]}, -1]}}},
@@ -8458,10 +8485,19 @@ export class QuestionRepository implements IQuestionRepository {
       kind === 'autoAllocateOpen'    ? autoAllocateOpenMatch :
       kind === 'autoAllocateDelayed' ? autoAllocateDelayedMatch :
                                        autoOffMatch;
+    
+    const finalMatch = {
+      ...match,
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser
+          ? true
+          : { $ne: true },
+      }),
+    }
     const [count, items] = await Promise.all([
-      this.QuestionCollection.countDocuments(match as any),
+      this.QuestionCollection.countDocuments(finalMatch as any),
       this.QuestionCollection.aggregate<RawQueueQuestionRow>([
-        {$match: match},
+        {$match: finalMatch},
         {$sort: {createdAt: -1}},
         {$skip: skip},
         {$limit: limit},
@@ -8481,7 +8517,7 @@ export class QuestionRepository implements IQuestionRepository {
     // allocated/in-progress or stuck in limbo (allocatedAt set but queue cleared).
     if (kind === 'autoOff') {
       const breakdown = await this.QuestionCollection.aggregate([
-        {$match: match},
+        {$match: finalMatch},
         {
           $lookup: {
             from: 'question_submissions',
