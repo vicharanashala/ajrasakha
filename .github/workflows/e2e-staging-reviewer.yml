@@ -1,0 +1,46 @@
+name: Reviewer System E2E Tests (Staging)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main_staging]
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Run E2E Test Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pnpm install
+
+      - name: Seed test users
+        working-directory: backend
+        run: node scripts/seed-test-users.mjs
+        env:
+          DB_URL: ${{ secrets.STAGING_MONGODB_URI }}
+          DB_NAME: ajrasakha-staging
+
+      - name: Run staging e2e suite
+        working-directory: backend
+        run: pnpm exec vitest run --config vitest.e2e.staging.config.ts
+        env:
+          DB_URL: ${{ secrets.STAGING_MONGODB_URI }}
+          DB_NAME: ajrasakha-staging

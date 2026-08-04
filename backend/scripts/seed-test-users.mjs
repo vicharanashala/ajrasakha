@@ -28,12 +28,19 @@ const db = client.db(DB_NAME);
 const col = db.collection('users');
 
 for (const user of users) {
-  await col.updateOne(
+  const result = await col.updateOne(
     { email: user.email },
-    { $set: { ...user, password, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } },
+    {
+      $setOnInsert: {
+        ...user,
+        password,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    },
     { upsert: true }
   );
-  console.log(`✓ ${user.email}`);
+  console.log(`${result.upsertedCount ? 'Created' : 'Skipped'} ${user.email}`);
 }
 
 console.log('Seed complete.');
