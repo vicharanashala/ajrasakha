@@ -163,30 +163,36 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       closedAt: { $gte: todayStart } ,
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       source: 'AJRASAKHA',
       closedAt: { $gte: todayStart }
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       source: 'WHATSAPP',
       closedAt: { $gte: todayStart }
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       source: 'MANUAL',
       closedAt: { $gte: todayStart }
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       source: 'AGRI_EXPERT',
       closedAt: { $gte: todayStart }
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       source: 'OUTREACH',
       closedAt: { $gte: todayStart }
     })
