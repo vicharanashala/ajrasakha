@@ -289,100 +289,110 @@ def _send_error_email(error: str, sync_time: datetime | None) -> bool:
 
 
 def _build_error_html(error: str, sync_time: datetime) -> str:
-    """Build HTML email body for failed sync with inline CSS for email client compatibility."""
+    """Build HTML email body for failed sync with professional styling."""
     formatted_time = sync_time.strftime('%B %d, %Y at %I:%M %p')
     # Escape HTML entities in error message
     error_escaped = error.replace('&', '&').replace('<', '<').replace('>', '>').replace('"', '"')
     
     return f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>HuggingFace Sync Failed</title>
+    <style>
+        /* Email client reset styles */
+        body, table, td, a {{ -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }}
+        table, td {{ mso-table-lspace: 0pt; mso-table-rspace: 0pt; }}
+        img {{ -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }}
+        
+        /* Mobile responsiveness */
+        @media screen and (max-width: 600px) {{
+            .email-container {{ width: 100% !important; margin: auto !important; }}
+            .fluid-padding {{ padding: 24px 20px !important; }}
+            .header-padding {{ padding: 30px 20px 20px 20px !important; }}
+        }}
+    </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #F3F4F6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-    
-    <!-- Preview Text -->
-    <div style="display: none; max-height: 0; overflow: hidden;">
-        HF Sync Failed - Please check the error details
-    </div>
-    
-    <!-- Main Container -->
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F3F4F6;">
-        <tr>
-            <td align="center" style="padding: 40px 20px;">
-                
-                <!-- Email Card -->
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 560px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
-                    
-                    <!-- Header (Red) -->
-                    <tr>
-                        <td style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); padding: 32px 40px;">
-                            <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #FFFFFF; line-height: 1.3;">
-                                HuggingFace Sync Failed
-                            </h1>
-                            <p style="margin: 12px 0 0; font-size: 14px; color: rgba(255,255,255,0.9);">
-                                {formatted_time} IST
-                            </p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Failed Badge -->
-                    <tr>
-                        <td style="padding: 24px 40px 0;">
-                            <span style="display: inline-block; background-color: #EF4444; color: #FFFFFF; font-size: 12px; font-weight: 600; padding: 6px 16px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">
-                                Failed
-                            </span>
-                        </td>
-                    </tr>
-                    
-                    <!-- Error Box -->
-                    <tr>
-                        <td style="padding: 24px 40px;">
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #FEF2F2; border-radius: 12px; border-left: 4px solid #EF4444;">
-                                <tr>
-                                    <td style="padding: 20px;">
-                                        <p style="margin: 0; font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', 'Courier New', monospace; font-size: 13px; color: #DC2626; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">
-{error_escaped}</p>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- Message -->
-                    <tr>
-                        <td style="padding: 0 40px;">
-                            <p style="margin: 0; font-size: 15px; color: #374151; line-height: 1.6;">
-                                Please check the logs for more details.
-                            </p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Divider -->
-                    <tr>
-                        <td style="padding: 24px 40px 0;">
-                            <div style="border-top: 1px solid #E5E7EB;"></div>
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer -->
-                    <tr>
-                        <td style="padding: 24px 40px 32px;">
-                            <p style="margin: 0; font-size: 12px; color: #9CA3AF; line-height: 1.6; text-align: center;">
-                                This is an automated notification from the Ajrasakha Agri Platform.<br>
-                                Please do not reply to this email.
-                            </p>
-                        </td>
-                    </tr>
-                    
-                </table>
-                <!-- End Email Card -->
-                
-            </td>
-        </tr>
-    </table>
-    
+<body width="100%" style="margin: 0; padding: 0 !important; mso-line-height-rule: exactly; background-color: #F4F5F7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <center style="width: 100%; background-color: #F4F5F7;">
+        
+        <!-- Hidden Preview Text -->
+        <div style="display: none; font-size: 1px; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden; mso-hide: all; font-family: sans-serif;">
+            Action Required: HuggingFace synchronization failed at {formatted_time} IST. View error details inside.
+        </div>
+
+        <table align="center" role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: auto;" class="email-container">
+            <!-- Top Spacing -->
+            <tr>
+                <td height="40" style="font-size: 40px; line-height: 40px;">&nbsp;</td>
+            </tr>
+
+            <!-- Main White Card -->
+            <tr>
+                <td style="background-color: #ffffff; border-radius: 8px; border-top: 4px solid #D93025; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                        
+                        <!-- Header Section -->
+                        <tr>
+                            <td class="header-padding" style="padding: 32px 40px 20px 40px;">
+                                <h1 style="margin: 0; font-size: 20px; font-weight: 600; color: #202124; letter-spacing: -0.5px;">
+                                    <span style="color: #D93025; margin-right: 6px;">Alert:</span>HuggingFace Sync Failed
+                                </h1>
+                                <p style="margin: 8px 0 0 0; font-size: 14px; color: #5F6368;">
+                                    Timestamp: <strong>{formatted_time} IST</strong>
+                                </p>
+                            </td>
+                        </tr>
+
+                        <!-- Divider Line -->
+                        <tr>
+                            <td style="padding: 0 40px;" class="fluid-padding">
+                                <hr style="border: 0; border-top: 1px solid #E8EAED; margin: 0;">
+                            </td>
+                        </tr>
+
+                        <!-- Body Content Section -->
+                        <tr>
+                            <td class="fluid-padding" style="padding: 24px 40px 32px 40px;">
+                                <p style="margin: 0 0 16px 0; font-size: 15px; color: #3C4043; line-height: 1.6;">
+                                    An automated synchronization process with HuggingFace encountered an error. The system reported the following issue:
+                                </p>
+
+                                <!-- Error Terminal Box -->
+                                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                    <tr>
+                                        <td style="background-color: #F8F9FA; border: 1px solid #E8EAED; border-radius: 6px; padding: 16px;">
+                                            <p style="margin: 0; font-family: 'SF Mono', ui-monospace, Menlo, Monaco, Consolas, 'Courier New', monospace; font-size: 13px; color: #D93025; line-height: 1.5; white-space: pre-wrap; word-break: break-word;">{error_escaped}</p>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <p style="margin: 20px 0 0 0; font-size: 15px; color: #3C4043; line-height: 1.6;">
+                                    Please review the application logs for a comprehensive stack trace and further details.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+
+            <!-- Footer Section -->
+            <tr>
+                <td class="fluid-padding" style="padding: 24px 40px; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; color: #80868B; line-height: 1.6;">
+                        This is an automated operational alert from the <strong>Ajrasakha Agri Platform</strong>.<br>
+                        Please do not reply directly to this email.
+                    </p>
+                </td>
+            </tr>
+            
+            <!-- Bottom Spacing -->
+            <tr>
+                <td height="40" style="font-size: 40px; line-height: 40px;">&nbsp;</td>
+            </tr>
+        </table>
+    </center>
 </body>
 </html>"""
