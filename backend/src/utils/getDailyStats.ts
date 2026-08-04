@@ -51,6 +51,11 @@ export interface DailyStats {
   agriExpertCount?: number;
   outReachCount?: number;
   newModeratorApprovalRate?: number;
+  // Questions entered into the system today (by createdAt), broken down by source.
+  todayAddedWebAppCount?: number;
+  todayAddedWhatSappCount?: number;
+  todayAddedOutReachCount?: number;
+  todayAddedAgriExpertCount?: number;
 }
 
 // export const getDailyStats = async (): Promise<DailyStats> => {
@@ -152,7 +157,11 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     whatSappCount,
     manualCount,
     agriExpertCount,
-    outReachCount
+    outReachCount,
+    todayAddedWebAppCount,
+    todayAddedWhatSappCount,
+    todayAddedOutReachCount,
+    todayAddedAgriExpertCount
   ] = await Promise.all([
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
@@ -195,6 +204,27 @@ export const getDailyStats = async (): Promise<DailyStats> => {
       status: 'closed',
       source: 'OUTREACH',
       closedAt: { $gte: todayStart }
+    }),
+    // ── Questions entered into the system today (by createdAt), per source ──
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'AJRASAKHA',
+      createdAt: { $gte: todayStart }
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'WHATSAPP',
+      createdAt: { $gte: todayStart }
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'OUTREACH',
+      createdAt: { $gte: todayStart }
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'AGRI_EXPERT',
+      createdAt: { $gte: todayStart }
     })
   ]);
 
@@ -251,6 +281,10 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     duplicateClosed,
     agriExpertCount,
     outReachCount,
-    newModeratorApprovalRate
+    newModeratorApprovalRate,
+    todayAddedWebAppCount,
+    todayAddedWhatSappCount,
+    todayAddedOutReachCount,
+    todayAddedAgriExpertCount
   };
 };
