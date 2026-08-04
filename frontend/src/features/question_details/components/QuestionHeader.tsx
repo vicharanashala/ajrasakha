@@ -463,6 +463,8 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           </Button>}
 
           {/* View Audit Button */}
+          {(currentUser.role === "admin" || currentUser.role === "moderator" || 
+          currentUser.role === "gate_keeper" || currentUser.role === "auditor") &&
           <Button
             size="sm"
             variant="outline"
@@ -472,8 +474,10 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             <History className="h-4 w-4" />
             View Audit
           </Button>
+          }
           </div>
         </div>
+        
 
         {/* Created / Updated */}
         <div className="flex flex-wrap items-center gap-4 justify-between">

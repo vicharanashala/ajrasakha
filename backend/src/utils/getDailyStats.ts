@@ -1,5 +1,6 @@
 import {getContainer} from '#root/bootstrap/loadModules.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
+import {getISTStartOfToday} from '#root/utils/date.utils.js';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
 import {QuestionSubmissionRepository} from '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js';
 
@@ -50,6 +51,11 @@ export interface DailyStats {
   agriExpertCount?: number;
   outReachCount?: number;
   newModeratorApprovalRate?: number;
+  // Questions entered into the system today (by createdAt), broken down by source.
+  todayAddedWebAppCount?: number;
+  todayAddedWhatSappCount?: number;
+  todayAddedOutReachCount?: number;
+  todayAddedAgriExpertCount?: number;
 }
 
 // export const getDailyStats = async (): Promise<DailyStats> => {
@@ -127,8 +133,9 @@ export const getDailyStats = async (): Promise<DailyStats> => {
       CORE_TYPES.QuestionSubmissionRepository,
     );
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  // Start of "today" in IST (Asia/Kolkata). Using the server-local midnight here
+  // would be UTC on Cloud Run and drop rows closed between 00:00–05:30 IST.
+  const todayStart = getISTStartOfToday();
 
   /* -------------------------------------------------------
      PARALLEL LIGHTWEIGHT QUERIES
@@ -150,7 +157,11 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     whatSappCount,
     manualCount,
     agriExpertCount,
-    outReachCount
+    outReachCount,
+    todayAddedWebAppCount,
+    todayAddedWhatSappCount,
+    todayAddedOutReachCount,
+    todayAddedAgriExpertCount
   ] = await Promise.all([
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
@@ -161,32 +172,59 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       closedAt: { $gte: todayStart } ,
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       source: 'AJRASAKHA',
       closedAt: { $gte: todayStart }
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       source: 'WHATSAPP',
       closedAt: { $gte: todayStart }
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       source: 'MANUAL',
       closedAt: { $gte: todayStart }
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       source: 'AGRI_EXPERT',
       closedAt: { $gte: todayStart }
     }),
     questionRepository.count({
       isTesting: { $ne: true },
+      status: 'closed',
       source: 'OUTREACH',
       closedAt: { $gte: todayStart }
+    }),
+    // ── Questions entered into the system today (by createdAt), per source ──
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'AJRASAKHA',
+      createdAt: { $gte: todayStart }
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'WHATSAPP',
+      createdAt: { $gte: todayStart }
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'OUTREACH',
+      createdAt: { $gte: todayStart }
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'AGRI_EXPERT',
+      createdAt: { $gte: todayStart }
     })
   ]);
 
@@ -243,6 +281,10 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     duplicateClosed,
     agriExpertCount,
     outReachCount,
-    newModeratorApprovalRate
+    newModeratorApprovalRate,
+    todayAddedWebAppCount,
+    todayAddedWhatSappCount,
+    todayAddedOutReachCount,
+    todayAddedAgriExpertCount
   };
 };

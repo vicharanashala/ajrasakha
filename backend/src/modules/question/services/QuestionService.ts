@@ -389,6 +389,42 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
+  /** Standardise question district names, validating each `standardiseTo` against the
+   *  `districts` collection (districtNameEnglish). Matching ones update questions whose
+   *  details.district === existingName; non-matching names are returned untouched. */
+  async normalizeQuestionDistricts(
+    mappings: { existingName: string; standardiseTo: string }[],
+  ) {
+    const cleaned = (mappings ?? [])
+      .map(m => ({
+        existingName: typeof m?.existingName === 'string' ? m.existingName.trim() : '',
+        standardiseTo: typeof m?.standardiseTo === 'string' ? m.standardiseTo.trim() : '',
+      }))
+      .filter(m => m.existingName && m.standardiseTo);
+    if (cleaned.length === 0) {
+      throw new BadRequestError(
+        'mappings must be a non-empty array of { existingName, standardiseTo }',
+      );
+    }
+    return this.questionRepo.normalizeQuestionDistricts(cleaned);
+  }
+
+  /** Audit: distinct question details.state / details.district values that don't exist in the
+   *  states / districts collections. */
+  async findUnknownQuestionGeo(): Promise<{
+    unknownStates: string[];
+    matchedDistricts: {
+      name: string;
+      foundIn: 'block' | 'village';
+      districtCode: number | null;
+      stateCode: number | null;
+      districtNameEnglish: string | null;
+    }[];
+    notMatchingDistricts: string[];
+  }> {
+    return this.questionRepo.findUnknownQuestionGeo();
+  }
+
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
