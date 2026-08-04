@@ -9,7 +9,7 @@ import {
 } from "@/components/atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import {
   Loader2,
   MapPin,
@@ -21,6 +21,7 @@ import {
   Trash2,
   History,
   PlusCircle,
+  Download,
 } from "lucide-react";
 import {
   Tabs,
@@ -113,6 +114,7 @@ export const StateDistrictAliasModal = ({
   const [deleteTarget, setDeleteTarget] = useState<ILocationState | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"states" | "districts">("states");
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
   // Seed drafts from the fetched states whenever the dialog opens / data changes.
   useEffect(() => {
@@ -215,6 +217,42 @@ export const StateDistrictAliasModal = ({
     }
   };
 
+  const handleDownloadReport = async () => {
+    const type = activeTab === "states" ? "state" : "district";
+    let toastId: string | undefined;
+
+    try {
+      setIsDownloadingReport(true);
+      toastId = toast.loading(`Preparing ${type} report...`);
+
+      const blob = await locationService.downloadStateOrDistrictReport(type);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = type === "state" ? "states_list.xlsx" : "districts_list.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.dismiss(toastId);
+      toast.success(
+        type === "state"
+          ? "State report downloaded successfully!"
+          : "District report downloaded successfully!",
+      );
+    } catch (error) {
+      if (toastId) toast.dismiss(toastId);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : `Failed to download ${type} report`,
+      );
+    } finally {
+      setIsDownloadingReport(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -240,10 +278,25 @@ export const StateDistrictAliasModal = ({
               <TabsTrigger value="states">States</TabsTrigger>
               <TabsTrigger value="districts">Districts</TabsTrigger>
             </TabsList>
-            <Button size="sm" variant="outline" onClick={() => setAuditOpen(true)}>
-              <History className="mr-1 h-4 w-4" />
-              Audit trail
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDownloadReport}
+                disabled={isDownloadingReport}
+              >
+                {isDownloadingReport ? (
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-1 h-4 w-4" />
+                )}
+                Report
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setAuditOpen(true)}>
+                <History className="mr-1 h-4 w-4" />
+                Audit trail
+              </Button>
+            </div>
           </div>
 
           <TabsContent

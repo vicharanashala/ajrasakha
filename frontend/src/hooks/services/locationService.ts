@@ -1,5 +1,7 @@
 import { apiFetch } from "../api/api-fetch";
 import { env } from "@/config/env";
+import { auth } from "@/config/firebase";
+import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
 type LocationMetadata = typeof import("@/features/chatbotDashboard/utils/metaData");
@@ -199,6 +201,30 @@ export class LocationService {
     return apiFetch<ILocationAudit[]>(
       `${this._baseUrl}/audits?limit=${limit}`,
     );
+  }
+
+  async downloadStateOrDistrictReport(
+    type: "state" | "district",
+  ): Promise<Blob> {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      throw new Error("User not authenticated");
+    }
+
+    const token = await getIdToken(firebaseUser);
+    const params = new URLSearchParams({ type });
+    const response = await fetch(`${this._baseUrl}/download?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download ${type} report`);
+    }
+
+    return await response.blob();
   }
 
   async getDistricts(stateCode: number): Promise<ILocationDistrict[] | null> {
