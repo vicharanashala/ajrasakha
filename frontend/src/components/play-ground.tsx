@@ -7,7 +7,7 @@ import { QAInterface } from "../features/qa-interface-page/QA-interface";
 import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-// import { RequestsPage } from "./request-page";
+import { RequestsPage } from "./request-page";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
@@ -379,7 +379,7 @@ export const PlaygroundPage = () => {
                   <UserManagement currentUser={user} />
                 </TabsContent>
               )}
-              {/* {user && user.role !== "expert" && (
+              {user && user.role !== "expert" && (
                 <TabsContent
                   value="request_queue"
                   className={cn(
@@ -389,10 +389,10 @@ export const PlaygroundPage = () => {
                     "data-[state=active]:zoom-in-[0.98]",
                     "data-[state=active]:slide-in-from-bottom-3",
                     "duration-500 ease-out"
-                  )}                >
+                  )}>
                   <RequestsPage autoSelectId={selectedRequestId} />
                 </TabsContent>
-              )} */}
+              )}
               {user && user.role !== "call_agent" && (
                 <TabsContent
                   value="upload"
@@ -457,7 +457,7 @@ export const PlaygroundPage = () => {
                   )}
                 >
                   <div className="w-full max-w-full px-4 md:px-6 py-2">
-                    <CallHistory onRedial={() => { }} />
+                    <CallHistory />
                   </div>
                 </TabsContent>
               )}
