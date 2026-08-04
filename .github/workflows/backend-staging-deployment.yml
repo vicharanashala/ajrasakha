@@ -173,3 +173,42 @@ jobs:
           #   DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
 
           flags: --allow-unauthenticated
+
+      # ── Seed test users into the staging DB after a successful deploy ──────
+      # seed-test-users.mjs runs in the runner (not the container), so it needs the
+      # repo checked out + backend deps installed + DB_URL/DB_NAME in env. Both come
+      # from secrets: DB_URL from Secret Manager (the same secret the service uses),
+      # DB_NAME from the STAGING_DB_NAME GitHub secret (same one production's deploy
+      # passes as STAGING_DB_NAME).
+      - name: Checkout (for seed script)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pnpm install
+
+      - name: Fetch staging DB URL from GCP Secret Manager
+        id: secrets
+        uses: google-github-actions/get-secretmanager-secrets@v2
+        with:
+          secrets: |-
+            DB_URL:${{ secrets.GCP_PROJECT_ID }}/AJRASAKHA_REVIEWER_SYS_DB_URI_STAGING/latest
+
+      - name: Seed test users
+        working-directory: backend
+        run: node scripts/seed-test-users.mjs
+        env:
+          DB_URL: ${{ steps.secrets.outputs.DB_URL }}
+          DB_NAME: ${{ secrets.STAGING_DB_NAME }}
