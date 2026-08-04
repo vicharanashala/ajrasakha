@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -331,7 +332,7 @@ export function EditFarmerModal({
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to save farmer details.";
-      setErrors(message);
+      toast.error(message);
     }
   };
 

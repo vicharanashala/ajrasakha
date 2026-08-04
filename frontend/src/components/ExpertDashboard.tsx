@@ -75,7 +75,9 @@ export const ExpertDashboard = ({
   currentUserRole,
   selectedUserRole,
 }: ExpertDashboardProps) => {
-  localStorage.removeItem("animationsEnabled");
+  useEffect(() => {
+    localStorage.removeItem("animationsEnabled");
+  }, []);
 
   const navigate = useNavigate();
   const shouldFetch = !expertDetailsList;
