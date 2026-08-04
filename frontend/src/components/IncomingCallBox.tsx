@@ -788,7 +788,7 @@ export const IncomingCallBox = ({
           : "",
       )}
     >
-      {/* <button onClick={() => handleRedial("+919606751041")}>Redial</button> */}
+
       <Card
         className={cn(
           "transition-all duration-300 overflow-hidden",
