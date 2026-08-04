@@ -280,13 +280,19 @@ test.describe("Expert Manual Allocation Workflow", () => {
 
     await expertAllocationSectionPage.selectExpert(process.env.EXPERT_EMAIL!);
 
-    await expertAllocationSectionPage.selectExpert(process.env.EXPERT_EMAIL!);
+    await expertAllocationSectionPage.expectExpertSelected(
+      process.env.EXPERT_EMAIL!,
+    );
+
+    await expertAllocationSectionPage.toggleExpert(process.env.EXPERT_EMAIL!);
 
     await expertAllocationSectionPage.expectExpertNotSelected(
       process.env.EXPERT_EMAIL!,
     );
 
-    await expertAllocationSectionPage.expectAllocateDisabled();
+    await expertAllocationSectionPage.clickSubmit();
+
+    await expertAllocationSectionPage.expectEmptySelectionValidation();
   });
   test("EAW-M018 Allocation dialog resets after successful allocation", async ({
     moderatorAllocationQueuePage,

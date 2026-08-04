@@ -87,11 +87,18 @@ export class ExpertAllocationSectionPage {
     await expect(this.submitButton).toBeDisabled();
   }
   async selectExpert(email: string) {
-    const expert = this.expertCards.filter({
-      has: this.page.getByText(email),
-    });
+    const checkbox = this.expertCards
+      .filter({ has: this.page.getByText(email) })
+      .getByRole("checkbox");
 
-    await expert.getByRole("checkbox").check();
+    await checkbox.check();
+  }
+  async toggleExpert(email: string) {
+    const checkbox = this.expertCards
+      .filter({ has: this.page.getByText(email) })
+      .getByRole("checkbox");
+
+    await checkbox.click();
   }
 
   async clickAllocate() {
