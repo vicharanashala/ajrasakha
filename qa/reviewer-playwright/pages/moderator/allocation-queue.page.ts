@@ -43,9 +43,9 @@ export class ModeratorAllocationQueuePage {
   readonly moderatorEmptyMessage: Locator;
 
   readonly submissionHistoryHeading: Locator;
-readonly refreshButton: Locator;
-readonly manageHistoryButton: Locator;
-readonly noAnswersMessage: Locator;
+  readonly refreshButton: Locator;
+  readonly manageHistoryButton: Locator;
+  readonly noAnswersMessage: Locator;
 
   constructor(private readonly page: Page) {
     this.heading = page.getByRole("heading", {
@@ -172,20 +172,20 @@ readonly noAnswersMessage: Locator;
     );
 
     this.submissionHistoryHeading = page.getByRole("heading", {
-  name: "Submission History",
-});
+      name: "Submission History",
+    });
 
-this.refreshButton = page.getByRole("button", {
-  name: "Refresh",
-});
+    this.refreshButton = page.getByRole("button", {
+      name: "Refresh",
+    });
 
-this.manageHistoryButton = page.getByRole("button", {
-  name: "Manage History",
-});
+    this.manageHistoryButton = page.getByRole("button", {
+      name: "Manage History",
+    });
 
-this.noAnswersMessage = page.getByText("No answers yet.", {
-  exact: true,
-});
+    this.noAnswersMessage = page.getByText("No answers yet.", {
+      exact: true,
+    });
   }
 
   //   FUNCTIONS======================================
@@ -282,18 +282,63 @@ this.noAnswersMessage = page.getByText("No answers yet.", {
   }
 
   async expectSubmissionHistoryOpened() {
-  await expect(this.submissionHistoryHeading).toBeVisible();
-}
+    await expect(this.submissionHistoryHeading).toBeVisible();
+  }
 
-async expectRefreshButton() {
-  await expect(this.refreshButton).toBeVisible();
-}
+  async expectRefreshButton() {
+    await expect(this.refreshButton).toBeVisible();
+  }
 
-async expectManageHistoryButtonDisabled() {
-  await expect(this.manageHistoryButton).toBeDisabled();
-}
+  async expectManageHistoryButtonDisabled() {
+    await expect(this.manageHistoryButton).toBeDisabled();
+  }
 
-async expectNoAnswersMessage() {
-  await expect(this.noAnswersMessage).toBeVisible();
-}
+  async expectNoAnswersMessage() {
+    await expect(this.noAnswersMessage).toBeVisible();
+  }
+  async disableExpertAutoAllocate() {
+    await expect(this.autoAllocateSwitch).toBeVisible();
+
+    await expect(this.autoAllocateSwitch).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    await this.autoAllocateSwitch.click();
+
+    await expect(this.autoAllocateSwitch).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+  }
+  expertCard(email: string) {
+    return this.allocationCards.filter({
+      has: this.page.getByText(email),
+    });
+  }
+
+  async expectExpertAllocated(email: string) {
+    await expect(this.expertCard(email)).toBeVisible();
+  }
+  async expectAutoAllocatedExpert(): Promise<void> {
+    await expect(this.expertNames.first()).toHaveText(/.+@annam\.ai$/);
+  }
+
+  async getFirstAllocatedExpertEmail(): Promise<string> {
+    const email = await this.expertNames.first().textContent();
+
+    expect(email).toMatch(/.+@annam\.ai$/);
+
+    return email!;
+  }
+
+  async expectExpertStatus(status: string) {
+    await expect(
+      this.statusBadges
+        .filter({
+          hasText: status,
+        })
+        .first(),
+    ).toBeVisible();
+  }
 }

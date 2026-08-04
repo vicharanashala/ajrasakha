@@ -1,63 +1,49 @@
-import { test as base, expect, type Page } from "@playwright/test";
-import { LoginPage } from "../pages/shared/login.page.js";
+import { test as base, expect, type Page } from "./base.fixture.js";
+
 import { ExpertDashboardPage } from "../pages/expert/dashboard.page.js";
 import { ExpertQuestionDetailsPage } from "../pages/expert/question-details.page.js";
 import { ResponsePage } from "../pages/expert/response.page.js";
+
 type ExpertFixtures = {
-  environmentPage: Page;
-  authenticatedPage: Page;
+  expertPage: Page;
+  authenticatedPage: Page; // alias
+
   dashboardPage: ExpertDashboardPage;
   questionDetailsPage: ExpertQuestionDetailsPage;
   responsePage: ResponsePage;
 };
 
-const credentials = () => ({
-  email: process.env.EXPERT_EMAIL,
-  password: process.env.EXPERT_PASSWORD,
-});
-
 export const test = base.extend<ExpertFixtures>({
-  environmentPage: async ({ page }, use, testInfo) => {
-    try {
-      const response = await page.request.get("/auth", { timeout: 5_000 });
-      if (!response.ok()) {
-        const reason = `Blocked: Reviewer frontend returned HTTP ${response.status()}.`;
-        testInfo.annotations.push({ type: "blocked", description: reason });
-        base.skip(true, reason);
-      }
-    } catch (error) {
-      const reason = `Blocked: Reviewer frontend is unreachable at ${process.env.BASE_URL ?? "http://127.0.0.1:5173"}.`;
-      testInfo.annotations.push({ type: "blocked", description: reason });
-      base.skip(true, reason);
-    }
+  expertPage: async ({ loginAs }, use) => {
+    const page = await loginAs(
+      process.env.EXPERT_EMAIL!,
+      process.env.EXPERT_PASSWORD!,
+    );
+
+    console.log("Expert fixture page:", page.url());
 
     await use(page);
+
+    console.log("Closing expert page");
+
+    await page.close();
   },
 
-  authenticatedPage: async ({ environmentPage }, use) => {
-    const { email, password } = credentials();
-    if (!email || !password) {
-      throw new Error(
-        "REVIEWER_USER_EMAIL and REVIEWER_USER_PASSWORD are required for authenticated non-PERM-001 tests.",
-      );
-    }
-    const login = new LoginPage(environmentPage);
-    await login.signInAndWaitForLanding(email, password);
-    await expect(environmentPage).toHaveURL(/\/home(?:[/?#]|$)/);
-    await use(environmentPage);
+  authenticatedPage: async ({ expertPage }, use) => {
+    await use(expertPage);
   },
 
-  dashboardPage: async ({ authenticatedPage }, use) => {
-    await use(new ExpertDashboardPage(authenticatedPage));
+  dashboardPage: async ({ expertPage }, use) => {
+    await use(new ExpertDashboardPage(expertPage));
   },
 
-  questionDetailsPage: async ({ authenticatedPage }, use) => {
-    await use(new ExpertQuestionDetailsPage(authenticatedPage));
+  questionDetailsPage: async ({ expertPage }, use) => {
+    await use(new ExpertQuestionDetailsPage(expertPage));
   },
 
-  responsePage: async ({ authenticatedPage }, use) => {
-    await use(new ResponsePage(authenticatedPage));
+  responsePage: async ({ expertPage }, use) => {
+    await use(new ResponsePage(expertPage));
   },
 });
 
-export { expect } from "@playwright/test";
+export { expect };

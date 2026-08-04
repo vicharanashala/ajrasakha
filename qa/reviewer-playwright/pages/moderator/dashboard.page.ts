@@ -5,7 +5,7 @@ export class ModeratorDashboardPage {
   readonly addQuestionButton: Locator;
   readonly successToast: Locator;
   readonly manualTab: Locator;
-
+  readonly tableLoader: Locator;
   constructor(private readonly page: Page) {
     this.allQuestionsTab = page.getByRole("tab", {
       name: "All Questions",
@@ -17,6 +17,7 @@ export class ModeratorDashboardPage {
       exact: true,
     });
     this.manualTab = page.getByRole("tab", { name: "Manual" });
+    this.tableLoader = page.locator(".animate-spin");
   }
 
   async pause(): Promise<void> {
@@ -42,11 +43,18 @@ export class ModeratorDashboardPage {
   async expectQuestionCreated(): Promise<void> {
     await expect(this.successToast).toBeVisible();
   }
+  async waitForQuestionsToLoad() {
+    await expect(this.tableLoader).toBeHidden();
+  }
 
-  async expectQuestionVisible(question: string): Promise<void> {
-    const table = this.page.getByRole("table");
+  async expectQuestionVisible(question: string) {
+    const row = this.page
+      .getByRole("row")
+      .filter({ has: this.page.getByText(question, { exact: true }) });
 
-    await expect(table.getByText(question, { exact: true })).toBeVisible();
+    await expect(row).toBeVisible({
+      timeout: 30000,
+    });
   }
   async openQuestion(question: string): Promise<void> {
     await this.page

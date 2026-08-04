@@ -124,6 +124,9 @@ export class ResponsePage {
   }
 
   async openMetadataDialog(): Promise<void> {
+    console.log("Closed?", this.page.isClosed());
+    console.log("URL:", this.page.url());
+
     await this.viewMetadataButton.click();
   }
 
