@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile
     ports:
       # Host:container (processes listen on 9004 / 9005 inside the image)
-      - "${IMD_PUBLISH_API_PORT:-9004}:9004"
-      - "${IMD_PUBLISH_MCP_PORT:-9005}:9005"
+      - "${IMD_PUBLISH_API_PORT:-9016}:9004"
+      - "${IMD_PUBLISH_MCP_PORT:-9017}:9005"
     environment:
       IMD_API_HOST: ${IMD_API_HOST:-0.0.0.0}
       IMD_API_PORT: "9004"

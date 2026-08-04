@@ -100,15 +100,49 @@ def resolve_message_id(config: Optional[dict[str, Any]] = None) -> Optional[str]
 GOLDEN_API_URL = f"http://{REMOTE_IP}:8110"
 
 MCP_URLS = {
-    "gdb":        f"http://{REMOTE_IP}:8110/v1/gdb/search",
-    "weather":    f"http://100.100.108.41:9017/mcp",
-    "soil":       f"http://{REMOTE_IP}:9008/mcp",
-    "enam":       f"http://{REMOTE_IP}:9002/mcp",
-    "agmarknet":  f"http://{REMOTE_IP}:9006/mcp",
-    "reviewer":   f"http://{REMOTE_IP}:9007/mcp",
-    "location":   f"http://{REMOTE_IP}:9000/mcp",
-    "schemes":    f"http://{REMOTE_IP}:9009/mcp",
-    "faq_video":  f"http://{REMOTE_IP}:9007/mcp",
-    "chemical_checker": f"http://{REMOTE_IP}:9101/mcp",
-    "daily_price": os.getenv("DAILY_PRICE_MCP_URL", f"http://{REMOTE_IP}:8111/mcp"),
+    "gdb": os.getenv(
+        "GDB_URL",
+        f"http://{REMOTE_IP}:8110/v1/gdb/search",
+    ),
+    "weather": os.getenv(
+        "WEATHER_MCP_URL",
+        "http://100.100.108.41:9017/mcp",
+    ),
+    "soil": os.getenv(
+        "SOIL_MCP_URL",
+        f"http://{REMOTE_IP}:9008/mcp",
+    ),
+    "enam": os.getenv(
+        "ENAM_MCP_URL",
+        f"http://{REMOTE_IP}:9002/mcp",
+    ),
+    "agmarknet": os.getenv(
+        "AGMARKNET_MCP_URL",
+        f"http://{REMOTE_IP}:9006/mcp",
+    ),
+    "reviewer": os.getenv(
+        "REVIEWER_MCP_URL",
+        f"http://{REMOTE_IP}:9007/mcp",
+    ),
+    "location": os.getenv(
+        "LOCATION_MCP_URL",
+        f"http://{REMOTE_IP}:9000/mcp",
+    ),
+    "schemes": os.getenv(
+        "SCHEMES_MCP_URL",
+        f"http://{REMOTE_IP}:9009/mcp",
+    ),
+    "faq_video": os.getenv(
+        "FAQ_VIDEO_MCP_URL",
+        f"http://{REMOTE_IP}:9007/mcp",
+    ),
+    "chemical_checker": os.getenv(
+        "CHEMICAL_CHECKER_MCP_URL",
+        f"http://{REMOTE_IP}:9101/mcp",
+    ),
+    "daily_price": os.getenv(
+        "DAILY_PRICE_MCP_URL",
+        f"http://{REMOTE_IP}:8111/mcp",
+    ),
 }
+print("Location MCP URL:", MCP_URLS["location"])

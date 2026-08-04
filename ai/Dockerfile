@@ -54,6 +54,9 @@ COPY ajrasakha/ ./ajrasakha/
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/ajrasakha:$PYTHONPATH"
 
+RUN mkdir -p /app/logs && \
+    chown -R app:app /app
+
 EXPOSE 2026
 
 USER app

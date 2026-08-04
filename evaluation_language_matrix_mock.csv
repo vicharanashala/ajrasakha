@@ -1,0 +1,39 @@
+domain,language,total_cases,technical_passed,routing_passed,tool_passed,technical_pass_rate,routing_pass_rate,tool_pass_rate
+Cultural Practices,English,1,1,1,1,100.0,100.0,100.0
+Cultural Practices,Hindi,1,1,1,1,100.0,100.0,100.0
+Cultural Practices,Kannada,1,1,1,1,100.0,100.0,100.0
+Cultural Practices,Punjabi,1,1,1,1,100.0,100.0,100.0
+Cultural Practices,Tamil,1,1,1,1,100.0,100.0,100.0
+Cultural Practices,Telugu,1,1,1,1,100.0,100.0,100.0
+General,English,3,3,3,3,100.0,100.0,100.0
+Government Schemes,English,2,2,2,2,100.0,100.0,100.0
+Government Schemes,Hindi,2,2,2,2,100.0,100.0,100.0
+Government Schemes,Kannada,2,2,2,2,100.0,100.0,100.0
+Government Schemes,Punjabi,2,2,2,2,100.0,100.0,100.0
+Government Schemes,Tamil,2,2,2,2,100.0,100.0,100.0
+Government Schemes,Telugu,2,2,2,2,100.0,100.0,100.0
+Market,English,1,1,1,1,100.0,100.0,100.0
+Market,Hindi,1,1,1,1,100.0,100.0,100.0
+Market,Kannada,1,1,1,1,100.0,100.0,100.0
+Market,Punjabi,1,1,1,1,100.0,100.0,100.0
+Market,Tamil,1,1,1,1,100.0,100.0,100.0
+Market,Telugu,1,1,1,1,100.0,100.0,100.0
+Market Prices,English,2,2,2,2,100.0,100.0,100.0
+Market Prices,Hindi,2,2,2,2,100.0,100.0,100.0
+Market Prices,Kannada,2,2,2,2,100.0,100.0,100.0
+Market Prices,Punjabi,2,2,2,2,100.0,100.0,100.0
+Market Prices,Tamil,2,2,2,2,100.0,100.0,100.0
+Market Prices,Telugu,2,2,2,2,100.0,100.0,100.0
+Nutrient Management,English,1,1,1,1,100.0,100.0,100.0
+Nutrient Management,Hindi,1,1,1,1,100.0,100.0,100.0
+Nutrient Management,Kannada,1,1,1,1,100.0,100.0,100.0
+Nutrient Management,Punjabi,1,1,1,1,100.0,100.0,100.0
+Nutrient Management,Tamil,1,1,1,1,100.0,100.0,100.0
+Nutrient Management,Telugu,1,1,1,1,100.0,100.0,100.0
+Plant Protection,English,1,1,1,1,100.0,100.0,100.0
+Weather,English,4,4,4,4,100.0,100.0,100.0
+Weather,Hindi,3,3,3,3,100.0,100.0,100.0
+Weather,Kannada,3,3,3,3,100.0,100.0,100.0
+Weather,Punjabi,3,3,3,3,100.0,100.0,100.0
+Weather,Tamil,3,3,3,3,100.0,100.0,100.0
+Weather,Telugu,3,3,3,3,100.0,100.0,100.0
