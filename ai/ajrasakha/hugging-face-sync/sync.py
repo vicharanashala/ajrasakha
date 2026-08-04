@@ -4,6 +4,7 @@ This script:
 1. Connects to MongoDB and fetches closed questions with final answers
 2. Formats the data for HuggingFace dataset format
 3. Pushes to HuggingFace Hub
+4. Sends email notification with sync statistics
 
 Run via Google Cloud Run as a daily cron job.
 """
@@ -16,10 +17,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from bson import ObjectId
-from datasets import Dataset, DatasetDict
+from datasets import Dataset, DatasetDict, load_dataset
 from datasets import Features, Sequence, Value
 from dotenv import load_dotenv
 from pymongo import MongoClient
+
+from email_service import send_sync_notification
 
 load_dotenv()
 
@@ -230,6 +233,26 @@ class GoldenToHuggingFaceSync:
         log.info("Created dataset with %d examples", len(dataset))
         return dataset_dict
 
+    def get_existing_dataset_count(self) -> int:
+        """Get the count of existing rows in the HuggingFace dataset.
+
+        Returns:
+            Number of rows in existing dataset, or 0 if dataset doesn't exist
+        """
+        try:
+            log.info("Fetching existing dataset count from HuggingFace...")
+            existing_dataset = load_dataset(
+                HF_DATASET_NAME,
+                token=HUGGINGFACE_TOKEN,
+                split="train",
+            )
+            count = len(existing_dataset)
+            log.info("Existing dataset has %d rows", count)
+            return count
+        except Exception as e:
+            log.warning("Could not fetch existing dataset (may be empty or new): %s", str(e))
+            return 0
+
     def push_to_huggingface(self, dataset: DatasetDict, commit_message: str | None = None) -> None:
         """Push dataset to HuggingFace Hub using git-based push.
 
@@ -272,6 +295,13 @@ class GoldenToHuggingFaceSync:
         log.info("Target dataset: %s", HF_DATASET_NAME)
         log.info("=" * 60)
 
+        sync_start_time = datetime.now(IST)
+        existing_rows = 0
+
+        # Get existing dataset count before sync (only for non-dry-run)
+        if not dry_run:
+            existing_rows = self.get_existing_dataset_count()
+
         # Fetch Q&A pairs from MongoDB
         qa_pairs = self.fetch_golden_qa_pairs(limit=limit)
 
@@ -281,6 +311,8 @@ class GoldenToHuggingFaceSync:
 
         # Create dataset
         dataset = self.create_dataset(qa_pairs)
+        new_rows = len(dataset["train"])
+        newly_added = new_rows - existing_rows
 
         # Push to HuggingFace (unless dry run)
         if dry_run:
@@ -288,13 +320,43 @@ class GoldenToHuggingFaceSync:
             log.info("Dataset preview:")
             log.info("  Total examples: %d", len(dataset["train"]))
             log.info("  Columns: %s", dataset["train"].column_names)
+            log.info("Stats (not pushed yet):")
+            log.info("  Existing rows: %d", existing_rows)
+            log.info("  New rows: %d", new_rows)
+            log.info("  Newly added: %d", newly_added)
             return dataset
 
-        self.push_to_huggingface(dataset)
+        try:
+            self.push_to_huggingface(dataset)
 
-        log.info("=" * 60)
-        log.info("Sync completed successfully!")
-        log.info("=" * 60)
+            log.info("=" * 60)
+            log.info("Sync completed successfully!")
+            log.info("=" * 60)
+
+            # Send email notification with stats
+            log.info("Sending email notification...")
+            send_sync_notification(
+                existing_rows=existing_rows,
+                new_rows=new_rows,
+                newly_added=newly_added,
+                sync_time=sync_start_time,
+            )
+
+        except Exception as e:
+            error_msg = str(e)
+            log.error("Sync failed: %s", error_msg)
+            
+            # Send error email
+            log.info("Sending error email notification...")
+            send_sync_notification(
+                existing_rows=existing_rows,
+                new_rows=new_rows,
+                newly_added=newly_added,
+                sync_time=sync_start_time,
+                error=error_msg,
+            )
+            
+            raise
 
         return dataset
 
