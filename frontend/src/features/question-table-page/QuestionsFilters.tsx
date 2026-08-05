@@ -36,6 +36,8 @@ import {
   MessageCircle,
   AlertTriangle,
   Download,
+  FileText,
+  MessageSquareDiff,
 } from "lucide-react";
 import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
@@ -790,6 +792,34 @@ export const QuestionsFilters = ({
             )}
           </div>
         </div>
+
+        {/* Sub-tabs for dedicated view: Questions and Feedbacks - shown right of search */}
+        {viewMode === "dedicated" && (
+          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border">
+            <button
+              onClick={() => onDedicatedSubTabChange?.("questions")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                dedicatedSubTab === "questions"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              }`}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Questions
+            </button>
+            <button
+              onClick={() => onDedicatedSubTabChange?.("feedbacks")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                dedicatedSubTab === "feedbacks"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              }`}
+            >
+              <MessageSquareDiff className="h-3.5 w-3.5" />
+              Feedbacks
+            </button>
+          </div>
+        )}
 
         {/* Spacer pushes controls to the right */}
         <div className="flex-1" />
