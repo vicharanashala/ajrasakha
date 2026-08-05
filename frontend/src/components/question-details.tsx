@@ -31,6 +31,7 @@ import { QuestionHeader } from "@/features/question_details/components/QuestionH
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
 import MessageDetail from "./MessageDetail";
 import UserFeedbackDetail from "./UserFeedbackDetail";
+import OpenFeedback from "./OpenFeedback";
 import { AiGeneratedAnswerCard } from "./AiGeneratedAnswerCard";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer";
@@ -308,6 +309,7 @@ export const QuestionDetails = ({
                   navigateToQuestionPage={navigateToQuestionPage}
                 />
                 <UserFeedbackDetail questionId={question._id || null} />
+                <OpenFeedback questionId={question._id || null} />
               </>
             )}
 
