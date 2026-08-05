@@ -658,8 +658,12 @@ function QueueColumn({
 
 export const QueueDetailsModal = ({
   setIsSidebarOpen,
+  currentUserIsAdmin,
+  isTrainingUser
 }: {
   setIsSidebarOpen?: (v: boolean) => void;
+  currentUserIsAdmin?: boolean;
+  isTrainingUser?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
   // Accordion + sub-tab state now lives inside each QueueColumn (one per source group).
@@ -738,7 +742,9 @@ export const QueueDetailsModal = ({
             Queue Details
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Time-bound &amp; manual single-allocation queues, side by side
+            {currentUserIsAdmin || !isTrainingUser
+              ? 'Time-bound & manual single-allocation queues, side by side'
+              : 'manual single-allocation queues'}
           </p>
         </DialogHeader>
 
@@ -790,29 +796,33 @@ export const QueueDetailsModal = ({
           <div className="py-2">
             {/* Both queues side by side — time-bound | manual */}
             <div className="flex flex-col lg:flex-row gap-4">
-              <QueueColumn
-                heading="Time-bound Queue"
-                subheading="AjraSakha & WhatsApp (auto-allocated)"
-                suffix=""
-                dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
-                onQuestionClick={handleQuestionClick}
-                g={{
-                  received: data.received,
-                  receivedStatusCounts: data.receivedStatusCounts,
-                  autoAllocateOff: data.autoAllocateOff,
-                  autoAllocateOpen: data.autoAllocateOpen,
-                  autoAllocateDelayed: data.autoAllocateDelayed,
-                  allocated: data.allocated,
-                  waiting: data.waiting,
-                  freeExperts: data.freeExperts,
-                  stuck: data.stuck,
-                  needsReviewer: data.needsReviewer,
-                  openedIdle: data.openedIdle,
-                  moderatorWaiting: data.moderatorWaitingTimeBound,
-                  moderatorAllocated: data.moderatorAllocatedTimeBound,
-                  availableModerators: data.availableModeratorsTimeBound,
-                }}
-              />
+                  {
+                    (currentUserIsAdmin || !isTrainingUser) && (
+                      <QueueColumn
+                        heading="Time-bound Queue"
+                        subheading="AjraSakha & WhatsApp (auto-allocated)"
+                        suffix=""
+                        dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
+                        onQuestionClick={handleQuestionClick}
+                        g={{
+                          received: data.received,
+                          receivedStatusCounts: data.receivedStatusCounts,
+                          autoAllocateOff: data.autoAllocateOff,
+                          autoAllocateOpen: data.autoAllocateOpen,
+                          autoAllocateDelayed: data.autoAllocateDelayed,
+                          allocated: data.allocated,
+                          waiting: data.waiting,
+                          freeExperts: data.freeExperts,
+                          stuck: data.stuck,
+                          needsReviewer: data.needsReviewer,
+                          openedIdle: data.openedIdle,
+                          moderatorWaiting: data.moderatorWaitingTimeBound,
+                          moderatorAllocated: data.moderatorAllocatedTimeBound,
+                          availableModerators: data.availableModeratorsTimeBound,
+                        }}
+                      />
+                    )
+                  }
               <div className="hidden lg:block w-px bg-gray-200 dark:bg-gray-800 self-stretch" />
               <QueueColumn
                 heading="Manual Queue"

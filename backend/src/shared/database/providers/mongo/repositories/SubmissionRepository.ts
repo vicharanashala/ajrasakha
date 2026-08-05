@@ -3650,6 +3650,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async findTimeBoundQuestionsForReallocation(
     sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
     requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IQuestionSubmission[]> {
     await this.init();
     const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
@@ -3685,6 +3687,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri', 're-routed'] },
           'question.isOnHold': { $ne: true },
           'question.isAutoAllocate': {$eq: true},
+          // Training question filter
+          ...(!isAdmin && {
+            'question.isTrainingQuestion': isTrainingUser
+              ? true
+              : { $ne: true },
+          }),
           // Manual single-allocation: only questions not yet PAE-reviewed (false/missing).
           ...(requirePaeReviewNotDone ? { 'question.pae_review': { $ne: true } } : {}),
         },
@@ -3751,6 +3759,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async findUnallocatedTimeBoundQuestions(
     sources: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'],
     requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<IQuestionSubmission[]> {
     await this.init();
 
@@ -3761,6 +3771,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     const questions = await this.QuestionCollection.find({
       source: { $in: sources },
       isAutoAllocate: true,
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser
+          ? true
+          : { $ne: true },
+      }),
       status: {$in: ['open', 'delayed']},
       firstAllocationAt: null,
       isOnHold: {$ne: true},
@@ -3792,6 +3807,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async findAnsweredQuestionsNeedingReviewer(
     sources: QuestionSource[] = ['WHATSAPP', 'AJRASAKHA'],
     requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<IQuestionSubmission[]> {
     await this.init();
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
@@ -3848,6 +3865,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           'question.status': { $in: ['open', 'delayed'] },
           'question.isOnHold': { $ne: true },
           'question.isAutoAllocate': {$eq:true},
+          // Training question filter
+          ...(!isAdmin && {
+            'question.isTrainingQuestion': isTrainingUser
+              ? true
+              : { $ne: true },
+          }),
           ...(requirePaeReviewNotDone ? { 'question.pae_review': { $ne: true } } : {}),
         },
       },

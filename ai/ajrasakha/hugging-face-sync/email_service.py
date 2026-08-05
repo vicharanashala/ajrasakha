@@ -99,61 +99,45 @@ def _build_success_html(
     newly_added: int,
     sync_time: datetime,
 ) -> str:
-    """Build HTML email body for successful sync."""
-    status_color = "#10B981"  # Green
-    status_text = "Success"
-
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }}
-            .header h1 {{ margin: 0; font-size: 24px; }}
-            .header p {{ margin: 5px 0 0; opacity: 0.9; }}
-            .content {{ background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }}
-            .status {{ display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; background: {status_color}; color: white; }}
-            .stats {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }}
-            .stat-box {{ background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
-            .stat-value {{ font-size: 28px; font-weight: bold; color: #667eea; }}
-            .stat-label {{ font-size: 12px; color: #6b7280; margin-top: 5px; }}
-            .footer {{ margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; }}
-            .link {{ color: #667eea; text-decoration: none; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>HuggingFace Sync Complete</h1>
-            <p>{sync_time.strftime('%B %d, %Y at %I:%M %p')} IST</p>
-        </div>
-        <div class="content">
-            <p><span class="status">{status_text}</span></p>
-            <div class="stats">
-                <div class="stat-box">
-                    <div class="stat-value">{existing_rows:,}</div>
-                    <div class="stat-label">Existing Rows<br>(Before Sync)</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value">{new_rows:,}</div>
-                    <div class="stat-label">New Rows<br>(After Sync)</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value">{'+' if newly_added >= 0 else ''}{newly_added:,}</div>
-                    <div class="stat-label">Newly Added</div>
-                </div>
-            </div>
-            <p>The dataset has been successfully synced to HuggingFace.</p>
-            <p>Dataset: <a href="{HF_DATASET_LINK}" class="link">{HF_DATASET_LINK}</a></p>
-            <div class="footer">
-                <p>This is an automated notification from the Ajrasakha Agri Platform.</p>
-                <p>Please do not reply to this email.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return html
+    """Build HTML email body for successful sync - pure inline CSS."""
+    formatted_time = sync_time.strftime('%B %d, %Y at %I:%M %p')
+    change_indicator = f"+{newly_added:,}" if newly_added >= 0 else str(newly_added)
+    change_color = "#10B981" if newly_added >= 0 else "#EF4444"
+    
+    return f"""<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#F3F4F6;font-family:Arial,sans-serif;">
+<div style="max-width:500px;margin:0 auto;">
+<div style="background:linear-gradient(135deg,#667EEA,#764BA2);padding:12px 16px;color:#fff;">
+<span style="font-size:13px;font-weight:600;">HuggingFace Sync Complete</span>
+<span style="background:#10B981;color:#fff;font-size:10px;padding:2px 6px;border-radius:8px;margin-left:6px;">✓ SUCCESS</span>
+<p style="margin:4px 0 0;font-size:10px;opacity:0.9;">{formatted_time} IST</p>
+</div>
+<div style="padding:10px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr>
+<td width="33%" style="padding-right:6px;"><table width="100%" style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:4px;"><tr><td style="padding:8px 4px;text-align:center;">
+<div style="font-size:18px;font-weight:bold;color:#667EEA;">{existing_rows:,}</div>
+<div style="font-size:10px;color:#666;">Existing Rows</div>
+</td></tr></table></td>
+<td width="33%" style="padding:0 3px;"><table width="100%" style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:4px;"><tr><td style="padding:8px 4px;text-align:center;">
+<div style="font-size:18px;font-weight:bold;color:#667EEA;">{new_rows:,}</div>
+<div style="font-size:10px;color:#666;">New Rows</div>
+</td></tr></table></td>
+<td width="33%" style="padding-left:6px;"><table width="100%" style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:4px;"><tr><td style="padding:8px 4px;text-align:center;">
+<div style="font-size:18px;font-weight:bold;color:{change_color};">{change_indicator}</div>
+<div style="font-size:10px;color:#666;">Newly Added</div>
+</td></tr></table></td>
+</tr></table>
+</div>
+<div style="padding:0 16px 10px;">
+<p style="margin:0;font-size:11px;color:#333;">Synced to HuggingFace.<br><a href="{HF_DATASET_LINK}" style="color:#667EEA;">{HF_DATASET_LINK}</a></p>
+</div>
+<div style="border-top:1px solid #E5E7EB;padding:8px 16px;text-align:center;">
+<p style="margin:0;font-size:9px;color:#999;">Ajrasakha Agri Platform</p>
+</div>
+</div>
+</body>
+</html>"""
 
 
 def _send_error_email(error: str, sync_time: datetime | None) -> bool:
@@ -184,40 +168,22 @@ def _send_error_email(error: str, sync_time: datetime | None) -> bool:
 
 
 def _build_error_html(error: str, sync_time: datetime) -> str:
-    """Build HTML email body for failed sync."""
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }}
-            .header h1 {{ margin: 0; font-size: 24px; }}
-            .header p {{ margin: 5px 0 0; opacity: 0.9; }}
-            .content {{ background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }}
-            .status {{ display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; background: #ef4444; color: white; }}
-            .error-box {{ background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444; margin: 20px 0; }}
-            .error-message {{ font-family: monospace; font-size: 13px; color: #dc2626; margin: 0; white-space: pre-wrap; }}
-            .footer {{ margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>HuggingFace Sync Failed</h1>
-            <p>{sync_time.strftime('%B %d, %Y at %I:%M %p')} IST</p>
-        </div>
-        <div class="content">
-            <p><span class="status">Failed</span></p>
-            <div class="error-box">
-                <p class="error-message">{error}</p>
-            </div>
-            <p>Please check the logs for more details.</p>
-            <div class="footer">
-                <p>This is an automated notification from the Ajrasakha Agri Platform.</p>
-                <p>Please do not reply to this email.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return html
+    """Build HTML email body for failed sync - pure inline CSS."""
+    formatted_time = sync_time.strftime('%B %d, %Y at %I:%M %p')
+    error_escaped = error.replace('&', '&').replace('<', '<').replace('>', '>').replace('"', '"')
+    
+    return f"""<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#F4F5F7;font-family:Arial,sans-serif;">
+<div style="max-width:500px;margin:0 auto;">
+<div style="background:#D93025;padding:12px 16px;color:#fff;">
+<span style="font-size:13px;font-weight:600;">⚠ HuggingFace Sync Failed</span>
+<p style="margin:4px 0 0;font-size:10px;opacity:0.9;">{formatted_time} IST</p>
+</div>
+<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;padding:12px;margin:12px 16px;font-family:monospace;font-size:11px;color:#D93025;white-space:pre-wrap;">{error_escaped}</div>
+<div style="border-top:1px solid #E8EAED;padding:8px 16px;text-align:center;">
+<p style="margin:0;font-size:9px;color:#999;">Ajrasakha Agri Platform</p>
+</div>
+</div>
+</body>
+</html>"""
