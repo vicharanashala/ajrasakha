@@ -449,7 +449,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
-  ): Promise<{ questions: IQuestion[]; totalPages: number }> {
+  ): Promise<{ questions: IQuestion[]; totalPages: number; feedbackQuestions?: IQuestion[] }> {
     let searchEmbedding: number[] | null = null;
 
     if (query?.search) {
@@ -467,13 +467,45 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
     }
 
-    return this.questionRepo.findDetailedQuestions(
+    const result = await this.questionRepo.findDetailedQuestions(
       {
         ...query,
         searchEmbedding,
       },
       body,
     );
+
+    // Check if this is a dedicated view (moderator/gatekeeper/auditor assigned questions)
+    const { moderatorId, gateKeeperId, auditorId } = query;
+    const assignedUserId = moderatorId || gateKeeperId || auditorId;
+    if (assignedUserId) {
+      try {
+        const user = await this.userRepo.findById(assignedUserId);
+        const feedbacksAssigned = user?.feedbacksAssigned;
+        if (feedbacksAssigned && feedbacksAssigned.length > 0) {
+          // Fetch the feedback questions
+          const feedbackQuestionIds = feedbacksAssigned.map(id => {
+            if (typeof id === 'string') return new ObjectId(id);
+            return id;
+          });
+
+          const feedbackQuestions = await this.questionRepo.findByIds(feedbackQuestionIds);
+          const feedbackQuestionsWithFlag = feedbackQuestions.map(q => ({
+            ...q,
+            isFeedbackQuestion: true,
+          }));
+
+          return {
+            ...result,
+            feedbackQuestions: feedbackQuestionsWithFlag,
+          };
+        }
+      } catch (err) {
+        console.error('Error fetching feedback questions:', err);
+      }
+    }
+
+    return result;
   }
 
   async getQuestionFromRawContext(

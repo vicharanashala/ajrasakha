@@ -92,6 +92,13 @@ export interface IQuestionRepository {
   ): Promise<IQuestion>;
 
   /**
+   * Retrieves questions by their IDs.
+   * @param ids - Array of question ObjectIds to fetch.
+   * @returns A promise that resolves to an array of questions.
+   */
+  findByIds(ids: ObjectId[]): Promise<IQuestion[]>;
+
+  /**
    * Retrieves all questions for a specific context.
    * @param contextId - The ID of the context.
    * @param session - Optional MongoDB client session for transactions.

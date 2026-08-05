@@ -234,6 +234,8 @@ export interface IQuestion {
    *  cancel reason and timestamp are recorded in the audit trail, not on the question. */
   isDuplicateCancelled?: boolean;
   isDelayed?: boolean;
+  /** Flag to indicate this question is from the user's feedbacksAssigned array (feedback tab) */
+  isFeedbackQuestion?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

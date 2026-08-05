@@ -78,7 +78,7 @@ import { QueueDetailsModal, GateKeeperAuditorQueueModal } from "./QueueDetailsMo
 import { canViewQueueDetails } from "@/lib/roles";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
-import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
+import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
@@ -116,6 +116,8 @@ type QuestionsFiltersProps = {
   handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
   isBulkAllocatingPae: boolean;
   onAnswerModeChange?: (mode: string) => void;
+  dedicatedSubTab?: DedicatedSubTab;
+  onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
 };
 
 type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
@@ -172,6 +174,8 @@ export const QuestionsFilters = ({
   handleBulkAllocateToPae,
   isBulkAllocatingPae,
   onAnswerModeChange,
+  dedicatedSubTab,
+  onDedicatedSubTabChange,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -757,6 +761,8 @@ export const QuestionsFilters = ({
         }
         isDedicatedView={viewMode === "dedicated"}
         onDedicatedClick={() => setViewMode(viewMode === "dedicated" ? "all" : "dedicated")}
+        dedicatedSubTab={dedicatedSubTab}
+        onDedicatedSubTabChange={onDedicatedSubTabChange}
       />
 
       {/* ── ROW 2: Search + View + Filter + Add ── */}

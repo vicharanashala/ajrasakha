@@ -690,6 +690,8 @@ export interface IDetailedQuestionResponse {
   totalPages: number;
   totalCount: number;
   questions: IDetailedQuestion[];
+  /** Questions from the user's feedbacksAssigned array (for feedback tab) */
+  feedbackQuestions?: IDetailedQuestion[];
 }
 
 export type RequestStatus = "pending" | "rejected" | "approved" | "in-review";

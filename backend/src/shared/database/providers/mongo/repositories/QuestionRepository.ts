@@ -575,6 +575,29 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  async findByIds(ids: ObjectId[]): Promise<IQuestion[]> {
+    try {
+      await this.init();
+
+      if (!ids || ids.length === 0) {
+        return [];
+      }
+
+      const questions = await this.QuestionCollection.find({
+        _id: {$in: ids},
+      }).toArray();
+
+      return questions.map(q => ({
+        ...q,
+        _id: q._id?.toString(),
+        userId: q.userId?.toString(),
+        contextId: q.contextId?.toString(),
+      }));
+    } catch (error) {
+      throw new InternalServerError(`Failed to find questions by IDs: ${error}`);
+    }
+  }
+
   /** Find questions that reference the given question (referenceQuestionId), optionally
    *  filtered by status. Used to propagate a close to queue-duplicate children. */
   async findByReferenceQuestionId(

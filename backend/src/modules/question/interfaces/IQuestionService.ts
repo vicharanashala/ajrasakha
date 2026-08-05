@@ -283,6 +283,7 @@ export interface IQuestionService {
   ): Promise<{
     questions: IQuestion[];
     totalPages: number;
+    feedbackQuestions?: IQuestion[];
   }>;
 
   /** Generate questions from raw context (AI) */
