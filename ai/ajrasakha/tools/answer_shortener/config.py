@@ -11,10 +11,13 @@ from dotenv import load_dotenv
 
 
 _SERVICE_ENV_FILE = Path(__file__).with_name(".env")
-_ANTHROPIC_KEY_PLACEHOLDERS = {
-    "your_anthropic_api_key_here",
-    "replace_with_your_anthropic_api_key",
+_SAMAGAMA_KEY_PLACEHOLDERS = {
+    "your_samagama_api_key_here",
+    "replace_with_your_samagama_api_key",
 }
+_DEFAULT_SAMAGAMA_CHAT_COMPLETIONS_URL = (
+    "https://samagama.in/platform/proxy/v1/chat/completions"
+)
 load_dotenv(_SERVICE_ENV_FILE)
 load_dotenv()
 
@@ -55,7 +58,8 @@ def _read_float(name: str, default: float, *, minimum: float = 0.0) -> float:
 
 @dataclass(frozen=True)
 class Settings:
-    anthropic_api_key: str
+    samagama_api_key: str
+    samagama_chat_completions_url: str
     model: str
     provider_timeout_seconds: float
     provider_max_retries: int
@@ -67,16 +71,20 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
-            anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", "").strip(),
+            samagama_api_key=os.getenv("SAMAGAMA_API_KEY", "").strip(),
+            samagama_chat_completions_url=os.getenv(
+                "SAMAGAMA_CHAT_COMPLETIONS_URL",
+                _DEFAULT_SAMAGAMA_CHAT_COMPLETIONS_URL,
+            ).strip(),
             model=os.getenv(
                 "ANSWER_SHORTENER_MODEL",
-                "claude-sonnet-4-6",
+                "MiniMax-M3",
             ).strip(),
             provider_timeout_seconds=_read_float(
-                "ANTHROPIC_TIMEOUT_SECONDS", 30.0, minimum=1.0
+                "SAMAGAMA_TIMEOUT_SECONDS", 120.0, minimum=1.0
             ),
             provider_max_retries=_read_int(
-                "ANTHROPIC_MAX_RETRIES", 2, minimum=0
+                "SAMAGAMA_MAX_RETRIES", 2, minimum=0
             ),
             rewrite_attempts=_read_int(
                 "ANSWER_SHORTENER_REWRITE_ATTEMPTS", 3, minimum=1, maximum=3
@@ -89,10 +97,12 @@ class Settings:
 
     def require_provider_configuration(self) -> None:
         if (
-            not self.anthropic_api_key
-            or self.anthropic_api_key.casefold() in _ANTHROPIC_KEY_PLACEHOLDERS
+            not self.samagama_api_key
+            or self.samagama_api_key.casefold() in _SAMAGAMA_KEY_PLACEHOLDERS
         ):
-            raise SettingsError("ANTHROPIC_API_KEY is not configured")
+            raise SettingsError("SAMAGAMA_API_KEY is not configured")
+        if not self.samagama_chat_completions_url:
+            raise SettingsError("SAMAGAMA_CHAT_COMPLETIONS_URL is not configured")
         if not self.model:
             raise SettingsError("ANSWER_SHORTENER_MODEL is not configured")
 

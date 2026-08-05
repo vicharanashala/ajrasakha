@@ -11,11 +11,11 @@ from ajrasakha.tools.answer_shortener.api import (
     get_shortener_service,
     settings_dependency,
 )
-from ajrasakha.tools.answer_shortener.claude_client import (
-    ClaudeConfigurationError,
-    ClaudeProviderError,
-    ClaudeTimeoutError,
-    ClaudeUnavailableError,
+from ajrasakha.tools.answer_shortener.samagama_client import (
+    ModelConfigurationError,
+    ModelProviderError,
+    ModelTimeoutError,
+    ModelUnavailableError,
 )
 from ajrasakha.tools.answer_shortener.config import Settings, get_settings
 from ajrasakha.tools.answer_shortener.service import (
@@ -45,7 +45,7 @@ class StubService:
             footer_character_count=0,
             changed=True,
             rewrite_attempts=1,
-            model="claude-test-sonnet",
+            model="MiniMax-M3",
         )
 
 
@@ -60,7 +60,7 @@ class RaisingService:
 @pytest.fixture(autouse=True)
 def reset_dependencies(monkeypatch):
     monkeypatch.delenv("ANSWER_SHORTENER_API_KEY", raising=False)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("SAMAGAMA_API_KEY", raising=False)
     get_settings.cache_clear()
     _build_shortener_service.cache_clear()
     app.dependency_overrides[get_shortener_service] = lambda: StubService()
@@ -77,7 +77,7 @@ def test_health_is_public():
     assert response.json() == {"status": "ok", "service": "answer-shortener"}
 
 
-def test_readiness_fails_without_anthropic_key():
+def test_readiness_fails_without_samagama_key():
     with TestClient(app) as client:
         response = client.get("/health/ready")
 
@@ -86,7 +86,7 @@ def test_readiness_fails_without_anthropic_key():
 
 
 def test_readiness_rejects_example_placeholder_key(monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "your_anthropic_api_key_here")
+    monkeypatch.setenv("SAMAGAMA_API_KEY", "your_samagama_api_key_here")
     get_settings.cache_clear()
 
     with TestClient(app) as client:
@@ -96,11 +96,11 @@ def test_readiness_rejects_example_placeholder_key(monkeypatch):
     assert response.json()["detail"]["code"] == "SERVICE_NOT_READY"
 
 
-def test_readiness_reports_sonnet_model():
+def test_readiness_reports_minimax_model():
     settings = replace(
         Settings.from_env(),
-        anthropic_api_key="test-anthropic-key",
-        model="claude-sonnet-4-6",
+        samagama_api_key="test-samagama-key",
+        model="MiniMax-M3",
     )
     app.dependency_overrides[settings_dependency] = lambda: settings
 
@@ -108,7 +108,7 @@ def test_readiness_reports_sonnet_model():
         response = client.get("/health/ready")
 
     assert response.status_code == 200
-    assert response.json()["model"] == "claude-sonnet-4-6"
+    assert response.json()["model"] == "MiniMax-M3"
 
 
 def test_shorten_endpoint_contract():
@@ -213,14 +213,14 @@ def test_api_key_is_required_when_configured(monkeypatch):
             422,
             "TARGET_TOO_SMALL_FOR_PROTECTED_CONTENT",
         ),
-        (ClaudeTimeoutError("timeout"), 504, "MODEL_TIMEOUT"),
-        (ClaudeUnavailableError("unavailable"), 503, "MODEL_UNAVAILABLE"),
+        (ModelTimeoutError("timeout"), 504, "MODEL_TIMEOUT"),
+        (ModelUnavailableError("unavailable"), 503, "MODEL_UNAVAILABLE"),
         (
-            ClaudeConfigurationError("bad credentials"),
+            ModelConfigurationError("bad credentials"),
             503,
             "MODEL_CONFIGURATION_ERROR",
         ),
-        (ClaudeProviderError("provider error"), 502, "MODEL_API_ERROR"),
+        (ModelProviderError("provider error"), 502, "MODEL_API_ERROR"),
     ],
 )
 def test_endpoint_maps_domain_and_provider_errors(

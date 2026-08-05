@@ -196,7 +196,7 @@ def test_multi_digit_numbered_list_prefix_stays_with_its_content():
     ]
 
 
-def test_parses_plain_and_optionally_fenced_strict_json_ranking():
+def test_parses_plain_fenced_and_single_wrapped_json_ranking():
     known = ("s0001", "s0002", "s0003")
 
     assert parse_ranked_segment_ids(
@@ -207,13 +207,21 @@ def test_parses_plain_and_optionally_fenced_strict_json_ranking():
         '```json\n{"ranked_segment_ids":["s0003","s0002","s0001"]}\n```',
         known,
     ) == ("s0003", "s0002", "s0001")
+    assert parse_ranked_segment_ids(
+        'Here is the requested ranking:\n{"ranked_segment_ids":["s0001","s0003","s0002"]}\nDone.',
+        known,
+    ) == ("s0001", "s0003", "s0002")
 
 
 @pytest.mark.parametrize(
     ("response", "expected_code"),
     [
-        ("Here is the ranking: {\"ranked_segment_ids\":[\"s0001\",\"s0002\"]}", "INVALID_SELECTION_JSON"),
         ("{not-json}", "INVALID_SELECTION_JSON"),
+        (
+            '{"ranked_segment_ids":["s0001","s0002"]} '
+            'and {"ranked_segment_ids":["s0002","s0001"]}',
+            "INVALID_SELECTION_JSON",
+        ),
         ('{"ranked_segment_ids":["s0001","s0002"],"note":"extra"}', "INVALID_SELECTION_SCHEMA"),
         ('{"ranked_segment_ids":"s0001"}', "INVALID_SELECTION_SCHEMA"),
         ('{"ranked_segment_ids":["s0001","unknown"]}', "INVALID_SEGMENT_RANKING"),

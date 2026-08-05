@@ -27,7 +27,7 @@ class FakeGateway:
 def make_service(gateway: FakeGateway, *, attempts: int = 3) -> AnswerShorteningService:
     return AnswerShorteningService(
         gateway,
-        model="claude-test-sonnet",
+        model="MiniMax-M3-test",
         tolerance=50,
         max_attempts=attempts,
         max_output_tokens=8192,
@@ -253,6 +253,7 @@ async def test_model_ranks_ids_and_python_returns_only_exact_source_slices():
     assert "How should I manage wheat irrigation?" in gateway.calls[0]["user_prompt"]
     assert "ranked_segment_ids" in gateway.calls[0]["user_prompt"]
     assert "source-segment relevance ranker" in gateway.calls[0]["system_prompt"]
+    assert gateway.calls[0]["max_tokens"] >= 8192
     for block in result.short_answer.split("\n"):
         assert block in source
 
@@ -261,7 +262,7 @@ async def test_model_ranks_ids_and_python_returns_only_exact_source_slices():
 async def test_invalid_model_prose_is_never_returned_and_ranking_is_retried():
     source, texts = source_with_four_segments()
     expected = texts[0] + "\n" + texts[1]
-    invented = "Claude-authored prose that does not occur in the source."
+    invented = "Model-authored prose that does not occur in the source."
     gateway = FakeGateway(
         [invented, ranking_response(source, (0, 1, 2, 3))]
     )
@@ -316,6 +317,7 @@ async def test_no_feasible_whole_segment_combination_reuses_one_ranking_for_comp
     assert len(gateway.calls) == 2
     assert "source-segment relevance ranker" in gateway.calls[0]["system_prompt"]
     assert "constrained\nanswer compressor" in gateway.calls[1]["system_prompt"]
+    assert gateway.calls[1]["max_tokens"] >= 8192
     assert "ranked_source_segments" in gateway.calls[1]["user_prompt"]
     assert source in gateway.calls[1]["user_prompt"]
 
@@ -375,6 +377,8 @@ async def test_compression_retries_invalid_output_without_ranking_again():
     assert "constrained\nanswer compressor" in gateway.calls[1]["system_prompt"]
     assert "constrained\nanswer compressor" in gateway.calls[2]["system_prompt"]
     assert "previous_invalid_response" in gateway.calls[2]["user_prompt"]
+    assert '"maximum_character_count":100' in gateway.calls[2]["user_prompt"]
+    assert "previous candidate was too long" in gateway.calls[2]["user_prompt"]
 
 
 @pytest.mark.asyncio
@@ -391,7 +395,7 @@ async def test_unicode_source_segments_are_returned_verbatim():
 
     result = await AnswerShorteningService(
         gateway,
-        model="claude-test-sonnet",
+        model="MiniMax-M3-test",
         tolerance=5,
         max_attempts=3,
     ).shorten(

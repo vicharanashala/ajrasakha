@@ -3,12 +3,12 @@ from __future__ import annotations
 from ajrasakha.tools.answer_shortener.config import Settings
 
 
-def test_default_model_is_pinned_sonnet(monkeypatch):
+def test_default_model_is_pinned_minimax_m3(monkeypatch):
     monkeypatch.delenv("ANSWER_SHORTENER_MODEL", raising=False)
 
     settings = Settings.from_env()
 
-    assert settings.model == "claude-sonnet-4-6"
+    assert settings.model == "MiniMax-M3"
 
 
 def test_model_can_still_be_overridden_by_deployment(monkeypatch):

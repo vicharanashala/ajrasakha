@@ -59,11 +59,12 @@ logger = logging.getLogger(__name__)
 
 _EXTRACTION_SEPARATOR = " "
 _MAX_INVALID_RESPONSE_FEEDBACK_CHARACTERS = 12_000
+_MIN_REASONING_MODEL_TOKENS = 8_192
 _REVIEWER_FOOTER_MARKER = "👤 Answered by:"
 _FOOTER_DIVIDER_LINE = re.compile(r"(?m)^[\t ]*_{3,}[\t ]*$")
 
 
-class ClaudeGateway(Protocol):
+class ModelGateway(Protocol):
     async def generate(
         self,
         *,
@@ -90,10 +91,10 @@ class AnswerBodyMissingError(ShorteningError):
 
 
 class ModelSelectionError(ShorteningError):
-    """Raised when Claude never returns a safe full segment-ID ranking."""
+    """Raised when the model never returns a safe full segment-ID ranking."""
 
     def __init__(self, *, attempts: int, failure_codes: tuple[str, ...]) -> None:
-        super().__init__("Claude could not return a valid source-segment ranking")
+        super().__init__("The model could not return a valid source-segment ranking")
         self.attempts = attempts
         self.failure_codes = failure_codes
 
@@ -102,7 +103,7 @@ class ModelCompressionError(ShorteningError):
     """Raised when fallback compression cannot produce a validated answer."""
 
     def __init__(self, *, attempts: int, failure_codes: tuple[str, ...]) -> None:
-        super().__init__("Claude could not return a valid compressed answer")
+        super().__init__("The model could not return a valid compressed answer")
         self.attempts = attempts
         self.failure_codes = failure_codes
 
@@ -165,7 +166,7 @@ def split_reviewer_footer(answer: str) -> AnswerParts:
 class AnswerShorteningService:
     def __init__(
         self,
-        gateway: ClaudeGateway,
+        gateway: ModelGateway,
         *,
         model: str,
         tolerance: int = 50,
@@ -279,7 +280,7 @@ class AnswerShorteningService:
         )
         max_tokens = min(
             self._max_output_tokens,
-            max(256, 128 + (len(segments) * 16)),
+            max(_MIN_REASONING_MODEL_TOKENS, 128 + (len(segments) * 32)),
         )
 
         previous_invalid_response: str | None = None
@@ -425,18 +426,30 @@ class AnswerShorteningService:
             }
             for source_order, segment in enumerate(ranked_segments)
         )
-        max_tokens = min(self._max_output_tokens, max(256, upper_bound * 2))
+        max_tokens = min(
+            self._max_output_tokens,
+            max(_MIN_REASONING_MODEL_TOKENS, upper_bound * 2),
+        )
         previous_invalid_response: str | None = None
         safe_validation_error: str | None = None
         failure_codes: list[str] = []
 
         for compression_attempt in range(1, self._max_attempts + 1):
+            # A model that has already exceeded the allowed range needs a
+            # meaningful correction target, not the same permissive upper bound
+            # repeated verbatim.  The requested target is always inside the
+            # API's accepted range, so it is a safe stricter ceiling for retries.
+            prompt_upper_bound = upper_bound
+            if safe_validation_error and safe_validation_error.startswith(
+                "LENGTH_TOO_LONG"
+            ):
+                prompt_upper_bound = max(lower_bound, target)
             user_prompt = build_ranked_source_compression_prompt(
                 original_query=original_query,
                 ranked_segments=prompt_segments,
                 target=target,
                 lower_bound=lower_bound,
-                upper_bound=upper_bound,
+                upper_bound=prompt_upper_bound,
                 previous_invalid_response=previous_invalid_response,
                 safe_validation_error=safe_validation_error,
             )

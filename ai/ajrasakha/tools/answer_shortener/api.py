@@ -10,12 +10,12 @@ from fastapi import Depends, FastAPI, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 
 try:  # Package import for local Uvicorn and tests.
-    from .claude_client import (
-        AnthropicClaudeGateway,
-        ClaudeConfigurationError,
-        ClaudeProviderError,
-        ClaudeTimeoutError,
-        ClaudeUnavailableError,
+    from .samagama_client import (
+        ModelConfigurationError,
+        ModelProviderError,
+        ModelTimeoutError,
+        ModelUnavailableError,
+        SamagamaMiniMaxGateway,
     )
     from .config import Settings, SettingsError, get_settings
     from .models import ShortenAnswerRequest, ShortenAnswerResponse
@@ -29,12 +29,12 @@ try:  # Package import for local Uvicorn and tests.
         TargetRequiresExpansionError,
     )
 except ImportError:  # Docker runs this directory directly as ``api:app``.
-    from claude_client import (
-        AnthropicClaudeGateway,
-        ClaudeConfigurationError,
-        ClaudeProviderError,
-        ClaudeTimeoutError,
-        ClaudeUnavailableError,
+    from samagama_client import (
+        ModelConfigurationError,
+        ModelProviderError,
+        ModelTimeoutError,
+        ModelUnavailableError,
+        SamagamaMiniMaxGateway,
     )
     from config import Settings, SettingsError, get_settings
     from models import ShortenAnswerRequest, ShortenAnswerResponse
@@ -127,7 +127,7 @@ def require_api_key(
 @lru_cache(maxsize=4)
 def _build_shortener_service(settings: Settings) -> AnswerShorteningService:
     settings.require_provider_configuration()
-    gateway = AnthropicClaudeGateway(settings)
+    gateway = SamagamaMiniMaxGateway(settings)
     return AnswerShorteningService(
         gateway,
         model=settings.model,
@@ -217,7 +217,7 @@ async def shorten_answer(
                 "code": "MODEL_SELECTION_INVALID",
                 "category": "model_noncompliance",
                 "message": (
-                    "Claude could not return a valid complete source-segment "
+                    "The model could not return a valid complete source-segment "
                     "ranking after retries. No model-written text was returned."
                 ),
                 "retryable": True,
@@ -233,7 +233,7 @@ async def shorten_answer(
                 "code": "MODEL_COMPRESSION_INVALID",
                 "category": "model_noncompliance",
                 "message": (
-                    "Claude could not produce a source-grounded answer within the "
+                    "The model could not produce a source-grounded answer within the "
                     "requested character range after retries."
                 ),
                 "retryable": True,
@@ -242,35 +242,45 @@ async def shorten_answer(
                 "guidance": {"action": "retry_request"},
             },
         ) from exc
-    except ClaudeTimeoutError as exc:
-        logger.warning("Claude request timed out error_type=%s", type(exc).__name__)
+    except ModelTimeoutError as exc:
+        logger.warning("Model request timed out error_type=%s", type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail={"code": "MODEL_TIMEOUT", "message": "Claude timed out"},
+            detail={"code": "MODEL_TIMEOUT", "message": "Model request timed out"},
         ) from exc
-    except ClaudeUnavailableError as exc:
-        logger.warning("Claude unavailable error_type=%s", type(exc).__name__)
+    except ModelUnavailableError as exc:
+        logger.warning("Model unavailable error_type=%s", type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
                 "code": "MODEL_UNAVAILABLE",
-                "message": "Claude is temporarily unavailable",
+                "message": "The model provider is temporarily unavailable",
             },
         ) from exc
-    except ClaudeConfigurationError as exc:
-        logger.error("Claude configuration rejected error_type=%s", type(exc).__name__)
+    except ModelConfigurationError as exc:
+        logger.error(
+            "Model configuration rejected error_type=%s reason=%s",
+            type(exc).__name__,
+            str(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
                 "code": "MODEL_CONFIGURATION_ERROR",
-                "message": "Claude credentials or model configuration were rejected",
+                "message": "Model credentials, endpoint, or model configuration were rejected",
             },
         ) from exc
-    except ClaudeProviderError as exc:
-        logger.warning("Claude API error error_type=%s", type(exc).__name__)
+    except ModelProviderError as exc:
+        # ModelProviderError messages are fixed, implementation-owned diagnostics.
+        # Do not log the raw model response, prompt, answer, or provider headers.
+        logger.warning(
+            "Model API error error_type=%s reason=%s",
+            type(exc).__name__,
+            str(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail={"code": "MODEL_API_ERROR", "message": "Claude returned an API error"},
+            detail={"code": "MODEL_API_ERROR", "message": "The model provider returned an API error"},
         ) from exc
 
     return ShortenAnswerResponse(**outcome.__dict__)

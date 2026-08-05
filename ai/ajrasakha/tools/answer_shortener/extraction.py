@@ -349,6 +349,43 @@ def _selection_error(code: str, safe_message: str) -> ExtractionSelectionError:
     return ExtractionSelectionError(code, safe_message)
 
 
+def _decode_selection_json(payload: str) -> object:
+    """Decode strict JSON, tolerating one model-added prose wrapper.
+
+    The ranking contract still asks for bare JSON. Some OpenAI-compatible models
+    nevertheless prefix or suffix an otherwise valid object with a short label or
+    reasoning. Accept exactly one decodable object in that case, then let the
+    existing schema and segment-permutation checks enforce the actual contract.
+    Multiple objects remain ambiguous and are rejected.
+    """
+
+    try:
+        return json.loads(
+            payload,
+            object_pairs_hook=_object_without_duplicate_keys,
+        )
+    except (json.JSONDecodeError, _DuplicateJSONKey, TypeError, ValueError):
+        pass
+
+    decoder = json.JSONDecoder(object_pairs_hook=_object_without_duplicate_keys)
+    candidates: list[object] = []
+    for index, character in enumerate(payload):
+        if character != "{":
+            continue
+        try:
+            decoded, _ = decoder.raw_decode(payload, index)
+        except (json.JSONDecodeError, _DuplicateJSONKey, TypeError, ValueError):
+            continue
+        candidates.append(decoded)
+
+    if len(candidates) != 1:
+        raise _selection_error(
+            "INVALID_SELECTION_JSON",
+            "The model selection is not valid strict JSON",
+        )
+    return candidates[0]
+
+
 def parse_ranked_segment_ids(
     response: str,
     known_segment_ids: Iterable[str],
@@ -371,16 +408,7 @@ def parse_ranked_segment_ids(
             )
         payload = fence_match.group("body").strip()
 
-    try:
-        decoded = json.loads(
-            payload,
-            object_pairs_hook=_object_without_duplicate_keys,
-        )
-    except (json.JSONDecodeError, _DuplicateJSONKey, TypeError, ValueError) as exc:
-        raise _selection_error(
-            "INVALID_SELECTION_JSON",
-            "The model selection is not valid strict JSON",
-        ) from exc
+    decoded = _decode_selection_json(payload)
 
     if not isinstance(decoded, dict) or set(decoded) != {"ranked_segment_ids"}:
         raise _selection_error(
