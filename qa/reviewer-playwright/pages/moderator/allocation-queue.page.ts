@@ -47,6 +47,14 @@ export class ModeratorAllocationQueuePage {
   readonly manageHistoryButton: Locator;
   readonly noAnswersMessage: Locator;
 
+  readonly removeExpertDialog: Locator;
+  readonly removeExpertHeading: Locator;
+  readonly removeButton: Locator;
+  readonly closeRemoveDialogButton: Locator;
+  readonly allocationRemovedToast: Locator;
+  // readonly noExpertsAssignedMessage: Locator;
+  readonly noExpertsAllocatedHeading: Locator;
+
   constructor(private readonly page: Page) {
     this.heading = page.getByRole("heading", {
       name: "Allocation Queue",
@@ -185,6 +193,28 @@ export class ModeratorAllocationQueuePage {
 
     this.noAnswersMessage = page.getByText("No answers yet.", {
       exact: true,
+    });
+
+    this.removeExpertDialog = page.getByRole("alertdialog");
+
+    this.removeExpertHeading = this.removeExpertDialog.getByRole("heading", {
+      name: "Remove Expert Allocation?",
+    });
+
+    this.removeButton = this.removeExpertDialog.getByRole("button", {
+      name: "Remove",
+    });
+
+    this.closeRemoveDialogButton = this.removeExpertDialog
+      .getByRole("button")
+      .last();
+
+    this.allocationRemovedToast = page.getByText(
+      /allocation removed|expert removed|removed successfully/i,
+    );
+    // this.noExpertsAssignedMessage = page.getByText(/No Experts Allocated/i);
+    this.noExpertsAllocatedHeading = page.getByRole("heading", {
+      name: "No Experts Allocated",
     });
   }
 
@@ -340,5 +370,45 @@ export class ModeratorAllocationQueuePage {
         })
         .first(),
     ).toBeVisible();
+  }
+  async openRemoveExpertDialog(email: string) {
+    const card = this.expertCard(email);
+
+    await card.hover();
+
+    await card.locator("[data-slot='alert-dialog-trigger']").click();
+  }
+
+  async expectRemoveExpertDialog() {
+    await expect(this.removeExpertDialog).toBeVisible();
+
+    await expect(this.removeExpertHeading).toBeVisible();
+
+    await expect(this.removeButton).toBeVisible();
+
+    await expect(this.closeRemoveDialogButton).toBeVisible();
+  }
+  // async confirmRemoveExpert() {
+  //   await expect(this.removeButton).toBeVisible();
+
+  //   await this.removeButton.click();
+  // }
+  async confirmRemoveExpert() {
+    await expect(this.removeButton).toBeVisible();
+    await this.removeButton.click();
+    await this.page.waitForTimeout(3000);
+  }
+  async expectRemoveDialogClosed() {
+    await expect(this.removeExpertDialog).toBeHidden();
+  }
+  async expectExpertRemoved(email: string) {
+    await expect(this.expertCard(email)).toHaveCount(0);
+  }
+  async expectEmptyExpertQueue() {
+    // await expect(this.subtitle).toHaveText("0 experts in queue");
+
+    await expect(this.noExpertsAllocatedHeading).toBeVisible();
+
+    await expect(this.allocationCards).toHaveCount(0);
   }
 }

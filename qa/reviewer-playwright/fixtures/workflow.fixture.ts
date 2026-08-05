@@ -13,6 +13,7 @@ import { ResponsePage } from "../pages/expert/response.page.js";
 type WorkflowFixtures = {
   moderatorPage: Page;
   expertPage: Page;
+  loginAsExpert: (email: string) => Promise<Page>;
 
   moderatorDashboard: ModeratorDashboardPage;
   createQuestionPage: CreateQuestionPage;
@@ -23,6 +24,12 @@ type WorkflowFixtures = {
   expertDashboard: ExpertDashboardPage;
   expertQuestionDetailsPage: ExpertQuestionDetailsPage;
   responsePage: ResponsePage;
+
+  expertLoggedInPage: Page;
+
+  workflowExpertDashboard: ExpertDashboardPage;
+  workflowExpertQuestionDetails: ExpertQuestionDetailsPage;
+  workflowResponsePage: ResponsePage;
 };
 
 export const test = base.extend<WorkflowFixtures>({
@@ -52,6 +59,22 @@ export const test = base.extend<WorkflowFixtures>({
     await use(page);
 
     await page.close();
+  },
+
+  expertLoggedInPage: async ({ loginAsExpert }, use) => {
+    console.log("Logging in as expert...");
+    const page = await loginAsExpert(process.env.EXPERT_EMAIL!);
+    console.log("Logged in:", page.url());
+    await use(page);
+    console.log("Closing expert page");
+    await page.close();
+  },
+
+  // -----------------------------
+  // Dynamic Log in as Expert
+  // -----------------------------
+  loginAsExpert: async ({ loginAsExpert }, use) => {
+    await use(loginAsExpert);
   },
 
   // -----------------------------
@@ -90,6 +113,18 @@ export const test = base.extend<WorkflowFixtures>({
 
   responsePage: async ({ expertPage }, use) => {
     await use(new ResponsePage(expertPage));
+  },
+
+  workflowExpertDashboard: async ({ expertLoggedInPage }, use) => {
+    await use(new ExpertDashboardPage(expertLoggedInPage));
+  },
+
+  workflowExpertQuestionDetails: async ({ expertLoggedInPage }, use) => {
+    await use(new ExpertQuestionDetailsPage(expertLoggedInPage));
+  },
+
+  workflowResponsePage: async ({ expertLoggedInPage }, use) => {
+    await use(new ResponsePage(expertLoggedInPage));
   },
 });
 

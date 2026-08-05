@@ -21,6 +21,9 @@ export class ExpertDashboardPage {
     this.questionTable = page.getByRole("table");
     this.emptyState = page.getByText("No questions found", { exact: true });
   }
+  async pause(): Promise<void> {
+    await this.page.pause();
+  }
 
   async waitForShell(): Promise<void> {
     await expect(this.page).toHaveURL(/\/home(?:[/?#]|$)/);
@@ -83,10 +86,68 @@ export class ExpertDashboardPage {
     await trigger.click();
     return responsePromise;
   }
-  async openQuestion(question: string): Promise<void> {
-    await this.page
-      .getByRole("table")
-      .getByText(question, { exact: true })
-      .click();
+  // async openQuestion(question: string): Promise<void> {
+  //   await this.page
+  //     .getByRole("table")
+  //     .getByText(question, { exact: true })
+  //     .click();
+  // }
+  // async openQuestion(question: string): Promise<void> {
+  //   const container = this.page.locator('[data-slot="card-content"]');
+
+  //   await container.evaluate((el) => {
+  //     el.scrollTop = el.scrollHeight;
+  //   });
+
+  //   await this.page.waitForTimeout(300);
+
+  //   const lastQuestion = container.locator("label").last();
+
+  //   await expect(lastQuestion).toHaveText(question);
+  //   await lastQuestion.click();
+  // }
+  async openQuestion(question: string) {
+    const scrollArea = this.page.locator(".overflow-y-auto").first();
+
+    await scrollArea.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+
+    await this.page.getByText(question, { exact: true }).click();
+  }
+  async openLastQuestion(): Promise<void> {
+    const container = this.page.locator('[data-slot="card-content"]');
+
+    // Scroll to the bottom
+    await container.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+
+    // Wait for scroll to finish
+    await this.page.waitForTimeout(300);
+
+    // Click the last question
+    const lastQuestion = container.locator("label").last();
+
+    await expect(lastQuestion).toBeVisible();
+    await lastQuestion.click();
+  }
+  // async waitForQuestion(question: string) {
+  //   const questionCell = this.page
+  //     .getByRole("table")
+  //     .getByText(question, { exact: true });
+
+  //   await expect(questionCell).toBeVisible({
+  //     timeout: 60000,
+  //   });
+  // }
+  async waitForQuestion(question: string) {
+    const scrollArea = this.page.locator(".overflow-y-auto").first();
+
+    await scrollArea.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+
+    await expect(this.page.getByText(question, { exact: true })).toBeVisible();
   }
 }

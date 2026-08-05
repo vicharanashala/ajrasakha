@@ -1,4 +1,5 @@
 import { test } from "../../fixtures/workflow.fixture.js";
+import { ExpertDashboardPage } from "../../pages/expert/dashboard.page.js";
 
 test.describe("Expert Manual Allocation Workflow", () => {
   let question: string;
@@ -53,6 +54,54 @@ test.describe("Expert Manual Allocation Workflow", () => {
     moderatorAllocationQueuePage,
   }) => {
     await moderatorAllocationQueuePage.disableExpertAutoAllocate();
+  });
+  test("EAW-M002A Moderator can open Remove Expert Allocation dialog", async ({
+    moderatorAllocationQueuePage,
+  }) => {
+    await moderatorAllocationQueuePage.disableExpertAutoAllocate();
+
+    const autoAllocatedExpert =
+      await moderatorAllocationQueuePage.getFirstAllocatedExpertEmail();
+
+    await moderatorAllocationQueuePage.openRemoveExpertDialog(
+      autoAllocatedExpert,
+    );
+
+    await moderatorAllocationQueuePage.expectRemoveExpertDialog();
+  });
+  test("EAW-M002B Moderator can remove auto allocated expert", async ({
+    moderatorAllocationQueuePage,
+  }) => {
+    await moderatorAllocationQueuePage.disableExpertAutoAllocate();
+
+    const autoAllocatedExpert =
+      await moderatorAllocationQueuePage.getFirstAllocatedExpertEmail();
+
+    await moderatorAllocationQueuePage.openRemoveExpertDialog(
+      autoAllocatedExpert,
+    );
+
+    await moderatorAllocationQueuePage.confirmRemoveExpert();
+
+    await moderatorAllocationQueuePage.expectExpertRemoved(autoAllocatedExpert);
+  });
+  test("EAW-M002C Moderator sees empty Allocation Queue after removing auto allocated expert", async ({
+    moderatorAllocationQueuePage,
+  }) => {
+    await moderatorAllocationQueuePage.disableExpertAutoAllocate();
+
+    const autoAllocatedExpert =
+      await moderatorAllocationQueuePage.getFirstAllocatedExpertEmail();
+
+    await moderatorAllocationQueuePage.openRemoveExpertDialog(
+      autoAllocatedExpert,
+    );
+
+    await moderatorAllocationQueuePage.confirmRemoveExpert();
+
+    await moderatorAllocationQueuePage.expectRemoveDialogClosed();
+
+    await moderatorAllocationQueuePage.expectEmptyExpertQueue();
   });
   test("EAW-M003 Moderator sees Select Experts button", async ({
     moderatorAllocationQueuePage,
@@ -311,5 +360,29 @@ test.describe("Expert Manual Allocation Workflow", () => {
     await expertAllocationSectionPage.expectExpertNotSelected(
       process.env.EXPERT_EMAIL!,
     );
+  });
+
+  test("EAW-M019 Allocated expert can log in", async ({
+    moderatorAllocationQueuePage,
+    loginAsExpert,
+  }) => {
+    // Disable auto-allocation so manual allocation is available
+    await moderatorAllocationQueuePage.disableExpertAutoAllocate();
+
+    // Get whichever expert is currently first in the queue
+    const expertEmail =
+      await moderatorAllocationQueuePage.getFirstAllocatedExpertEmail();
+
+    // Login as that expert
+    const expertPage = await loginAsExpert(expertEmail);
+
+    // Create page object
+    const expertDashboard = new ExpertDashboardPage(expertPage);
+
+    // Verify login succeeded
+    await expertDashboard.waitForShell();
+
+    // Cleanup
+    await expertPage.close();
   });
 });

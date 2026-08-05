@@ -16,6 +16,10 @@ export class ExpertAllocationSectionPage {
 
   readonly emptySelectionToast: Locator;
 
+  readonly allocatingButton: Locator;
+  readonly allocateButton: Locator;
+  readonly dialog: Locator;
+
   constructor(private readonly page: Page) {
     this.selectExpertsButton = this.page.getByRole("button", {
       name: "Select Experts",
@@ -57,6 +61,18 @@ export class ExpertAllocationSectionPage {
         exact: true,
       },
     );
+
+    this.allocatingButton = this.page.getByRole("button", {
+      name: /Allocating/i,
+    });
+
+    this.allocateButton = this.page.getByRole("button", {
+      name: /^Allocate$/,
+    });
+
+    this.dialog = this.page.getByRole("dialog", {
+      name: /Select Experts Manually/i,
+    });
   }
   //   FUNCTIONS======================================
   async pause(): Promise<void> {
