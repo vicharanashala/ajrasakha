@@ -5,18 +5,16 @@
 import { Building2, MapPin, X } from "lucide-react";
 import type { DistrictDetails as DistrictDetailsType } from "../lib/types";
 // import { fmt } from "../lib/formatters";
-import {
-  // BLOCKS,
-  // VILLAGES,
-  KVKS,
-} from "@/features/chatbotDashboard/utils/metaData";
 import { useState, useEffect } from "react";
 // import { useVillageUserCounts } from "../hooks/useMapAnalytics";
 import {
   useGetBlocks,
   useGetVillages,
+  useGetKvks,
 } from "@/hooks/api/location/useLocations";
 import { createPortal } from "react-dom";
+import { normalizeLocation } from "../lib/normalizeLocation";
+
 interface DistrictDetailsProps {
   details?: DistrictDetailsType | null;
   state: string;
@@ -34,28 +32,19 @@ export function DistrictDetails({
   userType,
   districtAnalytic,
 }: DistrictDetailsProps) {
-  // const district = selectedDistrict;
-  // const { data: villageUserCounts } = useVillageUserCounts({
-  //   state,
-  //   district,
-  //   source,
-  //   userType,
-  // });
-  const targetDistrict = districtAnalytic.find(
-    (d) => d.district === selectedDistrict,
+  const targetDistrict = districtAnalytic?.find(
+    (d: any) => normalizeLocation(d.district) === normalizeLocation(selectedDistrict),
   );
-  const { data } = useGetBlocks(targetDistrict.districtCode);
-  const blocksDetails = data;
+  const { data: blocksData } = useGetBlocks(targetDistrict?.districtCode);
+  const blocksDetails = blocksData;
 
   const [selectedBlock, setSelectedBlock] = useState<{
     blockCode: number;
     blockNameEnglish: string;
   } | null>(null);
 
-  // const villagesDetails = villageUserCounts
-  //   ? villageUserCounts
-  //   : (VILLAGES[selectedDistrict] ?? []);
-  const kvksDetails = KVKS[selectedDistrict] ?? [];
+  const { data: kvksData } = useGetKvks(targetDistrict?.districtCode);
+  const kvksDetails = kvksData ?? [];
   // const VILLAGES_PER_PAGE = 10;
 
   // const [currentPage, setCurrentPage] = useState(1);
@@ -141,14 +130,34 @@ export function DistrictDetails({
       {/* KVK */}
       <div>
         <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <MapPin className="h-3.5 w-3.5" /> Krishi Vigyan Kendra (KVK)
+          <MapPin className="h-3.5 w-3.5" /> Krishi Vigyan Kendra (KVK) ({kvksDetails.length})
         </h3>
-        <div className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-3 text-sm">
-          <div className="font-medium text-foreground">{kvksDetails[0]}</div>
-          <div className="mt-0.5 text-xs text-muted-foreground">
-            Primary extension center for {selectedDistrict}
+        {kvksDetails.length > 0 ? (
+          <div className="space-y-2">
+            {kvksDetails.map((kvk: any) => (
+              <div
+                key={kvk.kvkId || kvk.kvkName}
+                className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-3 text-sm"
+              >
+                <div className="font-medium text-foreground">
+                  {typeof kvk === "string" ? kvk : kvk.kvkName}
+                </div>
+                {kvk.kvkAddress && (
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {kvk.kvkAddress}
+                  </div>
+                )}
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  Primary extension center for {selectedDistrict}
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        ) : (
+          <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+            No KVK recorded for {selectedDistrict}
+          </div>
+        )}
       </div>
       {selectedBlock && (
         <BlockVillagesModal

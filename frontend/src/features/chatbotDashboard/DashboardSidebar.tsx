@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 
 import { STATES } from "../../components/MetaData";
 
@@ -496,7 +497,9 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   // On mobile when expanded: overlay mode. Otherwise: inline mode.
   const isOverlay = isMobile && !collapsed;
 
-  const states = ["All States", ...STATES];
+  const { data: dbStatesResponse = [] } = useGetStates();
+  const dbStateNames = dbStatesResponse.map((s) => s.stateNameEnglish);
+  const states = ["All States", ...(dbStateNames.length ? dbStateNames : STATES)];
 
   // Sidebar content (shared between inline and overlay modes)
   const sidebarContent = (

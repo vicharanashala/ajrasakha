@@ -16694,9 +16694,9 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   private normalizeState(state: string) {
+    if (!state) return '';
     const stateAliases: Record<string, string> = {
-      'andhra pradesh': 'andra pradesh',
-      'jammu and kashmir': 'jammu and kashmir',
+      'andra pradesh': 'andhra pradesh',
       uttaranchal: 'uttarakhand',
       orissa: 'odisha',
     };
@@ -16990,14 +16990,14 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const stateCodeMap = new Map(
         allStates.map(state => [
-          state.stateNameEnglish.trim().toLowerCase(),
+          this.normalizeState(state.stateNameEnglish),
           state.stateCode,
         ]),
       );
 
       // Add question counts
       for (const q of questionsByState) {
-        const key = String(q._id).toLowerCase();
+        const key = this.normalizeState(String(q._id));
         stateMap.set(key, {
           state: q._id,
           stateCode: stateCodeMap.get(key) ?? null,
@@ -17018,7 +17018,7 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       for (const f of feedbackByState) {
-        const key = String(f._id).toLowerCase();
+        const key = this.normalizeState(String(f._id));
 
         const existing = stateMap.get(key);
 
@@ -17051,7 +17051,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Merge user counts
       for (const u of usersByState) {
-        const key = String(u._id).toLowerCase();
+        const key = this.normalizeState(String(u._id));
         if (stateMap.has(key)) {
           const existing = stateMap.get(key);
           if (startDate || endDate) {
@@ -17115,7 +17115,6 @@ export class ChatbotRepository implements IChatbotRepository {
             });
           }
         }
-      }
       return Array.from(stateMap.values());
     } catch (error) {
       throw new InternalServerError(`Internal server error ${error}`);
