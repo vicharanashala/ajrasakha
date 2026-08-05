@@ -11,7 +11,7 @@ import {
   UpdateCropDto,
   GetAllCropsQuery,
 } from '../classes/validators/CropValidators.js';
-import cropData from '../data/crop_data.json' assert { type: 'json' };
+import cropData from '../data/crop_data.json' with { type: 'json' };
 
 interface CropInfo {
   name_hi: string;

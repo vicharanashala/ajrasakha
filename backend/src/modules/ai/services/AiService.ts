@@ -10,6 +10,33 @@ import { ICropService } from '#root/modules/crop/interfaces/ICropService.js';
 import { LGD_TYPES } from '#root/modules/lgd/types.js';
 import { ILocationService } from '#root/modules/lgd/interfaces/ILocationService.js';
 
+interface OpenAiChoice {
+  message: {
+    role: string;
+    content: string | null;
+    tool_calls?: {
+      id: string;
+      type: string;
+      function: {
+        name: string;
+        arguments: string;
+      };
+    }[];
+  };
+}
+
+interface OpenAiResponse {
+  choices: OpenAiChoice[];
+}
+
+export interface PendingDuplicateCheckResponse {
+  duplicate_question_id?: string;
+  matched_question_id?: string;
+  detail?: string;
+  query?: string;
+  similarity_score?: number;
+}
+
 @injectable()
 export class AiService {
   private _aiServerUrl =
@@ -168,39 +195,36 @@ export class AiService {
     try {
       const fullUrl = `${this._openAIServerUrl}/v1/chat/completions`;
 
-      const systemPrompt =
-        You are an expert agricultural advisor helping farmers. You have access to tools to get weather forecasts and crop information.
+      const systemPrompt = `You are an expert agricultural advisor helping farmers. You have access to tools to get weather forecasts and crop information.
 
-        Your goal:
-        - Provide accurate, practical, and easy-to-understand answers.
-        - If the user asks about the weather, you MUST use the 'get_weather_forecast' tool with the location name.
-        - If the user asks about sowing or harvesting time for a crop, you MUST use the 'get_crop_sowing_info' tool.
-        - Write in simple language suitable for farmers.
-        - Focus on real-world solutions.
+Your goal:
+- Provide accurate, practical, and easy-to-understand answers.
+- If the user asks about the weather, you MUST use the 'get_weather_forecast' tool with the location name.
+- If the user asks about sowing or harvesting time for a crop, you MUST use the 'get_crop_sowing_info' tool.
+- Write in simple language suitable for farmers.
+- Focus on real-world solutions.
 
-        Rules:
-        - Avoid bullet points unless necessary.
-        - Write in clear, natural paragraphs.
-        - Do not use headings like "Cause", "Symptoms", etc.
-        - Be concise but informative.
-        `;
+Rules:
+- Avoid bullet points unless necessary.
+- Write in clear, natural paragraphs.
+- Do not use headings like "Cause", "Symptoms", etc.
+- Be concise but informative.`;
 
       const userPrompt = `
-        Farmer Question:
-        "${questionDoc.question}"
+Farmer Question:
+"${questionDoc.question}"
 
-        Context:
-        - State: ${questionDoc.details?.state || "Unknown"}
-        - District: ${questionDoc.details?.district || "Unknown"}
-        - Crop: ${questionDoc.details?.crop || "Unknown"}
-        - Season: ${questionDoc.details?.season || "Unknown"}
-        - Domain: ${questionDoc.details?.domain || "General"}
+Context:
+- State: ${questionDoc.details?.state || "Unknown"}
+- District: ${questionDoc.details?.district || "Unknown"}
+- Crop: ${questionDoc.details?.crop || "Unknown"}
+- Season: ${questionDoc.details?.season || "Unknown"}
+- Domain: ${questionDoc.details?.domain || "General"}
 
-        Instructions:
-        - If the question is about weather, call the 'get_weather_forecast' tool with the location name (e.g., "Mumbai", "Jaipur").
-        - If the question is about sowing or harvesting time, call the 'get_crop_sowing_info' tool with the crop name.
-        - Otherwise, provide a clear and meaningful answer in paragraph form.
-        `;
+Instructions:
+- If the question is about weather, call the 'get_weather_forecast' tool with the location name (e.g., "Mumbai", "Jaipur").
+- If the question is about sowing or harvesting time, call the 'get_crop_sowing_info' tool with the crop name.
+- Otherwise, provide a clear and meaningful answer in paragraph form.`;
 
       const tools = [
         {
@@ -266,7 +290,7 @@ export class AiService {
         );
       }
 
-      const responseData = await response.json();
+      const responseData = await response.json() as OpenAiResponse;
       const responseMessage = responseData.choices[0].message;
 
       // Check if the model wants to call a tool
@@ -330,9 +354,9 @@ export class AiService {
             throw new InternalServerError('Failed to get final response from LLM after tool call');
           }
 
-          const finalData = await finalResponse.json();
+          const finalData = await finalResponse.json() as OpenAiResponse;
           let answer = finalData.choices[0].message.content;
-          return { question: questionDoc.question, answer };
+          return { question: questionDoc.question, answer: answer || '' };
         }
       }
 
@@ -629,6 +653,41 @@ export class AiService {
     }
   }
 
+  async checkPendingDuplicate(params: {
+    rephrased_query: string;
+    crop: string;
+    state: string;
+    createdAt: Date;
+  }): Promise<PendingDuplicateCheckResponse> {
+    try {
+      const response = await fetch(`${this._gdbServerUrl}/v1/gdb/check-pending-duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rephrased_query: params.rephrased_query,
+          crop: params.crop,
+          state: params.state,
+          created_at: params.createdAt?.toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody:any = await response.json();
+        console.error(`[checkPendingDuplicate] Failed: ${response.status} ${response.statusText}`, errorBody);
+        // If the API returns a 'detail' field, it means no match was found, but it's not an error.
+        // We should return an object with the detail message.
+        if (errorBody && errorBody.detail) {
+          return { detail: errorBody.detail };
+        }
+        throw new InternalServerError(`GDB check-pending-duplicate failed: ${response.statusText}`);
+      }
+
+      return (await response.json()) as PendingDuplicateCheckResponse;
+    } catch (error) {
+      console.error('[checkPendingDuplicate] Error:', error);
+      throw new InternalServerError(`Failed to check pending duplicate: ${error.message}`);
+    }
+  }
 }
 
 export interface GdbMatchItem {

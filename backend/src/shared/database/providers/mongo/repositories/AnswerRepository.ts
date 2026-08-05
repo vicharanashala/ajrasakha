@@ -907,6 +907,27 @@ export class AnswerRepository implements IAnswerRepository {
         throw new BadRequestError('Updates object cannot be empty');
       }
 
+      // If the update marks this answer as correct, ensure all other answers for the same question are marked incorrect.
+      if (updates.isCorrect === true) {
+        // First, find the questionId for the answer being updated
+        const currentAnswer = await this.AnswerCollection.findOne(
+          { _id: new ObjectId(answerId) },
+          { session, projection: { questionId: 1 } }
+        );
+
+        if (currentAnswer?.questionId) {
+          // Set isCorrect to false for all other answers related to this questionId
+          await this.AnswerCollection.updateMany(
+            {
+              questionId: currentAnswer.questionId,
+              _id: { $ne: new ObjectId(answerId) }, // Exclude the current answer
+            },
+            { $set: { isCorrect: false, updatedAt: new Date() } },
+            { session }
+          );
+        }
+      }
+
       const result = await this.AnswerCollection.updateOne(
         {_id: new ObjectId(answerId)},
         {$set: {...updates, updatedAt: new Date()}},
@@ -1840,7 +1861,6 @@ export class AnswerRepository implements IAnswerRepository {
       //     $group: {
       //       _id: {
       //         year: { $year: "$latestCreatedAt" },
-      //         month: { $month: "$latestCreatedAt" }
       //       },
       
       //       // Modified questions

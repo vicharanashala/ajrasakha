@@ -77,6 +77,9 @@ const {CropRepository} =
   await import('#root/shared/database/providers/mongo/repositories/CropRepository.js');
 const {normalizeKeysToLower} =
   await import('#root/utils/normalizeKeysToLower.js');
+const {WeatherService} = await import('#root/modules/weather/services/WeatherService.js');
+const {CropService} = await import('#root/modules/crop/services/CropService.js');
+const {LocationService} = await import('#root/modules/lgd/services/locationService.js');
 
 const contextRepo = new ContextRepository(database);
 await (contextRepo as any).init();
@@ -89,7 +92,10 @@ await (notificationRepo as any).init();
 const cropRepo = new CropRepository(database);
 await (cropRepo as any).init();
 const notificationService = new NotificationService(notificationRepo, database);
-const aiService = new AiService();
+const weatherService = new WeatherService();
+const cropService = new CropService(cropRepo, questionRepo, database);
+const locationService = new LocationService();
+const aiService = new AiService(weatherService, cropService, locationService);
 
 const {DuplicateQuestionRepository} =
   await import('#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js');

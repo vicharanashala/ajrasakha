@@ -8,6 +8,8 @@ import type {
   ILocationDistrict,
   ILocationBlock,
   ILocationVillage,
+  IKvk,
+  IKvkSyncResult,
 } from '../interfaces/ILocationService.js';
 import { appConfig } from '#root/config/app.js';
 
@@ -97,6 +99,16 @@ export class LocationService implements ILocationService {
       blockCode: blockCode,
       pincode: record.pincode,
     }));
+  }
+
+  public async getKvks(districtCode: number): Promise<IKvk[]> {
+    // Implement this method
+    return [];
+  }
+
+  public async syncKvks(): Promise<IKvkSyncResult> {
+    // Implement this method
+    return { success: true, message: 'Sync complete' };
   }
 
   private async fetchStates(): Promise<any[]> {
