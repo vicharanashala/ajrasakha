@@ -411,6 +411,15 @@ export const IncomingCallBox = ({
 
     // Check if current user is authorized to use Plivo
     if (userRole !== "call_agent" || !isAgentActive) {
+      if (plivoClientRef.current) {
+        try {
+          console.log("🔌 [IncomingCallBox] Logging out Plivo client because agent is inactive or not a call agent...");
+          plivoClientRef.current.client.logout();
+          plivoClientRef.current = null;
+        } catch (error) {
+          console.error("Error logging out Plivo client:", error);
+        }
+      }
       return;
     }
 

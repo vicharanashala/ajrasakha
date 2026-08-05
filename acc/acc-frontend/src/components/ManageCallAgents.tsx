@@ -2,10 +2,27 @@ import { useEffect, useState } from "react";
 import type { IUser } from "@/types";
 import { Button } from "./atoms/button";
 import { toast } from "sonner";
-import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Check, X, ShieldCheck, UserCheck, Users } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+  Check,
+  X,
+  ShieldCheck,
+  UserCheck,
+  Users,
+  RefreshCw,
+  PhoneCall,
+  Activity,
+  Server,
+} from "lucide-react";
 import { Input } from "./atoms/input";
 import { UserService } from "@/hooks/services/userService";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { PlivoEndpointsModal } from "./PlivoEndpointsModal";
+
 const userService = new UserService();
 
 export const ManageCallAgents = () => {
@@ -21,7 +38,9 @@ export const ManageCallAgents = () => {
 
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showPlivoModal, setShowPlivoModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -30,18 +49,32 @@ export const ManageCallAgents = () => {
   const canManageCallAgents = currentUser?.role === "admin" && !!currentUser?.Call_centre_manager;
 
   useEffect(() => {
-    refreshData();
+    refreshData(false);
   }, []);
 
-  const refreshData = async () => {
-    setLoading(true);
-    await Promise.all([
-      fetchCallAgents(),
-      fetchCallManagers(),
-      fetchAllUsers(),
-      fetchAllAdmins(),
-    ]);
-    setLoading(false);
+  const refreshData = async (isManual = true) => {
+    if (isManual) {
+      setIsRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      await Promise.all([
+        fetchCallAgents(),
+        fetchCallManagers(),
+        fetchAllUsers(),
+        fetchAllAdmins(),
+      ]);
+      if (isManual) {
+        toast.success("Live agents list refreshed successfully");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to refresh live data");
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
   };
 
   const fetchCallAgents = async () => {
@@ -83,7 +116,7 @@ export const ManageCallAgents = () => {
   const handleToggleActive = async (userId: string) => {
     try {
       await userService.toggleCallAgentActive(userId);
-      toast.success("Call agent status toggled successfully");
+      toast.success("Call agent status updated");
       fetchCallAgents();
     } catch (error: any) {
       toast.error(error.message || "Failed to toggle call agent status");
@@ -168,6 +201,27 @@ export const ManageCallAgents = () => {
     setSearch("");
   };
 
+  // Live Metric Cards Computation (Only for Call Agents tab)
+  const activeOnlineAgents = callAgents.filter((a) => a.isCallAgentActive).length;
+  const totalCallAgents = callAgents.length;
+  const liveCallsCount = callAgents.filter((a) => a.isBusy).length;
+
+  // Sort Call Agents so Active and In-Call agents appear at the top
+  const sortedCallAgents = [...callAgents].sort((a, b) => {
+    // 1. In-Call agents first
+    if (!!a.isBusy !== !!b.isBusy) {
+      return a.isBusy ? -1 : 1;
+    }
+    // 2. Active/Online agents top
+    if (!!a.isCallAgentActive !== !!b.isCallAgentActive) {
+      return a.isCallAgentActive ? -1 : 1;
+    }
+    // 3. Alphabetical order by name
+    const nameA = `${a.firstName || ""} ${a.lastName || ""}`.toLowerCase();
+    const nameB = `${b.firstName || ""} ${b.lastName || ""}`.toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
   const filteredAgentCandidates = allUsers.filter((u) => {
     const roleLower = (u.role || "").toLowerCase();
     const isValidRole = roleLower === "expert" || roleLower === "moderator" || roleLower === "pae_expert";
@@ -198,34 +252,17 @@ export const ManageCallAgents = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground font-medium">Loading call management data...</div>
+        <div className="text-muted-foreground font-medium flex items-center gap-2">
+          <RefreshCw className="w-5 h-5 animate-spin text-indigo-600" />
+          Loading call management data...
+        </div>
       </div>
     );
   }
 
   return (
     <div className="w-full max-w-6xl mx-auto p-6 space-y-6">
-      {/* Header with Title & Action */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            <Users className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-            Call Centre User Management
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Manage active call agents and authorized call centre managers.
-          </p>
-        </div>
-
-        {canManageCallAgents && (
-          <Button onClick={() => setShowAddModal(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20">
-            <Plus className="w-4 h-4" />
-            {activeTab === "agents" ? "Add Call Agent" : "Add Call Manager"}
-          </Button>
-        )}
-      </div>
-
-      {/* Sub-Tabs Bar */}
+      {/* Sub-Tabs Selector at Top */}
       <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-1">
         <button
           onClick={() => {
@@ -233,7 +270,7 @@ export const ManageCallAgents = () => {
             setSearch("");
             setSelectedUserId(null);
           }}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-t-lg transition-all border-b-2 ${
+          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-t-xl transition-all border-b-2 ${
             activeTab === "agents"
               ? "border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/30"
               : "border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -252,7 +289,7 @@ export const ManageCallAgents = () => {
             setSearch("");
             setSelectedUserId(null);
           }}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-t-lg transition-all border-b-2 ${
+          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-t-xl transition-all border-b-2 ${
             activeTab === "managers"
               ? "border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/30"
               : "border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -266,34 +303,109 @@ export const ManageCallAgents = () => {
         </button>
       </div>
 
-      {/* CALL AGENTS TAB CONTENT */}
+      {/* CALL AGENTS VIEW */}
       {activeTab === "agents" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200">Active Call Agents</h2>
+        <div className="space-y-6">
+          {/* Call Agents Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                <Users className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                Call Agents Management
+              </h1>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                Live overview of active call agents, online status, and current calls.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Refresh Button - Only for Call Agents */}
+              <Button
+                variant="outline"
+                onClick={() => refreshData(true)}
+                disabled={isRefreshing}
+                className="gap-2 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+              >
+                <RefreshCw className={`w-4 h-4 text-indigo-600 dark:text-indigo-400 ${isRefreshing ? "animate-spin" : ""}`} />
+                <span>Refresh</span>
+              </Button>
+
+              {canManageCallAgents && (
+                <Button
+                  onClick={() => setShowAddModal(true)}
+                  className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Call Agent
+                </Button>
+              )}
+            </div>
           </div>
 
-          {callAgents.length === 0 ? (
+          {/* Live Metrics Summary Cards - Only for Call Agents */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Live Calls Card */}
+            <div className="p-5 bg-gradient-to-br from-indigo-50/80 to-indigo-100/30 dark:from-indigo-950/40 dark:to-zinc-950 border border-indigo-200/80 dark:border-indigo-900/40 rounded-2xl shadow-sm flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <PhoneCall className="w-4 h-4" />
+                  Live Active Calls
+                </span>
+                <div className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono">
+                  {liveCallsCount}
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {liveCallsCount === 1 ? "1 call currently in progress" : `${liveCallsCount} calls currently in progress`}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-xl bg-indigo-600/10 dark:bg-indigo-400/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <PhoneCall className="w-6 h-6 animate-pulse" />
+              </div>
+            </div>
+
+            {/* Active Online Agents Card */}
+            <div className="p-5 bg-gradient-to-br from-emerald-50/80 to-emerald-100/30 dark:from-emerald-950/40 dark:to-zinc-950 border border-emerald-200/80 dark:border-emerald-900/40 rounded-2xl shadow-sm flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Activity className="w-4 h-4" />
+                  Active Online Agents
+                </span>
+                <div className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono">
+                  {activeOnlineAgents} <span className="text-lg font-normal text-zinc-400">/ {totalCallAgents}</span>
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Live online agents out of total assigned call agents
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-xl bg-emerald-600/10 dark:bg-emerald-400/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                <UserCheck className="w-6 h-6" />
+              </div>
+            </div>
+          </div>
+
+          {/* Call Agents List */}
+          {sortedCallAgents.length === 0 ? (
             <div className="text-center py-12 text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900/40 rounded-xl border border-zinc-200 dark:border-zinc-800">
               No call agents found. Add experts or moderators to handle incoming call queues.
             </div>
           ) : (
             <div className="grid gap-4">
-              {callAgents.map((agent) => (
+              {sortedCallAgents.map((agent) => (
                 <div
                   key={agent._id}
-                  className="flex items-center justify-between p-4 bg-white dark:bg-zinc-950/60 border border-zinc-200/60 dark:border-zinc-800/60 rounded-xl shadow-sm hover:shadow-md transition-all"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white dark:bg-zinc-950/60 border border-zinc-200/60 dark:border-zinc-800/60 rounded-xl shadow-sm hover:shadow-md transition-all gap-4"
                 >
                   <div className="flex-1">
-                    <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                      {agent.firstName} {agent.lastName}
+                    <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                      <span>{agent.firstName} {agent.lastName}</span>
                     </div>
                     <div className="text-xs text-zinc-500 dark:text-zinc-400">
                       {agent.email}
                     </div>
-                    <div className="flex items-center gap-2 mt-2">
+
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
                           agent.role === "call_agent"
                             ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50"
                             : agent.role === "moderator"
@@ -303,34 +415,45 @@ export const ManageCallAgents = () => {
                       >
                         {agent.role}
                       </span>
+
+                      {/* Online Activeness Badge */}
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        className={`text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1 ${
                           agent.isCallAgentActive
-                            ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+                            ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
                             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
                         }`}
                       >
-                        {agent.isCallAgentActive ? "Active" : "Inactive"}
+                        <span className={`w-1.5 h-1.5 rounded-full ${agent.isCallAgentActive ? "bg-emerald-500 animate-ping" : "bg-zinc-400"}`} />
+                        {agent.isCallAgentActive ? "Online & Active" : "Offline"}
                       </span>
-                      {agent.agent && agent.agent !== "not_available" && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-mono">
+
+                      {/* Assigned Endpoint Badge */}
+                      {agent.isCallAgentActive && agent.agent && agent.agent !== "not_available" && (
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-mono border border-indigo-200 dark:border-indigo-800">
                           {agent.agent}
                         </span>
                       )}
+
+                      {/* In Call Status */}
                       {agent.isBusy && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-medium">
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-semibold border border-rose-200 dark:border-rose-800 flex items-center gap-1">
+                          <PhoneCall className="w-3 h-3 animate-pulse" />
                           In Call
                         </span>
                       )}
+
+                      {/* Current Call UUID */}
                       {agent.currentCallUuid && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-mono">
-                          Call: {agent.currentCallUuid.slice(0, 8)}...
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-mono border border-amber-200 dark:border-amber-800">
+                          UUID: {agent.currentCallUuid.slice(0, 8)}...
                         </span>
                       )}
                     </div>
                   </div>
+
                   {canManageCallAgents && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -367,13 +490,46 @@ export const ManageCallAgents = () => {
         </div>
       )}
 
-      {/* CALL CENTRE MANAGERS TAB CONTENT */}
+      {/* CALL CENTRE MANAGERS VIEW */}
       {activeTab === "managers" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200">Authorized Call Centre Managers</h2>
+        <div className="space-y-6">
+          {/* Call Managers Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                <ShieldCheck className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                Call Centre Managers
+              </h1>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                Authorized administrators who manage call agents and Plivo SIP endpoints.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {canManageCallAgents && (
+                <>
+                  <Button
+                    onClick={() => setShowPlivoModal(true)}
+                    variant="outline"
+                    className="gap-2 text-xs border-indigo-200 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
+                  >
+                    <Server className="w-3.5 h-3.5" />
+                    Plivo Endpoints
+                  </Button>
+
+                  <Button
+                    onClick={() => setShowAddModal(true)}
+                    className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Call Manager
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
 
+          {/* Call Managers List */}
           {callManagers.length === 0 ? (
             <div className="text-center py-12 text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900/40 rounded-xl border border-zinc-200 dark:border-zinc-800">
               No Call Centre Managers assigned yet.
@@ -400,11 +556,11 @@ export const ManageCallAgents = () => {
                         {manager.email}
                       </div>
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 flex items-center gap-1">
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 flex items-center gap-1">
                           <ShieldCheck className="w-3 h-3" />
                           Call Centre Manager
                         </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
                           Role: {manager.role}
                         </span>
                       </div>
@@ -548,6 +704,12 @@ export const ManageCallAgents = () => {
           </div>
         </div>
       )}
+
+      {/* PLIVO ENDPOINTS CRUD MODAL */}
+      <PlivoEndpointsModal
+        isOpen={showPlivoModal}
+        onClose={() => setShowPlivoModal(false)}
+      />
     </div>
   );
 };

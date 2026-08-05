@@ -2,13 +2,17 @@ import 'reflect-metadata';
 import {
   Post,
   Get,
+  Put,
+  Delete,
   HttpCode,
   Body,
+  Param,
   QueryParam,
   Req,
   Res,
   Authorized,
   BadRequestError,
+  ForbiddenError,
   InternalServerError,
   JsonController,
   CurrentUser,
@@ -90,8 +94,9 @@ export class PlivoController {
                               <Dial timeout="40" callerId="${myPlivoNumber}">
                                         <User>${endpointUser}</User>
                               </Dial>
-                              <Speak>${fallbackMessage}</Speak>
-                              <Wait length="10" />
+                              <Speak voice="MAN" language="en-US">Thank you for calling Annam Call Center</Speak>
+                              <Wait length="5" />
+                              <Hangup />
                     </Response>`;
       } else {
         xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -701,5 +706,90 @@ export class PlivoController {
       password: cred?.password || fallbackPassword,
       streamUrl: appConfig.plivo.streamUrl,
     };
+  }
+
+  @Get('/credentials/all')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get all Plivo endpoint credentials (Call Centre Managers only)' })
+  async getAllCredentials(@CurrentUser() currentUser: IUser) {
+    if (currentUser?.role !== 'admin' || !currentUser?.Call_centre_manager) {
+      throw new ForbiddenError('Only a Call Centre Manager can access Plivo endpoints management');
+    }
+    const creds = await this.plivoCredentialsRepository.getAllAgentCredentials();
+    return creds;
+  }
+
+  @Get('/credentials/next-agent-number')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get next auto-incremented agent number for Plivo endpoint creation' })
+  async getNextAgentNumber(@CurrentUser() currentUser: IUser) {
+    if (currentUser?.role !== 'admin' || !currentUser?.Call_centre_manager) {
+      throw new ForbiddenError('Only a Call Centre Manager can access Plivo endpoints management');
+    }
+    const nextAgentNumber = await this.plivoCredentialsRepository.getNextAgentNumber();
+    return { nextAgentNumber };
+  }
+
+  @Post('/credentials')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Create or update a Plivo endpoint credential' })
+  async upsertCredential(
+    @CurrentUser() currentUser: IUser,
+    @Body() body: { agentNumber?: string; username: string; password: string }
+  ) {
+    if (currentUser?.role !== 'admin' || !currentUser?.Call_centre_manager) {
+      throw new ForbiddenError('Only a Call Centre Manager can edit Plivo endpoints');
+    }
+    if (!body.username || !body.password) {
+      throw new BadRequestError('username and password are required');
+    }
+    const agentNum = body.agentNumber ? body.agentNumber.trim() : await this.plivoCredentialsRepository.getNextAgentNumber();
+    const result = await this.plivoCredentialsRepository.upsertAgentCredential(
+      agentNum,
+      body.username.trim(),
+      body.password.trim()
+    );
+    return { success: true, credential: result };
+  }
+
+  @Put('/credentials/:agentNumber')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Update a specific Plivo endpoint credential' })
+  async updateCredential(
+    @CurrentUser() currentUser: IUser,
+    @Param('agentNumber') agentNumber: string,
+    @Body() body: { username: string; password: string }
+  ) {
+    if (currentUser?.role !== 'admin' || !currentUser?.Call_centre_manager) {
+      throw new ForbiddenError('Only a Call Centre Manager can edit Plivo endpoints');
+    }
+    if (!body.username || !body.password) {
+      throw new BadRequestError('username and password are required');
+    }
+    const result = await this.plivoCredentialsRepository.upsertAgentCredential(
+      agentNumber.trim(),
+      body.username.trim(),
+      body.password.trim()
+    );
+    return { success: true, credential: result };
+  }
+
+  @Delete('/credentials/:agentNumber')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Delete a Plivo endpoint credential' })
+  async deleteCredential(
+    @CurrentUser() currentUser: IUser,
+    @Param('agentNumber') agentNumber: string
+  ) {
+    if (currentUser?.role !== 'admin' || !currentUser?.Call_centre_manager) {
+      throw new ForbiddenError('Only a Call Centre Manager can delete Plivo endpoints');
+    }
+    const deleted = await this.plivoCredentialsRepository.deleteCredential(agentNumber.trim());
+    return { success: deleted };
   }
 }

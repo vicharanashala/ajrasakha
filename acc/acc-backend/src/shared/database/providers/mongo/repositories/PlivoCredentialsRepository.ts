@@ -36,19 +36,51 @@ export class PlivoCredentialsRepository implements IPlivoCredentialsRepository {
     } as IPlivoAgentCredential;
   }
 
+  async getNextAgentNumber(session?: ClientSession): Promise<string> {
+    const creds = await this.getAllAgentCredentials(session);
+    let maxNum = 0;
+    for (const cred of creds) {
+      if (cred.agentNumber && cred.agentNumber.startsWith('agent_')) {
+        const num = parseInt(cred.agentNumber.replace('agent_', ''), 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+    return `agent_${maxNum + 1}`;
+  }
+
   async upsertAgentCredential(
-    agentNumber: string,
-    username: string,
+    agentNumberInput: string,
+    usernameInput: string,
     password: string,
     session?: ClientSession,
   ): Promise<IPlivoAgentCredential> {
     await this.init();
     const now = new Date();
+    
+    let agentNumber = agentNumberInput ? agentNumberInput.trim() : '';
+    if (!agentNumber) {
+      agentNumber = await this.getNextAgentNumber(session);
+    }
+
+    // Sanitize username input (extract clean username if SIP URI is provided)
+    let cleanUsername = usernameInput.trim();
+    if (cleanUsername.startsWith('sip:')) {
+      cleanUsername = cleanUsername.substring(4);
+    }
+    if (cleanUsername.includes('@')) {
+      cleanUsername = cleanUsername.split('@')[0];
+    }
+
+    const sipUri = `sip:${cleanUsername}@phone.plivo.com`;
+
     await this.collection.updateOne(
       { agentNumber },
       {
         $set: {
-          username,
+          username: cleanUsername,
+          sipUri,
           password,
           updatedAt: now,
         },
@@ -75,5 +107,14 @@ export class PlivoCredentialsRepository implements IPlivoCredentialsRepository {
       ...doc,
       _id: doc._id.toString(),
     })) as IPlivoAgentCredential[];
+  }
+
+  async deleteCredential(
+    agentNumber: string,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const result = await this.collection.deleteOne({ agentNumber }, { session });
+    return result.deletedCount > 0;
   }
 }

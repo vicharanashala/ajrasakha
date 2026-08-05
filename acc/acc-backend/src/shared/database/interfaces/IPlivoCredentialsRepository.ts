@@ -14,4 +14,6 @@ export interface IPlivoCredentialsRepository {
   findByAgentNumber(agentNumber: string, session?: ClientSession): Promise<IPlivoAgentCredential | null>;
   upsertAgentCredential(agentNumber: string, username: string, password: string, session?: ClientSession): Promise<IPlivoAgentCredential>;
   getAllAgentCredentials(session?: ClientSession): Promise<IPlivoAgentCredential[]>;
+  deleteCredential(agentNumber: string, session?: ClientSession): Promise<boolean>;
+  getNextAgentNumber(session?: ClientSession): Promise<string>;
 }

@@ -21,7 +21,21 @@ export class UserService extends BaseService {
 
   async getCallAgents(): Promise<IUser[]> {
     return await this._withTransaction(async (session: ClientSession) => {
-      return await this.userRepo.findCallAgents(session);
+      const agents = await this.userRepo.findCallAgents(session);
+      // Cleanup: reset agent field for any inactive call agents retaining legacy agent_x numbers
+      for (const agent of agents) {
+        if (!agent.isCallAgentActive && agent.agent && agent.agent !== 'not_available') {
+          await this.userRepo.edit(agent._id.toString(), {
+            agent: 'not_available',
+            isBusy: false,
+            currentCallUuid: null,
+          }, session);
+          agent.agent = 'not_available';
+          agent.isBusy = false;
+          agent.currentCallUuid = null;
+        }
+      }
+      return agents;
     });
   }
 
@@ -58,7 +72,7 @@ export class UserService extends BaseService {
         isCallAgentActive,
       };
 
-      if (!isCallAgent) {
+      if (!isCallAgent || !isCallAgentActive) {
         updatePayload.agent = 'not_available';
         updatePayload.isBusy = false;
         updatePayload.currentCallUuid = null;
@@ -80,9 +94,18 @@ export class UserService extends BaseService {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
 
-      const updatedUser = await this.userRepo.edit(userId, {
-        isCallAgentActive: !user.isCallAgentActive,
-      }, session);
+      const newActiveState = !user.isCallAgentActive;
+      const updatePayload: Partial<IUser> = {
+        isCallAgentActive: newActiveState,
+      };
+
+      if (!newActiveState) {
+        updatePayload.agent = 'not_available';
+        updatePayload.isBusy = false;
+        updatePayload.currentCallUuid = null;
+      }
+
+      const updatedUser = await this.userRepo.edit(userId, updatePayload, session);
 
       return updatedUser;
     });

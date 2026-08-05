@@ -139,6 +139,16 @@ export interface ACCAnalytics {
   dailyTrend: { date: string; count: number }[];
 }
 
+export interface PlivoAgentCredential {
+  _id?: string;
+  agentNumber: string;
+  username: string;
+  sipUri?: string;
+  password: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export class PlivoService {
   private _baseUrl = `${API_BASE_URL}/plivo`;
   private _farmerBaseUrl = `${API_BASE_URL}/farmer`;
@@ -397,6 +407,50 @@ export class PlivoService {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(blobUrl);
+  }
+
+  async getAllCredentials(): Promise<PlivoAgentCredential[]> {
+    const url = `${this._baseUrl}/credentials/all`;
+    const response = await apiFetch<PlivoAgentCredential[]>(url);
+    return response || [];
+  }
+
+  async getNextAgentNumber(): Promise<string> {
+    const url = `${this._baseUrl}/credentials/next-agent-number`;
+    const response = await apiFetch<{ nextAgentNumber: string }>(url);
+    return response?.nextAgentNumber || 'agent_1';
+  }
+
+  async upsertCredential(agentNumber: string | undefined, username: string, password: string): Promise<PlivoAgentCredential> {
+    const url = `${this._baseUrl}/credentials`;
+    const response = await apiFetch<{ success: boolean; credential: PlivoAgentCredential }>(url, {
+      method: 'POST',
+      body: JSON.stringify({ agentNumber, username, password }),
+    });
+    if (!response?.credential) {
+      throw new Error('Failed to upsert credential: No response received');
+    }
+    return response.credential;
+  }
+
+  async updateCredential(agentNumber: string, username: string, password: string): Promise<PlivoAgentCredential> {
+    const url = `${this._baseUrl}/credentials/${encodeURIComponent(agentNumber)}`;
+    const response = await apiFetch<{ success: boolean; credential: PlivoAgentCredential }>(url, {
+      method: 'PUT',
+      body: JSON.stringify({ username, password }),
+    });
+    if (!response?.credential) {
+      throw new Error('Failed to update credential: No response received');
+    }
+    return response.credential;
+  }
+
+  async deleteCredential(agentNumber: string): Promise<boolean> {
+    const url = `${this._baseUrl}/credentials/${encodeURIComponent(agentNumber)}`;
+    const response = await apiFetch<{ success: boolean }>(url, {
+      method: 'DELETE',
+    });
+    return response?.success || false;
   }
 
   async getAgentCredentials(): Promise<{ username: string; password: string; streamUrl: string } | null> {
