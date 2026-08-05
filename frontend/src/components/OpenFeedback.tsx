@@ -7,13 +7,25 @@ import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
 import { useGetOpenFeedback } from "@/hooks/api/question/useGetOpenFeedback";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import type { IUser } from "@/types";
 
 interface OpenFeedbackProps {
     questionId: string | null;
     feedbackId?: string | null;
+    currentUser: IUser | null;
 }
 
-const OpenFeedback = ({ questionId, feedbackId }: OpenFeedbackProps) => {
+const OpenFeedback = ({ questionId, feedbackId, currentUser }: OpenFeedbackProps) => {
+    // Check if user should see this component:
+    // 1. User is admin (can see all)
+    // 2. User has this questionId in their feedbacksAssigned array
+    const canViewFeedback = currentUser?.role === "admin" || 
+        (currentUser?.feedbacksAssigned && questionId && currentUser.feedbacksAssigned.includes(questionId));
+    
+    // Don't render if user doesn't have access
+    if (!canViewFeedback) {
+        return null;
+    }
     const [expanded, setExpanded] = useState(false);
     
     const {

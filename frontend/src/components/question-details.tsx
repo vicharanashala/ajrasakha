@@ -309,7 +309,7 @@ export const QuestionDetails = ({
                   navigateToQuestionPage={navigateToQuestionPage}
                 />
                 <UserFeedbackDetail questionId={question._id || null} />
-                <OpenFeedback questionId={question._id || null} />
+                <OpenFeedback questionId={question._id || null} currentUser={currentUser} />
               </>
             )}
 
