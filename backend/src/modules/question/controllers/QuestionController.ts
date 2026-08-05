@@ -2933,7 +2933,7 @@ export class QuestionController {
     return result;
   }
 
-  // ─── Migrate Firebase users endpoint (internal API key auth) ──────────────────────
+  // ─── Migrate Firebase users endpoint (internal API key auth) ─────────────────────
 
   @Post('/migrate-firebase-users')
   @HttpCode(200)
