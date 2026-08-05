@@ -75,6 +75,9 @@ export interface IUser {
    *  re-routed (handed to an expert) stay for history but do not block new work. */
   assignedQuestionIds?: IAssignedQuestion[] | null;
   isTrainingUser?: boolean;
+  /** Questions assigned to this user for feedback (auditor/moderator only).
+   *  Contains question IDs that need feedback review. */
+  feedbacksAssigned?: (string | ObjectId)[] | null;
 }
 
 export interface IUserRoleHistory {
