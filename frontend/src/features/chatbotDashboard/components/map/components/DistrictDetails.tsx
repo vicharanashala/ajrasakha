@@ -5,8 +5,10 @@
 import { Building2, MapPin, X } from "lucide-react";
 import type { DistrictDetails as DistrictDetailsType } from "../lib/types";
 // import { fmt } from "../lib/formatters";
+import {
+  KVKS,
+} from "@/features/chatbotDashboard/utils/metaData";
 import { useState, useEffect } from "react";
-// import { useVillageUserCounts } from "../hooks/useMapAnalytics";
 import {
   useGetBlocks,
   useGetVillages,
@@ -44,7 +46,16 @@ export function DistrictDetails({
   } | null>(null);
 
   const { data: kvksData } = useGetKvks(targetDistrict?.districtCode);
-  const kvksDetails = kvksData ?? [];
+  
+  // Find KVK from DB first, otherwise fallback to metadata (checking selectedDistrict and aliases)
+  const metaKvk = selectedDistrict
+    ? KVKS[selectedDistrict] ??
+      Object.entries(KVKS).find(
+        ([key]) => normalizeLocation(key) === normalizeLocation(selectedDistrict),
+      )?.[1]
+    : [];
+
+  const kvksDetails = (kvksData && kvksData.length > 0) ? kvksData : (metaKvk ?? []);
   // const VILLAGES_PER_PAGE = 10;
 
   // const [currentPage, setCurrentPage] = useState(1);
