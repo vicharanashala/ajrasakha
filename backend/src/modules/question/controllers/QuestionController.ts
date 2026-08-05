@@ -124,6 +124,7 @@ export class QuestionController {
       'Queue details for moderators/admins/gate keepers/auditors. No params → all sections (counts + page 1). With ?section=&page= → one paginated section (exact count + that page of items).',
   })
   async getQueueDetails(
+    @CurrentUser() user: IUser,
     @QueryParams()
     query: {
       section?: QueueSectionName;
@@ -133,6 +134,8 @@ export class QuestionController {
       endTime?: string;
     },
   ) {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser === true;
     const startTime = query.startTime ? new Date(query.startTime) : undefined;
     const endTime = query.endTime ? new Date(query.endTime) : undefined;
 
@@ -151,7 +154,7 @@ export class QuestionController {
     }
 
     // Full snapshot: all sections, page 1.
-    const data = await this.questionService.getQueueDetails(startTime, endTime);
+    const data = await this.questionService.getQueueDetails(startTime, endTime, isTrainingUser, isAdmin);
     return { success: true, data };
   }
 
