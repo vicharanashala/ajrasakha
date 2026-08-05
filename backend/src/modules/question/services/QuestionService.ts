@@ -1571,6 +1571,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       } = body;
       if (body.details) {
         body.details.state = toTitleCase(body.details.state);
+        body.details.district = toTitleCase(body.details.district as string);
         body.details.crop = toTitleCase(body.details.crop as string);
         body.details.domain = Array.isArray(body.details.domain)
           ? body.details.domain
@@ -1661,7 +1662,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           logData.cropNormalizationError = cropError.message;
         }
       }
-      details.crop = rawCropName.trim();
+      // Store state/district/crop in Title Case (e.g. "andhra pradesh" -> "Andhra Pradesh").
+      details.crop = toTitleCase(rawCropName);
+      details.state = toTitleCase(details.state);
+      if (typeof details.district === 'string')
+        details.district = toTitleCase(details.district);
       if (normalised_crop !== undefined)
         details.normalised_crop = normalised_crop;
 
