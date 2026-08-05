@@ -56,4 +56,5 @@ export interface ILocationService {
   getVillages(blockCode: number): Promise<ILocationVillage[]>;
   getKvks(districtCode: number): Promise<IKvk[]>;
   syncKvks(): Promise<IKvkSyncResult>;
+  getCoordinatesByLocationName(locationName: string): Promise<{ lat: number; lon: number; name: string } | null>;
 }
