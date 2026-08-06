@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, User, Mail, Clock, MessageSquare, Check, X, ChevronLeft, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, User, Mail, Clock, MessageSquare, Check, X, ChevronLeft, ChevronUp, Lock, CheckCircle2, XCircle } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
-import { useGetOpenFeedback } from "@/hooks/api/question/useGetOpenFeedback";
+import { useGetFeedbacks, type FeedbackData } from "@/hooks/api/question/useGetOpenFeedback";
 import { useFeedbackAction } from "@/hooks/api/question/useFeedbackAction";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -52,13 +52,17 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
         isLoading,
         error: isError,
         refetch
-    } = useGetOpenFeedback(questionId, page, 5);
+    } = useGetFeedbacks(questionId, page, 5);
 
     const { mutate: handleFeedbackAction, isPending: isSubmitting } = useFeedbackAction();
 
     const feedbacks = feedbackResponse?.data;
     const totalPages = feedbackResponse?.totalPages || 1;
     const totalCount = feedbackResponse?.totalCount || 0;
+
+    // Count feedbacks by status
+    const openCount = feedbacks?.filter(f => f.status === "open").length || 0;
+    const closedCount = feedbacks?.filter(f => f.status !== "open").length || 0;
 
     // Hide component completely if there is no feedback (and we're not loading/errored)
     if (!isLoading && !isError && (!feedbacks || feedbacks.length === 0)) {
@@ -114,26 +118,57 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
         setExpandedFeedbackId(expandedFeedbackId === feedbackId ? null : feedbackId);
     };
 
-    const renderFeedbackItem = (feedback: any, index: number) => {
+    const getStatusBadge = (status: FeedbackData["status"]) => {
+        switch (status) {
+            case "accepted":
+                return (
+                    <Badge className="text-[10px] px-1.5 py-0.5 bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/30">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Accepted
+                    </Badge>
+                );
+            case "rejected":
+                return (
+                    <Badge className="text-[10px] px-1.5 py-0.5 bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/30">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Rejected
+                    </Badge>
+                );
+            case "open":
+            default:
+                return (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-500/30">
+                        <Lock className="h-3 w-3 mr-1" />
+                        Open
+                    </Badge>
+                );
+        }
+    };
+
+    const renderFeedbackItem = (feedback: FeedbackData, index: number) => {
         const isPositive = feedback.type === "thumbs_up";
         const FeedbackIcon = isPositive ? ThumbsUp : ThumbsDown;
         const iconColor = isPositive ? "text-green-500" : "text-red-500";
         const bgColor = isPositive ? "bg-green-500/10" : "bg-red-500/10";
         const isExpanded = expandedFeedbackId === feedback._id.$oid;
+        const isClosed = feedback.status !== "open";
 
         return (
-            <div key={feedback._id.$oid} className="border border-border rounded-lg overflow-hidden">
+            <div 
+                key={feedback._id.$oid} 
+                className={`border border-border rounded-lg overflow-hidden ${isClosed ? 'opacity-75' : ''}`}
+            >
                 {/* Feedback header - clickable to expand */}
                 <button
                     onClick={() => toggleFeedback(feedback._id.$oid)}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-card hover:bg-muted/30 transition-all duration-200"
+                    className={`w-full flex items-center gap-3 px-4 py-3 bg-card hover:bg-muted/30 transition-all duration-200 ${isClosed ? 'bg-muted/10' : ''}`}
                 >
                     <div className={`flex h-8 w-8 items-center justify-center rounded-full ${bgColor} ${iconColor} shadow-sm shrink-0`}>
                         <FeedbackIcon className="h-4 w-4" />
                     </div>
 
                     <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0 text-left">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-medium text-foreground">
                                 Feedback {index + 1}
                             </span>
@@ -143,6 +178,7 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                             >
                                 {isPositive ? "Thumbs Up" : "Thumbs Down"}
                             </Badge>
+                            {getStatusBadge(feedback.status)}
                         </div>
                         <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                             <User className="h-3 w-3" />
@@ -165,6 +201,30 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                 {/* Expanded content */}
                 {isExpanded && (
                     <div className="px-4 py-4 bg-muted/20 border-t border-border animate-in fade-in slide-in-from-top-2 duration-200">
+                        {/* Closed indicator banner */}
+                        {isClosed && (
+                            <div className={`mb-4 p-3 rounded-lg border ${
+                                feedback.status === 'accepted' 
+                                    ? 'bg-green-50 border-green-200 dark:bg-green-500/10 dark:border-green-500/30' 
+                                    : 'bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/30'
+                            }`}>
+                                <div className="flex items-center gap-2">
+                                    {feedback.status === 'accepted' ? (
+                                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                    ) : (
+                                        <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                                    )}
+                                    <span className={`text-sm font-medium ${
+                                        feedback.status === 'accepted' 
+                                            ? 'text-green-700 dark:text-green-400' 
+                                            : 'text-red-700 dark:text-red-400'
+                                    }`}>
+                                        This feedback has been {feedback.status}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
                         {/* User details */}
                         <div className="flex items-start gap-3 pb-4 border-b border-border mb-4">
                             <Avatar className="h-10 w-10 border border-border">
@@ -213,26 +273,50 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                             </div>
                         )}
 
-                        {/* Action buttons */}
-                        <div className="flex items-center gap-3 pt-2">
-                            <Button
-                                onClick={() => handleAccept(feedback._id.$oid)}
-                                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-                                size="sm"
-                            >
-                                <Check className="h-4 w-4" />
-                                Accept
-                            </Button>
-                            <Button
-                                onClick={() => handleReject(feedback._id.$oid)}
-                                variant="outline"
-                                className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-500/30 dark:hover:bg-red-500/10"
-                                size="sm"
-                            >
-                                <X className="h-4 w-4" />
-                                Reject
-                            </Button>
-                        </div>
+                        {/* Review Note (shown when feedback is closed) */}
+                        {feedback.reviewNote && (
+                            <div className={`text-sm flex flex-col gap-1 mb-4 p-3 rounded-lg border ${
+                                feedback.status === 'accepted' 
+                                    ? 'bg-green-50 border-green-200 dark:bg-green-500/10 dark:border-green-500/30' 
+                                    : 'bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/30'
+                            }`}>
+                                <span className={`font-semibold ${
+                                    feedback.status === 'accepted' 
+                                        ? 'text-green-700 dark:text-green-400' 
+                                        : 'text-red-700 dark:text-red-400'
+                                }`}>Review Note:</span>
+                                <span className={`${
+                                    feedback.status === 'accepted' 
+                                        ? 'text-green-600 dark:text-green-300' 
+                                        : 'text-red-600 dark:text-red-300'
+                                }`}>
+                                    {feedback.reviewNote}
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Action buttons - only show for open feedbacks */}
+                        {feedback.status === "open" && (
+                            <div className="flex items-center gap-3 pt-2">
+                                <Button
+                                    onClick={() => handleAccept(feedback._id.$oid)}
+                                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                                    size="sm"
+                                >
+                                    <Check className="h-4 w-4" />
+                                    Accept
+                                </Button>
+                                <Button
+                                    onClick={() => handleReject(feedback._id.$oid)}
+                                    variant="outline"
+                                    className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-500/30 dark:hover:bg-red-500/10"
+                                    size="sm"
+                                >
+                                    <X className="h-4 w-4" />
+                                    Reject
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -264,9 +348,19 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                     </div>
 
                     <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
-                        <span className="text-sm font-semibold text-foreground">Open Feedbacks</span>
+                        <span className="text-sm font-semibold text-foreground">Feedbacks</span>
                         <span className="text-xs text-muted-foreground">
                             {expanded ? "Click to collapse" : `${totalCount} feedback${totalCount !== 1 ? 's' : ''} found`}
+                            {!expanded && openCount > 0 && (
+                                <span className="ml-2 text-yellow-600 dark:text-yellow-400">
+                                    ({openCount} open)
+                                </span>
+                            )}
+                            {!expanded && closedCount > 0 && (
+                                <span className="ml-1 text-muted-foreground">
+                                    ({closedCount} reviewed)
+                                </span>
+                            )}
                         </span>
                     </div>
 
