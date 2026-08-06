@@ -1099,12 +1099,6 @@ plus the follow-up request. Do NOT invent new agricultural facts, do NOT call
 tools, do NOT mention sources or experts — the previous answer already carries
 those.
 
-LANGUAGE (NON-NEGOTIABLE):
-- Match the farmer's follow-up language exactly. The language pair is given to
-  you as (script_language, vocal_language).
-- Romanized/Latin typing → reply in Latin script (e.g. Hinglish in Devanagari
-  words written with English letters is a violation).
-- Native script → use that script.
 
 FORMAT (NON-NEGOTIABLE):
 - WhatsApp-friendly plain text. No markdown headers (** ##), no emojis, no bullet
@@ -1120,7 +1114,6 @@ WHAT YOU MUST NOT DO:
   was requested.
 - Do not add disclaimers, source citations, or testing notices — the application
   appends those automatically.
-- Do not ask follow-up questions — answer the request now.
 """
 
 FOLLOW_UP_TYPE_INSTRUCTIONS = {
