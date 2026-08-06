@@ -125,16 +125,15 @@ async def follow_up_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
         }
 
     type_instruction = _type_instruction(follow_up_type)
-    language_directive = (
-        f"OUTPUT LANGUAGE: write in {vocal} using the {script} writing system.\n"
-    )
+    # Deliberately do NOT pin the output language here — let Sonnet figure out
+    # the target language from the follow-up text itself (e.g. "translate to
+    # Telugu", "Hindi mein batao"). Pinning language_pair would force a Hindi
+    # body when the farmer types in Hinglish but asks for Telugu.
 
     system_content = (
         FOLLOW_UP_SYSTEM_PROMPT
-        + "\n"
-        + type_instruction
         + "\n\n"
-        + language_directive
+        + type_instruction
     )
 
     human_content = (
