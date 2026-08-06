@@ -247,6 +247,18 @@ export class QuestionController {
     return this.questionService.getCallSummary(body.query);
   }
 
+  @Get('/feedbacks')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get feedbacks for a question' })
+  async getFeedbacks(
+    @QueryParam('questionId') questionId: string,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('pageSize') pageSize: number = 5,
+  ) {
+    return this.questionService.getFeedbacks(questionId, page, pageSize);
+  }
+
   // HITL Flow Endpoints
   @Post('/acc-agent/thread')
   @HttpCode(200)

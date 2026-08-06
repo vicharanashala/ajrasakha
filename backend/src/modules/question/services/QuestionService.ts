@@ -62,6 +62,7 @@ import {
   QueueSectionName,
   QueueSectionResult,
   RawQueueQuestionRow,
+  FeedbackResponse,
 } from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
@@ -8972,5 +8973,123 @@ export class QuestionService extends BaseService implements IQuestionService {
         processedAt,
       },
     };
+  }
+
+  /**
+   * Get feedbacks for a question (paginated)
+   * Fetches from external data release service with mock data fallback
+   */
+  async getFeedbacks(
+    questionId: string,
+    page: number = 1,
+    pageSize: number = 5,
+  ): Promise<FeedbackResponse> {
+    // Mock data with status and reviewNote fields
+    const mockData = [
+      {
+        _id: { $oid: 'fb001' },
+        questionId: { $oid: questionId },
+        userId: { name: 'Rajesh Kumar', email: 'rajesh@example.com' },
+        answerId: { $oid: 'ans001' },
+        type: 'thumbs_up' as const,
+        predefinedOption: 'Accurate and helpful',
+        comment: 'This answer solved my problem completely. The step-by-step instructions were very clear.',
+        status: 'open' as const,
+        reviewNote: undefined,
+        createdAt: { $date: '2026-08-01T10:30:00.000Z' },
+        updatedAt: { $date: '2026-08-01T10:30:00.000Z' },
+      },
+      {
+        _id: { $oid: 'fb002' },
+        questionId: { $oid: questionId },
+        userId: { name: 'Priya Sharma', email: 'priya@example.com' },
+        answerId: { $oid: 'ans002' },
+        type: 'thumbs_down' as const,
+        predefinedOption: 'Incomplete information',
+        comment: 'The answer was missing important details about pesticide dosage.',
+        status: 'accepted' as const,
+        reviewNote: 'Valid feedback - dosage information will be added to improve the answer.',
+        createdAt: { $date: '2026-08-02T14:15:00.000Z' },
+        updatedAt: { $date: '2026-08-03T09:00:00.000Z' },
+      },
+      {
+        _id: { $oid: 'fb003' },
+        questionId: { $oid: questionId },
+        userId: { name: 'Amit Patel', email: 'amit@example.com' },
+        answerId: { $oid: 'ans001' },
+        type: 'thumbs_up' as const,
+        predefinedOption: 'Well explained',
+        comment: 'Very detailed and easy to understand. Great work!',
+        status: 'rejected' as const,
+        reviewNote: 'Duplicate feedback - similar to fb001. No action needed.',
+        createdAt: { $date: '2026-08-03T08:45:00.000Z' },
+        updatedAt: { $date: '2026-08-03T11:20:00.000Z' },
+      },
+      {
+        _id: { $oid: 'fb004' },
+        questionId: { $oid: questionId },
+        userId: { name: 'Sunita Devi', email: 'sunita@example.com' },
+        answerId: { $oid: 'ans003' },
+        type: 'thumbs_down' as const,
+        predefinedOption: 'Incorrect information',
+        comment: 'The recommended pesticide is not suitable for my region.',
+        status: 'open' as const,
+        reviewNote: undefined,
+        createdAt: { $date: '2026-08-04T16:00:00.000Z' },
+        updatedAt: { $date: '2026-08-04T16:00:00.000Z' },
+      },
+      {
+        _id: { $oid: 'fb005' },
+        questionId: { $oid: questionId },
+        userId: { name: 'Vikram Singh', email: 'vikram@example.com' },
+        answerId: { $oid: 'ans002' },
+        type: 'thumbs_up' as const,
+        predefinedOption: 'Accurate and helpful',
+        comment: 'Perfect solution for my crop issue. Thank you!',
+        status: 'accepted' as const,
+        reviewNote: 'Positive feedback acknowledged.',
+        createdAt: { $date: '2026-08-05T11:30:00.000Z' },
+        updatedAt: { $date: '2026-08-05T14:00:00.000Z' },
+      },
+    ];
+
+    // Calculate pagination
+    const totalCount = mockData.length;
+    const totalPages = Math.ceil(totalCount / pageSize);
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedData = mockData.slice(startIndex, endIndex);
+
+    return {
+      data: paginatedData,
+      totalCount,
+      page,
+      pageSize,
+      totalPages,
+    };
+
+    // TODO: Uncomment when data release service is available
+    // const dataReleaseUrl = process.env.DATA_RELEASE_URL || 'http://localhost:8080/api/data-release';
+    // 
+    // try {
+    //   const response = await fetch(
+    //     `${dataReleaseUrl}/${questionId}/feedbacks?page=${page}&pageSize=${pageSize}`,
+    //     {
+    //       method: 'GET',
+    //       headers: {
+    //         'Content-Type': 'application/json',
+    //       },
+    //     }
+    //   );
+    // 
+    //   if (!response.ok) {
+    //     throw new Error(`Data release service returned status ${response.status}`);
+    //   }
+    // 
+    //   return await response.json();
+    // } catch (error: any) {
+    //   console.error('[QuestionService] getFeedbacks: Failed to call data release service:', error);
+    //   throw new InternalServerError('Failed to get feedbacks: ' + error.message);
+    // }
   }
 }

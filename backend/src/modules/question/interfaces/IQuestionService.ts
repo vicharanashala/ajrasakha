@@ -17,6 +17,30 @@ import { QuestionLevelResponse } from '#root/modules/question/classes/transforme
 import { ClientSession, ObjectId } from 'mongodb';
 import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
+/** Feedback data structure */
+export interface FeedbackData {
+  _id: { $oid: string };
+  questionId: { $oid: string };
+  userId: { name: string; email: string };
+  answerId: { $oid: string };
+  type: 'thumbs_up' | 'thumbs_down';
+  predefinedOption: string;
+  comment: string;
+  status: 'open' | 'rejected' | 'accepted';
+  reviewNote?: string;
+  createdAt: { $date: string };
+  updatedAt: { $date: string };
+}
+
+/** Paginated feedback response */
+export interface FeedbackResponse {
+  data: FeedbackData[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 /** Lean question shape used in the moderator/admin "Queue Details" modal. */
 export interface QueueQuestionItem {
   _id: string;
@@ -653,4 +677,11 @@ export interface IQuestionService {
       processedAt: string;
     };
   }>;
+
+  /** Get feedbacks for a question (paginated) */
+  getFeedbacks(
+    questionId: string,
+    page?: number,
+    pageSize?: number,
+  ): Promise<FeedbackResponse>;
 }

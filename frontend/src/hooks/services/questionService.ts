@@ -126,6 +126,31 @@ export interface RoleDashboardResponse {
   totalPages: number;
   totalCount: number;
 }
+
+export interface FeedbackData {
+  _id: { $oid: string };
+  questionId: { $oid: string };
+  userId: {
+    name: string;
+    email: string;
+  };
+  answerId: { $oid: string };
+  type: "thumbs_up" | "thumbs_down";
+  predefinedOption: string;
+  comment: string;
+  status: "open" | "rejected" | "accepted";
+  reviewNote?: string;
+  createdAt: { $date: string };
+  updatedAt: { $date: string };
+}
+
+export interface FeedbackResponse {
+  data: FeedbackData[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
   private _reRouteUrl = `${API_BASE_URL}/reroute`;
@@ -367,6 +392,26 @@ export class QuestionService {
     // Mock response for testing - paginated
     // This will be handled by the hook, but keeping for reference
     return {
+      data: [],
+      totalCount: 0,
+      page,
+      pageSize,
+      totalPages: 0,
+    };
+  }
+
+  async getFeedbacks(
+    questionId: string,
+    page: number = 1,
+    pageSize: number = 5,
+  ): Promise<FeedbackResponse> {
+    const params = new URLSearchParams({
+      questionId,
+      page: String(page),
+      pageSize: String(pageSize),
+    });
+    const response = await apiFetch<FeedbackResponse>(`${this._baseUrl}/feedbacks?${params.toString()}`);
+    return response ?? {
       data: [],
       totalCount: 0,
       page,
