@@ -8907,7 +8907,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     let dataReleaseResponse: { status: string; pendingFeedbackCount: number };
     try {
-      const response = await fetch(`${dataReleaseUrl}/feedbacks/${feedbackId}/status`, {
+     const response = await fetch(`${dataReleaseUrl}/feedbacks/${feedbackId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -8921,7 +8921,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       const responseData = await response.json() as { status: string; pendingFeedbackCount: number };
-      dataReleaseResponse = responseData;
+      dataReleaseResponse = responseData
+     // dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
     } catch (error: any) {
       console.error('[QuestionService] handleFeedbackAction: Failed to call data release service:', error);
       throw new InternalServerError('Failed to process feedback action: ' + error.message);
@@ -8937,7 +8938,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       await this.questionRepo.updateQuestion(
         questionId,
         { 
-          'feedbacks.source': 'closed',
+          'feedbacks.$[].status': 'closed',
         } as any
       );
 

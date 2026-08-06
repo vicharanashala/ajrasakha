@@ -2582,11 +2582,18 @@ export class UserRepository implements IUserRepository {
     questionId: string,
   ): Promise<IUser | null> {
     await this.init();
+    // feedbacksAssigned stores ObjectIds (claimFeedbackAllocation pushes
+    // `new ObjectId(questionId)`), so pulling the raw string never matched and the
+    // entry was never removed. Pull both forms to be safe against legacy string data.
+    const pullValues: (string | ObjectId)[] = [questionId];
+    if (ObjectId.isValid(questionId)) {
+      pullValues.push(new ObjectId(questionId));
+    }
     const result = await this.usersCollection.findOneAndUpdate(
       {_id: new ObjectId(userId)},
       {
         $pull: {
-          feedbacksAssigned: questionId,
+          feedbacksAssigned: {$in: pullValues} as any,
         },
         $set: {
           updatedAt: new Date(),

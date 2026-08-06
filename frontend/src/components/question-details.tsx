@@ -309,9 +309,16 @@ export const QuestionDetails = ({
                   navigateToQuestionPage={navigateToQuestionPage}
                 />
                 <UserFeedbackDetail questionId={question._id || null} />
-                <OpenFeedback questionId={question._id || null} currentUser={currentUser} />
               </>
             )}
+
+          {/* Feedback-review panel — applies to questions of ANY source (feedback
+              can be raised on AGRI_EXPERT/OUTREACH etc. too). The component gates
+              itself via canViewFeedback (admin or assigned reviewer), so render it
+              independently of the chatbot-only MessageDetail block above. */}
+          {question && currentUser && currentUser.role != "expert" && (
+            <OpenFeedback questionId={question._id || null} currentUser={currentUser} />
+          )}
 
           {/* Queue order: Gate Keeper → Auditor → Expert → Moderator → Re-route */}
 
