@@ -93,6 +93,9 @@ class PlannerPlan(TypedDict, total=False):
     translate_path: Optional[str]  # "empty_gdb" when from empty_gdb_reply; else synthesis path
     expert_queue: Optional[bool]  # Deprecated; use translate_path
     tools_used: list[str]  # List of tools used to generate answer (e.g. ["knowledge_base", "weather", "mandi"])
+    is_follow_up: Optional[bool]  # True when the latest message is a transformation on the previous AI answer
+    follow_up_type: Optional[str]  # "language_change" | "format_change" | "detail_request" | "simplify" | "tone_change" | "rephrase"
+    main_question: Optional[str]  # The underlying question the previous AI answer was about
 
 
 TRANSLATE_PATH_EMPTY_GDB = "empty_gdb"
