@@ -14,6 +14,7 @@ SYNTHESIZE_MODEL = CLAUDE_FAST        # Fast for rephrasing/simple synthesis
 PLANNER_MODEL = CLAUDE_MODEL          # Routing/classification - Haiku sufficient
 SANITIZER_MODEL = CLAUDE_FAST        # Relevance scoring - Haiku sufficient
 TRANSLATE_MODEL = CLAUDE_MODEL       # Keep Sonnet - translation quality important
+FOLLOW_UP_MODEL = CLAUDE_MODEL       # Translation/transformation - Sonnet for quality
 CROP_CLASSIFY_MODEL = CLAUDE_FAST    # Binary classification - Haiku sufficient
 
 REMOTE_IP = os.getenv("REMOTE_IP", "100.100.108.44")
