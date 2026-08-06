@@ -529,7 +529,9 @@ async function run() {
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const reportPath = path.join(__dirname, `lgd-districts-sync-report-${timestamp}.txt`);
+    const reportDir = path.join(__dirname, '..', 'logs', 'lgd_api_report');
+    fs.mkdirSync(reportDir, { recursive: true });
+    const reportPath = path.join(reportDir, `lgd-districts-sync-report-${timestamp}.txt`);
 
     let reportText = '';
 
