@@ -143,6 +143,55 @@ async def test_follow_up_node_returns_llm_answer(monkeypatch):
     assert out["plan"]["translate_path"] is None
 
 
+# -------- follow_up_node: no hard language directive in system prompt --------
+
+@pytest.mark.asyncio
+async def test_follow_up_node_does_not_pin_language_directive(monkeypatch):
+    """Regression for the Telugu case.
+
+    The system prompt must NOT say "write in Hindi using Devanagari" when the
+    farmer types in Hinglish but asks for Telugu. The LLM must be free to pick
+    the target language from the follow-up text itself.
+
+    We capture the messages passed to ChatAnthropic.ainvoke and assert the
+    system content does NOT contain a hard OUTPUT LANGUAGE directive.
+    """
+    from ajrasakha.agents import follow_up_node as fu_module
+
+    captured: dict = {}
+
+    class _Resp:
+        content = "Some body in any language Sonnet picks."
+
+    async def fake_ainvoke(self, messages, **kwargs):
+        captured["messages"] = messages
+        return _Resp()
+
+    monkeypatch.setattr(fu_module.ChatAnthropic, "ainvoke", fake_ainvoke)
+
+    state: AjraSakhaState = {
+        "messages": [
+            HumanMessage(content="How to grow barley?"),
+            AIMessage(content="Use quality seed."),
+            HumanMessage(content="Muje telgu mai batao yaar"),
+        ],
+        "location": None,
+        "plan": {
+            "is_follow_up": True,
+            "follow_up_type": "language_change",
+            "main_question": "How to grow barley?",
+            "vocal_language": "Hindi",     # input language — NOT the target
+            "script_language": "English",  # input script — NOT the target
+        },
+    }
+    await follow_up_node(state, {})
+    sys_msg = captured["messages"][0]
+    sys_text = sys_msg.content.lower()
+    assert "output language" not in sys_text
+    assert "write in hindi" not in sys_text
+    assert "devanagari" not in sys_text
+
+
 # -------- follow_up_node: LLM failure fallback --------
 
 @pytest.mark.asyncio
