@@ -2947,31 +2947,28 @@ export class QuestionController {
 
   // ─── Open Feedback Accept/Reject endpoint ─────────────────────────────────
 
-  @Post('/:feedbackId/feedback-action')
+  @Post('/:questionId/:feedbackId/feedback-action')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ 
     summary: 'Accept or reject an open feedback',
   })
   async handleFeedbackAction(
+    @Param('questionId') questionId: string,
     @Param('feedbackId') feedbackId: string,
     @Body() body: { action: 'accept' | 'reject'; reason: string },
     @CurrentUser({ required: true }) user: IUser,
   ) {
-    console.log('[QuestionController] handleFeedbackAction:', { feedbackId, action: body.action, reason: body.reason, userId: user._id });
+    console.log('[QuestionController] handleFeedbackAction:', { questionId, feedbackId, action: body.action, reason: body.reason, userId: user._id });
     
-    // TODO: Implement actual feedback action logic in the service
-    // For now, return a success response
-    return {
-      success: true,
-      message: `Feedback ${body.action}ed successfully`,
-      data: {
-        feedbackId,
-        action: body.action,
-        reason: body.reason,
-        processedBy: user._id,
-        processedAt: new Date().toISOString(),
-      }
-    };
+    const result = await this.questionService.handleFeedbackAction(
+      questionId,
+      feedbackId,
+      body.action,
+      body.reason,
+      user._id.toString(),
+    );
+    
+    return result;
   }
 }

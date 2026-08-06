@@ -363,6 +363,8 @@ export interface IQuestionSubmission {
   currentExpertAllocatedAt?: Date | null;
   /** Timestamp when feedback review was assigned for this question. */
   feedbackReviewAssignedAt?: Date | null;
+  /** Timestamp when feedback review was finished (all feedbacks resolved). */
+  feedbackReviewFinishedAt?: Date | null;
   /** User assigned to review this question's open feedback. */
   feedbackReviewerId?: string | ObjectId | null;
   createdAt?: Date;

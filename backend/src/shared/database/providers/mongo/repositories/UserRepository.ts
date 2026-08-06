@@ -2571,6 +2571,29 @@ export class UserRepository implements IUserRepository {
     return {modifiedCount: result.modifiedCount};
   }
 
+  /**
+   * Removes a specific feedbackId from all users' feedbacksAssigned arrays.
+   * @param feedbackId - The feedback ID to remove from all users
+   * @returns The number of users modified
+   */
+  async removeFeedbacksAssignedFromAllUsers(
+    feedbackId: string,
+  ): Promise<{modifiedCount: number}> {
+    await this.init();
+    const result = await this.usersCollection.updateMany(
+      {feedbacksAssigned: feedbackId},
+      {
+        $pull: {
+          feedbacksAssigned: feedbackId,
+        },
+        $set: {
+          updatedAt: new Date(),
+        },
+      },
+    );
+    return {modifiedCount: result.modifiedCount};
+  }
+
   private getBucketKey(date: Date, granularity: TrendGranularity): string {
     switch (granularity) {
       case 'hour':

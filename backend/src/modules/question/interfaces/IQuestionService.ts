@@ -634,4 +634,23 @@ export interface IQuestionService {
     questionId: string,
     rawEntry: Record<string, any>,
   ): Promise<{ success: boolean; historyLength: number }>;
+
+  /** Handle feedback action (accept/reject) and notify data release service */
+  handleFeedbackAction(
+    questionId: string,
+    feedbackId: string,
+    action: 'accept' | 'reject',
+    reason: string,
+    processedBy: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      feedbackId: string;
+      action: string;
+      reason: string;
+      processedBy: string;
+      processedAt: string;
+    };
+  }>;
 }

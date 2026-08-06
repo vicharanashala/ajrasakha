@@ -8866,4 +8866,111 @@ export class QuestionService extends BaseService implements IQuestionService {
       isReallocatingFeedback = false;
     }
   }
+
+  /**
+   * Handle feedback action (accept/reject) and notify data release service
+   */
+  async handleFeedbackAction(
+    questionId: string,
+    feedbackId: string,
+    action: 'accept' | 'reject',
+    reason: string,
+    processedBy: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      feedbackId: string;
+      action: string;
+      reason: string;
+      processedBy: string;
+      processedAt: string;
+    };
+  }> {
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+
+    // Call the data release service
+    const payload = {
+      feedbackId: new ObjectId(feedbackId),
+      note: reason,
+      action: action === 'accept' ? 'approve' : 'reject',
+    };
+
+    let dataReleaseResponse: { status: string; pendingFeedbackCount: number };
+    try {
+      const response = await fetch(`${dataReleaseUrl}/${questionId}/${feedbackId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+
+      const responseData = await response.json() as { status: string; pendingFeedbackCount: number };
+      dataReleaseResponse = responseData;
+    } catch (error: any) {
+      console.error('[QuestionService] handleFeedbackAction: Failed to call data release service:', error);
+      throw new InternalServerError('Failed to process feedback action: ' + error.message);
+    }
+
+    const processedAt = new Date().toISOString();
+
+    // Check if all feedbacks are processed
+    if (dataReleaseResponse.pendingFeedbackCount <= 0) {
+      const now = new Date();
+
+      // Update the question's feedbacks.source to 'closed' and set feedbackReviewFinishedAt
+      await this.questionRepo.updateQuestion(
+        questionId,
+        { 
+          'feedbacks.source': 'closed',
+        } as any
+      );
+
+      // Update the question submission with feedbackReviewFinishedAt
+      const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+      if (submission?._id) {
+        await this.questionSubmissionRepo.updateById(
+          submission._id.toString(),
+          { $set: { feedbackReviewFinishedAt: now } },
+        );
+      }
+
+      // Remove the questionId from all users' feedbacksAssigned array
+      await this.userRepo.removeFeedbacksAssignedFromAllUsers(questionId);
+
+      return {
+        success: true,
+        message: `Feedback ${action}ed successfully. All feedbacks processed.`,
+        data: {
+          feedbackId,
+          action,
+          reason,
+          processedBy,
+          processedAt,
+        },
+      };
+    }
+
+    // There are still pending feedbacks
+    return {
+      success: true,
+      message: `Feedback ${action}ed successfully. ${dataReleaseResponse.pendingFeedbackCount} pending feedback(s) remaining.`,
+      data: {
+        feedbackId,
+        action,
+        reason,
+        processedBy,
+        processedAt,
+      },
+    };
+  }
 }
