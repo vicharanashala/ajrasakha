@@ -4,12 +4,12 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from ajrasakha.agents.follow_up_node import (
-    FOLLOW_UP_SYSTEM_PROMPT,
     _previous_ai_answer,
     _latest_human_text,
     _type_instruction,
     follow_up_node,
 )
+from ajrasakha.agents.prompts import FOLLOW_UP_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState
 
 
