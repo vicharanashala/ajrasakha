@@ -73,6 +73,7 @@ export interface IUser {
   isBusy?: boolean; // true if agent is currently in a call
   currentCallUuid?: string | null; // UUID of the current call being handled
   isTrainingUser?: boolean; // true if the user is assigned as a training user
+  feedbacksAssigned?: string[]; // question IDs assigned for feedback review
 }
 
 export interface IUnverifiedUser {

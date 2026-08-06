@@ -352,6 +352,36 @@ export class QuestionService {
     return response;
   }
 
+  async getOpenFeedback(
+    questionId: string,
+    feedbackId?: string,
+  ): Promise<any | null> {
+    // TODO: Replace with actual API endpoint when backend is ready
+    // const params = feedbackId ? `?feedbackId=${feedbackId}` : '';
+    // const response = await apiFetch<any | null>(
+    //   `${this._baseUrl}/${questionId}/open-feedback${params}`,
+    // );
+    // return response;
+
+    // Mock response for testing
+    return {
+      data: {
+        _id: { $oid: "6a67360ee10dd8cfed168645" },
+        questionId: { $oid: questionId },
+        userId: {
+          name: "Mezz",
+          email: "example@gmail.com",
+        },
+        answerId: { $oid: "6a671414aee7709bc6be96c9" },
+        type: "thumbs_up",
+        predefinedOption: "not Correct and helpful",
+        comment: "The answer was not perfect",
+        createdAt: { $date: "2026-07-27T10:42:22.434Z" },
+        updatedAt: { $date: "2026-07-27T10:45:12.598Z" },
+      }
+    };
+  }
+
   async getReRoutedQuestionFullDataById(
     answerId: string,
   ): Promise<IRerouteHistoryResponse[] | null> {
