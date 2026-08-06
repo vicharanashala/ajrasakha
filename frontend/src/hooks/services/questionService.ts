@@ -1178,12 +1178,13 @@ export class QuestionService {
   }
 
   async handleFeedbackAction(
+    questionId: string,
     feedbackId: string,
     action: 'accept' | 'reject',
     reason: string,
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch<{ success: boolean; message: string } | null>(
-      `${this._baseUrl}/${feedbackId}/feedback-action`,
+      `${this._baseUrl}/${questionId}/${feedbackId}/feedback-action`,
       {
         method: "POST",
         body: JSON.stringify({ action, reason }),

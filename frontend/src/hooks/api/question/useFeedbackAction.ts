@@ -4,6 +4,7 @@ import { QuestionService } from "../../services/questionService";
 const questionService = new QuestionService();
 
 export interface FeedbackActionPayload {
+    questionId: string;
     feedbackId: string;
     action: 'accept' | 'reject';
     reason: string;
@@ -23,8 +24,8 @@ export interface FeedbackActionResponse {
 
 export const useFeedbackAction = () => {
     const mutation = useMutation<FeedbackActionResponse, Error, FeedbackActionPayload>({
-        mutationFn: async ({ feedbackId, action, reason }: FeedbackActionPayload) => {
-            const response = await questionService.handleFeedbackAction(feedbackId, action, reason);
+        mutationFn: async ({ questionId, feedbackId, action, reason }: FeedbackActionPayload) => {
+            const response = await questionService.handleFeedbackAction(questionId, feedbackId, action, reason);
             if (!response) {
                 throw new Error("Failed to process feedback action");
             }

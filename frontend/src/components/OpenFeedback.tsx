@@ -91,8 +91,13 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
             return;
         }
 
+        if (!questionId) {
+            toast.error("Question ID is missing");
+            return;
+        }
+
         handleFeedbackAction(
-            { feedbackId: selectedFeedbackId, action: modalAction, reason },
+            { questionId, feedbackId: selectedFeedbackId, action: modalAction, reason },
             { onSuccess: () => onSubmitSuccess(modalAction), onError: onSubmitError }
         );
     };
