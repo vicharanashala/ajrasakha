@@ -121,7 +121,9 @@ export interface DailyStats {
 //   };
 // };
 
-export const getDailyStats = async (): Promise<DailyStats> => {
+export const getDailyStats = async (
+  range?: { startDate?: string; endDate?: string },
+): Promise<DailyStats> => {
   const container = getContainer();
 
   const questionRepository = container.get<QuestionRepository>(
@@ -133,9 +135,18 @@ export const getDailyStats = async (): Promise<DailyStats> => {
       CORE_TYPES.QuestionSubmissionRepository,
     );
 
-  // Start of "today" in IST (Asia/Kolkata). Using the server-local midnight here
-  // would be UTC on Cloud Run and drop rows closed between 00:00–05:30 IST.
-  const todayStart = getISTStartOfToday();
+  // Date window (IST) for the "today"/period counts. With no range it is today
+  // onward (getISTStartOfToday) — the original behaviour. When the dashboard
+  // passes startDate/endDate (YYYY-MM-DD), it reports that IST day range instead,
+  // e.g. yesterday: [start 00:00 IST, end 23:59:59.999 IST].
+  const dateRange: { $gte: Date; $lte?: Date } = range?.startDate
+    ? {
+        $gte: new Date(`${range.startDate}T00:00:00.000+05:30`),
+        $lte: new Date(
+          `${range.endDate || range.startDate}T23:59:59.999+05:30`,
+        ),
+      }
+    : { $gte: getISTStartOfToday() };
 
   /* -------------------------------------------------------
      PARALLEL LIGHTWEIGHT QUERIES
@@ -168,63 +179,63 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     questionRepository.getCountByStatus(),
     questionRepository.count({
       isTesting: { $ne: true },
-      createdAt: { $gte: todayStart },
+      createdAt: dateRange,
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       status: 'closed',
-      closedAt: { $gte: todayStart } ,
+      closedAt: dateRange ,
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       status: 'closed',
       source: 'AJRASAKHA',
-      closedAt: { $gte: todayStart }
+      closedAt: dateRange
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       status: 'closed',
       source: 'WHATSAPP',
-      closedAt: { $gte: todayStart }
+      closedAt: dateRange
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       status: 'closed',
       source: 'MANUAL',
-      closedAt: { $gte: todayStart }
+      closedAt: dateRange
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       status: 'closed',
       source: 'AGRI_EXPERT',
-      closedAt: { $gte: todayStart }
+      closedAt: dateRange
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       status: 'closed',
       source: 'OUTREACH',
-      closedAt: { $gte: todayStart }
+      closedAt: dateRange
     }),
     // ── Questions entered into the system today (by createdAt), per source ──
     questionRepository.count({
       isTesting: { $ne: true },
       source: 'AJRASAKHA',
-      createdAt: { $gte: todayStart }
+      createdAt: dateRange
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       source: 'WHATSAPP',
-      createdAt: { $gte: todayStart }
+      createdAt: dateRange
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       source: 'OUTREACH',
-      createdAt: { $gte: todayStart }
+      createdAt: dateRange
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       source: 'AGRI_EXPERT',
-      createdAt: { $gte: todayStart }
+      createdAt: dateRange
     })
   ]);
 
