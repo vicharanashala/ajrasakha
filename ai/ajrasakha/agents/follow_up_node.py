@@ -27,81 +27,15 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from ajrasakha.agents.config import SYNTHESIZE_MODEL
+from ajrasakha.agents.config import FOLLOW_UP_MODEL
 from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
+from ajrasakha.agents.prompts import FOLLOW_UP_SYSTEM_PROMPT, FOLLOW_UP_TYPE_INSTRUCTIONS
 from ajrasakha.agents.state import AjraSakhaState
 from ajrasakha.agents.thread_logging import end_conversation_turn
 from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.translation_catalog import language_pair_from_plan
 
 logger = logging.getLogger(__name__)
-
-
-FOLLOW_UP_SYSTEM_PROMPT = """You are AjraSakha, an AI assistant for Indian farmers.
-
-The farmer already received a complete answer to a question in this thread. They
-have now sent a SHORT follow-up request to TRANSFORM that previous answer
-(translate to another language, change format, give more detail, simplify, change
-tone, or rephrase).
-
-Your job: produce the transformed answer using ONLY the previous answer content
-plus the follow-up request. Do NOT invent new agricultural facts, do NOT call
-tools, do NOT mention sources or experts — the previous answer already carries
-those.
-
-LANGUAGE (NON-NEGOTIABLE):
-- Match the farmer's follow-up language exactly. The language pair is given to
-  you as (script_language, vocal_language).
-- Romanized/Latin typing → reply in Latin script (e.g. Hinglish in Devanagari
-  words written with English letters is a violation).
-- Native script → use that script.
-
-FORMAT (NON-NEGOTIABLE):
-- WhatsApp-friendly plain text. No markdown headers (** ##), no emojis, no bullet
-  markers like "- ".
-- Use simple line breaks for new paragraphs.
-- Keep sentences short and practical for a farmer.
-- Preserve the agricultural facts from the previous answer; only change the form
-  the farmer asked for.
-
-WHAT YOU MUST NOT DO:
-- Do not start with "Sure", "Here is", "Of course", or similar filler.
-- Do not repeat the previous answer in the original language if a language change
-  was requested.
-- Do not add disclaimers, source citations, or testing notices — the application
-  appends those automatically.
-- Do not ask follow-up questions — answer the request now.
-"""
-
-_FOLLOW_UP_TYPE_INSTRUCTIONS = {
-    "language_change": (
-        "Translate the previous answer into the farmer's follow-up language. "
-        "Preserve all agricultural facts and chemical names; transliterate brand "
-        "names if needed."
-    ),
-    "format_change": (
-        "Reformat the previous answer into the form the farmer asked for "
-        "(bullets, short, paragraph, table-as-text). Keep all facts; change only "
-        "the form."
-    ),
-    "detail_request": (
-        "Expand the previous answer with more detail — extra context, additional "
-        "steps, more explanation of why each action matters. Stay grounded in the "
-        "facts already present; do not invent new ones."
-    ),
-    "simplify": (
-        "Rewrite the previous answer in simpler words a less experienced farmer "
-        "can understand. Keep it short and practical."
-    ),
-    "tone_change": (
-        "Rewrite the previous answer with the tone the farmer asked for (expert, "
-        "polite, beginner-friendly, technical). Keep the facts identical."
-    ),
-    "rephrase": (
-        "Rephrase the previous answer — same meaning, different wording. Do not "
-        "add or remove facts."
-    ),
-}
 
 
 def _message_to_text(message: BaseMessage) -> str:
@@ -141,8 +75,8 @@ def _latest_human_text(messages: list[BaseMessage]) -> str:
 
 
 def _type_instruction(follow_up_type: Optional[str]) -> str:
-    if follow_up_type and follow_up_type in _FOLLOW_UP_TYPE_INSTRUCTIONS:
-        return _FOLLOW_UP_TYPE_INSTRUCTIONS[follow_up_type]
+    if follow_up_type and follow_up_type in FOLLOW_UP_TYPE_INSTRUCTIONS:
+        return FOLLOW_UP_TYPE_INSTRUCTIONS[follow_up_type]
     return (
         "Apply the farmer's follow-up request to the previous answer (translate, "
         "reformat, expand, simplify, change tone, or rephrase). Preserve facts; "
@@ -217,10 +151,10 @@ async def follow_up_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
     ]
 
     try:
-        llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
+        llm = ChatAnthropic(model=FOLLOW_UP_MODEL)
         trace_llm_request(
             "follow_up",
-            model=SYNTHESIZE_MODEL,
+            model=FOLLOW_UP_MODEL,
             messages=llm_messages,
             vocal_language=vocal,
             script_language=script,
