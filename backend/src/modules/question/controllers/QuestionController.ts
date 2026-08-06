@@ -2944,4 +2944,34 @@ export class QuestionController {
     const result = await this.checkOverlapsService.migrateFirebaseUsers();
     return result;
   }
+
+  // ─── Open Feedback Accept/Reject endpoint ─────────────────────────────────
+
+  @Post('/:feedbackId/feedback-action')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ 
+    summary: 'Accept or reject an open feedback',
+  })
+  async handleFeedbackAction(
+    @Param('feedbackId') feedbackId: string,
+    @Body() body: { action: 'accept' | 'reject'; reason: string },
+    @CurrentUser({ required: true }) user: IUser,
+  ) {
+    console.log('[QuestionController] handleFeedbackAction:', { feedbackId, action: body.action, reason: body.reason, userId: user._id });
+    
+    // TODO: Implement actual feedback action logic in the service
+    // For now, return a success response
+    return {
+      success: true,
+      message: `Feedback ${body.action}ed successfully`,
+      data: {
+        feedbackId,
+        action: body.action,
+        reason: body.reason,
+        processedBy: user._id,
+        processedAt: new Date().toISOString(),
+      }
+    };
+  }
 }

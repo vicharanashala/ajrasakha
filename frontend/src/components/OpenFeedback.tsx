@@ -5,9 +5,20 @@ import { Button } from "./atoms/button";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
 import { useGetOpenFeedback } from "@/hooks/api/question/useGetOpenFeedback";
+import { useFeedbackAction } from "@/hooks/api/question/useFeedbackAction";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import type { IUser } from "@/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./atoms/dialog";
+import { Textarea } from "./atoms/textarea";
+import { Label } from "./atoms/label";
 
 interface OpenFeedbackProps {
     questionId: string | null;
@@ -30,12 +41,20 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
     const [page, setPage] = useState(1);
     const [expandedFeedbackId, setExpandedFeedbackId] = useState<string | null>(null);
     
+    // Modal state
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalAction, setModalAction] = useState<'accept' | 'reject' | null>(null);
+    const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
+    const [reason, setReason] = useState("");
+    
     const {
         data: feedbackResponse,
         isLoading,
         error: isError,
         refetch
     } = useGetOpenFeedback(questionId, page, 5);
+
+    const { mutate: handleFeedbackAction, isPending: isSubmitting } = useFeedbackAction();
 
     const feedbacks = feedbackResponse?.data;
     const totalPages = feedbackResponse?.totalPages || 1;
@@ -46,14 +65,44 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
         return null;
     }
 
-    const handleAccept = (feedbackId: string) => {
-        toast.success("Feedback accepted successfully");
+    const openActionModal = (feedbackId: string, action: 'accept' | 'reject') => {
+        setSelectedFeedbackId(feedbackId);
+        setModalAction(action);
+        setReason("");
+        setIsModalOpen(true);
+    };
+
+    const onSubmitSuccess = (action: 'accept' | 'reject') => {
+        toast.success(`Feedback ${action}ed successfully`);
+        setIsModalOpen(false);
+        setReason("");
+        setSelectedFeedbackId(null);
+        setModalAction(null);
         refetch();
     };
 
+    const onSubmitError = (error: Error) => {
+        toast.error(error.message || "Failed to process feedback action");
+    };
+
+    const handleSubmit = () => {
+        if (!selectedFeedbackId || !modalAction || !reason.trim()) {
+            toast.error("Please provide a reason");
+            return;
+        }
+
+        handleFeedbackAction(
+            { feedbackId: selectedFeedbackId, action: modalAction, reason },
+            { onSuccess: () => onSubmitSuccess(modalAction), onError: onSubmitError }
+        );
+    };
+
+    const handleAccept = (feedbackId: string) => {
+        openActionModal(feedbackId, 'accept');
+    };
+
     const handleReject = (feedbackId: string) => {
-        toast.success("Feedback rejected");
-        refetch();
+        openActionModal(feedbackId, 'reject');
     };
 
     const toggleFeedback = (feedbackId: string) => {
@@ -186,100 +235,145 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
     };
 
     return (
-        <div className="relative w-full rounded-xl p-[1px] overflow-hidden">
-            {/* Animated border glow */}
-            <div className="absolute inset-0 rounded-xl bg-primary animate-pulse opacity-80 h-19" />
+        <>
+            <div className="relative w-full rounded-xl p-[1px] overflow-hidden">
+                {/* Animated border glow */}
+                <div className="absolute inset-0 rounded-xl bg-primary animate-pulse opacity-80 h-19" />
 
-            {/* Soft glow layer */}
-            <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md h-19" />
+                {/* Soft glow layer */}
+                <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md h-19" />
 
-            {/* Main expand/collapse button */}
-            <button
-                onClick={() => setExpanded(!expanded)}
-                className="relative z-10 w-full flex items-center gap-3 px-5 py-4 rounded-xl bg-card border border-transparent hover:shadow-md transition-all duration-300 group"
-            >
-                {expanded ? (
-                    <ChevronDown className="h-5 w-5 text-primary shrink-0 transition-transform" />
-                ) : (
-                    <ChevronRight className="h-5 w-5 text-primary shrink-0 transition-transform" />
+                {/* Main expand/collapse button */}
+                <button
+                    onClick={() => setExpanded(!expanded)}
+                    className="relative z-10 w-full flex items-center gap-3 px-5 py-4 rounded-xl bg-card border border-transparent hover:shadow-md transition-all duration-300 group"
+                >
+                    {expanded ? (
+                        <ChevronDown className="h-5 w-5 text-primary shrink-0 transition-transform" />
+                    ) : (
+                        <ChevronRight className="h-5 w-5 text-primary shrink-0 transition-transform" />
+                    )}
+
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/10 text-orange-500 shadow-sm shrink-0">
+                        <MessageSquare className="h-4 w-4" />
+                    </div>
+
+                    <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
+                        <span className="text-sm font-semibold text-foreground">Open Feedbacks</span>
+                        <span className="text-xs text-muted-foreground">
+                            {expanded ? "Click to collapse" : `${totalCount} feedback${totalCount !== 1 ? 's' : ''} found`}
+                        </span>
+                    </div>
+
+                    <Badge variant="secondary" className="text-[10px]">
+                        {isLoading ? "Loading…" : "View Feedbacks"}
+                    </Badge>
+                </button>
+
+                {/* Expanded content */}
+                {expanded && (
+                    <div className="mt-2 rounded-xl border border-border bg-card overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                        {isLoading && (
+                            <div className="p-5 space-y-3">
+                                <Skeleton className="h-16 w-full" />
+                                <Skeleton className="h-16 w-full" />
+                                <Skeleton className="h-16 w-full" />
+                            </div>
+                        )}
+
+                        {isError && (
+                            <div className="p-5 text-sm text-destructive">Failed to fetch feedback details.</div>
+                        )}
+
+                        {!isLoading && !isError && feedbacks && (
+                            <div className="flex flex-col divide-y divide-border">
+                                {feedbacks.map((feedback, index) => renderFeedbackItem(feedback, index))}
+                            </div>
+                        )}
+
+                        {/* Pagination controls */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/20">
+                                <div className="text-xs text-muted-foreground">
+                                    Page {page} of {totalPages}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setPage(p => Math.max(1, p - 1));
+                                            setExpandedFeedbackId(null);
+                                        }}
+                                        disabled={page === 1 || isLoading}
+                                        className="h-8 px-2"
+                                    >
+                                        <ChevronLeft className="h-4 w-4 mr-1" />
+                                        Prev
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setPage(p => Math.min(totalPages, p + 1));
+                                            setExpandedFeedbackId(null);
+                                        }}
+                                        disabled={page === totalPages || isLoading}
+                                        className="h-8 px-2"
+                                    >
+                                        Next
+                                        <ChevronRight className="h-4 w-4 ml-1" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
+            </div>
 
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/10 text-orange-500 shadow-sm shrink-0">
-                    <MessageSquare className="h-4 w-4" />
-                </div>
-
-                <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
-                    <span className="text-sm font-semibold text-foreground">Open Feedbacks</span>
-                    <span className="text-xs text-muted-foreground">
-                        {expanded ? "Click to collapse" : `${totalCount} feedback${totalCount !== 1 ? 's' : ''} found`}
-                    </span>
-                </div>
-
-                <Badge variant="secondary" className="text-[10px]">
-                    {isLoading ? "Loading…" : "View Feedbacks"}
-                </Badge>
-            </button>
-
-            {/* Expanded content */}
-            {expanded && (
-                <div className="mt-2 rounded-xl border border-border bg-card overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
-                    {isLoading && (
-                        <div className="p-5 space-y-3">
-                            <Skeleton className="h-16 w-full" />
-                            <Skeleton className="h-16 w-full" />
-                            <Skeleton className="h-16 w-full" />
+            {/* Reason Modal */}
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {modalAction === 'accept' ? 'Accept' : 'Reject'} Feedback
+                        </DialogTitle>
+                        <DialogDescription>
+                            Please provide a reason for {modalAction === 'accept' ? 'accepting' : 'rejecting'} this feedback.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="reason">Reason</Label>
+                            <Textarea
+                                id="reason"
+                                placeholder={`Enter your reason for ${modalAction === 'accept' ? 'accepting' : 'rejecting'} this feedback...`}
+                                value={reason}
+                                onChange={(e) => setReason(e.target.value)}
+                                rows={4}
+                                className="resize-none"
+                            />
                         </div>
-                    )}
-
-                    {isError && (
-                        <div className="p-5 text-sm text-destructive">Failed to fetch feedback details.</div>
-                    )}
-
-                    {!isLoading && !isError && feedbacks && (
-                        <div className="flex flex-col divide-y divide-border">
-                            {feedbacks.map((feedback, index) => renderFeedbackItem(feedback, index))}
-                        </div>
-                    )}
-
-                    {/* Pagination controls */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/20">
-                            <div className="text-xs text-muted-foreground">
-                                Page {page} of {totalPages}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                        setPage(p => Math.max(1, p - 1));
-                                        setExpandedFeedbackId(null);
-                                    }}
-                                    disabled={page === 1 || isLoading}
-                                    className="h-8 px-2"
-                                >
-                                    <ChevronLeft className="h-4 w-4 mr-1" />
-                                    Prev
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                        setPage(p => Math.min(totalPages, p + 1));
-                                        setExpandedFeedbackId(null);
-                                    }}
-                                    disabled={page === totalPages || isLoading}
-                                    className="h-8 px-2"
-                                >
-                                    Next
-                                    <ChevronRight className="h-4 w-4 ml-1" />
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsModalOpen(false)}
+                            disabled={isSubmitting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleSubmit}
+                            disabled={isSubmitting || !reason.trim()}
+                            className={modalAction === 'accept' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+                        >
+                            {isSubmitting ? 'Submitting...' : 'Submit'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 };
 
