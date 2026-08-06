@@ -8889,24 +8889,29 @@ export class QuestionService extends BaseService implements IQuestionService {
     };
   }> {
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
     
     if (!dataReleaseUrl) {
       throw new Error('DATA_RELEASE_URL environment variable is not configured');
     }
 
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+
     // Call the data release service
     const payload = {
-      feedbackId: new ObjectId(feedbackId),
       note: reason,
       action: action === 'accept' ? 'approve' : 'reject',
     };
 
     let dataReleaseResponse: { status: string; pendingFeedbackCount: number };
     try {
-      const response = await fetch(`${dataReleaseUrl}/${questionId}/${feedbackId}`, {
+      const response = await fetch(`${dataReleaseUrl}/feedbacks/${feedbackId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authKey}`,
         },
         body: JSON.stringify(payload),
       });
@@ -9069,15 +9074,25 @@ export class QuestionService extends BaseService implements IQuestionService {
     };
 
     // TODO: Uncomment when data release service is available
-    // const dataReleaseUrl = process.env.DATA_RELEASE_URL || 'http://localhost:8080/api/data-release';
+    // const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    // const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+    // 
+    // if (!dataReleaseUrl) {
+    //   throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    // }
+    // 
+    // if (!authKey) {
+    //   throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    // }
     // 
     // try {
     //   const response = await fetch(
-    //     `${dataReleaseUrl}/${questionId}/feedbacks?page=${page}&pageSize=${pageSize}`,
+    //     `${dataReleaseUrl}/feedbacks/question/${questionId}?page=${page}&pageSize=${pageSize}`,
     //     {
     //       method: 'GET',
     //       headers: {
     //         'Content-Type': 'application/json',
+    //         'Authorization': `Bearer ${authKey}`,
     //       },
     //     }
     //   );
