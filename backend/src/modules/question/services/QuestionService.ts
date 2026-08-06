@@ -8903,7 +8903,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     let dataReleaseResponse: { status: string; pendingFeedbackCount: number };
     try {
       const response = await fetch(`${dataReleaseUrl}/${questionId}/${feedbackId}`, {
-        method: 'POST',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -8944,8 +8944,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         );
       }
 
-      // Remove the questionId from all users' feedbacksAssigned array
-      await this.userRepo.removeFeedbacksAssignedFromAllUsers(questionId);
+      // Remove the questionId from the processedBy user's feedbacksAssigned array
+      await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
 
       return {
         success: true,

@@ -393,8 +393,9 @@ export interface IUserRepository {
   clearAssignedQuestions(userId: string): Promise<{ modifiedCount: number }>;
 
   /**
-   * Removes a questionId from all users' feedbacksAssigned array.
-   * @param questionId - The question ID to remove from feedbacksAssigned arrays
+   * Removes a questionId from a specific user's feedbacksAssigned array.
+   * @param userId - The user ID whose feedbacksAssigned array should be updated
+   * @param questionId - The question ID to remove from feedbacksAssigned array
    */
-  removeFeedbacksAssignedFromAllUsers(feedbackId: string): Promise<{modifiedCount: number}>;
+  removeFeedbacksAssigned(userId: string, questionId: string): Promise<IUser | null>;
 }
