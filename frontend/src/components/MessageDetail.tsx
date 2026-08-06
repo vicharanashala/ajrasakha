@@ -729,9 +729,10 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         : "Answer pushed to GDB successfully"
             );
             navigateToQuestionPage();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to approve answer:", error);
-            toast.error("Failed to approve the answer. Please try again.");
+            const errorMessage = error?.message || "Failed to approve the answer. Please try again.";
+            toast.error(errorMessage);
         }
     };
 

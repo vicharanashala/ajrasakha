@@ -932,404 +932,6 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
 
-  /*async addQuestion(
-    userId: string,
-    body: AddQuestionBodyDto,
-  ): Promise<Partial<IQuestion>> {
-    try {
-      return this._withTransaction(async (session: ClientSession) => {
-        body = normalizeKeysToLower(body);
-        let {
-          question,
-          priority,
-          source = 'AGRI_EXPERT',
-          details,
-          context,
-        } = body;
-
-        if (!details) {
-          const b: any = body;
-
-          details = {
-            state: b?.state || '',
-            district: b?.district || '',
-            crop: b?.crop || '',
-            season: b?.season || '',
-            domain: b?.domain || '',
-          };
-        }
-
-        let priorities = ['low', 'high', 'medium,'];
-        priority = priority.toLowerCase() as IQuestion['priority'];
-        if (!priorities.includes(priority)) {
-          priority = 'medium';
-        }
-        if (!question || question.trim() == '') {
-          throw new BadRequestError(`Question is required`);
-        }
-        if (
-          !details.crop ||
-          !details.district ||
-          !details.domain ||
-          !details.season ||
-          !details.state
-        ) {
-          throw new BadRequestError(`All fields are required`);
-        }
-        // Prevent duplicate questoin entry
-        const isQuestionExisit =
-          await this.questionRepo.getQuestionByQuestionText(
-            body?.question || '',
-            session,
-          );
-
-        // if (isQuestionExisit)
-        //   throw new BadRequestError(
-        //     `This question already exsist in database, try adding new one!`,
-        //   );
-
-        // 1. If context is provided, create context first and get contextId
-        let contextId: ObjectId | null = null;
-
-        if (context) {
-          //i) Create Context entry
-          const {insertedId} = await this.contextRepo.addContext(
-            context,
-            session,
-          );
-          //ii) convert insertedId to ObjectId
-          contextId = new ObjectId(insertedId);
-        }
-
-        // 2. Create Embedding for the question based on text
-        const text = `Question: ${question}`;
-
-        let textEmbedding = [];
-        const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
-
-        if (ENABLE_AI_SERVER) {
-          const {embedding} = await this.aiService.getEmbedding(text);
-          textEmbedding = embedding;
-        }
-
-        // 3. Create Question entry
-        const newQuestion: IQuestion = {
-          userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
-          question,
-          priority,
-          source,
-          status: 'open',
-          totalAnswersCount: 0,
-          contextId,
-          details,
-          isAutoAllocate: true,
-          embedding: textEmbedding,
-          metrics: null,
-          aiInitialAnswer: body.aiInitialAnswer || '',
-          text,
-          createdAt: new Date(),
-
-          // createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
-          updatedAt: new Date(),
-        };
-        // 4. Save Question to DB
-        const savedQuestion = await this.questionRepo.addQuestion(
-          newQuestion,
-          session,
-        );
-
-        // 5. Fetch userId based on provided preference and create queue
-        // i) Find users matching the preference
-        const users = await this.userRepo.findExpertsByPreference(
-          details as PreferenceDto,
-          session,
-        );
-
-        // ii) Create queue from the users found
-        const intialUsersToAllocate = users.slice(0, 3);
-
-        const queue = intialUsersToAllocate // Limit to first 3 experts
-          .map(user => new ObjectId(user._id.toString()));
-
-        // for (const user of intialUsersToAllocate) {
-        //   const IS_INCREMENT = true;
-        //   const userId = user._id.toString();
-        //   await this.userRepo.updateReputationScore(
-        //     userId,
-        //     IS_INCREMENT,
-        //     session,
-        //   );
-        // }
-        if (intialUsersToAllocate) {
-          const IS_INCREMENT = true;
-          const userId = intialUsersToAllocate[0]._id.toString();
-          await this.userRepo.updateReputationScore(
-            userId,
-            IS_INCREMENT,
-            session,
-          );
-        }
-        // 6. Create an empty QuestionSubmission entry for the newly created question
-        const submissionData: IQuestionSubmission = {
-          questionId: new ObjectId(savedQuestion._id.toString()),
-          lastRespondedBy: null,
-          history: [],
-          queue,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        // 6. Save QuestionSubmission to DB
-        await this.questionSubmissionRepo.addSubmission(
-          submissionData,
-          session,
-        );
-
-        //send notification to the first assigned expert
-        if (intialUsersToAllocate[0]) {
-          let message = `A Question has been assigned for answering`;
-          let title = 'Answer Creation Assigned';
-          let entityId = savedQuestion._id.toString();
-          const user = intialUsersToAllocate[0]._id.toString();
-          const type: INotificationType = 'answer_creation';
-          await this.notificationService.saveTheNotifications(
-            message,
-            title,
-            entityId,
-            user,
-            type,
-          );
-        }
-        // 7. Return the saved question
-        return newQuestion;
-      });
-    } catch (error) {
-      console.error(error);
-      throw new InternalServerError(`Failed to add question: ${error}`);
-    }
-  }*/
-
-  /*async addQuestion(
-    userId: string,
-    body: AddQuestionBodyDto,
-  ): Promise<AddQuestionResult> {
-    const logData: Record<string, any> = {};
-    try {
-      body = normalizeKeysToLower(body);
-  
-      let {
-        question,
-        priority,
-        source = 'AGRI_EXPERT',
-        details,
-        context,
-      } = body;
-  
-      if (!details) {
-        const b: any = body;
-        details = {
-          state: b?.state || '',
-          district: b?.district || '',
-          crop: b?.crop || '',
-          season: b?.season || '',
-          domain: b?.domain || '',
-        };
-      }
-  
-      const validPriorities = ['low', 'medium', 'high'];
-      priority = priority?.toLowerCase() as IQuestion['priority'];
-      if (!validPriorities.includes(priority)) {
-        priority = 'medium';
-      }
-  
-      if (!question?.trim()) {
-        throw new BadRequestError(`Question is required`);
-      }
-  
-      if (
-        !details.crop ||
-        !details.district ||
-        !details.domain ||
-        !details.season ||
-        !details.state
-      ) {
-        throw new BadRequestError(`All fields are required`);
-      }
-
-      logData.userId = userId;
-      logData.question = question;
-      logData.details = details;
-      logData.source = source;
-
-      // 🔹 Create Embedding — OUTSIDE transaction
-      const text = `Question: ${question}`;
-      let textEmbedding: number[] = [];
-
-
-      if (appConfig.ENABLE_AI_SERVER) {
-        const { embedding } = await this.aiService.getEmbedding(text);
-        textEmbedding = embedding;
-      }
-
-      logData.embeddingGenerated = textEmbedding.length > 0;
-      logData.vectorLength = textEmbedding.length;
-
-      // 🔥 Similarity Check — OUTSIDE transaction ($vectorSearch cannot run inside one)
-      let highestScore = 0;
-      let referenceQuestionId: ObjectId | null = null;
-      let referenceQuestion=''
-      
-      if (textEmbedding.length && source === 'AJRASAKHA') {
-        // No session passed here intentionally
-        const topSimilar = await this.questionRepo.findTopSimilarQuestions(
-          textEmbedding,
-          5,
-          { state: details.state, district: details.district, crop: typeof details.crop === 'string' ? details.crop : details.crop.name, domain: details.domain, season: details.season },
-        );
-
-        logData.totalMatches = topSimilar.length;
-        logData.matches = topSimilar.map((q) => ({
-          questionId: q._id,
-          question: q.question,
-          similarityScore: ((q._vectorSearchScore ?? 0) * 100).toFixed(2),
-        }));
-
-        if (topSimilar.length > 0) {
-          const best = topSimilar[0];
-          highestScore = (best._vectorSearchScore ?? 0) * 100;
-          referenceQuestionId = best._id as ObjectId;
-          referenceQuestion=best.question
-          logData.vectorLength = textEmbedding.length;
-          logData.referenceQuestionId = referenceQuestionId;
-        }
-
-      }
-
-      logData.highestScore = highestScore.toFixed(2);
-      logData.threshold = 85;      
-
-      // ✅ Everything that needs atomicity goes inside the transaction
-      return this._withTransaction(async (session: ClientSession) => {
-        // 🔹 Create Context
-        let contextId: ObjectId | null = null;
-
-        if (context) {
-          const { insertedId } = await this.contextRepo.addContext(context, session);
-          contextId = new ObjectId(insertedId);
-        }
-
-        // 🔹 Create Base Question Object
-        const baseQuestion: IQuestion = {
-          userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
-          question,
-          priority,
-          source,
-          status: 'open',
-          totalAnswersCount: 0,
-          contextId,
-          details,
-          isAutoAllocate: true,
-          embedding: textEmbedding,
-          metrics: null,
-          aiInitialAnswer: body.aiInitialAnswer || '',
-          text,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-  
-        // =====================================================
-        // 🔥 IF SIMILAR → STORE AS DUPLICATE
-        // =====================================================
-        if (highestScore >= 85 && referenceQuestionId && referenceQuestion) {
-          const duplicateQuestion = {
-            ...baseQuestion,
-            similarityScore: Number(highestScore.toFixed(2)),
-            referenceQuestionId,
-            referenceQuestion
-          };
-          await this.duplicateQuestionRepository.addDuplicate(
-            duplicateQuestion,
-            session,
-          );
-  
-          logData.outcome = 'DUPLICATE_DETECTED';
-          logData.matchedQuestion = referenceQuestion;
-          logData.similarityScore = highestScore.toFixed(2);
-          chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
-
-          return { isDuplicate: true, data: duplicateQuestion };
-        }
-  
-        // =====================================================
-        // 🔥 IF NOT SIMILAR → NORMAL FLOW
-        // =====================================================
-    
-        logData.outcome = 'NEW_QUESTION_ADDED';
-        chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-
-        const savedQuestion = await this.questionRepo.addQuestion(
-          baseQuestion,
-          session,
-        );
-  
-        if (!savedQuestion?._id) {
-          throw new InternalServerError(`Failed to save question to database`);
-        }
-  
-        const users = await this.userRepo.findExpertsByPreference(
-          details as PreferenceDto,
-          session,
-        );
-  
-        const initialUsersToAllocate = users.slice(0, 3);
-  
-        const queue = initialUsersToAllocate.map(
-          (user) => new ObjectId(user._id.toString()),
-        );
-  
-        if (initialUsersToAllocate[0]) {
-          await this.userRepo.updateReputationScore(
-            initialUsersToAllocate[0]._id.toString(),
-            true,
-            session,
-          );
-        }
-  
-        const submissionData: IQuestionSubmission = {
-          questionId: new ObjectId(savedQuestion._id.toString()),
-          lastRespondedBy: null,
-          history: [],
-          queue,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-  
-        await this.questionSubmissionRepo.addSubmission(submissionData, session);
-  
-        if (initialUsersToAllocate[0]) {
-          await this.notificationService.saveTheNotifications(
-            `A Question has been assigned for answering`,
-            'Answer Creation Assigned',
-            savedQuestion._id.toString(),
-            initialUsersToAllocate[0]._id.toString(),
-            'answer_creation',
-          );
-        }
-  
-        return { isDuplicate: false, data: baseQuestion };
-      });
-    } catch (error) {
-      console.error(error);
-
-      logData.outcome = 'FAILED';
-      logData.errorMessage = error.message;
-      logData.stack = error.stack;
-      chatbotSimilarityLogger.error('ADD_QUESTION_LOG', logData);
-            
-      throw new InternalServerError(`Failed to add question: ${error}`);
-    }
-  }*/
-
   // Reusable duplicate detection helper.
 
   async checkDuplicateQuestion(
@@ -2185,6 +1787,95 @@ export class QuestionService extends BaseService implements IQuestionService {
     return resolved.name;
   }
 
+  async ensureNormalisedLocation(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<{ valid: true }> {
+    const question = await this.questionRepo.getById(questionId, session);
+    const rawState = question.details?.state?.trim() ?? '';
+    const rawDistrict = question.details?.district?.trim() ?? '';
+
+    // ── State validation ──────────────────────────────────────────────────────
+    if (rawState) {
+      const statesCollection = await this.mongoDatabase.getCollection<{
+        stateNameEnglish: string;
+        aliases?: string[];
+      }>('states');
+
+      // Build a map: lowercase alias → canonical stateNameEnglish
+      const allStates = await statesCollection.find({}).toArray();
+      const aliasToState = new Map<string, string>();
+      for (const s of allStates) {
+        const canonical = s.stateNameEnglish;
+        // Map the canonical name itself (case-insensitive)
+        aliasToState.set(canonical.toLowerCase(), canonical);
+        // Map each alias
+        for (const alias of s.aliases ?? []) {
+          aliasToState.set(alias.toLowerCase(), canonical);
+        }
+      }
+
+      const stateKey = rawState.toLowerCase();
+      const normalisedState = aliasToState.get(stateKey);
+
+      if (!normalisedState) {
+        throw new BadRequestError(
+          `This question's state "${rawState}" is not registered in the system. Please add the correct state from the LGD Management section before approving this answer.`,
+        );
+      }
+
+      // Update if the canonical name differs from the raw value
+      if (normalisedState !== rawState) {
+        await this.questionRepo.updateQuestion(
+          questionId,
+          { 'details.state': normalisedState } as any,
+          session,
+        );
+      }
+    }
+
+    // ── District validation ───────────────────────────────────────────────────
+    if (rawDistrict) {
+      const districtsCollection = await this.mongoDatabase.getCollection<{
+        districtNameEnglish: string;
+        aliases?: string[];
+      }>('districts');
+
+      // Build a map: lowercase alias → canonical districtNameEnglish
+      const allDistricts = await districtsCollection.find({}).toArray();
+      const aliasToDistrict = new Map<string, string>();
+      for (const d of allDistricts) {
+        const canonical = d.districtNameEnglish;
+        // Map the canonical name itself (case-insensitive)
+        aliasToDistrict.set(canonical.toLowerCase(), canonical);
+        // Map each alias
+        for (const alias of d.aliases ?? []) {
+          aliasToDistrict.set(alias.toLowerCase(), canonical);
+        }
+      }
+
+      const districtKey = rawDistrict.toLowerCase();
+      const normalisedDistrict = aliasToDistrict.get(districtKey);
+
+      if (!normalisedDistrict) {
+        throw new BadRequestError(
+          `This question's district "${rawDistrict}" is not registered in the system. Please add the correct district from the LGD Management section before approving this answer.`,
+        );
+      }
+
+      // Update if the canonical name differs from the raw value
+      if (normalisedDistrict !== rawDistrict) {
+        await this.questionRepo.updateQuestion(
+          questionId,
+          { 'details.district': normalisedDistrict } as any,
+          session,
+        );
+      }
+    }
+
+    return { valid: true };
+  }
+
   async getQuestionById(questionId: string): Promise<QuestionResponse> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
@@ -2353,6 +2044,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // so the cron sees them as available again. Keyed by questionId so a
         // malformed/missing moderatorId can't leave an orphan entry behind.
         if (updates.status === 'pass') {
+          await this.ensureNormalisedLocation(questionId, session);
           // Check for pending allocations before allowing pass
           const questionSubmission =
             await this.questionSubmissionRepo.getByQuestionId(
