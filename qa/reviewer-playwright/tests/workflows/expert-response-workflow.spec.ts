@@ -80,37 +80,28 @@ test.describe("Expert Response Workflow", () => {
 
   test("ERW-M003 Allocated expert can view assigned question", async ({
     workflowExpertDashboard,
-    expertQuestionDetailsPage,
+    workflowResponsePage,
   }) => {
     await workflowExpertDashboard.waitForShell();
-
-    await workflowExpertDashboard.openAllQuestions();
 
     await workflowExpertDashboard.waitForQuestion(question);
 
     await workflowExpertDashboard.openQuestion(question);
-    await expertQuestionDetailsPage.expectQuestionText(question);
-
-    await expertQuestionDetailsPage.expectCoreHeader();
+    await workflowResponsePage.expectCurrentQuery(question);
   });
 
   test("ERW-M004 Expert can access response form", async ({
     workflowExpertDashboard,
-    expertQuestionDetailsPage,
-    responsePage,
+    workflowResponsePage,
   }) => {
     await workflowExpertDashboard.waitForShell();
 
-    await workflowExpertDashboard.openAllQuestions();
-
     await workflowExpertDashboard.waitForQuestion(question);
-
-    await workflowExpertDashboard.pause();
 
     await workflowExpertDashboard.openQuestion(question);
 
-    await expertQuestionDetailsPage.expectQuestionText(question);
+    await workflowResponsePage.expectCurrentQuery(question);
 
-    await responsePage.expectLoaded();
+    await workflowResponsePage.expectLoaded();
   });
 });

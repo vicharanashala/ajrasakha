@@ -27,6 +27,7 @@ export class ResponsePage {
   readonly domainLabel: Locator;
   readonly validationMessage: Locator;
   readonly successToast: Locator;
+  readonly currentQuery: Locator;
 
   constructor(private readonly page: Page) {
     // These IDs already exist in your application.
@@ -115,6 +116,9 @@ export class ResponsePage {
     );
 
     this.successToast = page.getByText(/submitted|success|saved/i);
+    this.currentQuery = page
+      .getByText("Current Query:", { exact: true })
+      .locator("xpath=ancestor::div[1]/following-sibling::p[1]");
   }
 
   async expectLoaded(): Promise<void> {
@@ -238,5 +242,8 @@ export class ResponsePage {
     await expect(this.submitConfirmationDialog).toBeVisible();
     await expect(this.confirmSubmitButton).toBeEnabled();
     await this.confirmSubmitButton.click();
+  }
+  async expectCurrentQuery(question: string): Promise<void> {
+    await expect(this.currentQuery).toHaveText(question);
   }
 }

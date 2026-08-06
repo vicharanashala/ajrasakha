@@ -86,68 +86,39 @@ export class ExpertDashboardPage {
     await trigger.click();
     return responsePromise;
   }
-  // async openQuestion(question: string): Promise<void> {
-  //   await this.page
-  //     .getByRole("table")
-  //     .getByText(question, { exact: true })
-  //     .click();
-  // }
-  // async openQuestion(question: string): Promise<void> {
-  //   const container = this.page.locator('[data-slot="card-content"]');
-
-  //   await container.evaluate((el) => {
-  //     el.scrollTop = el.scrollHeight;
-  //   });
-
-  //   await this.page.waitForTimeout(300);
-
-  //   const lastQuestion = container.locator("label").last();
-
-  //   await expect(lastQuestion).toHaveText(question);
-  //   await lastQuestion.click();
-  // }
-  async openQuestion(question: string) {
-    const scrollArea = this.page.locator(".overflow-y-auto").first();
-
-    await scrollArea.evaluate((el) => {
-      el.scrollTop = el.scrollHeight;
-    });
-
-    await this.page.getByText(question, { exact: true }).click();
+  private queueContainer(): Locator {
+    return this.page
+      .locator('[data-slot="card-content"]')
+      .filter({ has: this.page.getByRole("radiogroup") });
   }
-  async openLastQuestion(): Promise<void> {
-    const container = this.page.locator('[data-slot="card-content"]');
 
-    // Scroll to the bottom
-    await container.evaluate((el) => {
-      el.scrollTop = el.scrollHeight;
-    });
-
-    // Wait for scroll to finish
-    await this.page.waitForTimeout(300);
-
-    // Click the last question
-    const lastQuestion = container.locator("label").last();
-
-    await expect(lastQuestion).toBeVisible();
-    await lastQuestion.click();
+  private questionLabel(question: string): Locator {
+    return this.queueContainer().getByText(question, { exact: true });
   }
-  // async waitForQuestion(question: string) {
-  //   const questionCell = this.page
-  //     .getByRole("table")
-  //     .getByText(question, { exact: true });
 
-  //   await expect(questionCell).toBeVisible({
-  //     timeout: 60000,
-  //   });
-  // }
-  async waitForQuestion(question: string) {
-    const scrollArea = this.page.locator(".overflow-y-auto").first();
+  async waitForQuestion(question: string, timeout = 30_000): Promise<void> {
+    const label = this.questionLabel(question);
+    const container = this.queueContainer();
+    const deadline = Date.now() + timeout;
 
-    await scrollArea.evaluate((el) => {
-      el.scrollTop = el.scrollHeight;
-    });
+    while (Date.now() < deadline) {
+      if (await label.count()) {
+        await expect(label).toBeVisible();
+        return;
+      }
+      await container.evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+      });
+      await this.page.waitForTimeout(500);
+    }
 
-    await expect(this.page.getByText(question, { exact: true })).toBeVisible();
+    // Final assertion so failures report a proper Playwright error, not a silent timeout.
+    await expect(label).toBeVisible({ timeout: 1000 });
+  }
+
+  async openQuestion(question: string): Promise<void> {
+    const label = this.questionLabel(question);
+    await expect(label).toBeVisible();
+    await label.click();
   }
 }
