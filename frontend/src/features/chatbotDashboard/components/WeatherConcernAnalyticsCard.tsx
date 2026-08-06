@@ -25,6 +25,7 @@ import {
   STATES,
   WEATHER_CONCERN_LABELS,
 } from "@/components/MetaData";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Calendar } from "@/components/atoms/calendar";
@@ -204,6 +205,9 @@ export function WeatherConcernAnalyticsCard({
     return DISTRICTS[filters.state] ?? [];
   }, [filters.state]);
 
+  const { data: dbStatesRes = [] } = useGetStates();
+  const stateOptions = dbStatesRes.length > 0 ? dbStatesRes.map((s) => s.stateNameEnglish) : STATES;
+
   const updateFilter = (
     key: WeatherConcernSelectFilter,
     value: string,
@@ -382,7 +386,7 @@ const handleRefresh = async () => {
           />
 
           <SearchableSelect
-            options={STATES}
+            options={stateOptions}
             value={filters.state}
             onChange={(value) => updateFilter("state", value)}
             placeholder="All States"

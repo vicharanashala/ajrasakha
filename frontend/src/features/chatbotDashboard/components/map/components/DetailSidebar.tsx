@@ -14,6 +14,7 @@ import { StatCard } from "./StatCard";
 import { StateList } from "./StateList";
 import { DistrictList } from "./DistrictList";
 import { DistrictDetails } from "./DistrictDetails";
+import { normalizeLocation } from "../lib/normalizeLocation";
 import {
   useUserDetails,
   type PaginatedUserDetailsResponse,
@@ -177,7 +178,7 @@ export function DetailSidebar({
   );
 
   const districtData = districtAnalytic?.find(
-    (data: any) => data.district === selectedDistrict,
+    (data: any) => normalizeLocation(data.district) === normalizeLocation(selectedDistrict),
   );
 
   const countryAnalytics = statesWithData

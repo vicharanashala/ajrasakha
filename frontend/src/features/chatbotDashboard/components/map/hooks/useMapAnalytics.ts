@@ -8,6 +8,7 @@ import type { Analytics, LevelKey } from "../lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { ChatbotService } from "@/hooks/services/chatbotService";
 import type { DistrictAnalyticsResponse } from "@/features/chatbotDashboard/hooks/useStateQueryData";
+import { normalizeLocation } from "../lib/normalizeLocation";
 
 interface UseMapAnalyticsProps {
   statesGeo: unknown;
@@ -152,20 +153,30 @@ case "users":
     };
   }, [statesGeo, analyticsMap, stateRankMap]);
 
-  const districtMap = useMemo(() => {
-    if (!districtAnalytics) return new Map();
-
-    return new Map(
-      districtAnalytics.map((item) => [item.district.toLowerCase(), item]),
-    );
+  const districtList: any[] = useMemo(() => {
+    if (!districtAnalytics) return [];
+    return Array.isArray(districtAnalytics)
+      ? districtAnalytics
+      : (districtAnalytics as any).data ?? [];
   }, [districtAnalytics]);
 
-  const metricRankMap  = useMemo(() => {
-  if (!districtAnalytics) return new Map<string, number>();
+  const districtMap = useMemo(() => {
+    if (!districtList.length) return new Map();
 
-  const sorted = [...districtAnalytics]
-    .filter((d) => d.district.toLowerCase() !== "others")
-    .sort((a, b) => {
+    const map = new Map();
+    districtList.forEach((item: any) => {
+      map.set(normalizeLocation(item.district), item);
+      map.set(item.district.toLowerCase(), item);
+    });
+    return map;
+  }, [districtList]);
+
+  const metricRankMap  = useMemo(() => {
+  if (!districtList.length) return new Map<string, number>();
+
+  const sorted = [...districtList]
+    .filter((d: any) => d.district.toLowerCase() !== "others")
+    .sort((a: any, b: any) => {
       switch (metric) {
 case "users":
   return hasDateFilter
@@ -181,19 +192,20 @@ case "users":
     });
 
   const map = new Map<string, number>();
-  
 
-  sorted.forEach((district, index) => {
+  sorted.forEach((district: any, index: number) => {
+    map.set(
+      normalizeLocation(district.district),
+      sorted.length - index,
+    );
     map.set(
       district.district.toLowerCase(),
       sorted.length - index,
     );
   });
 
-  
-
   return map;
-}, [districtAnalytics, metric]);
+}, [districtList, metric, hasDateFilter]);
 
   // Filter districts by selected state
 
@@ -211,20 +223,12 @@ case "users":
 
     console.log("Selected state:", selectedState);
 
-// console.log(
-//   geo.features.filter(
-//     (f) =>
-//       f.properties.NAME_2 === "Ladakh (Leh)" ||
-//       f.properties.NAME_2 === "Kargil",
-//   ),
-// );
-
     const features = geo.features
-      .filter((f) => f.properties.NAME_1 === selectedState)
+      .filter((f) => String(f.properties.NAME_1).toLowerCase() === selectedState.toLowerCase())
       .map((f) => {
         const districtName = String(f.properties.NAME_2);
 
-        const analytics = districtMap.get(districtName.toLowerCase());
+        const analytics = districtMap.get(normalizeLocation(districtName)) ?? districtMap.get(districtName.toLowerCase());
 
         console.log({
   district: districtName,
@@ -252,7 +256,7 @@ case "users":
     rank:
       districtName === "Others"
         ? -1
-        : metricRankMap.get(districtName.toLowerCase()) ?? 0,
+        : metricRankMap.get(normalizeLocation(districtName)) ?? metricRankMap.get(districtName.toLowerCase()) ?? 0,
 },
           },
         };

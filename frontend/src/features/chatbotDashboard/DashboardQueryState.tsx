@@ -237,7 +237,9 @@ export const DashboardStateWiseAnalytics = ({
   );
 
 
-  const districts = data ?? [];
+  const districts: any[] = Array.isArray(data)
+    ? data
+    : (data as any)?.data ?? [];
 
   const maxTotal = useMemo(() => {
     return Math.max(...districts.map((d) => d.totalQuestions), 1);
@@ -250,6 +252,10 @@ export const DashboardStateWiseAnalytics = ({
     await queryClient.refetchQueries({ queryKey: ["state-wise-analytics"] });
     setRefreshing(false);
   }
+
+  const stateOptions = (responseData && responseData.length > 0)
+    ? responseData.map((s) => s.stateNameEnglish)
+    : STATES;
 
   return (
     <Card
@@ -360,12 +366,19 @@ export const DashboardStateWiseAnalytics = ({
                 <CommandEmpty>No state found.</CommandEmpty>
 
                 <CommandGroup>
-                  {STATES.map((state) => (
+                  {stateOptions.map((state) => (
                     <CommandItem
                       key={state}
                       value={state}
                       onSelect={(currentValue) => {
-                        setSelectedState(currentValue);
+                        const matchedStateObj = responseData?.find(
+                          (s) => s.stateNameEnglish.toLowerCase() === currentValue.toLowerCase()
+                        );
+                        if (matchedStateObj) {
+                          setSelectedState(matchedStateObj.stateNameEnglish);
+                        } else {
+                          setSelectedState(currentValue);
+                        }
 
                         setOpen(false);
                       }}
