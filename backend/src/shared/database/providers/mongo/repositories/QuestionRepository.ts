@@ -8157,6 +8157,15 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  async findQuestionsWithOpenFeedbacks(): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection.find({
+      'feedbacks.status': 'open',
+    } as any)
+      .sort({createdAt: 1})
+      .toArray();
+  }
+
   /** Sets or clears moderatorId on a question document. Also stamps moderatorAssignedAt when assigning. */
   async updateModeratorId(questionId: string, moderatorId: string | null): Promise<void> {
     await this.init();

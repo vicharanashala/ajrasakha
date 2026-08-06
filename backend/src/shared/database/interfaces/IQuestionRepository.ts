@@ -642,6 +642,7 @@ export interface IQuestionRepository {
 
   findUnassignedInReviewQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
   findModeratorAssignedQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
+  findQuestionsWithOpenFeedbacks(): Promise<IQuestion[]>;
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 
   /** Gate-keeper / auditor role allocation helpers. */

@@ -591,6 +591,7 @@ export interface IQuestionService {
    *  to experts with fewer than 3 active time-bound questions. */
   reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
   reallocateManualQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
+  allocateFeedbackQuestions(): Promise<{ message: string; allocated: number; skipped: number }>;
 
   /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
    *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */

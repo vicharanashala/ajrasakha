@@ -3551,6 +3551,33 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     return result; // contains the updated document
   }
 
+  async assignFeedbackReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        $or: [
+          {feedbackReviewerId: {$exists: false}},
+          {feedbackReviewerId: null},
+        ],
+      },
+      {
+        $set: {
+          feedbackReviewerId: new ObjectId(reviewerId),
+          feedbackReviewAssignedAt: assignedAt,
+          updatedAt: new Date(),
+        },
+      },
+      {session},
+    );
+    return result.modifiedCount > 0;
+  }
+
   // ─── Time-bound allocation tracking ───────────────────────────────────────
 
   async markQuestionOpenedByExpert(

@@ -105,6 +105,8 @@ let isReallocatingTimeBound = false;
 /** Same guard as above, for the manual (AGRI_EXPERT/OUTREACH) single-allocation cron. */
 let isReallocatingManual = false;
 
+let isReallocatingFeedback = false;
+
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
   constructor(
@@ -1383,7 +1385,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Get submission to check queue length
       const questionSubmission = await this.questionSubmissionRepo.getByQuestionId(questionId);
       const queueLength = questionSubmission?.queue?.length || 0;
-      
+
       // Only flip the status to 'duplicate' when the question is still open/delayed.
       // For any other status (in-review, closed, etc.) the workflow is already past
       // that point, so the status must not change — we just record the reference.
@@ -8488,7 +8490,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Map a full question doc through the submission mapper (wraps it as `.question`).
         return {
           count,
-          items: pageQs.map(q => this.submissionToQueueItem({ question: q })),
+          items: pageQs.map(q => this.submissionToQueueItem({question: q})),
         };
       }
 
@@ -9015,5 +9017,161 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     return entry as ISubmissionHistory;
+  }
+
+  // Feedback allocation
+  async allocateFeedbackQuestions(): Promise<{
+    message: string;
+    allocated: number;
+    skipped: number;
+  }> {
+    if (isReallocatingFeedback) {
+      console.log(
+        '[Feedback] Previous run still in progress — skipping this tick to avoid double-allocation.',
+      );
+      return {
+        message: 'Reallocation already in progress',
+        allocated: 0,
+        skipped: 0,
+      };
+    }
+    isReallocatingFeedback = true;
+    try {
+      const questions =
+        await this.questionRepo.findQuestionsWithOpenFeedbacks();
+      if (!questions.length) {
+        console.log('[Feedback] No questions found with open feedback.');
+        return {
+          message: 'No questions found with open feedback',
+          allocated: 0,
+          skipped: 0,
+        };
+      }
+
+      const questionIds = questions
+        .map(question => question._id?.toString())
+        .filter((id): id is string => Boolean(id));
+      const finalAnswers =
+        await this.answerRepo.getFinalAnswersByQuestionIds(questionIds);
+      const approverByQuestionId = new Map<string, string>();
+
+      for (const answer of finalAnswers) {
+        const questionId = answer.questionId?.toString();
+        const approvedBy = answer.approvedBy?.toString();
+        if (questionId && approvedBy && !approverByQuestionId.has(questionId)) {
+          approverByQuestionId.set(questionId, approvedBy);
+        }
+      }
+
+      let allocated = 0;
+      let skipped = 0;
+
+      for (const question of questions) {
+        const questionId = question._id?.toString();
+        if (!questionId) {
+          skipped++;
+          continue;
+        }
+
+        const approvedByUserId = approverByQuestionId.get(questionId);
+        if (!approvedByUserId) {
+          console.log(
+            `[Feedback] Skipped question ${questionId}: no approvedBy user found.`,
+          );
+          skipped++;
+          continue;
+        }
+
+        try {
+          const assignedAt = new Date();
+          let assignedReviewerId: string | undefined;
+          // Try to claim the approved reviewer first; if unavailable, try other
+          // available moderators/auditors until one successfully claims the feedback.
+          await this._withTransaction(async session => {
+            // Candidate order: approvedByUserId first, then available moderators,
+            // then available auditors. Exclude the approved user when fetching lists
+            // to avoid duplicate checks.
+            const candidateIds: string[] = [];
+
+            // Start with the approved reviewer as preferred candidate.
+            candidateIds.push(approvedByUserId);
+
+            // Fetch other available auditors to use as fallback.
+            
+            const availAuditors =
+              await this.userRepo.findAvailableUsersByRole('auditor');
+            for (const a of availAuditors) {
+              const id = a._id?.toString();
+              if (id && id !== approvedByUserId) candidateIds.push(id);
+            }
+
+            let assigned = false;
+            let lastClaimedUser: string | undefined;
+
+            for (const candidateId of candidateIds) {
+              const reviewerClaimed =
+                await this.userRepo.claimFeedbackAllocation(
+                  candidateId,
+                  questionId,
+                  session,
+                );
+              if (!reviewerClaimed) continue;
+
+              // We claimed this user's feedback slot; now assign the submission
+              // to that reviewer. If assignment fails, the transaction will abort
+              // and the claim will not persist.
+              const submissionAssigned =
+                await this.questionSubmissionRepo.assignFeedbackReviewer(
+                  questionId,
+                  candidateId,
+                  assignedAt,
+                  session,
+                );
+              if (submissionAssigned) {
+                assigned = true;
+                lastClaimedUser = candidateId;
+                // capture outside-transaction variable for logging after commit
+                assignedReviewerId = candidateId;
+                break;
+              }
+            }
+
+            if (!assigned) {
+              throw new Error(
+                'FEEDBACK_SUBMISSION_NOT_ASSIGNABLE_OR_NO_REVIEWER',
+              );
+            }
+          });
+
+          allocated++;
+          console.log(
+            `[Feedback] Allocated question ${questionId} to reviewer ${assignedReviewerId ?? approvedByUserId}.`,
+          );
+        } catch (error: any) {
+          skipped++;
+          const reason =
+            error?.message === 'FEEDBACK_REVIEWER_UNAVAILABLE'
+              ? 'reviewer not available'
+              : error?.message === 'FEEDBACK_SUBMISSION_NOT_ASSIGNABLE'
+                ? 'submission missing or already assigned'
+                : error?.message ===
+                    'FEEDBACK_SUBMISSION_NOT_ASSIGNABLE_OR_NO_REVIEWER'
+                  ? 'no available reviewer or submission not assignable'
+                  : error?.message || 'unknown error';
+          console.log(`[Feedback] Skipped question ${questionId}: ${reason}.`);
+        }
+      }
+
+      console.log(
+        `[Feedback] Done. allocated=${allocated}, skipped=${skipped}`,
+      );
+      return {
+        message: 'Feedback allocation completed',
+        allocated,
+        skipped,
+      };
+    } finally {
+      isReallocatingFeedback = false;
+    }
   }
 }

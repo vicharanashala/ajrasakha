@@ -188,6 +188,12 @@ export interface IQuestionSubmissionRepository {
     session?: ClientSession,
   ): Promise<IQuestionSubmission[]>;
   updateById(id?: string, update?: any, session?: any);
+  assignFeedbackReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean>;
   getLevelWiseReport(
     startDate: string,
     endDate: string,

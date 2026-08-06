@@ -1067,6 +1067,51 @@ export class UserRepository implements IUserRepository {
       .toArray();
   }
 
+  /** Atomically claim a feedback-review assignment for a user only when they are an
+   *  active moderator/auditor and their feedback allocation array is empty/missing. */
+  async claimFeedbackAllocation(
+    userId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    const result = await this.usersCollection.updateOne(
+      {
+        _id: new ObjectId(userId),
+        role: {$in: ['moderator', 'auditor']},
+        isBlocked: {$ne: true},
+        status: {$ne: 'in-active'},
+        $or: [
+          {feedbacksAssigned: {$exists: false}},
+          {feedbacksAssigned: null},
+          {feedbacksAssigned: {$size: 0}},
+        ],
+      },
+      [
+        {
+          $set: {
+            feedbacksAssigned: {
+              $concatArrays: [
+                {
+                  $filter: {
+                    input: {$ifNull: ['$feedbacksAssigned', []]},
+                    as: 'q',
+                    cond: {$ne: ['$$q', qid]},
+                  },
+                },
+                [qid],
+              ],
+            },
+            updatedAt: new Date(),
+          },
+        },
+      ],
+      {session},
+    );
+    return result.modifiedCount > 0;
+  }
+
   /** Appends a question (with its current status) to a moderator's assigned-questions
    *  array. Pulls any stale entry for the same question first so the questionId is never
    *  duplicated and the stored status is fresh. The cron passes 'in-review'; manual
