@@ -194,6 +194,11 @@ export interface IQuestionSubmissionRepository {
     assignedAt: Date,
     session?: ClientSession,
   ): Promise<boolean>;
+  finishOpenFeedbackReviews(
+    questionId: string,
+    finishedAt: Date,
+    session?: ClientSession,
+  ): Promise<number>;
   getLevelWiseReport(
     startDate: string,
     endDate: string,

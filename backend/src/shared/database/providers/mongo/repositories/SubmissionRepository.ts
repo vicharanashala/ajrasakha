@@ -3558,24 +3558,55 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     session?: ClientSession,
   ): Promise<boolean> {
     await this.init();
+    // Push a new feedback-review round, but only if there is no OPEN round
+    // (an entry whose finishedAt is null/absent). `finishedAt: null` matches both
+    // null and missing, so $elemMatch finds any open round; $not blocks the push
+    // when one exists. A missing/empty feedbackReviews array passes the guard.
     const result = await this.QuestionSubmissionCollection.updateOne(
       {
         questionId: new ObjectId(questionId),
-        $or: [
-          {feedbackReviewerId: {$exists: false}},
-          {feedbackReviewerId: null},
-        ],
-      },
+        feedbackReviews: {$not: {$elemMatch: {finishedAt: null}}},
+      } as any,
       {
-        $set: {
-          feedbackReviewerId: new ObjectId(reviewerId),
-          feedbackReviewAssignedAt: assignedAt,
-          updatedAt: new Date(),
-        },
+        $push: {
+          feedbackReviews: {
+            reviewerId: new ObjectId(reviewerId),
+            assignedAt,
+            finishedAt: null,
+          },
+        } as any,
+        $set: {updatedAt: new Date()},
       },
       {session},
     );
     return result.modifiedCount > 0;
+  }
+
+  /**
+   * Close the open feedback-review round(s) for a question by stamping finishedAt.
+   * Uses an arrayFilter so only the round(s) still open (finishedAt null/absent)
+   * are updated. Returns the number of submissions modified.
+   */
+  async finishOpenFeedbackReviews(
+    questionId: string,
+    finishedAt: Date,
+    session?: ClientSession,
+  ): Promise<number> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {
+        $set: {
+          'feedbackReviews.$[e].finishedAt': finishedAt,
+          updatedAt: new Date(),
+        },
+      } as any,
+      {
+        arrayFilters: [{'e.finishedAt': null}],
+        session,
+      },
+    );
+    return result.modifiedCount;
   }
 
   // ─── Time-bound allocation tracking ───────────────────────────────────────

@@ -346,6 +346,14 @@ export interface ISubmissionHistory {
   updatedAt: Date;
 }
 
+/** One feedback-review round on a question — assigned to a reviewer, later finished. */
+export interface IFeedbackReview {
+  reviewerId: string | ObjectId;
+  assignedAt: Date;
+  /** Null/absent while the round is still open (in progress). */
+  finishedAt?: Date | null;
+}
+
 export interface IQuestionSubmission {
   _id?: string | ObjectId;
   questionId: string | ObjectId;
@@ -361,11 +369,18 @@ export interface IQuestionSubmission {
    *  Set on initial allocation and reset on every reallocation.
    *  Used to compute the 45-minute reallocation window for time-bound questions. */
   currentExpertAllocatedAt?: Date | null;
-  /** Timestamp when feedback review was assigned for this question. */
+  /**
+   * Feedback-review rounds for this question. A question can receive feedback
+   * multiple times; each round is one entry with its reviewer and timestamps. A
+   * round is "open" while `finishedAt` is null/absent — the allocator assigns a
+   * new round only when none is open.
+   */
+  feedbackReviews?: IFeedbackReview[] | null;
+  /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
   feedbackReviewAssignedAt?: Date | null;
-  /** Timestamp when feedback review was finished (all feedbacks resolved). */
+  /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
   feedbackReviewFinishedAt?: Date | null;
-  /** User assigned to review this question's open feedback. */
+  /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
   feedbackReviewerId?: string | ObjectId | null;
   createdAt?: Date;
   updatedAt?: Date;

@@ -8942,14 +8942,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         } as any
       );
 
-      // Update the question submission with feedbackReviewFinishedAt
-      const submission = await this.questionSubmissionRepo.getByQuestionId(questionId);
-      if (submission?._id) {
-        await this.questionSubmissionRepo.updateById(
-          submission._id.toString(),
-          { $set: { feedbackReviewFinishedAt: now } },
-        );
-      }
+      // Close the open feedback-review round on the submission (stamps finishedAt
+      // on the round that has no finishedAt yet).
+      await this.questionSubmissionRepo.finishOpenFeedbackReviews(questionId, now);
 
       // Remove the questionId from the processedBy user's feedbacksAssigned array
       await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
