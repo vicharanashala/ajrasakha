@@ -354,31 +354,24 @@ export class QuestionService {
 
   async getOpenFeedback(
     questionId: string,
-    feedbackId?: string,
+    page: number = 1,
+    pageSize: number = 5,
   ): Promise<any | null> {
     // TODO: Replace with actual API endpoint when backend is ready
-    // const params = feedbackId ? `?feedbackId=${feedbackId}` : '';
+    // const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     // const response = await apiFetch<any | null>(
-    //   `${this._baseUrl}/${questionId}/open-feedback${params}`,
+    //   `${this._baseUrl}/${questionId}/open-feedback?${params.toString()}`,
     // );
     // return response;
 
-    // Mock response for testing
+    // Mock response for testing - paginated
+    // This will be handled by the hook, but keeping for reference
     return {
-      data: {
-        _id: { $oid: "6a67360ee10dd8cfed168645" },
-        questionId: { $oid: questionId },
-        userId: {
-          name: "Mezz",
-          email: "example@gmail.com",
-        },
-        answerId: { $oid: "6a671414aee7709bc6be96c9" },
-        type: "thumbs_up",
-        predefinedOption: "not Correct and helpful",
-        comment: "The answer was not perfect",
-        createdAt: { $date: "2026-07-27T10:42:22.434Z" },
-        updatedAt: { $date: "2026-07-27T10:45:12.598Z" },
-      }
+      data: [],
+      totalCount: 0,
+      page,
+      pageSize,
+      totalPages: 0,
     };
   }
 

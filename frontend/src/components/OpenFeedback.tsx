@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, User, Mail, Clock, MessageSquare, Check, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, User, Mail, Clock, MessageSquare, Check, X, ChevronLeft, ChevronUp } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import { Skeleton } from "./atoms/skeleton";
@@ -11,11 +11,10 @@ import type { IUser } from "@/types";
 
 interface OpenFeedbackProps {
     questionId: string | null;
-    feedbackId?: string | null;
     currentUser: IUser | null;
 }
 
-const OpenFeedback = ({ questionId, feedbackId, currentUser }: OpenFeedbackProps) => {
+const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
     // Check if user should see this component:
     // 1. User is admin (can see all)
     // 2. User has this questionId in their feedbacksAssigned array
@@ -26,35 +25,164 @@ const OpenFeedback = ({ questionId, feedbackId, currentUser }: OpenFeedbackProps
     if (!canViewFeedback) {
         return null;
     }
+
     const [expanded, setExpanded] = useState(false);
+    const [page, setPage] = useState(1);
+    const [expandedFeedbackId, setExpandedFeedbackId] = useState<string | null>(null);
     
     const {
         data: feedbackResponse,
         isLoading,
         error: isError,
         refetch
-    } = useGetOpenFeedback(questionId, feedbackId);
+    } = useGetOpenFeedback(questionId, page, 5);
 
-    const feedback = feedbackResponse?.data;
+    const feedbacks = feedbackResponse?.data;
+    const totalPages = feedbackResponse?.totalPages || 1;
+    const totalCount = feedbackResponse?.totalCount || 0;
 
     // Hide component completely if there is no feedback (and we're not loading/errored)
-    if (!isLoading && !isError && !feedback) {
+    if (!isLoading && !isError && (!feedbacks || feedbacks.length === 0)) {
         return null;
     }
 
-    const isPositive = feedback?.type === "thumbs_up";
-    const FeedbackIcon = isPositive ? ThumbsUp : ThumbsDown;
-    const iconColor = isPositive ? "text-green-500" : "text-red-500";
-    const bgColor = isPositive ? "bg-green-500/10" : "bg-red-500/10";
-
-    const handleAccept = () => {
+    const handleAccept = (feedbackId: string) => {
         toast.success("Feedback accepted successfully");
         refetch();
     };
 
-    const handleReject = () => {
+    const handleReject = (feedbackId: string) => {
         toast.success("Feedback rejected");
         refetch();
+    };
+
+    const toggleFeedback = (feedbackId: string) => {
+        setExpandedFeedbackId(expandedFeedbackId === feedbackId ? null : feedbackId);
+    };
+
+    const renderFeedbackItem = (feedback: any, index: number) => {
+        const isPositive = feedback.type === "thumbs_up";
+        const FeedbackIcon = isPositive ? ThumbsUp : ThumbsDown;
+        const iconColor = isPositive ? "text-green-500" : "text-red-500";
+        const bgColor = isPositive ? "bg-green-500/10" : "bg-red-500/10";
+        const isExpanded = expandedFeedbackId === feedback._id.$oid;
+
+        return (
+            <div key={feedback._id.$oid} className="border border-border rounded-lg overflow-hidden">
+                {/* Feedback header - clickable to expand */}
+                <button
+                    onClick={() => toggleFeedback(feedback._id.$oid)}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-card hover:bg-muted/30 transition-all duration-200"
+                >
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${bgColor} ${iconColor} shadow-sm shrink-0`}>
+                        <FeedbackIcon className="h-4 w-4" />
+                    </div>
+
+                    <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0 text-left">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-foreground">
+                                Feedback {index + 1}
+                            </span>
+                            <Badge
+                                variant="outline"
+                                className={`text-[10px] px-1.5 py-0.5 ${isPositive ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400'}`}
+                            >
+                                {isPositive ? "Thumbs Up" : "Thumbs Down"}
+                            </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                            <User className="h-3 w-3" />
+                            {feedback.userId?.name || 'Unknown User'}
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground hidden sm:block">
+                            {formatDistanceToNow(new Date(typeof feedback.createdAt === 'string' ? feedback.createdAt : feedback.createdAt.$date), { addSuffix: true })}
+                        </span>
+                        {isExpanded ? (
+                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                    </div>
+                </button>
+
+                {/* Expanded content */}
+                {isExpanded && (
+                    <div className="px-4 py-4 bg-muted/20 border-t border-border animate-in fade-in slide-in-from-top-2 duration-200">
+                        {/* User details */}
+                        <div className="flex items-start gap-3 pb-4 border-b border-border mb-4">
+                            <Avatar className="h-10 w-10 border border-border">
+                                <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                                    {feedback.userId?.name ? feedback.userId.name[0].toUpperCase() : 'U'}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-foreground text-sm flex items-center gap-1.5">
+                                        <User className="h-3.5 w-3.5 text-muted-foreground" /> {feedback.userId?.name || 'Unknown User'}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-xs text-muted-foreground">
+                                    {feedback.userId?.email && (
+                                        <span className="flex items-center gap-1.5">
+                                            <Mail className="h-3.5 w-3.5" />
+                                            {feedback.userId.email}
+                                        </span>
+                                    )}
+                                    <span className="flex items-center gap-1.5">
+                                        <Clock className="h-3.5 w-3.5" />
+                                        {formatDistanceToNow(new Date(typeof feedback.createdAt === 'string' ? feedback.createdAt : feedback.createdAt.$date), { addSuffix: true })}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Predefined option */}
+                        {feedback.predefinedOption && (
+                            <div className="text-sm flex flex-col gap-1 mb-4">
+                                <span className="font-semibold text-foreground/80">Predefined Option:</span>
+                                <span className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-muted/50 border border-border/50 text-muted-foreground text-sm font-medium">
+                                    {feedback.predefinedOption}
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Comment */}
+                        {feedback.comment && (
+                            <div className="text-sm flex flex-col gap-1 mb-4">
+                                <span className="font-semibold text-foreground/80">Comment:</span>
+                                <span className="text-muted-foreground bg-muted/50 p-3 rounded-lg border border-border/50 whitespace-pre-wrap">
+                                    {feedback.comment}
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-3 pt-2">
+                            <Button
+                                onClick={() => handleAccept(feedback._id.$oid)}
+                                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                                size="sm"
+                            >
+                                <Check className="h-4 w-4" />
+                                Accept
+                            </Button>
+                            <Button
+                                onClick={() => handleReject(feedback._id.$oid)}
+                                variant="outline"
+                                className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-500/30 dark:hover:bg-red-500/10"
+                                size="sm"
+                            >
+                                <X className="h-4 w-4" />
+                                Reject
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     return (
@@ -65,7 +193,7 @@ const OpenFeedback = ({ questionId, feedbackId, currentUser }: OpenFeedbackProps
             {/* Soft glow layer */}
             <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md h-19" />
 
-            {/* Actual button */}
+            {/* Main expand/collapse button */}
             <button
                 onClick={() => setExpanded(!expanded)}
                 className="relative z-10 w-full flex items-center gap-3 px-5 py-4 rounded-xl bg-card border border-transparent hover:shadow-md transition-all duration-300 group"
@@ -76,30 +204,30 @@ const OpenFeedback = ({ questionId, feedbackId, currentUser }: OpenFeedbackProps
                     <ChevronRight className="h-5 w-5 text-primary shrink-0 transition-transform" />
                 )}
 
-                <div className={`flex h-7 w-7 items-center justify-center rounded-full ${bgColor} ${iconColor} shadow-sm shrink-0`}>
-                    <FeedbackIcon className="h-4 w-4" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/10 text-orange-500 shadow-sm shrink-0">
+                    <MessageSquare className="h-4 w-4" />
                 </div>
 
                 <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
-                    <span className="text-sm font-semibold text-foreground">Open Feedback</span>
+                    <span className="text-sm font-semibold text-foreground">Open Feedbacks</span>
                     <span className="text-xs text-muted-foreground">
-                        {expanded ? "Click to collapse" : "Click to expand & view feedback"}
+                        {expanded ? "Click to collapse" : `${totalCount} feedback${totalCount !== 1 ? 's' : ''} found`}
                     </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-[10px]">
-                        {isLoading ? "Loading…" : "View Feedback"}
-                    </Badge>
-                </div>
+                <Badge variant="secondary" className="text-[10px]">
+                    {isLoading ? "Loading…" : "View Feedbacks"}
+                </Badge>
             </button>
 
+            {/* Expanded content */}
             {expanded && (
                 <div className="mt-2 rounded-xl border border-border bg-card overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
                     {isLoading && (
                         <div className="p-5 space-y-3">
-                            <Skeleton className="h-12 w-full" />
-                            <Skeleton className="h-8 w-2/3" />
+                            <Skeleton className="h-16 w-full" />
+                            <Skeleton className="h-16 w-full" />
+                            <Skeleton className="h-16 w-full" />
                         </div>
                     )}
 
@@ -107,87 +235,44 @@ const OpenFeedback = ({ questionId, feedbackId, currentUser }: OpenFeedbackProps
                         <div className="p-5 text-sm text-destructive">Failed to fetch feedback details.</div>
                     )}
 
-                    {!isLoading && !isError && feedback && (
-                        <div className="p-5 flex flex-col gap-4">
-                            {/* User details header */}
-                            <div className="flex items-start gap-4 pb-4 border-b border-border">
-                                <Avatar className="h-10 w-10 border border-border">
-                                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                                        {feedback.userId?.name ? feedback.userId.name[0].toUpperCase() : 'U'}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0 space-y-1.5">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-semibold text-foreground text-sm flex items-center gap-1.5">
-                                            <User className="h-3.5 w-3.5 text-muted-foreground" /> {feedback.userId?.name || 'Unknown User'}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-x-4 gap-y-2 flex-wrap text-xs text-muted-foreground">
-                                        {feedback.userId?.email && (
-                                            <span className="flex items-center gap-1.5">
-                                                <Mail className="h-3.5 w-3.5" />
-                                                {feedback.userId.email}
-                                            </span>
-                                        )}
-                                        {feedback.createdAt && (
-                                            <span className="flex items-center gap-1.5">
-                                                <Clock className="h-3.5 w-3.5" />
-                                                {formatDistanceToNow(new Date(typeof feedback.createdAt === 'string' ? feedback.createdAt : feedback.createdAt.$date), { addSuffix: true })}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
+                    {!isLoading && !isError && feedbacks && (
+                        <div className="flex flex-col divide-y divide-border">
+                            {feedbacks.map((feedback, index) => renderFeedbackItem(feedback, index))}
+                        </div>
+                    )}
+
+                    {/* Pagination controls */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/20">
+                            <div className="text-xs text-muted-foreground">
+                                Page {page} of {totalPages}
                             </div>
-                            
-                            {/* Feedback type badge */}
                             <div className="flex items-center gap-2">
-                                <Badge
-                                    variant="outline"
-                                    className={`${isPositive ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-50 hover:text-green-700 hover:border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/30' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/30'} flex items-center gap-1.5 px-3 py-1`}
-                                >
-                                    <FeedbackIcon className="h-4 w-4" />
-                                    {isPositive ? "Thumbs Up" : "Thumbs Down"}
-                                </Badge>
-                            </div>
-
-                            {/* Predefined option */}
-                            {feedback.predefinedOption && (
-                                <div className="text-sm flex flex-col gap-1">
-                                    <span className="font-semibold text-foreground/80">Predefined Option:</span>
-                                    <span className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-muted/50 border border-border/50 text-muted-foreground text-sm font-medium">
-                                        {feedback.predefinedOption}
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Comment */}
-                            {feedback.comment && (
-                                <div className="text-sm flex flex-col gap-1">
-                                    <span className="font-semibold text-foreground/80">Comment:</span>
-                                    <span className="text-muted-foreground bg-muted/50 p-3 rounded-lg border border-border/50 whitespace-pre-wrap">
-                                        {feedback.comment}
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Action buttons */}
-                            <div className="flex items-center gap-3 pt-4 border-t border-border">
                                 <Button
-                                    onClick={handleAccept}
-                                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                                    variant="outline"
                                     size="sm"
+                                    onClick={() => {
+                                        setPage(p => Math.max(1, p - 1));
+                                        setExpandedFeedbackId(null);
+                                    }}
+                                    disabled={page === 1 || isLoading}
+                                    className="h-8 px-2"
                                 >
-                                    <Check className="h-4 w-4" />
-                                    Accept
+                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    Prev
                                 </Button>
                                 <Button
-                                    onClick={handleReject}
                                     variant="outline"
-                                    className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-500/30 dark:hover:bg-red-500/10"
                                     size="sm"
+                                    onClick={() => {
+                                        setPage(p => Math.min(totalPages, p + 1));
+                                        setExpandedFeedbackId(null);
+                                    }}
+                                    disabled={page === totalPages || isLoading}
+                                    className="h-8 px-2"
                                 >
-                                    <X className="h-4 w-4" />
-                                    Reject
+                                    Next
+                                    <ChevronRight className="h-4 w-4 ml-1" />
                                 </Button>
                             </div>
                         </div>
