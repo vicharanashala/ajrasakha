@@ -389,6 +389,42 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
   }
 
+  /** Standardise question district names, validating each `standardiseTo` against the
+   *  `districts` collection (districtNameEnglish). Matching ones update questions whose
+   *  details.district === existingName; non-matching names are returned untouched. */
+  async normalizeQuestionDistricts(
+    mappings: { existingName: string; standardiseTo: string }[],
+  ) {
+    const cleaned = (mappings ?? [])
+      .map(m => ({
+        existingName: typeof m?.existingName === 'string' ? m.existingName.trim() : '',
+        standardiseTo: typeof m?.standardiseTo === 'string' ? m.standardiseTo.trim() : '',
+      }))
+      .filter(m => m.existingName && m.standardiseTo);
+    if (cleaned.length === 0) {
+      throw new BadRequestError(
+        'mappings must be a non-empty array of { existingName, standardiseTo }',
+      );
+    }
+    return this.questionRepo.normalizeQuestionDistricts(cleaned);
+  }
+
+  /** Audit: distinct question details.state / details.district values that don't exist in the
+   *  states / districts collections. */
+  async findUnknownQuestionGeo(): Promise<{
+    unknownStates: string[];
+    matchedDistricts: {
+      name: string;
+      foundIn: 'block' | 'village';
+      districtCode: number | null;
+      stateCode: number | null;
+      districtNameEnglish: string | null;
+    }[];
+    notMatchingDistricts: string[];
+  }> {
+    return this.questionRepo.findUnknownQuestionGeo();
+  }
+
   async getAllocatedQuestions(
     userId: string,
     query: GetDetailedQuestionsQuery,
@@ -1535,6 +1571,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       } = body;
       if (body.details) {
         body.details.state = toTitleCase(body.details.state);
+        body.details.district = toTitleCase(body.details.district as string);
         body.details.crop = toTitleCase(body.details.crop as string);
         body.details.domain = Array.isArray(body.details.domain)
           ? body.details.domain
@@ -1625,7 +1662,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           logData.cropNormalizationError = cropError.message;
         }
       }
-      details.crop = rawCropName.trim();
+      // Store state/district/crop in Title Case (e.g. "andhra pradesh" -> "Andhra Pradesh").
+      details.crop = toTitleCase(rawCropName);
+      details.state = toTitleCase(details.state);
+      if (typeof details.district === 'string')
+        details.district = toTitleCase(details.district);
       if (normalised_crop !== undefined)
         details.normalised_crop = normalised_crop;
 
@@ -8046,6 +8087,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     limit = 50,
     startTime?: Date,
     endTime?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<QueueSectionResult> {
     const safePage = Math.max(1, Math.floor(page) || 1);
     const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 50), 200);
@@ -8095,6 +8138,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           endTime,
           expertSources,
           requirePaeNotDone,
+          isTrainingUser,
+          isAdmin
         );
         return { count, items: items.map(r => this.rawToQueueItem(r)) };
       }
@@ -8108,6 +8153,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           endTime,
           expertSources,
           requirePaeNotDone,
+          isTrainingUser,
+          isAdmin
         );
         const byQuestion = new Map<string, string | null>();
         const ids: string[] = [];
@@ -8149,6 +8196,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin
           )) as any[];
         const pageSubs = subs.slice(skip, skip + safeLimit);
         return {
@@ -8167,7 +8216,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Free = experts with no active time-bound allocation. busyMap is the
         // authoritative "currently holding pending work" set the cron uses.
         const free = (allExperts as any[]).filter(
-          e => !busyMap.has(e._id.toString()),
+          e => !busyMap.has(e._id.toString()) &&
+            (isAdmin ||
+              (isTrainingUser
+                ? e.isTrainingUser === true
+                : e.isTrainingUser !== true)),
         );
         const items: QueueExpertItem[] = free
           .slice(skip, skip + safeLimit)
@@ -8193,6 +8246,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin
           )) as any[];
         const count = stuckSubs.length;
         const pageSubs = stuckSubs.slice(skip, skip + safeLimit);
@@ -8277,6 +8332,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin,
           )) as any[];
         const count = subs.length;
         const pageSubs = subs.slice(skip, skip + safeLimit);
@@ -8326,14 +8383,20 @@ export class QuestionService extends BaseService implements IQuestionService {
           this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin
           ),
           this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin
           ),
           this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
             expertSources,
             requirePaeNotDone,
+            isTrainingUser,
+            isAdmin
           ),
         ]);
 
@@ -8387,7 +8450,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // in-review/duplicate questions with no moderator assigned yet. No date
         // filter so the count always matches what the cron picks up.
         const qs =
-          (await this.questionRepo.findUnassignedInReviewQuestions()) as any[];
+          (await this.questionRepo.findUnassignedInReviewQuestions([], isTrainingUser, isAdmin)) as any[];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
         // Map a full question doc through the submission mapper (wraps it as `.question`).
@@ -8402,7 +8465,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // questions always carry a moderatorId, so they appear here too. Each item
         // is tagged with the assigned moderator's name.
         const qs =
-          (await this.questionRepo.findModeratorAssignedQuestions()) as any[];
+          (await this.questionRepo.findModeratorAssignedQuestions([],isTrainingUser,isAdmin)) as any[];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
         const ids = pageQs
@@ -8454,6 +8517,8 @@ export class QuestionService extends BaseService implements IQuestionService {
             : MANUAL_SOURCES;
         const qs = (await this.questionRepo.findUnassignedInReviewQuestions(
           sources,
+          isTrainingUser,
+          isAdmin
         )) as any[];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
@@ -8471,6 +8536,8 @@ export class QuestionService extends BaseService implements IQuestionService {
             : MANUAL_SOURCES;
         const qs = (await this.questionRepo.findModeratorAssignedQuestions(
           sources,
+          isTrainingUser,
+          isAdmin
         )) as any[];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
@@ -8498,6 +8565,8 @@ export class QuestionService extends BaseService implements IQuestionService {
             : MANUAL_SOURCES;
         const mods = (await this.userRepo.findAvailableStfModeratorsForSources(
           sources,
+          isTrainingUser,
+          isAdmin
         )) as any[];
         const items: QueueExpertItem[] = mods
           .slice(skip, skip + safeLimit)
@@ -8600,6 +8669,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQueueDetails(
     startTime?: Date,
     endTime?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<QueueDetailsResponse> {
     const PAGE = 1;
     const LIMIT = 50;
@@ -8615,6 +8686,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           LIMIT,
           startTime,
           endTime,
+          isTrainingUser,
+          isAdmin
         );
       } catch (err: any) {
         console.error(

@@ -241,7 +241,7 @@ export class UserRepository implements IUserRepository {
     );
     if (result.matchedCount === 0) return null;
 
-    if (roleChanged) {
+    if (roleChanged && !existingUser.isBlocked) {
       await Promise.all([
         this.userRoleHistoryCollection.updateOne(
           {
@@ -979,6 +979,8 @@ export class UserRepository implements IUserRepository {
   private async findAvailableModeratorsWithMatch(
     extraMatch: Record<string, unknown> = {},
     sources?: QuestionSource[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IUser[]> {
     await this.init();
     const blockingElemMatch: Record<string, unknown> = {
@@ -1000,6 +1002,12 @@ export class UserRepository implements IUserRepository {
         isBlocked: { $ne: true },
         status: { $ne: 'in-active' },
         ...extraMatch,
+        ...(isAdmin !== true &&
+          isTrainingUser !== undefined && {
+          isTrainingUser: isTrainingUser
+            ? true
+            : { $ne: true },
+        }),
         // No element is in a blocking status (also true for missing/null/empty arrays).
         // Scoped to `sources` when provided.
         assignedQuestionIds: {
@@ -1026,10 +1034,14 @@ export class UserRepository implements IUserRepository {
    *  category concurrently. */
   async findAvailableStfModeratorsForSources(
     sources: QuestionSource[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IUser[]> {
     return this.findAvailableModeratorsWithMatch(
       {special_task_force: true},
       sources,
+      isTrainingUser,
+      isAdmin
     );
   }
 

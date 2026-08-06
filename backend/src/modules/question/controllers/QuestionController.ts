@@ -124,6 +124,7 @@ export class QuestionController {
       'Queue details for moderators/admins/gate keepers/auditors. No params → all sections (counts + page 1). With ?section=&page= → one paginated section (exact count + that page of items).',
   })
   async getQueueDetails(
+    @CurrentUser() user: IUser,
     @QueryParams()
     query: {
       section?: QueueSectionName;
@@ -133,6 +134,8 @@ export class QuestionController {
       endTime?: string;
     },
   ) {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser === true;
     const startTime = query.startTime ? new Date(query.startTime) : undefined;
     const endTime = query.endTime ? new Date(query.endTime) : undefined;
 
@@ -151,7 +154,7 @@ export class QuestionController {
     }
 
     // Full snapshot: all sections, page 1.
-    const data = await this.questionService.getQueueDetails(startTime, endTime);
+    const data = await this.questionService.getQueueDetails(startTime, endTime, isTrainingUser, isAdmin);
     return { success: true, data };
   }
 
@@ -2876,6 +2879,35 @@ export class QuestionController {
       current,
       standardizedTo,
     );
+  }
+
+  @Post('/background/normalize-district')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Standardise question district names against the districts collection (internal data fix). Body: [{ existingName, standardiseTo }]. When `standardiseTo` is a known districtNameEnglish, questions with details.district === existingName are updated to it; names not found in the districts collection are returned in `notMatching`.',
+  })
+  async normalizeQuestionDistricts(
+    @Body() body: { existingName: string; standardiseTo: string }[],
+  ) {
+    if (!Array.isArray(body) || body.length === 0) {
+      throw new BadRequestError(
+        'body must be a non-empty array of { existingName, standardiseTo }',
+      );
+    }
+    return await this.questionService.normalizeQuestionDistricts(body);
+  }
+
+  @Get('/background/unknown-geo')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Audit question geo (internal). Scans every question\'s details.state / details.district and returns the distinct values that do NOT exist in the states (stateNameEnglish) / districts (districtNameEnglish) collections.',
+  })
+  async findUnknownQuestionGeo() {
+    return await this.questionService.findUnknownQuestionGeo();
   }
   // ─── Check overlaps endpoint (internal API key auth) ──────────────────────
 

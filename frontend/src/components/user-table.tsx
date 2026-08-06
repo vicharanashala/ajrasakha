@@ -653,8 +653,8 @@ const UserRow: React.FC<UserRowProps> = ({
                   {isBlocked ? "Unblock" : "Block"}
                 </button>
               </DropdownMenuItem>
-              {/* Switch role from expert to moderator */}
-              {isAdmin && u.role !== "admin" && (
+              {/* Switch role — available to admins for any user (including other admins). */}
+              {isAdmin && (
                 <DropdownMenuItem
                   onSelect={(e) => {
                     e.preventDefault();
@@ -851,6 +851,7 @@ const UserRow: React.FC<UserRowProps> = ({
             selectedRole={selectRole}
             onRoleChange={setSelectRole}
             confirmAction={confirmAction || undefined}
+            canAssignAdmin={isAdmin}
           />
 
         </div>
