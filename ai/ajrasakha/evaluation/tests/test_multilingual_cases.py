@@ -4,6 +4,8 @@ from ajrasakha.evaluation.multilingual_cases import (
     CORE_SCENARIOS,
     LANGUAGES,
     MULTILINGUAL_TEST_CASES,
+    ROMANIZED_INPUT_TEST_CASES,
+    ROMANIZED_LANGUAGE_CODES,
 )
 
 
@@ -41,3 +43,21 @@ def test_multilingual_cases_do_not_use_placeholder_fixtures():
         case["translation_status"] == "draft_needs_agri_validation"
         for case in MULTILINGUAL_TEST_CASES
     )
+
+
+def test_romanized_cases_cover_each_indic_language_per_scenario():
+    assert len(ROMANIZED_INPUT_TEST_CASES) == 150
+
+    scenario_ids = {case["scenario_id"] for case in ROMANIZED_INPUT_TEST_CASES}
+    language_codes = {case["language_code"] for case in ROMANIZED_INPUT_TEST_CASES}
+    counts = Counter(case["scenario_id"] for case in ROMANIZED_INPUT_TEST_CASES)
+
+    assert len(scenario_ids) == 30
+    assert language_codes == set(ROMANIZED_LANGUAGE_CODES)
+    assert set(counts.values()) == {5}
+
+
+def test_romanized_cases_keep_latin_input_but_native_expected_output():
+    assert all(case["input_script"] == "Latin" for case in ROMANIZED_INPUT_TEST_CASES)
+    assert all(case["input_style"] == "romanized" for case in ROMANIZED_INPUT_TEST_CASES)
+    assert all(case["expected_script"] != "Latin" for case in ROMANIZED_INPUT_TEST_CASES)

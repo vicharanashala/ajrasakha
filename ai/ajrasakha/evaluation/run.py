@@ -16,6 +16,7 @@ from ajrasakha.evaluation.answer_eval import evaluate_response_quality
 from ajrasakha.evaluation.validators.source_check import evaluate_source_attribution
 from ajrasakha.evaluation.validators.disclaimer_language import evaluate_disclaimer_language
 from ajrasakha.evaluation.langsmith_trace import build_langsmith_trace_url
+from ajrasakha.evaluation.deepeval_report import write_mock_deepeval_reports
 from ajrasakha.evaluation.language_matrix import write_language_quality_matrix
 from ajrasakha.evaluation.language_metrics import write_language_quality_metrics_reports
 from ajrasakha.evaluation.language_recommendations import write_language_quality_recommendations
@@ -54,6 +55,8 @@ def run_case(case: dict, mode: str, multilingual: bool = False) -> dict:
 
     combined = {
         **result,
+        "expected_answer_text": case.get("expected_answer_text", ""),
+        "mock_answer_text": case.get("mock_answer_text", ""),
         **technical_result,
         **routing_result,
         **tool_result,
@@ -138,6 +141,8 @@ def main():
         write_language_quality_summary_reports(results, mode=args.mode)
         write_language_quality_recommendations(results)
         write_language_quality_metrics_reports(results)
+        if args.mode == "mock":
+            write_mock_deepeval_reports(results)
     summary = build_summary(results)
     print("Summary:", summary)
 

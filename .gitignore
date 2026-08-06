@@ -45,6 +45,8 @@ ai/language_quality_summary.json
 ai/language_quality_recommendations.md
 ai/language_quality_metrics.md
 ai/language_quality_metrics.json
+ai/mock_deepeval_report.md
+ai/mock_deepeval_report.json
 ai/tests/reports/
 ai/openapi.json
 ai/backend_routes.txt

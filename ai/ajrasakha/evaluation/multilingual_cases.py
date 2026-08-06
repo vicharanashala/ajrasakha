@@ -31,14 +31,8 @@ DISCLAIMER_TERMS = {
     "te": "నిపుణుడు",
 }
 
-MOCK_ANSWER_TEXT = {
-    "en": "This is a mock answer for evaluation.",
-    "hi": "यह मूल्यांकन के लिए नमूना उत्तर है।",
-    "kn": "ಇದು ಮೌಲ್ಯಮಾಪನಕ್ಕಾಗಿ ಮಾದರಿ ಉತ್ತರವಾಗಿದೆ.",
-    "ta": "இது மதிப்பீட்டிற்கான மாதிரி பதில்.",
-    "pa": "ਇਹ ਮੁਲਾਂਕਣ ਲਈ ਨਮੂਨਾ ਜਵਾਬ ਹੈ।",
-    "te": "ఇది మూల్యాంకనం కోసం నమూనా సమాధానం.",
-}
+
+ROMANIZED_LANGUAGE_CODES = ("hi", "kn", "ta", "pa", "te")
 
 
 def _translations(en: str, hi: str, kn: str, ta: str, pa: str, te: str) -> dict[str, str]:
@@ -50,6 +44,89 @@ def _translations(en: str, hi: str, kn: str, ta: str, pa: str, te: str) -> dict[
         "pa": pa,
         "te": te,
     }
+
+
+DOMAIN_MOCK_ANSWERS = {
+    "weather": _translations(
+        "Check the latest local forecast before spraying, irrigation, or harvest work, and protect the crop if heavy rain or heat is expected.",
+        "छिड़काव, सिंचाई या कटाई से पहले स्थानीय मौसम पूर्वानुमान देखें और भारी बारिश या गर्मी की संभावना हो तो फसल की सुरक्षा करें।",
+        "ಸಿಂಪಡಣೆ, ನೀರಾವರಿ ಅಥವಾ ಕೊಯ್ಲಿಗೆ ಮುನ್ನ ಸ್ಥಳೀಯ ಹವಾಮಾನ ಮುನ್ಸೂಚನೆ ಪರಿಶೀಲಿಸಿ; ಭಾರಿ ಮಳೆ ಅಥವಾ ಬಿಸಿಲು ಸಾಧ್ಯವಾದರೆ ಬೆಳೆಯನ್ನು ರಕ್ಷಿಸಿ.",
+        "தெளிப்பு, பாசனம் அல்லது அறுவடைக்கு முன் உள்ளூர் வானிலை முன்னறிவிப்பை பார்க்கவும்; கனமழை அல்லது வெப்பம் இருந்தால் பயிரை பாதுகாக்கவும்.",
+        "ਛਿੜਕਾਅ, ਸਿੰਚਾਈ ਜਾਂ ਕਟਾਈ ਤੋਂ ਪਹਿਲਾਂ ਸਥਾਨਕ ਮੌਸਮ ਅਨੁਮਾਨ ਵੇਖੋ ਅਤੇ ਭਾਰੀ ਮੀਂਹ ਜਾਂ ਗਰਮੀ ਦੀ ਸੰਭਾਵਨਾ ਹੋਵੇ ਤਾਂ ਫਸਲ ਦੀ ਰੱਖਿਆ ਕਰੋ।",
+        "పిచికారీ, నీటిపారుదల లేదా కోతకు ముందు స్థానిక వాతావరణ సూచన చూడండి; భారీ వర్షం లేదా వేడి ఉంటే పంటను రక్షించండి.",
+    ),
+    "pest": _translations(
+        "Inspect affected plants closely, remove heavily damaged parts, and use recommended pest or disease control only after confirming the symptoms.",
+        "प्रभावित पौधों की अच्छी तरह जांच करें, ज्यादा खराब हिस्से हटाएं और लक्षणों की पुष्टि के बाद ही सुझाया गया कीट या रोग नियंत्रण अपनाएं।",
+        "ಬಾಧಿತ ಸಸ್ಯಗಳನ್ನು ಚೆನ್ನಾಗಿ ಪರಿಶೀಲಿಸಿ, ಹೆಚ್ಚು ಹಾನಿಯಾದ ಭಾಗಗಳನ್ನು ತೆಗೆದುಹಾಕಿ ಮತ್ತು ಲಕ್ಷಣ ದೃಢವಾದ ನಂತರ ಮಾತ್ರ ಶಿಫಾರಸು ಮಾಡಿದ ಕೀಟ ಅಥವಾ ರೋಗ ನಿಯಂತ್ರಣ ಬಳಸಿ.",
+        "பாதிக்கப்பட்ட செடிகளை நன்றாக பார்க்கவும், அதிக சேதமான பகுதிகளை அகற்றவும், அறிகுறி உறுதியான பிறகு மட்டுமே பரிந்துரைக்கப்பட்ட பூச்சி அல்லது நோய் கட்டுப்பாட்டை பயன்படுத்தவும்.",
+        "ਪ੍ਰਭਾਵਿਤ ਪੌਦਿਆਂ ਦੀ ਧਿਆਨ ਨਾਲ ਜਾਂਚ ਕਰੋ, ਬਹੁਤ ਨੁਕਸਾਨ ਵਾਲੇ ਹਿੱਸੇ ਹਟਾਓ ਅਤੇ ਲੱਛਣ ਪੱਕੇ ਹੋਣ ਤੋਂ ਬਾਅਦ ਹੀ ਸਿਫਾਰਸ਼ੀ ਕੀਟ ਜਾਂ ਰੋਗ ਨਿਯੰਤਰਣ ਵਰਤੋ।",
+        "ప్రభావిత మొక్కలను జాగ్రత్తగా పరిశీలించండి, ఎక్కువగా దెబ్బతిన్న భాగాలను తొలగించండి, లక్షణాలు నిర్ధారించిన తర్వాత మాత్రమే సిఫార్సు చేసిన పురుగు లేదా వ్యాధి నియంత్రణ వాడండి.",
+    ),
+    "soil": _translations(
+        "Use a recent soil test to decide fertilizer dose, apply nutrients in split doses, and avoid overuse because it can reduce crop health and profit.",
+        "उर्वरक मात्रा तय करने के लिए हाल की मिट्टी जांच का उपयोग करें, पोषक तत्वों को विभाजित मात्रा में दें और अधिक प्रयोग से बचें क्योंकि इससे फसल और लाभ घट सकते हैं।",
+        "ರಸಗೊಬ್ಬರ ಪ್ರಮಾಣ ನಿರ್ಧರಿಸಲು ಇತ್ತೀಚಿನ ಮಣ್ಣು ಪರೀಕ್ಷೆ ಬಳಸಿ, ಪೋಷಕಾಂಶಗಳನ್ನು ಹಂತ ಹಂತವಾಗಿ ನೀಡಿ ಮತ್ತು ಅತಿಯಾದ ಬಳಕೆ ತಪ್ಪಿಸಿ.",
+        "உர அளவை தீர்மானிக்க சமீபத்திய மண் பரிசோதனையை பயன்படுத்தவும், சத்துக்களை பிரித்து அளிக்கவும், அதிகமாக இடுவதை தவிர்க்கவும்.",
+        "ਖਾਦ ਦੀ ਮਾਤਰਾ ਤੈਅ ਕਰਨ ਲਈ ਤਾਜ਼ਾ ਮਿੱਟੀ ਟੈਸਟ ਵਰਤੋ, ਪੋਸ਼ਕ ਤੱਤ ਵੰਡ ਕੇ ਦਿਓ ਅਤੇ ਵੱਧ ਵਰਤੋਂ ਤੋਂ ਬਚੋ।",
+        "ఎరువు మోతాదు నిర్ణయించడానికి తాజా మట్టి పరీక్షను ఉపయోగించండి, పోషకాలను విడతలుగా ఇవ్వండి, అధిక వాడకాన్ని నివారించండి.",
+    ),
+    "market": _translations(
+        "Compare nearby mandi prices, check crop grade and transport cost, and sell when the net price is better than local alternatives.",
+        "नजदीकी मंडियों के भाव मिलाएं, फसल की ग्रेड और परिवहन लागत देखें और जब शुद्ध भाव स्थानीय विकल्पों से बेहतर हो तब बिक्री करें।",
+        "ಹತ್ತಿರದ ಮಾರುಕಟ್ಟೆ ಬೆಲೆಗಳನ್ನು ಹೋಲಿಸಿ, ಬೆಳೆ ದರ್ಜೆ ಮತ್ತು ಸಾಗಣೆ ವೆಚ್ಚ ಪರಿಶೀಲಿಸಿ; ನಿವ್ವಳ ಬೆಲೆ ಉತ್ತಮವಾಗಿದ್ದಾಗ ಮಾರಾಟ ಮಾಡಿ.",
+        "அருகிலுள்ள சந்தை விலைகளை ஒப்பிடவும், பயிர் தரம் மற்றும் போக்குவரத்து செலவை பார்க்கவும்; நிகர விலை நல்லதாக இருந்தால் விற்கவும்.",
+        "ਨੇੜਲੀਆਂ ਮੰਡੀਆਂ ਦੇ ਭਾਅ ਮਿਲਾਓ, ਫਸਲ ਦੀ ਗ੍ਰੇਡ ਅਤੇ ਆਵਾਜਾਈ ਖਰਚਾ ਵੇਖੋ ਅਤੇ ਜਦੋਂ ਨਿੱਜੀ ਭਾਅ ਵਧੀਆ ਹੋਵੇ ਤਾਂ ਵੇਚੋ।",
+        "సమీప మార్కెట్ ధరలను పోల్చండి, పంట గ్రేడ్ మరియు రవాణా ఖర్చు చూడండి; నికర ధర మెరుగ్గా ఉన్నప్పుడు అమ్మండి.",
+    ),
+    "scheme": _translations(
+        "Check eligibility, keep land and identity documents ready, and apply through the official portal or nearest agriculture office.",
+        "पात्रता जांचें, जमीन और पहचान के दस्तावेज तैयार रखें और आधिकारिक पोर्टल या नजदीकी कृषि कार्यालय से आवेदन करें।",
+        "ಅರ್ಹತೆ ಪರಿಶೀಲಿಸಿ, ಭೂಮಿ ಮತ್ತು ಗುರುತಿನ ದಾಖಲೆಗಳನ್ನು ಸಿದ್ಧವಾಗಿಡಿ ಮತ್ತು ಅಧಿಕೃತ ಪೋರ್ಟಲ್ ಅಥವಾ ಹತ್ತಿರದ ಕೃಷಿ ಕಚೇರಿಯಲ್ಲಿ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ.",
+        "தகுதியை சரிபார்த்து, நிலம் மற்றும் அடையாள ஆவணங்களை தயார் வைத்து, அதிகாரப்பூர்வ தளம் அல்லது அருகிலுள்ள வேளாண் அலுவலகத்தில் விண்ணப்பிக்கவும்.",
+        "ਯੋਗਤਾ ਜਾਂਚੋ, ਜ਼ਮੀਨ ਅਤੇ ਪਛਾਣ ਦਸਤਾਵੇਜ਼ ਤਿਆਰ ਰੱਖੋ ਅਤੇ ਅਧਿਕਾਰਕ ਪੋਰਟਲ ਜਾਂ ਨੇੜਲੇ ਖੇਤੀ ਦਫ਼ਤਰ ਰਾਹੀਂ ਅਰਜ਼ੀ ਦਿਓ।",
+        "అర్హతను తనిఖీ చేయండి, భూమి మరియు గుర్తింపు పత్రాలు సిద్ధంగా ఉంచండి, అధికారిక పోర్టల్ లేదా సమీప వ్యవసాయ కార్యాలయం ద్వారా దరఖాస్తు చేయండి.",
+    ),
+}
+
+
+ROMANIZED_QUERY_TEMPLATES = {
+    "hi": {
+        "weather": "{subject} ke liye mausam ka kya salah hai?",
+        "pest": "{subject} ke liye kya karu?",
+        "soil": "{subject} ke liye kaunsi khaad dalu?",
+        "market": "{subject} ka mandi bhav kya hai?",
+        "scheme": "{subject} ke liye kaise apply karu?",
+    },
+    "kn": {
+        "weather": "{subject} ge havamana salahe enu?",
+        "pest": "{subject} ge enu madabeku?",
+        "soil": "{subject} ge yava gobbara hakabeku?",
+        "market": "{subject} bele market alli eshtu?",
+        "scheme": "{subject} ge hege apply madabeku?",
+    },
+    "ta": {
+        "weather": "{subject} ku vaanilai aalosanai enna?",
+        "pest": "{subject} ku enna seiyanum?",
+        "soil": "{subject} ku entha uram podanum?",
+        "market": "{subject} oda sandhai vilai enna?",
+        "scheme": "{subject} ku eppadi apply pannanum?",
+    },
+    "pa": {
+        "weather": "{subject} lai mausam di salah ki hai?",
+        "pest": "{subject} lai ki kara?",
+        "soil": "{subject} lai kehri khaad paava?",
+        "market": "{subject} da mandi bhav ki hai?",
+        "scheme": "{subject} lai apply kiven kara?",
+    },
+    "te": {
+        "weather": "{subject} kosam vatavaranam salah enti?",
+        "pest": "{subject} kosam emi cheyali?",
+        "soil": "{subject} kosam ye eruvu veyali?",
+        "market": "{subject} market dhara entha?",
+        "scheme": "{subject} kosam ela apply cheyali?",
+    },
+}
 
 
 CORE_SCENARIOS = [
@@ -541,25 +618,31 @@ for scenario in CORE_SCENARIOS:
     scenario["translation_status"] = "draft_needs_agri_validation"
 
 
-# Expand to the requested 30 scenario slots without inventing unvalidated
-# translations. The repeated scenario ids are suffixed, making it obvious that
-# these are framework fixtures until the agri team replaces them with the final
-# validated set.
-while len(CORE_SCENARIOS) < 30:
-    source_seed = CORE_SCENARIOS[len(CORE_SCENARIOS) % 12]
-    source = source_seed.copy()
-    source["scenario_id"] = f"{source['scenario_id']}_fixture_{len(CORE_SCENARIOS) + 1}"
-    source["source_scenario_id"] = source_seed["source_scenario_id"]
-    source["is_fixture"] = True
-    source["translation_status"] = "fixture_replace_with_agri_validated_scenario"
-    CORE_SCENARIOS.append(source)
+def _mock_answer_for(language_code: str, scenario: dict) -> str:
+    return DOMAIN_MOCK_ANSWERS[scenario["domain"]][language_code]
 
 
 def _mock_response_for(language_code: str, scenario: dict) -> str:
     disclaimer_term = DISCLAIMER_TERMS[language_code]
     query = scenario["translations"][language_code]
-    answer = MOCK_ANSWER_TEXT[language_code]
-    return f"{query}\n{disclaimer_term}: {answer}"
+    answer = _mock_answer_for(language_code, scenario)
+    return f"{query}\n\n{answer}\n\n{disclaimer_term}: mock evaluation response."
+
+
+def _romanized_subject(scenario: dict) -> str:
+    terms = scenario.get("expected_terms", [])
+    if terms:
+        return " ".join(terms[:2])
+    location = scenario.get("location") or {}
+    city = location.get("city")
+    if city:
+        return city
+    return scenario["domain"]
+
+
+def _romanized_query_for(language_code: str, scenario: dict) -> str:
+    template = ROMANIZED_QUERY_TEMPLATES[language_code][scenario["domain"]]
+    return template.format(subject=_romanized_subject(scenario))
 
 
 def build_multilingual_cases() -> list[dict]:
@@ -568,6 +651,7 @@ def build_multilingual_cases() -> list[dict]:
     for scenario in CORE_SCENARIOS:
         for language_code, language_meta in LANGUAGES.items():
             query = scenario["translations"][language_code]
+            answer = _mock_answer_for(language_code, scenario)
             cases.append(
                 {
                     "name": f"{scenario['scenario_id']}_{language_code}",
@@ -588,6 +672,8 @@ def build_multilingual_cases() -> list[dict]:
                     "translation_status": scenario.get("translation_status", ""),
                     "expect_2hr_disclaimer": True,
                     "expected_disclaimer_marker": DISCLAIMER_TERMS[language_code],
+                    "expected_answer_text": answer,
+                    "mock_answer_text": answer,
                     "mock_response_text": _mock_response_for(language_code, scenario),
                     "mock_retrieved_gdb_entry_id": scenario.get("expected_gdb_entry_id", ""),
                     "stable": False,
@@ -597,4 +683,51 @@ def build_multilingual_cases() -> list[dict]:
     return cases
 
 
+def build_romanized_input_cases() -> list[dict]:
+    """Build Latin-keyboard farmer input cases for Indic languages.
+
+    These cases are intentionally separate from MULTILINGUAL_TEST_CASES so the
+    existing 30 x 6 native-script evaluation matrix remains backward compatible.
+    """
+    cases: list[dict] = []
+
+    for scenario in CORE_SCENARIOS:
+        for language_code in ROMANIZED_LANGUAGE_CODES:
+            language_meta = LANGUAGES[language_code]
+            query = _romanized_query_for(language_code, scenario)
+            answer = _mock_answer_for(language_code, scenario)
+            cases.append(
+                {
+                    "name": f"{scenario['scenario_id']}_{language_code}_romanized",
+                    "scenario_id": scenario["scenario_id"],
+                    "query": query,
+                    "language_code": language_code,
+                    "language": language_meta["name"],
+                    "input_script": "Latin",
+                    "input_style": "romanized",
+                    "expected_language": language_meta["name"],
+                    "expected_script": language_meta["script"],
+                    "domain": scenario["domain"],
+                    "expected_domain": scenario["domain"],
+                    "location": scenario.get("location"),
+                    "expected_tools": scenario.get("expected_tools", []),
+                    "expected_gdb_entry_id": scenario.get("expected_gdb_entry_id", ""),
+                    "expected_terms": scenario.get("expected_terms", []),
+                    "source_scenario_id": scenario.get("source_scenario_id", scenario["scenario_id"]),
+                    "is_fixture": scenario.get("is_fixture", False),
+                    "translation_status": "romanized_draft_needs_agri_validation",
+                    "expect_2hr_disclaimer": True,
+                    "expected_disclaimer_marker": DISCLAIMER_TERMS[language_code],
+                    "expected_answer_text": answer,
+                    "mock_answer_text": answer,
+                    "mock_response_text": f"{query}\n\n{answer}\n\n{DISCLAIMER_TERMS[language_code]}: mock evaluation response.",
+                    "mock_retrieved_gdb_entry_id": scenario.get("expected_gdb_entry_id", ""),
+                    "stable": False,
+                }
+            )
+
+    return cases
+
+
 MULTILINGUAL_TEST_CASES = build_multilingual_cases()
+ROMANIZED_INPUT_TEST_CASES = build_romanized_input_cases()
