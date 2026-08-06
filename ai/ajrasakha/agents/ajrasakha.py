@@ -5,9 +5,8 @@ from typing import Optional
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from anthropic import APITimeoutError, APIConnectionError, APIStatusError
+from openai import APITimeoutError, APIConnectionError, APIStatusError
 from dotenv import load_dotenv
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig, patch_config
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -19,7 +18,7 @@ from ajrasakha.agents.answer_quality import (
     is_sufficient_expert_answer,
     strip_two_hour_disclaimer,
 )
-from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
+from ajrasakha.agents.config import MCP_URLS, get_minimax_chat_model
 from ajrasakha.agents.location_context import (
     extract_location_updates_from_new_tool_messages,
     main_agent_location_context_message,
@@ -117,7 +116,7 @@ async def ajrasakha_node(
     merged_configurable = dict((config.get("configurable") or {}))
     merged_configurable["location"] = state.get("location")
     enriched_config = patch_config(config, configurable=merged_configurable)
-    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
+    llm = get_minimax_chat_model().bind_tools(main_tools)
     long_term_summary = await load_long_term_summary(store, config)
     summary_context = (
         f"Long-term memory from previous daily threads:\n{long_term_summary}"
@@ -145,7 +144,7 @@ async def ajrasakha_node(
     except APIStatusError as exc:
         if exc.status_code >= 500:
             logger.warning(
-                "Anthropic server error (%s) — returning safe fallback",
+                "LLM server error (%s) — returning safe fallback",
                 exc.status_code,
             )
             return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
