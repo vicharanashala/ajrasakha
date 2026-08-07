@@ -15,12 +15,13 @@ import logging
 import re
 from typing import Optional
 
+from langchain_anthropic import ChatAnthropic
 from openai import APITimeoutError, APIConnectionError, APIStatusError
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, patch_config
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import PLANNER_MODEL, get_minimax_chat_model, resolve_thread_id, resolve_user_id
+from ajrasakha.agents.config import CLAUDE_MODEL, PLANNER_MODEL, get_minimax_chat_model, resolve_thread_id, resolve_user_id
 from ajrasakha.agents.thread_logging import (
     begin_conversation_turn,
     end_conversation_turn,
@@ -181,6 +182,62 @@ class PlannerOutput(BaseModel):
             "Native Unicode script → same language name as vocal (e.g. both Telugu for Telugu script)."
         ),
     )
+
+
+# --- Claude rephrase helper -------------------------------------------------
+# Used by planner_node to override MiniMax's `original_query_en` /
+# `rephrased_query` for non-English inputs. MiniMax has a frequency-bias
+# hallucination on English→Punjabi/Hindi translations (e.g. swapping "wheat"
+# for "sugarcane"). Claude handles this much more reliably, so for any
+# non-English farmer query we re-do just the rephrasing step with Claude
+# and overwrite the MiniMax-generated fields.
+
+REPHRASE_SYSTEM_PROMPT = """You translate an Indian farmer's question into clean, faithful English.
+
+PRESERVE all agricultural terms exactly as the farmer meant them:
+- Crop names (Wheat, Rice, Cotton, Sugarcane, etc.) — NEVER substitute one crop for another.
+- Disease/pest names (e.g. "gulli danda", "Phalaris minor", "khaira", "blast").
+- Place names (states, districts, villages).
+- Chemical names, numbers, and units.
+
+FORBIDDEN:
+- Substituting one crop for another (e.g. translating ਕਣਕ as "sugarcane" instead of "wheat").
+- "Improving" or paraphrasing disease/pest names.
+- Adding diagnoses the farmer did not state.
+
+Output JSON with two fields:
+- "original_query_en": literal English translation of the farmer's message, no fixes.
+- "rephrased_query": same meaning as original_query_en with only spelling, grammar, or word-order fixes.
+"""
+
+
+class RephraseOutput(BaseModel):
+    original_query_en: str = Field(
+        description="Literal English translation of the farmer's latest message. "
+        "Preserve all crop/disease/pest/place names exactly."
+    )
+    rephrased_query: str = Field(
+        description="Same meaning as original_query_en with only spelling/grammar/word-order fixes. "
+        "Do NOT add facts, swap agricultural terms, or paraphrase disease/pest/crop names."
+    )
+
+
+async def _claude_rephrase(user_text: str, vocal_language: str) -> RephraseOutput:
+    """Translate a non-English farmer query to English using Claude Sonnet.
+
+    Called by `planner_node` for non-English inputs to avoid the MiniMax
+    frequency-bias crop-substitution bug (e.g. ਕਣਕ → ਗੰਨਾ / wheat → sugarcane)
+    in the rephrasing step.
+    """
+    llm = ChatAnthropic(model=CLAUDE_MODEL).with_structured_output(RephraseOutput)
+    messages = [
+        SystemMessage(content=REPHRASE_SYSTEM_PROMPT),
+        HumanMessage(content=(
+            f"vocal_language: {vocal_language}\n\n"
+            f"Farmer message:\n{user_text}"
+        )),
+    ]
+    return await llm.ainvoke(messages)
 
 
 def _message_to_text(message: BaseMessage) -> str:
@@ -682,6 +739,40 @@ async def planner_node(
             vocal_language=output.vocal_language,
             script_language=output.script_language,
         )
+
+        # If the input is non-English, override the rephrasing fields with Claude.
+        # MiniMax has a frequency-bias hallucination on English translations of
+        # Indian-language agricultural text (e.g. substituting "sugarcane" for
+        # "wheat" — ਕਣਕ → ਗੰਨਾ). Without this override, that wrong rephrasing
+        # propagates downstream to GDB / weather / mandi tools and they fetch
+        # wrong-context answers. Claude is reliable here, so we re-do just the
+        # rephrasing step with Claude for non-English inputs and overwrite the
+        # two fields. English inputs pay zero extra cost — we skip the call.
+        if (output.vocal_language or "").strip().lower() != "english":
+            try:
+                rephrase = await _claude_rephrase(user_text, output.vocal_language)
+                output.original_query_en = rephrase.original_query_en
+                output.rephrased_query = rephrase.rephrased_query
+                trace_event(
+                    "planner_claude_rephrase_override",
+                    vocal_language=output.vocal_language,
+                    original_query_en=rephrase.original_query_en,
+                    rephrased_query=rephrase.rephrased_query,
+                )
+            except Exception as exc:
+                # Don't let Claude failure crash the planner. Fall back to
+                # MiniMax's rephrasing (which may be imperfect for non-English
+                # inputs, but is better than a 500 error).
+                logger.warning(
+                    "Claude rephrase failed (%s: %s) — falling back to MiniMax rephrasing",
+                    type(exc).__name__, exc,
+                )
+                trace_event(
+                    "planner_claude_rephrase_failed",
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
+
         plan = planner_output_to_plan(output)
 
         # Use Unicode-based script detection first (before LLM detection)
