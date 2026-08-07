@@ -249,4 +249,99 @@ test.describe("Expert Response Workflow", () => {
       await workflowResponsePage.expectDraftResponseEmpty();
     });
   });
+
+  test.describe("after the first expert submits an answer", () => {
+    test.beforeEach(
+      async ({ workflowExpertDashboard, workflowResponsePage }) => {
+        await workflowExpertDashboard.waitForShell();
+        await workflowExpertDashboard.waitForQuestion(question);
+        await workflowExpertDashboard.openQuestion(question);
+        await workflowResponsePage.expectCurrentQuery(question);
+
+        await workflowResponsePage.fillDraftResponse(
+          "Playwright automated answer for the review workflow.",
+        );
+        await workflowResponsePage.addSourceReference("State");
+        await expect(workflowResponsePage.submitButton).toBeEnabled();
+        await workflowResponsePage.clickSubmit();
+        await workflowResponsePage.confirmSubmission();
+        await workflowResponsePage.expectSubmissionSuccess();
+      },
+    );
+
+    // Not in the RESP-*/ERW-* catalogue yet — new coverage for the
+    // moderator-side status transition once an expert answers.
+    test("ERW-M015 Moderator sees the expert's status change to Answer Created", async ({
+      moderatorAllocationQueuePage,
+    }) => {
+      // await moderatorAllocationQueuePage.refresh();
+
+      await moderatorAllocationQueuePage.expectExpertStatus("Answer Created");
+    });
+
+    // NOTE: only experttest2..experttest8 are configured in .env
+    // (EXPERT_EMAIL_2..EXPERT_EMAIL_8) — that's 8 experts total including
+    // EXPERT_EMAIL, matching the "8 experts in queue" flow screenshot.
+    // "expert 2 to 10" was requested but experttest9/10 have no accounts
+    // configured yet; add EXPERT_EMAIL_9/EXPERT_EMAIL_10 to .env and to
+    // config/accounts.js first if those should be included.
+    test("ERW-M016 Moderator allocates the remaining experts to the queue", async ({
+      expertAllocationSectionPage,
+      moderatorAllocationQueuePage,
+    }) => {
+      const remainingExperts = [2, 3, 4, 5, 6, 7, 8].map(
+        (n) => process.env[`EXPERT_EMAIL_${n}`]!,
+      );
+
+      await expertAllocationSectionPage.openSelectExpertsDialog();
+      await expertAllocationSectionPage.selectExperts(remainingExperts);
+      await expertAllocationSectionPage.clickAllocate();
+      await expertAllocationSectionPage.expectAllocationSuccess();
+
+      for (const email of remainingExperts) {
+        await moderatorAllocationQueuePage.expectExpertAllocated(email);
+      }
+    });
+
+    test.describe("and the other experts are allocated", () => {
+      test.beforeEach(
+        async ({
+          expertAllocationSectionPage,
+          moderatorAllocationQueuePage,
+        }) => {
+          const remainingExperts = [2, 3, 4, 5, 6, 7, 8].map(
+            (n) => process.env[`EXPERT_EMAIL_${n}`]!,
+          );
+
+          await expertAllocationSectionPage.openSelectExpertsDialog();
+          await expertAllocationSectionPage.selectExperts(remainingExperts);
+          await expertAllocationSectionPage.clickAllocate();
+          await expertAllocationSectionPage.expectAllocationSuccess();
+
+          for (const email of remainingExperts) {
+            await moderatorAllocationQueuePage.expectExpertAllocated(email);
+          }
+        },
+      );
+
+      // Only the buttons/elements confirmed against real DOM are exercised
+      // here (Accept/Reject/Modify buttons visible, View Details, Comments
+      // accordion). The actual Accept/Reject/Modify *actions* are not
+      // tested yet — their dialogs (Confirm Acceptance's toggles, and
+      // Reject/Modify entirely) still need DOM verification. See the
+      // header comment in review-panel.page.ts.
+      test("ERW-M017 Second expert sees review actions for the first expert's answer", async ({
+        expert2Dashboard,
+        expert2ReviewPanel,
+      }) => {
+        await expert2Dashboard.waitForShell();
+        await expert2Dashboard.waitForQuestion(question);
+        await expert2Dashboard.openQuestion(question);
+
+        await expert2ReviewPanel.expectReviewActionsVisible();
+
+        await expert2ReviewPanel.openViewDetails();
+      });
+    });
+  });
 });

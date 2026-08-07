@@ -9,6 +9,7 @@ import { ExpertAllocationSectionPage } from "../pages/workflows/expert-allocatio
 import { ExpertDashboardPage } from "../pages/expert/dashboard.page.js";
 import { ExpertQuestionDetailsPage } from "../pages/expert/question-details.page.js";
 import { ResponsePage } from "../pages/expert/response.page.js";
+import { ReviewPanelPage } from "../pages/expert/review-panel.page.js";
 
 type WorkflowFixtures = {
   moderatorPage: Page;
@@ -30,6 +31,11 @@ type WorkflowFixtures = {
   workflowExpertDashboard: ExpertDashboardPage;
   workflowExpertQuestionDetails: ExpertQuestionDetailsPage;
   workflowResponsePage: ResponsePage;
+
+  expert2LoggedInPage: Page;
+  expert2Dashboard: ExpertDashboardPage;
+  expert2ResponsePage: ResponsePage;
+  expert2ReviewPanel: ReviewPanelPage;
 };
 
 export const test = base.extend<WorkflowFixtures>({
@@ -125,6 +131,30 @@ export const test = base.extend<WorkflowFixtures>({
 
   workflowResponsePage: async ({ expertLoggedInPage }, use) => {
     await use(new ResponsePage(expertLoggedInPage));
+  },
+
+  // -----------------------------
+  // Second expert (reviewer of the first expert's answer)
+  // -----------------------------
+  expert2LoggedInPage: async ({ loginAsExpert }, use) => {
+    console.log("Logging in as expert 2...");
+    const page = await loginAsExpert(process.env.EXPERT_EMAIL_2!);
+    console.log("Logged in:", page.url());
+    await use(page);
+    console.log("Closing expert 2 page");
+    await page.close();
+  },
+
+  expert2Dashboard: async ({ expert2LoggedInPage }, use) => {
+    await use(new ExpertDashboardPage(expert2LoggedInPage));
+  },
+
+  expert2ResponsePage: async ({ expert2LoggedInPage }, use) => {
+    await use(new ResponsePage(expert2LoggedInPage));
+  },
+
+  expert2ReviewPanel: async ({ expert2LoggedInPage }, use) => {
+    await use(new ReviewPanelPage(expert2LoggedInPage));
   },
 });
 
