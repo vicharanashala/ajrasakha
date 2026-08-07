@@ -233,7 +233,7 @@ export interface IQuestion {
   feedbacks?: {
     source?: string;
     status?: string;
-  } | null;
+  }[] | null;
   /** Set when a moderator cancels a duplicate flag and reopens the question. The
    *  cancel reason and timestamp are recorded in the audit trail, not on the question. */
   isDuplicateCancelled?: boolean;
