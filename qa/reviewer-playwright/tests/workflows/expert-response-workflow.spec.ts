@@ -272,9 +272,22 @@ test.describe("Expert Response Workflow", () => {
     // Not in the RESP-*/ERW-* catalogue yet — new coverage for the
     // moderator-side status transition once an expert answers.
     test("ERW-M015 Moderator sees the expert's status change to Answer Created", async ({
+      moderatorQuestionDetailsPage,
+      moderatorDashboard,
       moderatorAllocationQueuePage,
     }) => {
-      // await moderatorAllocationQueuePage.refresh();
+      // The moderator's page was left on this question's Allocation Queue
+      // view before the expert answered, so it's showing stale data.
+      // Re-navigate to the same question (All Questions -> the question
+      // row) rather than using the in-page refresh button, which drops
+      // back to the All Questions list instead of staying on this view.
+      await moderatorQuestionDetailsPage.exit();
+
+      await moderatorDashboard.openQuestion(question);
+
+      // await moderatorDashboard.openAllQuestions();
+      // await moderatorDashboard.openQuestion(question);
+      await moderatorAllocationQueuePage.expectOpened();
 
       await moderatorAllocationQueuePage.expectExpertStatus("Answer Created");
     });
