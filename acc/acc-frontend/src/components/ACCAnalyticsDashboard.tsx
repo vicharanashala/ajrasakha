@@ -31,6 +31,7 @@ import { getIdToken } from "firebase/auth";
 
 import { env } from "../config/env";
 import { QueryFilterBar } from "./QueryFilterBar";
+import { renderMarkdown, stripMarkdown } from "../utils/markdownRenderer";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
@@ -76,15 +77,21 @@ const CustomTooltip = ({ active, payload }: any) => {
 const FloatingPopoverText = ({ text, title = "Content", characterLimit = 120, isBold = false }: { text: string; title?: string; characterLimit?: number; isBold?: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  if (!text) return <span className="text-muted-foreground">-</span>;
-  if (text.length <= characterLimit) {
-    return <div className={`whitespace-pre-wrap text-xs ${isBold ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{text}</div>;
+  if (!text) return <span className="text-muted-foreground text-base">-</span>;
+  const cleanPreviewText = stripMarkdown(text);
+
+  if (cleanPreviewText.length <= characterLimit) {
+    return (
+      <div className={`text-base ${isBold ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+        {cleanPreviewText}
+      </div>
+    );
   }
 
   return (
-    <div className="relative text-xs">
-      <div className={`text-xs ${isBold ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-        {text.slice(0, characterLimit)}...
+    <div className="relative text-base">
+      <div className={`text-base leading-relaxed ${isBold ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+        {cleanPreviewText.slice(0, characterLimit)}...
       </div>
       
       <div className="mt-1">
@@ -93,7 +100,7 @@ const FloatingPopoverText = ({ text, title = "Content", characterLimit = 120, is
             e.preventDefault();
             setIsOpen(!isOpen);
           }}
-          className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline cursor-pointer focus:outline-none"
+          className="text-xs font-bold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline cursor-pointer focus:outline-none"
         >
           {isOpen ? "Hide Details" : "View Details"}
         </button>
@@ -109,24 +116,24 @@ const FloatingPopoverText = ({ text, title = "Content", characterLimit = 120, is
             }}
           />
           <div 
-            className="absolute left-0 top-full mt-2 sm:w-[450px] w-80 max-h-72 overflow-y-auto bg-popover border border-border shadow-2xl rounded-xl p-4 z-50 text-popover-foreground text-xs animate-in fade-in slide-in-from-top-1 duration-200"
+            className="absolute left-0 top-full mt-2 sm:w-[550px] w-80 max-h-96 overflow-y-auto bg-popover border border-border shadow-2xl rounded-xl p-5 z-50 text-popover-foreground text-base animate-in fade-in slide-in-from-top-1 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center border-b border-border pb-2 mb-2">
-              <span className="font-bold text-foreground uppercase tracking-wider text-[10px]">{title}</span>
+            <div className="flex justify-between items-center border-b border-border pb-2.5 mb-3">
+              <span className="font-bold text-foreground uppercase tracking-wider text-sm">{title}</span>
               <button 
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   setIsOpen(false);
                 }}
-                className="text-muted-foreground hover:text-foreground text-xs font-bold focus:outline-none cursor-pointer"
+                className="text-muted-foreground hover:text-foreground text-base font-bold focus:outline-none cursor-pointer"
               >
                 ✕
               </button>
             </div>
-            <div className="whitespace-pre-wrap leading-relaxed max-w-full overflow-x-hidden font-normal text-muted-foreground">
-              {text}
+            <div className="leading-relaxed max-w-full overflow-x-hidden font-normal text-muted-foreground text-base">
+              {renderMarkdown(text, { baseFontSize: "text-base" })}
             </div>
           </div>
         </>
@@ -667,54 +674,59 @@ export const ACCAnalyticsDashboard = () => {
                 <div className="space-y-4">
                   {/* Responsive Table */}
                   <div className="overflow-x-auto border border-zinc-200/50 dark:border-zinc-800/80 rounded-xl">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-base">
                       <thead>
-                        <tr className="border-b bg-muted/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                          <th className="py-3 px-4 text-left font-medium">Date</th>
-                          <th className="py-3 px-4 text-left font-medium">Domain</th>
-                          <th className="py-3 px-4 text-left font-medium">Crop</th>
-                          <th className="py-3 px-4 text-left font-medium">Question</th>
-                          <th className="py-3 px-4 text-left font-medium">Specialist Answer</th>
-                          <th className="py-3 px-4 text-left font-medium">Farmer</th>
+                        <tr className="border-b bg-muted/30 text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                          <th className="py-3.5 px-4 text-left font-bold text-sm">Date</th>
+                          <th className="py-3.5 px-4 text-left font-bold text-sm">Domain</th>
+                          <th className="py-3.5 px-4 text-left font-bold text-sm">Crop</th>
+                          <th className="py-3.5 px-4 text-left font-bold text-sm">Question</th>
+                          <th className="py-3.5 px-4 text-left font-bold text-sm">Specialist Answer</th>
+                          <th className="py-3.5 px-4 text-left font-bold text-sm">Farmer</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-200/40 dark:divide-zinc-800/50">
                         {queriesData.queries.map((item: any) => (
                           <tr key={item.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30 transition-colors">
-                            <td className="py-3 px-4 whitespace-nowrap text-xs text-muted-foreground">
-                              {new Date(item.createdAt).toLocaleString()}
+                            <td className="py-3.5 px-4 whitespace-nowrap text-sm">
+                              <div className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">
+                                {new Date(item.createdAt).toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-muted-foreground font-medium mt-0.5">
+                                {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </div>
                             </td>
-                            <td className="py-3 px-4">
+                            <td className="py-3.5 px-4">
                               <div className="flex flex-wrap gap-1 max-w-[200px]">
                                 {Array.isArray(item.domain) && item.domain.length > 0 ? (
                                   item.domain.map((d: string, idx: number) => (
-                                    <Badge key={idx} className="bg-indigo-100 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border-none font-semibold text-[10px] whitespace-normal leading-normal">
+                                    <Badge key={idx} className="bg-indigo-100 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border-none font-semibold text-xs whitespace-normal leading-normal px-2.5 py-0.5">
                                       {d}
                                     </Badge>
                                   ))
                                 ) : item.domain && typeof item.domain === 'string' && item.domain.trim() ? (
-                                  <Badge className="bg-indigo-100 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border-none font-semibold text-[10px] whitespace-normal leading-normal">
+                                  <Badge className="bg-indigo-100 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border-none font-semibold text-xs whitespace-normal leading-normal px-2.5 py-0.5">
                                     {item.domain}
                                   </Badge>
                                 ) : (
-                                  <span className="text-xs text-muted-foreground">-</span>
+                                  <span className="text-sm text-muted-foreground">-</span>
                                 )}
                               </div>
                             </td>
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <Badge className="bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-none font-semibold text-[10px]">
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <Badge className="bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-none font-semibold text-xs px-2.5 py-0.5">
                                 {item.crop || "Unknown"}
                               </Badge>
                             </td>
-                            <td className="py-3 px-4 max-w-xs md:max-w-sm">
+                            <td className="py-3.5 px-4 max-w-xs md:max-w-sm">
                               <FloatingPopoverText text={item.question} title="Question Asked" characterLimit={100} isBold={true} />
                             </td>
-                            <td className="py-3 px-4 max-w-xs md:max-w-sm">
+                            <td className="py-3.5 px-4 max-w-xs md:max-w-sm">
                               <FloatingPopoverText text={item.answer} title="Specialist Answer" characterLimit={150} isBold={false} />
                             </td>
-                            <td className="py-3 px-4">
-                              <div className="font-semibold text-zinc-900 dark:text-zinc-100">{item.farmerName || "Unknown"}</div>
-                              <div className="text-xs text-muted-foreground">{item.phone}</div>
+                            <td className="py-3.5 px-4">
+                              <div className="font-bold text-base text-zinc-900 dark:text-zinc-100">{item.farmerName || "Unknown"}</div>
+                              <div className="text-xs text-muted-foreground font-medium">{item.phone}</div>
                             </td>
                           </tr>
                         ))}

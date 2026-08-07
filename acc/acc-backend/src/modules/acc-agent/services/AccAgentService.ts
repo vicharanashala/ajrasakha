@@ -72,7 +72,7 @@ export class AccAgentService {
         },
         {
           headers: { 'Content-Type': 'application/json' },
-          timeout: this.TIMEOUT,
+          timeout: Math.min(this.TIMEOUT, 8000),
         }
       );
 

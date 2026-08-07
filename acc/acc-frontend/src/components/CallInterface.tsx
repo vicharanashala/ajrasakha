@@ -578,14 +578,7 @@ export const CallInterface = () => {
   };
 
   // Farmer Details HITL state
-  const [editableFarmerName, setEditableFarmerName] = useState("");
-  const [editableFarmerPhone, setEditableFarmerPhone] = useState("");
-  const [editableFarmerAge, setEditableFarmerAge] = useState("");
-  const [editableFarmerGender, setEditableFarmerGender] = useState("");
-  const [editableFarmerVillage, setEditableFarmerVillage] = useState("");
-  const [editableFarmerBlock, setEditableFarmerBlock] = useState("");
-  const [editableFarmerPrimaryCrop, setEditableFarmerPrimaryCrop] = useState("");
-  const [shouldUpdateFarmerProfile, setShouldUpdateFarmerProfile] = useState(true);
+  const [extractedFarmerProfile, setExtractedFarmerProfile] = useState<any>(null);
   const [activeExtractionModes, setActiveExtractionModes] = useState<Set<'farmer' | 'query'>>(new Set(['farmer', 'query']));
   const [currentExtractionType, setCurrentExtractionType] = useState<'farmer_details' | 'query_details' | null>(null);
 
@@ -908,13 +901,20 @@ export const CallInterface = () => {
       }
 
       if (extractionType === 'farmer_details') {
-        if (data.extracted_name) setEditableFarmerName(data.extracted_name);
-        if (data.extracted_phone) setEditableFarmerPhone(data.extracted_phone);
-        if (data.extracted_age !== undefined && data.extracted_age !== null) setEditableFarmerAge(String(data.extracted_age));
-        if (data.extracted_gender) setEditableFarmerGender(data.extracted_gender);
-        if (data.extracted_village) setEditableFarmerVillage(data.extracted_village);
-        if (data.extracted_block) setEditableFarmerBlock(data.extracted_block);
-        if (data.extracted_primary_crop) setEditableFarmerPrimaryCrop(data.extracted_primary_crop);
+        setExtractedFarmerProfile({
+          farmerName: data.extracted_name,
+          phoneNo: data.extracted_phone || callPhoneNumber || lastCallPhoneNumber || "",
+          age: data.extracted_age !== undefined && data.extracted_age !== null ? Number(data.extracted_age) : 45,
+          gender: data.extracted_gender || "",
+          villageName: data.extracted_village || "",
+          blockName: data.extracted_block || "",
+          primaryCrop: data.extracted_primary_crop || data.extracted_crop || "",
+          secondaryCrop: (data as any).extracted_secondary_crop || "",
+          state: data.extracted_state || "",
+          district: data.extracted_district || "",
+          languagePreference: (data as any).extracted_language || "",
+          cropsCultivated: data.extracted_crop ? [data.extracted_crop] : [""],
+        });
         if (data.extracted_state) setEditableState(data.extracted_state);
         if (data.extracted_district) setEditableDistrict(data.extracted_district);
       }
@@ -1175,6 +1175,7 @@ export const CallInterface = () => {
       )}
       {/* Incoming Call Box - Top Section */}
       <IncomingCallBox
+        extractedFarmerProfile={extractedFarmerProfile}
         onTranscriptChange={() => { }} // Not using direct strings anymore
         onOriginalTranscriptChange={() => { }}
         onTranscriptsListChange={(list) => setTranscriptsList(list)}
@@ -1182,6 +1183,7 @@ export const CallInterface = () => {
           setIsCallActive(isActive);
           if (isActive) {
             // Clear transcripts, questions, summary, HITL and simulation states when a new call becomes active
+            setExtractedFarmerProfile(null);
             setTranscriptsList([]);
             setQuestions([]);
             setTranslatedQuestions({});
@@ -1364,8 +1366,8 @@ export const CallInterface = () => {
                               ? currentExtractionType === "farmer_details"
                                 ? "Extracting Farmer..."
                                 : currentExtractionType === "query_details"
-                                ? "Extracting Query..."
-                                : "Extracting..."
+                                  ? "Extracting Query..."
+                                  : "Extracting..."
                               : "Extract and Verify"}
                           </span>
                           <ChevronDown className="h-4 w-4 ml-0.5 opacity-80" />
@@ -1621,163 +1623,7 @@ export const CallInterface = () => {
             </div>
           </Card>
 
-          {/* Extracted Farmer Details Card (Left Column - directly below Live Conversation Dialogue) */}
-          {isSummaryOpen && activeExtractionModes.has('farmer') && (
-            <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 animate-in fade-in-50 slide-in-from-top-2">
-              <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-5 py-3 transition-colors">
-                <CardTitle className="flex items-center justify-between text-sm font-semibold">
-                  <span className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                    <User className="h-4 w-4" />
-                    Extracted Farmer Profile Details
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-5 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-3">
-                {isExtracting && currentExtractionType === 'farmer_details' ? (
-                  <div className="flex flex-col space-y-3">
-                    <Skeleton className="h-4 w-3/4 rounded-md" />
-                    <Skeleton className="h-4 w-full rounded-md" />
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="farmerName" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                          Farmer Name
-                        </Label>
-                        <Input
-                          id="farmerName"
-                          value={editableFarmerName}
-                          onChange={(e) => setEditableFarmerName(e.target.value)}
-                          className="text-sm"
-                          placeholder="Farmer name..."
-                        />
-                      </div>
 
-                      <div>
-                        <Label htmlFor="farmerPhone" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                          Phone Number
-                        </Label>
-                        <Input
-                          id="farmerPhone"
-                          value={editableFarmerPhone}
-                          onChange={(e) => setEditableFarmerPhone(e.target.value)}
-                          className="text-sm"
-                          placeholder="Phone number..."
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="farmerAge" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                          Age
-                        </Label>
-                        <Input
-                          id="farmerAge"
-                          type="number"
-                          value={editableFarmerAge}
-                          onChange={(e) => setEditableFarmerAge(e.target.value)}
-                          className="text-sm"
-                          placeholder="Age..."
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="farmerGender" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                          Gender
-                        </Label>
-                        <Input
-                          id="farmerGender"
-                          value={editableFarmerGender}
-                          onChange={(e) => setEditableFarmerGender(e.target.value)}
-                          className="text-sm"
-                          placeholder="Gender..."
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="farmerVillage" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                          Village
-                        </Label>
-                        <Input
-                          id="farmerVillage"
-                          value={editableFarmerVillage}
-                          onChange={(e) => setEditableFarmerVillage(e.target.value)}
-                          className="text-sm"
-                          placeholder="Village..."
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="farmerBlock" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                          Block
-                        </Label>
-                        <Input
-                          id="farmerBlock"
-                          value={editableFarmerBlock}
-                          onChange={(e) => setEditableFarmerBlock(e.target.value)}
-                          className="text-sm"
-                          placeholder="Block..."
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="farmerDistrict" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                          District
-                        </Label>
-                        <Input
-                          id="farmerDistrict"
-                          value={editableDistrict}
-                          onChange={(e) => setEditableDistrict(e.target.value)}
-                          className="text-sm"
-                          placeholder="District..."
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="farmerState" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                          State
-                        </Label>
-                        <Input
-                          id="farmerState"
-                          value={editableState}
-                          onChange={(e) => setEditableState(e.target.value)}
-                          className="text-sm"
-                          placeholder="State..."
-                        />
-                      </div>
-
-                      <div className="col-span-2 sm:col-span-1">
-                        <Label htmlFor="farmerPrimaryCrop" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                          Primary Crop
-                        </Label>
-                        <Input
-                          id="farmerPrimaryCrop"
-                          value={editableFarmerPrimaryCrop}
-                          onChange={(e) => setEditableFarmerPrimaryCrop(e.target.value)}
-                          className="text-sm"
-                          placeholder="Primary crop..."
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 mt-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                      <Checkbox
-                        id="update-farmer-profile"
-                        checked={shouldUpdateFarmerProfile}
-                        onCheckedChange={(checked) => setShouldUpdateFarmerProfile(!!checked)}
-                      />
-                      <label
-                        htmlFor="update-farmer-profile"
-                        className="text-xs font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer"
-                      >
-                        Save/update farmer profile in database on approval
-                      </label>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
         </div>
 
         {/* Right Column: Extracted Query Details & Generated Answers */}

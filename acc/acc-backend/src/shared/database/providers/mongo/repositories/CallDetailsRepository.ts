@@ -143,8 +143,45 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         .sort({ createdAt: -1 })
         .toArray();
 
+      const phoneNumbers = [...new Set(result.map(c => c.from).filter(Boolean))];
+      const farmersMap = new Map<string, any>();
+
+      if (phoneNumbers.length > 0) {
+        try {
+          const farmersColl = await this.db.getCollection('Farmers_info');
+          const farmerDocs = await farmersColl.find(
+            { phoneNo: { $in: phoneNumbers } },
+            { session }
+          ).toArray();
+          
+          for (const doc of farmerDocs) {
+            if (doc.phoneNo) farmersMap.set(doc.phoneNo, doc.profile || doc);
+          }
+
+          // Fallback to farmer_details collection for missing phones
+          const missingPhones = phoneNumbers.filter(p => !farmersMap.has(p));
+          if (missingPhones.length > 0) {
+            const fallbackColl = await this.db.getCollection('farmer_details');
+            const fallbackDocs = await fallbackColl.find(
+              { phoneNo: { $in: missingPhones } },
+              { session }
+            ).toArray();
+            for (const doc of fallbackDocs) {
+              if (doc.phoneNo && !farmersMap.has(doc.phoneNo)) {
+                farmersMap.set(doc.phoneNo, doc.profile || doc);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[CallDetailsRepository] Error populating farmer profiles in call history:', e);
+        }
+      }
+
       for (const call of result) {
         call.queries = await this.getQueriesByCallUuid(call.callUuid, session);
+        if (call.from && farmersMap.has(call.from)) {
+          (call as any).farmerProfile = farmersMap.get(call.from);
+        }
       }
       return result;
     } catch (error: any) {
@@ -538,11 +575,19 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         const blockRegex = new RegExp(escapeRegExp(block.trim()), 'i');
         let matchingCallUuids: string[] = [];
         try {
-          const farmersColl = await this.db.getCollection('farmers');
-          const matchingFarmers = await farmersColl.find(
-            { 'profile.blockName': blockRegex },
+          const farmersColl = await this.db.getCollection('Farmers_info');
+          let matchingFarmers = await farmersColl.find(
+            { $or: [{ 'profile.blockName': blockRegex }, { blockName: blockRegex }] },
             { projection: { phoneNo: 1 } }
           ).toArray();
+
+          if (matchingFarmers.length === 0) {
+            const fallbackColl = await this.db.getCollection('farmer_details');
+            matchingFarmers = await fallbackColl.find(
+              { $or: [{ 'profile.blockName': blockRegex }, { blockName: blockRegex }] },
+              { projection: { phoneNo: 1 } }
+            ).toArray();
+          }
           const matchingFarmerPhones = matchingFarmers.map(f => f.phoneNo).filter(Boolean);
 
           if (matchingFarmerPhones.length > 0) {

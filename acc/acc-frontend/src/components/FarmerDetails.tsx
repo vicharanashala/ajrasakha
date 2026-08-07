@@ -31,6 +31,8 @@ interface FarmerDetailsProps {
   phoneNo: string;
   className?: string;
   defaultOpen?: boolean;
+  extractedProfile?: FarmerProfile | null;
+  onProfileUpdated?: (profile: FarmerProfile) => void;
 }
 
 const getFieldColors = (key: string) => {
@@ -152,10 +154,10 @@ const renderValue = (key: string, value: any) => {
   );
 };
 
-export const FarmerDetails = ({ phoneNo, className, defaultOpen = false }: FarmerDetailsProps) => {
+export const FarmerDetails = ({ phoneNo, className, defaultOpen = false, extractedProfile, onProfileUpdated }: FarmerDetailsProps) => {
   const [farmer, setFarmer] = useState<FarmerProfile | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(defaultOpen);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<FarmerProfile>({});
   const [saveLoading, setSaveLoading] = useState(false);
@@ -164,6 +166,43 @@ export const FarmerDetails = ({ phoneNo, className, defaultOpen = false }: Farme
     fetchFarmerDetails();
   }, [phoneNo]);
 
+  const normalizeProfile = (raw: any, activePhone?: string): FarmerProfile => {
+    if (!raw) return {};
+    const phone = activePhone || raw.phoneNo || raw.extracted_phone || raw.phone || "";
+    return {
+      farmerName: raw.farmerName || raw.extracted_name || raw.name || raw.farmer_name || "",
+      phoneNo: phone,
+      age: raw.age !== undefined && raw.age !== null ? Number(raw.age) : raw.extracted_age !== undefined && raw.extracted_age !== null ? Number(raw.extracted_age) : undefined,
+      gender: raw.gender || raw.extracted_gender || "",
+      villageName: raw.villageName || raw.extracted_village || raw.village || "",
+      blockName: raw.blockName || raw.extracted_block || raw.block || "",
+      district: raw.district || raw.extracted_district || "",
+      state: raw.state || raw.extracted_state || "",
+      primaryCrop: raw.primaryCrop || raw.extracted_primary_crop || raw.extracted_crop || raw.crop || "",
+      secondaryCrop: raw.secondaryCrop || raw.extracted_secondary_crop || "",
+      languagePreference: raw.languagePreference || raw.extracted_language || raw.language || "",
+      yearsOfExperience: raw.yearsOfExperience !== undefined && raw.yearsOfExperience !== null ? Number(raw.yearsOfExperience) : undefined,
+      cropsCultivated: Array.isArray(raw.cropsCultivated)
+        ? raw.cropsCultivated
+        : raw.extracted_crop
+          ? [raw.extracted_crop]
+          : typeof raw.cropsCultivated === 'string'
+            ? raw.cropsCultivated.split(',').map((c: string) => c.trim()).filter(Boolean)
+            : undefined,
+      highestEducatedPerson: raw.highestEducatedPerson || raw.extracted_highest_educated || "",
+      numberOfSmartphones: raw.numberOfSmartphones !== undefined && raw.numberOfSmartphones !== null ? Number(raw.numberOfSmartphones) : undefined,
+    };
+  };
+
+  useEffect(() => {
+    if (extractedProfile && Object.keys(extractedProfile).length > 0) {
+      const normalized = normalizeProfile(extractedProfile, phoneNo);
+      setFarmer((prev) => ({ ...(prev || {}), ...normalized }));
+      setEditForm((prev) => ({ ...prev, ...normalized }));
+      setIsEditing(true);
+    }
+  }, [extractedProfile, phoneNo]);
+
   const fetchFarmerDetails = async () => {
     if (!phoneNo) {
       return;
@@ -171,8 +210,9 @@ export const FarmerDetails = ({ phoneNo, className, defaultOpen = false }: Farme
     setLoading(true);
     try {
       const data = await plivoService.getFarmerByPhoneNo(phoneNo);
-      setFarmer(data?.profile || null);
-      setEditForm(data?.profile || {});
+      const normalized = normalizeProfile(data?.profile || {}, phoneNo);
+      setFarmer(Object.keys(normalized).length > 0 ? normalized : null);
+      setEditForm(normalized);
     } catch (error) {
       console.error(`[FARMER_FLOW] FarmerDetails: Failed to fetch farmer details for ${phoneNo}:`, error);
     } finally {
@@ -186,7 +226,7 @@ export const FarmerDetails = ({ phoneNo, className, defaultOpen = false }: Farme
     }
     setSaveLoading(true);
     try {
-      const payload = { ...editForm, phoneNo: editForm.phoneNo || phoneNo };
+      const payload = { ...editForm, phoneNo: phoneNo || editForm.phoneNo };
       if (farmer) {
         // Update existing
         await plivoService.updateFarmer(phoneNo, payload);
@@ -196,6 +236,7 @@ export const FarmerDetails = ({ phoneNo, className, defaultOpen = false }: Farme
       }
       setFarmer(payload);
       setIsEditing(false);
+      if (onProfileUpdated) onProfileUpdated(payload);
     } catch (error) {
       console.error(`[FARMER_FLOW] FarmerDetails: Failed to save farmer details for ${phoneNo}:`, error);
       alert("Failed to save farmer details");
@@ -210,7 +251,10 @@ export const FarmerDetails = ({ phoneNo, className, defaultOpen = false }: Farme
   };
 
   const handleInputChange = (field: keyof FarmerProfile, value: any) => {
-    setEditForm(prev => ({ ...prev, [field]: value }));
+    setEditForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
   if (loading) {
@@ -227,6 +271,7 @@ export const FarmerDetails = ({ phoneNo, className, defaultOpen = false }: Farme
     { key: 'farmerName', label: 'Name', icon: User },
     { key: 'phoneNo', label: 'Phone', icon: Phone },
     { key: 'state', label: 'State', icon: Map },
+    { key: 'district', label: 'District', icon: MapPin },
     { key: 'villageName', label: 'Village', icon: MapPin },
     { key: 'primaryCrop', label: 'Primary Crop', icon: Wheat },
   ];
@@ -236,7 +281,6 @@ export const FarmerDetails = ({ phoneNo, className, defaultOpen = false }: Farme
     { key: 'age', label: 'Age', icon: Calendar },
     { key: 'gender', label: 'Gender', icon: Users },
     { key: 'blockName', label: 'Block', icon: MapPin },
-    { key: 'district', label: 'District', icon: MapPin },
     { key: 'languagePreference', label: 'Language', icon: Languages },
     { key: 'yearsOfExperience', label: 'Years of Experience', icon: Award },
     { key: 'secondaryCrop', label: 'Secondary Crop', icon: Wheat },
@@ -249,11 +293,38 @@ export const FarmerDetails = ({ phoneNo, className, defaultOpen = false }: Farme
 
   const fieldsToShow = isExpanded ? allFields : callRelevantFields;
 
+  const renderViewCard = (key: string, label: string, Icon: any, value: any, colSpanClass: string = "") => {
+    const colors = getFieldColors(key);
+    const displayVal = value !== undefined && value !== null && value !== "" ? renderValue(key, value) : <span className="text-zinc-400 italic text-[11px]">-</span>;
+    return (
+      <div
+        key={key}
+        className={cn(
+          "flex items-center gap-2 p-1.5 px-2 rounded-lg border transition-all duration-200 bg-white dark:bg-zinc-900/60 shadow-sm",
+          colors.borderColor,
+          colSpanClass
+        )}
+      >
+        <div className={cn("flex-shrink-0 p-1 rounded-md border", colors.bgColor, colors.borderColor, colors.iconColor)}>
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <span className="block text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+            {label}
+          </span>
+          <div className="mt-0.5">
+            {displayVal}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <Card className={cn("border border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/20 dark:bg-zinc-900/10 shadow-none rounded-xl", className)}>
-      <CardHeader className="border-b border-zinc-100 dark:border-zinc-800/85">
+    <Card className={cn("border border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/20 dark:bg-zinc-900/10 shadow-none rounded-xl !py-0 !gap-0", className)}>
+      <CardHeader className="!py-2 !px-3 !pb-2 border-b border-zinc-100 dark:border-zinc-800/85">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Farmer Details</CardTitle>
+          <CardTitle className="text-sm font-extrabold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">Farmer Details</CardTitle>
           <div className="flex items-center gap-1.5">
             {!isEditing && (
               <Button
@@ -278,239 +349,211 @@ export const FarmerDetails = ({ phoneNo, className, defaultOpen = false }: Farme
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-2 space-y-2">
+      <CardContent className="p-2.5 space-y-2">
         {isEditing ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Name</Label>
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Name</Label>
                 <Input
                   value={editForm.farmerName || ''}
                   onChange={(e) => handleInputChange('farmerName', e.target.value)}
-                  className="h-8 text-sm"
+                  className="h-7 text-xs"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Phone</Label>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Phone (Read-only)</Label>
                 <Input
-                  value={editForm.phoneNo || phoneNo}
-                  onChange={(e) => handleInputChange('phoneNo', e.target.value)}
-                  className="h-8 text-sm"
+                  value={phoneNo || editForm.phoneNo || ''}
+                  readOnly={true}
+                  disabled={true}
+                  className="h-7 text-xs bg-zinc-800 dark:bg-zinc-900 !text-white font-bold cursor-not-allowed border border-zinc-700 font-mono shadow-inner opacity-100"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">State</Label>
-                <Input
-                  value={editForm.state || ''}
-                  onChange={(e) => handleInputChange('state', e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Village</Label>
+            </div>
+
+            {/* Village, District, State in One Line */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Village</Label>
                 <Input
                   value={editForm.villageName || ''}
                   onChange={(e) => handleInputChange('villageName', e.target.value)}
-                  className="h-8 text-sm"
+                  className="h-7 text-xs"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Primary Crop</Label>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">District</Label>
                 <Input
-                  value={editForm.primaryCrop || ''}
-                  onChange={(e) => handleInputChange('primaryCrop', e.target.value)}
-                  className="h-8 text-sm"
+                  value={editForm.district || ''}
+                  onChange={(e) => handleInputChange('district', e.target.value)}
+                  className="h-7 text-xs"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Age</Label>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">State</Label>
+                <Input
+                  value={editForm.state || ''}
+                  onChange={(e) => handleInputChange('state', e.target.value)}
+                  className="h-7 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Age, Gender, Language in One Single Line (Directly Below Village, District, State) */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Age</Label>
                 <Input
                   type="number"
                   value={editForm.age || ''}
                   onChange={(e) => handleInputChange('age', parseInt(e.target.value) || undefined)}
-                  className="h-8 text-sm"
+                  className="h-7 text-xs"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Gender</Label>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Gender</Label>
                 <Input
                   value={editForm.gender || ''}
                   onChange={(e) => handleInputChange('gender', e.target.value)}
-                  className="h-8 text-sm"
+                  className="h-7 text-xs"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">District</Label>
-                <Input
-                  value={editForm.district || ''}
-                  onChange={(e) => handleInputChange('district', e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Block</Label>
-                <Input
-                  value={editForm.blockName || ''}
-                  onChange={(e) => handleInputChange('blockName', e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Language</Label>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Language</Label>
                 <Input
                   value={editForm.languagePreference || ''}
                   onChange={(e) => handleInputChange('languagePreference', e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Years of Experience</Label>
-                <Input
-                  type="number"
-                  value={editForm.yearsOfExperience || ''}
-                  onChange={(e) => handleInputChange('yearsOfExperience', parseInt(e.target.value) || undefined)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Secondary Crop</Label>
-                <Input
-                  value={editForm.secondaryCrop || ''}
-                  onChange={(e) => handleInputChange('secondaryCrop', e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1 col-span-2">
-                <Label className="text-xs">Crops Cultivated (comma separated)</Label>
-                <Input
-                  value={editForm.cropsCultivated?.join(', ') || ''}
-                  onChange={(e) => handleInputChange('cropsCultivated', e.target.value.split(',').map(c => c.trim()))}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Highest Educated Person</Label>
-                <Input
-                  value={editForm.highestEducatedPerson || ''}
-                  onChange={(e) => handleInputChange('highestEducatedPerson', e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Number of Smartphones</Label>
-                <Input
-                  type="number"
-                  value={editForm.numberOfSmartphones || ''}
-                  onChange={(e) => handleInputChange('numberOfSmartphones', parseInt(e.target.value) || undefined)}
-                  className="h-8 text-sm"
+                  className="h-7 text-xs"
                 />
               </div>
             </div>
-            <div className="flex gap-2 justify-end">
+
+            {/* Primary Crop & Secondary Crop Side-by-Side */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Primary Crop</Label>
+                <Input
+                  value={editForm.primaryCrop || ''}
+                  onChange={(e) => handleInputChange('primaryCrop', e.target.value)}
+                  className="h-7 text-xs"
+                />
+              </div>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Secondary Crop</Label>
+                <Input
+                  value={editForm.secondaryCrop || ''}
+                  onChange={(e) => handleInputChange('secondaryCrop', e.target.value)}
+                  className="h-7 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Additional fields only when expanded */}
+            {isExpanded && (
+              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-200/40 dark:border-zinc-800/40">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Block</Label>
+                  <Input
+                    value={editForm.blockName || ''}
+                    onChange={(e) => handleInputChange('blockName', e.target.value)}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Years of Experience</Label>
+                  <Input
+                    type="number"
+                    value={editForm.yearsOfExperience || ''}
+                    onChange={(e) => handleInputChange('yearsOfExperience', parseInt(e.target.value) || undefined)}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="space-y-0.5 col-span-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Crops Cultivated</Label>
+                  <Input
+                    value={editForm.cropsCultivated?.join(', ') || ''}
+                    onChange={(e) => handleInputChange('cropsCultivated', e.target.value.split(',').map(c => c.trim()))}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Highest Educated</Label>
+                  <Input
+                    value={editForm.highestEducatedPerson || ''}
+                    onChange={(e) => handleInputChange('highestEducatedPerson', e.target.value)}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Smartphones</Label>
+                  <Input
+                    type="number"
+                    value={editForm.numberOfSmartphones || ''}
+                    onChange={(e) => handleInputChange('numberOfSmartphones', parseInt(e.target.value) || undefined)}
+                    className="h-7 text-xs"
+                  />
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2 justify-end pt-1">
               <Button
                 onClick={handleCancel}
                 size="sm"
                 variant="outline"
-                className="h-8"
+                className="h-7 text-xs px-3"
               >
-                <X className="h-3.5 w-3.5 mr-1" />
+                <X className="h-3 w-3 mr-1" />
                 Cancel
               </Button>
               <Button
                 onClick={handleSave}
                 size="sm"
-                className="h-8"
+                className="h-7 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                 disabled={saveLoading}
               >
-                <Save className="h-3.5 w-3.5 mr-1" />
+                <Save className="h-3 w-3 mr-1" />
                 {saveLoading ? 'Saving...' : 'Update'}
               </Button>
             </div>
           </div>
         ) : farmer ? (
-          <div className="space-y-4">
-            {!isExpanded ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[12px] leading-relaxed">
-                {callRelevantFields.map((field) => {
-                  const value = farmer[field.key as keyof FarmerProfile];
-                  if (value === undefined || value === null || value === "") return null;
-                  const Icon = field.icon || User;
-                  const colors = getFieldColors(field.key);
-                  return (
-                    <div
-                      key={field.key}
-                      className={cn(
-                        "flex items-start gap-2.5 p-2.5 rounded-xl border transition-all duration-200 bg-white dark:bg-zinc-900/60 hover:shadow-sm",
-                        colors.borderColor
-                      )}
-                    >
-                      <div className={cn("flex-shrink-0 p-1.5 rounded-lg border", colors.bgColor, colors.borderColor, colors.iconColor)}>
-                        <Icon className="h-3.5 w-3.5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <span className="block text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-0.5">
-                          {field.label}
-                        </span>
-                        <div className="mt-0.5">
-                          {renderValue(field.key, value)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {fieldGroups.map((group) => {
-                  const visibleFields = group.keys.map(k => allFields.find(f => f.key === k)).filter(Boolean) as typeof allFields;
-                  const hasVisibleFields = visibleFields.some(field => {
-                    const val = farmer[field.key as keyof FarmerProfile];
-                    return val !== undefined && val !== null && val !== "";
-                  });
+          <div className="space-y-2">
+            {/* Row 1: Name & Phone */}
+            <div className="grid grid-cols-2 gap-2">
+              {renderViewCard('farmerName', 'Name', User, farmer.farmerName)}
+              {renderViewCard('phoneNo', 'Phone', Phone, phoneNo || farmer.phoneNo)}
+            </div>
 
-                  if (!hasVisibleFields) return null;
+            {/* Row 2: Village, District, State in One Line */}
+            <div className="grid grid-cols-3 gap-2">
+              {renderViewCard('villageName', 'Village', MapPin, farmer.villageName)}
+              {renderViewCard('district', 'District', MapPin, farmer.district)}
+              {renderViewCard('state', 'State', Map, farmer.state)}
+            </div>
 
-                  return (
-                    <div key={group.title} className={cn("p-3 rounded-xl border bg-zinc-50/15 dark:bg-zinc-900/20", group.borderColor)}>
-                      <h4 className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2.5 pl-0.5">
-                        {group.title}
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[12px]">
-                        {visibleFields.map((field) => {
-                          const value = farmer[field.key as keyof FarmerProfile];
-                          if (value === undefined || value === null || value === "") return null;
-                          const Icon = field.icon || User;
-                          const colors = getFieldColors(field.key);
-                          return (
-                            <div
-                              key={field.key}
-                              className={cn(
-                                "flex items-start gap-2.5 p-2 rounded-lg border transition-all duration-200 bg-white dark:bg-zinc-900/60 hover:shadow-sm",
-                                colors.borderColor
-                              )}
-                            >
-                              <div className={cn("flex-shrink-0 p-1.5 rounded-lg border", colors.bgColor, colors.borderColor, colors.iconColor)}>
-                                <Icon className="h-3.5 w-3.5" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <span className="block text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-0.5">
-                                  {field.label}
-                                </span>
-                                <div className="mt-0.5">
-                                  {renderValue(field.key, value)}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+            {/* Row 3: Age, Gender, Language in One Single Line (Directly Below Village, District, State) */}
+            <div className="grid grid-cols-3 gap-2">
+              {renderViewCard('age', 'Age', Calendar, farmer.age)}
+              {renderViewCard('gender', 'Gender', Users, farmer.gender)}
+              {renderViewCard('languagePreference', 'Language', Languages, farmer.languagePreference)}
+            </div>
+
+            {/* Row 4: Primary Crop & Secondary Crop */}
+            <div className="grid grid-cols-2 gap-2">
+              {renderViewCard('primaryCrop', 'Primary Crop', Wheat, farmer.primaryCrop)}
+              {renderViewCard('secondaryCrop', 'Secondary Crop', Wheat, farmer.secondaryCrop)}
+            </div>
+
+            {/* Additional fields only when expanded */}
+            {isExpanded && (
+              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-200/40 dark:border-zinc-800/40">
+                {renderViewCard('blockName', 'Block', MapPin, farmer.blockName)}
+                {renderViewCard('yearsOfExperience', 'Years of Experience', Award, farmer.yearsOfExperience)}
+                {renderViewCard('cropsCultivated', 'Crops Cultivated', Sparkles, farmer.cropsCultivated, 'col-span-2')}
+                {renderViewCard('highestEducatedPerson', 'Highest Educated', GraduationCap, farmer.highestEducatedPerson)}
+                {renderViewCard('numberOfSmartphones', 'Smartphones', Smartphone, farmer.numberOfSmartphones)}
               </div>
-            )}
-            {!farmer.farmerName && !farmer.phoneNo && !farmer.state && !farmer.villageName && !farmer.primaryCrop && (
-              <div className="text-xs text-zinc-500 italic text-center py-2">No details available</div>
             )}
           </div>
         ) : (

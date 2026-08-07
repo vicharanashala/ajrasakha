@@ -60,6 +60,7 @@ export interface IncomingCallBoxProps {
   onCallStateChange?: (isActive: boolean) => void;
   onCallUuidChange?: (callUuid: string | null) => void;
   onPhoneNumberChange?: (phoneNumber: string | null) => void;
+  extractedFarmerProfile?: any;
 }
 
 declare global {
@@ -77,6 +78,7 @@ export const IncomingCallBox = ({
   onCallStateChange,
   onCallUuidChange,
   onPhoneNumberChange,
+  extractedFarmerProfile,
 }: IncomingCallBoxProps) => {
   // console.log(" [IncomingCallBox] Component mounting...");
 
@@ -97,6 +99,12 @@ export const IncomingCallBox = ({
   const [messageText, setMessageText] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [lastCallNumber, setLastCallNumber] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (extractedFarmerProfile) {
+      setIsFarmerInfoExpanded(true);
+    }
+  }, [extractedFarmerProfile]);
 
   // Translation
   const [farmerDetectedLanguage, setFarmerDetectedLanguage] = useState<string | null>(null);
@@ -1187,11 +1195,13 @@ export const IncomingCallBox = ({
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-muted-foreground p-1">
-                <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
-                <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                  No active calls
-                </span>
+              <div className="flex items-center justify-between gap-2 p-1">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+                  <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                    No active calls
+                  </span>
+                </div>
               </div>
             )}
           </CardContent>
@@ -1229,11 +1239,13 @@ export const IncomingCallBox = ({
                           ? "Connected Call"
                           : callStatus === "held"
                             ? "Call On Hold"
-                            : "Call Status"}
+                            : (incomingCall?.number || lastCallNumber)
+                              ? "Call Ended / Farmer Details"
+                              : "Call Status"}
                     </p>
                     <div className="flex items-center gap-2">
                       <span className="text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight font-mono">
-                        {incomingCall?.number || "Unknown Caller"}
+                        {incomingCall?.number || lastCallNumber || "Waiting for call..."}
                       </span>
                       {incomingCall && (
                         <span className="text-[11px] text-zinc-400 font-mono">
@@ -1250,8 +1262,9 @@ export const IncomingCallBox = ({
                 </div>
 
                 {/* Secondary Feature Pills (Farmer Info & Message) - Space Optimized Header Inline */}
-                {(callStatus === "connected" || callStatus === "held") && (
+                {(callStatus === "connected" || callStatus === "held" || lastCallNumber || incomingCall || extractedFarmerProfile) && (
                   <div className="flex items-center gap-2">
+
                     <Button
                       type="button"
                       size="sm"
@@ -1380,11 +1393,12 @@ export const IncomingCallBox = ({
             </div>
 
             {/* Expandable Sections (Only shown when explicitly expanded) */}
-            {incomingCall && isFarmerInfoExpanded && (
+            {(incomingCall || lastCallNumber) && isFarmerInfoExpanded && (
               <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                 <FarmerDetails
-                  phoneNo={incomingCall.number}
-                  defaultOpen={true}
+                  phoneNo={incomingCall?.number || lastCallNumber || ""}
+                  defaultOpen={false}
+                  extractedProfile={extractedFarmerProfile}
                   className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10"
                 />
               </div>

@@ -64,6 +64,7 @@ export interface CallHistoryItem {
   agentUserId?: string;
   agentUsername?: string;
   agentEmail?: string;
+  farmerProfile?: FarmerProfile;
   callDetails?: {
     caller?: { transcript: string; translation: string; detectedLanguage: string };
     agent?: { transcript: string; translation: string; detectedLanguage: string; userid?: string; username?: string; email?: string };

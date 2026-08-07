@@ -931,7 +931,8 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
                                     <FarmerDetails
                                       phoneNo={call.from}
-                                      defaultOpen={true}
+                                      defaultOpen={false}
+                                      extractedProfile={call.farmerProfile}
                                       className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl h-full"
                                     />
 
