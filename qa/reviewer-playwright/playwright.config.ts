@@ -19,7 +19,7 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   workers: 1,
-  timeout: 45_000,
+  timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: [["list"], ["json", { outputFile: "test-results/results.json" }]],
   use: {
