@@ -1,4 +1,4 @@
-import { test } from "../../fixtures/workflow.fixture.js";
+import { test, expect } from "../../fixtures/workflow.fixture.js";
 
 test.describe("Expert Response Workflow", () => {
   let question: string;
@@ -87,6 +87,10 @@ test.describe("Expert Response Workflow", () => {
     await workflowExpertDashboard.waitForQuestion(question);
 
     await workflowExpertDashboard.openQuestion(question);
+
+    // My Queue has no separate detail route: selecting a question updates
+    // the Response panel's "Current Query" in place, and that's the signal
+    // that the question is now "open".
     await workflowResponsePage.expectCurrentQuery(question);
   });
 
@@ -103,5 +107,146 @@ test.describe("Expert Response Workflow", () => {
     await workflowResponsePage.expectCurrentQuery(question);
 
     await workflowResponsePage.expectLoaded();
+  });
+
+  test.describe("with the question open in the Response panel", () => {
+    test.beforeEach(
+      async ({ workflowExpertDashboard, workflowResponsePage }) => {
+        await workflowExpertDashboard.waitForShell();
+        await workflowExpertDashboard.waitForQuestion(question);
+        await workflowExpertDashboard.openQuestion(question);
+        await workflowResponsePage.expectCurrentQuery(question);
+      },
+    );
+
+    // Catalogue source: 03-response.md, RESP-001.
+    test("ERW-M005 Response panel controls are visible", async ({
+      workflowResponsePage,
+    }) => {
+      await workflowResponsePage.expectLoaded();
+    });
+
+    // Catalogue source: 03-response.md, RESP-002.
+    test("ERW-M006 Expert can open the metadata dialog", async ({
+      workflowResponsePage,
+    }) => {
+      await workflowResponsePage.openMetadataDialog();
+      await workflowResponsePage.expectMetadataDialog();
+      await workflowResponsePage.closeMetadataDialog();
+    });
+
+    // Catalogue source: 03-response.md, RESP-003.
+    test("ERW-M007 Metadata dialog displays all expected sections", async ({
+      workflowResponsePage,
+    }) => {
+      await workflowResponsePage.openMetadataDialog();
+      await workflowResponsePage.expectMetadataDialog();
+      await workflowResponsePage.expectMetadataSections();
+      await workflowResponsePage.closeMetadataDialog();
+    });
+
+    // Catalogue source: 03-response.md, RESP-004.
+    test("ERW-M008 Metadata dialog displays expected metadata field labels", async ({
+      workflowResponsePage,
+    }) => {
+      await workflowResponsePage.openMetadataDialog();
+      await workflowResponsePage.expectMetadataDialog();
+      await workflowResponsePage.expectMetadataFields();
+      await workflowResponsePage.closeMetadataDialog();
+    });
+
+    // Catalogue source: 03-response.md, RESP-005.
+    test("ERW-M009 Metadata dialog displays populated metadata values", async ({
+      workflowResponsePage,
+    }) => {
+      await workflowResponsePage.openMetadataDialog();
+      await workflowResponsePage.expectMetadataDialog();
+
+      await workflowResponsePage.expectFieldHasValue("Source");
+      await workflowResponsePage.expectFieldHasValue("Priority");
+      await workflowResponsePage.expectFieldHasValue("Status");
+      await workflowResponsePage.expectFieldHasValue("Total Answers");
+      await workflowResponsePage.expectFieldHasValue("Created At");
+
+      await workflowResponsePage.expectFieldHasValue("State");
+      await workflowResponsePage.expectFieldHasValue("District");
+      await workflowResponsePage.expectFieldHasValue("Crop");
+      await workflowResponsePage.expectFieldHasValue("Normalized Crop");
+      await workflowResponsePage.expectFieldHasValue("Season");
+      await workflowResponsePage.expectFieldHasValue("Domain");
+
+      await workflowResponsePage.closeMetadataDialog();
+    });
+
+    // Catalogue source: 03-response.md, RESP-006.
+    test("ERW-M010 Expert can enter a draft response", async ({
+      workflowResponsePage,
+    }) => {
+      const answer = "Playwright successfully entered this response.";
+
+      await workflowResponsePage.fillDraftResponse(answer);
+
+      await workflowResponsePage.expectDraftResponse(answer);
+    });
+
+    // Catalogue source: 03-response.md, RESP-007.
+    test("ERW-M011 Expert can enter remarks", async ({
+      workflowResponsePage,
+    }) => {
+      const remarks = "Playwright successfully entered reviewer remarks.";
+
+      await workflowResponsePage.fillRemarks(remarks);
+
+      await workflowResponsePage.expectRemarks(remarks);
+    });
+
+    // Catalogue source: 03-response.md, RESP-008.
+    test("ERW-M012 Reset clears draft response and remarks", async ({
+      workflowResponsePage,
+    }) => {
+      await workflowResponsePage.fillDraftResponse(
+        "Playwright draft response.",
+      );
+      await workflowResponsePage.fillRemarks("Playwright remarks.");
+
+      await workflowResponsePage.clickReset();
+
+      await workflowResponsePage.expectDraftResponseEmpty();
+      await workflowResponsePage.expectRemarksEmpty();
+    });
+
+    // Catalogue source: 03-response.md, RESP-009.
+    test("ERW-M013 Submit button is enabled after entering a draft response", async ({
+      workflowResponsePage,
+    }) => {
+      await workflowResponsePage.expectSubmitDisabled();
+
+      await workflowResponsePage.fillDraftResponse("Test response");
+
+      await expect(workflowResponsePage.submitButton).toBeEnabled();
+    });
+
+    // Catalogue source: 03-response.md, RESP-010 + RESP-011 (merged: see note
+    // above the describe block on why RESP-010's bare clickSubmit() isn't
+    // reproduced separately).
+    test("ERW-M014 Expert can submit a response and the form resets", async ({
+      workflowResponsePage,
+    }) => {
+      await workflowResponsePage.fillDraftResponse(
+        "Playwright successfully submitted this response.",
+      );
+
+      await workflowResponsePage.addSourceReference("State");
+
+      await expect(workflowResponsePage.submitButton).toBeEnabled();
+
+      await workflowResponsePage.clickSubmit();
+
+      await workflowResponsePage.confirmSubmission();
+
+      await workflowResponsePage.expectSubmissionSuccess();
+
+      await workflowResponsePage.expectDraftResponseEmpty();
+    });
   });
 });

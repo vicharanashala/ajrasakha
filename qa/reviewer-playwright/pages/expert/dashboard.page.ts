@@ -121,4 +121,22 @@ export class ExpertDashboardPage {
     await expect(label).toBeVisible();
     await label.click();
   }
+
+  private detailsContainer(): Locator {
+    return this.page.locator('[data-slot="card-content"]').filter({
+      has: this.page.locator("#new-answer"),
+    });
+  }
+
+  async scrollQuestionDetailsToTop(): Promise<void> {
+    const details = this.detailsContainer();
+
+    await expect(details).toBeVisible();
+
+    await details.evaluate((el) => {
+      el.scrollTop = 0;
+    });
+
+    await this.page.waitForTimeout(200);
+  }
 }
