@@ -13,6 +13,7 @@ from ajrasakha.agents.planner_rules import (
     infer_domain_for_plan,
     is_schemes_intent,
     merge_entities_from_rephrased_query,
+    merge_location_clarification_into_query,
 )
 
 
@@ -28,6 +29,49 @@ def test_pm_kisan_domain_does_not_require_crop():
     )
     assert domain == "Financial & Institutional Services"
     assert domain_requires_crop(domain) is False
+
+
+def test_location_clarification_preserves_seed_drill_query():
+    merged = merge_location_clarification_into_query(
+        {
+            "is_complete": False,
+            "missing_info": ["location"],
+            "rephrased_query": "Which seed drill should I buy?",
+        },
+        "Delhi",
+    )
+    assert merged == "Which seed drill should I buy? Location: Delhi"
+
+
+def test_location_clarification_preserves_rainy_season_query():
+    merged = merge_location_clarification_into_query(
+        {
+            "is_complete": False,
+            "missing_info": ["location"],
+            "rephrased_query": "Which plant should I grow in the rainy season?",
+        },
+        "Delhi",
+    )
+    assert merged == "Which plant should I grow in the rainy season? Location: Delhi"
+
+
+def test_location_query_merge_skips_complete_or_non_location_turns():
+    assert merge_location_clarification_into_query(
+        {
+            "is_complete": True,
+            "missing_info": [],
+            "rephrased_query": "Original question",
+        },
+        "Delhi",
+    ) is None
+    assert merge_location_clarification_into_query(
+        {
+            "is_complete": False,
+            "missing_info": ["crop"],
+            "rephrased_query": "Original question",
+        },
+        "Delhi",
+    ) is None
 
 
 def test_crop_insurance_requires_crop():
@@ -185,7 +229,7 @@ def test_crop_still_asks_first_time():
     assert plan.get("follow_up_question")
 
 
-def test_crop_fallback_after_clarify_does_not_matter():
+def test_crop_required_after_clarify_does_not_satisfy_requirement():
     messages = [
         HumanMessage(
             content=(
@@ -207,10 +251,10 @@ def test_crop_fallback_after_clarify_does_not_matter():
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
     )
-    assert plan["is_complete"] is True
-    assert plan["entities"]["crop"] == "all"
-    assert plan.get("follow_up_question") is None
-    assert "crop" not in (plan.get("missing_info") or [])
+    assert plan["is_complete"] is False
+    assert plan["entities"].get("crop") is None
+    assert "crop" in (plan.get("missing_info") or [])
+    assert plan.get("follow_up_question")
 
 
 def test_crop_clarify_reply_still_extracts_cotton():

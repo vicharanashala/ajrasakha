@@ -235,6 +235,43 @@ def format_prev_plan_context(prev_plan: PlannerPlan) -> str:
     return "\n".join(lines) + "\n"
 
 
+def merge_location_clarification_into_query(
+    prev_plan: Optional[PlannerPlan],
+    location_reply: str,
+) -> Optional[str]:
+    """Preserve the original query when the farmer answers a location clarify.
+
+    The planner LLM is asked to rephrase the latest turn, but a location reply
+    such as ``Delhi`` is not a standalone question. When the prior plan was
+    incomplete specifically because location was missing, use its query as the
+    stable base and attach the new location deterministically. This prevents
+    query loss when the LLM rephrasing varies between turns.
+    """
+    if not prev_plan or prev_plan.get("is_complete", True):
+        return None
+    if "location" not in (prev_plan.get("missing_info") or []):
+        return None
+
+    base = (
+        prev_plan.get("rephrased_query")
+        or prev_plan.get("original_query_en")
+        or ""
+    ).strip()
+    if not base:
+        return None
+
+    reply = (location_reply or "").strip()
+    if not reply:
+        return base
+
+    # Avoid duplicating a location if a client retries the same clarification.
+    if reply.casefold() in base.casefold():
+        return base
+
+    separator = "" if base.endswith((".", "!", "?")) else "."
+    return f"{base}{separator} Location: {reply}"
+
+
 def format_conversation_for_planner(
     messages: list[BaseMessage],
     *,
@@ -303,8 +340,8 @@ def has_specific_crop(crop: str | None) -> bool:
 
 
 def crop_slot_satisfied(crop: str | None) -> bool:
-    """True when the crop slot is filled for completeness (includes all/general)."""
-    return crop_counts_as_resolved(crop)
+    """True when a specific crop name is available for a crop-required query."""
+    return has_specific_crop(crop)
 
 
 def should_inherit_crop(
@@ -662,10 +699,12 @@ def _finalize_location_and_crop_completeness(
     script, vocal = language_pair_from_plan(out)
     crop = entities.get("crop")
     canonical_domains = [normalize_domain(d) for d in (domains or [])] or ["General"]
-    needs_crop = (
-        any(domain_requires_crop(d) for d in canonical_domains)
-        and not crop_slot_satisfied(crop)
-    )
+    crop_required = out.get("crop_required")
+    if crop_required is None:
+        # Compatibility for callers/tests that construct partial plans without
+        # the planner's new crop decision metadata.
+        crop_required = any(domain_requires_crop(d) for d in canonical_domains)
+    needs_crop = bool(crop_required) and not crop_slot_satisfied(crop)
 
     if not has_state:
         out["is_complete"] = False
@@ -714,6 +753,13 @@ def apply_planner_completeness_rules(
     )
     domains_for_crop = list(out.get("domains") or [normalize_domain(out.get("domain") or "General")])
     entities = apply_crop_one_shot_fallback(messages, entities, domains_for_crop)
+    if (
+        out.get("crop_required") is False
+        and out.get("crop_requirement_source") != "existing_crop"
+    ):
+        # Preserve the explicit all-crops placeholder for downstream tools
+        # after entity merging clears an inherited placeholder.
+        entities["crop"] = "all"
     out["entities"] = entities
 
     has_state, _, _has_gps = _location_status(entities, location)

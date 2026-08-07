@@ -674,7 +674,8 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
    - Set `original_query_en` to the original query unchanged.
    - Set `rephrased_query` to the same text with **only** spelling/grammar fixes — do not rename diseases, pests, or crops.
 7. When unsure between two English agricultural terms, **keep the wording from `original_query_en`** in `rephrased_query`.
-8. **REPHRASING CONTEXT**: When generating `original_query_en` and `rephrased_query`, use ONLY the "LAST 5 QUERIES FOR REPHRASING" section from the input. Do NOT use the "Recent farmer messages in thread" section for rephrasing — that section is for domain/routing only.
+8. If the PRIOR TURN CONTEXT says the previous turn was incomplete because location was missing, and the latest farmer message answers the location clarification (for example, `Delhi`), preserve the previous turn's `rephrased_query` as the base and append the new location. NEVER replace the original question with the location reply alone.
+9. **REPHRASING CONTEXT**: When generating `original_query_en` and `rephrased_query`, use the "LAST 5 QUERIES FOR REPHRASING" section together with the PRIOR TURN CONTEXT. Do NOT use the "Recent farmer messages in thread" section for rephrasing — that section is for domain/routing only.
 
 **Vocal Language (REQUIRED — you decide):**
 - **Vocal language**: the language the farmer speaks and hears (e.g. Hindi, Kannada, Punjabi).
@@ -1005,10 +1006,35 @@ MARKET_QUERY_ANALYSIS_PROMPT = [
 ]
 
 CROP_CLASSIFICATION_SYSTEM_PROMPT = (
-    "You classify agricultural farmer questions. Given a domain and question, "
-    "decide whether a human expert must know the specific crop to answer correctly, "
-    "and whether the answer would meaningfully differ across crops. "
-    "Return exactly one word: crop_specific or general. No other text."
+    "You classify whether a farmer must provide a specific crop as an INPUT "
+    "before the question can be answered correctly. Return exactly one label: "
+    "input_crop_required, crop_output_requested, or crop_not_required. No other text.\n\n"
+    "Definitions:\n"
+    "- input_crop_required: the farmer has an existing or intended crop, but must name it "
+    "because the requested advice depends on that crop.\n"
+    "- crop_output_requested: the farmer is asking which crop, plant, or crop to grow; "
+    "the crop is the answer being requested, not a missing input.\n"
+    "- crop_not_required: the question can be answered without a specific crop.\n\n"
+    "Strict rules:\n"
+    "1. Never ask for a crop when the farmer asks which crop/plant to grow, what to plant, "
+    "or what crop is suitable for a season or location. Return crop_output_requested.\n"
+    "2. Questions about selecting a seed drill, planter, harvester, sprayer, or other "
+    "crop-dependent machinery require the intended crop. Return input_crop_required.\n"
+    "3. Questions about fertilizer, pesticide, disease, weed control, sowing practice, "
+    "variety selection, or crop-specific management require the crop when the advice changes by crop.\n"
+    "4. Do not confuse an answer that mentions crops with a question that requires the farmer "
+    "to provide a crop.\n\n"
+    "Examples:\n"
+    "Question: Which plant should I grow in the rainy season?\n"
+    "Answer: crop_output_requested\n"
+    "Question: What crop can I grow in Punjab during the rainy season?\n"
+    "Answer: crop_output_requested\n"
+    "Question: Which seed drill should I buy?\n"
+    "Answer: input_crop_required\n"
+    "Question: Which planter is suitable for my crop?\n"
+    "Answer: input_crop_required\n"
+    "Question: How do I register an FPO?\n"
+    "Answer: crop_not_required"
 )
 
 EXACT_MATCH_REPHRASE_PROMPT = """You are AjraSakha, rephrasing an expert-verified answer for an Indian farmer.
