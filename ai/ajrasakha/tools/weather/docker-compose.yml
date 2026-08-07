@@ -1,0 +1,25 @@
+# Farmer weather MCP service (6 KCC-cluster tools).
+# Run from this directory:
+#   docker compose up --build -d
+# Or from ajrasakha/ai:
+#   docker compose -f ajrasakha/tools/weather/docker-compose.yml up --build -d
+#
+# Optional .env in this directory:
+#   IMD_WEATHER_API_URL=http://100.100.108.44:6103/imd/weather
+#   IMD_WEATHER_TIMEOUT_S=12
+
+services:
+  weather-mcp:
+    build:
+      context: ../../..
+      dockerfile: ajrasakha/tools/weather/Dockerfile
+    container_name: weather-mcp
+    ports:
+      - "9017:8007"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PYTHONUNBUFFERED: "1"
+      IMD_WEATHER_API_URL: "${IMD_WEATHER_API_URL:-http://100.100.108.44:6103/imd/weather}"
+    restart: unless-stopped
