@@ -352,6 +352,7 @@ export interface IFeedbackReview {
   assignedAt: Date;
   /** Null/absent while the round is still open (in progress). */
   finishedAt?: Date | null;
+  closedFeedbacks?: { feedbackId: string; closedAt: Date }[];
 }
 
 export interface IQuestionSubmission {
@@ -377,11 +378,11 @@ export interface IQuestionSubmission {
    */
   feedbackReviews?: IFeedbackReview[] | null;
   /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
-  feedbackReviewAssignedAt?: Date | null;
-  /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
-  feedbackReviewFinishedAt?: Date | null;
-  /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
-  feedbackReviewerId?: string | ObjectId | null;
+  // feedbackReviewAssignedAt?: Date | null;
+  // /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
+  // feedbackReviewFinishedAt?: Date | null;
+  // /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
+  // feedbackReviewerId?: string | ObjectId | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
