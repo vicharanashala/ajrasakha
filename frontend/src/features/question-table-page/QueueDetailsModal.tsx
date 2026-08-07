@@ -1001,7 +1001,7 @@ export const GateKeeperAuditorQueueModal = ({
             </div>
             <div className="text-left">
               <p className="text-sm font-bold text-gray-900 dark:text-white">
-                Gate Keeper / Auditor Queue
+                Gate Keeper / Auditor / Feed Back Queue
               </p>
               <p className="text-[11px] text-gray-500">
                 Live gate keeper & auditor allocation overview

@@ -671,6 +671,29 @@ export interface IQuestionService {
   ): Promise<{ success: boolean; historyLength: number }>;
 
   /** Handle feedback action (accept/reject) and notify data release service */
+  getFeedbackTimeline(questionId: string): Promise<{
+    autoAllocateFeedback: boolean;
+    hasOpenFeedback: boolean;
+    reviews: {
+      index: number;
+      reviewerId: string;
+      reviewerName: string;
+      assignedAt: Date;
+      finishedAt: Date | null;
+    }[];
+  }>;
+  getAssignableFeedbackReviewers(): Promise<
+    {_id: string; name: string; email: string; role: string}[]
+  >;
+  assignFeedbackReviewerManually(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{success: true}>;
+  removeFeedbackReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{success: true}>;
   handleFeedbackAction(
     questionId: string,
     feedbackId: string,

@@ -3610,6 +3610,94 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   }
 
   /**
+   * Repoint the OPEN feedback-review round to a new reviewer (manual reassignment).
+   * Updates the round whose finishedAt is null via an arrayFilter. Returns true if a
+   * round was updated.
+   */
+  async reassignOpenFeedbackReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {
+        $set: {
+          'feedbackReviews.$[e].reviewerId': new ObjectId(reviewerId),
+          'feedbackReviews.$[e].assignedAt': assignedAt,
+          updatedAt: new Date(),
+        },
+      } as any,
+      {
+        arrayFilters: [{'e.finishedAt': null}],
+        session,
+      },
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /**
+   * Repoint a SPECIFIC feedback-review round (by array index) to a new reviewer —
+   * only if that round is still open. A question can hold several rounds, so this
+   * updates just the one at `index`. Returns true if it was updated.
+   */
+  async reassignFeedbackReviewerByIndex(
+    questionId: string,
+    index: number,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        [`feedbackReviews.${index}.finishedAt`]: null,
+      } as any,
+      {
+        $set: {
+          [`feedbackReviews.${index}.reviewerId`]: new ObjectId(reviewerId),
+          [`feedbackReviews.${index}.assignedAt`]: assignedAt,
+          updatedAt: new Date(),
+        },
+      } as any,
+      {session},
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /**
+   * Remove a SPECIFIC feedback-review round (by array index) — only if it is still
+   * open (not completed). Unsets the element then compacts the array so other rounds
+   * keep their reviewers. Returns true if a round was removed.
+   */
+  async removeFeedbackReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const unset = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        [`feedbackReviews.${index}.finishedAt`]: null,
+      } as any,
+      {$unset: {[`feedbackReviews.${index}`]: 1}} as any,
+      {session},
+    );
+    if (unset.modifiedCount === 0) return false;
+    // Compact: drop the null hole left by $unset.
+    await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {$pull: {feedbackReviews: null}, $set: {updatedAt: new Date()}} as any,
+      {session},
+    );
+    return true;
+  }
+
+  /**
    * All submissions with an OPEN feedback-review round (an entry whose finishedAt
    * is null), flattened to one row per open round: { questionId, reviewerId,
    * assignedAt }. Used by the feedback queue's "allocated" section.

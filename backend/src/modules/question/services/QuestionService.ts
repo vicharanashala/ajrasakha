@@ -8909,6 +8909,13 @@ export class QuestionService extends BaseService implements IQuestionService {
                 lastClaimedUser = candidateId;
                 // capture outside-transaction variable for logging after commit
                 assignedReviewerId = candidateId;
+                // Mark the question's feedback auto-allocation ON now that a reviewer
+                // has been assigned — keeps the flag/toggle in sync with the state.
+                await this.questionRepo.updateQuestion(
+                  questionId,
+                  {autoAllocateFeedback: true} as any,
+                  session,
+                );
                 break;
               }
             }
@@ -9007,7 +9014,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const responseData = await response.json() as { status: string; pendingFeedbackCount: number };
       dataReleaseResponse = responseData
-     // dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
+    //  dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
     } catch (error: any) {
       console.error('[QuestionService] handleFeedbackAction: Failed to call data release service:', error);
       throw new InternalServerError('Failed to process feedback action: ' + error.message);
@@ -9059,6 +9066,187 @@ export class QuestionService extends BaseService implements IQuestionService {
         processedAt,
       },
     };
+  }
+
+  /** Feedback-review timeline for a question: each round (reviewer + assigned/finished)
+   *  plus the current auto-allocation flag and whether an open feedback exists. */
+  async getFeedbackTimeline(questionId: string): Promise<{
+    autoAllocateFeedback: boolean;
+    hasOpenFeedback: boolean;
+    reviews: {
+      index: number;
+      reviewerId: string;
+      reviewerName: string;
+      assignedAt: Date;
+      finishedAt: Date | null;
+    }[];
+  }> {
+    const [question, submission] = await Promise.all([
+      this.questionRepo.getById(questionId),
+      this.questionSubmissionRepo.getByQuestionId(questionId),
+    ]);
+    const rounds = ((submission as any)?.feedbackReviews ?? []) as any[];
+    const names = await this.resolveExpertMeta(
+      rounds.map(r => r.reviewerId?.toString()).filter(Boolean),
+    );
+    const feedbacks = ((question as any)?.feedbacks ?? []) as any[];
+    return {
+      autoAllocateFeedback: (question as any)?.autoAllocateFeedback !== false,
+      hasOpenFeedback:
+        Array.isArray(feedbacks) && feedbacks.some(f => f?.status === 'open'),
+      reviews: rounds
+        // `index` is the round's position in the DB array — the change/remove APIs
+        // operate by that index, so keep it even though we sort for display.
+        .map((r, i) => ({
+          index: i,
+          reviewerId: r.reviewerId?.toString(),
+          reviewerName:
+            names.get(r.reviewerId?.toString())?.name ?? 'Unknown',
+          assignedAt: r.assignedAt,
+          finishedAt: r.finishedAt ?? null,
+        }))
+        .sort(
+          (a, b) =>
+            new Date(a.assignedAt).getTime() - new Date(b.assignedAt).getTime(),
+        ),
+    };
+  }
+
+  /** All moderators/auditors eligible to be a feedback reviewer (for the manual picker). */
+  async getAssignableFeedbackReviewers(): Promise<
+    {_id: string; name: string; email: string; role: string}[]
+  > {
+    const users = await this.userRepo.findUsersByRoles(['moderator', 'auditor']);
+    return users.map(u => ({
+      _id: u._id!.toString(),
+      name:
+        `${(u as any).firstName ?? ''} ${(u as any).lastName ?? ''}`.trim() ||
+        u.email ||
+        'Unknown',
+      email: u.email,
+      role: u.role,
+    }));
+  }
+
+  /** Manually assign OR reassign the feedback reviewer (admin/moderator). When a round
+   *  is already open it repoints that round to the new reviewer and releases the old one;
+   *  otherwise it opens a fresh round. Respects the same one-at-a-time / auditor either-or
+   *  rules as the cron. */
+  async assignFeedbackReviewerManually(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{success: true}> {
+    await this._withTransaction(async session => {
+      const submission =
+        await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const rounds = ((submission as any)?.feedbackReviews ?? []) as any[];
+
+      // Resolve the round being changed: an explicit index (one of several rounds)
+      // or the single open round when none is given.
+      const targetIndex =
+        typeof index === 'number' && index >= 0
+          ? index
+          : rounds.findIndex(r => !r.finishedAt);
+      const targetRound = targetIndex >= 0 ? rounds[targetIndex] : undefined;
+
+      if (targetRound && targetRound.finishedAt) {
+        throw new BadRequestError(
+          'That feedback review is already completed and cannot be reassigned.',
+        );
+      }
+      const oldReviewerId = targetRound?.reviewerId?.toString();
+      if (oldReviewerId === userId) {
+        return; // already assigned to this reviewer — no-op
+      }
+
+      // Claim the new reviewer's slot first (fails if they're not free). Manual claim
+      // lets an admin/moderator pick ANY active user (not restricted to mod/auditor),
+      // still one feedback at a time.
+      const claimed = await this.userRepo.claimFeedbackAllocationManual(
+        userId,
+        questionId,
+        session,
+      );
+      if (!claimed) {
+        throw new BadRequestError(
+          'Selected user is not available (already holds a feedback, or is inactive/blocked).',
+        );
+      }
+
+      if (targetRound) {
+        // Reassign only the targeted round (by index) and release its previous reviewer.
+        await this.questionSubmissionRepo.reassignFeedbackReviewerByIndex(
+          questionId,
+          targetIndex,
+          userId,
+          new Date(),
+          session,
+        );
+        if (oldReviewerId) {
+          await this.userRepo.removeFeedbacksAssigned(
+            oldReviewerId,
+            questionId,
+            session,
+          );
+        }
+      } else {
+        // Fresh assignment: open a new round.
+        const assigned =
+          await this.questionSubmissionRepo.assignFeedbackReviewer(
+            questionId,
+            userId,
+            new Date(),
+            session,
+          );
+        if (!assigned) {
+          throw new BadRequestError(
+            'This question already has an open feedback review.',
+          );
+        }
+      }
+    });
+    return {success: true};
+  }
+
+  /** Remove an OPEN feedback-review round by index (admin/moderator/etc). Releases the
+   *  reviewer's feedback slot. Completed rounds cannot be removed. */
+  async removeFeedbackReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{success: true}> {
+    await this._withTransaction(async session => {
+      const submission =
+        await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const rounds = ((submission as any)?.feedbackReviews ?? []) as any[];
+      const round = rounds[index];
+      if (!round) {
+        throw new BadRequestError('No feedback review found at that position.');
+      }
+      if (round.finishedAt) {
+        throw new BadRequestError(
+          'A completed feedback review cannot be removed.',
+        );
+      }
+      const removed =
+        await this.questionSubmissionRepo.removeFeedbackReviewByIndex(
+          questionId,
+          index,
+          session,
+        );
+      if (!removed) {
+        throw new BadRequestError('Could not remove the feedback review.');
+      }
+      const reviewerId = round.reviewerId?.toString();
+      if (reviewerId) {
+        await this.userRepo.removeFeedbacksAssigned(
+          reviewerId,
+          questionId,
+          session,
+        );
+      }
+    });
+    return {success: true};
   }
 
   /**

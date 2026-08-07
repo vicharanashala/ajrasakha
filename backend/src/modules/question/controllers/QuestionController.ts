@@ -1332,7 +1332,7 @@ export class QuestionController {
 
   @Patch('/:questionId/role-assignee')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({ summary: 'Assign a gate keeper / auditor to a question' })
   async changeRoleAssignee(
     @Params() params: QuestionIdParam,
@@ -1404,7 +1404,7 @@ export class QuestionController {
 
   @Delete('/:questionId/role-assignee')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({ summary: 'Remove the gate keeper / auditor assigned to a question' })
   async removeRoleAssignee(
     @Params() params: QuestionIdParam,
@@ -1470,21 +1470,46 @@ export class QuestionController {
 
   @Patch('/:questionId/role-allocation')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
-  @OpenAPI({ summary: 'Toggle gate keeper / auditor auto-allocation for a question' })
+  // Gate keeper / auditor toggles stay admin/moderator-only (checked in-method);
+  // the feedback toggle is allowed for any non-expert user.
+  @Authorized()
+  @OpenAPI({ summary: 'Toggle gate keeper / auditor / feedback auto-allocation for a question' })
   async toggleRoleAllocation(
     @Params() params: QuestionIdParam,
-    @Body() body: { role: 'gate_keeper' | 'auditor'; enabled: boolean },
+    @Body() body: { role: 'gate_keeper' | 'auditor' | 'feedback'; enabled: boolean },
     @CurrentUser() user: IUser,
   ) {
     verifyNotTester(user);
     const { questionId } = params;
     const { role, enabled } = body;
-    if (role !== 'gate_keeper' && role !== 'auditor') {
-      throw new BadRequestError("role must be 'gate_keeper' or 'auditor'");
+    if (role !== 'gate_keeper' && role !== 'auditor' && role !== 'feedback') {
+      throw new BadRequestError("role must be 'gate_keeper', 'auditor' or 'feedback'");
     }
-    const field = role === 'gate_keeper' ? 'autoAllocateGateKeeper' : 'autoAllocateAuditor';
-    const label = role === 'gate_keeper' ? 'Gate keeper' : 'Auditor';
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot change auto-allocation');
+    }
+    // Gate keeper / auditor allocation: admins, moderators, gate keepers and auditors.
+    // Feedback allocation: any non-expert (already gated above).
+    if (
+      role !== 'feedback' &&
+      !['admin', 'moderator', 'gate_keeper', 'auditor'].includes(user.role)
+    ) {
+      throw new ForbiddenError(
+        'Only admins, moderators, gate keepers or auditors can change gate keeper / auditor allocation',
+      );
+    }
+    const field =
+      role === 'gate_keeper'
+        ? 'autoAllocateGateKeeper'
+        : role === 'auditor'
+          ? 'autoAllocateAuditor'
+          : 'autoAllocateFeedback';
+    const label =
+      role === 'gate_keeper'
+        ? 'Gate keeper'
+        : role === 'auditor'
+          ? 'Auditor'
+          : 'Feedback';
 
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
@@ -2314,6 +2339,73 @@ export class QuestionController {
       success: true,
       data,
     };
+  }
+
+  @Get('/:questionId/feedback-timeline')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Feedback-review timeline (rounds + reviewers) for a question' })
+  async getFeedbackTimeline(@Params() params: QuestionIdParam) {
+    const data = await this.questionService.getFeedbackTimeline(params.questionId);
+    return { success: true, data };
+  }
+
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Get('/feedback/reviewers')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'List moderators/auditors assignable as a feedback reviewer' })
+  async getAssignableFeedbackReviewers(@CurrentUser() user: IUser) {
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot manage feedback reviewers');
+    }
+    const data = await this.questionService.getAssignableFeedbackReviewers();
+    return { success: true, data };
+  }
+
+  @Post('/:questionId/feedback-reviewer')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Manually assign a feedback reviewer to a question' })
+  async assignFeedbackReviewerManually(
+    @Params() params: QuestionIdParam,
+    @Body() body: { userId: string; index?: number },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot assign feedback reviewers');
+    }
+    if (!body?.userId) {
+      throw new BadRequestError('userId is required');
+    }
+    return this.questionService.assignFeedbackReviewerManually(
+      params.questionId,
+      body.userId,
+      body.index,
+    );
+  }
+
+  @Delete('/:questionId/feedback-reviewer')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Remove an open feedback-review round (by index) from a question' })
+  async removeFeedbackReviewer(
+    @Params() params: QuestionIdParam,
+    @Body() body: { index: number },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot remove feedback reviewers');
+    }
+    if (typeof body?.index !== 'number') {
+      throw new BadRequestError('index is required');
+    }
+    return this.questionService.removeFeedbackReviewer(
+      params.questionId,
+      body.index,
+    );
   }
 
   @Get('/:questionId/chatbot')
