@@ -63,6 +63,7 @@ import {
   QueueSectionResult,
   RawQueueQuestionRow,
   FeedbackResponse,
+  FeedbackData,
 } from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
@@ -8999,7 +9000,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     let dataReleaseResponse: { status: string; pendingFeedbackCount: number };
   
     try {
-     const response = await fetch(`${dataReleaseUrl}/feedbacks/${feedbackId}/status`, {
+    const response = await fetch(`${dataReleaseUrl}/feedbacks/${feedbackId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -9014,13 +9015,21 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const responseData = await response.json() as { status: string; pendingFeedbackCount: number };
       dataReleaseResponse = responseData
-    //  dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
+    // dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
     } catch (error: any) {
       console.error('[QuestionService] handleFeedbackAction: Failed to call data release service:', error);
       throw new InternalServerError('Failed to process feedback action: ' + error.message);
     }
 
     const processedAt = new Date().toISOString();
+
+    // Record this individual feedback as closed on the OPEN feedback-review round
+    // (so the view can hide accept/reject for it going forward).
+    await this.questionSubmissionRepo.addClosedFeedbackToOpenRound(
+      questionId,
+      feedbackId,
+      new Date(),
+    );
 
     // Check if all feedbacks are processed
     if (dataReleaseResponse.pendingFeedbackCount <= 0) {
@@ -9263,7 +9272,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     pageSize: number = 5,
   ): Promise<FeedbackResponse> {
     // Mock data with status and reviewNote fields
-    const mockData = [
+   /* const mockData = [
       {
         _id: { $oid: 'fb001' },
         questionId: { $oid: questionId },
@@ -9344,41 +9353,88 @@ export class QuestionService extends BaseService implements IQuestionService {
       page,
       pageSize,
       totalPages,
+    };*/
+
+   // TODO: Uncomment when data release service is available
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+    
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+    
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+    
+    try {
+      const response = await fetch(
+        `${dataReleaseUrl}/feedbacks/question/${questionId}?page=${page}&pageSize=${pageSize}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authKey}`,
+          },
+        }
+      );
+    
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+    const res = await response.json() as {
+      data?: any[];
+      total?: number;
+      page?: number;
+      limit?: number;
+      totalPages?: number;
     };
 
-    // TODO: Uncomment when data release service is available
-    // const dataReleaseUrl = process.env.DATA_RELEASE_URL;
-    // const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
-    // 
-    // if (!dataReleaseUrl) {
-    //   throw new Error('DATA_RELEASE_URL environment variable is not configured');
-    // }
-    // 
-    // if (!authKey) {
-    //   throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
-    // }
-    // 
-    // try {
-    //   const response = await fetch(
-    //     `${dataReleaseUrl}/feedbacks/question/${questionId}?page=${page}&pageSize=${pageSize}`,
-    //     {
-    //       method: 'GET',
-    //       headers: {
-    //         'Content-Type': 'application/json',
-    //         'Authorization': `Bearer ${authKey}`,
-    //       },
-    //     }
-    //   );
-    // 
-    //   if (!response.ok) {
-    //     throw new Error(`Data release service returned status ${response.status}`);
-    //   }
-    // 
-    //   return await response.json();
-    // } catch (error: any) {
-    //   console.error('[QuestionService] getFeedbacks: Failed to call data release service:', error);
-    //   throw new InternalServerError('Failed to get feedbacks: ' + error.message);
-    // }
+    // The data-release service returns feedbacks in a flat shape
+    // ({ id, questionId, answerId as strings, createdAt as ISO strings }) and
+    // already paginates the result. Normalize each item to the extended-JSON
+    // shape the frontend consumes ({ _id: { $oid }, createdAt: { $date }, … })
+    // and pass the service's own pagination through unchanged.
+    const asOid = (v: any): {$oid: string} => ({
+      $oid: typeof v === 'string' ? v : v?.$oid ?? v?._id ?? '',
+    });
+    const asDate = (v: any): {$date: string} => ({
+      $date: typeof v === 'string' ? v : v?.$date ?? '',
+    });
+    const data: FeedbackData[] = (Array.isArray(res.data) ? res.data : []).map(
+      (f: any) => ({
+        _id: asOid(f.id ?? f._id),
+        questionId: f.questionId ? asOid(f.questionId) : {$oid: questionId},
+        userId: {
+          name: f.userId?.name ?? '',
+          email: f.userId?.email ?? '',
+        },
+        answerId: asOid(f.answerId),
+        type: f.type,
+        predefinedOption: f.predefinedOption ?? '',
+        comment: f.comment ?? '',
+        status: f.status,
+        reviewNote: f.reviewNote,
+        createdAt: asDate(f.createdAt),
+        updatedAt: asDate(f.updatedAt),
+      }),
+    );
+
+    const totalCount = typeof res.total === 'number' ? res.total : data.length;
+    return {
+      data,
+      totalCount,
+      page: typeof res.page === 'number' ? res.page : page,
+      pageSize: typeof res.limit === 'number' ? res.limit : pageSize,
+      totalPages:
+        typeof res.totalPages === 'number'
+          ? res.totalPages
+          : Math.ceil(totalCount / pageSize),
+    };
+    } catch (error: any) {
+      console.error('[QuestionService] getFeedbacks: Failed to call data release service:', error);
+      throw new InternalServerError('Failed to get feedbacks: ' + error.message);
+    }
   }
 
     /**

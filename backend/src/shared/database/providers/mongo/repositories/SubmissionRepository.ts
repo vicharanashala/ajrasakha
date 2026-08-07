@@ -3698,6 +3698,37 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   }
 
   /**
+   * Record that a single feedback (by feedbackId) was accepted/rejected — pushes
+   * { feedbackId, closedAt } into the OPEN feedback-review round's closedFeedbacks
+   * array. Returns true if a round was updated.
+   */
+  async addClosedFeedbackToOpenRound(
+    questionId: string,
+    feedbackId: string,
+    closedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        feedbackReviews: {$elemMatch: {finishedAt: null}},
+      } as any,
+      {
+        $push: {
+          'feedbackReviews.$[e].closedFeedbacks': {feedbackId, closedAt},
+        },
+        $set: {updatedAt: new Date()},
+      } as any,
+      {
+        arrayFilters: [{'e.finishedAt': null}],
+        session,
+      },
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /**
    * All submissions with an OPEN feedback-review round (an entry whose finishedAt
    * is null), flattened to one row per open round: { questionId, reviewerId,
    * assignedAt }. Used by the feedback queue's "allocated" section.

@@ -220,6 +220,12 @@ export interface IQuestionSubmissionRepository {
     index: number,
     session?: ClientSession,
   ): Promise<boolean>;
+  addClosedFeedbackToOpenRound(
+    questionId: string,
+    feedbackId: string,
+    closedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean>;
   getLevelWiseReport(
     startDate: string,
     endDate: string,

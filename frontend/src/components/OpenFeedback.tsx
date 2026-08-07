@@ -26,16 +26,14 @@ interface OpenFeedbackProps {
 }
 
 const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
-    // Check if user should see this component:
-    // 1. User is admin (can see all)
-    // 2. User has this questionId in their feedbacksAssigned array
-    const canViewFeedback = currentUser?.role === "admin" || 
-        (currentUser?.feedbacksAssigned && questionId && currentUser.feedbacksAssigned.includes(questionId));
-    
-    // Don't render if user doesn't have access
-    if (!canViewFeedback) {
-        return null;
-    }
+    // Feedbacks are shown to everyone who can see the question (the parent gates out
+    // experts). Only the Accept/Reject actions are restricted to the reviewer this
+    // feedback is assigned to — question id present in their feedbacksAssigned.
+    const isAssignedReviewer = !!(
+        currentUser?.feedbacksAssigned &&
+        questionId &&
+        currentUser.feedbacksAssigned.includes(questionId)
+    );
 
     const [expanded, setExpanded] = useState(false);
     const [page, setPage] = useState(1);
@@ -295,8 +293,10 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                             </div>
                         )}
 
-                        {/* Action buttons - only show for open feedbacks */}
-                        {feedback.status === "open" && (
+                        {/* Action buttons — only for OPEN feedbacks and only the
+                            assigned reviewer (once acted, status is no longer open, so
+                            the closed feedback's actions disappear). */}
+                        {feedback.status === "open" && isAssignedReviewer && (
                             <div className="flex items-center gap-3 pt-2">
                                 <Button
                                     onClick={() => handleAccept(feedback._id.$oid)}
