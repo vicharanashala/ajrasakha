@@ -1,10 +1,9 @@
 import json
 import re
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from ajrasakha.agents.config import CLAUDE_MODEL, SANITIZER_MODEL
+from ajrasakha.agents.config import get_minimax_chat_model
 from ajrasakha.agents.acc_agent.state import AccAgentState
 from ajrasakha.agents.acc_agent.extraction import (
     build_extraction_update,
@@ -37,7 +36,7 @@ async def extract_node(state: AccAgentState):
         "query_details": ACC_QUERY_DETAILS_PROMPT,
     }
 
-    llm = ChatAnthropic(model=SANITIZER_MODEL)
+    llm = get_minimax_chat_model()
     messages = [
         SystemMessage(content=prompt_by_type[extraction_type]),
         HumanMessage(content=state["transcript"])
@@ -75,7 +74,7 @@ async def extract_node(state: AccAgentState):
 
 async def planner_node(state: AccAgentState):
     """Determine which sub-agent tool(s) to use based on verified inputs."""
-    llm = ChatAnthropic(model=SANITIZER_MODEL)
+    llm = get_minimax_chat_model()
     
     context = (
         f"Query: {state.get('extracted_query')}\n"
@@ -277,7 +276,7 @@ async def assembler_node(state: AccAgentState):
             schemes_data = schemes_response
     
     # Generate final_answer using LLM
-    llm = ChatAnthropic(model=CLAUDE_MODEL)
+    llm = get_minimax_chat_model()
     context = (
         f"Original Query: {state.get('extracted_query')}\n\n"
         f"GDB Data:\n{json.dumps(gdb_data, indent=2, ensure_ascii=False) if gdb_data else 'Not requested'}\n\n"

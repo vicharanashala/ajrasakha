@@ -329,7 +329,14 @@ export class PerformanceController {
   @Post("/cron-snapshot/send-report")
   @HttpCode(200)
   @Authorized()
-  async sendCronSnapshotReport(@CurrentUser() user: IUser) {
+  async sendCronSnapshotReport(
+    @CurrentUser() user: IUser,
+    @Body() body: { startDate?: string; endDate?: string } = {},
+  ) {
+    const range =
+      body?.startDate
+        ? { startDate: body.startDate, endDate: body.endDate }
+        : undefined;
 
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ADMIN_REPORT,
@@ -344,6 +351,7 @@ export class PerformanceController {
       context: {
         reportType: 'Dashboard Report',
         timestamp: new Date().toISOString(),
+        ...(range ? { startDate: range.startDate, endDate: range.endDate } : {}),
       },
       outcome: {
         status: OutComeStatus.SUCCESS,
@@ -353,6 +361,7 @@ export class PerformanceController {
     try {
       await this.performanceService.sendCronSnapshotEmail(
         user._id.toString(),
+        range,
       );
     } catch (err) {
       auditPayload = {

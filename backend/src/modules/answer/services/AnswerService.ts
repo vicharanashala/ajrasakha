@@ -1804,6 +1804,13 @@ export class AnswerService extends BaseService implements IAnswerService {
         );
       }
 
+      // ── Validate & normalise state / district against LGD collections ──
+      // Mirrors the normalised_crop guard: if the question's state or district
+      // isn't registered in the states / districts collections, block approval
+      // and tell the moderator to fix it via LGD Management. Also resolves
+      // aliases to the canonical stateNameEnglish / districtNameEnglish.
+      await this.questionService.ensureNormalisedLocation(questionId, session);
+
       const submission = await this.questionSubmissionRepo.getByQuestionId(
         questionId,
         session,

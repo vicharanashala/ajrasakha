@@ -32,6 +32,103 @@ _SCHEMES_RE = re.compile(
     r"government\s+scheme|myscheme)\b",
     re.I,
 )
+
+# --- Follow-up detection (heuristic pre-check) ---
+# A follow-up is a transformation request on the previous AI answer that does NOT
+# need new tool data: language change, format change, detail request, simplification,
+# tone change, or rephrase.
+
+_FOLLOW_UP_LANGUAGE_RE = re.compile(
+    r"\b("
+    r"in\s+(english|hindi|tamil|telugu|kannada|malayalam|marathi|gujarati|bengali|punjabi|odia|urdu|assamese|sanskrit|nepali|konkani|maithili|kashmiri|sindhi|dogri|bodo|manipuri|santali|meitei|meiteilon)"
+    r"|(english|hindi|tamil|telugu|kannada|malayalam|marathi|gujarati|bengali|punjabi|odia|urdu)\s*(me|mein|lo|la|il|ki|ke|nu|no|na|nalli|nalli|il|le|te|di|ma|madi|madhyam|madhyama|through|via|using)"
+    r"|translate\s*(to|into|mein|me|lo|la)?"
+    r"|anuvaad|anuvad|anubhash|bhashantar"
+    r"|change\s+(the\s+)?language|another\s+language|other\s+language"
+    r"|same\s+(answer|reply|response|info|information)\s+in"
+    r")",
+    re.I,
+)
+
+_FOLLOW_UP_FORMAT_RE = re.compile(
+    r"\b("
+    r"in\s+(short|brief|shortly|briefly|short\s+form|long\s+form|detail|details|long|short|paragraph|table|bullets?|bullet\s*points?|points?)"
+    r"|give\s+(me\s+)?(short|brief|short\s+answer|brief\s+answer|short\s+reply|brief\s+reply|bullets?|bullet\s*points?|points?|summary|details?|long\s+answer|detailed\s+answer)"
+    r"|(short|brief|shortly)\s+(me|form|answer|reply|version)"
+    r"|(shorten|shorten\s+it|condense|compress|reduce)\s*(it|this|the\s+answer|the\s+reply)?"
+    r"|summarize|summarise|summary\s+of\s+(this|that|the\s+answer)"
+    r"|convert\s+(to|into)\s+(bullets?|points?|paragraph|table)"
+    r"|make\s+(it|this)\s+(a\s+)?(shorter|longer|bullet|paragraph|table)"
+    r")",
+    re.I,
+)
+
+_FOLLOW_UP_DETAIL_RE = re.compile(
+    r"\b("
+    r"explain\s+(more|in\s+detail|in\s+more\s+detail|further|again|properly)"
+    r"|(more|elaborate|elaborated?)\s+(detail|details|information|info|explanation|points?|about)?"
+    r"|\belaborate\b"
+    r"|in\s+(more|greater)\s+detail"
+    r"|tell\s+me\s+more|more\s+about\s+(it|this|that)"
+    r"|what\s+else|anything\s+else"
+    r")",
+    re.I,
+)
+
+_FOLLOW_UP_SIMPLIFY_RE = re.compile(
+    r"\b("
+    r"(simplify|simple|simpler)\s*(it|this|the\s+answer|the\s+reply|words|please)?"
+    r"|in\s+simple\s+(words|language|way|terms)"
+    r"|easy\s+(words|language|way|terms|explanation)"
+    r"|like\s+(a\s+)?(beginner|new\s*farmer|child|kid|student)"
+    r")",
+    re.I,
+)
+
+_FOLLOW_UP_TONE_RE = re.compile(
+    r"\b("
+    r"(explain\s+)?(like\s+a\s+)?(expert|professional|scientist|professor|teacher|doctor|technical|advanced)"
+    r"|in\s+(technical|advanced|expert|simple)\s+(terms|language|way)"
+    r"|for\s+(a\s+)?(beginner|new\s*farmer|expert|child|kid|student)"
+    r")",
+    re.I,
+)
+
+_FOLLOW_UP_REPHRASE_RE = re.compile(
+    r"\b("
+    r"rephrase|reword|rewrite|reframe|say\s+it\s+(again|differently|in\s+another\s+way|simply)"
+    r"|(say|tell)\s+(it|this|that)\s+(again|once\s+more|one\s+more\s+time)"
+    r"|same\s+(thing|info|information|answer)\s+(but|in)\s+(different|other|simpler)"
+    r")",
+    re.I,
+)
+
+
+def classify_follow_up_heuristic(text: str) -> Optional[str]:
+    """Return follow_up_type if the latest farmer message looks like a transformation
+    request on the previous AI answer; None otherwise.
+
+    Order of precedence (most specific first):
+      language_change > format_change > detail_request > simplify > tone_change > rephrase
+    """
+    raw = (text or "").strip()
+    if not raw or len(raw) > 200:
+        return None
+    if _FOLLOW_UP_LANGUAGE_RE.search(raw):
+        return "language_change"
+    if _FOLLOW_UP_FORMAT_RE.search(raw):
+        return "format_change"
+    if _FOLLOW_UP_DETAIL_RE.search(raw):
+        return "detail_request"
+    if _FOLLOW_UP_SIMPLIFY_RE.search(raw):
+        return "simplify"
+    if _FOLLOW_UP_TONE_RE.search(raw):
+        return "tone_change"
+    if _FOLLOW_UP_REPHRASE_RE.search(raw):
+        return "rephrase"
+    return None
+
+
 _CROP_INSURANCE_RE = re.compile(
     r"\b(crop\s+insurance|fasal\s+bima|pmfby|insurance\s+for\s+(?:my\s+)?crop)\b",
     re.I,
