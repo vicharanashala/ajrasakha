@@ -199,6 +199,9 @@ export interface IQuestionSubmissionRepository {
     finishedAt: Date,
     session?: ClientSession,
   ): Promise<number>;
+  findOpenFeedbackReviews(): Promise<
+    {questionId: string; reviewerId: string; assignedAt: Date}[]
+  >;
   getLevelWiseReport(
     startDate: string,
     endDate: string,

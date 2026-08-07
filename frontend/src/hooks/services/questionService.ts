@@ -92,6 +92,10 @@ export type QueueDetailsResponse = {
   auditorWaiting: { count: number; items: QueueQuestionItem[] };
   auditorAllocated: { count: number; items: QueueQuestionItem[] };
   availableAuditors: { count: number; items: QueueExpertItem[] };
+  // Feedback-review queue (mirrors the gate-keeper / auditor role queue)
+  feedbackWaiting: { count: number; items: QueueQuestionItem[] };
+  feedbackAllocated: { count: number; items: QueueQuestionItem[] };
+  availableFeedbackReviewers: { count: number; items: QueueExpertItem[] };
   // Manual (AGRI_EXPERT/OUTREACH) expert-queue sections — mirror the time-bound ones.
   receivedManual: { count: number; items: QueueQuestionItem[] };
   receivedStatusCountsManual: { status: string; count: number }[];

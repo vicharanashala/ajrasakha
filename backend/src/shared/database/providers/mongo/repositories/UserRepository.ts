@@ -1083,6 +1083,40 @@ export class UserRepository implements IUserRepository {
       .toArray();
   }
 
+  /** Moderators/auditors currently free to take a NEW feedback review — active, not
+   *  blocked, with an empty feedbacksAssigned. Auditors must ALSO have an empty
+   *  assignedQuestionIds (either one feedback OR one auditor question); moderators may
+   *  hold queue work alongside a feedback. Used by the feedback queue's "available"
+   *  section and mirrors the availability the feedback allocator uses. */
+  async findAvailableFeedbackReviewers(): Promise<IUser[]> {
+    await this.init();
+    const emptyFeedbacks = [
+      {feedbacksAssigned: {$exists: false}},
+      {feedbacksAssigned: null},
+      {feedbacksAssigned: {$size: 0}},
+    ];
+    const emptyQueue = [
+      {assignedQuestionIds: {$exists: false}},
+      {assignedQuestionIds: null},
+      {assignedQuestionIds: {$size: 0}},
+    ];
+    return this.usersCollection
+      .find({
+        isBlocked: {$ne: true},
+        status: {$ne: 'in-active'},
+        $and: [
+          {$or: emptyFeedbacks},
+          {
+            $or: [
+              {role: 'moderator'},
+              {$and: [{role: 'auditor'}, {$or: emptyQueue}]},
+            ],
+          },
+        ],
+      } as any)
+      .toArray();
+  }
+
   /** Atomically claim a feedback-review assignment for a user only when they are an
    *  active moderator/auditor with an empty feedback array. Auditors must ALSO have an
    *  empty assignedQuestionIds array — an auditor holds either one feedback OR one

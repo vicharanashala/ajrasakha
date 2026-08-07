@@ -3609,6 +3609,47 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     return result.modifiedCount;
   }
 
+  /**
+   * All submissions with an OPEN feedback-review round (an entry whose finishedAt
+   * is null), flattened to one row per open round: { questionId, reviewerId,
+   * assignedAt }. Used by the feedback queue's "allocated" section.
+   */
+  async findOpenFeedbackReviews(): Promise<
+    {questionId: string; reviewerId: string; assignedAt: Date}[]
+  > {
+    await this.init();
+    const rows = await this.QuestionSubmissionCollection.aggregate([
+      {$match: {feedbackReviews: {$elemMatch: {finishedAt: null}}}},
+      {
+        $project: {
+          questionId: 1,
+          open: {
+            $filter: {
+              input: {$ifNull: ['$feedbackReviews', []]},
+              as: 'r',
+              cond: {$eq: ['$$r.finishedAt', null]},
+            },
+          },
+        },
+      },
+      {$unwind: '$open'},
+      {
+        $project: {
+          _id: 0,
+          questionId: 1,
+          reviewerId: '$open.reviewerId',
+          assignedAt: '$open.assignedAt',
+        },
+      },
+      {$sort: {assignedAt: 1}},
+    ]).toArray();
+    return rows.map((r: any) => ({
+      questionId: r.questionId?.toString(),
+      reviewerId: r.reviewerId?.toString(),
+      assignedAt: r.assignedAt,
+    }));
+  }
+
   // ─── Time-bound allocation tracking ───────────────────────────────────────
 
   async markQuestionOpenedByExpert(

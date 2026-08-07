@@ -8391,6 +8391,70 @@ export class QuestionService extends BaseService implements IQuestionService {
         return {count: users.length, items};
       }
 
+      // ── Feedback-review queue ──
+      case 'feedbackAllocated': {
+        // One row per open feedback-review round (reviewer + question).
+        const open = await this.questionSubmissionRepo.findOpenFeedbackReviews();
+        const count = open.length;
+        const page = open.slice(skip, skip + safeLimit);
+        const questions = await this.questionRepo.findByIds(
+          page
+            .map(o => o.questionId)
+            .filter(Boolean)
+            .map(id => new ObjectId(id)),
+        );
+        const qById = new Map(
+          questions.map(q => [q._id?.toString(), q]),
+        );
+        const reviewers = await this.resolveExpertMeta(
+          page.map(o => o.reviewerId).filter(Boolean),
+        );
+        const items: QueueQuestionItem[] = page.map(o => ({
+          ...this.submissionToQueueItem({question: qById.get(o.questionId)}),
+          assigneeName: reviewers.get(o.reviewerId)?.name ?? 'Unknown',
+          isTrainingUser: reviewers.get(o.reviewerId)?.isTrainingUser === true,
+        }));
+        return {count, items};
+      }
+
+      case 'feedbackWaiting': {
+        // Questions with an open feedback minus the ones already assigned a reviewer.
+        const [openQs, openReviews] = await Promise.all([
+          this.questionRepo.findQuestionsWithOpenFeedbacks(),
+          this.questionSubmissionRepo.findOpenFeedbackReviews(),
+        ]);
+        const allocatedIds = new Set(openReviews.map(o => o.questionId));
+        const waitingQs = openQs.filter(
+          q => !allocatedIds.has(q._id?.toString()),
+        );
+        const count = waitingQs.length;
+        const pageQs = waitingQs.slice(skip, skip + safeLimit);
+        return {
+          count,
+          items: pageQs.map(q => this.submissionToQueueItem({question: q})),
+        };
+      }
+
+      case 'availableFeedbackReviewers': {
+        const users =
+          (await this.userRepo.findAvailableFeedbackReviewers()) as any[];
+        const items: QueueExpertItem[] = users
+          .slice(skip, skip + safeLimit)
+          .map(u => ({
+            _id: u._id.toString(),
+            name:
+              `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+              u.email ||
+              'Unknown',
+            email: u.email,
+            reputationScore: u.reputation_score,
+            role: u.role,
+            isSpecialTaskForce: u.special_task_force === true,
+            isTrainingUser: u.isTrainingUser === true,
+          }));
+        return {count: users.length, items};
+      }
+
       default:
         return { count: 0, items: [] };
     }
@@ -8459,6 +8523,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       auditorWaiting,
       auditorAllocated,
       availableAuditors,
+      feedbackWaiting,
+      feedbackAllocated,
+      availableFeedbackReviewers,
       receivedStatusCounts,
       // Manual expert-queue sections (AGRI_EXPERT/OUTREACH single-allocation)
       receivedManual,
@@ -8499,6 +8566,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       safe('auditorWaiting'),
       safe('auditorAllocated'),
       safe('availableAuditors'),
+      safe('feedbackWaiting'),
+      safe('feedbackAllocated'),
+      safe('availableFeedbackReviewers'),
       // Separate aggregation — not a paginatable section, so call directly
       this.questionRepo
         .getReceivedStatusCounts(startTime, endTime)
@@ -8578,6 +8648,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         auditorAllocated as QueueDetailsResponse['auditorAllocated'],
       availableAuditors:
         availableAuditors as QueueDetailsResponse['availableAuditors'],
+      // ── Feedback-review queue ──
+      feedbackWaiting:
+        feedbackWaiting as QueueDetailsResponse['feedbackWaiting'],
+      feedbackAllocated:
+        feedbackAllocated as QueueDetailsResponse['feedbackAllocated'],
+      availableFeedbackReviewers:
+        availableFeedbackReviewers as QueueDetailsResponse['availableFeedbackReviewers'],
       // ── Manual expert-queue sections ──
       receivedManual: receivedManual as QueueDetailsResponse['receivedManual'],
       receivedStatusCountsManual:

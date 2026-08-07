@@ -157,6 +157,13 @@ export interface QueueDetailsResponse {
   auditorAllocated: {count: number; items: QueueQuestionItem[]};
   /** Auditors free to take a question. */
   availableAuditors: {count: number; items: QueueExpertItem[]};
+  // ── Feedback-review queue (mirrors the gate-keeper / auditor role queue) ──
+  /** Questions with an open feedback that has not been assigned to a reviewer yet. */
+  feedbackWaiting: {count: number; items: QueueQuestionItem[]};
+  /** Questions with an open feedback-review round assigned to a reviewer. */
+  feedbackAllocated: {count: number; items: QueueQuestionItem[]};
+  /** Moderators/auditors free to take a feedback review. */
+  availableFeedbackReviewers: {count: number; items: QueueExpertItem[]};
   // ── Manual (AGRI_EXPERT/OUTREACH) expert-queue sections — mirror the time-bound
   //    expert sections above, scoped to the manual single-allocation queue. ──
   receivedManual: {count: number; items: QueueQuestionItem[]};
@@ -228,6 +235,10 @@ export type QueueSectionName =
   | 'auditorWaiting'
   | 'auditorAllocated'
   | 'availableAuditors'
+  // Feedback-review queue (mirror the gate-keeper / auditor role queue)
+  | 'feedbackWaiting'
+  | 'feedbackAllocated'
+  | 'availableFeedbackReviewers'
   // Manual (AGRI_EXPERT/OUTREACH) expert-queue variants — same shape as the
   // time-bound expert sections above, scoped to the manual single-allocation queue.
   | 'receivedManual'
