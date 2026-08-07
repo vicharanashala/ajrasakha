@@ -6,6 +6,7 @@ import {
   AnalyticsMongoDatabase,
   AnnamDatabase
 } from '#shared/index.js';
+import {SavedAnswerRepository} from '#shared/database/providers/mongo/repositories/SavedAnswerRepository.js';
 import {GLOBAL_TYPES} from './types.js';
 import {dbConfig} from './config/db.js';
 import {analyticsDbConfig} from './config/analyticsDbConfig.js';
@@ -25,6 +26,8 @@ export const sharedContainerModule = new ContainerModule(options => {
   // Database
   options.bind(GLOBAL_TYPES.Database).to(MongoDatabase).inSingletonScope();
 
+  // Saved Answers
+  options.bind(GLOBAL_TYPES.SavedAnswerRepository).to(SavedAnswerRepository).inSingletonScope();
 
   // Other
   options.bind(HttpErrorHandler).toSelf().inSingletonScope(); 
@@ -36,5 +39,4 @@ export const sharedContainerModule = new ContainerModule(options => {
   options.bind(GLOBAL_TYPES.annamanalyticsUri).toConstantValue(analyticsDbConfig.annamUrl);
   options.bind(GLOBAL_TYPES.annamanalyticsDbName).toConstantValue(analyticsDbConfig.annamDbName);
   options.bind(GLOBAL_TYPES.annamanalyticsDatabase).to(AnnamDatabase).inSingletonScope();
-}); 
-
+});
