@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
+from unittest import mock
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
@@ -11,6 +13,15 @@ from ajrasakha.agents.prompts import EXPERT_QUEUE_REPLY_MARKER
 from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.translate_answer import translate_answer_node
 from ajrasakha.agents.translation_catalog import get_testing_disclaimer
+
+# IST 14:00 — inside the default 2-hour disclaimer window (not 22-23 or 0-5 IST)
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+
+class _FixedDatetime:
+    @classmethod
+    def now(cls, tz: object = None) -> datetime:
+        return datetime(2026, 1, 1, 14, 0, tzinfo=tz or _IST)
 
 
 def _gdb_with_answer() -> dict:
@@ -42,9 +53,10 @@ def test_empty_gdb_path_catalog_only():
     }
     import asyncio
 
-    result = asyncio.run(translate_answer_node(state, {}))
+    with mock.patch("ajrasakha.agents.answer_footers.datetime", _FixedDatetime):
+        result = asyncio.run(translate_answer_node(state, {}))
+        expected = build_expert_queue_content("English", "English")
     text = result["messages"][0].content
-    expected = build_expert_queue_content("English", "English")
     assert text == expected
     assert FOOTER_SEPARATOR in text
     assert EXPERT_QUEUE_REPLY_MARKER in text
