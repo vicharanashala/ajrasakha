@@ -364,6 +364,8 @@ export interface IUserRepository {
   findAvailableStfModeratorsForSources(sources: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]>;
   findAvailableUsersByRole(role: UserRole): Promise<IUser[]>;
   findAvailableFeedbackReviewers(): Promise<IUser[]>;
+  findUsersByRoles(roles: UserRole[]): Promise<IUser[]>;
+  claimFeedbackAllocationManual(userId: string, questionId: string, session?: ClientSession): Promise<boolean>;
   claimFeedbackAllocation(userId: string, questionId: string, session?: ClientSession): Promise<boolean>;
   addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<boolean>;
   removeAssignedQuestion(moderatorId: string, questionId: string, session?: ClientSession): Promise<void>;
@@ -398,5 +400,5 @@ export interface IUserRepository {
    * @param userId - The user ID whose feedbacksAssigned array should be updated
    * @param questionId - The question ID to remove from feedbacksAssigned array
    */
-  removeFeedbacksAssigned(userId: string, questionId: string): Promise<IUser | null>;
+  removeFeedbacksAssigned(userId: string, questionId: string, session?: ClientSession): Promise<IUser | null>;
 }

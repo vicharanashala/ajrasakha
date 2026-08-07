@@ -202,6 +202,24 @@ export interface IQuestionSubmissionRepository {
   findOpenFeedbackReviews(): Promise<
     {questionId: string; reviewerId: string; assignedAt: Date}[]
   >;
+  reassignOpenFeedbackReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean>;
+  reassignFeedbackReviewerByIndex(
+    questionId: string,
+    index: number,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean>;
+  removeFeedbackReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean>;
   getLevelWiseReport(
     startDate: string,
     endDate: string,

@@ -1083,6 +1083,65 @@ export class UserRepository implements IUserRepository {
       .toArray();
   }
 
+  /** All active, non-blocked users of the given roles — used to populate the manual
+   *  feedback-reviewer picker (shows everyone eligible, busy or not). */
+  async findUsersByRoles(roles: UserRole[]): Promise<IUser[]> {
+    await this.init();
+    return this.usersCollection
+      .find({
+        role: {$in: roles},
+        isBlocked: {$ne: true},
+        status: {$ne: 'in-active'},
+      })
+      .toArray();
+  }
+
+  /** Manual claim (admin/moderator override): assign a feedback review to any active,
+   *  non-blocked user who isn't already holding a feedback. Unlike claimFeedbackAllocation
+   *  this does NOT restrict by role or apply the auditor either-or rule — a person is
+   *  chosen explicitly from the picker. Still one feedback at a time. */
+  async claimFeedbackAllocationManual(
+    userId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    const result = await this.usersCollection.updateOne(
+      {
+        _id: new ObjectId(userId),
+        isBlocked: {$ne: true},
+        status: {$ne: 'in-active'},
+        $or: [
+          {feedbacksAssigned: {$exists: false}},
+          {feedbacksAssigned: null},
+          {feedbacksAssigned: {$size: 0}},
+        ],
+      },
+      [
+        {
+          $set: {
+            feedbacksAssigned: {
+              $concatArrays: [
+                {
+                  $filter: {
+                    input: {$ifNull: ['$feedbacksAssigned', []]},
+                    as: 'q',
+                    cond: {$ne: ['$$q', qid]},
+                  },
+                },
+                [qid],
+              ],
+            },
+            updatedAt: new Date(),
+          },
+        },
+      ],
+      {session},
+    );
+    return result.modifiedCount > 0;
+  }
+
   /** Moderators/auditors currently free to take a NEW feedback review — active, not
    *  blocked, with an empty feedbacksAssigned. Auditors must ALSO have an empty
    *  assignedQuestionIds (either one feedback OR one auditor question); moderators may
@@ -2670,6 +2729,7 @@ export class UserRepository implements IUserRepository {
   async removeFeedbacksAssigned(
     userId: string,
     questionId: string,
+    session?: ClientSession,
   ): Promise<IUser | null> {
     await this.init();
     // feedbacksAssigned stores ObjectIds (claimFeedbackAllocation pushes
@@ -2691,6 +2751,7 @@ export class UserRepository implements IUserRepository {
       },
       {
         returnDocument: 'after',
+        session,
       },
     );
     return result;

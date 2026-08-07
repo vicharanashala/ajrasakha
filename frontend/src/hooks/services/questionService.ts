@@ -155,6 +155,27 @@ export interface FeedbackResponse {
   pageSize: number;
   totalPages: number;
 }
+
+export interface FeedbackReviewRound {
+  index: number;
+  reviewerId: string;
+  reviewerName: string;
+  assignedAt: string;
+  finishedAt: string | null;
+}
+
+export interface FeedbackTimeline {
+  autoAllocateFeedback: boolean;
+  hasOpenFeedback: boolean;
+  reviews: FeedbackReviewRound[];
+}
+
+export interface FeedbackReviewerOption {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+}
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
   private _reRouteUrl = `${API_BASE_URL}/reroute`;
@@ -1030,12 +1051,48 @@ export class QuestionService {
 
   async toggleRoleAllocation(
     questionId: string,
-    role: "gate_keeper" | "auditor",
+    role: "gate_keeper" | "auditor" | "feedback",
     enabled: boolean,
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/role-allocation`, {
       method: "PATCH",
       body: JSON.stringify({ role, enabled }),
+    });
+  }
+
+  async getFeedbackTimeline(
+    questionId: string,
+  ): Promise<{ success: boolean; data: FeedbackTimeline } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/feedback-timeline`);
+  }
+
+  async getFeedbackReviewers(): Promise<{
+    success: boolean;
+    data: FeedbackReviewerOption[];
+  } | null> {
+    return apiFetch(`${this._baseUrl}/feedback/reviewers`);
+  }
+
+  async assignFeedbackReviewer(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{ success: true } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/feedback-reviewer`, {
+      method: "POST",
+      body: JSON.stringify(
+        typeof index === "number" ? { userId, index } : { userId },
+      ),
+    });
+  }
+
+  async removeFeedbackReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: true } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/feedback-reviewer`, {
+      method: "DELETE",
+      body: JSON.stringify({ index }),
     });
   }
 
