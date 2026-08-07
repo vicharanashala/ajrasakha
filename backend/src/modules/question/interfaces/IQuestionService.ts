@@ -259,7 +259,14 @@ export interface IQuestionService {
   }>;
   findUnknownQuestionGeo(): Promise<{
     unknownStates: string[];
-    unknownDistricts: string[];
+    matchedDistricts: {
+      name: string;
+      foundIn: 'block' | 'village';
+      districtCode: number | null;
+      stateCode: number | null;
+      districtNameEnglish: string | null;
+    }[];
+    notMatchingDistricts: string[];
   }>;
 
   /** Questions allocated to an expert */
@@ -586,7 +593,7 @@ export interface IQuestionService {
 
   /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
    *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */
-  getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse>;
+  getQueueDetails(startTime?: Date, endTime?: Date, isTrainingUser?: boolean, isAdmin?: boolean): Promise<QueueDetailsResponse>;
 
   /** One server-side paginated section (exact total + requested page of items). */
   getQueueSection(

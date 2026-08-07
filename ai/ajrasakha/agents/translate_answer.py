@@ -189,7 +189,20 @@ async def translate_answer_node(
     )
 
     try:
-        if needs_translation(script, vocal):
+        is_follow_up = bool(plan.get("is_follow_up"))
+        if is_follow_up:
+            # The follow-up LLM already produced the answer in the correct
+            # target language (e.g. Telugu when the farmer asks for Telugu).
+            # Re-translating here would clobber that and force it back to the
+            # input vocal/script pair (which is the language the farmer TYPED
+            # in, not the language they asked for).
+            logger.info(
+                "translate_answer: path=synthesis is_follow_up=True — skipping translation "
+                "(vocal=%s script=%s)",
+                vocal,
+                script,
+            )
+        elif needs_translation(script, vocal):
             logger.info(
                 "translate_answer: path=synthesis — translating body (vocal=%s script=%s)",
                 vocal,

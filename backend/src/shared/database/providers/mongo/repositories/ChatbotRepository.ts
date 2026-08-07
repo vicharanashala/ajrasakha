@@ -7206,7 +7206,28 @@ export class ChatbotRepository implements IChatbotRepository {
         .aggregate(pipeline, {session})
         .toArray();
       const totalFeedbacks = result[0]?.metadata[0]?.total || 0;
-      const messages = result[0]?.data || [];
+      const messages: any[] = result[0]?.data || [];
+
+      // Resolve questionIds from the main DB's questions collection
+      // ($lookup can't cross databases, so we do a separate query)
+      const conversationIds = messages
+        .map((m: any) => m.conversationId)
+        .filter(Boolean);
+      if (conversationIds.length > 0) {
+        await this.initReviewSystem();
+        const questionDocs = await this.QuestionCollection
+          .find(
+            {threadId: {$in: conversationIds}},
+            {projection: {_id: 1, threadId: 1}},
+          )
+          .toArray();
+        const threadToQuestionId = new Map(
+          questionDocs.map((q: any) => [q.threadId, q._id.toString()]),
+        );
+        for (const msg of messages) {
+          msg.questionId = threadToQuestionId.get(msg.conversationId) || null;
+        }
+      }
 
       return {
         messages,
@@ -20821,7 +20842,28 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
       const totalFeedbacks = result[0]?.metadata[0]?.total ?? 0;
 
-      const messages = result[0]?.data ?? [];
+      const messages: any[] = result[0]?.data ?? [];
+
+      // Resolve questionIds from the main DB's questions collection
+      // ($lookup can't cross databases, so we do a separate query)
+      const conversationIds = messages
+        .map((m: any) => m.conversationId)
+        .filter(Boolean);
+      if (conversationIds.length > 0) {
+        await this.initReviewSystem();
+        const questionDocs = await this.QuestionCollection
+          .find(
+            {threadId: {$in: conversationIds}},
+            {projection: {_id: 1, threadId: 1}},
+          )
+          .toArray();
+        const threadToQuestionId = new Map(
+          questionDocs.map((q: any) => [q.threadId, q._id.toString()]),
+        );
+        for (const msg of messages) {
+          msg.questionId = threadToQuestionId.get(msg.conversationId) || null;
+        }
+      }
 
       return {
         messages,

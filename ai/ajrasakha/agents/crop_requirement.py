@@ -6,11 +6,10 @@ import logging
 import re
 from typing import Optional
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
-from ajrasakha.agents.config import CROP_CLASSIFY_MODEL
+from ajrasakha.agents.config import CROP_CLASSIFY_MODEL, get_minimax_chat_model
 from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
 
 logger = logging.getLogger(__name__)
@@ -71,7 +70,7 @@ async def is_crop_specific_question(
             messages=llm_messages,
             domain=domain,
         )
-        llm = ChatAnthropic(model=CROP_CLASSIFY_MODEL, max_tokens=16, temperature=0)
+        llm = get_minimax_chat_model(max_tokens=16, temperature=0)
         response = await llm.ainvoke(llm_messages, config=config)
         raw = response.content if isinstance(response.content, str) else str(response.content)
         crop_specific = parse_crop_classification(raw)

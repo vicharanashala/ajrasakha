@@ -178,9 +178,13 @@ export class PerformaneService {
     );
   }
 
-  async sendCronSnapshotReport(): Promise<void> {
+  async sendCronSnapshotReport(range?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<void> {
    await apiFetch(`${this._baseUrl}/cron-snapshot/send-report`, {
     method: "POST",
+    body: JSON.stringify(range?.startDate ? range : {}),
   });
 }
 

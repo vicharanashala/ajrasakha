@@ -1,5 +1,6 @@
 import {getContainer} from '#root/bootstrap/loadModules.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
+import {getISTStartOfToday} from '#root/utils/date.utils.js';
 import {QuestionRepository} from '#root/shared/database/providers/mongo/repositories/QuestionRepository.js';
 import {QuestionSubmissionRepository} from '#root/shared/database/providers/mongo/repositories/SubmissionRepository.js';
 
@@ -50,6 +51,11 @@ export interface DailyStats {
   agriExpertCount?: number;
   outReachCount?: number;
   newModeratorApprovalRate?: number;
+  // Questions entered into the system today (by createdAt), broken down by source.
+  todayAddedWebAppCount?: number;
+  todayAddedWhatSappCount?: number;
+  todayAddedOutReachCount?: number;
+  todayAddedAgriExpertCount?: number;
 }
 
 // export const getDailyStats = async (): Promise<DailyStats> => {
@@ -115,7 +121,9 @@ export interface DailyStats {
 //   };
 // };
 
-export const getDailyStats = async (): Promise<DailyStats> => {
+export const getDailyStats = async (
+  range?: { startDate?: string; endDate?: string },
+): Promise<DailyStats> => {
   const container = getContainer();
 
   const questionRepository = container.get<QuestionRepository>(
@@ -127,8 +135,18 @@ export const getDailyStats = async (): Promise<DailyStats> => {
       CORE_TYPES.QuestionSubmissionRepository,
     );
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  // Date window (IST) for the "today"/period counts. With no range it is today
+  // onward (getISTStartOfToday) — the original behaviour. When the dashboard
+  // passes startDate/endDate (YYYY-MM-DD), it reports that IST day range instead,
+  // e.g. yesterday: [start 00:00 IST, end 23:59:59.999 IST].
+  const dateRange: { $gte: Date; $lte?: Date } = range?.startDate
+    ? {
+        $gte: new Date(`${range.startDate}T00:00:00.000+05:30`),
+        $lte: new Date(
+          `${range.endDate || range.startDate}T23:59:59.999+05:30`,
+        ),
+      }
+    : { $gte: getISTStartOfToday() };
 
   /* -------------------------------------------------------
      PARALLEL LIGHTWEIGHT QUERIES
@@ -150,43 +168,74 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     whatSappCount,
     manualCount,
     agriExpertCount,
-    outReachCount
+    outReachCount,
+    todayAddedWebAppCount,
+    todayAddedWhatSappCount,
+    todayAddedOutReachCount,
+    todayAddedAgriExpertCount
   ] = await Promise.all([
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
     questionRepository.getCountByStatus(),
     questionRepository.count({
       isTesting: { $ne: true },
-      createdAt: { $gte: todayStart },
+      createdAt: dateRange,
     }),
     questionRepository.count({
       isTesting: { $ne: true },
-      closedAt: { $gte: todayStart } ,
+      status: 'closed',
+      closedAt: dateRange ,
     }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      source: 'AJRASAKHA',
+      closedAt: dateRange
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      source: 'WHATSAPP',
+      closedAt: dateRange
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      source: 'MANUAL',
+      closedAt: dateRange
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      source: 'AGRI_EXPERT',
+      closedAt: dateRange
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'closed',
+      source: 'OUTREACH',
+      closedAt: dateRange
+    }),
+    // ── Questions entered into the system today (by createdAt), per source ──
     questionRepository.count({
       isTesting: { $ne: true },
       source: 'AJRASAKHA',
-      closedAt: { $gte: todayStart }
+      createdAt: dateRange
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       source: 'WHATSAPP',
-      closedAt: { $gte: todayStart }
-    }),
-    questionRepository.count({
-      isTesting: { $ne: true },
-      source: 'MANUAL',
-      closedAt: { $gte: todayStart }
-    }),
-    questionRepository.count({
-      isTesting: { $ne: true },
-      source: 'AGRI_EXPERT',
-      closedAt: { $gte: todayStart }
+      createdAt: dateRange
     }),
     questionRepository.count({
       isTesting: { $ne: true },
       source: 'OUTREACH',
-      closedAt: { $gte: todayStart }
+      createdAt: dateRange
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'AGRI_EXPERT',
+      createdAt: dateRange
     })
   ]);
 
@@ -243,6 +292,10 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     duplicateClosed,
     agriExpertCount,
     outReachCount,
-    newModeratorApprovalRate
+    newModeratorApprovalRate,
+    todayAddedWebAppCount,
+    todayAddedWhatSappCount,
+    todayAddedOutReachCount,
+    todayAddedAgriExpertCount
   };
 };

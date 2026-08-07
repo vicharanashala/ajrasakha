@@ -365,17 +365,42 @@ export class QuestionRepository implements IQuestionRepository {
 
   /** Audit: scan every question's details.state / details.district and return the distinct
    *  values that don't exist in the `states` (stateNameEnglish) / `districts`
-   *  (districtNameEnglish) collections. Empty/null values are ignored. */
+   *  (districtNameEnglish) collections. Each unknown district is additionally looked up in the
+   *  `blocks` (blockNameEnglish) and `villages` (villageNameEnglish) collections — if it turns
+   *  out to be a block/village name, its districtCode + stateCode are attached so it can be
+   *  mapped back. Empty/null values are ignored. */
   async findUnknownQuestionGeo(): Promise<{
     unknownStates: string[];
-    unknownDistricts: string[];
+    /** Unknown districts that WERE resolvable via a block/village → their real district. */
+    matchedDistricts: {
+      name: string;
+      foundIn: 'block' | 'village';
+      districtCode: number | null;
+      stateCode: number | null;
+      districtNameEnglish: string | null;
+    }[];
+    /** Unknown districts not found in districts, blocks or villages. */
+    notMatchingDistricts: string[];
   }> {
     try {
       await this.init();
       const statesCollection =
         await this.db.getCollection<{stateNameEnglish?: string}>('states');
       const districtsCollection =
-        await this.db.getCollection<{districtNameEnglish?: string}>('districts');
+        await this.db.getCollection<{
+          districtNameEnglish?: string;
+          districtCode?: number;
+        }>('districts');
+      const blocksCollection = await this.db.getCollection<{
+        blockNameEnglish?: string;
+        districtCode?: number;
+        stateCode?: number;
+      }>('blocks');
+      const villagesCollection = await this.db.getCollection<{
+        villageNameEnglish?: string;
+        districtCode?: number;
+        stateCode?: number;
+      }>('villages');
 
       const [qStates, qDistricts, stateNames, districtNames] = await Promise.all([
         this.QuestionCollection.distinct('details.state'),
@@ -399,14 +424,115 @@ export class QuestionRepository implements IQuestionRepository {
         (s): s is string =>
           typeof s === 'string' && s.trim().length > 0 && !stateSet.has(s),
       );
-      const unknownDistricts = (qDistricts as unknown[]).filter(
+      const unknownDistrictNames = (qDistricts as unknown[]).filter(
         (d): d is string =>
           typeof d === 'string' && d.trim().length > 0 && !districtSet.has(d),
       );
 
+      // Resolve each unknown district against blocks/villages to recover its codes, matching
+      // by case-insensitive regex (so "chittoor" matches "Chittoor" etc.).
+      const escapeRegex = (s: string) =>
+        s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const nameRegexes = unknownDistrictNames.map(
+        n => new RegExp(`^${escapeRegex(n.trim())}$`, 'i'),
+      );
+      const [blockMatches, villageMatches] =
+        nameRegexes.length === 0
+          ? [[], []]
+          : await Promise.all([
+              blocksCollection
+                .find(
+                  {blockNameEnglish: {$in: nameRegexes}},
+                  {projection: {blockNameEnglish: 1, districtCode: 1, stateCode: 1, _id: 0}},
+                )
+                .toArray(),
+              villagesCollection
+                .find(
+                  {villageNameEnglish: {$in: nameRegexes}},
+                  {projection: {villageNameEnglish: 1, districtCode: 1, stateCode: 1, _id: 0}},
+                )
+                .toArray(),
+            ]);
+      // Key maps by lowercased name so the case-insensitive match lines back up.
+      const blockMap = new Map(
+        blockMatches.map(b => [(b.blockNameEnglish ?? '').toLowerCase(), b]),
+      );
+      const villageMap = new Map(
+        villageMatches.map(v => [(v.villageNameEnglish ?? '').toLowerCase(), v]),
+      );
+
+      // First pass: figure out where (if anywhere) each unknown district resolves.
+      const resolved = unknownDistrictNames.sort().map(name => {
+        const key = name.trim().toLowerCase();
+        const b = blockMap.get(key);
+        if (b) {
+          return {
+            name,
+            foundIn: 'block' as const,
+            districtCode: b.districtCode ?? null,
+            stateCode: b.stateCode ?? null,
+          };
+        }
+        const v = villageMap.get(key);
+        if (v) {
+          return {
+            name,
+            foundIn: 'village' as const,
+            districtCode: v.districtCode ?? null,
+            stateCode: v.stateCode ?? null,
+          };
+        }
+        return {name, foundIn: null as null, districtCode: null, stateCode: null};
+      });
+
+      // Resolve the real districtNameEnglish for the district codes we recovered.
+      const codes = Array.from(
+        new Set(
+          resolved
+            .map(r => r.districtCode)
+            .filter((c): c is number => typeof c === 'number'),
+        ),
+      );
+      const districtDocs = codes.length
+        ? await districtsCollection
+            .find(
+              {districtCode: {$in: codes}},
+              {projection: {districtCode: 1, districtNameEnglish: 1, _id: 0}},
+            )
+            .toArray()
+        : [];
+      const codeToName = new Map(
+        districtDocs.map(d => [d.districtCode, d.districtNameEnglish ?? null]),
+      );
+
+      const matchedDistricts: {
+        name: string;
+        foundIn: 'block' | 'village';
+        districtCode: number | null;
+        stateCode: number | null;
+        districtNameEnglish: string | null;
+      }[] = [];
+      const notMatchingDistricts: string[] = [];
+
+      for (const r of resolved) {
+        if (r.foundIn) {
+          matchedDistricts.push({
+            name: r.name,
+            foundIn: r.foundIn,
+            districtCode: r.districtCode,
+            stateCode: r.stateCode,
+            districtNameEnglish:
+              r.districtCode != null ? codeToName.get(r.districtCode) ?? null : null,
+          });
+        } else {
+          notMatchingDistricts.push(r.name);
+        }
+      }
+
       return {
         unknownStates: unknownStates.sort(),
-        unknownDistricts: unknownDistricts.sort(),
+        matchedDistricts,
+        notMatchingDistricts,
       };
     } catch (error) {
       throw new InternalServerError(
@@ -7952,6 +8078,8 @@ export class QuestionRepository implements IQuestionRepository {
   /** Returns in-review questions with no moderator assigned yet, ordered oldest first. */
   async findUnassignedInReviewQuestions(
     sources?: QuestionSource[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<IQuestion[]> {
     await this.init();
     // Picks up in-review, duplicate and pae_submitted questions so the moderator-queue
@@ -7969,6 +8097,11 @@ export class QuestionRepository implements IQuestionRepository {
     if (sources && sources.length > 0) {
       filter.source = { $in: sources };
     }
+    if (isAdmin !== true && isTrainingUser !== undefined) {
+      filter.isTrainingQuestion = isTrainingUser
+        ? true
+        : { $ne: true };
+    }
     return this.QuestionCollection.find(filter)
       .sort({ createdAt: 1 })
       .toArray();
@@ -7980,6 +8113,8 @@ export class QuestionRepository implements IQuestionRepository {
    *  moderatorId) show up here too. Oldest first. */
   async findModeratorAssignedQuestions(
     sources?: QuestionSource[],
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IQuestion[]> {
     await this.init();
     const filter: Record<string, unknown> = {
@@ -7988,6 +8123,11 @@ export class QuestionRepository implements IQuestionRepository {
     };
     if (sources && sources.length > 0) {
       filter.source = { $in: sources };
+    }
+    if (isAdmin !== true && isTrainingUser !== undefined) {
+      filter.isTrainingQuestion = isTrainingUser
+        ? true
+        : { $ne: true };
     }
     return this.QuestionCollection.find(filter)
       .sort({ createdAt: 1 })
@@ -8212,6 +8352,8 @@ export class QuestionRepository implements IQuestionRepository {
     endTime?: Date,
     sources: string[] = ['AJRASAKHA', 'WHATSAPP'],
     requirePaeReviewNotDone: boolean = false,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{count: number; items: RawQueueQuestionRow[]}> {
     await this.init();
 
@@ -8299,6 +8441,17 @@ export class QuestionRepository implements IQuestionRepository {
       // entries from prior reviewers may well have answers; only the last entry checked.
       const base: any[] = [
         {$match: allocatedMatch},
+        ...(
+          !isAdmin
+            ? [
+              {
+                $match: isTrainingUser
+                  ? { isTrainingQuestion: true }
+                  : { isTrainingQuestion: { $ne: true } },
+              },
+            ]
+            : []
+        ),
         ...lookupStages,
         {$match: {'sub.queue.0': {$exists: true}}},
         {$addFields: {lastHistory: {$arrayElemAt: [{$ifNull: ['$sub.history', []]}, -1]}}},
@@ -8332,10 +8485,19 @@ export class QuestionRepository implements IQuestionRepository {
       kind === 'autoAllocateOpen'    ? autoAllocateOpenMatch :
       kind === 'autoAllocateDelayed' ? autoAllocateDelayedMatch :
                                        autoOffMatch;
+    
+    const finalMatch = {
+      ...match,
+      ...(!isAdmin && {
+        isTrainingQuestion: isTrainingUser
+          ? true
+          : { $ne: true },
+      }),
+    }
     const [count, items] = await Promise.all([
-      this.QuestionCollection.countDocuments(match as any),
+      this.QuestionCollection.countDocuments(finalMatch as any),
       this.QuestionCollection.aggregate<RawQueueQuestionRow>([
-        {$match: match},
+        {$match: finalMatch},
         {$sort: {createdAt: -1}},
         {$skip: skip},
         {$limit: limit},
@@ -8355,7 +8517,7 @@ export class QuestionRepository implements IQuestionRepository {
     // allocated/in-progress or stuck in limbo (allocatedAt set but queue cleared).
     if (kind === 'autoOff') {
       const breakdown = await this.QuestionCollection.aggregate([
-        {$match: match},
+        {$match: finalMatch},
         {
           $lookup: {
             from: 'question_submissions',
