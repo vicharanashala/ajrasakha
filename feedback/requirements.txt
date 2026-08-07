@@ -1,0 +1,9 @@
+fastapi==0.139.0
+uvicorn==0.51.0
+pydantic==2.13.4
+motor==3.7.1
+python-dotenv==1.2.2
+httpx==0.28.1
+apscheduler==3.10.4
+pytz==2024.1
+slowapi==0.1.9
