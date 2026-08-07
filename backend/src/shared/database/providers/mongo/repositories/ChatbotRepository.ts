@@ -22539,8 +22539,7 @@ export class ChatbotRepository implements IChatbotRepository {
     representativeQuestion: string;
   }): Promise<any> {
     try {
-      const db = await this.annamDb.getDb();
-      const questionsCol = db.collection('questions');
+      const questionsCol = await this.db.getCollection<any>('questions');
 
       // Idempotency guard: prevent duplicate tasks for the same clusterId
       const existing = await questionsCol.findOne({
