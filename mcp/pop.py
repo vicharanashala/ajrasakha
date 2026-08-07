@@ -34,9 +34,41 @@ async def get_states_for_pop() -> dict:
     Retrieve the list of available Indian states supported by the Package of Practices dataset, 
     along with their corresponding two-letter codes.
     """
-    state_codes = {
-        "PUNJAB": "PB",
+    try:
+        raw_states = client[DB_NAME][COLLECTION_POP].distinct("metadata.state")
+    except Exception as e:
+        print(f"Error fetching states from DB: {e}")
+        return {"PUNJAB": "PB"}  # Fallback
+
+    STATE_CODE_MAP = {
+        "ANDHRA_PRADESH": "AP", "ARUNACHAL_PRADESH": "AR", "ASSAM": "AS",
+        "BIHAR": "BR", "CHHATTISGARH": "CG", "CHATTISGARH": "CG", "GOA": "GA", "GUJARAT": "GJ",
+        "HARYANA": "HR", "HIMACHAL_PRADESH": "HP", "JHARKHAND": "JH",
+        "KARNATAKA": "KA", "KERALA": "KL", "MADHYA_PRADESH": "MP",
+        "MAHARASHTRA": "MH", "MANIPUR": "MN", "MEGHALAYA": "ML",
+        "MIZORAM": "MZ", "NAGALAND": "NL", "ODISHA": "OR", "ORISSA": "OR", "PUNJAB": "PB",
+        "RAJASTHAN": "RJ", "SIKKIM": "SK", "TAMILNADU": "TN", "TAMIL_NADU": "TN", "TELANGANA": "TG",
+        "TRIPURA": "TR", "UTTAR_PRADESH": "UP", "UTTARAKHAND": "UK", "UTTARANCHAL": "UK",
+        "WEST_BENGAL": "WB", 
+        "ANDAMAN_AND_NICOBAR": "AN", "ANDAMAN_AND_NICOBAR_ISLANDS": "AN",
+        "CHANDIGARH": "CH", 
+        "DADRA_AND_NAGAR_HAVELI": "DN", "DAMAN_AND_DIU": "DD", 
+        "DADRA_AND_NAGAR_HAVELI_AND_DAMAN_AND_DIU": "DN",
+        "DELHI": "DL", "NATIONAL_CAPITAL_TERRITORY_OF_DELHI": "DL",
+        "JAMMU_AND_KASHMIR": "JK", 
+        "LADAKH": "LA", 
+        "LAKSHADWEEP": "LD", 
+        "PUDUCHERRY": "PY", "PONDICHERRY": "PY",
+        "POPS_MULTIPLE_STATES": "MULTIPLE"
     }
+
+    state_codes = {}
+    for state in raw_states:
+        if not state: continue
+        normalized = str(state).strip().upper().replace(" ", "_")
+        if normalized in STATE_CODE_MAP:
+            state_codes[normalized] = STATE_CODE_MAP[normalized]
+
     return state_codes
 
 @mcp.tool()
