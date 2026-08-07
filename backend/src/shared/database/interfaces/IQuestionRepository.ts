@@ -686,4 +686,9 @@ export interface IQuestionRepository {
     finishedAt: Date,
     session?: ClientSession,
   ): Promise<void>;
+
+  addOrUpdateFeedbackStatus(
+    questionId: string,
+    source: "DATASET" | "WEB_APPLICATION",
+  ): Promise<number>;
 }

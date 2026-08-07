@@ -9034,6 +9034,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         } as any
       );
 
+      // await this.questionSubmissionRepo.(questionId, now);
+
+      //need to add the finished at when closing.
+
       // Close the open feedback-review round on the submission (stamps finishedAt
       // on the round that has no finishedAt yet).
       await this.questionSubmissionRepo.finishOpenFeedbackReviews(questionId, now);
@@ -9376,4 +9380,25 @@ export class QuestionService extends BaseService implements IQuestionService {
     //   throw new InternalServerError('Failed to get feedbacks: ' + error.message);
     // }
   }
+
+    /**
+   * handle Feedback Status Update for a question
+   */
+  async handleFeedbackStatusUpdate(
+  questionId: string,
+  source: 'DATASET' | 'WEB_APPLICATION',
+): Promise<{ success: boolean }> {
+  const matchedCount = await this.questionRepo.addOrUpdateFeedbackStatus(
+    questionId,
+    source,
+  );
+
+  if (matchedCount === 0) {
+    throw new NotFoundError('Question not found');
+  }
+
+  return {
+    success: true,
+  };
+}
 }

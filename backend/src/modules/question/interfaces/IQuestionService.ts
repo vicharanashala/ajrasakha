@@ -711,6 +711,7 @@ export interface IQuestionService {
       processedAt: string;
     };
   }>;
+  
 
   /** Get feedbacks for a question (paginated) */
   getFeedbacks(
@@ -718,4 +719,11 @@ export interface IQuestionService {
     page?: number,
     pageSize?: number,
   ): Promise<FeedbackResponse>;
+
+  handleFeedbackStatusUpdate(
+    questionId: string,
+    source: "DATASET" | "WEB_APPLICATION",
+  ): Promise<{
+    success: boolean;
+  }>;
 }

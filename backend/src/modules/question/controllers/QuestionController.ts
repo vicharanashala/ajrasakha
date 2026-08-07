@@ -3075,4 +3075,25 @@ export class QuestionController {
     
     return result;
   }
+
+  // ─── end point of add or update feedbacks status of the question ─────────────────────────────────
+
+  @Patch('/feedbacks/question/:questionId')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ 
+    summary: 'Update the status of feedbacks of a question',
+  })
+  async handleUpdateFeedbackStatus(
+    @Param('questionId') questionId: string,
+    @Body() body: { source: "DATASET"| "WEB_APPLICATION" },
+  ) {
+    
+    const result = await this.questionService.handleFeedbackStatusUpdate(
+      questionId,
+      body.source,
+    );
+    
+    return result;
+  }
 }
