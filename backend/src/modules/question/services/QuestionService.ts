@@ -8986,10 +8986,11 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Call the data release service
     const payload = {
       note: reason,
-      action: action === 'accept' ? 'approve' : 'reject',
+      status: action === 'accept' ? 'accepted' : 'rejected',
     };
 
     let dataReleaseResponse: { status: string; pendingFeedbackCount: number };
+  
     try {
      const response = await fetch(`${dataReleaseUrl}/feedbacks/${feedbackId}/status`, {
         method: 'PATCH',
