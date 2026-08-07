@@ -6848,13 +6848,20 @@ export class QuestionService extends BaseService implements IQuestionService {
               userId,
               session,
             );
-            await this.userRepo.addAssignedQuestion(
+            const added = await this.userRepo.addAssignedQuestion(
               userId,
               questionId,
               next.status,
               next.source,
               session,
             );
+            // For auditors, addAssignedQuestion refuses (returns false) if the user
+            // picked up a feedback-review in the race between the availability query
+            // and this write. Throw to abort the transaction (rolls back setRoleAssignee)
+            // so we never leave the question assigned to an auditor who holds both.
+            if (!added) {
+              throw new Error('ASSIGNEE_NO_LONGER_FREE');
+            }
             await this.notificationService.saveTheNotifications(
               cfg.notificationMessage,
               cfg.notificationTitle,

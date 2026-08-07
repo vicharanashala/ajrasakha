@@ -364,7 +364,7 @@ export interface IUserRepository {
   findAvailableStfModeratorsForSources(sources: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]>;
   findAvailableUsersByRole(role: UserRole): Promise<IUser[]>;
   claimFeedbackAllocation(userId: string, questionId: string, session?: ClientSession): Promise<boolean>;
-  addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<void>;
+  addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<boolean>;
   removeAssignedQuestion(moderatorId: string, questionId: string, session?: ClientSession): Promise<void>;
   removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
 

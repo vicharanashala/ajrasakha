@@ -1046,8 +1046,12 @@ export class UserRepository implements IUserRepository {
   }
 
   /** Users of a given role who can take a new question — not blocked and currently
-   *  holding no assigned question (one question at a time). Used by the gate-keeper /
-   *  auditor queue cron to find a free assignee. */
+   *  holding NEITHER an assigned question NOR a feedback-review (one item at a time).
+   *  Used by the gate-keeper / auditor queue cron and the feedback allocator to find a
+   *  free assignee. Requiring both arrays empty enforces the rule that an auditor holds
+   *  either one queue (auditor-level) question OR one feedback — never both. (Gate
+   *  keepers never receive feedback, so the feedbacksAssigned clause is a no-op for
+   *  them; moderators use findAvailableStfModerators*, not this method.) */
   async findAvailableUsersByRole(role: UserRole): Promise<IUser[]> {
     await this.init();
     return this.usersCollection
@@ -1057,18 +1061,33 @@ export class UserRepository implements IUserRepository {
         // Only active users. status defaults to 'active' on creation, so treat a
         // missing/null status as active and exclude only explicitly in-active users.
         status: {$ne: 'in-active'},
-        // Empty / missing assigned-questions array = free.
-        $or: [
-          {assignedQuestionIds: {$exists: false}},
-          {assignedQuestionIds: null},
-          {assignedQuestionIds: {$size: 0}},
+        $and: [
+          // Empty / missing assigned-questions array = no queue question.
+          {
+            $or: [
+              {assignedQuestionIds: {$exists: false}},
+              {assignedQuestionIds: null},
+              {assignedQuestionIds: {$size: 0}},
+            ],
+          },
+          // Empty / missing feedbacksAssigned array = no open feedback-review.
+          {
+            $or: [
+              {feedbacksAssigned: {$exists: false}},
+              {feedbacksAssigned: null},
+              {feedbacksAssigned: {$size: 0}},
+            ],
+          },
         ],
       })
       .toArray();
   }
 
   /** Atomically claim a feedback-review assignment for a user only when they are an
-   *  active moderator/auditor and their feedback allocation array is empty/missing. */
+   *  active moderator/auditor with an empty feedback array. Auditors must ALSO have an
+   *  empty assignedQuestionIds array — an auditor holds either one feedback OR one
+   *  auditor-level question, never both. Moderators may hold a feedback alongside their
+   *  queue work, so they are exempt from the assignedQuestionIds check. */
   async claimFeedbackAllocation(
     userId: string,
     questionId: string,
@@ -1076,18 +1095,34 @@ export class UserRepository implements IUserRepository {
   ): Promise<boolean> {
     await this.init();
     const qid = new ObjectId(questionId);
+    const emptyAssignedQuestions = [
+      {assignedQuestionIds: {$exists: false}},
+      {assignedQuestionIds: null},
+      {assignedQuestionIds: {$size: 0}},
+    ];
     const result = await this.usersCollection.updateOne(
       {
         _id: new ObjectId(userId),
-        role: {$in: ['moderator', 'auditor']},
         isBlocked: {$ne: true},
         status: {$ne: 'in-active'},
-        $or: [
-          {feedbacksAssigned: {$exists: false}},
-          {feedbacksAssigned: null},
-          {feedbacksAssigned: {$size: 0}},
+        $and: [
+          // No open feedback (one feedback at a time, all roles).
+          {
+            $or: [
+              {feedbacksAssigned: {$exists: false}},
+              {feedbacksAssigned: null},
+              {feedbacksAssigned: {$size: 0}},
+            ],
+          },
+          // Role gate + auditor exclusivity: auditors must have an empty queue.
+          {
+            $or: [
+              {role: 'moderator'},
+              {$and: [{role: 'auditor'}, {$or: emptyAssignedQuestions}]},
+            ],
+          },
         ],
-      },
+      } as any,
       [
         {
           $set: {
@@ -1122,14 +1157,34 @@ export class UserRepository implements IUserRepository {
     status: QuestionStatus,
     source?: QuestionSource,
     session?: ClientSession,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.init();
     const qid = new ObjectId(questionId);
     // Aggregation-pipeline update so it's null-safe: `$ifNull` coerces a null/missing
     // `assignedQuestionIds` to [] (a plain $push/$pull throws on a non-array/null field),
     // `$filter` de-dupes any existing entry for this question, then we append the new one.
-    await this.usersCollection.updateOne(
-      {_id: new ObjectId(moderatorId)},
+    // Auditors must NOT already hold a feedback-review (one item at a time — either a
+    // feedback OR an auditor-level question). Non-auditors (moderators/gate keepers) are
+    // unconstrained here, so their behaviour is unchanged.
+    const result = await this.usersCollection.updateOne(
+      {
+        _id: new ObjectId(moderatorId),
+        $or: [
+          {role: {$ne: 'auditor'}},
+          {
+            $and: [
+              {role: 'auditor'},
+              {
+                $or: [
+                  {feedbacksAssigned: {$exists: false}},
+                  {feedbacksAssigned: null},
+                  {feedbacksAssigned: {$size: 0}},
+                ],
+              },
+            ],
+          },
+        ],
+      } as any,
       [
         {
           $set: {
@@ -1151,6 +1206,7 @@ export class UserRepository implements IUserRepository {
       ],
       {session},
     );
+    return result.modifiedCount > 0;
   }
 
   /** Removes a single question's entry from a moderator's assigned-questions array.
