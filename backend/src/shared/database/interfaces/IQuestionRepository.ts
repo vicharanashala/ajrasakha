@@ -39,6 +39,8 @@ export interface IQuestionRepository {
     endTime?: Date,
     sources?: string[],
     requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<{count: number; items: RawQueueQuestionRow[]}>;
 
   /** Per-status counts for the "Questions Received" section — used so tab badges
@@ -631,8 +633,8 @@ export interface IQuestionRepository {
     session?: ClientSession
   ): Promise<any>
 
-  findUnassignedInReviewQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
-  findModeratorAssignedQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
+  findUnassignedInReviewQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
+  findModeratorAssignedQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 
   /** Gate-keeper / auditor role allocation helpers. */

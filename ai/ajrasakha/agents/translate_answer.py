@@ -5,13 +5,12 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from anthropic import APITimeoutError, APIConnectionError, APIStatusError
-from langchain_anthropic import ChatAnthropic
+from openai import APITimeoutError, APIConnectionError, APIStatusError
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from ajrasakha.agents.answer_footers import build_expert_queue_content, finalize_synthesis_answer
-from ajrasakha.agents.config import TRANSLATE_MODEL, resolve_question_source
+from ajrasakha.agents.config import TRANSLATE_MODEL, get_minimax_chat_model, resolve_question_source
 from ajrasakha.agents.state import AjraSakhaState, TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.translation_catalog import language_pair_from_plan, needs_translation, get_two_hour_disclaimer
 from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
@@ -96,7 +95,7 @@ async def _translate_body(
     if not text:
         return body or ""
 
-    llm = ChatAnthropic(model=TRANSLATE_MODEL)
+    llm = get_minimax_chat_model()
     system_prompt = build_translate_system_prompt(script_language, vocal_language)
     human_msg = (
         f"Translate into {vocal_language} using the {script_language} "
@@ -189,7 +188,20 @@ async def translate_answer_node(
     )
 
     try:
-        if needs_translation(script, vocal):
+        is_follow_up = bool(plan.get("is_follow_up"))
+        if is_follow_up:
+            # The follow-up LLM already produced the answer in the correct
+            # target language (e.g. Telugu when the farmer asks for Telugu).
+            # Re-translating here would clobber that and force it back to the
+            # input vocal/script pair (which is the language the farmer TYPED
+            # in, not the language they asked for).
+            logger.info(
+                "translate_answer: path=synthesis is_follow_up=True — skipping translation "
+                "(vocal=%s script=%s)",
+                vocal,
+                script,
+            )
+        elif needs_translation(script, vocal):
             logger.info(
                 "translate_answer: path=synthesis — translating body (vocal=%s script=%s)",
                 vocal,

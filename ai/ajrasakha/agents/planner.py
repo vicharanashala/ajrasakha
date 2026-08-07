@@ -57,6 +57,7 @@ from ajrasakha.agents.planner_rules import (
     apply_crop_one_shot_fallback,
     apply_non_agriculture_gate,
     apply_planner_completeness_rules,
+    classify_follow_up_heuristic,
     crop_slot_satisfied,
     format_conversation_for_planner,
     format_last_queries_for_rephrasing,
@@ -123,6 +124,35 @@ class PlannerOutput(BaseModel):
     follow_up_question: Optional[str] = None
     reasoning: Optional[str] = None
     entities: PlannerEntitiesOutput = Field(default_factory=PlannerEntitiesOutput)
+    is_follow_up: bool = Field(
+        default=False,
+        description=(
+            "True when the farmer's latest message is a transformation request on the previous AI answer "
+            "(language change, format change, detail request, simplification, tone change, rephrase). "
+            "The answer can be generated from the previous AI message alone — no new tool calls. "
+            "False for any new substantive question or when new data is required."
+        ),
+    )
+    follow_up_type: Optional[str] = Field(
+        default=None,
+        description=(
+            "When is_follow_up is true, classify the request: "
+            "'language_change' (translate/repeat in another language), "
+            "'format_change' (bullets, short, paragraph, table), "
+            "'detail_request' (explain more, elaborate, details), "
+            "'simplify' (simpler words, easier explanation), "
+            "'tone_change' (for beginner, for expert, polite), "
+            "'rephrase' (reword, rewrite, same meaning)."
+        ),
+    )
+    main_question: Optional[str] = Field(
+        default=None,
+        description=(
+            "When is_follow_up is true, copy verbatim the previous turn's rephrased_query "
+            "so the follow-up node sees the underlying question that was answered before. "
+            "If unclear, leave null."
+        ),
+    )
     original_query_en: Optional[str] = Field(
         None,
         description=(
@@ -258,6 +288,9 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "translate_path": None,
         "expert_queue": False,
         "tools_used": _compute_tools_used_from_output(output),
+        "is_follow_up": bool(output.is_follow_up),
+        "follow_up_type": output.follow_up_type,
+        "main_question": output.main_question,
     }
 
 
@@ -286,6 +319,9 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "translate_path": None,
         "expert_queue": False,
         "tools_used": ["knowledge_base"],
+        "is_follow_up": False,
+        "follow_up_type": None,
+        "main_question": None,
     }
 
 
@@ -574,6 +610,19 @@ async def planner_node(
         user_text=user_text,
         hints=crop_hints or "(no fuzzy crop alias matches above 80%)",
     )
+
+    # Heuristic follow-up pre-check (only meaningful when there is a previous AI turn).
+    heuristic_follow_up_type = classify_follow_up_heuristic(user_text)
+    has_prev_ai_answer = any(isinstance(m, AIMessage) and not getattr(m, "tool_calls", None) for m in messages)
+    heuristic_follow_up_active = bool(heuristic_follow_up_type) and has_prev_ai_answer
+    trace_event(
+        "planner_follow_up_heuristic",
+        heuristic_type=heuristic_follow_up_type,
+        heuristic_active=heuristic_follow_up_active,
+        has_prev_ai_answer=has_prev_ai_answer,
+        user_text=user_text[:160],
+    )
+
     deterministic_context = (
         f"PRE-EXTRACTED HINTS from latest raw message (server will re-merge from rephrased_query):\n"
         f"- state hint: {state_resolved or 'NOT RESOLVED'}\n"
@@ -583,6 +632,15 @@ async def planner_node(
         deterministic_context = f"{deterministic_context}\n{prev_plan_context}"
     if crop_hints:
         deterministic_context = f"{deterministic_context}\n{crop_hints}\n"
+    if heuristic_follow_up_active:
+        deterministic_context = (
+            f"{deterministic_context}\n"
+            f"FOLLOW-UP HEURISTIC: server-side regex flagged this latest message "
+            f"as follow_up_type='{heuristic_follow_up_type}' on the previous AI answer. "
+            f"Treat is_follow_up=true with that follow_up_type unless the message "
+            f"clearly introduces a new substantive question or new entities."
+        )
+    prev_rephrased = (prev_plan.get("rephrased_query") or "").strip() if prev_plan else ""
     human_content = (
         f"{deterministic_context}\n"
         f"Current farmer message (route using this):\n{user_text}\n\n"
@@ -590,9 +648,14 @@ async def planner_node(
         f"--- LAST 5 QUERIES FOR REPHRASING (use ONLY for original_query_en and rephrased_query) ---\n"
         f"{rephrasing_context}\n"
         f"--- END REPHRASING CONTEXT ---\n\n"
-        f"Pick `domain` from the allowed list using the current farmer message only.\n"
+        + (f"Previous turn's rephrased_query (use verbatim for main_question when is_follow_up=true):\n{prev_rephrased}\n\n"
+           if prev_rephrased else "")
+        + "Pick `domain` from the allowed list using the current farmer message only.\n"
         "Set `vocal_language` and `script_language` from the official language list.\n"
         "Leave `follow_up_question` empty when location/crop is missing — server uses the catalog.\n"
+        "Set `is_follow_up=true` ONLY when the latest message is answerable from the previous AI answer alone\n"
+        "(language change, format change, detail request, simplification, tone change, rephrase).\n"
+        "When `is_follow_up=true`, copy the previous turn's rephrased_query into `main_question` verbatim.\n"
         "Return the routing plan only."
     )
     llm_messages.append(HumanMessage(content=human_content))
@@ -624,12 +687,12 @@ async def planner_node(
 
         # Use Unicode-based script detection first (before LLM detection)
         detected_script = detect_script_language(user_text)
-        
+
         # Use LLM-based language detection for vocal_language with script context
         # to avoid incorrect inference from state/crop names
         detected_vocal = _llm_detect_language(user_text, script_context=detected_script)
         vocal = _coerce_official_language(detected_vocal) or "English"
-        
+
         if vocal != plan.get("vocal_language"):
             logger.info(
                 "Planner vocal_language corrected via LLM detection: prev_vocal=%s -> detected_vocal=%s",
@@ -643,6 +706,39 @@ async def planner_node(
             plan["rephrased_query"] = user_text
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
+
+        # Follow-up short-circuit: if the LLM (or the heuristic) flagged the latest
+        # message as a transformation on the previous AI answer, route through the
+        # follow-up node and skip entity re-resolution, completeness, and domain/crop.
+        if plan.get("is_follow_up"):
+            if not plan.get("follow_up_type") and heuristic_follow_up_type:
+                plan["follow_up_type"] = heuristic_follow_up_type
+            if not plan.get("main_question") and prev_plan.get("rephrased_query"):
+                plan["main_question"] = prev_plan.get("rephrased_query")
+            plan["entities"] = dict(prev_entities or {})
+            plan["is_complete"] = True
+            plan["missing_info"] = []
+            plan["follow_up_question"] = None
+            for flag in ("weather", "mandi", "soil", "schemes", "chemical_checker", "knowledge_base"):
+                plan[flag] = False
+            plan["domain"] = "General"
+            plan["domains"] = ["General"]
+            plan["is_agriculture_related"] = True
+            plan["tools_used"] = []
+            plan["reasoning"] = (plan.get("reasoning") or "") + f"; follow_up={plan.get('follow_up_type') or heuristic_follow_up_type}"
+            trace_event(
+                "planner_follow_up_finalized",
+                follow_up_type=plan.get("follow_up_type"),
+                follow_up_type_source="llm" if (output.follow_up_type or not heuristic_follow_up_type) else "heuristic",
+                main_question=plan.get("main_question"),
+            )
+            logger.info(
+                "Planner: follow-up detected type=%s main_question=%r rephrased=%r",
+                plan.get("follow_up_type"),
+                plan.get("main_question"),
+                plan.get("rephrased_query"),
+            )
+            return {"plan": plan}
 
         configurable = config.get("configurable") or {}
         user_id = resolve_user_id(config) or configurable.get("phone_number")
@@ -817,6 +913,8 @@ def clarify_node(state: AjraSakhaState) -> dict:
 
 def route_after_planner(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
+    if plan.get("is_follow_up"):
+        return "follow_up"
     if not plan.get("is_complete", True):
         return "clarify"
     return "ensure_location"
