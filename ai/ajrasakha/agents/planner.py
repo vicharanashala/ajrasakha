@@ -15,13 +15,12 @@ import logging
 import re
 from typing import Optional
 
-from anthropic import APITimeoutError, APIConnectionError, APIStatusError
-from langchain_anthropic import ChatAnthropic
+from openai import APITimeoutError, APIConnectionError, APIStatusError
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, patch_config
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import PLANNER_MODEL, resolve_thread_id, resolve_user_id
+from ajrasakha.agents.config import PLANNER_MODEL, get_minimax_chat_model, resolve_thread_id, resolve_user_id
 from ajrasakha.agents.thread_logging import (
     begin_conversation_turn,
     end_conversation_turn,
@@ -669,7 +668,7 @@ async def planner_node(
     )
 
     try:
-        llm = ChatAnthropic(model=PLANNER_MODEL).with_structured_output(PlannerOutput)
+        llm = get_minimax_chat_model().with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=_planner_invoke_config(config))
         trace_llm_response(
             "planner",
