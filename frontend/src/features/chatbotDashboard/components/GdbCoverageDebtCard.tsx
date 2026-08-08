@@ -440,6 +440,185 @@ export function GdbCoverageDebtCard({ source }: GdbCoverageDebtCardProps) {
     setRefreshing(false);
   };
 
+  const handleExportPDF = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const rowsHtml = clusters
+      .map((c, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>
+            <strong>${c.crop} · ${c.state}</strong><br/>
+            <span style="font-size: 10px; color: #666;">${c.domain}</span>
+          </td>
+          <td><span class="badge badge-${c.diagnosis}">${c.diagnosisLabel}</span></td>
+          <td style="text-align: right;">${c.affectedFarmersCount.toLocaleString()}</td>
+          <td style="text-align: right; font-weight: bold;">${c.coverageDebtScore.toFixed(1)}</td>
+          <td><span class="trend-badge trend-${c.trendState || 'new'}">${(c.trendState || 'new').toUpperCase()}</span></td>
+          <td>${c.recommendedAction}</td>
+        </tr>
+      `)
+      .join("");
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>GDB Coverage Debt Executive Report</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+              color: #333;
+              padding: 40px;
+              margin: 0;
+            }
+            .header {
+              border-bottom: 2px solid #3AAA5A;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+            }
+            .logo {
+              font-size: 24px;
+              font-weight: bold;
+              color: #1e293b;
+            }
+            .logo span {
+              color: #3AAA5A;
+            }
+            .meta {
+              text-align: right;
+              font-size: 12px;
+              color: #666;
+            }
+            h1 {
+              font-size: 20px;
+              margin: 0 0 10px 0;
+              color: #0f172a;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+              font-size: 11px;
+            }
+            th, td {
+              border-bottom: 1px solid #e2e8f0;
+              padding: 10px 8px;
+              text-align: left;
+            }
+            th {
+              background-color: #f8fafc;
+              font-weight: 600;
+              color: #475569;
+              text-transform: uppercase;
+              font-size: 9px;
+              letter-spacing: 0.5px;
+            }
+            .badge {
+              display: inline-block;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-size: 9px;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            .badge-missing_knowledge { background-color: #fef2f2; color: #ef4444; }
+            .badge-retrieval_failure { background-color: #eff6ff; color: #3b82f6; }
+            .badge-language_alias_gap { background-color: #f5f3ff; color: #8b5cf6; }
+            .badge-missing_context { background-color: #f0fdf4; color: #10b981; }
+            .badge-safety_escalation { background-color: #faf5ff; color: #a855f7; }
+            
+            .trend-badge {
+              display: inline-block;
+              padding: 2px 4px;
+              border-radius: 3px;
+              font-size: 9px;
+              font-weight: bold;
+            }
+            .trend-new { background-color: #eff6ff; color: #1d4ed8; }
+            .trend-growing { background-color: #fef2f2; color: #b91c1c; }
+            .trend-shrinking { background-color: #fffbeb; color: #b45309; }
+            .trend-resolved { background-color: #ecfdf5; color: #047857; }
+
+            .footer {
+              margin-top: 40px;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 20px;
+              font-size: 10px;
+              color: #94a3b8;
+              text-align: center;
+            }
+            @media print {
+              .no-print { display: none; }
+              body { padding: 0; }
+            }
+            .btn-print {
+              background-color: #3AAA5A;
+              color: white;
+              border: none;
+              padding: 8px 16px;
+              border-radius: 6px;
+              font-size: 12px;
+              font-weight: bold;
+              cursor: pointer;
+              transition: background-color 0.2s;
+            }
+            .btn-print:hover {
+              background-color: #2e8544;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="logo">Vicharanshala <span>GDB Coverage Radar</span></div>
+              <h1 style="margin-top: 15px;">Executive Coverage Debt Report</h1>
+            </div>
+            <div class="meta">
+              Report Generated: ${new Date().toLocaleDateString("en-IN")}<br/>
+              Status: Active Verification Loop
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; margin-bottom: 20px;" class="no-print">
+            <span style="font-size: 12px; color: #475569;">Click print to save this document as a PDF.</span>
+            <button class="btn-print" onclick="window.print()">Print / Save PDF</button>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30px;">#</th>
+                <th style="width: 150px;">Cluster / Gaps</th>
+                <th style="width: 100px;">Diagnosis</th>
+                <th style="width: 70px; text-align: right;">Farmers Affected</th>
+                <th style="width: 70px; text-align: right;">Debt Score</th>
+                <th style="width: 70px;">Trend</th>
+                <th>Recommended Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            Confidential - For Internal Agricultural Reviewer Verification Only. &copy; ${new Date().getFullYear()} Vicharanshala.
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() { window.print(); }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const showSkeleton = isLoading || refreshing;
   const clusters = data?.clusters ?? [];
   const hasData = clusters.length > 0;
@@ -485,13 +664,24 @@ export function GdbCoverageDebtCard({ source }: GdbCoverageDebtCardProps) {
             Weekly gap clusters · ranked by farmer demand
           </div>
         </div>
-        <button
-          onClick={handleRefresh}
-          className="ml-2 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800"
-          title="Refresh"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center">
+          <button
+            onClick={handleExportPDF}
+            className="rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+            title="Export PDF Report"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </button>
+          <button
+            onClick={handleRefresh}
+            className="ml-1 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+            title="Refresh"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {/* Summary KPI bar */}

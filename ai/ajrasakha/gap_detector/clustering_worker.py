@@ -286,8 +286,13 @@ def run_weekly_gap_clustering(dry_run: bool = False) -> None:
     # ── Build clusters ────────────────────────────────────────────────────────
     clusters_output: List[Dict[str, Any]] = []
     total_disclaimers = len(docs)
+    misc_items: List[Dict[str, Any]] = []
 
     for (crop, state, domain), items in grouped.items():
+        if len(items) <= 1:
+            misc_items.extend(items)
+            continue
+
         q_texts = [i.get("question") or i.get("text") or "" for i in items if i.get("question") or i.get("text")]
         if not q_texts:
             continue
@@ -342,6 +347,32 @@ def run_weekly_gap_clustering(dry_run: bool = False) -> None:
             "representativeQuestions": q_texts[:3],
             "anonymizedFarmerHashes":  anonymized_hashes[:10],
             "trendState":              trend_state,
+            "updatedAt":               now,
+        })
+
+    # Add unclustered items under a single Miscellaneous Gaps cluster
+    if misc_items:
+        misc_q_texts = [i.get("question") or i.get("text") or "" for i in misc_items if i.get("question") or i.get("text")]
+        raw_user_ids = [str(i.get("userId") or i.get("phone") or "unknown") for i in misc_items]
+        anonymized_hashes = list({_anonymize_user_id(uid) for uid in raw_user_ids})
+        unique_farmers_count = len(anonymized_hashes)
+
+        clusters_output.append({
+            "clusterId":               "misc_unclustered_gaps",
+            "crop":                    "General",
+            "state":                   "All Regions",
+            "domain":                  "Unclassified",
+            "affectedFarmersCount":    unique_farmers_count,
+            "rawQuestionsCount":       len(misc_items),
+            "weekGrowthPercent":       0.0,
+            "coverageDebtScore":       35.0,  # Lower default priority
+            "diagnosis":               "missing_knowledge",
+            "diagnosisLabel":          "Unclassified Gaps",
+            "recommendedAction":       "Inspect individual unclustered queries to identify emerging agricultural themes.",
+            "fourWeekTrend":           [unique_farmers_count] * 4,
+            "representativeQuestions": misc_q_texts[:3],
+            "anonymizedFarmerHashes":  anonymized_hashes[:10],
+            "trendState":              "new",
             "updatedAt":               now,
         })
 
