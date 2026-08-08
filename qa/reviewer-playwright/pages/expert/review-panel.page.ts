@@ -46,19 +46,21 @@ export class ReviewPanelPage {
     | "readabilityCommunication",
     Locator
   >;
-
+  readonly criteriaSwitches: Locator;
   readonly viewDetailsButton: Locator;
   readonly answerDetailsDialog: Locator;
   readonly commentsToggle: Locator;
 
   readonly acceptSuccessToast: Locator;
 
+  readonly closeAnswerDetailsButton: Locator;
+
   constructor(private readonly page: Page) {
     this.acceptButton = page.getByRole("button", { name: "Accept" });
     this.rejectButton = page.getByRole("button", { name: "Reject" });
     this.modifyButton = page.getByRole("button", { name: "Modify" });
 
-    this.confirmAcceptanceDialog = page.getByRole("alertdialog", {
+    this.confirmAcceptanceDialog = page.getByRole("dialog", {
       name: "Confirm Acceptance",
     });
 
@@ -92,6 +94,7 @@ export class ReviewPanelPage {
         { name: "Readability & Communication" },
       ),
     };
+    this.criteriaSwitches = this.confirmAcceptanceDialog.getByRole("switch");
 
     this.viewDetailsButton = page.getByRole("button", {
       name: "View Details",
@@ -101,7 +104,16 @@ export class ReviewPanelPage {
     });
     this.commentsToggle = page.getByRole("button", { name: "Comments" });
 
-    this.acceptSuccessToast = page.getByText(/accepted|approved successfully/i);
+    this.acceptSuccessToast = page.getByText(
+      "Your response has been submitted. Thank you!",
+    );
+
+    this.closeAnswerDetailsButton = this.answerDetailsDialog.getByRole(
+      "button",
+      {
+        name: "Close",
+      },
+    );
   }
 
   async pause(): Promise<void> {
@@ -131,7 +143,59 @@ export class ReviewPanelPage {
     await this.confirmAcceptButton.click();
   }
 
+  async openAcceptDialog(): Promise<void> {
+    await this.acceptButton.click();
+    await expect(this.confirmAcceptanceDialog).toBeVisible();
+  }
+
+  async expectAcceptanceCriteriaVisible(): Promise<void> {
+    await expect(this.criteriaSwitches).toHaveCount(6);
+
+    const count = await this.criteriaSwitches.count();
+
+    for (let i = 0; i < count; i++) {
+      await expect(this.criteriaSwitches.nth(i)).toBeVisible();
+    }
+  }
+
+  async expectAllCriteriaEnabled(): Promise<void> {
+    const count = await this.criteriaSwitches.count();
+
+    expect(count).toBe(6);
+
+    for (let i = 0; i < count; i++) {
+      await expect(this.criteriaSwitches.nth(i)).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+    }
+  }
+  async expectConfirmAcceptEnabled(): Promise<void> {
+    await expect(this.confirmAcceptButton).toBeEnabled();
+  }
+  async confirmAcceptance(): Promise<void> {
+    await this.confirmAcceptButton.click();
+
+    await expect(this.confirmAcceptanceDialog).toBeHidden();
+  }
+
   async expectAcceptSuccess(): Promise<void> {
     await expect(this.acceptSuccessToast).toBeVisible();
+  }
+
+  async expandComments(): Promise<void> {
+    await this.commentsToggle.click();
+  }
+
+  async expectCommentsExpanded(): Promise<void> {
+    await expect(this.commentsToggle).toHaveAttribute("aria-expanded", "true");
+  }
+
+  async closeViewDetails(): Promise<void> {
+    await this.closeAnswerDetailsButton.click();
+    await expect(this.answerDetailsDialog).toBeHidden();
+  }
+  async expectAcceptanceDialogClosed(): Promise<void> {
+    await expect(this.confirmAcceptanceDialog).toBeHidden();
   }
 }

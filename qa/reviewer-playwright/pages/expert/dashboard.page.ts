@@ -139,4 +139,10 @@ export class ExpertDashboardPage {
 
     await this.page.waitForTimeout(200);
   }
+  async expectQuestionRemoved(question: string): Promise<void> {
+    await expect(this.page.getByText(question, { exact: true })).toHaveCount(0);
+  }
+  async expectQuestionNotPresent(question: string): Promise<void> {
+    await expect(this.page.getByText(question, { exact: true })).toHaveCount(0);
+  }
 }
