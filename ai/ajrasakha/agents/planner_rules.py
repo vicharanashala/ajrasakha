@@ -201,7 +201,7 @@ def format_prev_plan_context(prev_plan: PlannerPlan) -> str:
         return ""
 
     lines = [
-        "PRIOR TURN CONTEXT (incomplete — merge with current farmer reply in rephrased_query):",
+        "PRIOR TURN CONTEXT (incomplete — the server deterministically merges clarification replies):",
     ]
     rephrased = (prev_plan.get("rephrased_query") or "").strip()
     if rephrased:
@@ -235,21 +235,27 @@ def format_prev_plan_context(prev_plan: PlannerPlan) -> str:
     return "\n".join(lines) + "\n"
 
 
-def merge_location_clarification_into_query(
+def merge_clarification_reply_into_query(
     prev_plan: Optional[PlannerPlan],
-    location_reply: str,
+    clarification_reply: str,
 ) -> Optional[str]:
-    """Preserve the original query when the farmer answers a location clarify.
+    """Preserve the accumulated query when the farmer answers a clarification.
 
-    The planner LLM is asked to rephrase the latest turn, but a location reply
-    such as ``Delhi`` is not a standalone question. When the prior plan was
-    incomplete specifically because location was missing, use its query as the
-    stable base and attach the new location deterministically. This prevents
-    query loss when the LLM rephrasing varies between turns.
+    A clarification reply such as ``Delhi`` or ``Wheat`` is not a standalone
+    question. When the prior plan is incomplete because a location or crop is
+    missing, use the previous query as the stable base and attach the reply
+    deterministically. This prevents query loss when LLM rephrasing varies
+    between turns or returns only the latest short reply.
     """
     if not prev_plan or prev_plan.get("is_complete", True):
         return None
-    if "location" not in (prev_plan.get("missing_info") or []):
+
+    missing_info = prev_plan.get("missing_info") or []
+    clarification_field = next(
+        (field for field in ("location", "crop") if field in missing_info),
+        None,
+    )
+    if clarification_field is None:
         return None
 
     base = (
@@ -260,7 +266,7 @@ def merge_location_clarification_into_query(
     if not base:
         return None
 
-    reply = (location_reply or "").strip()
+    reply = (clarification_reply or "").strip()
     if not reply:
         return base
 
@@ -269,7 +275,18 @@ def merge_location_clarification_into_query(
         return base
 
     separator = "" if base.endswith((".", "!", "?")) else "."
-    return f"{base}{separator} Location: {reply}"
+    label = "Location" if clarification_field == "location" else "Crop"
+    return f"{base}{separator} {label}: {reply}"
+
+
+def merge_location_clarification_into_query(
+    prev_plan: Optional[PlannerPlan],
+    location_reply: str,
+) -> Optional[str]:
+    """Backward-compatible wrapper for location clarification callers/tests."""
+    if not prev_plan or "location" not in (prev_plan.get("missing_info") or []):
+        return None
+    return merge_clarification_reply_into_query(prev_plan, location_reply)
 
 
 def format_conversation_for_planner(

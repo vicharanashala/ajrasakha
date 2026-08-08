@@ -62,7 +62,7 @@ from ajrasakha.agents.planner_rules import (
     crop_slot_satisfied,
     format_conversation_for_planner,
     format_last_queries_for_rephrasing,
-    merge_location_clarification_into_query,
+    merge_clarification_reply_into_query,
     format_prev_plan_context,
     merge_entities_from_rephrased_query,
     resolve_crop_for_turn,
@@ -820,16 +820,17 @@ async def planner_node(
 
         plan = planner_output_to_plan(output)
 
-        # A short location answer is not a new standalone question. Preserve
-        # the incomplete turn's query deterministically so every clarification
-        # path carries the original question into tool routing and rephrasing.
-        location_merged_query = merge_location_clarification_into_query(
+        # A short clarification answer is not a new standalone question.
+        # Preserve the incomplete turn's accumulated query deterministically so
+        # every location/crop clarification carries the original question into
+        # tool routing and rephrasing.
+        clarification_merged_query = merge_clarification_reply_into_query(
             prev_plan,
             user_text,
         )
-        if location_merged_query:
-            plan["original_query_en"] = location_merged_query
-            plan["rephrased_query"] = location_merged_query
+        if clarification_merged_query:
+            plan["original_query_en"] = clarification_merged_query
+            plan["rephrased_query"] = clarification_merged_query
             plan["is_follow_up"] = False
             plan["follow_up_type"] = None
             # The clarification reply is not a new intent. Preserve the
@@ -851,13 +852,14 @@ async def planner_node(
                 if key in prev_plan:
                     plan[key] = prev_plan[key]
             trace_event(
-                "planner_location_clarification_query_merged",
+                "planner_clarification_query_merged",
                 previous_query=(
                     prev_plan.get("rephrased_query")
                     or prev_plan.get("original_query_en")
                 ),
-                location_reply=user_text,
-                merged_query=location_merged_query,
+                clarification_reply=user_text,
+                missing_info=prev_plan.get("missing_info"),
+                merged_query=clarification_merged_query,
             )
 
         # Use Unicode-based script detection first (before LLM detection)

@@ -12,6 +12,7 @@ from ajrasakha.agents.planner_rules import (
     format_prev_plan_context,
     infer_domain_for_plan,
     is_schemes_intent,
+    merge_clarification_reply_into_query,
     merge_entities_from_rephrased_query,
     merge_location_clarification_into_query,
 )
@@ -55,6 +56,30 @@ def test_location_clarification_preserves_rainy_season_query():
     assert merged == "Which plant should I grow in the rainy season? Location: Delhi"
 
 
+def test_crop_clarification_preserves_query_after_location_clarification():
+    merged = merge_clarification_reply_into_query(
+        {
+            "is_complete": False,
+            "missing_info": ["crop"],
+            "rephrased_query": "How do I control gulli danda? Location: Delhi",
+        },
+        "wheat",
+    )
+    assert merged == "How do I control gulli danda? Location: Delhi. Crop: wheat"
+
+
+def test_crop_clarification_preserves_query_without_location_clarification():
+    merged = merge_clarification_reply_into_query(
+        {
+            "is_complete": False,
+            "missing_info": ["crop"],
+            "rephrased_query": "How do I control gulli danda?",
+        },
+        "Wheat",
+    )
+    assert merged == "How do I control gulli danda? Crop: Wheat"
+
+
 def test_location_query_merge_skips_complete_or_non_location_turns():
     assert merge_location_clarification_into_query(
         {
@@ -71,6 +96,25 @@ def test_location_query_merge_skips_complete_or_non_location_turns():
             "rephrased_query": "Original question",
         },
         "Delhi",
+    ) is None
+
+
+def test_clarification_query_merge_skips_complete_or_unknown_slots():
+    assert merge_clarification_reply_into_query(
+        {
+            "is_complete": True,
+            "missing_info": [],
+            "rephrased_query": "Original question",
+        },
+        "Wheat",
+    ) is None
+    assert merge_clarification_reply_into_query(
+        {
+            "is_complete": False,
+            "missing_info": ["district"],
+            "rephrased_query": "Original question",
+        },
+        "Wheat",
     ) is None
 
 
