@@ -181,7 +181,14 @@ export function PlaygroundHeader({
           {/* Notifications */}
           <NotificationModal
             trigger={
-              <button className="relative p-1 rounded-md hover:bg-accent transition-colors">
+              <button
+                className="relative p-1 rounded-md hover:bg-accent transition-colors"
+                aria-label={`Notifications${
+                  user?.notifications && user.notifications > 0
+                    ? `, ${user.notifications} unread`
+                    : ""
+                }`}
+              >
                 <BellIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition" />
                 {user?.notifications! > 0 && (
                   <span className="absolute -top-[4px] -right-[12px] flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white">
