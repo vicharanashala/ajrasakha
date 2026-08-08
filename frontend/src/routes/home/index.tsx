@@ -18,7 +18,7 @@ export const Route = createFileRoute("/home/")({
 });
 
 function RouteComponent() {
-  const { user } = useAuthStore();
+  const { user, loading } = useAuthStore();
   const navigate = useNavigate();
   const { data: currentUser, isLoading } = useGetCurrentUser({});
 
@@ -41,7 +41,14 @@ function RouteComponent() {
   }, [user, currentUser, navigate]);
 
   // Don't render anything until we know the role — prevents PlaygroundPage flash for pae_expert
-  if (!user || isLoading || currentUser?.role === "pae_expert" || isCoordinatorRole(currentUser?.role)) return null;
+  if (
+    loading ||
+    !user ||
+    isLoading ||
+    currentUser?.role === "pae_expert" ||
+    isCoordinatorRole(currentUser?.role)
+  )
+    return null;
 
   return (
     <div className="min-h-screen min-w-screen p-4 relative flex flex-col overflow-hidden">

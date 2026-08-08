@@ -6,6 +6,7 @@ import "./styles.css";
 import reportWebVitals from "./reportWebVitals.ts";
 import { client } from "./client/client.gen.ts";
 import { env } from "./config/env.ts";
+import { useAuthStore } from "@/stores/auth-store";
 import { ToastProvider } from "./shared/components/toast.tsx";
 
 async function bootstrap() {
@@ -18,6 +19,11 @@ async function bootstrap() {
   client.setConfig({
     baseUrl: env.apiBaseUrl() || "http://localhost:4000",
   });
+
+  // Reconcile authentication once at app bootstrap so that every entry
+  // point (including direct navigation to /home) reflects the real
+  // Firebase auth state instead of any stale persisted session.
+  useAuthStore.getState().initAuthListener();
 
   const router = createRouter({
     routeTree,
