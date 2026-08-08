@@ -84,6 +84,14 @@ gcloud iam service-accounts create lgd-sync-sa \
   --display-name="Cloud Run Job: lgd-sync" \
   --project="${PROJECT_ID}"
 # No IAM bindings — the SA has no permissions on purpose.
+
+# Same pattern for the dataset-app sync Job — it only talks to the two
+# MongoDB clusters (Review System + Dataset Application), so it needs no
+# GCP API access either.
+gcloud iam service-accounts create dataset-app-sync-sa \
+  --display-name="Cloud Run Job: dataset-app-sync" \
+  --project="${PROJECT_ID}"
+# No IAM bindings — the SA has no permissions on purpose.
 ```
 
 ### 1.6 Grant your GitHub Actions SA permission to deploy the Job
@@ -128,6 +136,8 @@ These need to be set in **Settings → Secrets and variables → Actions → Sec
 | `LGD_DISTRICTS_API_URL` | `https://api.data.gov.in/resource/37231365-...` | Same value as backend `.env` |
 | `LGD_SUBDISTRICTS_API_URL` | `https://api.data.gov.in/resource/6be51a29-...` | Same value as backend `.env`; used as the "blocks" source |
 | `LGD_VILLAGES_API_URL` | `https://api.data.gov.in/resource/f17a1608-...` | Same value as backend `.env` |
+| `DATA_APP_DB_URL` | `mongodb+srv://user:pass@cluster.mongodb.net/dbname` | Dataset Application's MongoDB, same value as backend `.env` |
+| `DATA_APP_DB_NAME` | `dataset_app` | Dataset Application's DB name, same value as backend `.env` |
 
 ### New variables to add (Settings → Secrets and variables → Actions → Variables)
 | Variable | Default | Notes |
@@ -204,3 +214,16 @@ net-new and never existed as an in-process cron:
   known. Reuses `DB_URL`/`DB_NAME` and the existing `LGD_*` env vars — no new
   application code or env vars were introduced, only the new GitHub secrets
   listed in §2 so CI can pass them through to the deployed Job.
+
+- `dataset-app-sync` (`0 4 * * *`, Asia/Kolkata — daily, 04:00 IST)  ✅
+  Runs `backend/src/jobs/dataset-app-sync/run.ts`, which executes the
+  existing standalone script `backend/scripts/sync-dataset-app.mjs --apply`.
+  That script upserts the `users`, `questions`, and `answers` collections
+  from the Review System's MongoDB (`DB_URL`/`DB_NAME`) into the Dataset
+  Application's MongoDB (`DATA_APP_DB_URL`/`DATA_APP_DB_NAME`), matched on
+  shared `_id`, so re-running it (including the workflow's smoke-test
+  execution) is always safe. No new sync logic — this job is only an
+  entrypoint around the existing script.
+  Sized at 1Gi/1cpu with a 30-minute task-timeout; adjust once real
+  collection sizes/run times are known. Scheduled for early morning so it
+  runs ahead of daytime traffic and the 08:00 `backup-db` run.
