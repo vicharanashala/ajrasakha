@@ -24,6 +24,7 @@ import { ReviewLevelsTable } from "@/features/questions/components/review-level/
 import { useGetQuestionsAndLevel } from "@/features/questions/hooks/useGetQuestionsAndLevel";
 import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLevel";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
+import type { DedicatedSubTab } from "@/features/question-table-page/AnswerModeSwitcher";
 
 export const QuestionsPage = ({
   currentUser,
@@ -110,6 +111,7 @@ export const QuestionsPage = ({
   const [limit, setLimit] = useState(12);
   const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
   const suppressAutoOpenRef = useRef(false);
+  const [dedicatedSubTab, setDedicatedSubTab] = useState<DedicatedSubTab>("questions");
 
   useEffect(() => {
     setCurrentPage(1);
@@ -331,6 +333,12 @@ export const QuestionsPage = ({
 
   const filteredQuestions = useMemo(() => {
     const questions = questionData?.questions || [];
+    
+    // In dedicated view with feedbacks tab, show feedback questions
+    if (viewMode === "dedicated" && dedicatedSubTab === "feedbacks") {
+      return questionData?.feedbackQuestions || [];
+    }
+    
     if (!debouncedSearch || searchTabMode === "search") return questions;
     const srcFilter = sourceByMode[searchTabMode];
     if (srcFilter) return questions.filter((q) => q.source === srcFilter);
@@ -340,7 +348,7 @@ export const QuestionsPage = ({
     if (searchTabMode === "dynamic") return questions.filter((q) => q.status === "dynamic");
     if (searchTabMode === "training") return questions.filter((q) => q.isTrainingQuestion === true);
     return questions;
-  }, [questionData, debouncedSearch, searchTabMode]);
+  }, [questionData, debouncedSearch, searchTabMode, viewMode, dedicatedSubTab]);
 
   const currentItems = useMemo(() => {
     if (viewMode === "review-level") return reviewData?.data || [];
@@ -648,6 +656,8 @@ export const QuestionsPage = ({
             view={view}
             setView={setView}
             onAnswerModeChange={setSearchTabMode}
+            dedicatedSubTab={dedicatedSubTab}
+            onDedicatedSubTabChange={setDedicatedSubTab}
           />
 
           {viewMode === "all" || viewMode === "dedicated" ? (

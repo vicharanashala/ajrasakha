@@ -92,6 +92,10 @@ export type QueueDetailsResponse = {
   auditorWaiting: { count: number; items: QueueQuestionItem[] };
   auditorAllocated: { count: number; items: QueueQuestionItem[] };
   availableAuditors: { count: number; items: QueueExpertItem[] };
+  // Feedback-review queue (mirrors the gate-keeper / auditor role queue)
+  feedbackWaiting: { count: number; items: QueueQuestionItem[] };
+  feedbackAllocated: { count: number; items: QueueQuestionItem[] };
+  availableFeedbackReviewers: { count: number; items: QueueExpertItem[] };
   // Manual (AGRI_EXPERT/OUTREACH) expert-queue sections — mirror the time-bound ones.
   receivedManual: { count: number; items: QueueQuestionItem[] };
   receivedStatusCountsManual: { status: string; count: number }[];
@@ -125,6 +129,52 @@ export interface RoleDashboardResponse {
   questions: RoleDashboardQuestion[];
   totalPages: number;
   totalCount: number;
+}
+
+export interface FeedbackData {
+  _id: { $oid: string };
+  questionId: { $oid: string };
+  userId: {
+    name: string;
+    email: string;
+  };
+  answerId: { $oid: string };
+  type: "thumbs_up" | "thumbs_down";
+  predefinedOption: string;
+  comment: string;
+  status: "open" | "rejected" | "accepted";
+  reviewNote?: string;
+  createdAt: { $date: string };
+  updatedAt: { $date: string };
+}
+
+export interface FeedbackResponse {
+  data: FeedbackData[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface FeedbackReviewRound {
+  index: number;
+  reviewerId: string;
+  reviewerName: string;
+  assignedAt: string;
+  finishedAt: string | null;
+}
+
+export interface FeedbackTimeline {
+  autoAllocateFeedback: boolean;
+  hasOpenFeedback: boolean;
+  reviews: FeedbackReviewRound[];
+}
+
+export interface FeedbackReviewerOption {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
 }
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
@@ -350,6 +400,49 @@ export class QuestionService {
     );
 
     return response;
+  }
+
+  async getOpenFeedback(
+    questionId: string,
+    page: number = 1,
+    pageSize: number = 5,
+  ): Promise<any | null> {
+    // TODO: Replace with actual API endpoint when backend is ready
+    // const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    // const response = await apiFetch<any | null>(
+    //   `${this._baseUrl}/${questionId}/open-feedback?${params.toString()}`,
+    // );
+    // return response;
+
+    // Mock response for testing - paginated
+    // This will be handled by the hook, but keeping for reference
+    return {
+      data: [],
+      totalCount: 0,
+      page,
+      pageSize,
+      totalPages: 0,
+    };
+  }
+
+  async getFeedbacks(
+    questionId: string,
+    page: number = 1,
+    pageSize: number = 5,
+  ): Promise<FeedbackResponse> {
+    const params = new URLSearchParams({
+      questionId,
+      page: String(page),
+      pageSize: String(pageSize),
+    });
+    const response = await apiFetch<FeedbackResponse>(`${this._baseUrl}/feedbacks?${params.toString()}`);
+    return response ?? {
+      data: [],
+      totalCount: 0,
+      page,
+      pageSize,
+      totalPages: 0,
+    };
   }
 
   async getReRoutedQuestionFullDataById(
@@ -958,12 +1051,48 @@ export class QuestionService {
 
   async toggleRoleAllocation(
     questionId: string,
-    role: "gate_keeper" | "auditor",
+    role: "gate_keeper" | "auditor" | "feedback",
     enabled: boolean,
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/role-allocation`, {
       method: "PATCH",
       body: JSON.stringify({ role, enabled }),
+    });
+  }
+
+  async getFeedbackTimeline(
+    questionId: string,
+  ): Promise<{ success: boolean; data: FeedbackTimeline } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/feedback-timeline`);
+  }
+
+  async getFeedbackReviewers(): Promise<{
+    success: boolean;
+    data: FeedbackReviewerOption[];
+  } | null> {
+    return apiFetch(`${this._baseUrl}/feedback/reviewers`);
+  }
+
+  async assignFeedbackReviewer(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{ success: true } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/feedback-reviewer`, {
+      method: "POST",
+      body: JSON.stringify(
+        typeof index === "number" ? { userId, index } : { userId },
+      ),
+    });
+  }
+
+  async removeFeedbackReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: true } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/feedback-reviewer`, {
+      method: "DELETE",
+      body: JSON.stringify({ index }),
     });
   }
 
@@ -1152,6 +1281,22 @@ export class QuestionService {
       method: "POST",
       body: JSON.stringify(body)
     });
+  }
+
+  async handleFeedbackAction(
+    questionId: string,
+    feedbackId: string,
+    action: 'accept' | 'reject',
+    reason: string,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch<{ success: boolean; message: string } | null>(
+      `${this._baseUrl}/${questionId}/${feedbackId}/feedback-action`,
+      {
+        method: "POST",
+        body: JSON.stringify({ action, reason }),
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 
 }

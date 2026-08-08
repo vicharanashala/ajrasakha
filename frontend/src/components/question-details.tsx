@@ -31,6 +31,8 @@ import { QuestionHeader } from "@/features/question_details/components/QuestionH
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
 import MessageDetail from "./MessageDetail";
 import UserFeedbackDetail from "./UserFeedbackDetail";
+import OpenFeedback from "./OpenFeedback";
+import { FeedbackReviewTimeline } from "./FeedbackReviewTimeline";
 import { AiGeneratedAnswerCard } from "./AiGeneratedAnswerCard";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer";
@@ -310,6 +312,24 @@ export const QuestionDetails = ({
                 <UserFeedbackDetail questionId={question._id || null} />
               </>
             )}
+
+          {/* Feedback-review panel — applies to questions of ANY source (feedback
+              can be raised on AGRI_EXPERT/OUTREACH etc. too). The component gates
+              itself via canViewFeedback (admin or assigned reviewer), so render it
+              independently of the chatbot-only MessageDetail block above. */}
+          {question && currentUser && currentUser.role != "expert" && (
+            <OpenFeedback questionId={question._id || null} currentUser={currentUser} />
+          )}
+
+          {/* Feedback-review timeline: rounds + reviewers, on/off toggle, manual assign. */}
+          {question?._id && currentUser && currentUser.role != "expert" && (
+            <FeedbackReviewTimeline
+              questionId={question._id}
+              canManage={
+                currentUser.role === "admin" || currentUser.role === "moderator"||currentUser.role=="gate_keeper"||currentUser.role=="auditor"
+              }
+            />
+          )}
 
           {/* Queue order: Gate Keeper → Auditor → Expert → Moderator → Re-route */}
 
