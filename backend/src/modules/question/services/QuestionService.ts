@@ -5431,8 +5431,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     duplicateQuestions?: string;
     startDate?: string;
     endDate?: string;
-    /** Moderator (= final answer's approvedBy) to filter closed questions by. */
-    moderator?: string;
+    /** All Users to filter questions by. */
+    allUsers?: string;
   }): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       // Build filter query
@@ -5482,7 +5482,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (filters.status === 'pae_closed') {
           query.status = 'closed';
           query.pae_review = true;
-        } else {
+        }
+        else if ( filters.status === 'all-closed'){
+          query.status = { $in: ['closed','duplicate_closed','dynamic_closed']}
+        }
+        else {
           query.status = filters.status;
         }
       }
@@ -5507,32 +5511,32 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Check if this is a closed status report - if so, limit to 50 questions
       const isClosedStatus =
         filters.status === 'closed' || filters.status === 'pae_closed';
-      // `moderator` is a comma-separated list of moderator (approvedBy) ids.
-      const moderatorIds =
-        filters.moderator && filters.moderator !== 'all'
-          ? filters.moderator
+      // `allUsers` is a comma-separated list of user (approvedBy) ids.
+      const allUserIds =
+        filters.allUsers && filters.allUsers !== 'all'
+          ? filters.allUsers
             .split(',')
             .map(s => s.trim())
             .filter(Boolean)
           : [];
-      const filterByModerator = moderatorIds.length > 0;
-      // Answer / Sources / Moderator details only exist on a closed question's final
-      // answer, so they are included for closed reports or when filtering by moderator.
-      const includeAnswerDetails = isClosedStatus || filterByModerator;
+      const filterByAllUsers = allUserIds.length > 0;
+      // Answer / Sources / All Users details only exist on a closed question's final
+      // answer, so they are included for closed reports or when filtering by all users.
+      const includeAnswerDetails = isClosedStatus || filterByAllUsers;
       const questionLimit = includeAnswerDetails ? 50 : undefined;
 
-      // Moderator filter (= final answer's approvedBy): restrict to the closed questions
-      // those moderators approved. Final answers only exist for closed questions, so this
+      // All Users filter (= final answer's approvedBy): restrict to the closed questions
+      // those users approved. Final answers only exist for closed questions, so this
       // also scopes the report to closed questions.
-      if (filterByModerator) {
+      if (filterByAllUsers) {
         const approvedQuestionIds =
           await this.answerRepo.getFinalAnswerQuestionIdsByApprover(
-            moderatorIds,
+            allUserIds,
             session,
           );
         if (!approvedQuestionIds.length) {
           console.log(
-            'No closed questions approved by the selected moderator(s)',
+            'No closed questions approved by the selected user(s)',
           );
           return null;
         }
@@ -5546,9 +5550,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         query,
         session,
         filters.duplicateQuestions === 'true',
-        questionLimit,
+        // questionLimit,
       );
-
+      
       if (!questions || questions.length === 0) {
         console.log('No questions found for given filters');
         return null;
@@ -5608,7 +5612,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (includeAnswerDetails) {
         columns.push({ header: 'Answer', key: 'answer', width: 80 });
         columns.push({ header: 'Sources', key: 'sources', width: 50 });
-        columns.push({ header: 'Moderator', key: 'moderator', width: 25 });
+        columns.push({ header: 'AllUsers', key: 'allUsers', width: 25 });
       }
 
       sheet.columns = columns;
@@ -5639,7 +5643,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const qId = q._id.toString();
           rowData.answer = questionAnswers.get(qId) || '';
           rowData.sources = questionSources.get(qId) || '';
-          rowData.moderator = questionModerator.get(qId) || '';
+          rowData.allUsers = questionModerator.get(qId) || '';
         }
 
         sheet.addRow(rowData);

@@ -573,7 +573,7 @@ export interface IQuestionService {
     isOnHold?: string;
     startDate?: string;
     endDate?: string;
-    moderator?: string;
+    allUsers?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,
