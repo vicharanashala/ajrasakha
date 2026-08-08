@@ -55,6 +55,25 @@ export class ReviewPanelPage {
 
   readonly closeAnswerDetailsButton: Locator;
 
+  readonly rejectResponseDialog: Locator;
+  readonly rejectReasonInput: Locator;
+  readonly submitRejectButton: Locator;
+  readonly cancelRejectButton: Locator;
+  readonly rejectCriteriaSwitches: Locator;
+
+  readonly rejectCriteriaToggles: Record<
+    | "contextRelevance"
+    | "technicalAccuracy"
+    | "practicalUtility"
+    | "valueAddition"
+    | "credibilityTrust"
+    | "readabilityCommunication",
+    Locator
+  >;
+
+  readonly resetRejectButton: Locator;
+  readonly rejectionValidationMessage: Locator;
+
   constructor(private readonly page: Page) {
     this.acceptButton = page.getByRole("button", { name: "Accept" });
     this.rejectButton = page.getByRole("button", { name: "Reject" });
@@ -113,6 +132,59 @@ export class ReviewPanelPage {
       {
         name: "Close",
       },
+    );
+
+    this.rejectResponseDialog = page.getByRole("dialog", {
+      name: "Reject Response",
+    });
+
+    this.rejectReasonInput = this.rejectResponseDialog.getByRole("textbox", {
+      name: "Reason for Rejection *",
+    });
+
+    this.submitRejectButton = this.rejectResponseDialog.getByRole("button", {
+      name: "Submit Reason",
+    });
+
+    this.cancelRejectButton = this.rejectResponseDialog.getByRole("button", {
+      name: "Cancel",
+    });
+
+    this.rejectCriteriaSwitches = this.rejectResponseDialog.getByRole("switch");
+
+    const rejectCriterionRow = (name: string): Locator =>
+      this.rejectResponseDialog
+        .getByText(name, { exact: true })
+        .locator("xpath=ancestor::div[.//*[@role='switch']][1]");
+
+    this.rejectCriteriaToggles = {
+      contextRelevance: rejectCriterionRow("Context & Relevance").getByRole(
+        "switch",
+      ),
+
+      technicalAccuracy:
+        rejectCriterionRow("Technical Accuracy").getByRole("switch"),
+
+      practicalUtility:
+        rejectCriterionRow("Practical Utility").getByRole("switch"),
+
+      valueAddition: rejectCriterionRow("Value Addition / Insight").getByRole(
+        "switch",
+      ),
+
+      credibilityTrust: rejectCriterionRow("Credibility & Trust").getByRole(
+        "switch",
+      ),
+
+      readabilityCommunication: rejectCriterionRow(
+        "Readability & Communication",
+      ).getByRole("switch"),
+    };
+    this.resetRejectButton = this.rejectResponseDialog.getByRole("button", {
+      name: "Reset",
+    });
+    this.rejectionValidationMessage = this.rejectResponseDialog.getByText(
+      /To reject this answer, please disable Value.*Insight/i,
     );
   }
 
@@ -197,5 +269,107 @@ export class ReviewPanelPage {
   }
   async expectAcceptanceDialogClosed(): Promise<void> {
     await expect(this.confirmAcceptanceDialog).toBeHidden();
+  }
+
+  async openRejectDialog(): Promise<void> {
+    await this.rejectButton.click();
+
+    await expect(this.rejectResponseDialog).toBeVisible();
+  }
+
+  async expectRejectDialogVisible(): Promise<void> {
+    await expect(this.rejectResponseDialog).toBeVisible();
+  }
+
+  async expectRejectCriteriaVisible(): Promise<void> {
+    await expect(this.rejectCriteriaSwitches).toHaveCount(6);
+
+    const count = await this.rejectCriteriaSwitches.count();
+
+    for (let i = 0; i < count; i++) {
+      await expect(this.rejectCriteriaSwitches.nth(i)).toBeVisible();
+    }
+  }
+  async expectRejectCriteriaDisabled(): Promise<void> {
+    const count = await this.rejectCriteriaSwitches.count();
+
+    expect(count).toBe(6);
+
+    for (let i = 0; i < count; i++) {
+      await expect(this.rejectCriteriaSwitches.nth(i)).toHaveAttribute(
+        "aria-checked",
+        "false",
+      );
+    }
+  }
+  async expectRejectReasonRequired(): Promise<void> {
+    await expect(this.rejectReasonInput).toBeVisible();
+    await expect(this.rejectReasonInput).toHaveValue("");
+
+    await expect(this.submitRejectButton).toBeDisabled();
+  }
+  async fillRejectReason(reason: string): Promise<void> {
+    await this.rejectReasonInput.fill(reason);
+  }
+
+  async expectSubmitRejectEnabled(): Promise<void> {
+    await expect(this.submitRejectButton).toBeEnabled();
+  }
+  async cancelReject(): Promise<void> {
+    await this.cancelRejectButton.click();
+
+    await expect(this.rejectResponseDialog).toBeHidden();
+  }
+  async enableRejectCriterion(
+    criterion:
+      | "contextRelevance"
+      | "technicalAccuracy"
+      | "practicalUtility"
+      | "valueAddition"
+      | "credibilityTrust"
+      | "readabilityCommunication",
+  ): Promise<void> {
+    const toggle = this.rejectCriteriaToggles[criterion];
+
+    await expect(toggle).toBeVisible();
+
+    await toggle.click();
+
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+  }
+
+  async disableRejectCriterion(
+    criterion:
+      | "contextRelevance"
+      | "technicalAccuracy"
+      | "practicalUtility"
+      | "valueAddition"
+      | "credibilityTrust"
+      | "readabilityCommunication",
+  ): Promise<void> {
+    const toggle = this.rejectCriteriaToggles[criterion];
+
+    await toggle.click();
+
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+  }
+  async resetRejectCriteria(): Promise<void> {
+    await this.resetRejectButton.click();
+  }
+
+  async expectAllRejectCriteriaDisabled(): Promise<void> {
+    for (const toggle of Object.values(this.rejectCriteriaToggles)) {
+      await expect(toggle).toHaveAttribute("aria-checked", "false");
+    }
+  }
+
+  async expectValueAdditionRejectionWarning(): Promise<void> {
+    await expect(this.rejectionValidationMessage).toBeVisible();
+  }
+  async expectValueAdditionRejectionWarningHidden(): Promise<void> {
+    await expect(this.rejectionValidationMessage).toBeHidden();
+  }
+  async submitRejection(): Promise<void> {
+    await this.submitRejectButton.click();
   }
 }

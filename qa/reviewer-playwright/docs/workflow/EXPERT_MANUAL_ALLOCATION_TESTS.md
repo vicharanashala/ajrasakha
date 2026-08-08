@@ -657,3 +657,50 @@ Verify that reopening the dialog after a successful allocation starts with a fre
 ### Status
 
 ✅ Passed
+
+# EAW-M019 — Allocated expert can log in
+
+### Feature
+
+Expert Manual Allocation Workflow
+
+### Purpose
+
+Verify that an expert who is currently allocated to the question can successfully log in to the application and reach the expert dashboard.
+
+### Preconditions
+
+- Moderator account is authenticated.
+- A valid question has been created and opened.
+- The question has at least one allocated expert.
+- The allocated expert has valid login credentials.
+
+### Test Flow
+
+1. Open the Allocation Queue.
+2. Disable **Auto-allocate Experts** so that the manual allocation state is available.
+3. Retrieve the email address of the first allocated expert from the queue.
+4. Log in using the retrieved expert credentials.
+5. Create an `ExpertDashboardPage` instance for the newly opened expert page.
+6. Verify that the expert dashboard loads successfully.
+7. Close the expert page during cleanup.
+
+### Assertions
+
+- The allocated expert can successfully authenticate.
+- The expert is redirected to the expected `/home` route.
+- The **All Questions** tab is visible.
+- The expert dashboard shell is rendered successfully.
+
+### Implementation
+
+- `fixtures/workflow.fixture.ts`
+- `pages/moderator/allocation-queue.page.ts`
+- `pages/expert/dashboard.page.ts`
+- `tests/workflows/expert-manual-allocation-workflow.spec.ts`
+
+The test retrieves the currently allocated expert dynamically rather than relying on a hard-coded expert email, then creates an `ExpertDashboardPage` for that expert's page and validates the dashboard shell.
+
+### Status
+
+✅ Passed
