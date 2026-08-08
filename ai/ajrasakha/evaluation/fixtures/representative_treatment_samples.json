@@ -1,0 +1,12 @@
+[
+  {
+    "_comment": "reference_type is 'representative_authored' - hand-written by this PR's author for scoring purposes only, NOT sourced from MongoDB/expert-validated GDB records like gdb_samples.json. It follows standard Punjab Agricultural University (PAU) package-of-practices patterns for soil-test-based fertiliser recommendation, but has not been reviewed by an agriculture expert. Treat as representative, not authoritative - do not use for real farmer advice. Exists only because soil_health_tool.py calls a live external government API (soilhealth4.dac.gov.in) with no reference dosage table embedded anywhere in this repo, so TreatmentCorrectness would otherwise have zero ground truth to check Soil-domain answers against.",
+    "query": "My soil test shows Nitrogen 120, Phosphorus 40, Potassium 30, and OC 0.5%. What is the fertilizer dosage for Rice in Ropar, Punjab?",
+    "expected_domain": "Soil",
+    "domains": ["Soil"],
+    "crop": "Paddy",
+    "state": "Punjab",
+    "reference_type": "representative_authored",
+    "expected_treatment": "For paddy (rice) in Punjab with a soil test showing available Nitrogen ~120 kg/ha, Phosphorus ~40 kg/ha, Potassium ~30 kg/ha, and Organic Carbon 0.5% (low), a standard soil-test-based fertiliser recommendation would be: Nitrogen - apply the full recommended dose of around 120-130 kg N/ha in split applications (basal, tillering, and panicle initiation), since available N is low-to-medium. Phosphorus - since available P (40 kg/ha) is above the critical level for most Punjab soils, reduce or skip additional P2O5, or apply only a small starter dose (~15-20 kg P2O5/ha). Potassium - since available K (30 kg/ha) is low, apply around 30-40 kg K2O/ha to correct the deficiency. Organic matter - because organic carbon is low, incorporate farmyard manure (FYM) or green manure to improve soil organic matter over time. Farmers should confirm exact doses with their local Krishi Vigyan Kendra (KVK) or soil testing lab, since exact critical levels vary by soil type and testing method."
+  }
+]

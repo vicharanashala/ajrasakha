@@ -126,7 +126,7 @@ A PASS means:
 
 
 
-Runs a small set of stable live AI workflow scenarios.
+Runs the stable:True live AI workflow scenarios - one per brief domain.
 
 
 
@@ -134,11 +134,17 @@ Current scenarios:
 
 
 
-\* weather\_question\_1
+\* weather\_question\_1 (Weather)
 
-\* market\_question\_1
+\* market\_question\_1 (Market)
 
-\* gdb\_question\_1
+\* soil\_question\_1 (Soil)
+
+\* scheme\_question\_1 (Schemes)
+
+\* gdb\_question\_1 (GDB queries)
+
+\* greeting\_question (Greetings)
 
 
 
@@ -158,7 +164,19 @@ A PASS means:
 
 
 
-Current Layer 3 validates execution health, not answer quality.
+Layer 3 also runs answer-quality scoring (`--mode live` calls
+
+`evaluate\_response\_quality()` - see `ajrasakha/evaluation/answer\_eval.py`),
+
+so `evaluation\_report\_live.csv` carries per-metric quality-score columns
+
+alongside the execution-health checks. The combined `stable\_suite\_report.csv`
+
+/`.html` preserve those columns per test case and per domain (see
+
+`run\_stable\_suite.py`'s `QUALITY\_SCORE\_COLUMNS`) - Layer 1/2 rows simply
+
+leave them blank, since API/MCP checks have no quality score to report.
 
 
 
@@ -320,25 +338,29 @@ The suite currently validates:
 
 \* AI workflow execution
 
+\* Answer quality, for Layer 3's live-mode scenarios (relevancy, faithfulness,
+
+  contextual relevancy, GDB-reference match, and crop/treatment/region
+
+  correctness - see `ajrasakha/evaluation/deepeval\_metrics.py`)
+
 
 
 The suite does NOT currently validate:
 
 
 
-\* Factual correctness of answers
-
-\* Groundedness
-
 \* Farmer friendliness
 
 \* Safety quality
 
-\* Hallucinations
 
 
+Answer quality evaluation (DeepEval metrics) now runs as part of Layer 3 -
 
-Answer quality evaluation is planned as a future phase.
+no longer a future phase. Farmer-friendliness and safety-specific checks
+
+remain unimplemented.
 
 
 
@@ -350,7 +372,7 @@ Answer quality evaluation is planned as a future phase.
 
 
 
-Phase 1
+Phase 1 (done)
 
 
 
@@ -362,7 +384,7 @@ Phase 1
 
 
 
-Phase 2
+Phase 2 (done)
 
 
 
@@ -370,7 +392,9 @@ Phase 2
 
 \* DeepEval Metrics
 
-\* Golden Scenario Benchmarks
+
+
+Golden Scenario Benchmarks remain future work.
 
 
 

@@ -16,6 +16,8 @@ from ajrasakha.evaluation.answer_eval import evaluate_response_quality
 from ajrasakha.evaluation.validators.source_check import evaluate_source_attribution
 from ajrasakha.evaluation.validators.disclaimer_language import evaluate_disclaimer_language
 from ajrasakha.evaluation.langsmith_trace import build_langsmith_trace_url
+from ajrasakha.evaluation.trends_store import log_run, active_backend
+from ajrasakha.evaluation.generate_trend_report import generate_trend_report
 
 
 def run_case(case: dict, mode: str) -> dict:
@@ -38,11 +40,13 @@ def run_case(case: dict, mode: str) -> dict:
 
     quality_result = evaluate_response_quality(
         result,
+        case,
         enabled=(mode == "live"),
     )
 
     combined = {
         **result,
+        "expected_domain": case.get("expected_domain"),
         **technical_result,
         **routing_result,
         **tool_result,
@@ -105,6 +109,11 @@ def main():
     write_csv_report(results, output_file=output_file)
     summary = build_summary(results)
     print("Summary:", summary)
+
+    log_run(summary["domain_quality_breakdown"], mode=args.mode)
+    print(f"Quality score history backend: {active_backend()}")
+    trend_report_path = generate_trend_report()
+    print(f"Quality trend report: {trend_report_path.resolve()}")
 
 
 if __name__ == "__main__":

@@ -44,4 +44,7 @@ ai/backend_routes.txt
 backend_routes.txt
 endpoints.txt
 
+# Local-only reference screenshots (contain teammates' faces/names, never push)
+/references/
+
 

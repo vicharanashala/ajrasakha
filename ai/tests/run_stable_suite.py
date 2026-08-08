@@ -53,6 +53,21 @@ def normalize_bool(value):
     return str(value).strip().lower() in {"true", "1", "yes", "pass", "passed"}
 
 
+# Quality-score columns evaluate_response_quality() writes (see answer_eval.py's
+# flattening loop and summary.py's QUALITY_METRICS). Layer 3's evaluation_report
+# CSV has these; Layer 1/2's CSVs don't, so these are simply blank on those rows -
+# same schema across every row, populated where the source data has it.
+QUALITY_SCORE_COLUMNS = [
+    "answerrelevancymetric_score",
+    "faithfulnessmetric_score",
+    "contextualrelevancymetric_score",
+    "gdbmatchscore_score",
+    "cropcorrectness_score",
+    "treatmentcorrectness_score",
+    "regioncorrectness_score",
+]
+
+
 def read_report_rows(layer, report_path):
     rows = []
 
@@ -62,11 +77,13 @@ def read_report_rows(layer, report_path):
                 "layer": layer,
                 "service": "",
                 "name": report_path.name,
+                "domain": "",
                 "status": "FAIL",
                 "status_code": "",
                 "latency_seconds": "",
                 "error": f"Report not found: {report_path}",
                 "details": "",
+                **{col: "" for col in QUALITY_SCORE_COLUMNS},
             }
         ]
 
@@ -89,11 +106,13 @@ def read_report_rows(layer, report_path):
                     "layer": layer,
                     "service": row.get("service", ""),
                     "name": row.get("name", row.get("case_name", "")),
+                    "domain": row.get("expected_domain", ""),
                     "status": "PASS" if passed else "FAIL",
                     "status_code": row.get("status_code", row.get("http_status", "")),
                     "latency_seconds": row.get("latency_seconds", row.get("latency", "")),
                     "error": row.get("error", row.get("failure_reason", "")),
                     "details": row.get("triage_category", row.get("response_text", ""))[:500],
+                    **{col: row.get(col, "") for col in QUALITY_SCORE_COLUMNS},
                 }
             )
 
@@ -105,17 +124,45 @@ def write_combined_csv(rows):
         "layer",
         "service",
         "name",
+        "domain",
         "status",
         "status_code",
         "latency_seconds",
         "error",
         "details",
+        *QUALITY_SCORE_COLUMNS,
     ]
 
     with COMBINED_CSV.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
         writer.writerows(rows)
+
+
+_QUALITY_SCORE_LABELS = {
+    "answerrelevancymetric_score": "AR",
+    "faithfulnessmetric_score": "Faith",
+    "contextualrelevancymetric_score": "CtxRel",
+    "gdbmatchscore_score": "GDB",
+    "cropcorrectness_score": "Crop",
+    "treatmentcorrectness_score": "Treat",
+    "regioncorrectness_score": "Region",
+}
+
+
+def _format_quality_scores(row) -> str:
+    """Compact 'AR 0.92 · Faith 0.88 · ...' summary; blank when a row has no
+    quality data at all (Layer 1/2 rows, or quality scoring disabled)."""
+    parts = []
+    for col, label in _QUALITY_SCORE_LABELS.items():
+        value = row.get(col, "")
+        if value == "" or value is None:
+            continue
+        try:
+            parts.append(f"{label} {float(value):.2f}")
+        except (TypeError, ValueError):
+            continue
+    return " · ".join(parts)
 
 
 def write_html(rows, command_results):
@@ -142,9 +189,11 @@ def write_html(rows, command_results):
             <tr>
                 <td>{html.escape(row["service"])}</td>
                 <td>{html.escape(row["name"])}</td>
+                <td>{html.escape(row.get("domain", ""))}</td>
                 <td class="{row["status"].lower()}">{row["status"]}</td>
                 <td>{html.escape(str(row["status_code"]))}</td>
                 <td>{html.escape(str(row["latency_seconds"]))}</td>
+                <td>{html.escape(_format_quality_scores(row))}</td>
                 <td>{html.escape(str(row["error"]))}</td>
             </tr>
             """
@@ -161,9 +210,11 @@ def write_html(rows, command_results):
                         <tr>
                             <th>Service</th>
                             <th>Name</th>
+                            <th>Domain</th>
                             <th>Status</th>
                             <th>Status Code</th>
                             <th>Latency</th>
+                            <th>Quality Scores</th>
                             <th>Error</th>
                         </tr>
                     </thead>

@@ -43,6 +43,7 @@ env/
 .coverage
 htmlcov/
 .tox/
+.deepeval/
 
 # Jupyter
 .ipynb_checkpoints/

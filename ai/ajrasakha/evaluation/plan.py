@@ -3,6 +3,17 @@ def evaluate_plan(result: dict, case: dict) -> dict:
     observed_plan = trace.get("plan") or {}
     expected_plan = case.get("expected_plan") or {}
 
+    # KNOWN PRE-EXISTING ISSUE (out of scope for this pass, see product.md):
+    # case["expected_domain"] uses the evaluation suite's 6 coarse brief
+    # categories (Weather/Market/Soil/Schemes/"GDB queries"/Greetings), but a
+    # real live planner reports one of agents/domains.py's 30 fine-grained
+    # ALLOWED_DOMAINS names (e.g. "Market Prices", "Soil Health Card",
+    # "Government Schemes", "General" for greetings - "GDB queries" isn't a
+    # planner domain at all). In --mode live against a real backend, this
+    # comparison will spuriously fail for every domain except Weather,
+    # independent of whether routing was actually correct. Reconciling this
+    # needs its own design decision (e.g. an alias map like
+    # agents/domains.py's own normalize_domain), not a quick patch here.
     expected_domain = case.get("expected_domain", "")
     observed_domain = observed_plan.get("domain", "")
 
