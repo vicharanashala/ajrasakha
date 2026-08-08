@@ -201,7 +201,7 @@ def format_prev_plan_context(prev_plan: PlannerPlan) -> str:
         return ""
 
     lines = [
-        "PRIOR TURN CONTEXT (incomplete — the server deterministically merges clarification replies):",
+        "PRIOR TURN CONTEXT (incomplete — the server deterministically merges crop clarification replies):",
     ]
     rephrased = (prev_plan.get("rephrased_query") or "").strip()
     if rephrased:
@@ -235,27 +235,20 @@ def format_prev_plan_context(prev_plan: PlannerPlan) -> str:
     return "\n".join(lines) + "\n"
 
 
-def merge_clarification_reply_into_query(
+def merge_crop_clarification_into_query(
     prev_plan: Optional[PlannerPlan],
-    clarification_reply: str,
+    crop_reply: str,
 ) -> Optional[str]:
-    """Preserve the accumulated query when the farmer answers a clarification.
+    """Preserve the accumulated query when the farmer answers a crop clarify.
 
-    A clarification reply such as ``Delhi`` or ``Wheat`` is not a standalone
-    question. When the prior plan is incomplete because a location or crop is
-    missing, use the previous query as the stable base and attach the reply
-    deterministically. This prevents query loss when LLM rephrasing varies
-    between turns or returns only the latest short reply.
+    A crop reply such as ``Wheat`` is not a standalone question. When the
+    prior plan is incomplete because the crop is missing, use the previous
+    query as the stable base and attach the crop deterministically. Location
+    clarification remains on the existing planner path.
     """
     if not prev_plan or prev_plan.get("is_complete", True):
         return None
-
-    missing_info = prev_plan.get("missing_info") or []
-    clarification_field = next(
-        (field for field in ("location", "crop") if field in missing_info),
-        None,
-    )
-    if clarification_field is None:
+    if "crop" not in (prev_plan.get("missing_info") or []):
         return None
 
     base = (
@@ -266,27 +259,16 @@ def merge_clarification_reply_into_query(
     if not base:
         return None
 
-    reply = (clarification_reply or "").strip()
+    reply = (crop_reply or "").strip()
     if not reply:
         return base
 
-    # Avoid duplicating a location if a client retries the same clarification.
+    # Avoid duplicating the crop if a client retries the same clarification.
     if reply.casefold() in base.casefold():
         return base
 
     separator = "" if base.endswith((".", "!", "?")) else "."
-    label = "Location" if clarification_field == "location" else "Crop"
-    return f"{base}{separator} {label}: {reply}"
-
-
-def merge_location_clarification_into_query(
-    prev_plan: Optional[PlannerPlan],
-    location_reply: str,
-) -> Optional[str]:
-    """Backward-compatible wrapper for location clarification callers/tests."""
-    if not prev_plan or "location" not in (prev_plan.get("missing_info") or []):
-        return None
-    return merge_clarification_reply_into_query(prev_plan, location_reply)
+    return f"{base}{separator} Crop: {reply}"
 
 
 def format_conversation_for_planner(

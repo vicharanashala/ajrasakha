@@ -12,9 +12,8 @@ from ajrasakha.agents.planner_rules import (
     format_prev_plan_context,
     infer_domain_for_plan,
     is_schemes_intent,
-    merge_clarification_reply_into_query,
+    merge_crop_clarification_into_query,
     merge_entities_from_rephrased_query,
-    merge_location_clarification_into_query,
 )
 
 
@@ -32,32 +31,8 @@ def test_pm_kisan_domain_does_not_require_crop():
     assert domain_requires_crop(domain) is False
 
 
-def test_location_clarification_preserves_seed_drill_query():
-    merged = merge_location_clarification_into_query(
-        {
-            "is_complete": False,
-            "missing_info": ["location"],
-            "rephrased_query": "Which seed drill should I buy?",
-        },
-        "Delhi",
-    )
-    assert merged == "Which seed drill should I buy? Location: Delhi"
-
-
-def test_location_clarification_preserves_rainy_season_query():
-    merged = merge_location_clarification_into_query(
-        {
-            "is_complete": False,
-            "missing_info": ["location"],
-            "rephrased_query": "Which plant should I grow in the rainy season?",
-        },
-        "Delhi",
-    )
-    assert merged == "Which plant should I grow in the rainy season? Location: Delhi"
-
-
 def test_crop_clarification_preserves_query_after_location_clarification():
-    merged = merge_clarification_reply_into_query(
+    merged = merge_crop_clarification_into_query(
         {
             "is_complete": False,
             "missing_info": ["crop"],
@@ -69,7 +44,7 @@ def test_crop_clarification_preserves_query_after_location_clarification():
 
 
 def test_crop_clarification_preserves_query_without_location_clarification():
-    merged = merge_clarification_reply_into_query(
+    merged = merge_crop_clarification_into_query(
         {
             "is_complete": False,
             "missing_info": ["crop"],
@@ -80,8 +55,8 @@ def test_crop_clarification_preserves_query_without_location_clarification():
     assert merged == "How do I control gulli danda? Crop: Wheat"
 
 
-def test_location_query_merge_skips_complete_or_non_location_turns():
-    assert merge_location_clarification_into_query(
+def test_crop_query_merge_skips_complete_or_non_crop_turns():
+    assert merge_crop_clarification_into_query(
         {
             "is_complete": True,
             "missing_info": [],
@@ -89,29 +64,10 @@ def test_location_query_merge_skips_complete_or_non_location_turns():
         },
         "Delhi",
     ) is None
-    assert merge_location_clarification_into_query(
+    assert merge_crop_clarification_into_query(
         {
             "is_complete": False,
-            "missing_info": ["crop"],
-            "rephrased_query": "Original question",
-        },
-        "Delhi",
-    ) is None
-
-
-def test_clarification_query_merge_skips_complete_or_unknown_slots():
-    assert merge_clarification_reply_into_query(
-        {
-            "is_complete": True,
-            "missing_info": [],
-            "rephrased_query": "Original question",
-        },
-        "Wheat",
-    ) is None
-    assert merge_clarification_reply_into_query(
-        {
-            "is_complete": False,
-            "missing_info": ["district"],
+            "missing_info": ["location"],
             "rephrased_query": "Original question",
         },
         "Wheat",
