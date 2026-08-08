@@ -9,7 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-import { InfoIcon, RefreshCw, ChevronRight, X, TrendingUp, Send, CheckCircle2, Loader2, ShieldCheck, AlertCircle, ArrowRight } from "lucide-react";
+import { InfoIcon, RefreshCw, Play, X, TrendingUp, Send, CheckCircle2, Loader2, ShieldCheck, AlertCircle, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -120,7 +120,7 @@ function ClusterRow({
           </span>
         </div>
 
-        <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-gray-400" />
+        <Play className="mt-1.5 h-3 w-3 shrink-0 text-[#3AAA5A] fill-[#3AAA5A] opacity-75 group-hover:opacity-100 transition-opacity" />
       </div>
     </button>
   );
