@@ -34,6 +34,7 @@ export interface GdbCoverageDebtResponse {
   disclaimerDeflectionImpact: number;
   topGapCluster: GapCluster | null;
   clusters: GapCluster[];
+  updatedAt?: string | null;
 }
 
 const EMPTY_RESPONSE: GdbCoverageDebtResponse = {

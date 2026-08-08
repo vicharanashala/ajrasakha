@@ -21685,6 +21685,7 @@ export class ChatbotRepository implements IChatbotRepository {
         disclaimerDeflectionImpact: doc.disclaimerDeflectionImpact ?? 0,
         topGapCluster: clusters[0] ?? null,
         clusters: clusters.slice(0, 20),
+        updatedAt: doc.updatedAt ?? null,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch GDB coverage debt: ${error}`);

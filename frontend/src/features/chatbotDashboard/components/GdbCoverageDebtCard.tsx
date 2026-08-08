@@ -660,8 +660,18 @@ export function GdbCoverageDebtCard({ source }: GdbCoverageDebtCardProps) {
               </TooltipContent>
             </Tooltip>
           </div>
-          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-            Weekly gap clusters · ranked by farmer demand
+          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 flex items-center justify-between">
+            <span>Weekly gap clusters · ranked by farmer demand</span>
+            {!showSkeleton && data && data.updatedAt && (
+              <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                Last updated: {new Date(data.updatedAt).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center">
