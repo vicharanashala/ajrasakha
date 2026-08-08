@@ -1,8 +1,7 @@
-# Answer Evaluation Pipeline — what this PR does, and how it compares to other open PRs
+# Answer Evaluation Pipeline — what this PR does
 
 This document is written for a mentor reading it cold: what the gap was, what this branch
-fixes, what's genuinely new here, and an honest comparison against two other open PRs
-(#995, #983) tackling the same problem statement.
+fixes, and what's genuinely new here.
 
 ---
 
@@ -40,60 +39,29 @@ a report. The plumbing existed; nothing used it.
 - **Per-domain reporting.** `summary.py` averages each of the 7 quality metrics per
   `expected_domain` (`build_domain_quality_breakdown`), skipping non-numeric/disabled scores.
 
-## 3. Honest acknowledgment: other open PRs cover the same core gap
+## 3. Design decisions: facet-decomposed agricultural correctness, and MockJudge for offline tests
 
-Two other open PRs against `vicharanashala/ajrasakha` address this exact "quality scoring
-is disconnected from the pipeline" problem. Neither is copied from here or vice versa — worth
-naming plainly rather than pretending this branch is the only answer to PS3.
+The brief asks whether the answer got the "correct crop, correct treatment, and correct
+region" — three distinct things. A single blended `AgriculturalAccuracy` G-Eval metric would
+bundle all three into one score, which hides which fact actually failed — an answer could
+score "70% agricultural accuracy" while being completely wrong about the region, with no way
+to tell from the number alone.
 
-- **#995** — by far the most extensive of the three. Adds a `judge.py` factory (mock/ollama/
-  anthropic), a deterministic non-LLM `gdb_match_score.py` (difflib/Jaccard text overlap,
-  no judge call needed), a facet-decomposed `agricultural_correctness.py` (crop/treatment/
-  region scored *independently* rather than bundled into one LLM judgment),
-  `domain_report.py` with markdown rendering, and `storage.py` + `schema.sql` for Postgres
-  persistence. It ships ~30 new files and a large test suite, but runs entirely on synthetic
-  fixtures (`synthetic: true` throughout) and defers the real Postgres round-trip and real
-  GDB export to future work — the README says so directly.
-- **#983** — a much smaller, standalone `eval/` folder (not integrated into `run.py` or
-  `answer_eval.py` at all). Uses Groq/Llama for both simulating bot answers *and* scoring
-  them, against a 60-entry mock GDB dataset. It never touches the actual pipeline files.
-
-### Overlap with our approach
-
-| | #995 | #983 | This branch |
-|---|---|---|---|
-| Judge wiring fixed | Yes | N/A (separate script) | Yes |
-| GDB Match Score equivalent | Yes (deterministic, non-LLM) | Yes (LLM-judged) | Yes (G-Eval, LLM-judged) |
-| Agricultural accuracy metric | Yes (facet-decomposed) | Yes (single LLM score) | **Yes (facet-decomposed — adopted, see below)** |
-| Per-domain reporting | Yes (markdown + JSON) | Yes (markdown table) | Yes (dict breakdown, now per-facet too) |
-| Mocked/offline tests | Yes (`MockJudge`, no network) | No | **Yes (`MockJudge`, no network — adopted, see below)** |
-| Real vs synthetic fixtures | Synthetic | Mock/synthetic | **Real** (sparse, MongoDB-sourced, honestly labeled) |
-| New dependencies | `ollama`, `psycopg2-binary` | `groq` | `google-genai`; **`psycopg2-binary` added in the post-audit pass (§7 FIX 5) for real Postgres score storage** |
-
-### Two ideas adopted from #995, after review
-
-The original version of this doc flagged two places #995's approach was genuinely more
-aligned with the PS3 brief than ours, and asked before touching anything. Both were reviewed
-and adopted:
-
-1. **Facet-decomposed agricultural correctness.** The brief asks whether the answer got the
-   "correct crop, correct treatment, and correct region" — three distinct things. The
-   original single `AgriculturalAccuracy` G-Eval metric bundled all three into one blended
-   score, which #995's independent crop/treatment/region checks made look under-diagnostic
-   by comparison. `deepeval_metrics.py` now runs three independent G-Eval checks —
-   `CropCorrectness`, `TreatmentCorrectness`, `RegionCorrectness` — each scored, passed, and
-   reasoned separately, flowing through `summary.py`'s `QUALITY_METRICS` and (with zero code
-   changes required, since both are metric-name-agnostic) `report.py`'s CSV and
-   `trends_store.py`/`generate_trend_report.py`'s regression detection. A regression can now
-   be pinned to one specific facet — see §5 below for a live demonstration. Unlike #995's
-   version, ours stays G-Eval/judgment-based rather than whole-word/substring string
-   matching. **Update (post-audit pass, see §7):** `TreatmentCorrectness`'s semantics *did*
-   later turn out to need changing — it originally checked `expected_domain` as a stand-in
-   for "treatment" (a category-label proxy an answer could satisfy just by naming the
-   domain), which is exactly the kind of shortcut this paragraph's original phrasing glossed
-   over. §7 covers the fix: it now checks real treatment/dosage content, gated the same way
-   `GDBMatchScore` is. `RegionCorrectness` and `CropCorrectness` were untouched — they always
-   checked a real single-value fact (the named region/crop), never a label proxy.
+1. **Facet-decomposed agricultural correctness.** `deepeval_metrics.py` runs three independent
+   G-Eval checks — `CropCorrectness`, `TreatmentCorrectness`, `RegionCorrectness` — each
+   scored, passed, and reasoned separately, flowing through `summary.py`'s `QUALITY_METRICS`
+   and (with zero code changes required, since both are metric-name-agnostic) `report.py`'s
+   CSV and `trends_store.py`/`generate_trend_report.py`'s regression detection. A regression
+   can now be pinned to one specific facet — see §5 below for a live demonstration. This stays
+   G-Eval/judgment-based rather than whole-word/substring string matching, so it tolerates
+   wording variation while still discriminating real content differences. **Update
+   (post-audit pass, see §7):** `TreatmentCorrectness`'s semantics *did* later turn out to
+   need changing — it originally checked `expected_domain` as a stand-in for "treatment" (a
+   category-label proxy an answer could satisfy just by naming the domain), which is exactly
+   the kind of shortcut worth flagging honestly rather than glossing over. §7 covers the fix:
+   it now checks real treatment/dosage content, gated the same way `GDBMatchScore` is.
+   `RegionCorrectness` and `CropCorrectness` were untouched — they always checked a real
+   single-value fact (the named region/crop), never a label proxy.
 2. **`MockJudge` for offline/CI testing.** Added `ajrasakha/evaluation/tests/mock_judge.py`:
    a `DeepEvalBaseLLM` subclass returning schema-shaped Pydantic responses (`Steps`,
    `ReasonScore`, `Statements`, `Claims`, `Truths`, `Verdicts`, `ContextualRelevancyVerdicts`)
@@ -108,17 +76,14 @@ and adopted:
    the `_build_geval_metric` boundary — that's the only way to assert "wrong region actually
    scores lower than correct crop" in a fast, deterministic unit test.
 
-One place our approach held up better than expected: #995's changelog claims
-`metric.passed` doesn't exist in installed DeepEval and must be replaced with
-`metric.success`. That's correct — verified against the installed `deepeval==4.1.2` here,
-`.passed` is never set. But our `_metric_passed()` already falls back to the metric's public
-`is_successful()` method rather than reading `.success` directly, which gets the same
-correct answer without coupling to an internal attribute name that could change again
-across DeepEval versions.
+`_metric_passed()` falls back to the metric's public `is_successful()` method rather than
+reading an internal `.success`/`.passed` attribute directly, avoiding coupling to an internal
+attribute name that could change across DeepEval versions — verified against the installed
+`deepeval==4.1.2`, where `.passed` is never set.
 
 ## 4. What's distinctly new here: quality trends + automatic regression alerts
 
-Neither #995 nor #983 has anything like this. This branch adds two new modules:
+This branch adds two new modules, on top of the wiring fix above:
 
 - **`trends_store.py`** — an append-only history of per-domain/per-metric average scores,
   one row per run. Originally SQLite-only (`quality_history.db`, stdlib `sqlite3`, zero new
