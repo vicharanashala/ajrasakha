@@ -6,40 +6,33 @@ from typing import TypedDict
 
 # Domains that REQUIRE a specific crop (not "all").
 CROP_REQUIRED_DOMAINS: frozenset[str] = frozenset({
-    "Agriculture Mechanization",
-    "Bio-Pesticides and Bio-Fertilizers",
-    "Crop Insurance",
-    "Cultural Practices",
-    "Fertilizer Use and Availability",
-    "Field Preparation",
-    "Nutrient Management",
-    "Organic Farming",
-    "Plant Protection",
-    "Post Harvest Preservation",
-    "Seeds",
-    "Sowing Time and Weather",
-    "Storage",
-    "Varieties",
-    "Water Management",
+    "Soil Health and Nutrient Management",
+    "Irrigation and Water Management",
+    "Insect Pest Management",
+    "Disease Management",
+    "Seed and Variety Selection",
+    "Cultural and Crop Management Practices",
+    "Organic and Natural Farming",
     "Weed Management",
-    "Market Information",
-    "Market Prices",
-    "Horticulture & Allied Agriculture",
+    "Farm Tools and Mechanisation",
+    "Post Harvest Management and Storage",
+    "Market Prices MSP and Marketing",
+    "Agricultural Schemes and Subsidies",
+    "Horticulture and Landscaping",
+    "Allied Agricultural Activities",
 })
 
 # Domains where crop is automatically "all" / not required.
 CROP_ALL_DOMAINS: frozenset[str] = frozenset({
-    "Soil Health Card",
-    "Soil Testing",
-    "Livestock & Animal Husbandry",
-    "Veterinary & Animal Health",
-    "Fisheries & Aquaculture",
-    "Financial & Institutional Services",
-    "Extension & Capacity Building",
-    "Infrastructure & Utilities",
-    "Government Schemes",
-    "Weather",
+    "Climate Weather and Stress Management",
+    "Credit Loan and Insurance",
+    "Capacity Building Extension and Communication",
+    "Rural Infrastructure",
+    "Animal Husbandry and Livestock",
+    "Fisheries and Aquaculture",
     "General",
+    "NA Invalid Data",
+    "Others",
 })
 
 ALLOWED_DOMAINS: frozenset[str] = CROP_REQUIRED_DOMAINS | CROP_ALL_DOMAINS
@@ -48,31 +41,90 @@ ALLOWED_DOMAINS_LIST: list[str] = sorted(ALLOWED_DOMAINS)
 
 # Common LLM / legacy label mistakes -> canonical ALLOWED_DOMAINS name.
 _DOMAIN_ALIASES: dict[str, str] = {
-    "crop protection": "Plant Protection",
-    "plant protection": "Plant Protection",
-    "soil health": "Soil Health Card",
-    "government scheme": "Government Schemes",
-    "government schemes": "Government Schemes",
-    "market price": "Market Prices",
-    "market prices": "Market Prices",
-    "financial and institutional services": "Financial & Institutional Services",
-    "pm-kisan": "Financial & Institutional Services",
-    "pm kisan": "Financial & Institutional Services",
-    "farm machinery and equipment": "Agriculture Mechanization",
-    "farm machinery": "Agriculture Mechanization",
+    "plant protection": "Insect Pest Management",
+    "insect management": "Insect Pest Management",
+    "disease management": "Disease Management",
+    "disease": "Disease Management",
+    "disease reporting": "Disease Management",
+    "pathogenic disease management": "Disease Management",
+    "disease (viral)": "Disease Management",
+    "disease (bacterial)": "Disease Management",
+    "fertilizer use and availability": "Soil Health and Nutrient Management",
+    "nutrient management": "Soil Health and Nutrient Management",
+    "soil health card": "Soil Health and Nutrient Management",
+    "nutrient deficiency/excessiveness management": "Soil Health and Nutrient Management",
+    "problem of soil": "Soil Health and Nutrient Management",
+    "soil testing": "Soil Health and Nutrient Management",
+    "dosage": "Soil Health and Nutrient Management",
+    "water management": "Irrigation and Water Management",
+    "water management micro irrigation": "Irrigation and Water Management",
+    "irrigation management": "Irrigation and Water Management",
+    "varieties": "Seed and Variety Selection",
+    "varities": "Seed and Variety Selection",
+    "vegetative propagation and tissue culture": "Seed and Variety Selection",
+    "seed sowing and treatment": "Seed and Variety Selection",
+    "varietal selection": "Seed and Variety Selection",
+    "cultural practices": "Cultural and Crop Management Practices",
+    "cultivation conditions": "Cultural and Crop Management Practices",
+    "field preparation": "Cultural and Crop Management Practices",
+    "management": "Cultural and Crop Management Practices",
+    "integrated farming": "Cultural and Crop Management Practices",
+    "nursery management": "Cultural and Crop Management Practices",
+    "hormone imbalance management": "Cultural and Crop Management Practices",
+    "organic farming": "Organic and Natural Farming",
+    "bio-pesticides and bio-fertilizers": "Organic and Natural Farming",
+    "weed management": "Weed Management",
+    "weather": "Climate Weather and Stress Management",
+    "sowing time and weather": "Climate Weather and Stress Management",
+    "abiotic stress management": "Climate Weather and Stress Management",
+    "agriculture mechanization": "Farm Tools and Mechanisation",
+    "plasticulture": "Farm Tools and Mechanisation",
+    "storage": "Post Harvest Management and Storage",
+    "post harvest preservation": "Post Harvest Management and Storage",
+    "cold storage": "Post Harvest Management and Storage",
+    "harvesting management": "Post Harvest Management and Storage",
+    "post harvest management - abiotic": "Post Harvest Management and Storage",
+    "post harvest management - biotic": "Post Harvest Management and Storage",
+    "market information": "Market Prices MSP and Marketing",
+    "market prices": "Market Prices MSP and Marketing",
+    "government schemes": "Agricultural Schemes and Subsidies",
+    "credit": "Credit Loan and Insurance",
+    "loans": "Credit Loan and Insurance",
+    "crop insurance": "Credit Loan and Insurance",
+    "training": "Capacity Building Extension and Communication",
+    "training and exposure visits": "Capacity Building Extension and Communication",
+    "power roads etc": "Rural Infrastructure",
+    "dairy production": "Animal Husbandry and Livestock",
+    "animal husbandry": "Animal Husbandry and Livestock",
+    "poultry": "Animal Husbandry and Livestock",
+    "animal nutrition": "Animal Husbandry and Livestock",
+    "animal breeding": "Animal Husbandry and Livestock",
+    "artificial insemination": "Animal Husbandry and Livestock",
+    "horticulture": "Horticulture and Landscaping",
+    "floriculture": "Horticulture and Landscaping",
+    "spices and condiment crops": "Horticulture and Landscaping",
+    "medicinal and aromatic plants": "Horticulture and Landscaping",
+    "landscaping": "Horticulture and Landscaping",
+    "beekeeping": "Allied Agricultural Activities",
+    "mushroom production": "Allied Agricultural Activities",
+    "coastal aquaculture": "Fisheries and Aquaculture",
+    "fish marketing": "Fisheries and Aquaculture",
+    "financial & institutional services": "Credit Loan and Insurance",
+    "noisy data": "NA Invalid Data",
+    "na (not applicable)": "NA Invalid Data",
 }
 
 # Planner routing labels not in reviewer MCP allowed_domains -> upload-safe name.
 _REVIEWER_UPLOAD_MAP: dict[str, str] = {
-    "Market Prices": "Market Information",
-    "Government Schemes": "Financial & Institutional Services",
+    "Market Prices MSP and Marketing": "Market Information",
+    "Agricultural Schemes and Subsidies": "Financial & Institutional Services",
+    "Credit Loan and Insurance": "Financial & Institutional Services",
     "General": "General",
 }
 
 _SCHEME_DOMAINS: frozenset[str] = frozenset({
-    "Government Schemes",
-    "Financial & Institutional Services",
-    "Crop Insurance",
+    "Agricultural Schemes and Subsidies",
+    "Credit Loan and Insurance",
 })
 
 
@@ -124,16 +176,15 @@ def apply_tool_flags_from_domain(domain: str) -> PlannerToolFlags:
         "chemical_checker": False,
         "knowledge_base": False,
     }
-    if d == "Weather":
+    if d == "Climate Weather and Stress Management":
         flags["weather"] = True
-    elif d == "Market Prices":
+    if d == "Market Prices MSP and Marketing":
         flags["mandi"] = True
-    elif d in {"Soil Health Card", "Soil Testing"}:
+    if d == "Soil Health and Nutrient Management":
         flags["soil"] = True
-    elif d in _SCHEME_DOMAINS:
+    if d in _SCHEME_DOMAINS:
         flags["schemes"] = True
-        flags["knowledge_base"] = False
-    elif d in CROP_REQUIRED_DOMAINS:
+    if d in CROP_REQUIRED_DOMAINS:
         flags["knowledge_base"] = True
     return flags
 
