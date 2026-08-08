@@ -22,6 +22,7 @@ export interface GapCluster {
   recommendedAction: string;
   fourWeekTrend: number[];
   representativeQuestions: string[];
+  trendState?: "new" | "growing" | "shrinking" | "resolved";
 }
 
 export interface GdbCoverageDebtResponse {

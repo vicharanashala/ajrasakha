@@ -318,6 +318,14 @@ def run_weekly_gap_clustering(dry_run: bool = False) -> None:
 
         four_week_trend = _build_four_week_trend(cluster_id, unique_farmers_count, prev_clusters_map, gdb_clusters_col)
 
+        # Determine trend state
+        if week_growth_pct is None:
+            trend_state = "new"
+        elif week_growth_pct > 0.0:
+            trend_state = "growing"
+        else:
+            trend_state = "shrinking"
+
         clusters_output.append({
             "clusterId":               cluster_id,
             "crop":                    crop,
@@ -333,6 +341,7 @@ def run_weekly_gap_clustering(dry_run: bool = False) -> None:
             "fourWeekTrend":           four_week_trend,
             "representativeQuestions": q_texts[:3],
             "anonymizedFarmerHashes":  anonymized_hashes[:10],
+            "trendState":              trend_state,
             "updatedAt":               now,
         })
 

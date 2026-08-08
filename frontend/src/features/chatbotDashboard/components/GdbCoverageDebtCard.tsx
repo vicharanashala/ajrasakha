@@ -56,6 +56,24 @@ const DIAGNOSIS_CONFIG: Record<
   },
 };
 
+function TrendBadge({ trend }: { trend?: "new" | "growing" | "shrinking" | "resolved" }) {
+  if (!trend) return null;
+  const config = {
+    new: { label: "NEW", bg: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20" },
+    growing: { label: "GROWING", bg: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20" },
+    shrinking: { label: "SHRINKING", bg: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20" },
+    resolved: { label: "RESOLVED", bg: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20" },
+  }[trend];
+
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-bold border ${config.bg} uppercase tracking-wider`}>
+      {trend === "growing" ? "↑ " : trend === "shrinking" ? "↓ " : trend === "resolved" ? "✓ " : "🆕 "}
+      {config.label}
+    </span>
+  );
+}
+
+
 // ─── Cluster Row ──────────────────────────────────────────────────────────────
 
 function ClusterRow({
@@ -113,11 +131,14 @@ function ClusterRow({
           </div>
 
           {/* Diagnosis badge */}
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${diag.bg} ${diag.color} ${diag.border}`}
-          >
-            {diag.label}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${diag.bg} ${diag.color} ${diag.border}`}
+            >
+              {diag.label}
+            </span>
+            <TrendBadge trend={cluster.trendState} />
+          </div>
         </div>
 
         <Play className="mt-1.5 h-3 w-3 shrink-0 text-[#3AAA5A] fill-[#3AAA5A] opacity-75 group-hover:opacity-100 transition-opacity" />
@@ -171,8 +192,9 @@ function ClusterDetailDrawer({
       {/* Header */}
       <div className="flex items-start justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-card to-card/60">
         <div>
-          <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">
-            {cluster.crop} · {cluster.state}
+          <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+            <span>{cluster.crop} · {cluster.state}</span>
+            <TrendBadge trend={cluster.trendState} />
           </div>
           <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
             {cluster.domain}
