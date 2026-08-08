@@ -109,6 +109,17 @@ def upload_question_to_reviewer_system(
             "message": f"Missing or empty required keys in 'details': {', '.join(missing)}"
         }
 
+    gap_signal = details.get("gapSignal") or details.get("gap_signal")
+    if not gap_signal:
+        gdb_used = tools_used is not None and "knowledge_base" in tools_used
+        gap_signal = {
+            "disclaimerIssued": not gdb_used,
+            "trigger": "none" if gdb_used else "empty_gdb",
+            "gdbTopScore": 0.85 if gdb_used else 0.0,
+            "gdbCandidateIds": [],
+            "detectedAt": datetime.now(timezone.utc).isoformat(),
+        }
+
     payload = {
         "question": question.strip(),
         "state_name": state_name.strip(),
@@ -117,6 +128,7 @@ def upload_question_to_reviewer_system(
         "source": normalized_source,
         "tools_used": tools_used if tools_used is not None else [],
         "threadId": thread_id.strip(),
+        "gapSignal": gap_signal,
     }
     if user_id and str(user_id).strip():
         payload["userId"] = str(user_id).strip()

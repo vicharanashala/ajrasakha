@@ -21637,6 +21637,61 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async getGdbCoverageDebt(filters: any = {}): Promise<any> {
+    try {
+      const gdbClustersCol = await this.annamDb.getCollection<any>('gdb_gap_clusters');
+
+      // Get the latest weekly snapshot
+      const latestDoc = await gdbClustersCol
+        .find({})
+        .sort({ updatedAt: -1 })
+        .limit(1)
+        .toArray();
+
+      if (!latestDoc || latestDoc.length === 0) {
+        return {
+          week: null,
+          totalDisclaimers: 0,
+          activeClustersCount: 0,
+          weekOverWeekGrowth: 0,
+          coverageDebtScore: 0,
+          disclaimerDeflectionImpact: 0,
+          topGapCluster: null,
+          clusters: [],
+        };
+      }
+
+      const doc = latestDoc[0];
+
+      // Apply optional crop/state filter
+      let clusters = (doc.clusters || []) as any[];
+      if (filters.crop) {
+        clusters = clusters.filter(
+          (c: any) => c.crop?.toLowerCase() === filters.crop.toLowerCase(),
+        );
+      }
+      if (filters.state) {
+        clusters = clusters.filter(
+          (c: any) => c.state?.toLowerCase() === filters.state.toLowerCase(),
+        );
+      }
+
+      return {
+        week: doc.week,
+        totalDisclaimers: doc.totalDisclaimers ?? 0,
+        activeClustersCount: clusters.length,
+        weekOverWeekGrowth: doc.weekOverWeekGrowth ?? 0,
+        coverageDebtScore: doc.coverageDebtScore ?? 0,
+        disclaimerDeflectionImpact: doc.disclaimerDeflectionImpact ?? 0,
+        topGapCluster: clusters[0] ?? null,
+        clusters: clusters.slice(0, 20),
+        updatedAt: doc.updatedAt ?? null,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch GDB coverage debt: ${error}`);
+    }
+  }
+
   async getReviewerLifecycle(
     userId: string,
     startDate?: Date,
@@ -22517,5 +22572,69 @@ export class ChatbotRepository implements IChatbotRepository {
       averageAuditingMinutes,
       averageReroutedCompletionMinutes,
     };
+  }
+
+  async pushClusterToReviewerQueue(data: {
+    clusterId: string;
+    crop: string;
+    state: string;
+    domain: string;
+    representativeQuestion: string;
+  }): Promise<any> {
+    try {
+      const questionsCol = await this.db.getCollection<any>('questions');
+
+      // Idempotency guard: prevent duplicate tasks for the same clusterId
+      const existing = await questionsCol.findOne({
+        'details.clusterId': data.clusterId,
+        'details.pushedFromRadar': true,
+        status: { $in: ['pending', 'in_progress'] },
+      });
+      if (existing) {
+        return {
+          success: false,
+          questionId: existing._id.toString(),
+          message: `A reviewer task for cluster "${data.clusterId}" already exists and is ${existing.status}.`,
+          isDuplicate: true,
+        };
+      }
+
+      const newQuestion = {
+        question: data.representativeQuestion ||
+          `Coverage Gap Task: ${data.crop} - ${data.domain} in ${data.state}`,
+        status: 'pending',
+        priority: 'high',
+        source: 'GDB_GAP_RADAR',
+        isAutoAllocate: false,
+        totalAnswersCount: 0,
+        details: {
+          state: data.state,
+          // district is intentionally omitted — coverage gap applies state-wide
+          crop: data.crop,
+          season: 'General',
+          domain: [data.domain],
+          clusterId: data.clusterId,
+          pushedFromRadar: true,
+        },
+        gapSignal: {
+          disclaimerIssued: true,
+          trigger: 'coverage_gap_radar_push',
+          detectedAt: new Date().toISOString(),
+        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const result = await questionsCol.insertOne(newQuestion);
+
+      return {
+        success: true,
+        questionId: result.insertedId.toString(),
+        message: `Successfully pushed coverage gap cluster "${data.crop} - ${data.domain}" to Agri Reviewer Queue.`,
+        isDuplicate: false,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to push cluster to reviewer queue: ${error}`);
+    }
   }
 }
