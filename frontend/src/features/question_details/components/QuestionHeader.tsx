@@ -13,8 +13,11 @@ import { useManualCheckDuplicate } from "@/hooks/api/question/useManualCheckDupl
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
-import { CircleCheck, GitCompareArrows, History } from "lucide-react";
+import { CircleCheck, CircleDot, CheckCheck, CheckCircle2, GitCompareArrows, History, Sparkles, type LucideIcon } from "lucide-react";
 import { diffWords } from "@/utils/wordDifference";
+import { cn } from "@/lib/utils";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/atoms/tooltip";
+import { classifyAnswerTrust, ANSWER_TRUST_LABELS, type AnswerTrust } from "../utils/answerTrust";
 import { AuditTrailModal } from "./AuditTrailModal";
 import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 import { QuestionLifecycleTable } from "@/features/chatbotDashboard/QuestionLifeCycle";
@@ -27,6 +30,28 @@ interface QuestionHeaderProps {
   isQuestionAllocatedToExpert: boolean;
 }
 
+const TRUST_BADGE_STYLES: Record<
+  AnswerTrust,
+  { icon: LucideIcon; className: string }
+> = {
+  verified: {
+    icon: CheckCircle2,
+    className: "bg-green-600/10 text-green-700 border-green-600/30",
+  },
+  expert_reviewed: {
+    icon: CheckCheck,
+    className: "bg-blue-600/10 text-blue-700 border-blue-600/30",
+  },
+  ai_generated: {
+    icon: Sparkles,
+    className: "bg-violet-600/10 text-violet-700 border-violet-600/30",
+  },
+  awaiting_review: {
+    icon: CircleDot,
+    className: "bg-muted text-muted-foreground border-border",
+  },
+};
+
 export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAllocatedToExpert }: QuestionHeaderProps) => {
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
@@ -37,6 +62,10 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
     question?.referenceQuestion &&
     question?.referenceSource
   );
+
+  const trust = classifyAnswerTrust(question);
+  const trustStyle = TRUST_BADGE_STYLES[trust];
+  const TrustIcon = trustStyle.icon;
 
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(question);
@@ -295,6 +324,21 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 </Badge>
               </>
             )}
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge className={cn("gap-1", trustStyle.className)}>
+                  <TrustIcon className="h-3 w-3" />
+                  {ANSWER_TRUST_LABELS[trust].label}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent
+                side="top"
+                className="max-w-[220px] text-[11px] leading-relaxed"
+              >
+                {ANSWER_TRUST_LABELS[trust].description}
+              </TooltipContent>
+            </Tooltip>
 
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               Total answers: {question.totalAnswersCount}
