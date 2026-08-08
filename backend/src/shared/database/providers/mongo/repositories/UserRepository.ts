@@ -1057,28 +1057,17 @@ export class UserRepository implements IUserRepository {
     return this.usersCollection
       .find({
         role,
-        isBlocked: {$ne: true},
+        isBlocked: { $ne: true },
         // Only active users. status defaults to 'active' on creation, so treat a
         // missing/null status as active and exclude only explicitly in-active users.
-        status: {$ne: 'in-active'},
-        $and: [
-          // Empty / missing assigned-questions array = no queue question.
-          {
-            $or: [
-              {assignedQuestionIds: {$exists: false}},
-              {assignedQuestionIds: null},
-              {assignedQuestionIds: {$size: 0}},
-            ],
-          },
-          // Empty / missing feedbacksAssigned array = no open feedback-review.
-          {
-            $or: [
-              {feedbacksAssigned: {$exists: false}},
-              {feedbacksAssigned: null},
-              {feedbacksAssigned: {$size: 0}},
-            ],
-          },
+        status: { $ne: 'in-active' },
+
+        $or: [
+          { assignedQuestionIds: { $exists: false } },
+          { assignedQuestionIds: null },
+          { assignedQuestionIds: { $size: 0 } },
         ],
+
       })
       .toArray();
   }
@@ -1188,32 +1177,20 @@ export class UserRepository implements IUserRepository {
   ): Promise<boolean> {
     await this.init();
     const qid = new ObjectId(questionId);
-    const emptyAssignedQuestions = [
-      {assignedQuestionIds: {$exists: false}},
-      {assignedQuestionIds: null},
-      {assignedQuestionIds: {$size: 0}},
-    ];
+    // const emptyAssignedQuestions = [
+    //   {assignedQuestionIds: {$exists: false}},
+    //   {assignedQuestionIds: null},
+    //   {assignedQuestionIds: {$size: 0}},
+    // ];
     const result = await this.usersCollection.updateOne(
       {
         _id: new ObjectId(userId),
-        isBlocked: {$ne: true},
-        status: {$ne: 'in-active'},
-        $and: [
-          // No open feedback (one feedback at a time, all roles).
-          {
-            $or: [
-              {feedbacksAssigned: {$exists: false}},
-              {feedbacksAssigned: null},
-              {feedbacksAssigned: {$size: 0}},
-            ],
-          },
-          // Role gate + auditor exclusivity: auditors must have an empty queue.
-          {
-            $or: [
-              {role: 'moderator'},
-              {$and: [{role: 'auditor'}, {$or: emptyAssignedQuestions}]},
-            ],
-          },
+        isBlocked: { $ne: true },
+        status: { $ne: 'in-active' },
+        $or: [
+          { feedbacksAssigned: { $exists: false } },
+          { feedbacksAssigned: null },
+          { feedbacksAssigned: { $size: 0 } },
         ],
       } as any,
       [
@@ -1262,22 +1239,7 @@ export class UserRepository implements IUserRepository {
     const result = await this.usersCollection.updateOne(
       {
         _id: new ObjectId(moderatorId),
-        $or: [
-          {role: {$ne: 'auditor'}},
-          {
-            $and: [
-              {role: 'auditor'},
-              {
-                $or: [
-                  {feedbacksAssigned: {$exists: false}},
-                  {feedbacksAssigned: null},
-                  {feedbacksAssigned: {$size: 0}},
-                ],
-              },
-            ],
-          },
-        ],
-      } as any,
+      },
       [
         {
           $set: {
