@@ -37,7 +37,7 @@ ENABLE_CHEMICAL_CHECKER = False
 
 _SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 _GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
-_WEATHER_TOOL_NAMES = frozenset({"weather", "weather_server", "weather_weather_server"})
+_WEATHER_TOOL_NAMES = frozenset({"weather", "new_weather", "weather_server", "weather_weather_server"})
 
 
 def _compute_tools_used(plan: PlannerPlan) -> list[str]:
@@ -697,10 +697,17 @@ async def build_specialist_tool_calls_from_plan(
     )
 
     if plan.get("weather"):
+        weather_query = (
+            (plan.get("rephrased_query") or "").strip()
+            or (plan.get("original_query_en") or "").strip()
+            or user_query
+        )
         calls.append({
-            "name": "weather",
+            "name": "new_weather",
             "args": {
-                "query": user_query,
+                "query": weather_query,
+                "district": district if district and district.lower() not in {"all", "not specified", "unknown"} else None,
+                "state": state_name if state_name and state_name.lower() not in {"not specified", "unknown"} else None,
                 "latitude": lat,
                 "longitude": lon,
                 "address": addr,
@@ -875,6 +882,8 @@ async def build_reviewer_upload_with_tools_used(
     """Build reviewer upload call with computed tools_used."""
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
+    if not reviewer_tool:
+        return []
     if not question_source:
         question_source = resolve_question_source(None)
     
@@ -1067,6 +1076,8 @@ async def upload_reviewer_only_node(
 
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
+    if not reviewer_tool or not location_tool:
+        return {}
     question_source = resolve_question_source(config)
     thread_id = resolve_thread_id(config)
     user_id = resolve_user_id(config)
@@ -1315,6 +1326,7 @@ def _gdb_has_usable_data(messages: list[BaseMessage]) -> bool:
 
 _SPECIALIST_TOOL_NAMES = frozenset({
     "weather",
+    "new_weather",
     "daily_price",
     "market",
     "soil",

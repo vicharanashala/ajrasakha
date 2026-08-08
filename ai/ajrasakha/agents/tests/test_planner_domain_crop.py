@@ -126,3 +126,52 @@ async def test_crop_fallback_after_clarify_in_apply_domain_and_crop():
     )
     assert crop_required is False
     assert out["entities"]["crop"] == "all"
+
+
+@pytest.mark.asyncio
+async def test_weather_domain_never_requires_crop():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Weather"],
+            rephrased_query="rainfall condition for the next 2 hrs in pala, kerala",
+            entities={"state": "Kerala", "district": "Pala"},
+        )
+    )
+    out, domain, crop_required = await _apply_domain_and_crop_async(
+        plan,
+        [HumanMessage(content="rainfall condition for the next 2 hrs in pala, kerala")],
+        crop_prefilled=None,
+        config={},
+    )
+    assert domain == "Weather"
+    assert crop_required is False
+    assert out["entities"]["crop"] == "all"
+
+
+def test_nowcast_routing_heuristics():
+    from ajrasakha.agents.new_weather_agent import route_weather_query_by_heuristics
+    tool_name = route_weather_query_by_heuristics("rainfall condition for the next 2 hrs in pala, kerala")
+    assert tool_name == "get_weather_nowcast"
+
+
+def test_strict_weather_tool_routing_rules():
+    from ajrasakha.agents.new_weather_agent import route_weather_query_by_heuristics
+    
+    # 1. Tomorrow's rainfall condition -> MUST route to get_rainfall_and_monsoon_info (Tool 2)
+    assert route_weather_query_by_heuristics("tomorrows rainfall condition in palakkad, kerala") == "get_rainfall_and_monsoon_info"
+    
+    # 2. Temperature tomorrow -> MUST route to get_temperature_info (Tool 3)
+    assert route_weather_query_by_heuristics("tomorrow temperature in palakkad") == "get_temperature_info"
+    
+    # 3. Heavy rain warning -> MUST route to get_weather_alerts (Tool 6)
+    assert route_weather_query_by_heuristics("heavy rain warning in palakkad") == "get_weather_alerts"
+    
+    # 4. Short-term 2 hours rain -> MUST route to get_weather_nowcast (Tool 5)
+    assert route_weather_query_by_heuristics("rain in next 2 hours in pala") == "get_weather_nowcast"
+    
+    # 5. Block / 50km nearby stations -> MUST route to get_location_weather (Tool 4)
+    assert route_weather_query_by_heuristics("piravom block weather stations within 50km") == "get_location_weather"
+    
+    # 6. General weather forecast -> MUST route to get_current_and_forecast_info (Tool 1)
+    assert route_weather_query_by_heuristics("5 days weather forecast for palakkad") == "get_current_and_forecast_info"
+
