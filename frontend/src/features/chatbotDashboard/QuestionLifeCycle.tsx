@@ -102,25 +102,25 @@ export function QuestionLifecycleTable({
     open,
   );
 
-  const maxDuration = Math.max(...lifeCycle.map((x) => x.duration || 0), 1);
+  const maxDuration = Math.max(...lifeCycle.map((x: any) => x.duration || 0), 1);
 
   const fastestReviewer = React.useMemo(() => {
     return lifeCycle
-      .filter((x) => x.eventType === "reviewer" && x.duration && x.duration > 0)
-      .sort((a, b) => (a.duration || 0) - (b.duration || 0))[0];
+      .filter((x: any) => x.eventType === "reviewer" && x.duration && x.duration > 0)
+      .sort((a: any, b: any) => (a.duration || 0) - (b.duration || 0))[0];
   }, [lifeCycle]);
 
-  const firstTimedEvent = lifeCycle.find((x) => x.timestamp);
+  const firstTimedEvent = lifeCycle.find((x: any) => x.timestamp);
 
   const lastTimedEvent = [...lifeCycle].reverse().find((x) => x.timestamp);
 
   const isResolved = lifeCycle.some(
-    (x) =>
+    (x: any) =>
       x.action?.toLowerCase().includes("closed") ||
       x.action?.toLowerCase().includes("passed"),
   );
 
-  const isDuplicateQuestion = lifeCycle.some((x) =>
+  const isDuplicateQuestion = lifeCycle.some((x: any) =>
     x.action?.toLowerCase().includes("duplicate"),
   );
 
@@ -138,32 +138,34 @@ export function QuestionLifecycleTable({
     if (!lifeCycle.length) return [];
 
     const activeReviewTime = lifeCycle
-      .filter((x) => x.eventType === "author" || x.eventType === "reviewer")
-      .reduce((sum, x) => sum + (x.duration || 0), 0);
+      .filter((x: any) => x.eventType === "author" || x.eventType === "reviewer")
+      .reduce((sum: any, x: any) => sum + (x.duration || 0), 0);
 
     const waitTime = lifeCycle
-      .filter((x) => x.eventType === "system_wait")
-      .reduce((sum, x) => sum + (x.duration || 0), 0);
+      .filter((x: any) => x.eventType === "system_wait")
+      .reduce((sum: any, x: any) => sum + (x.duration || 0), 0);
 
     const rerouteTime = lifeCycle
-      .filter((x) => x.eventType === "reroute")
-      .reduce((sum, x) => sum + (x.duration || 0), 0);
+      .filter((x: any) => x.eventType === "reroute")
+      .reduce((sum: any, x: any) => sum + (x.duration || 0), 0);
 
     const reviewerCount = new Set(
-      lifeCycle.filter((x) => x.eventType === "reviewer").map((x) => x.user),
+      // @ts-ignore
+      lifeCycle.filter((x: any) => x.eventType === "reviewer").map((x) => x.user),
     ).size;
 
     const authorCount = new Set(
-      lifeCycle.filter((x) => x.eventType === "author").map((x) => x.user),
+      // @ts-ignore
+      lifeCycle.filter((x: any) => x.eventType === "author").map((x) => x.user),
     ).size;
 
     const rerouteCount = lifeCycle.filter(
-      (x) => x.eventType === "reroute",
+      (x: any) => x.eventType === "reroute",
     ).length;
 
     const authoringTime = lifeCycle
-      .filter((x) => x.eventType === "author")
-      .reduce((sum, x) => sum + (x.duration || 0), 0);
+      .filter((x: any) => x.eventType === "author")
+      .reduce((sum: any, x: any) => sum + (x.duration || 0), 0);
 
     const insights: Insight[] = [];
 
@@ -206,22 +208,22 @@ export function QuestionLifecycleTable({
       });
     }
 
-    const firstTimedEvent = lifeCycle.find((x) => x.timestamp);
+    const firstTimedEvent = lifeCycle.find((x: any) => x.timestamp);
 
     const lastTimedEvent = [...lifeCycle].reverse().find((x) => x.timestamp);
 
     const pushedToReviewTime =
-      lifeCycle.find((x) => x.action === "Pushed To Review System")?.duration ||
+      lifeCycle.find((x: any) => x.action === "Pushed To Review System")?.duration ||
       0;
 
     const totalIdleTime = waitTime;
 
     const isResolved = lifeCycle.some(
-      (x) =>
+      (x: any) =>
         x.action?.toLowerCase().includes("closed") ||
         x.action?.toLowerCase().includes("passed"),
     );
-    const isDuplicateQuestion = lifeCycle.some((x) =>
+    const isDuplicateQuestion = lifeCycle.some((x: any) =>
       x.action?.toLowerCase().includes("duplicate"),
     );
 
@@ -232,11 +234,11 @@ export function QuestionLifecycleTable({
             : Date.now()) - new Date(firstTimedEvent.timestamp).getTime()
         : 0;
     const slowestStage = lifeCycle
-      .filter((x) => x.duration && x.duration > 0)
+      .filter((x: any) => x.duration && x.duration > 0)
       .reduce(
-        (max, curr) =>
+        (max: any, curr: any) =>
           (curr.duration || 0) > (max.duration || 0) ? curr : max,
-        lifeCycle.find((x) => x.duration && x.duration > 0),
+        lifeCycle.find((x: any) => x.duration && x.duration > 0),
       );
 
     const slaBreached = totalClosureTime > 2 * 60 * 60 * 1000; // 2 hours
@@ -254,12 +256,12 @@ export function QuestionLifecycleTable({
 
     // Fast reviewers
     const reviewerEvents = lifeCycle.filter(
-      (x) => x.eventType === "reviewer" && x.duration,
+      (x: any) => x.eventType === "reviewer" && x.duration,
     );
 
     const avgReviewTime =
       reviewerEvents.length > 0
-        ? reviewerEvents.reduce((sum, x) => sum + x.duration, 0) /
+        ? reviewerEvents.reduce((sum: any, x: any) => sum + x.duration, 0) /
           reviewerEvents.length
         : 0;
 
@@ -273,12 +275,12 @@ export function QuestionLifecycleTable({
     }
 
     const bufferEvents = lifeCycle.filter(
-      (x) => x.eventType === "system_wait" && x.duration,
+      (x: any) => x.eventType === "system_wait" && x.duration,
     );
 
     const avgBufferTime =
       bufferEvents.length > 0
-        ? bufferEvents.reduce((sum, x) => sum + (x.duration || 0), 0) /
+        ? bufferEvents.reduce((sum: any, x: any) => sum + (x.duration || 0), 0) /
           bufferEvents.length
         : 0;
 
@@ -331,7 +333,7 @@ export function QuestionLifecycleTable({
     if (row.eventType === "reviewer") {
       const reviewerIndex = lifeCycle
         .slice(0, index + 1)
-        .filter((x) => x.eventType === "reviewer").length;
+        .filter((x: any) => x.eventType === "reviewer").length;
 
       return `${row.user} (R${reviewerIndex})`;
     }
@@ -369,7 +371,7 @@ export function QuestionLifecycleTable({
               </TableHeader>
 
               <TableBody>
-                {lifeCycle.map((row, index) => {
+                {lifeCycle.map((row: any, index: any) => {
                   const percent = row.duration
                     ? (row.duration / maxDuration) * 100
                     : 0;

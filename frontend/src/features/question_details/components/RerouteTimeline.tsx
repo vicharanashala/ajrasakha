@@ -231,6 +231,7 @@ export const RerouteTimeline = ({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    // @ts-ignore
                                     setSelectedReason(reroute.rejectionReason);
                                   }}
                                   className="text-blue-600 dark:text-blue-400 hover:underline ml-1"

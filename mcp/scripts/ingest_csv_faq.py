@@ -33,7 +33,7 @@ from pymongo import MongoClient
 load_dotenv()
 
 # Configuration
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://agriai:agriai1224@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging")
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://lpulga167_db_user:UUXFvuymiWUfMeT3@hackathon.idfnza4.mongodb.net/?retryWrites=true&w=majority&appName=hackathon")
 DATABASE_NAME = os.getenv("FAQ_DATABASE_NAME", "golden_db")
 COLLECTION_NAME = os.getenv("FAQ_COLLECTION_NAME", "faq")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-en")

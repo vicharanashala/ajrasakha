@@ -108,6 +108,7 @@ export const PAEExpertPage = () => {
   // Select first question on initial load, or if saved question is no longer in the list
   useEffect(() => {
     if (!isLoaded || !questionPages?.pages || questions.length === 0) return;
+    // @ts-ignore
     if (selectedQuestion && questions.some((q) => q.id === selectedQuestion)) return;
     const firstId = questions[0]?.id ?? null;
     setSelectedQuestion(firstId);

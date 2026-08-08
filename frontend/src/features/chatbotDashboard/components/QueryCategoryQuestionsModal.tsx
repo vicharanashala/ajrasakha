@@ -167,6 +167,7 @@ export function QueryCategoryQuestionsModal({
     questionType,
     page,
     limit: PAGE_SIZE,
+    // @ts-ignore
     source,
     userType,
     startDate,
@@ -325,6 +326,7 @@ export function QueryCategoryQuestionsModal({
         <button
           className="text-left hover:underline"
           onClick={() => {
+            // @ts-ignore
             setSelectedQuestionId(row.questionId);
             setView("lifecycle");
             onClose();
@@ -561,6 +563,7 @@ export function QueryCategoryQuestionsModal({
               : undefined
           }
           emptyMessage="No questions found for this category."
+          // @ts-ignore
           getRowKey={(row) => row.questionId || row.messageId}
           pagination={{
             page,

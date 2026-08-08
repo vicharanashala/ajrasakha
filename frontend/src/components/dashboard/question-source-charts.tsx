@@ -6,7 +6,6 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { MessageSquare } from "lucide-react";
 import CountUp from "react-countup";
 
 interface QuestionSourceChartsProps {
@@ -23,7 +22,6 @@ export const QuestionSourceCharts = ({
   whatsappCount,
   ajrasakhaCount,
 }: QuestionSourceChartsProps) => {
-  const totalQuestions = whatsappCount + ajrasakhaCount;
 
   const data = [
     { name: "WhatsApp", value: whatsappCount },

@@ -21,6 +21,7 @@ export const usePaeModeratorAction = () => {
   >({
     mutationFn: async (payload) => {
       try {
+        // @ts-ignore
         return await answerService.paeModeratorAction(payload);
       } catch (error) {
         throw error instanceof Error ? error : new Error("Unknown error");

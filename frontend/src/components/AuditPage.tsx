@@ -1788,9 +1788,9 @@ const AuditPage = () => {
     page, limit, startDateTime, endDateTime, category, action, order, outComeStatus,
   );
  
-  const entries: AuditEntry[] = data?.data ?? [];  
-  const total: number = data?.totalDocuments ?? 0;
-  const totalPages = data?.totalPages ?? 1;
+  const entries: AuditEntry[] = (data?.data as any) ?? [];  
+  const total: number = (data as any)?.totalDocuments ?? 0;
+  const totalPages = (data as any)?.totalPages ?? 1;
  
   const activeFilterCount = [category, action, outComeStatus, startDateTime, endDateTime].filter(Boolean).length;
  

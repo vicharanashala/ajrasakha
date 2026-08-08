@@ -159,6 +159,22 @@ export const MobileSidebar = ({
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
+    ...(user && (user.role === "admin" || user.role === "moderator")
+      ? [{ id: "system_health", label: "System Health", icon: TrendingUp }]
+      : []),
+
+    ...(user && user.role === "admin"
+      ? [{ id: "bulk_operations", label: "Bulk Operations", icon: Database }]
+      : []),
+
+    ...(user && user.role === "admin"
+      ? [{ id: "expert_availability", label: "Expert Availability", icon: Users }]
+      : []),
+
+    ...(user && user.role !== "call_agent"
+      ? [{ id: "question_tracking", label: "Question Tracking", icon: List }]
+      : []),
+
     ...(user && !isCoordinator && user.role !== "call_agent"
       ? [{ id: "history", label: "History", icon: History }]
       : []),

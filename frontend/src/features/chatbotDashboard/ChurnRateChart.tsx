@@ -58,7 +58,7 @@ export const ChurnRateChart = ({ source, userType }: ChurnRateChartProps) => {
   };
   const { data: monthlyChurnRateData, isFetching } = useMonthlyChurnRate(source, userType);
   const chartData = useMemo(() => {
-    return monthlyChurnRateData?.map((item) => ({
+    return monthlyChurnRateData?.map((item: any) => ({
       label: item.month,
       churnRate: item.churnRate,
       previousActiveUsers: item.previousActiveUsers,

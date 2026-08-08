@@ -1,4 +1,3 @@
-import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 /* Commented out unused imports to avoid lint warnings:
 import { CROPS, SEASONS, VILLAGES } from "@/components/MetaData";
 import { DateRangeFilter } from "@/components/DateRangeFilter";

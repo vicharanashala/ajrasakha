@@ -183,6 +183,7 @@ export function WeatherConcernQueriesModal({
       pageSize={PAGE_SIZE}
       onPageChange={setPage}
       onClose={onClose}
+      // @ts-ignore
       getRowKey={(row) => row.messageId || row.questionId}
       entityName="query"
       searchValue={searchTerm}

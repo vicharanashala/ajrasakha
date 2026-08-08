@@ -106,6 +106,8 @@ interface MapLegendProps {
   maxV: number;
   isIndiaView?: boolean;
   metric?: "users" | "activeUsers" | "questions" | "feedback";
+  dark?: boolean;
+  allStatesDataAndUser?: any;
 }
 
 export function MapLegend({

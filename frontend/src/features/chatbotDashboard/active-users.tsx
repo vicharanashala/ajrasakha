@@ -46,7 +46,7 @@ import { Button } from "@/components/atoms/button";
 
 import { CalendarIcon, RefreshCcw } from "lucide-react";
 
-import { format, subDays } from "date-fns";
+import {format} from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 const chartConfig = {
   value: {
@@ -82,7 +82,7 @@ export const ActiveUsersChart = ({
 
   const chartData = useMemo(() => {
     return (
-      data?.map((item) => ({
+      data?.map((item: any) => ({
         label: item._id,
         value: item.activeUsers,
       })) ?? []

@@ -1,5 +1,4 @@
 // ─── Query Insights Section Component ───────────────────────────────────────
-import React from "react";
 import { motion } from "framer-motion";
 import DashboardQueryCategories from "../DashboardQueryCategories";
 import { TopCropsCard } from "./TopCropsCard";

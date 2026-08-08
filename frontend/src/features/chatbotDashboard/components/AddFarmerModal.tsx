@@ -11,7 +11,6 @@ import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { Eye, EyeOff, RefreshCw, Info } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/atoms/radio-group";
-import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/tabs";
 
 const WEB_APP_ROLES = [
   { label: "Farmer", value: "FARMER" },

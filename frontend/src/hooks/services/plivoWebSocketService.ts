@@ -62,8 +62,8 @@ export class PlivoWebSocketService {
         // console.log(`🔌 [FRONTEND] Token present: ${token ? 'YES' : 'NO'}`);
         // console.log(`🔌 [FRONTEND] Browser WebSocket support: ${typeof WebSocket !== 'undefined' ? 'YES' : 'NO'}`);
 
-        // Also log to window for visibility
-        if (typeof window !== 'undefined') {
+        // Also log to window for visibility (DEV only)
+        if (typeof window !== 'undefined' && import.meta.env.DEV) {
           (window as any).frontendWsLog = '🔌 [FRONTEND] WebSocket connection initiated';
         }
 
@@ -95,7 +95,7 @@ export class PlivoWebSocketService {
             this.handleMessage(message);
           } catch (error) {
             console.error('❌ [FRONTEND] Failed to parse WebSocket message:', error);
-            console.log('📥 [FRONTEND] Raw message data:', event.data);
+            if (import.meta.env.DEV) console.log('📥 [FRONTEND] Raw message data:', event.data);
           }
         };
 

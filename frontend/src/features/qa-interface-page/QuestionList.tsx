@@ -11,7 +11,7 @@ import {
 import { Button } from "../../components/atoms/button";
 import { Review_Level_QAI } from "@/components/MetaData";
 import {Select,SelectTrigger, SelectValue,SelectContent,SelectItem,} from "@/components/atoms/select";
-import {CheckCircle,RefreshCw,RotateCcw,Info,Loader2,Send,FileText,Bot,MessageSquare,Clock,MessageCircle} from "lucide-react";
+import {RefreshCw, Info, Loader2, Clock, MessageCircle} from "lucide-react";
 import type {
   HistoryItem,
   IQuestion,
@@ -215,7 +215,7 @@ const QuestionItem = ({ question, isSelected, onSelect, setRef }: QuestionItemPr
                     : "bg-green-500/10 text-green-600 border-green-500/30"
               }`}
             >
-              {question.priority.charAt(0).toUpperCase() + question.priority.slice(1)}
+              {String(question.priority).charAt(0).toUpperCase() + String(question.priority).slice(1)}
             </span>
           )}
 

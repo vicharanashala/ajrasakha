@@ -202,7 +202,6 @@ export const AuthForm = ({
       }
     } finally {
       setIsLoading(false);
-      setErrors({});
     }
   };
 

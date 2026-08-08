@@ -21,11 +21,10 @@ import {
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
 import { getTimerStartTime } from "@/utils/getTimerStartTime";
-import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, Circle, Clock, Edit, Eye, Square, Trash, User, XCircle,ChevronDown } from "lucide-react";
+import {AlertCircle, AlertTriangle, BadgeCheck, Circle, Clock, Edit, Eye, Square, Trash, User} from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useQuestionTableStore } from "@/stores/all-questions";
-import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
 
 interface QuestionRowProps {
   q: IDetailedQuestion;

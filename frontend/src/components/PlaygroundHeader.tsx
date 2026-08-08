@@ -173,6 +173,38 @@ export function PlaygroundHeader({
                 <span>Data Processing</span>
               </TabsTrigger>
             )}
+            {user && (user.role === "admin" || user.role === "moderator") && (
+              <TabsTrigger
+                value="system_health"
+                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+              >
+                <span>System Health</span>
+              </TabsTrigger>
+            )}
+            {user && user.role === "admin" && (
+              <TabsTrigger
+                value="bulk_operations"
+                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+              >
+                <span>Bulk Operations</span>
+              </TabsTrigger>
+            )}
+            {user && user.role === "admin" && (
+              <TabsTrigger
+                value="expert_availability"
+                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+              >
+                <span>Expert Availability</span>
+              </TabsTrigger>
+            )}
+            {user && user.role !== "call_agent" && (
+              <TabsTrigger
+                value="question_tracking"
+                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+              >
+                <span>Question Tracking</span>
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
 

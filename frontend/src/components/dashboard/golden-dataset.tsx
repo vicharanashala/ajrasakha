@@ -272,74 +272,74 @@ export const GoldenDatasetOverview = ({
               </p>
             </DialogHeader>
             
-              <div className="mt-4 max-h-[420px] overflow-y-auto scrollbar-hiding space-y-3">
-                {moderatorBreakdown.map((mod, idx) => {
-                  // Extract the distinct hours, defaulting to 0 if undefined/null
-                  const modHours = mod.moderatorHours ?? 0;
-                  const audHours = mod.auditorHours ?? 0;
-                  const gkHours = mod.gateKeeperHours ?? 0;
+            <div className="mt-4 max-h-[420px] overflow-y-auto scrollbar-hiding space-y-3">
+              {moderatorBreakdown.map((mod, idx) => {
+                // Extract the distinct hours, defaulting to 0 if undefined/null
+                const modHours = mod.moderatorHours ?? 0;
+                const audHours = mod.auditorHours ?? 0;
+                const gkHours = mod.gateKeeperHours ?? 0;
 
-                  // Calculate the total sum
-                  const totalHours = modHours + audHours + gkHours;
+                // Calculate the total sum
+                const totalHours = modHours + audHours + gkHours;
 
-                  // Format all values using the helper function
-                  const modDisplay = formatTime(modHours);
-                  const audDisplay = formatTime(audHours);
-                  const gkDisplay = formatTime(gkHours);
-                  const totalDisplay = formatTime(totalHours);
+                // Format all values using the helper function
+                const modDisplay = formatTime(modHours);
+                const audDisplay = formatTime(audHours);
+                const gkDisplay = formatTime(gkHours);
+                const totalDisplay = formatTime(totalHours);
 
-                  const percentage = totalApprovals ? (mod.count / totalApprovals) * 100 : 0;
-                  return (
-                    <div
-                      key={idx}
-                      className="p-3 border rounded-lg transition-colors"
-                    >
-                      {/* Top Section: User Info, Total Hours, and Count */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-semibold text-green-700">
-                              {mod.moderatorName.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-medium dark:text-white text-gray-900 text-sm">
-                              {mod.moderatorName}
-                            </p>
-                            <p className="text-xs font-medium text-primary mt-0.5 flex items-center gap-1">
-                              <Clock size={12} className="text-primary" />
-                              {totalDisplay}
-                            </p>
-                          </div>
+                const percentage = totalApprovals ? (mod.count / totalApprovals) * 100 : 0;
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 border rounded-lg transition-colors"
+                  >
+                    {/* Top Section: User Info, Total Hours, and Count */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-semibold text-green-700">
+                            {(mod.moderatorName ?? '').charAt(0).toUpperCase()}
+                          </span>
                         </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold dark:text-white text-primary">
-                            {mod.count}
+                        <div>
+                          <p className="font-medium dark:text-white text-gray-900 text-sm">
+                            {mod.moderatorName}
+                          </p>
+                          <p className="text-xs font-medium text-primary mt-0.5 flex items-center gap-1">
+                            <Clock size={12} className="text-primary" />
+                            {totalDisplay}
                           </p>
                         </div>
                       </div>
-
-                      {/* Bottom Section: Breakdown of hours and Percentage */}
-                      <div className="mt-3 pt-2 border-t flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-3 text-[11px] text-gray-500">
-                          <span title="Moderator Hours">
-                            Mod: <strong className=" dark:text-white text-gray-700 font-medium">{modDisplay}</strong>
-                          </span>
-                          <span title="Auditor Hours">
-                            Aud: <strong className=" dark:text-white text-gray-700 font-medium">{audDisplay}</strong>
-                          </span>
-                          <span title="Gatekeeper Hours">
-                            GK: <strong className=" dark:text-white text-gray-700 font-medium">{gkDisplay}</strong>
-                          </span>
-                        </div>
-                        <p className="text-[11px] font-medium dark:text-white text-gray-500">
-                          {percentage.toFixed(1)}% <span className="hidden sm:inline">of total approvals</span>
+                      <div className="text-right">
+                        <p className="text-lg font-bold dark:text-white text-primary">
+                          {mod.count}
                         </p>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* Bottom Section: Breakdown of hours and Percentage */}
+                    <div className="mt-3 pt-2 border-t flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-3 text-[11px] text-gray-500">
+                        <span title="Moderator Hours">
+                          Mod: <strong className=" dark:text-white text-gray-700 font-medium">{modDisplay}</strong>
+                        </span>
+                        <span title="Auditor Hours">
+                          Aud: <strong className=" dark:text-white text-gray-700 font-medium">{audDisplay}</strong>
+                        </span>
+                        <span title="Gatekeeper Hours">
+                          GK: <strong className=" dark:text-white text-gray-700 font-medium">{gkDisplay}</strong>
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-medium dark:text-white text-gray-500">
+                        {percentage.toFixed(1)}% <span className="hidden sm:inline">of total approvals</span>
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </DialogContent>
         </Dialog>
       )}

@@ -41,8 +41,8 @@ export const DateRangeFilter = ({
   const startKey = type === "closedDateRange" ? "closedAtStart" : "startTime";
 const endKey = type === "closedDateRange" ? "closedAtEnd" : "endTime";
   const dateRange: DateRange = {
-    from: advanceFilter[startKey],
-    to: advanceFilter[endKey],
+    from: advanceFilter[startKey] ?? undefined,
+    to: advanceFilter[endKey] ?? undefined,
   };
 const handleDateSelect = (range: DateRange | undefined) => {
   if (!range) return;
@@ -76,7 +76,6 @@ const handleDateSelect = (range: DateRange | undefined) => {
 
 
 
-  const isRangeSelected = dateRange.from && dateRange.to;
 
   return (
     <div className={`space-y-2 min-w-0 relative ${className || ""}`}>

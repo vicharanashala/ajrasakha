@@ -18,10 +18,9 @@ import {
   Info,
 } from "lucide-react";
 import { DateRangeFilter } from "./DateRangeFilter";
-import { CROPS, DOMAINS, SEASONS, STATUS } from "./MetaData";
+import {CROPS, DOMAINS, STATUS} from "./MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useGetStates } from "@/hooks/api/location/useLocations";
-import { AlertTriangle } from "lucide-react";
 import {
   Select,
   SelectTrigger,

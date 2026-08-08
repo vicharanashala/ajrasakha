@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Message, Thread } from '../types';
 import { ChatMessage } from './ChatMessage';
-import { Info, Check, MessageCircle, Send, Lock, Loader2, MessageCircleOff, CalendarDays } from 'lucide-react';
+import {Info, Check, MessageCircle, Send, Lock, Loader2, MessageCircleOff} from 'lucide-react';
 import { Button } from '@/components/atoms/button';
 import { formatPhoneNumber } from '@/utils/formatPhoneNumber';
 import { ScrollArea } from '@/components/atoms/scroll-area';

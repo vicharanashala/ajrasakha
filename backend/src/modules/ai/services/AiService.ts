@@ -7,23 +7,31 @@ import { InternalServerError } from 'routing-controllers';
 @injectable()
 export class AiService {
   private _aiServerUrl =
-    'http://' + aiConfig.serverIP + ':' + aiConfig.serverPort;
+    'http://' + (aiConfig.serverIP || 'localhost') + ':' + aiConfig.serverPort;
 
   private _agentServerUrl =
-    'http://' + aiConfig.agentServerIP + ':' + aiConfig.agerntServerPort;
+    aiConfig.agentServerIP
+      ? 'http://' + aiConfig.agentServerIP + ':' + (aiConfig.agerntServerPort || '9017')
+      : '';
 
   private _openAIServerUrl =
-    'http://' + aiConfig.openAIServerIP + ':' + aiConfig.openAIServerPort;
+    aiConfig.openAIServerIP
+      ? 'http://' + aiConfig.openAIServerIP + ':' + (aiConfig.openAIServerPort || '8080')
+      : '';
 
   private _whatsAppServerUrl =
-    'http://' + aiConfig.serverIP + ':' + aiConfig.whatsAppServerPort;
+    'http://' + (aiConfig.serverIP || 'localhost') + ':' + aiConfig.whatsAppServerPort;
 
   private _gdbServerUrl =
-    'http://' + aiConfig.gdbServerIP + ':' + aiConfig.gdbServerPort;
+    'http://' + (aiConfig.gdbServerIP || 'localhost') + ':' + aiConfig.gdbServerPort;
 
   async getQuestionByContext(
     context: string,
   ): Promise<QuestionSearchResponse> {
+    if (!this._agentServerUrl) {
+      console.warn('AGENT_SERVER_IP not configured, returning empty result');
+      return { reviewer: [], golden: [], pop: [] };
+    }
     // const response = await fetch(`${this._aiServerUrl}/questions`, {
     const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
@@ -50,7 +58,10 @@ export class AiService {
     season?: string,
     domain?: string,
   ): Promise<QuestionSearchResponse> {
-
+    if (!this._agentServerUrl) {
+      console.warn('AGENT_SERVER_IP not configured, returning empty result');
+      return { reviewer: [], golden: [], pop: [] };
+    }
     const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
       headers: {

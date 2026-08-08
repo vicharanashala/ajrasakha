@@ -42,6 +42,13 @@ export class MongoDatabase implements IDatabase<Db> {
 
     console.log(`[${this.dbIdentifier}] Initializing database connection...`);
 
+    if (!uri) {
+      console.warn(`[${this.dbIdentifier}] No database URI provided, skipping connection`);
+      this.client = null;
+      this.database = null;
+      return;
+    }
+
     this.client = new MongoClient(uri, {
       ssl: true,
       tls: true,

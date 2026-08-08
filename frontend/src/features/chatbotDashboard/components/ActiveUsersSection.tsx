@@ -1,5 +1,4 @@
 // ─── Active Users Section Component ──────────────────────────────────────────
-import React, { Suspense } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
 import { Users, RefreshCw, UserMinus, HelpCircle } from "lucide-react";
 import {
@@ -10,7 +9,6 @@ import {
 import { ActiveUsersChart } from "../active-users";
 import { RetentionMetricsChart } from "../retention-metrics";
 import { ChurnRateChart } from "../ChurnRateChart";
-import { LazySectionSkeleton } from "../AnnamDashboard_dev";
 
 export interface ActiveUsersSectionProps {
   activeChartTab: string;

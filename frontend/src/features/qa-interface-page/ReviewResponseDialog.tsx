@@ -5,7 +5,7 @@ import type {
   SourceItem,
   QuestionRerouteRepo
 } from "@/types";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {useEffect, useState} from "react";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import {
@@ -19,7 +19,7 @@ import {
 import { Button } from "../../components/atoms/button";
 import { Label } from "../../components/atoms/label";
 import { Textarea } from "../../components/atoms/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
+import {Card, CardContent} from "../../components/atoms/card";
 import {
   CheckCircle,
   RefreshCw,

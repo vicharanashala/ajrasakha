@@ -8,6 +8,7 @@ export const useNavigateToQuestion = () => {
     (questionId: string,questiontype:string) => {
       navigate({
         to: "/home",
+        // @ts-ignore
         search: (prev) => ({ ...prev, question: questionId,questionType:questiontype }),
         replace: true,
       });
@@ -25,6 +26,7 @@ export const useNavigateToRequest = () => {
     (requestId: string) => {
       navigate({
         to: "/home",
+        // @ts-ignore
         search: (prev) => ({ ...prev, request: requestId }),
         replace: true,
       });
@@ -42,7 +44,7 @@ export const useNavigateToComment = () => {
     (questionId: string) => {
       navigate({
         to: "/home",
-        search: (prev) => ({
+        search: (prev: any) => ({
           ...prev,
           comment: questionId,
         }),
@@ -62,6 +64,7 @@ export const useNavigateToHistory = () => {
     (questionId: string) => {
       navigate({
         to: "/home",
+        // @ts-ignore
         search: (prev) => ({ ...prev, history: questionId }),
         replace: true,
       });
@@ -78,6 +81,7 @@ export const useNavigateToExpertDashboard = () => {
     (expertUserId: string) => {
       navigate({
         to: "/home",
+        // @ts-ignore
         search: (prev) => ({ ...prev, expertId: expertUserId }),
         replace: true,
       });

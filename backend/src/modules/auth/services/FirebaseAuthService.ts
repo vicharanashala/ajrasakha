@@ -355,6 +355,11 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       }
     }
 
+    if (user && appConfig.isDevelopment && !user.isVerified) {
+      await this.userRepository.edit(user._id.toString(), { isVerified: true });
+      user.isVerified = true;
+    }
+
     if (!user) {
       console.log(`User ${firebaseUID} not found in DB, creating...`);
       const names = displayName.split(' ');
@@ -364,7 +369,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         firstName: names[0] || email.split('@')[0],
         lastName: names.slice(1).join(' ') || '',
         role: 'pae_expert',
-        isVerified: false,
+        isVerified: appConfig.isDevelopment,
       };
 
       await this._withTransaction(async (session) => {

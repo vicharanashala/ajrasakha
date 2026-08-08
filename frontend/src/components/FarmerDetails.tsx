@@ -247,7 +247,6 @@ export const FarmerDetails = ({ phoneNo, className, defaultOpen = false }: Farme
     { key: 'numberOfSmartphones', label: 'Number of Smartphones', icon: Smartphone },
   ];
 
-  const fieldsToShow = isExpanded ? allFields : callRelevantFields;
 
   return (
     <Card className={cn("border border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/20 dark:bg-zinc-900/10 shadow-none rounded-xl", className)}>

@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 // import { Toaster as ReactHotToast } from "react-hot-toast";
 import { Toaster as SonnerToast } from "sonner";
 import { NotFound } from "@/components/NotFound";
+import { ErrorBoundary } from "@/components/atoms/ErrorBoundary";
 export const queryClient = new QueryClient();
 
 export const Route = createRootRoute({
@@ -13,7 +14,9 @@ export const Route = createRootRoute({
         <QueryClientProvider client={queryClient}>
           {/* <ReactHotToast position="bottom-right" reverseOrder={false} /> */}
           <SonnerToast richColors position="bottom-right" />
-          <Outlet />
+          <ErrorBoundary level="root" showDetails>
+            <Outlet />
+          </ErrorBoundary>
         </QueryClientProvider>
       </ThemeProvider>
     </>

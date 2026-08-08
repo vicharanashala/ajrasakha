@@ -7,7 +7,6 @@ import {
   type QuestionListColumn,
 } from "./QuestionListTable";
 import { TranslatableText } from "./TranslatableText";
-import { FarmerNameLink } from "./FarmerNameLink";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTopQuestionInstances } from "../hooks/useActiveUsersAnalytics";

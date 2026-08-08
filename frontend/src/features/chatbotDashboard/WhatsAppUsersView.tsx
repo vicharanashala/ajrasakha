@@ -3,7 +3,6 @@ import { X, Users, Filter, Search, Calendar, MessageSquare, ArrowUpDown, Refresh
 import { Button } from "@/components/atoms/button";
 import { useAllWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
 import { TranslatableText } from "./components/TranslatableText";
-import { Spinner } from "@/components/atoms/spinner";
 import {
   Card,
   CardContent,
@@ -359,8 +358,8 @@ export function WhatsAppUsersView() {
       // Search text filter
       if (filters.search) {
         const query = filters.search.toLowerCase();
-        const matchesPhone = user.phoneNumber.toLowerCase().includes(query);
-        const matchesMessage = user.lastMessageText.toLowerCase().includes(query);
+        const matchesPhone = (user.phoneNumber ?? '').toLowerCase().includes(query);
+        const matchesMessage = (user.lastMessageText ?? '').toLowerCase().includes(query);
         if (!matchesPhone && !matchesMessage) return false;
       }
 

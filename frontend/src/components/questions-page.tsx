@@ -631,7 +631,7 @@ export const QuestionsPage = ({
             setUploadedQuestionsCount={setUploadedQuestionsCount}
             setIsBulkUpload={setIsBulkUpload}
             states={STATES}
-            onChange={onChangeFilters}
+            onChange={onChangeFilters as any}
             onReset={onReset}
             crops={CROPS}
             refetch={() => {

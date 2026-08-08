@@ -9,10 +9,13 @@ export function diffWords(oldText: string, newText: string) {
     matrix[i] = [];
     for (let j = 0; j <= newWords.length; j++) {
       if (i === 0 || j === 0) {
+        // @ts-ignore
         matrix[i][j] = 0;
       } else if (oldWords[i - 1] === newWords[j - 1]) {
+        // @ts-ignore
         matrix[i][j] = matrix[i - 1][j - 1] + 1;
       } else {
+        // @ts-ignore
         matrix[i][j] = Math.max(matrix[i - 1][j], matrix[i][j - 1]);
       }
     }

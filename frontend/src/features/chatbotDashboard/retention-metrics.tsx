@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { format, subDays } from "date-fns";
+import {format} from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { CalendarIcon, InfoIcon, RefreshCcw } from "lucide-react";

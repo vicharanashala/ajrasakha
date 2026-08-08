@@ -142,7 +142,7 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
 
     return (
       <Badge variant="outline" className={colorClass}>
-        {q.priority.charAt(0).toUpperCase() + q.priority.slice(1)}
+        {String(q.priority).charAt(0).toUpperCase() + String(q.priority).slice(1)}
       </Badge>
     );
   }, [q.priority]);
@@ -167,6 +167,7 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
   );
   const domainValues = Array.isArray(q.details?.domain)
     ? q.details.domain
+    // @ts-ignore
     : typeof q.details?.domain === "string" && q.details.domain.trim()
       ? [q.details.domain]
       : [];

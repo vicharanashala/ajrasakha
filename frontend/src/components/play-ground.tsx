@@ -2,6 +2,7 @@ import {
   Tabs,
   TabsContent,
 } from "@/components/atoms/tabs";
+import { ErrorBoundary } from "./atoms/ErrorBoundary";
 import { QAInterface } from "../features/qa-interface-page/QA-interface";
 // import { FullSubmissionHistory } from "./submission-history";
 import { VoiceRecorderCard } from "./voice-recorder-card";
@@ -17,17 +18,18 @@ import { UserManagement } from "./user-management";
 import { Dashboard } from "./dashboard";
 import { ExpertDashboard } from "./ExpertDashboard";
 import { GateKeeperAuditorDashboard } from "./GateKeeperAuditorDashboard";
-import { NotificationModal } from "./NotificationModal";
-import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboard/AnnamDashboard_dev";
 import { cn } from "@/lib/utils";
 import { canManageUsers } from "@/lib/roles";
 import { CallInterface } from "./CallInterface";
 import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
-import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";
+import { SystemHealthMonitor } from "../features/chatbotDashboard/components/SystemHealthMonitor";
+import { BulkOperationsPanel } from "../features/chatbotDashboard/components/BulkOperationsPanel";
+import { ExpertAvailabilityDashboard } from "../features/chatbotDashboard/components/ExpertAvailabilityDashboard";
+import { QuestionTrackingPage } from "../features/chatbotDashboard/components/QuestionTrackingPage";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -291,8 +293,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  {/* <PerformanceMatrics /> */}
-                  <Dashboard />
+                  <ErrorBoundary level="section">
+                    <Dashboard />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {user && (user.role === "expert" || user.role === "moderator") && (
@@ -307,8 +310,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  {/* <PerformanceMatrics /> */}
-                  <ExpertDashboard />
+                  <ErrorBoundary level="section">
+                    <ExpertDashboard />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {user && (user.role === "gate_keeper" || user.role === "auditor") && (
@@ -338,12 +342,14 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <QAInterface
-                    autoSelectQuestionId={selectedQuestionId}
-                    onManualSelect={setSelectedQuestionId}
-                    selectQuestionType={selectedQuestionType}
-                    onManualSelectQuestionType={setSelectedQuestionType}
-                  />
+                  <ErrorBoundary level="section">
+                    <QAInterface
+                      autoSelectQuestionId={selectedQuestionId}
+                      onManualSelect={setSelectedQuestionId}
+                      selectQuestionType={selectedQuestionType}
+                      onManualSelectQuestionType={setSelectedQuestionType}
+                    />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {user && user.role !== "call_agent" && (
@@ -358,10 +364,12 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <QuestionsPage
-                    currentUser={user!}
-                    autoOpenQuestionId={selectedCommentId || selectedQuestionId}
-                  />
+                  <ErrorBoundary level="section">
+                    <QuestionsPage
+                      currentUser={user!}
+                      autoOpenQuestionId={selectedCommentId || selectedQuestionId}
+                    />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {user && canManageUsers(user.role) && (
@@ -376,7 +384,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <UserManagement currentUser={user} />
+                  <ErrorBoundary level="section">
+                    <UserManagement currentUser={user} />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {/* {user && user.role !== "expert" && (
@@ -405,11 +415,13 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <div className=" overflow-hidden bg-background p-4 ps-0">
-                    <div className=" mx-auto py-8 pt-0">
-                      <VoiceRecorderCard />
+                  <ErrorBoundary level="section">
+                    <div className=" overflow-hidden bg-background p-4 ps-0">
+                      <div className=" mx-auto py-8 pt-0">
+                        <VoiceRecorderCard />
+                      </div>
                     </div>
-                  </div>
+                  </ErrorBoundary>
                 </TabsContent>
               )}
 
@@ -425,7 +437,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <CallAgentDashboard />
+                  <ErrorBoundary level="section">
+                    <CallAgentDashboard />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
 
@@ -441,7 +455,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <CallInterface />
+                  <ErrorBoundary level="section">
+                    <CallInterface />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {user?.role === "call_agent" && (
@@ -456,9 +472,11 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <div className="w-full max-w-full px-4 md:px-6 py-2">
-                    <CallHistory onRedial={() => { }} />
-                  </div>
+                  <ErrorBoundary level="section">
+                    <div className="w-full max-w-full px-4 md:px-6 py-2">
+                      <CallHistory onRedial={() => { }} />
+                    </div>
+                  </ErrorBoundary>
                 </TabsContent>
               )}
 
@@ -474,7 +492,81 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <DataProcessingDashboard />
+                  <ErrorBoundary level="section">
+                    <DataProcessingDashboard />
+                  </ErrorBoundary>
+                </TabsContent>
+              )}
+
+              {user && (user.role === "admin" || user.role === "moderator") && (
+                <TabsContent
+                  value="system_health"
+                  className={cn(
+                    "mt-0 border-0 md:px-4 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ErrorBoundary level="section">
+                    <SystemHealthMonitor />
+                  </ErrorBoundary>
+                </TabsContent>
+              )}
+
+              {user && user.role === "admin" && (
+                <TabsContent
+                  value="bulk_operations"
+                  className={cn(
+                    "mt-0 border-0 md:px-4 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ErrorBoundary level="section">
+                    <BulkOperationsPanel />
+                  </ErrorBoundary>
+                </TabsContent>
+              )}
+
+              {user && user.role === "admin" && (
+                <TabsContent
+                  value="expert_availability"
+                  className={cn(
+                    "mt-0 border-0 md:px-4 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ErrorBoundary level="section">
+                    <ExpertAvailabilityDashboard />
+                  </ErrorBoundary>
+                </TabsContent>
+              )}
+
+              {user && user.role !== "call_agent" && (
+                <TabsContent
+                  value="question_tracking"
+                  className={cn(
+                    "mt-0 border-0 md:px-4 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ErrorBoundary level="section">
+                    <QuestionTrackingPage />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
 
@@ -490,7 +582,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <ManageCallAgents />
+                  <ErrorBoundary level="section">
+                    <ManageCallAgents />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {/* {user && (

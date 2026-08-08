@@ -22,9 +22,15 @@ export default function SelectedAnswerPanel({
   currentUser,
   lastAnswerId,
   userRole,
+}: {
+  answer: any;
+  question: any;
+  rerouteQuestion: any;
+  currentUser: any;
+  lastAnswerId: any;
+  userRole: any;
 }) {
-  console.log("question ->", question);
-  console.log("Answer ->", answer);
+
   const [editOpen, setEditOpen] = useState(false);
   const [editableAnswer, setEditableAnswer] = useState(answer.answer);
   const [sources, setSources] = useState<SourceItem[]>(answer.sources);
@@ -44,10 +50,10 @@ export default function SelectedAnswerPanel({
     useGetReRouteAllocation();
 
   const experts =
-    usersData?.users.filter((user) => user.role === "expert") || [];
+    (usersData?.users.filter((user) => user.role === "expert") || []) as any;
 
   const filteredExperts = experts.filter(
-    (expert) =>
+    (expert: any) =>
       expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       expert.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
@@ -57,9 +63,9 @@ export default function SelectedAnswerPanel({
 
   const { rejectReRoute, isRejecting } = useReRouteRejectQuestion();
 
-  const expert = question.submission.history.find(
-    (item) => item.updatedBy?._id === answer.authorId,
-  )?.updatedBy;
+  const expert = question.submission?.history?.find(
+    (item: any) => item.updatedBy?._id === answer.authorId,
+  )?.updatedBy ?? { name: 'Unknown', avatar: null, email: '' };
 
   const handleUpdateAnswer = async () => {
     try {
@@ -159,8 +165,6 @@ export default function SelectedAnswerPanel({
       toast.error("Rejection reason must be atleast 8 letters");
       return;
     }
-    const rerouteQuestion = props.rerouteQuestion;
-
     if (!rerouteQuestion || rerouteQuestion.length === 0) {
       console.warn("No reroute question available");
       return;
@@ -234,9 +238,9 @@ export default function SelectedAnswerPanel({
         <div className="p-4 rounded-lg border bg-card">
           <h3 className="font-semibold mb-2">Sources</h3>
           <ul className="text-sm list-disc ml-5">
-            {answer.sources.map((s, i) => {
+            {answer.sources?.map((s: any, i: any) => {
               const capatalize =
-                s.sourceType.charAt(0).toUpperCase() + s.sourceType.slice(1);
+                String(s.sourceType ?? '').charAt(0).toUpperCase() + String(s.sourceType ?? '').slice(1);
               return (
                 <li key={i}>
                   <span className="border-gray-400 border-2 rounded-lg bg-gray-400 p-2 mr-5">
@@ -254,7 +258,7 @@ export default function SelectedAnswerPanel({
 
       <div className="space-y-4">
         <h3>Review Timeline</h3>
-        {answer.reviews?.map((review, index) => {
+        {answer.reviews?.map((review: any, index: any) => {
           const actionClass =
             review.action === "accepted"
               ? "border-green-500 text-green-400 bg-green-500/10"

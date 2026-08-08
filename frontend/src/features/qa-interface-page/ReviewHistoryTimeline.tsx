@@ -33,9 +33,9 @@ import {
 } from "../../components/atoms/accordion";
 import { Separator } from "../../components/atoms/separator";
 import { CommentsSection } from "../../components/comments-section";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {useState} from "react";
 import {useReRouteRejectQuestion} from '@/hooks/api/question/useReRouteRejectQuestion'
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
+import {Card} from "../../components/atoms/card";
 import { formatDate } from "@/utils/formatDate";
 import { Badge } from "../../components/atoms/badge";
 import { ExpandableText } from "../../components/expandable-text";

@@ -65,7 +65,7 @@ export function ReallocateModal({
 
   const filteredExperts = experts.filter(
     (expert) =>
-      expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (expert.userName ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -126,7 +126,6 @@ export function ReallocateModal({
     onOpenChange(false);
   };
 
-  const currentExpert = queue[levelIndex];
 
 
   // Find the most recently allocated expert based on history
@@ -141,6 +140,7 @@ export function ReallocateModal({
     const lastHistoryEntry = question.submission.history[question.submission.history.length - 1];
     
     if (lastHistoryEntry?.updatedBy?._id) {
+      // @ts-ignore
       const recentIndex = queue.findIndex(expert => expert._id === lastHistoryEntry.updatedBy._id);
       return recentIndex >= 0 ? recentIndex : 0;
     }

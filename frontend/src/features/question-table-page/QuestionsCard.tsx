@@ -151,7 +151,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
       <span
         className={`w-fit px-2 py-0.5 rounded text-xs font-semibold ${colorClass}`}
       >
-        {q.priority.charAt(0).toUpperCase() + q.priority.slice(1)}
+        {String(q.priority).charAt(0).toUpperCase() + String(q.priority).slice(1)}
       </span>
     );
   }, [q.priority]);
@@ -337,6 +337,7 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
                 <span className="truncate max-w-[150px] text-sm font-medium text-gray-700 dark:text-gray-300">
                   {(Array.isArray(q.details?.domain)
                     ? q.details.domain
+                    // @ts-ignore
                     : typeof q.details?.domain === "string" && q.details.domain.trim()
                       ? [q.details.domain]
                       : []

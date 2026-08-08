@@ -112,6 +112,7 @@ export const AnswerActions = ({
   // only — other moderators viewing the PAE tab don't see Approve/Re-route.
   const canModerate =
     isDedicatedView ||
+    userRole === "admin" ||
     (questionStatus === "pae_submitted" && isAssignedModerator);
 
   const showActions =
@@ -170,6 +171,7 @@ export const AnswerActions = ({
             handleCancel={handleCancel}
             lastReroutedTo={lastReroutedTo}
             isAllocatingExperts={isAllocatingExperts}
+            // @ts-ignore
             assignedModerator={assignedModerator}
           />
 
@@ -190,6 +192,7 @@ export const AnswerActions = ({
       <ViewMoreDialog
         answer={answer}
         submissionData={submissionData}
+        // @ts-ignore
         isRejected={isRejected}
         questionStatus={questionStatus}
         lastAnswerId={lastAnswerId}

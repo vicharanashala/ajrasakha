@@ -190,6 +190,7 @@ export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:
                     mode="single"
                     selected={startDate}
                     onSelect={(date) => {
+                      // @ts-ignore
                       setStartDate(date);
                       setStartOpen(false);
                     }}
@@ -217,6 +218,7 @@ export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:
                     mode="single"
                     selected={endDate}
                     onSelect={(date) => {
+                      // @ts-ignore
                       setEndDate(date);
                       setEndOpen(false);
                     }}

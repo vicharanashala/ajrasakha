@@ -31,7 +31,6 @@ import { DetailSidebar } from "./components/DetailSidebar";
 import { useAllStatesandUserData } from "./hooks/useMapAnalytics";
 import { useStateWiseAnalytics } from "../../hooks/useStateQueryData";
 import { useClosedAndNotifedData } from "../../hooks/useActiveUsersAnalytics";
-import { se } from "date-fns/locale";
 
 /* ============================================================
    MAIN COMPONENT
@@ -102,6 +101,7 @@ export default function IndiaAnalyticsMap({
 
   const { data: districtAnalytics, isLoading: isDistrictLoading,  isFetching: isDistrictFetching } = useStateWiseAnalytics(
     selectedState ?? undefined,
+    // @ts-ignore
     selectedStateCode,
     source,
     userType,
@@ -117,6 +117,7 @@ export default function IndiaAnalyticsMap({
       selectedState,
       selectedDistrict,
       allStatesData,
+      // @ts-ignore
       districtAnalytics,
       metric,
       startDate: questionStatusRange.startTime !== undefined? new Date(questionStatusRange.startTime): undefined,
@@ -152,7 +153,7 @@ export default function IndiaAnalyticsMap({
   const handleSelectState = useCallback(
     (name: string, feature: GeoFeature) => {
       console.log("All state data is", allStatesDataAndUser);
-      const stateData = allStatesDataAndUser?.find((s) => s.state === name);
+      const stateData = allStatesDataAndUser?.find((s: any) => s.state === name);
       console.log("Selected state data", stateData);
 
       navigateToState(name, stateData?.stateCode);
@@ -268,7 +269,7 @@ const tip = `
         mouseout: () => setHovered((h) => (h === name ? null : h)),
         click: () => {
           if (level === "india") {
-            const stateData = allStatesDataAndUser?.find((s) => s.state === name);
+            const stateData = allStatesDataAndUser?.find((s: any) => s.state === name);
             navigateToState(name, stateData?.stateCode);
 
             const bounds = (layer as L.Polygon).getBounds?.();
@@ -299,6 +300,7 @@ const tip = `
 
      const handleClick = (statusValue?: string) => {
       if(isIndiaView){
+         // @ts-ignore
          setStatus(statusValue);
       }else if(!selectedDistrict){
         setClickedState(selectedState);

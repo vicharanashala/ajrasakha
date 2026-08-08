@@ -1,5 +1,4 @@
 // ─── Knowledge & Awareness Card Component ────────────────────────────────────
-import React from "react";
 import { RefreshCw, InfoIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {

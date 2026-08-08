@@ -312,7 +312,7 @@ export function QuestionLifecycleSummary({
               <CardContent className="p-4">
                 <MetricTitle title={item.title} tooltip={item.tooltip} />
 
-                <p className={`text-2xl font-bold ${item.valueClass ?? ""}`}>
+                <p className={`text-2xl font-bold ${(item as any).valueClass ?? ""}`}>
                   {item.value}
                 </p>
               </CardContent>
@@ -346,8 +346,8 @@ export function QuestionLifecycleSummary({
                 </div>
 
                 <p className="text-lg font-semibold">
-                  {item.formatter
-                    ? item.formatter(item.value)
+                  {(item as any).formatter
+                    ? (item as any).formatter(item.value)
                     : formatDuration(item.value)}
                 </p>
               </CardContent>
@@ -371,8 +371,8 @@ export function QuestionLifecycleSummary({
                       />
 
                       <p className="text-lg font-semibold">
-                        {item.formatter
-                          ? item.formatter(item.value)
+                        {(item as any).formatter
+                          ? (item as any).formatter(item.value)
                           : formatDuration(item.value)}
                       </p>
                     </CardContent>
