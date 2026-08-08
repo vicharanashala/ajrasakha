@@ -12,8 +12,9 @@ from ajrasakha.agents.planner_rules import (
     format_prev_plan_context,
     infer_domain_for_plan,
     is_schemes_intent,
-    merge_crop_clarification_into_query,
+    is_standalone_clarification_reply,
     merge_entities_from_rephrased_query,
+    merge_clarification_reply_into_query,
 )
 
 
@@ -32,7 +33,7 @@ def test_pm_kisan_domain_does_not_require_crop():
 
 
 def test_crop_clarification_preserves_query_after_location_clarification():
-    merged = merge_crop_clarification_into_query(
+    merged = merge_clarification_reply_into_query(
         {
             "is_complete": False,
             "missing_info": ["crop"],
@@ -44,7 +45,7 @@ def test_crop_clarification_preserves_query_after_location_clarification():
 
 
 def test_crop_clarification_preserves_query_without_location_clarification():
-    merged = merge_crop_clarification_into_query(
+    merged = merge_clarification_reply_into_query(
         {
             "is_complete": False,
             "missing_info": ["crop"],
@@ -55,8 +56,17 @@ def test_crop_clarification_preserves_query_without_location_clarification():
     assert merged == "How do I control gulli danda? Crop: Wheat"
 
 
-def test_crop_query_merge_skips_complete_or_non_crop_turns():
-    assert merge_crop_clarification_into_query(
+def test_clarification_query_merge_handles_location_and_skips_complete_turns():
+    merged = merge_clarification_reply_into_query(
+        {
+            "is_complete": False,
+            "missing_info": ["location"],
+            "rephrased_query": "How do I control gulli danda?",
+        },
+        "Delhi",
+    )
+    assert merged == "How do I control gulli danda? Location: Delhi"
+    assert merge_clarification_reply_into_query(
         {
             "is_complete": True,
             "missing_info": [],
@@ -64,14 +74,15 @@ def test_crop_query_merge_skips_complete_or_non_crop_turns():
         },
         "Delhi",
     ) is None
-    assert merge_crop_clarification_into_query(
-        {
-            "is_complete": False,
-            "missing_info": ["location"],
-            "rephrased_query": "Original question",
-        },
+
+
+def test_standalone_clarification_rephrase_uses_deterministic_fallback():
+    assert is_standalone_clarification_reply("Delhi", "Delhi") is True
+    assert is_standalone_clarification_reply("Wheat crop", "Wheat") is True
+    assert is_standalone_clarification_reply(
+        "How do I control gulli danda in wheat?",
         "Wheat",
-    ) is None
+    ) is False
 
 
 def test_crop_insurance_requires_crop():
