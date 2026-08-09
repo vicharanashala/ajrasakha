@@ -1,6 +1,8 @@
 import {
   ObjectIdToString,
   StringToObjectId,
+  ObjectIdArrayToStringArray,
+  StringArrayToObjectIdArray,
 } from '#shared/constants/transformerConstants.js';
 import {IKVKCoveredItem, IPreference, IUser, NotificationRetentionType, UserRole} from '#shared/interfaces/models.js';
 import {Expose, Transform} from 'class-transformer';
@@ -84,6 +86,14 @@ class User implements IUser {
   @Expose()
   isTrainingUser?: boolean;
 
+  // Without these transforms instanceToPlain leaves the ObjectId elements
+  // un-serialised, so the feedback-review tab (which maps them to ObjectIds and
+  // calls findByIds) can't match any question and shows nothing.
+  @Transform(ObjectIdArrayToStringArray.transformer, {toPlainOnly: true})
+  @Transform(StringArrayToObjectIdArray.transformer, {toClassOnly: true})
+  @Expose()
+  feedbacksAssigned?: (string | ObjectId)[] | null;
+
   constructor(data: Partial<IUser>) {
     this._id = data?._id ? new ObjectId(data?._id) : null;
     this.firebaseUID = data?.firebaseUID;
@@ -118,6 +128,7 @@ class User implements IUser {
     this.isBusy = data?.isBusy || false;
     this.currentCallUuid = data?.currentCallUuid || null;
     this.isTrainingUser = data?.isTrainingUser || false;
+    this.feedbacksAssigned = data?.feedbacksAssigned || null;
   }
 }
 

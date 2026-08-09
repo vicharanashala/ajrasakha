@@ -1001,7 +1001,7 @@ export const GateKeeperAuditorQueueModal = ({
             </div>
             <div className="text-left">
               <p className="text-sm font-bold text-gray-900 dark:text-white">
-                Gate Keeper / Auditor Queue
+                Gate Keeper / Auditor / Feed Back Queue
               </p>
               <p className="text-[11px] text-gray-500">
                 Live gate keeper & auditor allocation overview
@@ -1087,6 +1087,22 @@ export const GateKeeperAuditorQueueModal = ({
                 waiting={data.auditorWaiting}
                 allocated={data.auditorAllocated}
                 available={data.availableAuditors}
+                openSection={openSection}
+                toggle={toggle}
+                dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
+                onQuestionClick={handleQuestionClick}
+              />
+              <div className="hidden lg:block w-px bg-gray-200 dark:bg-gray-800 self-stretch" />
+              <RoleQueueColumn
+                heading="Feedback Queue"
+                subheading="Open feedback reviews"
+                assigneeLabel="Reviewer"
+                waitingKey="feedbackWaiting"
+                allocatedKey="feedbackAllocated"
+                availableKey="availableFeedbackReviewers"
+                waiting={data.feedbackWaiting}
+                allocated={data.feedbackAllocated}
+                available={data.availableFeedbackReviewers}
                 openSection={openSection}
                 toggle={toggle}
                 dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
