@@ -66,7 +66,9 @@ from ajrasakha.agents.planner_rules import (
     merge_clarification_reply_into_query,
     format_prev_plan_context,
     merge_entities_from_rephrased_query,
+    normalize_crop_value,
     resolve_crop_for_turn,
+    is_crop_output_question,
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
@@ -475,14 +477,26 @@ async def _apply_domain_and_crop_async(
         plan["chemical_checker"] = False
 
     entities: PlannerEntities = dict(plan.get("entities") or {})
+    if entities.get("crop"):
+        entities["crop"] = normalize_crop_value(entities["crop"])
     user_text = latest_human_text(messages)
     question = plan.get("rephrased_query") or user_text
     original = plan.get("original_query_en") or user_text
+    deterministic_crop_output = is_crop_output_question(question) or is_crop_output_question(user_text)
 
     entities = apply_crop_one_shot_fallback(messages, entities, domains)
 
-    crop = crop_prefilled or resolve_crop_for_turn(messages) or entities.get("crop")
-    if crop_slot_satisfied(crop):
+    crop = normalize_crop_value(
+        crop_prefilled or resolve_crop_for_turn(messages) or entities.get("crop")
+    )
+    if deterministic_crop_output:
+        # A crop-output question asks the system to recommend the crop. Any
+        # crop entity inferred by the LLM (for example, "Kharif crops" or
+        # "Sorghum") is not a farmer-provided input crop.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = "deterministic_crop_output_requested"
+    elif crop_slot_satisfied(crop):
         # Preserve the pre-existing crop-present behavior. The new JSON/LLM
         # decision path is intentionally only for turns without a crop name.
         if any(legacy_domain_requires_crop(domain) for domain in domains):

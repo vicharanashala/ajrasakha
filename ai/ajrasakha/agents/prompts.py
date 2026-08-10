@@ -692,7 +692,9 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 - [STRICT] For 'crop': 
   1. Try to translate the regional crop name into its standard English equivalent (e.g., "Kapas" -> "Cotton", "Lehsun" -> "Garlic", "Dhan" -> "Paddy", "Chana" -> "Bengal Gram(Gram)").
   2. If you are not completely sure about the translation, extract the EXACT local/regional crop name written in English letters.
-  3. NEVER default to `"all"` for crop unless the user explicitly asks for "all crops" or the query is generic and specifies no crop whatsoever. If a crop is mentioned, you MUST extract it.
+  3. Use exactly `"all"` for an explicit non-specific or multiple-crop request. Never output `"multiple"`, `"multiple crop"`, `"multiple crops"`, or `"general"` as the crop value.
+  4. For a question asking which crop/plant to grow, do not invent an answer crop in `entities.crop` (for example, do not turn a season such as kharif into `"Kharif crops"` or `"Sorghum"`); leave it empty and let the server set `crop="all"`.
+  5. NEVER default to `"all"` for crop unless the user explicitly asks for all/non-specific crops or the query is generic and specifies no crop whatsoever. If one specific input crop is mentioned, you MUST extract it.
 
 **State & District Resolution (STRICT PRIORITY — follow exactly):**
 

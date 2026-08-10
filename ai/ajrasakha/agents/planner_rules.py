@@ -11,6 +11,7 @@ from ajrasakha.agents.domains import (
     crop_counts_as_resolved,
     domain_requires_crop,
     is_crop_placeholder,
+    normalize_crop_value,
     normalize_domain,
 )
 from ajrasakha.agents.location_context import (
@@ -141,6 +142,25 @@ _META_CLARIFY_RE = re.compile(
 )
 _CROP_CLARIFY_RE = re.compile(
     r"which crop|what crop|कौन सी फसल|कौनसी फसल",
+    re.I,
+)
+
+_EXPLICIT_ALL_CROP_RE = re.compile(
+    r"\b(?:all|any|multiple|several|various|different)\s+crops?\b|"
+    r"\bcrops?\s+(?:do not|don't|does not|doesn't)\s+matter\b",
+    re.I,
+)
+_ALL_CROP_CLARIFICATION_RE = re.compile(
+    r"^\s*(?:all|any|multiple|multiple\s+crops?|general)\s*[.!?]*\s*$",
+    re.I,
+)
+_CROP_OUTPUT_RE = re.compile(
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
+    r"(?:should|can|could|would|to)\b.*\b(?:grow|plant|cultivate|sow)\b)|"
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
+    r"(?:suitable|best|good|recommended|ideal)\b)|"
+    r"(?:\bwhat\s+to\s+(?:grow|plant|cultivate|sow)\b)|"
+    r"(?:\bwhat\s+should\s+i\s+(?:grow|plant|cultivate|sow)\b)",
     re.I,
 )
 
@@ -432,6 +452,14 @@ def resolve_crop_for_turn(messages: list[BaseMessage]) -> Optional[str]:
         text = recent_human_text(messages, max_turns=3)
     else:
         text = latest_human_text(messages)
+    if is_crop_output_question(text) or is_explicit_all_crop_request(text):
+        trace_resolution(
+            "crop_scope_from_text",
+            crop="all",
+            crop_source="deterministic_non_specific_crop_request",
+            text_preview=text[:120] if text else None,
+        )
+        return "all"
     crop = extract_crop_from_text(text)
     if crop:
         resolved = crop[0].upper() + crop[1:].lower()
@@ -444,6 +472,17 @@ def resolve_crop_for_turn(messages: list[BaseMessage]) -> Optional[str]:
         )
         return resolved
     return None
+
+
+def is_explicit_all_crop_request(text: str | None) -> bool:
+    """True when the farmer explicitly asks for non-specific/all-crop handling."""
+    raw = (text or "").strip()
+    return bool(_EXPLICIT_ALL_CROP_RE.search(raw) or _ALL_CROP_CLARIFICATION_RE.match(raw))
+
+
+def is_crop_output_question(text: str | None) -> bool:
+    """True when the farmer asks which crop/plant to grow, not for crop input."""
+    return bool(_CROP_OUTPUT_RE.search((text or "").strip()))
 
 
 def extract_crop_from_text(text: str) -> Optional[str]:
@@ -477,17 +516,30 @@ def merge_entities_from_rephrased_query(
     """
     # Start with previous entities, override with new plan entities
     merged: PlannerEntities = {**(prev_entities or {}), **dict(plan.get("entities") or {})}
+    if merged.get("crop"):
+        merged["crop"] = normalize_crop_value(merged["crop"])
     text = entity_text_from_plan(plan, messages)
 
     # --- Crop Resolution ---
     crop_source: str | None = None
     domains = list(plan.get("domains") or [normalize_domain(plan.get("domain") or "General")])
     current_crop_mentioned = False
+    raw_latest_text = latest_human_text(messages)
+    crop_output_requested = is_crop_output_question(text) or is_crop_output_question(raw_latest_text)
+    explicit_all_requested = is_explicit_all_crop_request(text) or is_explicit_all_crop_request(raw_latest_text)
 
     if is_crop_clarify_turn(messages):
-        turn_crop = extract_crop_from_text(text)
+        turn_crop = (
+            "all"
+            if crop_output_requested or explicit_all_requested
+            else extract_crop_from_text(text)
+        )
         if turn_crop:
-            crop_source = "rephrased_query_text (crop_clarify_turn)"
+            crop_source = (
+                "deterministic_non_specific_crop_request (crop_clarify_turn)"
+                if turn_crop == "all"
+                else "rephrased_query_text (crop_clarify_turn)"
+            )
             current_crop_mentioned = True
         else:
             turn_crop = resolve_crop_for_turn(messages)
@@ -495,13 +547,26 @@ def merge_entities_from_rephrased_query(
                 crop_source = "recent_human_text (crop_clarify_turn)"
                 current_crop_mentioned = True
     else:
-        turn_crop = extract_crop_from_text(text)
+        turn_crop = (
+            "all"
+            if crop_output_requested or explicit_all_requested
+            else extract_crop_from_text(text)
+        )
         if turn_crop:
-            crop_source = "rephrased_query_text"
+            crop_source = (
+                "deterministic_non_specific_crop_request"
+                if turn_crop == "all"
+                else "rephrased_query_text"
+            )
             current_crop_mentioned = True
 
     if turn_crop:
-        merged["crop"] = turn_crop[0].upper() + turn_crop[1:].lower()
+        normalized_turn_crop = normalize_crop_value(turn_crop)
+        merged["crop"] = (
+            "all"
+            if normalized_turn_crop == "all"
+            else turn_crop[0].upper() + turn_crop[1:].lower()
+        )
     elif merged.get("crop"):
         prev_crop = merged.get("crop")
         # Check if we should inherit crop from previous turn

@@ -298,8 +298,35 @@ def crop_counts_as_resolved(crop: str | None) -> bool:
     return crop.strip().lower() not in {"", "not specified", "unknown", "none", "null", "n/a"}
 
 
+_CROP_ALL_ALIASES: frozenset[str] = frozenset(
+    {
+        "all",
+        "general",
+        "multiple",
+        "multiple crop",
+        "multiple crops",
+        "multiplecrop",
+        "multiplecrops",
+        "not specified",
+        "none",
+        "null",
+    }
+)
+
+
+def normalize_crop_value(crop: str | None) -> str | None:
+    """Return the canonical ``all`` value for non-specific crop placeholders."""
+    if crop is None:
+        return None
+    value = " ".join(str(crop).strip().lower().split())
+    if value in _CROP_ALL_ALIASES:
+        return "all"
+    return crop
+
+
 def is_crop_placeholder(crop: str | None) -> bool:
     """True when crop means 'no specific crop' (all/general)."""
     if not crop:
         return False
-    return crop.strip().lower() in {"all", "general", "not specified", "none", "null"}
+    normalized = normalize_crop_value(crop)
+    return normalized == "all"

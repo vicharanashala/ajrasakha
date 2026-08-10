@@ -81,6 +81,7 @@ async def test_always_domain_crop_output_does_not_require_input_crop():
         PlannerOutput(
             domains=["Cultural Practices"],
             rephrased_query="Which crop should I grow in kharif season?",
+            entities={"crop": "Kharif crops"},
         )
     )
     with patch(
@@ -91,15 +92,41 @@ async def test_always_domain_crop_output_does_not_require_input_crop():
         out, domain, crop_required = await _apply_domain_and_crop_async(
             plan,
             [HumanMessage(content="Which crop should I grow in kharif season?")],
-            crop_prefilled=None,
+            crop_prefilled="Kharif crops",
             config={},
         )
 
     assert domain == "Cultural Practices"
-    assert classifier.await_count == 1
+    classifier.assert_not_awaited()
     assert crop_required is False
     assert out["entities"]["crop"] == "all"
-    assert out["crop_requirement_source"] == "always_domain_crop_output_requested"
+    assert out["crop_requirement_source"] == "deterministic_crop_output_requested"
+
+
+@pytest.mark.asyncio
+async def test_seed_drill_still_requires_named_crop():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Agriculture Mechanization"],
+            rephrased_query="Which seed drill should I buy?",
+        )
+    )
+    with patch(
+        "ajrasakha.agents.planner.is_crop_specific_question",
+        new_callable=AsyncMock,
+        return_value="input_crop_required",
+    ) as classifier:
+        out, domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            [HumanMessage(content="Which seed drill should I buy?")],
+            crop_prefilled=None,
+            config={},
+        )
+
+    assert domain == "Agriculture Mechanization"
+    assert crop_required is True
+    assert out["entities"].get("crop") is None
+    classifier.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -196,7 +223,7 @@ async def test_conditional_domain_classifier_can_mark_crop_not_required():
             config={},
         )
 
-    assert classifier.await_count == 1
+    classifier.assert_awaited_once()
     assert crop_required is False
     assert out["entities"]["crop"] == "all"
     assert out["crop_requirement_source"] == "conditional_llm_not_required"
@@ -276,10 +303,10 @@ async def test_conditional_classifier_can_mark_crop_as_requested_output():
             config={},
         )
 
-    assert classifier.await_count == 1
+    classifier.assert_not_awaited()
     assert crop_required is False
     assert out["entities"]["crop"] == "all"
-    assert out["crop_requirement_source"] == "conditional_llm_crop_output_requested"
+    assert out["crop_requirement_source"] == "deterministic_crop_output_requested"
 
 
 @pytest.mark.asyncio
