@@ -8,6 +8,10 @@ import {CHATBOT_TYPES} from '../types.js';
 import type {
   IChatbotService,
   DashboardResponse,
+  DatasetListResponse,
+  DatasetQuestionListItem,
+  DatasetFeedbackListItem,
+  DatasetUserListItem,
 } from '../interfaces/IChatbotService.js';
 import type {
   IChatbotRepository,
@@ -4276,6 +4280,265 @@ export class ChatbotService extends BaseService implements IChatbotService {
    */
   async getTotalUsersFromDataset(): Promise<number> {
     return this.fetchDataReleaseTotalCount('users');
+  }
+
+  /**
+   * Shared helper to fetch a paginated list from the external data release
+   * service (the dataset application — NOT the internal review system).
+   * Mirrors the DATA_RELEASE_URL/REVIEW_SYSTEM_AUTH_KEY fetch pattern used
+   * by QuestionService.getFeedbacks() and fetchDataReleaseTotalCount()
+   * above. `mapItem` normalizes each raw item from the external service
+   * into the shape this app displays.
+   *
+   * TODO: DATA_RELEASE_URL / REVIEW_SYSTEM_AUTH_KEY are not configured for
+   * this application yet. Real fetch logic is commented out below —
+   * uncomment it (and delete the dummy-data fallback underneath) once the
+   * dataset app's data release service is reachable and the env vars are
+   * set.
+   */
+  private async fetchDataReleaseList<T>(
+    resourcePath: string,
+    page: number,
+    pageSize: number,
+    mapItem: (raw: any) => T,
+    dummyItems: T[],
+  ): Promise<DatasetListResponse<T>> {
+    /*
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+
+    try {
+      const response = await fetch(
+        `${dataReleaseUrl}/${resourcePath}?page=${page}&pageSize=${pageSize}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authKey}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+
+      const res = await response.json() as {
+        data?: any[];
+        total?: number;
+        totalCount?: number;
+        page?: number;
+        limit?: number;
+        totalPages?: number;
+      };
+
+      const data = (Array.isArray(res.data) ? res.data : []).map(mapItem);
+      const total =
+        typeof res.total === 'number'
+          ? res.total
+          : typeof res.totalCount === 'number'
+            ? res.totalCount
+            : data.length;
+
+      return {
+        data,
+        total,
+        page: typeof res.page === 'number' ? res.page : page,
+        pageSize: typeof res.limit === 'number' ? res.limit : pageSize,
+        totalPages:
+          typeof res.totalPages === 'number'
+            ? res.totalPages
+            : Math.ceil(total / pageSize),
+      };
+    } catch (error: any) {
+      console.error(
+        `[ChatbotService] fetchDataReleaseList(${resourcePath}): Failed to call data release service:`,
+        error,
+      );
+      throw new InternalServerError(
+        `Failed to list ${resourcePath}: ` + error.message,
+      );
+    }
+    */
+
+    // Dummy response — external data release API is not configured yet.
+    return {
+      data: dummyItems,
+      total: dummyItems.length,
+      page,
+      pageSize,
+      totalPages: 1,
+    };
+  }
+
+  /** Normalizes a raw dataset-app question record into the display shape. */
+  private mapDatasetQuestionItem(raw: any): DatasetQuestionListItem {
+    return {
+      questionId: String(raw?.id ?? raw?._id?.$oid ?? raw?._id ?? ''),
+      question: raw?.question ?? '',
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  /** Normalizes a raw dataset-app feedback record into the display shape. */
+  private mapDatasetFeedbackItem(raw: any): DatasetFeedbackListItem {
+    return {
+      email: raw?.email ?? raw?.userId?.email ?? '',
+      questionId: String(raw?.questionId?.$oid ?? raw?.questionId ?? ''),
+      rating: raw?.rating != null ? String(raw.rating) : '',
+      tag: raw?.tag ?? raw?.predefinedOption ?? '',
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  /** Normalizes a raw dataset-app user record into the display shape. */
+  private mapDatasetUserItem(raw: any): DatasetUserListItem {
+    return {
+      name:
+        raw?.name ??
+        [raw?.firstName, raw?.lastName].filter(Boolean).join(' ').trim(),
+      email: raw?.email ?? '',
+      phone: raw?.phone ?? raw?.phoneNumber ?? '',
+      age: typeof raw?.age === 'number' ? raw.age : null,
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  // Dummy placeholder pages — external data release API is not configured
+  // yet. Delete these once fetchDataReleaseList's real fetch logic is
+  // uncommented.
+  private readonly DUMMY_DATASET_QUESTIONS: DatasetQuestionListItem[] = [
+    {
+      questionId: 'q_1001',
+      question: 'What is the best fertilizer for wheat crop in Rabi season?',
+      createdAt: '2026-07-20T09:15:00.000Z',
+    },
+    {
+      questionId: 'q_1002',
+      question: 'How to control aphid infestation in mustard?',
+      createdAt: '2026-07-22T11:40:00.000Z',
+    },
+    {
+      questionId: 'q_1003',
+      question: 'What is the ideal spacing for tomato plantation?',
+      createdAt: '2026-07-25T06:05:00.000Z',
+    },
+  ];
+
+  private readonly DUMMY_DATASET_FEEDBACKS: DatasetFeedbackListItem[] = [
+    {
+      email: 'rajesh@example.com',
+      questionId: 'q_1001',
+      rating: '5',
+      tag: 'accurate',
+      createdAt: '2026-07-21T10:00:00.000Z',
+    },
+    {
+      email: 'priya@example.com',
+      questionId: 'q_1002',
+      rating: '3',
+      tag: 'incomplete',
+      createdAt: '2026-07-23T14:30:00.000Z',
+    },
+    {
+      email: 'amit@example.com',
+      questionId: 'q_1003',
+      rating: '4',
+      tag: 'helpful',
+      createdAt: '2026-07-26T08:20:00.000Z',
+    },
+  ];
+
+  private readonly DUMMY_DATASET_USERS: DatasetUserListItem[] = [
+    {
+      name: 'Rajesh Kumar',
+      email: 'rajesh@example.com',
+      phone: '+919812345670',
+      age: 34,
+      createdAt: '2026-06-10T05:45:00.000Z',
+    },
+    {
+      name: 'Priya Sharma',
+      email: 'priya@example.com',
+      phone: '+919812345671',
+      age: 29,
+      createdAt: '2026-06-15T07:10:00.000Z',
+    },
+    {
+      name: 'Amit Patel',
+      email: 'amit@example.com',
+      phone: '+919812345672',
+      age: 41,
+      createdAt: '2026-06-18T12:00:00.000Z',
+    },
+  ];
+
+  /**
+   * Paginated list of questions in the dataset application (external data
+   * release service).
+   */
+  async listQuestionsFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetQuestionListItem>> {
+    return this.fetchDataReleaseList(
+      'questions',
+      page,
+      pageSize,
+      this.mapDatasetQuestionItem,
+      this.DUMMY_DATASET_QUESTIONS,
+    );
+  }
+
+  /**
+   * Paginated list of feedbacks in the dataset application (external data
+   * release service).
+   */
+  async listFeedbacksFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetFeedbackListItem>> {
+    return this.fetchDataReleaseList(
+      'feedbacks',
+      page,
+      pageSize,
+      this.mapDatasetFeedbackItem,
+      this.DUMMY_DATASET_FEEDBACKS,
+    );
+  }
+
+  /**
+   * Paginated list of users in the dataset application (external data
+   * release service).
+   */
+  async listUsersFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetUserListItem>> {
+    return this.fetchDataReleaseList(
+      'users',
+      page,
+      pageSize,
+      this.mapDatasetUserItem,
+      this.DUMMY_DATASET_USERS,
+    );
   }
 }
 
