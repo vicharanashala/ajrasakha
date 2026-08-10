@@ -4381,20 +4381,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  /**
-   * Shared helper to fetch a total count from the external data release
-   * service (the dataset application — NOT the internal review system).
-   * Mirrors the DATA_RELEASE_URL/REVIEW_SYSTEM_AUTH_KEY fetch pattern used
-   * by QuestionService.getFeedbacks(). Requests `page=1&pageSize=1` so
-   * only the pagination metadata (`total`) needs to be read from the
-   * response; the actual page of results is discarded.
-   *
-   * NOTE: `resourcePath` assumes the data release service exposes
-   * unscoped list endpoints named `questions`, `feedbacks`, and `users`.
-   * Verify/adjust these paths against the actual data release API
-   * contract if they don't resolve.
-   */
   private async fetchDataReleaseTotalCount(resourcePath: string): Promise<number> {
+    // TODO: DATA_RELEASE_URL / REVIEW_SYSTEM_AUTH_KEY are not configured for
+    // this application yet. Real fetch logic is commented out below —
+    // uncomment it (and delete the dummy block underneath) once the dataset
+    // app's data release service is reachable and the env vars are set.
+    /*
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
 
@@ -4443,6 +4435,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
         `Failed to get total count for ${resourcePath}: ` + error.message,
       );
     }
+    */
+
+    // Dummy response — external data release API is not configured yet.
+    const DUMMY_TOTALS: Record<string, number> = {
+      questions: 1240,
+      feedbacks: 356,
+      users: 812,
+    };
+    return DUMMY_TOTALS[resourcePath] ?? 0;
   }
 
   /**

@@ -2431,8 +2431,7 @@ export class ChatbotController {
     )
   }
 
-  // Dataset Application Totals (external data release service — NOT the
-  // internal review system)
+  // Dataset Application Totals (external data release service)
   @OpenAPI({ summary: 'Get total number of questions in the dataset application' })
   @Get('/dataset/total-questions')
   @HttpCode(200)
