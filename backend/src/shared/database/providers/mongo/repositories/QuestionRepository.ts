@@ -8205,7 +8205,13 @@ export class QuestionRepository implements IQuestionRepository {
     requireAutoAllocate = false,
   ): Promise<IQuestion[]> {
     await this.init();
-    const filter: Record<string, unknown> = { 'feedbacks.status': 'open' };
+    // Feedback questions are CLOSED questions that later received feedback (an open
+    // feedback entry). The in-review pool is handled separately by
+    // findUnassignedInReviewQuestions (autoAllocateModerator), so scope this to closed.
+    const filter: Record<string, unknown> = {
+      status: 'closed',
+      'feedbacks.status': 'open',
+    };
     if (requireAutoAllocate) {
       // Only questions with feedback auto-allocation EXPLICITLY true. A missing or
       // false field means OFF (same convention as autoAllocateModerator).

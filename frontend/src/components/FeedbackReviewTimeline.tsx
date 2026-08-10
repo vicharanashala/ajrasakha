@@ -54,7 +54,9 @@ export const FeedbackReviewTimeline = ({
     enabled: !!questionId,
   });
   const timeline = data?.data;
-  const autoOn = timeline?.autoAllocateFeedback !== false;
+  // Auto-allocation is ON only when explicitly true; a missing/false field = OFF
+  // (matches the backend strict rule).
+  const autoOn = timeline?.autoAllocateFeedback === true;
   const hasOpenRound = !!timeline?.reviews.some((r) => !r.finishedAt);
 
   const [isModalOpen, setIsModalOpen] = useState(false);

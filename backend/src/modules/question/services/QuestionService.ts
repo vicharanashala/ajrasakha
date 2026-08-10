@@ -9500,7 +9500,7 @@ if (filters.endDate) {
     );
     const feedbacks = ((question as any)?.feedbacks ?? []) as any[];
     return {
-      autoAllocateFeedback: (question as any)?.autoAllocateFeedback !== false,
+      autoAllocateFeedback: (question as any)?.autoAllocateFeedback === true,
       hasOpenFeedback:
         Array.isArray(feedbacks) && feedbacks.some(f => f?.status === 'open'),
       reviews: rounds
