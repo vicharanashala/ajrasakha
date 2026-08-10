@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { TopRightBadge } from "@/components/NewBadge";
-import { BookOpen, FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound } from "lucide-react";
+import { BookOpen, FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound, MessageSquareDiff } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export const MODES = [
@@ -12,7 +12,7 @@ export const MODES = [
     { id: "pae", label: "PAE", icon: UserCheck },
     { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
     { id: "training", label: "Training", icon: BookOpen },
-    // { id: "dynamic", label: "Dynamic", icon: Zap },
+    { id: "dynamic", label: "Dynamic", icon: Sparkles },
 ] as const
 
 const MODE_DESCRIPTIONS: Record<string, string> = {
@@ -47,6 +47,8 @@ const SOURCE_TO_MODE: Record<string, string> = {
     OUTREACH: "outreach",
 };
 
+export type DedicatedSubTab = "questions" | "feedbacks";
+
 export function AnswerModeSwitcher({
     answerMode,
     handleAnswerModeChange,
@@ -58,6 +60,8 @@ export function AnswerModeSwitcher({
     showDedicated = false,
     isDedicatedView = false,
     onDedicatedClick,
+    dedicatedSubTab,
+    onDedicatedSubTabChange,
 }: {
     answerMode: Mode;
     handleAnswerModeChange: (mode: Mode) => void;
@@ -72,6 +76,10 @@ export function AnswerModeSwitcher({
     isDedicatedView?: boolean;
     /** Called when the dedicated tab is clicked */
     onDedicatedClick?: () => void;
+    /** Current sub-tab in dedicated view (questions or feedbacks) - controlled by parent */
+    dedicatedSubTab?: DedicatedSubTab;
+    /** Called when the dedicated sub-tab changes - controlled by parent */
+    onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
 }) {
     const groupRef = useRef<HTMLDivElement>(null);
     const [glider, setGlider] = useState({ left: 0, width: 0 });
@@ -184,6 +192,7 @@ export function AnswerModeSwitcher({
                             Questions assigned to you
                         </TooltipContent>
                     </Tooltip>
+
                 </>
             )}
         </div>

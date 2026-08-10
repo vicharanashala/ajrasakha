@@ -92,6 +92,13 @@ export interface IQuestionRepository {
   ): Promise<IQuestion>;
 
   /**
+   * Retrieves questions by their IDs.
+   * @param ids - Array of question ObjectIds to fetch.
+   * @returns A promise that resolves to an array of questions.
+   */
+  findByIds(ids: ObjectId[]): Promise<IQuestion[]>;
+
+  /**
    * Retrieves all questions for a specific context.
    * @param contextId - The ID of the context.
    * @param session - Optional MongoDB client session for transactions.
@@ -635,6 +642,7 @@ export interface IQuestionRepository {
 
   findUnassignedInReviewQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
   findModeratorAssignedQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
+  findQuestionsWithOpenFeedbacks(): Promise<IQuestion[]>;
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 
   /** Gate-keeper / auditor role allocation helpers. */
@@ -678,4 +686,9 @@ export interface IQuestionRepository {
     finishedAt: Date,
     session?: ClientSession,
   ): Promise<void>;
+
+  addOrUpdateFeedbackStatus(
+    questionId: string,
+    source: "DATASET" | "WEB_APPLICATION",
+  ): Promise<number>;
 }

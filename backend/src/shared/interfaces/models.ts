@@ -75,6 +75,9 @@ export interface IUser {
    *  re-routed (handed to an expert) stay for history but do not block new work. */
   assignedQuestionIds?: IAssignedQuestion[] | null;
   isTrainingUser?: boolean;
+  /** Questions assigned to this user for feedback (auditor/moderator only).
+   *  Contains question IDs that need feedback review. */
+  feedbacksAssigned?: (string | ObjectId)[] | null;
 }
 
 export interface IUserRoleHistory {
@@ -227,10 +230,16 @@ export interface IQuestion {
   toolsUsed?: string[];
   passedBy?: ObjectId | string | null;
   isTrainingQuestion?: boolean;
+  feedbacks?: {
+    source?: string;
+    status?: string;
+  }[] | null;
   /** Set when a moderator cancels a duplicate flag and reopens the question. The
    *  cancel reason and timestamp are recorded in the audit trail, not on the question. */
   isDuplicateCancelled?: boolean;
   isDelayed?: boolean;
+  /** Flag to indicate this question is from the user's feedbacksAssigned array (feedback tab) */
+  isFeedbackQuestion?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -337,6 +346,15 @@ export interface ISubmissionHistory {
   updatedAt: Date;
 }
 
+/** One feedback-review round on a question — assigned to a reviewer, later finished. */
+export interface IFeedbackReview {
+  reviewerId: string | ObjectId;
+  assignedAt: Date;
+  /** Null/absent while the round is still open (in progress). */
+  finishedAt?: Date | null;
+  closedFeedbacks?: { feedbackId: string; closedAt: Date }[];
+}
+
 export interface IQuestionSubmission {
   _id?: string | ObjectId;
   questionId: string | ObjectId;
@@ -352,6 +370,19 @@ export interface IQuestionSubmission {
    *  Set on initial allocation and reset on every reallocation.
    *  Used to compute the 45-minute reallocation window for time-bound questions. */
   currentExpertAllocatedAt?: Date | null;
+  /**
+   * Feedback-review rounds for this question. A question can receive feedback
+   * multiple times; each round is one entry with its reviewer and timestamps. A
+   * round is "open" while `finishedAt` is null/absent — the allocator assigns a
+   * new round only when none is open.
+   */
+  feedbackReviews?: IFeedbackReview[] | null;
+  /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
+  // feedbackReviewAssignedAt?: Date | null;
+  // /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
+  // feedbackReviewFinishedAt?: Date | null;
+  // /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
+  // feedbackReviewerId?: string | ObjectId | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -250,7 +250,10 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
-  async sendCronSnapshotEmail(currentUserId: string) {
+  async sendCronSnapshotEmail(
+    currentUserId: string,
+    range?: { startDate?: string; endDate?: string },
+  ) {
     return await this._withTransaction(async (session) => {
       const user = await this.userRepo.findById(currentUserId, session);
 
@@ -263,7 +266,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
         throw new Error("Target admin user does not have an email address defined.");
       }
 
-      await sendStatsEmail(user.email);
+      await sendStatsEmail(user.email, range);
     });
   }
 

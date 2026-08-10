@@ -62,6 +62,8 @@ import {
   QueueSectionName,
   QueueSectionResult,
   RawQueueQuestionRow,
+  FeedbackResponse,
+  FeedbackData,
 } from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
@@ -104,6 +106,8 @@ let isReallocatingTimeBound = false;
 
 /** Same guard as above, for the manual (AGRI_EXPERT/OUTREACH) single-allocation cron. */
 let isReallocatingManual = false;
+
+let isReallocatingFeedback = false;
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -449,7 +453,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
-  ): Promise<{ questions: IQuestion[]; totalPages: number }> {
+  ): Promise<{ questions: IQuestion[]; totalPages: number; feedbackQuestions?: IQuestion[] }> {
     let searchEmbedding: number[] | null = null;
 
     if (query?.search) {
@@ -467,13 +471,45 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
     }
 
-    return this.questionRepo.findDetailedQuestions(
+    const result = await this.questionRepo.findDetailedQuestions(
       {
         ...query,
         searchEmbedding,
       },
       body,
     );
+
+    // Check if this is a dedicated view (moderator/gatekeeper/auditor assigned questions)
+    const { moderatorId, gateKeeperId, auditorId } = query;
+    const assignedUserId = moderatorId || gateKeeperId || auditorId;
+    if (assignedUserId) {
+      try {
+        const user = await this.userRepo.findById(assignedUserId);
+        const feedbacksAssigned = user?.feedbacksAssigned;
+        if (feedbacksAssigned && feedbacksAssigned.length > 0) {
+          // Fetch the feedback questions
+          const feedbackQuestionIds = feedbacksAssigned.map(id => {
+            if (typeof id === 'string') return new ObjectId(id);
+            return id;
+          });
+
+          const feedbackQuestions = await this.questionRepo.findByIds(feedbackQuestionIds);
+          const feedbackQuestionsWithFlag = feedbackQuestions.map(q => ({
+            ...q,
+            isFeedbackQuestion: true,
+          }));
+
+          return {
+            ...result,
+            feedbackQuestions: feedbackQuestionsWithFlag,
+          };
+        }
+      } catch (err) {
+        console.error('Error fetching feedback questions:', err);
+      }
+    }
+
+    return result;
   }
 
   async getQuestionFromRawContext(
@@ -898,404 +934,6 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
 
-  /*async addQuestion(
-    userId: string,
-    body: AddQuestionBodyDto,
-  ): Promise<Partial<IQuestion>> {
-    try {
-      return this._withTransaction(async (session: ClientSession) => {
-        body = normalizeKeysToLower(body);
-        let {
-          question,
-          priority,
-          source = 'AGRI_EXPERT',
-          details,
-          context,
-        } = body;
-
-        if (!details) {
-          const b: any = body;
-
-          details = {
-            state: b?.state || '',
-            district: b?.district || '',
-            crop: b?.crop || '',
-            season: b?.season || '',
-            domain: b?.domain || '',
-          };
-        }
-
-        let priorities = ['low', 'high', 'medium,'];
-        priority = priority.toLowerCase() as IQuestion['priority'];
-        if (!priorities.includes(priority)) {
-          priority = 'medium';
-        }
-        if (!question || question.trim() == '') {
-          throw new BadRequestError(`Question is required`);
-        }
-        if (
-          !details.crop ||
-          !details.district ||
-          !details.domain ||
-          !details.season ||
-          !details.state
-        ) {
-          throw new BadRequestError(`All fields are required`);
-        }
-        // Prevent duplicate questoin entry
-        const isQuestionExisit =
-          await this.questionRepo.getQuestionByQuestionText(
-            body?.question || '',
-            session,
-          );
-
-        // if (isQuestionExisit)
-        //   throw new BadRequestError(
-        //     `This question already exsist in database, try adding new one!`,
-        //   );
-
-        // 1. If context is provided, create context first and get contextId
-        let contextId: ObjectId | null = null;
-
-        if (context) {
-          //i) Create Context entry
-          const {insertedId} = await this.contextRepo.addContext(
-            context,
-            session,
-          );
-          //ii) convert insertedId to ObjectId
-          contextId = new ObjectId(insertedId);
-        }
-
-        // 2. Create Embedding for the question based on text
-        const text = `Question: ${question}`;
-
-        let textEmbedding = [];
-        const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
-
-        if (ENABLE_AI_SERVER) {
-          const {embedding} = await this.aiService.getEmbedding(text);
-          textEmbedding = embedding;
-        }
-
-        // 3. Create Question entry
-        const newQuestion: IQuestion = {
-          userId: userId && userId.trim() !== '' ? new ObjectId(userId) : null,
-          question,
-          priority,
-          source,
-          status: 'open',
-          totalAnswersCount: 0,
-          contextId,
-          details,
-          isAutoAllocate: true,
-          embedding: textEmbedding,
-          metrics: null,
-          aiInitialAnswer: body.aiInitialAnswer || '',
-          text,
-          createdAt: new Date(),
-
-          // createdAt: body.createdAt ? new Date(body.createdAt) : new Date(),
-          updatedAt: new Date(),
-        };
-        // 4. Save Question to DB
-        const savedQuestion = await this.questionRepo.addQuestion(
-          newQuestion,
-          session,
-        );
-
-        // 5. Fetch userId based on provided preference and create queue
-        // i) Find users matching the preference
-        const users = await this.userRepo.findExpertsByPreference(
-          details as PreferenceDto,
-          session,
-        );
-
-        // ii) Create queue from the users found
-        const intialUsersToAllocate = users.slice(0, 3);
-
-        const queue = intialUsersToAllocate // Limit to first 3 experts
-          .map(user => new ObjectId(user._id.toString()));
-
-        // for (const user of intialUsersToAllocate) {
-        //   const IS_INCREMENT = true;
-        //   const userId = user._id.toString();
-        //   await this.userRepo.updateReputationScore(
-        //     userId,
-        //     IS_INCREMENT,
-        //     session,
-        //   );
-        // }
-        if (intialUsersToAllocate) {
-          const IS_INCREMENT = true;
-          const userId = intialUsersToAllocate[0]._id.toString();
-          await this.userRepo.updateReputationScore(
-            userId,
-            IS_INCREMENT,
-            session,
-          );
-        }
-        // 6. Create an empty QuestionSubmission entry for the newly created question
-        const submissionData: IQuestionSubmission = {
-          questionId: new ObjectId(savedQuestion._id.toString()),
-          lastRespondedBy: null,
-          history: [],
-          queue,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        // 6. Save QuestionSubmission to DB
-        await this.questionSubmissionRepo.addSubmission(
-          submissionData,
-          session,
-        );
-
-        //send notification to the first assigned expert
-        if (intialUsersToAllocate[0]) {
-          let message = `A Question has been assigned for answering`;
-          let title = 'Answer Creation Assigned';
-          let entityId = savedQuestion._id.toString();
-          const user = intialUsersToAllocate[0]._id.toString();
-          const type: INotificationType = 'answer_creation';
-          await this.notificationService.saveTheNotifications(
-            message,
-            title,
-            entityId,
-            user,
-            type,
-          );
-        }
-        // 7. Return the saved question
-        return newQuestion;
-      });
-    } catch (error) {
-      console.error(error);
-      throw new InternalServerError(`Failed to add question: ${error}`);
-    }
-  }*/
-
-  /*async addQuestion(
-    userId: string,
-    body: AddQuestionBodyDto,
-  ): Promise<AddQuestionResult> {
-    const logData: Record<string, any> = {};
-    try {
-      body = normalizeKeysToLower(body);
-  
-      let {
-        question,
-        priority,
-        source = 'AGRI_EXPERT',
-        details,
-        context,
-      } = body;
-  
-      if (!details) {
-        const b: any = body;
-        details = {
-          state: b?.state || '',
-          district: b?.district || '',
-          crop: b?.crop || '',
-          season: b?.season || '',
-          domain: b?.domain || '',
-        };
-      }
-  
-      const validPriorities = ['low', 'medium', 'high'];
-      priority = priority?.toLowerCase() as IQuestion['priority'];
-      if (!validPriorities.includes(priority)) {
-        priority = 'medium';
-      }
-  
-      if (!question?.trim()) {
-        throw new BadRequestError(`Question is required`);
-      }
-  
-      if (
-        !details.crop ||
-        !details.district ||
-        !details.domain ||
-        !details.season ||
-        !details.state
-      ) {
-        throw new BadRequestError(`All fields are required`);
-      }
-
-      logData.userId = userId;
-      logData.question = question;
-      logData.details = details;
-      logData.source = source;
-
-      // 🔹 Create Embedding — OUTSIDE transaction
-      const text = `Question: ${question}`;
-      let textEmbedding: number[] = [];
-
-
-      if (appConfig.ENABLE_AI_SERVER) {
-        const { embedding } = await this.aiService.getEmbedding(text);
-        textEmbedding = embedding;
-      }
-
-      logData.embeddingGenerated = textEmbedding.length > 0;
-      logData.vectorLength = textEmbedding.length;
-
-      // 🔥 Similarity Check — OUTSIDE transaction ($vectorSearch cannot run inside one)
-      let highestScore = 0;
-      let referenceQuestionId: ObjectId | null = null;
-      let referenceQuestion=''
-      
-      if (textEmbedding.length && source === 'AJRASAKHA') {
-        // No session passed here intentionally
-        const topSimilar = await this.questionRepo.findTopSimilarQuestions(
-          textEmbedding,
-          5,
-          { state: details.state, district: details.district, crop: typeof details.crop === 'string' ? details.crop : details.crop.name, domain: details.domain, season: details.season },
-        );
-
-        logData.totalMatches = topSimilar.length;
-        logData.matches = topSimilar.map((q) => ({
-          questionId: q._id,
-          question: q.question,
-          similarityScore: ((q._vectorSearchScore ?? 0) * 100).toFixed(2),
-        }));
-
-        if (topSimilar.length > 0) {
-          const best = topSimilar[0];
-          highestScore = (best._vectorSearchScore ?? 0) * 100;
-          referenceQuestionId = best._id as ObjectId;
-          referenceQuestion=best.question
-          logData.vectorLength = textEmbedding.length;
-          logData.referenceQuestionId = referenceQuestionId;
-        }
-
-      }
-
-      logData.highestScore = highestScore.toFixed(2);
-      logData.threshold = 85;      
-
-      // ✅ Everything that needs atomicity goes inside the transaction
-      return this._withTransaction(async (session: ClientSession) => {
-        // 🔹 Create Context
-        let contextId: ObjectId | null = null;
-
-        if (context) {
-          const { insertedId } = await this.contextRepo.addContext(context, session);
-          contextId = new ObjectId(insertedId);
-        }
-
-        // 🔹 Create Base Question Object
-        const baseQuestion: IQuestion = {
-          userId: userId?.trim() !== '' ? new ObjectId(userId) : null,
-          question,
-          priority,
-          source,
-          status: 'open',
-          totalAnswersCount: 0,
-          contextId,
-          details,
-          isAutoAllocate: true,
-          embedding: textEmbedding,
-          metrics: null,
-          aiInitialAnswer: body.aiInitialAnswer || '',
-          text,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-  
-        // =====================================================
-        // 🔥 IF SIMILAR → STORE AS DUPLICATE
-        // =====================================================
-        if (highestScore >= 85 && referenceQuestionId && referenceQuestion) {
-          const duplicateQuestion = {
-            ...baseQuestion,
-            similarityScore: Number(highestScore.toFixed(2)),
-            referenceQuestionId,
-            referenceQuestion
-          };
-          await this.duplicateQuestionRepository.addDuplicate(
-            duplicateQuestion,
-            session,
-          );
-  
-          logData.outcome = 'DUPLICATE_DETECTED';
-          logData.matchedQuestion = referenceQuestion;
-          logData.similarityScore = highestScore.toFixed(2);
-          chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
-
-          return { isDuplicate: true, data: duplicateQuestion };
-        }
-  
-        // =====================================================
-        // 🔥 IF NOT SIMILAR → NORMAL FLOW
-        // =====================================================
-    
-        logData.outcome = 'NEW_QUESTION_ADDED';
-        chatbotSimilarityLogger.info('ADD_QUESTION_LOG', logData);
-
-        const savedQuestion = await this.questionRepo.addQuestion(
-          baseQuestion,
-          session,
-        );
-  
-        if (!savedQuestion?._id) {
-          throw new InternalServerError(`Failed to save question to database`);
-        }
-  
-        const users = await this.userRepo.findExpertsByPreference(
-          details as PreferenceDto,
-          session,
-        );
-  
-        const initialUsersToAllocate = users.slice(0, 3);
-  
-        const queue = initialUsersToAllocate.map(
-          (user) => new ObjectId(user._id.toString()),
-        );
-  
-        if (initialUsersToAllocate[0]) {
-          await this.userRepo.updateReputationScore(
-            initialUsersToAllocate[0]._id.toString(),
-            true,
-            session,
-          );
-        }
-  
-        const submissionData: IQuestionSubmission = {
-          questionId: new ObjectId(savedQuestion._id.toString()),
-          lastRespondedBy: null,
-          history: [],
-          queue,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-  
-        await this.questionSubmissionRepo.addSubmission(submissionData, session);
-  
-        if (initialUsersToAllocate[0]) {
-          await this.notificationService.saveTheNotifications(
-            `A Question has been assigned for answering`,
-            'Answer Creation Assigned',
-            savedQuestion._id.toString(),
-            initialUsersToAllocate[0]._id.toString(),
-            'answer_creation',
-          );
-        }
-  
-        return { isDuplicate: false, data: baseQuestion };
-      });
-    } catch (error) {
-      console.error(error);
-
-      logData.outcome = 'FAILED';
-      logData.errorMessage = error.message;
-      logData.stack = error.stack;
-      chatbotSimilarityLogger.error('ADD_QUESTION_LOG', logData);
-            
-      throw new InternalServerError(`Failed to add question: ${error}`);
-    }
-  }*/
-
   // Reusable duplicate detection helper.
 
   async checkDuplicateQuestion(
@@ -1351,7 +989,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Get submission to check queue length
       const questionSubmission = await this.questionSubmissionRepo.getByQuestionId(questionId);
       const queueLength = questionSubmission?.queue?.length || 0;
-      
+
       // Only flip the status to 'duplicate' when the question is still open/delayed.
       // For any other status (in-review, closed, etc.) the workflow is already past
       // that point, so the status must not change — we just record the reference.
@@ -2151,6 +1789,95 @@ export class QuestionService extends BaseService implements IQuestionService {
     return resolved.name;
   }
 
+  async ensureNormalisedLocation(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<{ valid: true }> {
+    const question = await this.questionRepo.getById(questionId, session);
+    const rawState = question.details?.state?.trim() ?? '';
+    const rawDistrict = question.details?.district?.trim() ?? '';
+
+    // ── State validation ──────────────────────────────────────────────────────
+    if (rawState) {
+      const statesCollection = await this.mongoDatabase.getCollection<{
+        stateNameEnglish: string;
+        aliases?: string[];
+      }>('states');
+
+      // Build a map: lowercase alias → canonical stateNameEnglish
+      const allStates = await statesCollection.find({}).toArray();
+      const aliasToState = new Map<string, string>();
+      for (const s of allStates) {
+        const canonical = s.stateNameEnglish;
+        // Map the canonical name itself (case-insensitive)
+        aliasToState.set(canonical.toLowerCase(), canonical);
+        // Map each alias
+        for (const alias of s.aliases ?? []) {
+          aliasToState.set(alias.toLowerCase(), canonical);
+        }
+      }
+
+      const stateKey = rawState.toLowerCase();
+      const normalisedState = aliasToState.get(stateKey);
+
+      if (!normalisedState) {
+        throw new BadRequestError(
+          `This question's state "${rawState}" is not registered in the system. Please add the correct state from the LGD Management section before approving this answer.`,
+        );
+      }
+
+      // Update if the canonical name differs from the raw value
+      if (normalisedState !== rawState) {
+        await this.questionRepo.updateQuestion(
+          questionId,
+          { 'details.state': normalisedState } as any,
+          session,
+        );
+      }
+    }
+
+    // ── District validation ───────────────────────────────────────────────────
+    if (rawDistrict) {
+      const districtsCollection = await this.mongoDatabase.getCollection<{
+        districtNameEnglish: string;
+        aliases?: string[];
+      }>('districts');
+
+      // Build a map: lowercase alias → canonical districtNameEnglish
+      const allDistricts = await districtsCollection.find({}).toArray();
+      const aliasToDistrict = new Map<string, string>();
+      for (const d of allDistricts) {
+        const canonical = d.districtNameEnglish;
+        // Map the canonical name itself (case-insensitive)
+        aliasToDistrict.set(canonical.toLowerCase(), canonical);
+        // Map each alias
+        for (const alias of d.aliases ?? []) {
+          aliasToDistrict.set(alias.toLowerCase(), canonical);
+        }
+      }
+
+      const districtKey = rawDistrict.toLowerCase();
+      const normalisedDistrict = aliasToDistrict.get(districtKey);
+
+      if (!normalisedDistrict) {
+        throw new BadRequestError(
+          `This question's district "${rawDistrict}" is not registered in the system. Please add the correct district from the LGD Management section before approving this answer.`,
+        );
+      }
+
+      // Update if the canonical name differs from the raw value
+      if (normalisedDistrict !== rawDistrict) {
+        await this.questionRepo.updateQuestion(
+          questionId,
+          { 'details.district': normalisedDistrict } as any,
+          session,
+        );
+      }
+    }
+
+    return { valid: true };
+  }
+
   async getQuestionById(questionId: string): Promise<QuestionResponse> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
@@ -2319,6 +2046,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // so the cron sees them as available again. Keyed by questionId so a
         // malformed/missing moderatorId can't leave an orphan entry behind.
         if (updates.status === 'pass') {
+          await this.ensureNormalisedLocation(questionId, session);
           // Check for pending allocations before allowing pass
           const questionSubmission =
             await this.questionSubmissionRepo.getByQuestionId(
@@ -5754,6 +5482,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (filters.status === 'pae_closed') {
           query.status = 'closed';
           query.pae_review = true;
+        } else if (filters.status === 'closed') {
+          // When filtering by 'closed', include dynamic_closed and duplicate_closed as well
+          query.status = { $in: ['closed', 'dynamic_closed', 'duplicate_closed'] };
         } else {
           query.status = filters.status;
         }
@@ -5764,21 +5495,76 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filters.hiddenQuestions === 'true') {
         query.isHidden = { $eq: true };
       }
+      // if (filters.startDate || filters.endDate) {
+      //   // For closed statuses, use closedAt field instead of createdAt
+      //   const isClosedStatus =
+      //     filters.status === 'closed' || filters.status === 'pae_closed' || filters.status === 'dynamic_closed' || filters.status === 'duplicate_closed';
+        
+      //   const dateField = isClosedStatus ? 'closedAt' : 'createdAt';
+      //   query[dateField] = {};
+        
+      //   if (filters.startDate) {
+      //     // Parse date string and set to start of day in IST (00:00:00 IST)
+      //     // IST is UTC+5:30, so 00:00 IST = previous day 18:30 UTC
+      //     const [year, month, day] = filters.startDate.split('-').map(Number);
+      //     // Create date in local time (IST) and convert to UTC
+      //     const startIST = new Date(year, month - 1, day, 0, 0, 0, 0);
+      //     // Subtract 5 hours 30 minutes to get UTC
+      //     const startUTC = new Date(startIST.getTime() - (5 * 60 + 30) * 60 * 1000);
+      //     query[dateField].$gte = startUTC;
+      //   }
+      //   if (filters.endDate) {
+      //     // Parse date string and set to end of day in IST (23:59:59.999 IST)
+      //     // IST is UTC+5:30, so 23:59:59 IST = same day 18:29:59 UTC
+      //     const [year, month, day] = filters.endDate.split('-').map(Number);
+      //     // Create date in local time (IST) and convert to UTC
+      //     const endIST = new Date(year, month - 1, day, 23, 59, 59, 999);
+      //     // Subtract 5 hours 30 minutes to get UTC
+      //     const endUTC = new Date(endIST.getTime() - (5 * 60 + 30) * 60 * 1000);
+      //     query[dateField].$lte = endUTC;
+      //   }
+      // }
+
       if (filters.startDate || filters.endDate) {
-        query.createdAt = {};
-        if (filters.startDate) {
-          query.createdAt.$gte = new Date(filters.startDate);
-        }
-        if (filters.endDate) {
-          const end = new Date(filters.endDate);
-          end.setHours(23, 59, 59, 999);
-          query.createdAt.$lte = end;
-        }
-      }
+  // For closed statuses, filter using closedAt.
+  // Date boundaries are based on IST:
+  // 00:00 IST = previous day 18:30 UTC
+  const isClosedStatus =
+    filters.status === 'closed' ||
+    filters.status === 'pae_closed' ||
+    filters.status === 'dynamic_closed' ||
+    filters.status === 'duplicate_closed';
+
+  const dateField = isClosedStatus ? 'closedAt' : 'createdAt';
+
+  query[dateField] = {};
+
+  if (filters.startDate) {
+  const [year, month, day] = filters.startDate.split('-').map(Number);
+
+  const startUTC = new Date(
+    Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) -
+      (5 * 60 + 30) * 60 * 1000
+  );
+
+  query[dateField].$gte = startUTC;
+}
+
+if (filters.endDate) {
+  const [year, month, day] = filters.endDate.split('-').map(Number);
+
+  const endUTC = new Date(
+    Date.UTC(year, month - 1, day + 2, 0, 0, 0, 0) -
+      (5 * 60 + 30) * 60 * 1000
+  );
+
+  query[dateField].$lt = endUTC;
+}
+}
 
       // Check if this is a closed status report - if so, limit to 50 questions
       const isClosedStatus =
-        filters.status === 'closed' || filters.status === 'pae_closed';
+        filters.status === 'closed' || filters.status === 'pae_closed' || filters.status === 'dynamic_closed' || filters.status === "duplicate_closed";
       // `moderator` is a comma-separated list of moderator (approvedBy) ids.
       const moderatorIds =
         filters.moderator && filters.moderator !== 'all'
@@ -7121,13 +6907,20 @@ export class QuestionService extends BaseService implements IQuestionService {
               userId,
               session,
             );
-            await this.userRepo.addAssignedQuestion(
+            const added = await this.userRepo.addAssignedQuestion(
               userId,
               questionId,
               next.status,
               next.source,
               session,
             );
+            // For auditors, addAssignedQuestion refuses (returns false) if the user
+            // picked up a feedback-review in the race between the availability query
+            // and this write. Throw to abort the transaction (rolls back setRoleAssignee)
+            // so we never leave the question assigned to an auditor who holds both.
+            if (!added) {
+              throw new Error('ASSIGNEE_NO_LONGER_FREE');
+            }
             await this.notificationService.saveTheNotifications(
               cfg.notificationMessage,
               cfg.notificationTitle,
@@ -8456,7 +8249,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Map a full question doc through the submission mapper (wraps it as `.question`).
         return {
           count,
-          items: pageQs.map(q => this.submissionToQueueItem({ question: q })),
+          items: pageQs.map(q => this.submissionToQueueItem({question: q})),
         };
       }
 
@@ -8657,6 +8450,70 @@ export class QuestionService extends BaseService implements IQuestionService {
         return {count: users.length, items};
       }
 
+      // ── Feedback-review queue ──
+      case 'feedbackAllocated': {
+        // One row per open feedback-review round (reviewer + question).
+        const open = await this.questionSubmissionRepo.findOpenFeedbackReviews();
+        const count = open.length;
+        const page = open.slice(skip, skip + safeLimit);
+        const questions = await this.questionRepo.findByIds(
+          page
+            .map(o => o.questionId)
+            .filter(Boolean)
+            .map(id => new ObjectId(id)),
+        );
+        const qById = new Map(
+          questions.map(q => [q._id?.toString(), q]),
+        );
+        const reviewers = await this.resolveExpertMeta(
+          page.map(o => o.reviewerId).filter(Boolean),
+        );
+        const items: QueueQuestionItem[] = page.map(o => ({
+          ...this.submissionToQueueItem({question: qById.get(o.questionId)}),
+          assigneeName: reviewers.get(o.reviewerId)?.name ?? 'Unknown',
+          isTrainingUser: reviewers.get(o.reviewerId)?.isTrainingUser === true,
+        }));
+        return {count, items};
+      }
+
+      case 'feedbackWaiting': {
+        // Questions with an open feedback minus the ones already assigned a reviewer.
+        const [openQs, openReviews] = await Promise.all([
+          this.questionRepo.findQuestionsWithOpenFeedbacks(),
+          this.questionSubmissionRepo.findOpenFeedbackReviews(),
+        ]);
+        const allocatedIds = new Set(openReviews.map(o => o.questionId));
+        const waitingQs = openQs.filter(
+          q => !allocatedIds.has(q._id?.toString()),
+        );
+        const count = waitingQs.length;
+        const pageQs = waitingQs.slice(skip, skip + safeLimit);
+        return {
+          count,
+          items: pageQs.map(q => this.submissionToQueueItem({question: q})),
+        };
+      }
+
+      case 'availableFeedbackReviewers': {
+        const users =
+          (await this.userRepo.findAvailableFeedbackReviewers()) as any[];
+        const items: QueueExpertItem[] = users
+          .slice(skip, skip + safeLimit)
+          .map(u => ({
+            _id: u._id.toString(),
+            name:
+              `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+              u.email ||
+              'Unknown',
+            email: u.email,
+            reputationScore: u.reputation_score,
+            role: u.role,
+            isSpecialTaskForce: u.special_task_force === true,
+            isTrainingUser: u.isTrainingUser === true,
+          }));
+        return {count: users.length, items};
+      }
+
       default:
         return { count: 0, items: [] };
     }
@@ -8725,6 +8582,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       auditorWaiting,
       auditorAllocated,
       availableAuditors,
+      feedbackWaiting,
+      feedbackAllocated,
+      availableFeedbackReviewers,
       receivedStatusCounts,
       // Manual expert-queue sections (AGRI_EXPERT/OUTREACH single-allocation)
       receivedManual,
@@ -8765,6 +8625,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       safe('auditorWaiting'),
       safe('auditorAllocated'),
       safe('availableAuditors'),
+      safe('feedbackWaiting'),
+      safe('feedbackAllocated'),
+      safe('availableFeedbackReviewers'),
       // Separate aggregation — not a paginatable section, so call directly
       this.questionRepo
         .getReceivedStatusCounts(startTime, endTime)
@@ -8844,6 +8707,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         auditorAllocated as QueueDetailsResponse['auditorAllocated'],
       availableAuditors:
         availableAuditors as QueueDetailsResponse['availableAuditors'],
+      // ── Feedback-review queue ──
+      feedbackWaiting:
+        feedbackWaiting as QueueDetailsResponse['feedbackWaiting'],
+      feedbackAllocated:
+        feedbackAllocated as QueueDetailsResponse['feedbackAllocated'],
+      availableFeedbackReviewers:
+        availableFeedbackReviewers as QueueDetailsResponse['availableFeedbackReviewers'],
       // ── Manual expert-queue sections ──
       receivedManual: receivedManual as QueueDetailsResponse['receivedManual'],
       receivedStatusCountsManual:
@@ -8984,4 +8854,700 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     return entry as ISubmissionHistory;
   }
+
+  // Feedback allocation
+  async allocateFeedbackQuestions(): Promise<{
+    message: string;
+    allocated: number;
+    skipped: number;
+  }> {
+    if (isReallocatingFeedback) {
+      console.log(
+        '[Feedback] Previous run still in progress — skipping this tick to avoid double-allocation.',
+      );
+      return {
+        message: 'Reallocation already in progress',
+        allocated: 0,
+        skipped: 0,
+      };
+    }
+    isReallocatingFeedback = true;
+    try {
+      const questions =
+        await this.questionRepo.findQuestionsWithOpenFeedbacks();
+      if (!questions.length) {
+        console.log('[Feedback] No questions found with open feedback.');
+        return {
+          message: 'No questions found with open feedback',
+          allocated: 0,
+          skipped: 0,
+        };
+      }
+
+      const questionIds = questions
+        .map(question => question._id?.toString())
+        .filter((id): id is string => Boolean(id));
+      const finalAnswers =
+        await this.answerRepo.getFinalAnswersByQuestionIds(questionIds);
+      const approverByQuestionId = new Map<string, string>();
+
+      for (const answer of finalAnswers) {
+        const questionId = answer.questionId?.toString();
+        const approvedBy = answer.approvedBy?.toString();
+        if (questionId && approvedBy && !approverByQuestionId.has(questionId)) {
+          approverByQuestionId.set(questionId, approvedBy);
+        }
+      }
+
+      let allocated = 0;
+      let skipped = 0;
+
+      for (const question of questions) {
+        const questionId = question._id?.toString();
+        if (!questionId) {
+          skipped++;
+          continue;
+        }
+
+        const approvedByUserId = approverByQuestionId.get(questionId);
+        if (!approvedByUserId) {
+          console.log(
+            `[Feedback] Skipped question ${questionId}: no approvedBy user found.`,
+          );
+          skipped++;
+          continue;
+        }
+
+        try {
+          const assignedAt = new Date();
+          let assignedReviewerId: string | undefined;
+          // Try to claim the approved reviewer first; if unavailable, try other
+          // available moderators/auditors until one successfully claims the feedback.
+          await this._withTransaction(async session => {
+            // Candidate order: approvedByUserId first, then available moderators,
+            // then available auditors. Exclude the approved user when fetching lists
+            // to avoid duplicate checks.
+            const candidateIds: string[] = [];
+
+            // Start with the approved reviewer as preferred candidate.
+            candidateIds.push(approvedByUserId);
+
+            // Fetch other available auditors to use as fallback.
+            
+            const availAuditors =
+              await this.userRepo.findAvailableUsersByRole('auditor');
+            for (const a of availAuditors) {
+              const id = a._id?.toString();
+              if (id && id !== approvedByUserId) candidateIds.push(id);
+            }
+
+            let assigned = false;
+            let lastClaimedUser: string | undefined;
+
+            for (const candidateId of candidateIds) {
+              const reviewerClaimed =
+                await this.userRepo.claimFeedbackAllocation(
+                  candidateId,
+                  questionId,
+                  session,
+                );
+              if (!reviewerClaimed) continue;
+
+              // We claimed this user's feedback slot; now assign the submission
+              // to that reviewer. If assignment fails, the transaction will abort
+              // and the claim will not persist.
+              const submissionAssigned =
+                await this.questionSubmissionRepo.assignFeedbackReviewer(
+                  questionId,
+                  candidateId,
+                  assignedAt,
+                  session,
+                );
+              if (submissionAssigned) {
+                assigned = true;
+                lastClaimedUser = candidateId;
+                // capture outside-transaction variable for logging after commit
+                assignedReviewerId = candidateId;
+                // Mark the question's feedback auto-allocation ON now that a reviewer
+                // has been assigned — keeps the flag/toggle in sync with the state.
+                await this.questionRepo.updateQuestion(
+                  questionId,
+                  {autoAllocateFeedback: true} as any,
+                  session,
+                );
+                break;
+              }
+            }
+
+            if (!assigned) {
+              throw new Error(
+                'FEEDBACK_SUBMISSION_NOT_ASSIGNABLE_OR_NO_REVIEWER',
+              );
+            }
+          });
+
+          allocated++;
+          console.log(
+            `[Feedback] Allocated question ${questionId} to reviewer ${assignedReviewerId ?? approvedByUserId}.`,
+          );
+
+          // Audit the system feedback allocation (fire-and-forget, mirrors the
+          // time-bound / moderator-queue crons' SYSTEM_ALLOCATED entries).
+          if (assignedReviewerId) {
+            const meta = await this.resolveExpertMeta([assignedReviewerId]);
+            const reviewerName =
+              meta.get(assignedReviewerId)?.name ?? assignedReviewerId;
+            this.auditTrailsService
+              .createAuditTrail({
+                category: AuditCategory.EXPERTS_CATEGORY,
+                action: AuditAction.SYSTEM_ALLOCATED,
+                actor: {
+                  id: 'system',
+                  name: 'System',
+                  email: '',
+                  role: 'system',
+                  avatar: '',
+                },
+                context: {
+                  questionId,
+                  question: (question as any)?.question,
+                  expertId: assignedReviewerId,
+                  operation: 'feedback',
+                },
+                changes: { after: { 'feedback reviewer': reviewerName } },
+                outcome: { status: OutComeStatus.SUCCESS },
+                createdAt: new Date(),
+              } as ModeratorAuditTrail)
+              .catch((err: any) =>
+                console.error(
+                  '[Feedback] Failed to write SYSTEM_ALLOCATED audit:',
+                  err?.message,
+                ),
+              );
+          }
+        } catch (error: any) {
+          skipped++;
+          const reason =
+            error?.message === 'FEEDBACK_REVIEWER_UNAVAILABLE'
+              ? 'reviewer not available'
+              : error?.message === 'FEEDBACK_SUBMISSION_NOT_ASSIGNABLE'
+                ? 'submission missing or already assigned'
+                : error?.message ===
+                    'FEEDBACK_SUBMISSION_NOT_ASSIGNABLE_OR_NO_REVIEWER'
+                  ? 'no available reviewer or submission not assignable'
+                  : error?.message || 'unknown error';
+          console.log(`[Feedback] Skipped question ${questionId}: ${reason}.`);
+        }
+      }
+
+      console.log(
+        `[Feedback] Done. allocated=${allocated}, skipped=${skipped}`,
+      );
+      return {
+        message: 'Feedback allocation completed',
+        allocated,
+        skipped,
+      };
+    } finally {
+      isReallocatingFeedback = false;
+    }
+  }
+
+  /**
+   * Handle feedback action (accept/reject) and notify data release service
+   */
+  async handleFeedbackAction(
+    questionId: string,
+    feedbackId: string,
+    action: 'accept' | 'reject',
+    reason: string,
+    processedBy: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      feedbackId: string;
+      action: string;
+      reason: string;
+      processedBy: string;
+      processedAt: string;
+    };
+  }> {
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+    
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+
+    // Call the data release service
+    const payload = {
+      note: reason,
+      status: action === 'accept' ? 'accepted' : 'rejected',
+    };
+
+    let dataReleaseResponse: { status: string; pendingFeedbackCount: number };
+  
+    try {
+    const response = await fetch(`${dataReleaseUrl}/feedbacks/${feedbackId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authKey}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+
+      const responseData = await response.json() as { status: string; pendingFeedbackCount: number };
+      dataReleaseResponse = responseData
+    // dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
+    } catch (error: any) {
+      console.error('[QuestionService] handleFeedbackAction: Failed to call data release service:', error);
+      throw new InternalServerError('Failed to process feedback action: ' + error.message);
+    }
+
+    const processedAt = new Date().toISOString();
+
+    // Record this individual feedback as closed on the OPEN feedback-review round
+    // (so the view can hide accept/reject for it going forward).
+    await this.questionSubmissionRepo.addClosedFeedbackToOpenRound(
+      questionId,
+      feedbackId,
+      new Date(),
+    );
+
+    // Check if all feedbacks are processed
+    if (dataReleaseResponse.pendingFeedbackCount <= 0) {
+      const now = new Date();
+
+      // Update the question's feedbacks.source to 'closed' and set feedbackReviewFinishedAt
+      await this.questionRepo.updateQuestion(
+        questionId,
+        { 
+          'feedbacks.$[].status': 'closed',
+        } as any
+      );
+
+      // await this.questionSubmissionRepo.(questionId, now);
+
+      //need to add the finished at when closing.
+
+      // Close the open feedback-review round on the submission (stamps finishedAt
+      // on the round that has no finishedAt yet).
+      await this.questionSubmissionRepo.finishOpenFeedbackReviews(questionId, now);
+
+      // Remove the questionId from the processedBy user's feedbacksAssigned array
+      await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+
+      return {
+        success: true,
+        message: `Feedback ${action}ed successfully. All feedbacks processed.`,
+        data: {
+          feedbackId,
+          action,
+          reason,
+          processedBy,
+          processedAt,
+        },
+      };
+    }
+
+    // There are still pending feedbacks
+    return {
+      success: true,
+      message: `Feedback ${action}ed successfully. ${dataReleaseResponse.pendingFeedbackCount} pending feedback(s) remaining.`,
+      data: {
+        feedbackId,
+        action,
+        reason,
+        processedBy,
+        processedAt,
+      },
+    };
+  }
+
+  /** Feedback-review timeline for a question: each round (reviewer + assigned/finished)
+   *  plus the current auto-allocation flag and whether an open feedback exists. */
+  async getFeedbackTimeline(questionId: string): Promise<{
+    autoAllocateFeedback: boolean;
+    hasOpenFeedback: boolean;
+    reviews: {
+      index: number;
+      reviewerId: string;
+      reviewerName: string;
+      assignedAt: Date;
+      finishedAt: Date | null;
+    }[];
+  }> {
+    const [question, submission] = await Promise.all([
+      this.questionRepo.getById(questionId),
+      this.questionSubmissionRepo.getByQuestionId(questionId),
+    ]);
+    const rounds = ((submission as any)?.feedbackReviews ?? []) as any[];
+    const names = await this.resolveExpertMeta(
+      rounds.map(r => r.reviewerId?.toString()).filter(Boolean),
+    );
+    const feedbacks = ((question as any)?.feedbacks ?? []) as any[];
+    return {
+      autoAllocateFeedback: (question as any)?.autoAllocateFeedback !== false,
+      hasOpenFeedback:
+        Array.isArray(feedbacks) && feedbacks.some(f => f?.status === 'open'),
+      reviews: rounds
+        // `index` is the round's position in the DB array — the change/remove APIs
+        // operate by that index, so keep it even though we sort for display.
+        .map((r, i) => ({
+          index: i,
+          reviewerId: r.reviewerId?.toString(),
+          reviewerName:
+            names.get(r.reviewerId?.toString())?.name ?? 'Unknown',
+          assignedAt: r.assignedAt,
+          finishedAt: r.finishedAt ?? null,
+        }))
+        .sort(
+          (a, b) =>
+            new Date(a.assignedAt).getTime() - new Date(b.assignedAt).getTime(),
+        ),
+    };
+  }
+
+  /** All moderators/auditors eligible to be a feedback reviewer (for the manual picker). */
+  async getAssignableFeedbackReviewers(): Promise<
+    {_id: string; name: string; email: string; role: string}[]
+  > {
+    const users = await this.userRepo.findUsersByRoles(['moderator', 'auditor']);
+    return users.map(u => ({
+      _id: u._id!.toString(),
+      name:
+        `${(u as any).firstName ?? ''} ${(u as any).lastName ?? ''}`.trim() ||
+        u.email ||
+        'Unknown',
+      email: u.email,
+      role: u.role,
+    }));
+  }
+
+  /** Manually assign OR reassign the feedback reviewer (admin/moderator). When a round
+   *  is already open it repoints that round to the new reviewer and releases the old one;
+   *  otherwise it opens a fresh round. Respects the same one-at-a-time / auditor either-or
+   *  rules as the cron. */
+  async assignFeedbackReviewerManually(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{success: true}> {
+    await this._withTransaction(async session => {
+      const submission =
+        await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const rounds = ((submission as any)?.feedbackReviews ?? []) as any[];
+
+      // Resolve the round being changed: an explicit index (one of several rounds)
+      // or the single open round when none is given.
+      const targetIndex =
+        typeof index === 'number' && index >= 0
+          ? index
+          : rounds.findIndex(r => !r.finishedAt);
+      const targetRound = targetIndex >= 0 ? rounds[targetIndex] : undefined;
+
+      if (targetRound && targetRound.finishedAt) {
+        throw new BadRequestError(
+          'That feedback review is already completed and cannot be reassigned.',
+        );
+      }
+      const oldReviewerId = targetRound?.reviewerId?.toString();
+      if (oldReviewerId === userId) {
+        return; // already assigned to this reviewer — no-op
+      }
+
+      // Claim the new reviewer's slot first (fails if they're not free). Manual claim
+      // lets an admin/moderator pick ANY active user (not restricted to mod/auditor),
+      // still one feedback at a time.
+      const claimed = await this.userRepo.claimFeedbackAllocationManual(
+        userId,
+        questionId,
+        session,
+      );
+      if (!claimed) {
+        throw new BadRequestError(
+          'Selected user is not available (already holds a feedback, or is inactive/blocked).',
+        );
+      }
+
+      if (targetRound) {
+        // Reassign only the targeted round (by index) and release its previous reviewer.
+        await this.questionSubmissionRepo.reassignFeedbackReviewerByIndex(
+          questionId,
+          targetIndex,
+          userId,
+          new Date(),
+          session,
+        );
+        if (oldReviewerId) {
+          await this.userRepo.removeFeedbacksAssigned(
+            oldReviewerId,
+            questionId,
+            session,
+          );
+        }
+      } else {
+        // Fresh assignment: open a new round.
+        const assigned =
+          await this.questionSubmissionRepo.assignFeedbackReviewer(
+            questionId,
+            userId,
+            new Date(),
+            session,
+          );
+        if (!assigned) {
+          throw new BadRequestError(
+            'This question already has an open feedback review.',
+          );
+        }
+      }
+    });
+    return {success: true};
+  }
+
+  /** Remove an OPEN feedback-review round by index (admin/moderator/etc). Releases the
+   *  reviewer's feedback slot. Completed rounds cannot be removed. */
+  async removeFeedbackReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{success: true}> {
+    await this._withTransaction(async session => {
+      const submission =
+        await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const rounds = ((submission as any)?.feedbackReviews ?? []) as any[];
+      const round = rounds[index];
+      if (!round) {
+        throw new BadRequestError('No feedback review found at that position.');
+      }
+      if (round.finishedAt) {
+        throw new BadRequestError(
+          'A completed feedback review cannot be removed.',
+        );
+      }
+      const removed =
+        await this.questionSubmissionRepo.removeFeedbackReviewByIndex(
+          questionId,
+          index,
+          session,
+        );
+      if (!removed) {
+        throw new BadRequestError('Could not remove the feedback review.');
+      }
+      const reviewerId = round.reviewerId?.toString();
+      if (reviewerId) {
+        await this.userRepo.removeFeedbacksAssigned(
+          reviewerId,
+          questionId,
+          session,
+        );
+      }
+    });
+    return {success: true};
+  }
+
+  /**
+   * Get feedbacks for a question (paginated)
+   * Fetches from external data release service with mock data fallback
+   */
+  async getFeedbacks(
+    questionId: string,
+    page: number = 1,
+    pageSize: number = 5,
+  ): Promise<FeedbackResponse> {
+    // Mock data with status and reviewNote fields
+   /* const mockData = [
+      {
+        _id: { $oid: 'fb001' },
+        questionId: { $oid: questionId },
+        userId: { name: 'Rajesh Kumar', email: 'rajesh@example.com' },
+        answerId: { $oid: 'ans001' },
+        type: 'thumbs_up' as const,
+        predefinedOption: 'Accurate and helpful',
+        comment: 'This answer solved my problem completely. The step-by-step instructions were very clear.',
+        status: 'open' as const,
+        reviewNote: undefined,
+        createdAt: { $date: '2026-08-01T10:30:00.000Z' },
+        updatedAt: { $date: '2026-08-01T10:30:00.000Z' },
+      },
+      {
+        _id: { $oid: 'fb002' },
+        questionId: { $oid: questionId },
+        userId: { name: 'Priya Sharma', email: 'priya@example.com' },
+        answerId: { $oid: 'ans002' },
+        type: 'thumbs_down' as const,
+        predefinedOption: 'Incomplete information',
+        comment: 'The answer was missing important details about pesticide dosage.',
+        status: 'accepted' as const,
+        reviewNote: 'Valid feedback - dosage information will be added to improve the answer.',
+        createdAt: { $date: '2026-08-02T14:15:00.000Z' },
+        updatedAt: { $date: '2026-08-03T09:00:00.000Z' },
+      },
+      {
+        _id: { $oid: 'fb003' },
+        questionId: { $oid: questionId },
+        userId: { name: 'Amit Patel', email: 'amit@example.com' },
+        answerId: { $oid: 'ans001' },
+        type: 'thumbs_up' as const,
+        predefinedOption: 'Well explained',
+        comment: 'Very detailed and easy to understand. Great work!',
+        status: 'rejected' as const,
+        reviewNote: 'Duplicate feedback - similar to fb001. No action needed.',
+        createdAt: { $date: '2026-08-03T08:45:00.000Z' },
+        updatedAt: { $date: '2026-08-03T11:20:00.000Z' },
+      },
+      {
+        _id: { $oid: 'fb004' },
+        questionId: { $oid: questionId },
+        userId: { name: 'Sunita Devi', email: 'sunita@example.com' },
+        answerId: { $oid: 'ans003' },
+        type: 'thumbs_down' as const,
+        predefinedOption: 'Incorrect information',
+        comment: 'The recommended pesticide is not suitable for my region.',
+        status: 'open' as const,
+        reviewNote: undefined,
+        createdAt: { $date: '2026-08-04T16:00:00.000Z' },
+        updatedAt: { $date: '2026-08-04T16:00:00.000Z' },
+      },
+      {
+        _id: { $oid: 'fb005' },
+        questionId: { $oid: questionId },
+        userId: { name: 'Vikram Singh', email: 'vikram@example.com' },
+        answerId: { $oid: 'ans002' },
+        type: 'thumbs_up' as const,
+        predefinedOption: 'Accurate and helpful',
+        comment: 'Perfect solution for my crop issue. Thank you!',
+        status: 'accepted' as const,
+        reviewNote: 'Positive feedback acknowledged.',
+        createdAt: { $date: '2026-08-05T11:30:00.000Z' },
+        updatedAt: { $date: '2026-08-05T14:00:00.000Z' },
+      },
+    ];
+
+    // Calculate pagination
+    const totalCount = mockData.length;
+    const totalPages = Math.ceil(totalCount / pageSize);
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedData = mockData.slice(startIndex, endIndex);
+
+    return {
+      data: paginatedData,
+      totalCount,
+      page,
+      pageSize,
+      totalPages,
+    };*/
+
+   // TODO: Uncomment when data release service is available
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+    
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+    
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+    
+    try {
+      const response = await fetch(
+        `${dataReleaseUrl}/feedbacks/question/${questionId}?page=${page}&pageSize=${pageSize}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authKey}`,
+          },
+        }
+      );
+    
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+    const res = await response.json() as {
+      data?: any[];
+      total?: number;
+      page?: number;
+      limit?: number;
+      totalPages?: number;
+    };
+
+    // The data-release service returns feedbacks in a flat shape
+    // ({ id, questionId, answerId as strings, createdAt as ISO strings }) and
+    // already paginates the result. Normalize each item to the extended-JSON
+    // shape the frontend consumes ({ _id: { $oid }, createdAt: { $date }, … })
+    // and pass the service's own pagination through unchanged.
+    const asOid = (v: any): {$oid: string} => ({
+      $oid: typeof v === 'string' ? v : v?.$oid ?? v?._id ?? '',
+    });
+    const asDate = (v: any): {$date: string} => ({
+      $date: typeof v === 'string' ? v : v?.$date ?? '',
+    });
+    const data: FeedbackData[] = (Array.isArray(res.data) ? res.data : []).map(
+      (f: any) => ({
+        _id: asOid(f.id ?? f._id),
+        questionId: f.questionId ? asOid(f.questionId) : {$oid: questionId},
+        userId: {
+          name: f.userId?.name ?? '',
+          email: f.userId?.email ?? '',
+        },
+        answerId: asOid(f.answerId),
+        type: f.type,
+        predefinedOption: f.predefinedOption ?? '',
+        comment: f.comment ?? '',
+        status: f.status,
+        reviewNote: f.reviewNote,
+        createdAt: asDate(f.createdAt),
+        updatedAt: asDate(f.updatedAt),
+      }),
+    );
+
+    const totalCount = typeof res.total === 'number' ? res.total : data.length;
+    return {
+      data,
+      totalCount,
+      page: typeof res.page === 'number' ? res.page : page,
+      pageSize: typeof res.limit === 'number' ? res.limit : pageSize,
+      totalPages:
+        typeof res.totalPages === 'number'
+          ? res.totalPages
+          : Math.ceil(totalCount / pageSize),
+    };
+    } catch (error: any) {
+      console.error('[QuestionService] getFeedbacks: Failed to call data release service:', error);
+      throw new InternalServerError('Failed to get feedbacks: ' + error.message);
+    }
+  }
+
+    /**
+   * handle Feedback Status Update for a question
+   */
+  async handleFeedbackStatusUpdate(
+  questionId: string,
+  source: 'DATASET' | 'WEB_APPLICATION',
+): Promise<{ success: boolean }> {
+  const matchedCount = await this.questionRepo.addOrUpdateFeedbackStatus(
+    questionId,
+    source,
+  );
+
+  if (matchedCount === 0) {
+    throw new NotFoundError('Question not found');
+  }
+
+  return {
+    success: true,
+  };
+}
 }
