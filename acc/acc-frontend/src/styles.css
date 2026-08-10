@@ -18,113 +18,217 @@ body {
 }
 
 :root {
-  --background: oklch(0.9911 0 0);
-  --foreground: oklch(0.2046 0 0);
-  --card: oklch(0.9911 0 0);
-  --card-foreground: oklch(0.2046 0 0);
-  --popover: oklch(0.9911 0 0);
-  --popover-foreground: oklch(0.4386 0 0);
-  --primary: oklch(0.8348 0.1302 160.908);
-  --primary-foreground: oklch(0.2626 0.0147 166.4589);
-  --secondary: oklch(0.994 0 0);
-  --secondary-foreground: oklch(0.2046 0 0);
-  --muted: oklch(0.9461 0 0);
-  --muted-foreground: oklch(0.2435 0 0);
-  --accent: oklch(0.9461 0 0);
-  --accent-foreground: oklch(0.2435 0 0);
-  --destructive: oklch(0.5523 0.1927 32.7272);
-  --destructive-foreground: oklch(0.9934 0.0032 17.2118);
-  --border: oklch(0.9037 0 0);
-  --input: oklch(0.9731 0 0);
-  --ring: oklch(0.8348 0.1302 160.908);
-  --chart-1: oklch(0.8348 0.1302 160.908);
-  --chart-2: oklch(0.6231 0.188 259.8145);
-  --chart-3: oklch(0.6056 0.2189 292.7172);
-  --chart-4: oklch(0.7686 0.1647 70.0804);
-  --chart-5: oklch(0.6959 0.1491 162.4796);
-  --sidebar: oklch(0.9911 0 0);
-  --sidebar-foreground: oklch(0.5452 0 0);
-  --sidebar-primary: oklch(0.8348 0.1302 160.908);
-  --sidebar-primary-foreground: oklch(0.2626 0.0147 166.4589);
-  --sidebar-accent: oklch(0.9461 0 0);
-  --sidebar-accent-foreground: oklch(0.2435 0 0);
-  --sidebar-border: oklch(0.9037 0 0);
-  --sidebar-ring: oklch(0.8348 0.1302 160.908);
+  /* ── 1. Global Tokens ── */
+  --primary-accent: #0F5132;
+  --primary-accent-hover: #0A3822;
+  --primary-accent-fg: #FFFFFF;
+  --secondary-accent: #D97706;
+  --secondary-accent-hover: #B45309;
+  --secondary-accent-fg: #FFFFFF;
+  --app-bg: #F8FAFC;
+  --surface-bg: #FFFFFF;
+  --neutral-border: #E2E8F0;
+  --main-text: #0F172A;
+  --muted-text: #64748B;
+
+  /* ── Focus / Ring ── */
+  --focus-ring: #0F5132;
+  --focus-ring-offset: #F8FAFC;
+
+  /* ── 2. Role & Workspace Tokens ── */
+  --farmer-tint: #E8F5E9;
+  --farmer-border: #2E7D32;
+  --farmer-text: #1B5E20;
+
+  --agent-tint: #F0F4F8;
+  --agent-border: #3B82F6;
+  --agent-text: #1E3A8A;
+
+  --pipeline-tint: #F5F3FF;
+  --pipeline-border: #7C3AED;
+  --pipeline-text: #4C1D95;
+
+  /* ── 3. Status Badges ── */
+  --status-online-bg: #DCFCE7;
+  --status-online-text: #16A34A;
+  --status-busy-bg: #FEF3C7;
+  --status-busy-text: #D97706;
+  --status-offline-bg: #FEE2E2;
+  --status-offline-text: #DC2626;
+
+  /* ── shadcn/ui semantic tokens (harmonized with Earth & Tech) ── */
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #0F5132;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --accent: #F1F5F9;
+  --accent-foreground: #0F172A;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #0F5132;
+  --chart-1: #0F5132;
+  --chart-2: #D97706;
+  --chart-3: #2E7D32;
+  --chart-4: #3B82F6;
+  --chart-5: #7C3AED;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #0F5132;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F1F5F9;
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #0F5132;
+
   --font-sans: Outfit, sans-serif;
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: monospace;
   --radius: 0.5rem;
-  --shadow-2xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.09);
-  --shadow-xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.09);
-  --shadow-sm:
-    0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 1px 2px -1px hsl(0 0% 0% / 0.17);
-  --shadow:
-    0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 1px 2px -1px hsl(0 0% 0% / 0.17);
-  --shadow-md:
-    0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 2px 4px -1px hsl(0 0% 0% / 0.17);
-  --shadow-lg:
-    0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 4px 6px -1px hsl(0 0% 0% / 0.17);
-  --shadow-xl:
-    0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 8px 10px -1px hsl(0 0% 0% / 0.17);
-  --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.43);
+  --shadow-2xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.07);
+  --shadow-sm: 0px 1px 3px 0px hsl(0 0% 0% / 0.08), 0px 1px 2px -1px hsl(0 0% 0% / 0.08);
+  --shadow: 0px 1px 3px 0px hsl(0 0% 0% / 0.1), 0px 1px 2px -1px hsl(0 0% 0% / 0.1);
+  --shadow-md: 0px 4px 6px -1px hsl(0 0% 0% / 0.1), 0px 2px 4px -2px hsl(0 0% 0% / 0.1);
+  --shadow-lg: 0px 10px 15px -3px hsl(0 0% 0% / 0.1), 0px 4px 6px -4px hsl(0 0% 0% / 0.1);
+  --shadow-xl: 0px 20px 25px -5px hsl(0 0% 0% / 0.1), 0px 8px 10px -6px hsl(0 0% 0% / 0.1);
+  --shadow-2xl: 0px 25px 50px -12px hsl(0 0% 0% / 0.25);
   --tracking-normal: 0.025em;
-  --spacing: 0.25rem;
-  --tooltip-bg: #ffffff;
-  --tooltip-text: #111827;
+  --tooltip-bg: #0F172A;
+  --tooltip-text: #F8FAFC;
 }
 
+/* =============================================
+   DARK THEME - Earth & Tech Design System
+   ============================================= */
 .dark {
-  --background: oklch(0.1822 0 0);
-  --foreground: oklch(0.9288 0.0126 255.5078);
-  --card: oklch(0.2046 0 0);
-  --card-foreground: oklch(0.9288 0.0126 255.5078);
-  --popover: oklch(0.2603 0 0);
-  --popover-foreground: oklch(0.7348 0 0);
-  --primary: oklch(0.4365 0.1044 156.7556);
-  --primary-foreground: oklch(0.9213 0.0135 167.1556);
-  --secondary: oklch(0.2603 0 0);
-  --secondary-foreground: oklch(0.9851 0 0);
-  --muted: oklch(0.2393 0 0);
-  --muted-foreground: oklch(0.7122 0 0);
-  --accent: oklch(0.3132 0 0);
-  --accent-foreground: oklch(0.9851 0 0);
-  --destructive: oklch(0.3123 0.0852 29.7877);
-  --destructive-foreground: oklch(0.9368 0.0045 34.3092);
-  --border: oklch(0.2809 0 0);
-  --input: oklch(0.2603 0 0);
-  --ring: oklch(0.8003 0.1821 151.711);
-  --chart-1: oklch(0.8003 0.1821 151.711);
-  --chart-2: oklch(0.7137 0.1434 254.624);
-  --chart-3: oklch(0.709 0.1592 293.5412);
-  --chart-4: oklch(0.8369 0.1644 84.4286);
-  --chart-5: oklch(0.7845 0.1325 181.912);
-  --sidebar: oklch(0.1822 0 0);
-  --sidebar-foreground: oklch(0.6301 0 0);
-  --sidebar-primary: oklch(0.4365 0.1044 156.7556);
-  --sidebar-primary-foreground: oklch(0.9213 0.0135 167.1556);
-  --sidebar-accent: oklch(0.3132 0 0);
-  --sidebar-accent-foreground: oklch(0.9851 0 0);
-  --sidebar-border: oklch(0.2809 0 0);
-  --sidebar-ring: oklch(0.8003 0.1821 151.711);
-  --radius: 0.5rem;
-  --shadow-2xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.09);
-  --shadow-xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.09);
-  --shadow-sm:
-    0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 1px 2px -1px hsl(0 0% 0% / 0.17);
-  --shadow:
-    0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 1px 2px -1px hsl(0 0% 0% / 0.17);
-  --shadow-md:
-    0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 2px 4px -1px hsl(0 0% 0% / 0.17);
-  --shadow-lg:
-    0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 4px 6px -1px hsl(0 0% 0% / 0.17);
-  --shadow-xl:
-    0px 1px 3px 0px hsl(0 0% 0% / 0.17), 0px 8px 10px -1px hsl(0 0% 0% / 0.17);
-  --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.43);
-  --tooltip-bg: #1f2937;
-  --tooltip-text: #f9fafb;
+  /* ── 1. Global Tokens Dark ── */
+  --primary-accent: #10B981;
+  --primary-accent-hover: #059669;
+  --primary-accent-fg: #022C22;
+  --secondary-accent: #FBBF24;
+  --secondary-accent-hover: #F59E0B;
+  --secondary-accent-fg: #422006;
+  --app-bg: #0F172A;
+  --surface-bg: #1E293B;
+  --neutral-border: #334155;
+  --main-text: #F8FAFC;
+  --muted-text: #94A3B8;
+
+  /* ── Focus / Ring ── */
+  --focus-ring: #10B981;
+  --focus-ring-offset: #0F172A;
+
+  /* ── 2. Role & Workspace Tokens Dark ── */
+  --farmer-tint: #064E3B;
+  --farmer-border: #10B981;
+  --farmer-text: #A7F3D0;
+
+  --agent-tint: #1E3A8A;
+  --agent-border: #60A5FA;
+  --agent-text: #BFDBFE;
+
+  --pipeline-tint: #4C1D95;
+  --pipeline-border: #A78BFA;
+  --pipeline-text: #DDD6FE;
+
+  /* ── 3. Status Badges Dark ── */
+  --status-online-bg: #064E3B;
+  --status-online-text: #4ADE80;
+  --status-busy-bg: #78350F;
+  --status-busy-text: #FBBF24;
+  --status-offline-bg: #7F1D1D;
+  --status-offline-text: #F87171;
+
+  /* ── shadcn/ui semantic tokens Dark ── */
+  --background: #0F172A;
+  --foreground: #F8FAFC;
+  --card: #1E293B;
+  --card-foreground: #F8FAFC;
+  --popover: #1E293B;
+  --popover-foreground: #F8FAFC;
+  --primary: #10B981;
+  --primary-foreground: #022C22;
+  --secondary: #334155;
+  --secondary-foreground: #F8FAFC;
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+  --accent: #334155;
+  --accent-foreground: #F8FAFC;
+  --destructive: #7F1D1D;
+  --destructive-foreground: #F87171;
+  --border: #334155;
+  --input: #334155;
+  --ring: #10B981;
+  --chart-1: #10B981;
+  --chart-2: #FBBF24;
+  --chart-3: #34D399;
+  --chart-4: #60A5FA;
+  --chart-5: #A78BFA;
+  --sidebar: #1E293B;
+  --sidebar-foreground: #F8FAFC;
+  --sidebar-primary: #10B981;
+  --sidebar-primary-foreground: #022C22;
+  --sidebar-accent: #334155;
+  --sidebar-accent-foreground: #F8FAFC;
+  --sidebar-border: #334155;
+  --sidebar-ring: #10B981;
+
+  --tooltip-bg: #1E293B;
+  --tooltip-text: #F8FAFC;
 }
 
 @theme inline {
+  /* ── Earth & Tech Global ── */
+  --color-primary-accent: var(--primary-accent);
+  --color-primary-accent-hover: var(--primary-accent-hover);
+  --color-primary-accent-fg: var(--primary-accent-fg);
+  --color-secondary-accent: var(--secondary-accent);
+  --color-secondary-accent-hover: var(--secondary-accent-hover);
+  --color-secondary-accent-fg: var(--secondary-accent-fg);
+  --color-app-bg: var(--app-bg);
+  --color-surface-bg: var(--surface-bg);
+  --color-neutral-border: var(--neutral-border);
+  --color-main-text: var(--main-text);
+  --color-muted-text: var(--muted-text);
+
+  /* ── Focus / Ring ── */
+  --color-focus-ring: var(--focus-ring);
+  --color-focus-ring-offset: var(--focus-ring-offset);
+
+  /* ── Role & Workspace ── */
+  --color-farmer-tint: var(--farmer-tint);
+  --color-farmer-border: var(--farmer-border);
+  --color-farmer-text: var(--farmer-text);
+  --color-agent-tint: var(--agent-tint);
+  --color-agent-border: var(--agent-border);
+  --color-agent-text: var(--agent-text);
+  --color-pipeline-tint: var(--pipeline-tint);
+  --color-pipeline-border: var(--pipeline-border);
+  --color-pipeline-text: var(--pipeline-text);
+
+  /* ── Status ── */
+  --color-status-online-bg: var(--status-online-bg);
+  --color-status-online-text: var(--status-online-text);
+  --color-status-busy-bg: var(--status-busy-bg);
+  --color-status-busy-text: var(--status-busy-text);
+  --color-status-offline-bg: var(--status-offline-bg);
+  --color-status-offline-text: var(--status-offline-text);
+
+  /* ── Tooltip ── */
+  --color-tooltip-bg: var(--tooltip-bg);
+  --color-tooltip-text: var(--tooltip-text);
+
+  /* ── shadcn/ui Semantic ── */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -158,15 +262,18 @@ body {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* ── Typography ── */
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
 
+  /* ── Radius ── */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
+  /* ── Shadows ── */
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs: var(--shadow-xs);
   --shadow-sm: var(--shadow-sm);
@@ -175,6 +282,165 @@ body {
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
+}
+
+/* =============================================
+   REUSABLE UTILITY CLASSES
+   ============================================= */
+@layer utilities {
+
+  /* ── Status Badge Utilities ── */
+  .badge-status-online {
+    background-color: var(--status-online-bg);
+    color: var(--status-online-text);
+    border: 1px solid var(--status-online-text);
+    transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+    user-select: none;
+  }
+
+  .badge-status-busy {
+    background-color: var(--status-busy-bg);
+    color: var(--status-busy-text);
+    border: 1px solid var(--status-busy-text);
+    transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+    user-select: none;
+  }
+
+  .badge-status-offline {
+    background-color: var(--status-offline-bg);
+    color: var(--status-offline-text);
+    border: 1px solid var(--status-offline-text);
+    transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+    user-select: none;
+  }
+
+  /* ── Role & Track Stream Chat Bubbles ── */
+  .chat-bubble-farmer {
+    background-color: var(--farmer-tint);
+    border: 1px solid var(--farmer-border);
+    color: var(--farmer-text);
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+  }
+
+  .chat-bubble-agent {
+    background-color: var(--agent-tint);
+    border: 1px solid var(--agent-border);
+    color: var(--agent-text);
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+  }
+
+  .chat-bubble-pipeline {
+    background-color: var(--pipeline-tint);
+    border: 1px solid var(--pipeline-border);
+    color: var(--pipeline-text);
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+  }
+
+  /* ── Earth & Tech Interactive Controls — Primary Emerald ── */
+  .btn-primary-emerald {
+    background-color: var(--primary-accent);
+    color: var(--primary-accent-fg);
+    transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, transform 0.1s ease-in-out;
+  }
+
+  .btn-primary-emerald:hover {
+    background-color: var(--primary-accent-hover);
+  }
+
+  .btn-primary-emerald:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 30%, transparent);
+  }
+
+  .btn-primary-emerald:active {
+    transform: scale(0.98);
+  }
+
+  /* ── Earth & Tech Interactive Controls — Secondary Harvest ── */
+  .btn-secondary-harvest {
+    background-color: var(--secondary-accent);
+    color: var(--secondary-accent-fg);
+    transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, transform 0.1s ease-in-out;
+  }
+
+  .btn-secondary-harvest:hover {
+    background-color: var(--secondary-accent-hover);
+  }
+
+  .btn-secondary-harvest:focus-visible {
+    outline: 2px solid var(--secondary-accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--secondary-accent) 30%, transparent);
+  }
+
+  .btn-secondary-harvest:active {
+    transform: scale(0.98);
+  }
+
+  /* ── Outline / Ghost Emerald ── */
+  .btn-outline-emerald {
+    background-color: transparent;
+    color: var(--primary-accent);
+    border: 1px solid var(--primary-accent);
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  }
+
+  .btn-outline-emerald:hover {
+    background-color: var(--primary-accent);
+    color: var(--primary-accent-fg);
+  }
+
+  .btn-outline-emerald:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 30%, transparent);
+  }
+
+  /* ── Outline / Ghost Harvest ── */
+  .btn-outline-harvest {
+    background-color: transparent;
+    color: var(--secondary-accent);
+    border: 1px solid var(--secondary-accent);
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  }
+
+  .btn-outline-harvest:hover {
+    background-color: var(--secondary-accent);
+    color: var(--secondary-accent-fg);
+  }
+
+  .btn-outline-harvest:focus-visible {
+    outline: 2px solid var(--secondary-accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--secondary-accent) 30%, transparent);
+  }
+
+  /* ── Surface Card Utility ── */
+  .surface-card {
+    background-color: var(--surface-bg);
+    border: 1px solid var(--neutral-border);
+    color: var(--main-text);
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+  }
+
+  /* ── Input with Earth & Tech Token Styling ── */
+  .input-earth {
+    background-color: var(--surface-bg);
+    border: 1px solid var(--neutral-border);
+    color: var(--main-text);
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  }
+
+  .input-earth::placeholder {
+    color: var(--muted-text);
+  }
+
+  .input-earth:focus {
+    border-color: var(--focus-ring);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 20%, transparent);
+    outline: none;
+  }
 }
 
 body {
@@ -190,6 +456,7 @@ code {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
     @apply overflow-y-scroll md:overflow-hidden;

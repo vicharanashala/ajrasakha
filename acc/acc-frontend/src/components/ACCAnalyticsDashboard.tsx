@@ -33,7 +33,7 @@ import { env } from "../config/env";
 import { QueryFilterBar } from "./QueryFilterBar";
 import { renderMarkdown, stripMarkdown } from "../utils/markdownRenderer";
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+const COLORS = ["#0F5132", "#D97706", "#2E7D32", "#3B82F6", "#7C3AED"];
 
 // Add custom styles for chart labels
 const chartLabelStyle = {
@@ -443,28 +443,28 @@ export const ACCAnalyticsDashboard = () => {
               value={analytics.totalCalls}
               icon={Phone}
               description="All time"
-              color="#3b82f6"
+              color="var(--primary-accent)"
             />
             <StatCard
               title="Calls Today"
               value={analytics.callsToday}
               icon={Calendar}
               description="Today"
-              color="#10b981"
+              color="var(--secondary-accent)"
             />
             <StatCard
               title="This Week"
               value={analytics.callsThisWeek}
               icon={TrendingUp}
               description="Last 7 days"
-              color="#f59e0b"
+              color="var(--agent-border)"
             />
             <StatCard
               title="This Month"
               value={analytics.callsThisMonth}
               icon={TrendingUp}
               description="Current month"
-              color="#8b5cf6"
+              color="var(--pipeline-border)"
             />
           </div>
 
@@ -495,7 +495,7 @@ export const ACCAnalyticsDashboard = () => {
                         <tr key={index} className="border-b hover:bg-muted/30 transition-colors">
                           <td className="py-3 px-4 font-medium">{domain.domain}</td>
                           <td className="text-right py-3 px-4">
-                            <Badge variant="default" className="bg-blue-500">{domain.count}</Badge>
+                            <Badge className="bg-primary text-primary-foreground font-bold">{domain.count}</Badge>
                           </td>
                           <td className="text-right py-3 px-4">
                             <span className={domain.today > 0 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-muted-foreground"}>
@@ -595,10 +595,10 @@ export const ACCAnalyticsDashboard = () => {
                       <Line 
                         type="monotone" 
                         dataKey="count" 
-                        stroke="#8b5cf6" 
+                        stroke="var(--secondary-accent)" 
                         strokeWidth={3}
-                        dot={{ fill: "#8b5cf6", r: 4, strokeWidth: 2 }}
-                        activeDot={{ r: 6, fill: "#8b5cf6", stroke: "#fff", strokeWidth: 2 }}
+                        dot={{ fill: "var(--secondary-accent)", r: 4, strokeWidth: 2 }}
+                        activeDot={{ r: 6, fill: "var(--secondary-accent)", stroke: "#fff", strokeWidth: 2 }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -700,12 +700,12 @@ export const ACCAnalyticsDashboard = () => {
                               <div className="flex flex-wrap gap-1 max-w-[200px]">
                                 {Array.isArray(item.domain) && item.domain.length > 0 ? (
                                   item.domain.map((d: string, idx: number) => (
-                                    <Badge key={idx} className="bg-indigo-100 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border-none font-semibold text-xs whitespace-normal leading-normal px-2.5 py-0.5">
+                                    <Badge key={idx} className="bg-pipeline-tint text-pipeline-text border border-pipeline-border/40 font-semibold text-xs whitespace-normal leading-normal px-2.5 py-0.5">
                                       {d}
                                     </Badge>
                                   ))
                                 ) : item.domain && typeof item.domain === 'string' && item.domain.trim() ? (
-                                  <Badge className="bg-indigo-100 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border-none font-semibold text-xs whitespace-normal leading-normal px-2.5 py-0.5">
+                                  <Badge className="bg-pipeline-tint text-pipeline-text border border-pipeline-border/40 font-semibold text-xs whitespace-normal leading-normal px-2.5 py-0.5">
                                     {item.domain}
                                   </Badge>
                                 ) : (
@@ -714,7 +714,7 @@ export const ACCAnalyticsDashboard = () => {
                               </div>
                             </td>
                             <td className="py-3.5 px-4 whitespace-nowrap">
-                              <Badge className="bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-none font-semibold text-xs px-2.5 py-0.5">
+                              <Badge className="bg-farmer-tint text-farmer-text border border-farmer-border/40 font-semibold text-xs px-2.5 py-0.5">
                                 {item.crop || "Unknown"}
                               </Badge>
                             </td>

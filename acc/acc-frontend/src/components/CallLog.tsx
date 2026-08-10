@@ -868,48 +868,48 @@ export const CallLog = () => {
                                                 >
                                                   <AccordionTrigger className="text-left hover:no-underline py-3.5 w-full flex items-center justify-between group gap-2">
                                                     <div className="flex items-start gap-3 flex-1 min-w-0 pr-4">
-                                                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-55 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold mt-0.5">
+                                                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-farmer-tint text-farmer-text border border-farmer-border/40 flex items-center justify-center text-xs font-bold mt-0.5">
                                                         {index + 1}
                                                       </span>
-                                                      <div className="font-semibold text-[13.5px] text-zinc-800 dark:text-zinc-100 leading-normal flex-1">
+                                                      <div className="font-semibold text-[13.5px] text-foreground leading-normal flex-1">
                                                         {renderMarkdown(qItem.question)}
                                                       </div>
                                                     </div>
-                                                    <ChevronDown className="h-4 w-4 text-zinc-400 dark:text-zinc-550 transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0 group-hover:text-zinc-600 dark:group-hover:text-zinc-350" />
+                                                    <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0 group-hover:text-foreground" />
                                                   </AccordionTrigger>
                                                   <AccordionContent className="pt-1 pb-4">
                                                     <div className="pl-9 space-y-2.5">
-                                                      <div className="bg-emerald-50/15 dark:bg-emerald-950/10 rounded-xl p-4 border border-emerald-100/50 dark:border-emerald-900/30 shadow-inner">
+                                                      <div className="chat-bubble-farmer rounded-xl p-4 shadow-inner">
                                                         <div className="space-y-1 font-medium">
                                                           {renderMarkdown(qItem.answer)}
                                                         </div>
                                                       </div>
-                                                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider pl-1 mt-1.5">
+                                                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider pl-1 mt-1.5">
                                                         {qItem.agri_specialist && (
                                                           <Badge
                                                             variant="outline"
-                                                            className="text-[9px] px-2 py-0.5 border-emerald-200/50 dark:border-emerald-900/40 text-emerald-650 dark:text-emerald-400 font-bold bg-emerald-50/20 dark:bg-emerald-950/20"
+                                                            className="text-[9px] px-2 py-0.5 border-farmer-border/50 text-farmer-text font-bold bg-farmer-tint"
                                                           >
                                                             {qItem.agri_specialist}
                                                           </Badge>
                                                         )}
                                                         {qItem.metadata?.extracted_crop && (
-                                                          <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-indigo-200/50 text-indigo-600 dark:text-indigo-400 bg-indigo-50/20">
+                                                          <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-farmer-border/40 text-farmer-text bg-farmer-tint">
                                                             🌾 {qItem.metadata.extracted_crop}
                                                           </Badge>
                                                         )}
                                                         {qItem.metadata?.extracted_season && (
-                                                          <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-amber-200/50 text-amber-600 dark:text-amber-400 bg-amber-50/20">
+                                                          <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-secondary-accent/40 text-secondary-accent bg-secondary-accent/15">
                                                             ☀️ {qItem.metadata.extracted_season}
                                                           </Badge>
                                                         )}
                                                         {qItem.metadata?.extracted_state && (
-                                                          <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-blue-200/50 text-blue-600 dark:text-blue-400 bg-blue-50/20">
+                                                          <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-agent-border/40 text-agent-text bg-agent-tint">
                                                             📍 {qItem.metadata.extracted_state}{qItem.metadata.extracted_district ? `, ${qItem.metadata.extracted_district}` : ''}
                                                           </Badge>
                                                         )}
                                                         {qItem.metadata?.extracted_domain && (
-                                                          <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-purple-200/50 text-purple-600 dark:text-purple-400 bg-purple-50/20">
+                                                          <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-pipeline-border/40 text-pipeline-text bg-pipeline-tint">
                                                             🏷️ {formatDomainField(qItem.metadata.extracted_domain)}
                                                           </Badge>
                                                         )}
@@ -931,26 +931,26 @@ export const CallLog = () => {
                                                 >
                                                   <AccordionTrigger className="text-left hover:no-underline py-3.5 w-full flex items-center justify-between group gap-2">
                                                     <div className="flex items-start gap-3 flex-1 min-w-0 pr-4">
-                                                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-55 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold mt-0.5">
+                                                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-farmer-tint text-farmer-text border border-farmer-border/40 flex items-center justify-center text-xs font-bold mt-0.5">
                                                         {index + 1}
                                                       </span>
-                                                      <div className="font-semibold text-[13.5px] text-zinc-800 dark:text-zinc-100 leading-normal flex-1">
+                                                      <div className="font-semibold text-[13.5px] text-foreground leading-normal flex-1">
                                                         {renderMarkdown(qa.question)}
                                                       </div>
                                                     </div>
-                                                    <ChevronDown className="h-4 w-4 text-zinc-400 dark:text-zinc-550 transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0 group-hover:text-zinc-600 dark:group-hover:text-zinc-350" />
+                                                    <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0 group-hover:text-foreground" />
                                                   </AccordionTrigger>
                                                   <AccordionContent className="pt-1 pb-4">
                                                     <div className="pl-9 space-y-2.5">
-                                                      <div className="bg-emerald-50/15 dark:bg-emerald-950/10 rounded-xl p-4 border border-emerald-100/50 dark:border-emerald-900/30 shadow-inner">
+                                                      <div className="chat-bubble-farmer rounded-xl p-4 shadow-inner">
                                                         <div className="space-y-1 font-medium">
                                                           {renderMarkdown(qa.answer)}
                                                         </div>
                                                       </div>
-                                                      <div className="flex items-center gap-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider pl-1 mt-1.5">
+                                                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider pl-1 mt-1.5">
                                                         <Badge
                                                           variant="outline"
-                                                          className="text-[9px] px-2 py-0.5 border-emerald-200/50 dark:border-emerald-900/40 text-emerald-650 dark:text-emerald-400 font-bold bg-emerald-50/20 dark:bg-emerald-950/20"
+                                                          className="text-[9px] px-2 py-0.5 border-farmer-border/50 text-farmer-text font-bold bg-farmer-tint"
                                                         >
                                                           {qa.agri_specialist}
                                                         </Badge>

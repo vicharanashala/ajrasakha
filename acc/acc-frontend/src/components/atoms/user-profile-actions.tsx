@@ -57,7 +57,7 @@ export const UserProfileActions = () => {
               src={user.avatar || "/placeholder.svg"}
               alt={user.firstName}
             />
-            <AvatarFallback className="bg-green-100 text-green-700 font-bold">
+            <AvatarFallback className="bg-farmer-tint text-farmer-text border border-farmer-border/40 font-bold">
               {getInitials(user.firstName, user.lastName)}
             </AvatarFallback>
           </Avatar>

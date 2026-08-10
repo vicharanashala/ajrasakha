@@ -106,7 +106,7 @@ function DashboardComponent() {
                 alt="Annam Logo"
                 className="h-10 w-auto md:h-14"
               />
-              <span className="font-extrabold text-base md:text-xl text-emerald-600 dark:text-emerald-400 tracking-tight hidden sm:inline-block">
+              <span className="font-extrabold text-base md:text-xl text-primary-accent tracking-tight hidden sm:inline-block">
                 Annam Call Center
               </span>
             </div>

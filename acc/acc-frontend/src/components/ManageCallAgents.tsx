@@ -333,7 +333,7 @@ export const ManageCallAgents = () => {
               {canManageCallAgents && (
                 <Button
                   onClick={() => setShowAddModal(true)}
-                  className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20"
+                  className="gap-2 btn-primary-emerald shadow-sm"
                 >
                   <Plus className="w-4 h-4" />
                   Add Call Agent
@@ -345,39 +345,39 @@ export const ManageCallAgents = () => {
           {/* Live Metrics Summary Cards - Only for Call Agents */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Live Calls Card */}
-            <div className="p-5 bg-gradient-to-br from-indigo-50/80 to-indigo-100/30 dark:from-indigo-950/40 dark:to-zinc-950 border border-indigo-200/80 dark:border-indigo-900/40 rounded-2xl shadow-sm flex items-center justify-between">
+            <div className="p-5 bg-agent-tint/50 dark:bg-agent-tint/30 border border-agent-border/40 dark:border-agent-border/30 rounded-2xl shadow-sm flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-agent-text dark:text-agent-text uppercase tracking-wider flex items-center gap-1.5">
                   <PhoneCall className="w-4 h-4" />
                   Live Active Calls
                 </span>
-                <div className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono">
+                <div className="text-3xl font-extrabold text-foreground font-mono">
                   {liveCallsCount}
                 </div>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                <p className="text-[11px] text-muted-foreground">
                   {liveCallsCount === 1 ? "1 call currently in progress" : `${liveCallsCount} calls currently in progress`}
                 </p>
               </div>
-              <div className="h-12 w-12 rounded-xl bg-indigo-600/10 dark:bg-indigo-400/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+              <div className="h-12 w-12 rounded-xl bg-agent-tint border border-agent-border/40 flex items-center justify-center text-agent-text">
                 <PhoneCall className="w-6 h-6 animate-pulse" />
               </div>
             </div>
 
             {/* Active Online Agents Card */}
-            <div className="p-5 bg-gradient-to-br from-emerald-50/80 to-emerald-100/30 dark:from-emerald-950/40 dark:to-zinc-950 border border-emerald-200/80 dark:border-emerald-900/40 rounded-2xl shadow-sm flex items-center justify-between">
+            <div className="p-5 bg-farmer-tint/50 dark:bg-farmer-tint/30 border border-farmer-border/40 dark:border-farmer-border/30 rounded-2xl shadow-sm flex items-center justify-between">
               <div className="space-y-1">
-                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-farmer-text dark:text-farmer-text uppercase tracking-wider flex items-center gap-1.5">
                   <Activity className="w-4 h-4" />
                   Active Online Agents
                 </span>
-                <div className="text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 font-mono">
-                  {activeOnlineAgents} <span className="text-lg font-normal text-zinc-400">/ {totalCallAgents}</span>
+                <div className="text-3xl font-extrabold text-foreground font-mono">
+                  {activeOnlineAgents} <span className="text-lg font-normal text-muted-foreground">/ {totalCallAgents}</span>
                 </div>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                <p className="text-[11px] text-muted-foreground">
                   Live online agents out of total assigned call agents
                 </p>
               </div>
-              <div className="h-12 w-12 rounded-xl bg-emerald-600/10 dark:bg-emerald-400/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <div className="h-12 w-12 rounded-xl bg-farmer-tint border border-farmer-border/40 flex items-center justify-center text-farmer-text">
                 <UserCheck className="w-6 h-6" />
               </div>
             </div>
@@ -407,10 +407,10 @@ export const ManageCallAgents = () => {
                       <span
                         className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
                           agent.role === "call_agent"
-                            ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50"
+                            ? "bg-farmer-tint text-farmer-text border border-farmer-border/40"
                             : agent.role === "moderator"
-                              ? "bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50"
-                              : "bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50"
+                              ? "bg-pipeline-tint text-pipeline-text border border-pipeline-border/40"
+                              : "bg-agent-tint text-agent-text border border-agent-border/40"
                         }`}
                       >
                         {agent.role}
@@ -420,24 +420,24 @@ export const ManageCallAgents = () => {
                       <span
                         className={`text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1 ${
                           agent.isCallAgentActive
-                            ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                            ? "badge-status-online"
+                            : "badge-status-offline"
                         }`}
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full ${agent.isCallAgentActive ? "bg-emerald-500 animate-ping" : "bg-zinc-400"}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${agent.isCallAgentActive ? "bg-current animate-ping" : "bg-current"}`} />
                         {agent.isCallAgentActive ? "Online & Active" : "Offline"}
                       </span>
 
                       {/* Assigned Endpoint Badge */}
                       {agent.isCallAgentActive && agent.agent && agent.agent !== "not_available" && (
-                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-mono border border-indigo-200 dark:border-indigo-800">
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-agent-tint text-agent-text font-mono border border-agent-border/40">
                           {agent.agent}
                         </span>
                       )}
 
                       {/* In Call Status */}
                       {agent.isBusy && (
-                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-semibold border border-rose-200 dark:border-rose-800 flex items-center gap-1">
+                        <span className="text-xs px-2.5 py-0.5 rounded-full badge-status-busy flex items-center gap-1 font-semibold">
                           <PhoneCall className="w-3 h-3 animate-pulse" />
                           In Call
                         </span>
@@ -445,7 +445,7 @@ export const ManageCallAgents = () => {
 
                       {/* Current Call UUID */}
                       {agent.currentCallUuid && (
-                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-mono border border-amber-200 dark:border-amber-800">
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-secondary-accent/15 text-secondary-accent font-mono border border-secondary-accent/40">
                           UUID: {agent.currentCallUuid.slice(0, 8)}...
                         </span>
                       )}
@@ -462,12 +462,12 @@ export const ManageCallAgents = () => {
                       >
                         {agent.isCallAgentActive ? (
                           <>
-                            <ToggleRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <ToggleRight className="w-4 h-4 text-primary-accent" />
                             Deactivate
                           </>
                         ) : (
                           <>
-                            <ToggleLeft className="w-4 h-4 text-zinc-400" />
+                            <ToggleLeft className="w-4 h-4 text-muted-foreground" />
                             Activate
                           </>
                         )}
@@ -496,11 +496,11 @@ export const ManageCallAgents = () => {
           {/* Call Managers Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                <ShieldCheck className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <ShieldCheck className="w-6 h-6 text-primary-accent" />
                 Call Centre Managers
               </h1>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Authorized administrators who manage call agents and Plivo SIP endpoints.
               </p>
             </div>
@@ -511,7 +511,7 @@ export const ManageCallAgents = () => {
                   <Button
                     onClick={() => setShowPlivoModal(true)}
                     variant="outline"
-                    className="gap-2 text-xs border-indigo-200 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
+                    className="gap-2 text-xs border-primary-accent/40 text-primary-accent hover:bg-primary-accent/10"
                   >
                     <Server className="w-3.5 h-3.5" />
                     Plivo Endpoints
@@ -519,7 +519,7 @@ export const ManageCallAgents = () => {
 
                   <Button
                     onClick={() => setShowAddModal(true)}
-                    className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20"
+                    className="gap-2 btn-primary-emerald shadow-sm"
                   >
                     <Plus className="w-4 h-4" />
                     Add Call Manager
@@ -688,7 +688,7 @@ export const ManageCallAgents = () => {
               </Button>
               <Button
                 onClick={handleConfirmAdd}
-                className="flex-1 gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20"
+                className="flex-1 gap-2 btn-primary-emerald shadow-sm"
                 disabled={!selectedUserId || isSubmitting}
               >
                 {isSubmitting ? (

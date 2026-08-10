@@ -1358,9 +1358,9 @@ export const CallInterface = () => {
                         <Button
                           disabled={isExtracting || transcriptsList.length === 0}
                           size="sm"
-                          className="h-9 px-3 text-sm sm:text-base font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-lg flex items-center gap-1.5 transition-all w-full justify-center"
+                          className="h-9 px-3 text-sm sm:text-base font-extrabold btn-primary-emerald shadow-md rounded-lg flex items-center gap-1.5 transition-all w-full justify-center"
                         >
-                          <Sparkles className="h-4 w-4 text-indigo-200" />
+                          <Sparkles className="h-4 w-4 text-primary-accent-fg/80" />
                           <span>
                             {isExtracting
                               ? currentExtractionType === "farmer_details"
@@ -1456,8 +1456,8 @@ export const CallInterface = () => {
                           {/* Chat Bubble Card */}
                           <div
                             className={`max-w-[80%] px-4 py-3 rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-md ${isCaller
-                              ? "bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none"
-                              : "bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 border-indigo-500 text-white rounded-tr-none shadow-indigo-500/10 dark:shadow-indigo-500/5"
+                              ? "chat-bubble-farmer rounded-tl-none"
+                              : "chat-bubble-agent rounded-tr-none"
                               }`}
                           >
                             {/* English Translation (Primary) */}
@@ -1469,8 +1469,8 @@ export const CallInterface = () => {
                             {msg.originalText && (
                               <div
                                 className={`mt-2 pt-1.5 border-t text-[11px] flex flex-col gap-1 ${isCaller
-                                  ? "border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400"
-                                  : "border-white/20 text-white/80"
+                                  ? "border-farmer-border/30 text-farmer-text/80"
+                                  : "border-agent-border/30 text-agent-text/80"
                                   }`}
                               >
                                 <div className="flex items-center gap-1 font-bold tracking-wider uppercase text-[9px]">

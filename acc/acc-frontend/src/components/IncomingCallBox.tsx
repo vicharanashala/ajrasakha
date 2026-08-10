@@ -1052,23 +1052,19 @@ export const IncomingCallBox = ({
                         : "Telephony Panel"}
               </span>
               {(callStatus === "connected" || callStatus === "held") && (
-                <Badge variant="outline" className="font-mono text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                <Badge variant="outline" className="font-mono text-xs text-primary-accent border-primary-accent/30">
                   ⏱️ {formatTimer(callTimerSeconds)}
                 </Badge>
               )}
             </div>
             <Badge
               className={cn(
-                "text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all uppercase tracking-wider",
+                "text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider",
                 callStatus === "connected"
-                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                  : callStatus === "incoming"
-                    ? "bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse"
-                    : callStatus === "held"
-                      ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
-                      : callStatus === "ended"
-                        ? "bg-zinc-500/10 text-zinc-500 border-zinc-500/20"
-                        : "bg-zinc-500/10 text-zinc-400 border-zinc-500/10",
+                  ? "badge-status-online"
+                  : callStatus === "incoming" || callStatus === "held"
+                    ? "badge-status-busy animate-pulse"
+                    : "badge-status-offline",
               )}
             >
               {callStatus}
@@ -1302,7 +1298,7 @@ export const IncomingCallBox = ({
                     <Button
                       onClick={handleAnswer}
                       size="sm"
-                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md h-9 rounded-lg text-xs"
+                      className="flex-1 flex items-center justify-center gap-2 btn-primary-emerald font-semibold shadow-md h-9 rounded-lg text-xs"
                     >
                       <Phone className="h-4 w-4" />
                       <span>Answer</span>

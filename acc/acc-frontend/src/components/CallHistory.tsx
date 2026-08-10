@@ -639,37 +639,38 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
 
   const getStatusColor = (status: string) => {
     if (!status) {
-      return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+      return "badge-status-offline";
     }
     switch (status.toLowerCase()) {
       case "completed":
       case "answered":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-      case "failed":
-      case "no answer":
-      case "busy":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+        return "badge-status-online";
       case "in-progress":
       case "ringing":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
       case "queued":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+      case "busy":
+      case "debouncing":
+        return "badge-status-busy";
+      case "failed":
+      case "no answer":
+      case "disconnected":
+      case "error":
       default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+        return "badge-status-offline";
     }
   };
 
   const getDirectionColor = (direction: string) => {
     if (!direction) {
-      return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+      return "bg-muted text-muted-foreground";
     }
     switch (direction.toLowerCase()) {
       case "inbound":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+        return "bg-farmer-tint text-farmer-text border border-farmer-border/40 font-semibold";
       case "outbound":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+        return "bg-agent-tint text-agent-text border border-agent-border/40 font-semibold";
       default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+        return "bg-muted text-muted-foreground font-semibold";
     }
   };
 
@@ -1025,7 +1026,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                               <div className="flex items-center gap-2 px-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold tracking-wider uppercase">
                                                 <span>Farmer</span>
                                               </div>
-                                              <div className="max-w-[85%] px-4 py-3 rounded-2xl shadow-sm border bg-zinc-50 dark:bg-zinc-800/30 border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none">
+                                              <div className="max-w-[85%] px-4 py-3 rounded-2xl shadow-sm border chat-bubble-farmer rounded-tl-none">
                                                 <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap font-medium">
                                                   {call.callDetails.caller
                                                     .translation || "N/A"}
@@ -1036,7 +1037,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                     .transcript !==
                                                   call.callDetails.caller
                                                     .translation && (
-                                                    <div className="mt-2.5 pt-2.5 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
+                                                    <div className="mt-2.5 pt-2.5 border-t border-farmer-border/30 text-xs text-farmer-text/80">
                                                       <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-zinc-400">
                                                         <Globe className="h-3 w-3" />
                                                         <span>
@@ -1069,7 +1070,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                               <div className="flex items-center gap-2 px-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold tracking-wider uppercase">
                                                 <span>Expert</span>
                                               </div>
-                                              <div className="max-w-[85%] px-4 py-3 rounded-2xl shadow-sm border bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 border-indigo-500 text-white rounded-tr-none shadow-indigo-500/10">
+                                              <div className="max-w-[85%] px-4 py-3 rounded-2xl shadow-sm border chat-bubble-agent rounded-tr-none">
                                                 <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap font-medium">
                                                   {call.callDetails.agent
                                                     .translation || "N/A"}
@@ -1080,7 +1081,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                     .transcript !==
                                                   call.callDetails.agent
                                                     .translation && (
-                                                    <div className="mt-2.5 pt-2.5 border-t border-white/20 text-xs text-white/80">
+                                                    <div className="mt-2.5 pt-2.5 border-t border-agent-border/30 text-xs text-agent-text/80">
                                                       <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-white/75">
                                                         <Globe className="h-3 w-3" />
                                                         <span>

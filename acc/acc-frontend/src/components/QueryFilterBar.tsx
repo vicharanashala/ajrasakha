@@ -144,10 +144,10 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold flex items-center gap-2.5 text-foreground">
-            <Phone className="h-5 w-5 text-indigo-500" />
+            <Phone className="h-5 w-5 text-primary-accent" />
             Agricultural Queries List
             {totalCount !== undefined && (
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 font-mono font-medium">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-primary-accent/15 text-primary-accent border border-primary-accent/30 font-mono font-medium">
                 {totalCount} Total
               </span>
             )}
@@ -165,7 +165,7 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
             onClick={() => setIsOpen(!isOpen)}
             className="text-xs h-8 border-input hover:bg-accent hover:text-accent-foreground"
           >
-            <Filter className="w-3.5 h-3.5 mr-1.5 text-indigo-400" />
+            <Filter className="w-3.5 h-3.5 mr-1.5 text-primary-accent" />
             {isOpen ? 'Hide Filters' : 'Filters'}
           </Button>
 
@@ -185,7 +185,7 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
             onClick={handleExportCSV}
             disabled={isExporting}
             size="sm"
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow border border-indigo-400/30 text-xs h-8 px-3"
+            className="btn-primary-emerald shadow text-xs h-8 px-3 font-medium rounded-md"
           >
             {isExporting ? (
               <>
@@ -206,7 +206,7 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
             <select
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="px-2 py-1 text-xs border border-input rounded-md bg-background text-foreground h-8 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+              className="px-2 py-1 text-xs border border-input rounded-md bg-background text-foreground h-8 focus:outline-none focus:ring-1 focus:ring-primary-accent/30"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -223,7 +223,7 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
           {/* Search Input */}
           <div className="space-y-1">
             <label className="text-foreground font-medium flex items-center gap-1.5 text-[11px]">
-              <Search className="w-3.5 h-3.5 text-indigo-500" />
+              <Search className="w-3.5 h-3.5 text-primary-accent" />
               Search Text
             </label>
             <div className="relative">
@@ -232,7 +232,7 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
                 placeholder="Question or Answer text..."
                 value={filters.search}
                 onChange={(e) => onFilterChange({ search: e.target.value })}
-                className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
+                className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary-accent/20 text-xs"
               />
               {filters.search && (
                 <button
@@ -248,13 +248,13 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
           {/* Domain Filter */}
           <div className="space-y-1">
             <label className="text-foreground font-medium flex items-center gap-1.5 text-[11px]">
-              <Tag className="w-3.5 h-3.5 text-indigo-500" />
+              <Tag className="w-3.5 h-3.5 text-primary-accent" />
               Domain
             </label>
             <select
               value={filters.domain}
               onChange={(e) => onFilterChange({ domain: e.target.value })}
-              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
+              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-accent/20 text-xs"
             >
               {DOMAIN_OPTIONS.map((domain) => (
                 <option key={domain} value={domain} className="bg-popover text-popover-foreground">
@@ -267,13 +267,13 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
           {/* State Filter */}
           <div className="space-y-1">
             <label className="text-foreground font-medium flex items-center gap-1.5 text-[11px]">
-              <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+              <MapPin className="w-3.5 h-3.5 text-primary-accent" />
               State
             </label>
             <select
               value={filters.state}
               onChange={(e) => onFilterChange({ state: e.target.value })}
-              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
+              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-accent/20 text-xs"
             >
               {INDIAN_STATES.map((st) => (
                 <option key={st} value={st} className="bg-popover text-popover-foreground">
@@ -286,7 +286,7 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
           {/* District Filter */}
           <div className="space-y-1">
             <label className="text-foreground font-medium flex items-center gap-1.5 text-[11px]">
-              <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+              <MapPin className="w-3.5 h-3.5 text-primary-accent" />
               District
             </label>
             <input
@@ -294,14 +294,14 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
               placeholder="Filter district..."
               value={filters.district}
               onChange={(e) => onFilterChange({ district: e.target.value })}
-              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
+              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary-accent/20 text-xs"
             />
           </div>
 
           {/* Block Filter */}
           <div className="space-y-1">
             <label className="text-foreground font-medium flex items-center gap-1.5 text-[11px]">
-              <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+              <MapPin className="w-3.5 h-3.5 text-primary-accent" />
               Block
             </label>
             <input
@@ -309,14 +309,14 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
               placeholder="Filter block..."
               value={filters.block || ''}
               onChange={(e) => onFilterChange({ block: e.target.value })}
-              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
+              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary-accent/20 text-xs"
             />
           </div>
 
           {/* Crop Filter */}
           <div className="space-y-1">
             <label className="text-foreground font-medium flex items-center gap-1.5 text-[11px]">
-              <Sprout className="w-3.5 h-3.5 text-emerald-500" />
+              <Sprout className="w-3.5 h-3.5 text-farmer-border" />
               Crop
             </label>
             <input
@@ -324,20 +324,20 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
               placeholder="e.g. Wheat, Rice, Cotton..."
               value={filters.crop}
               onChange={(e) => onFilterChange({ crop: e.target.value })}
-              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
+              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary-accent/20 text-xs"
             />
           </div>
 
           {/* Season Filter */}
           <div className="space-y-1">
             <label className="text-foreground font-medium flex items-center gap-1.5 text-[11px]">
-              <Sun className="w-3.5 h-3.5 text-amber-500" />
+              <Sun className="w-3.5 h-3.5 text-secondary-accent" />
               Season
             </label>
             <select
               value={filters.season}
               onChange={(e) => onFilterChange({ season: e.target.value })}
-              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
+              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-accent/20 text-xs"
             >
               {SEASON_OPTIONS.map((sn) => (
                 <option key={sn} value={sn} className="bg-popover text-popover-foreground">
@@ -350,28 +350,28 @@ export const QueryFilterBar: React.FC<QueryFilterBarProps> = ({
           {/* Start Date */}
           <div className="space-y-1">
             <label className="text-foreground font-medium flex items-center gap-1.5 text-[11px]">
-              <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+              <Calendar className="w-3.5 h-3.5 text-primary-accent" />
               From Date
             </label>
             <input
               type="date"
               value={filters.startDate}
               onChange={(e) => onFilterChange({ startDate: e.target.value })}
-              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
+              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-accent/20 text-xs"
             />
           </div>
 
           {/* End Date */}
           <div className="space-y-1">
             <label className="text-foreground font-medium flex items-center gap-1.5 text-[11px]">
-              <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+              <Calendar className="w-3.5 h-3.5 text-primary-accent" />
               To Date
             </label>
             <input
               type="date"
               value={filters.endDate}
               onChange={(e) => onFilterChange({ endDate: e.target.value })}
-              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-xs"
+              className="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-accent/20 text-xs"
             />
           </div>
         </div>

@@ -261,7 +261,7 @@ export const AuthForm = ({
 
               {/* Submit Button */}
               <Button
-                className="w-full h-11 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white mt-2 gap-2"
+                className="w-full h-11 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center cursor-pointer btn-primary-emerald mt-2 gap-2"
                 type="submit"
                 disabled={isLoading}
               >
@@ -272,13 +272,13 @@ export const AuthForm = ({
               </Button>
 
               {/* Toggle Mode Switcher */}
-              <div className="text-center pt-3 border-t border-zinc-200 dark:border-zinc-800">
-                <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              <div className="text-center pt-3 border-t border-border">
+                <p className="text-xs text-muted-foreground">
                   {isSignUpMode ? "Already have an account?" : "Don't have an account?"}{" "}
                   <button
                     type="button"
                     onClick={toggleMode}
-                    className="font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:underline bg-transparent border-none cursor-pointer"
+                    className="font-bold text-primary-accent hover:underline bg-transparent border-none cursor-pointer"
                   >
                     {isSignUpMode ? "Sign In" : "Sign Up"}
                   </button>
