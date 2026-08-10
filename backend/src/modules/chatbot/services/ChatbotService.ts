@@ -4380,5 +4380,93 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Something went wrong ${error}`)
     }
   }
+
+  /**
+   * Shared helper to fetch a total count from the external data release
+   * service (the dataset application — NOT the internal review system).
+   * Mirrors the DATA_RELEASE_URL/REVIEW_SYSTEM_AUTH_KEY fetch pattern used
+   * by QuestionService.getFeedbacks(). Requests `page=1&pageSize=1` so
+   * only the pagination metadata (`total`) needs to be read from the
+   * response; the actual page of results is discarded.
+   *
+   * NOTE: `resourcePath` assumes the data release service exposes
+   * unscoped list endpoints named `questions`, `feedbacks`, and `users`.
+   * Verify/adjust these paths against the actual data release API
+   * contract if they don't resolve.
+   */
+  private async fetchDataReleaseTotalCount(resourcePath: string): Promise<number> {
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+
+    try {
+      const response = await fetch(
+        `${dataReleaseUrl}/${resourcePath}?page=1&pageSize=1`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authKey}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+
+      const res = await response.json() as {
+        total?: number;
+        totalCount?: number;
+      };
+
+      if (typeof res.total === 'number') {
+        return res.total;
+      }
+      if (typeof res.totalCount === 'number') {
+        return res.totalCount;
+      }
+      return 0;
+    } catch (error: any) {
+      console.error(
+        `[ChatbotService] fetchDataReleaseTotalCount(${resourcePath}): Failed to call data release service:`,
+        error,
+      );
+      throw new InternalServerError(
+        `Failed to get total count for ${resourcePath}: ` + error.message,
+      );
+    }
+  }
+
+  /**
+   * Total number of questions in the dataset application (external data
+   * release service).
+   */
+  async getTotalQuestionsFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('questions');
+  }
+
+  /**
+   * Total number of feedbacks in the dataset application (external data
+   * release service).
+   */
+  async getTotalFeedbacksFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('feedbacks');
+  }
+
+  /**
+   * Total number of users in the dataset application (external data
+   * release service).
+   */
+  async getTotalUsersFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('users');
+  }
 }
 

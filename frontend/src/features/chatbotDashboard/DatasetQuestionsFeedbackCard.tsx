@@ -30,11 +30,7 @@ export function DatasetQuestionsFeedbackCard({
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["dashboard-data"] }),
-      queryClient.invalidateQueries({ queryKey: ["user-metrices"] }),
-      queryClient.invalidateQueries({ queryKey: ["user-details"] }),
-    ]);
+    await queryClient.invalidateQueries({ queryKey: ["dataset-totals"] });
     setRefreshing(false);
   }, [queryClient]);
 

@@ -572,10 +572,42 @@ export const useUserMertices = (
         `${API_BASE_URL}/analytics/users-metrices?${params.toString()}`
       );
       return result as UsermetricsResponse;
-    }, 
+    },
     enabled: true,
   });
 }
+
+export type DatasetTotals = {
+  totalQuestions: number;
+  totalFeedbacks: number;
+  totalUsers: number;
+};
+
+/**
+ * Total number of questions, feedbacks, and users in the dataset
+ * application. Fetched from the external data release service via the
+ * `/analytics/dataset/total-*` endpoints on ChatbotController (NOT the
+ * internal review system).
+ */
+export const useDatasetTotals = () => {
+  return useQuery<DatasetTotals>({
+    queryKey: ["dataset-totals"],
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const [totalQuestionsRes, totalFeedbacksRes, totalUsersRes] = await Promise.all([
+        apiFetch<{ total: number }>(`${API_BASE_URL}/analytics/dataset/total-questions`),
+        apiFetch<{ total: number }>(`${API_BASE_URL}/analytics/dataset/total-feedbacks`),
+        apiFetch<{ total: number }>(`${API_BASE_URL}/analytics/dataset/total-users`),
+      ]);
+      return {
+        totalQuestions: totalQuestionsRes?.total ?? 0,
+        totalFeedbacks: totalFeedbacksRes?.total ?? 0,
+        totalUsers: totalUsersRes?.total ?? 0,
+      };
+    },
+    enabled: true,
+  });
+};
 
 export const useResponseAdherenceTable = (source?: string, userType?: string, startTime?: Date, endTime?: Date, shouldLoad?: boolean) => {
   const params = new URLSearchParams();

@@ -579,4 +579,25 @@ export interface IChatbotService {
     )
 
     getReviewerLifecycle( userId: string, startDate?: Date, endDate?: Date ): Promise<any>
+
+  /**
+   * Total number of questions in the dataset application, fetched from the
+   * external data release service (DATA_RELEASE_URL) — NOT the internal
+   * review-system database.
+   */
+  getTotalQuestionsFromDataset(): Promise<number>;
+
+  /**
+   * Total number of feedbacks in the dataset application, fetched from the
+   * external data release service (DATA_RELEASE_URL) — NOT the internal
+   * review-system database.
+   */
+  getTotalFeedbacksFromDataset(): Promise<number>;
+
+  /**
+   * Total number of users in the dataset application, fetched from the
+   * external data release service (DATA_RELEASE_URL) — NOT the internal
+   * review-system database.
+   */
+  getTotalUsersFromDataset(): Promise<number>;
 }
