@@ -504,28 +504,37 @@ async def _apply_domain_and_crop_async(
             if domain_crop_requirement_mode(domain) == "conditional"
         ]
 
-        # Deterministic policies short-circuit the classifier. Conditional
-        # domains are classified concurrently only when no crop is available.
+        async def classify_domain(domain: str) -> CropRequirementDecision:
+            policy = get_domain_crop_policy(domain)
+            additional = policy.get("additional_remarks") or {}
+            additional_text = "; ".join(
+                f"{key}: {value}" for key, value in additional.items()
+            )
+            return await is_crop_specific_question(
+                question,
+                original,
+                domain,
+                config=config,
+                domain_description=policy.get("description", ""),
+                domain_remarks=policy.get("remarks", ""),
+                additional_remarks=additional_text,
+                default_crop_required=bool(policy.get("default_crop_required")),
+            )
+
+        # Always-required domains retain their existing behavior unless the
+        # classifier explicitly recognizes that the farmer is asking which
+        # crop to grow. This prevents an always-required domain from turning
+        # a crop recommendation into an unnecessary input-crop question.
         crop_required = bool(always_domains)
         crop_requirement_source = "always_required" if always_domains else "never_required"
-        if not crop_required and conditional_domains:
-            async def classify_domain(domain: str) -> CropRequirementDecision:
-                policy = get_domain_crop_policy(domain)
-                additional = policy.get("additional_remarks") or {}
-                additional_text = "; ".join(
-                    f"{key}: {value}" for key, value in additional.items()
-                )
-                return await is_crop_specific_question(
-                    question,
-                    original,
-                    domain,
-                    config=config,
-                    domain_description=policy.get("description", ""),
-                    domain_remarks=policy.get("remarks", ""),
-                    additional_remarks=additional_text,
-                    default_crop_required=bool(policy.get("default_crop_required")),
-                )
-
+        if always_domains:
+            output_decision = await classify_domain(always_domains[0])
+            if output_decision == "crop_output_requested":
+                crop_required = False
+                crop_requirement_source = "always_domain_crop_output_requested"
+        elif conditional_domains:
+            # Conditional domains are classified concurrently only when no
+            # crop is available.
             conditional_results: list[CropRequirementDecision] = await asyncio.gather(
                 *(classify_domain(domain) for domain in conditional_domains)
             )
