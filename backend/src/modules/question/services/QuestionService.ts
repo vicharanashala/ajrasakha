@@ -9356,6 +9356,70 @@ if (filters.endDate) {
   }
 
   /**
+   * Backfill moderatorId on CLOSED questions that have none. moderatorId is cleared
+   * when a question closes, so for reporting we restore it from the question's final
+   * answer (isFinalAnswer: true) `approvedBy` — the approver is effectively the
+   * moderator. Paginated via `limit` so it can be run repeatedly until nothing is left.
+   */
+  async backfillClosedModeratorIds(limit = 500): Promise<{
+    matched: number;
+    updated: number;
+    skippedNoFinalAnswer: number;
+    skippedNoApprover: number;
+  }> {
+    const questionIds =
+      await this.questionRepo.findClosedQuestionsWithoutModerator(limit);
+    if (!questionIds.length) {
+      return {
+        matched: 0,
+        updated: 0,
+        skippedNoFinalAnswer: 0,
+        skippedNoApprover: 0,
+      };
+    }
+
+    const finalAnswers =
+      await this.answerRepo.getFinalAnswersByQuestionIds(questionIds);
+
+    // questionId -> approvedBy (first final answer that has an approver wins).
+    const approverByQuestion = new Map<string, string>();
+    const questionsWithFinal = new Set<string>();
+    for (const a of finalAnswers) {
+      const qid = a.questionId?.toString();
+      if (!qid) continue;
+      questionsWithFinal.add(qid);
+      const approver = a.approvedBy?.toString();
+      if (approver && !approverByQuestion.has(qid)) {
+        approverByQuestion.set(qid, approver);
+      }
+    }
+
+    const pairs: { questionId: string; moderatorId: string }[] = [];
+    let skippedNoFinalAnswer = 0;
+    let skippedNoApprover = 0;
+    for (const qid of questionIds) {
+      if (!questionsWithFinal.has(qid)) {
+        skippedNoFinalAnswer++;
+        continue;
+      }
+      const approver = approverByQuestion.get(qid);
+      if (!approver) {
+        skippedNoApprover++;
+        continue;
+      }
+      pairs.push({ questionId: qid, moderatorId: approver });
+    }
+
+    const updated = await this.questionRepo.bulkSetModeratorId(pairs);
+    return {
+      matched: questionIds.length,
+      updated,
+      skippedNoFinalAnswer,
+      skippedNoApprover,
+    };
+  }
+
+  /**
    * Get feedbacks for a question (paginated)
    * Fetches from external data release service with mock data fallback
    */
@@ -9448,18 +9512,27 @@ if (filters.endDate) {
       totalPages,
     };*/
 
-   // TODO: Uncomment when data release service is available
+    // Empty result used whenever the external data-release service can't be reached
+    // or isn't configured — feedbacks are supplementary, so a failure here must not
+    // 500 the whole question-details view. It just shows "no feedbacks".
+    const emptyResponse: FeedbackResponse = {
+      data: [],
+      totalCount: 0,
+      page,
+      pageSize,
+      totalPages: 0,
+    };
+
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
-    
-    if (!dataReleaseUrl) {
-      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+
+    if (!dataReleaseUrl || !authKey) {
+      console.warn(
+        '[QuestionService] getFeedbacks: data-release service not configured (DATA_RELEASE_URL / REVIEW_SYSTEM_AUTH_KEY missing) — returning empty feedbacks.',
+      );
+      return emptyResponse;
     }
-    
-    if (!authKey) {
-      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
-    }
-    
+
     try {
       const response = await fetch(
         `${dataReleaseUrl}/feedbacks/question/${questionId}?page=${page}&pageSize=${pageSize}`,
@@ -9525,8 +9598,13 @@ if (filters.endDate) {
           : Math.ceil(totalCount / pageSize),
     };
     } catch (error: any) {
-      console.error('[QuestionService] getFeedbacks: Failed to call data release service:', error);
-      throw new InternalServerError('Failed to get feedbacks: ' + error.message);
+      // Network failure (ECONNREFUSED / timeout), non-OK status, or bad JSON —
+      // log and degrade to an empty list rather than 500ing the question view.
+      console.error(
+        '[QuestionService] getFeedbacks: Failed to call data release service:',
+        error?.message ?? error,
+      );
+      return emptyResponse;
     }
   }
 

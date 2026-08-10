@@ -2769,6 +2769,50 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Closed questions that have no moderator recorded (moderatorId is null or missing).
+   *  Used by the backfill that restores moderatorId from the final answer's approver —
+   *  moderatorId is cleared when a question closes. Returns up to `limit` question ids. */
+  async findClosedQuestionsWithoutModerator(limit: number): Promise<string[]> {
+    await this.init();
+    const safeLimit = Math.max(1, Math.min(limit || 500, 2000));
+    const docs = await this.QuestionCollection.find(
+      {
+        $and: [
+          { $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }] },
+          { status: 'closed' },
+        ],
+      },
+      { projection: { _id: 1 }, limit: safeLimit },
+    ).toArray();
+    return docs.map(d => d._id!.toString());
+  }
+
+  /** Bulk-set moderatorId on several questions in one round trip. Invalid ids are
+   *  skipped. Returns the number of questions actually modified. */
+  async bulkSetModeratorId(
+    pairs: { questionId: string; moderatorId: string }[],
+  ): Promise<number> {
+    await this.init();
+    const ops = pairs
+      .filter(
+        p => isValidObjectId(p.questionId) && isValidObjectId(p.moderatorId),
+      )
+      .map(p => ({
+        updateOne: {
+          filter: { _id: new ObjectId(p.questionId) },
+          update: {
+            $set: {
+              moderatorId: new ObjectId(p.moderatorId),
+              updatedAt: new Date(),
+            },
+          },
+        },
+      }));
+    if (!ops.length) return 0;
+    const res = await this.QuestionCollection.bulkWrite(ops as any);
+    return res.modifiedCount ?? 0;
+  }
+
   async updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,

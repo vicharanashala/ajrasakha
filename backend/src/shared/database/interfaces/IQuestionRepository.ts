@@ -213,6 +213,10 @@ export interface IQuestionRepository {
    * @param addText - To add text field without filtering it.
    * @returns A promise that resolves to an object containing the number of modified documents.
    */
+  findClosedQuestionsWithoutModerator(limit: number): Promise<string[]>;
+  bulkSetModeratorId(
+    pairs: { questionId: string; moderatorId: string }[],
+  ): Promise<number>;
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,

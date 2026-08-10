@@ -720,6 +720,13 @@ export interface IQuestionService {
     pageSize?: number,
   ): Promise<FeedbackResponse>;
 
+  backfillClosedModeratorIds(limit?: number): Promise<{
+    matched: number;
+    updated: number;
+    skippedNoFinalAnswer: number;
+    skippedNoApprover: number;
+  }>;
+
   handleFeedbackStatusUpdate(
     questionId: string,
     source: "DATASET" | "WEB_APPLICATION",
