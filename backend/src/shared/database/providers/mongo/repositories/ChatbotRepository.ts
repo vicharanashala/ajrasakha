@@ -13845,8 +13845,6 @@ export class ChatbotRepository implements IChatbotRepository {
         ]).toArray(),
       ]);
 
-      console.log('CARD MATCH:', JSON.stringify(matchStage, null, 2));
-
       const data = result[0] || {
         totalQuestions: 0,
         closedQuestions: 0,
@@ -15819,9 +15817,12 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
       if (status === 'pending') {
+        // matchQuery.status = {
+        //   $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
+        // };
         matchQuery.status = {
-          $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
-        };
+          $in: ['pending'],
+        }
       }
 
       // Apply date range
@@ -15900,8 +15901,6 @@ export class ChatbotRepository implements IChatbotRepository {
           $in: userIds,
         };
       }
-
-      console.log('MODAL MATCH:', JSON.stringify(matchQuery, null, 2));
 
       const result = await this.QuestionCollection.aggregate(
         [
