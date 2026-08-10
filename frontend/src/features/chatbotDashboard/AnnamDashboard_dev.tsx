@@ -14,6 +14,7 @@ import {
   useResponseAdherenceTable,
   useTopFaqs,
   useUserMertices,
+  useDatasetTotals,
 } from "./hooks/useDashboardData";
 import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
@@ -429,39 +430,16 @@ export function AnnamDashboard_dev({
     true,
   );
 
-  // All-time dataset totals (no date filter) for the "Dataset Questions and
-  // Feedback Metrics" card — reuses the same paginated endpoint as
-  // `todayActiveFarmersData`, just without the today/verified/active-only
-  // filters, so `totalUsers`/`totalQuestions` reflect the whole dataset.
+  // Dataset totals (total questions / feedbacks / users) for the "Dataset
+  // Questions and Feedback Metrics" card — fetched from the dataset
+  // application (external data release service) via useDatasetTotals,
+  // which calls the ChatbotController /analytics/dataset/total-* routes.
+  // NOT from the internal review system's user-details/user-metrices
+  // endpoints.
   const {
     data: datasetTotalsData,
     isLoading: isDatasetTotalsLoading,
-  } = useUserDetails(
-    undefined,
-    undefined,
-    1,
-    1,
-    "",
-    source as any,
-    "",
-    [],
-    [],
-    "",
-    "",
-    "",
-    "",
-    "all",
-    false,
-    false,
-    filters.userType as any,
-    [],
-    "totalQuestions",
-    "desc",
-    false,
-    "",
-    "all",
-    true,
-  );
+  } = useDatasetTotals();
 
   // ─── Stats Cards Refresh Handler ────────────────────────────────────────────
   // Refresh all related stats cards in the row (Closed in 2h, Question Status, Notifications)
@@ -712,9 +690,7 @@ export function AnnamDashboard_dev({
 
                   <DatasetQuestionsFeedbackCard
                     totalQuestions={datasetTotalsData?.totalQuestions}
-                    totalFeedbacks={
-                      userMetricesData?.feedbackData?.stats?.totalFeedbacks
-                    }
+                    totalFeedbacks={datasetTotalsData?.totalFeedbacks}
                     totalUsers={datasetTotalsData?.totalUsers}
                     isLoading={isDatasetTotalsLoading}
                   />
