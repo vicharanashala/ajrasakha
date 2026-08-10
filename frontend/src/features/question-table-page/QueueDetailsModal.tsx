@@ -658,8 +658,12 @@ function QueueColumn({
 
 export const QueueDetailsModal = ({
   setIsSidebarOpen,
+  currentUserIsAdmin,
+  isTrainingUser
 }: {
   setIsSidebarOpen?: (v: boolean) => void;
+  currentUserIsAdmin?: boolean;
+  isTrainingUser?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
   // Accordion + sub-tab state now lives inside each QueueColumn (one per source group).
@@ -738,7 +742,9 @@ export const QueueDetailsModal = ({
             Queue Details
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Time-bound &amp; manual single-allocation queues, side by side
+            {currentUserIsAdmin || !isTrainingUser
+              ? 'Time-bound & manual single-allocation queues, side by side'
+              : 'manual single-allocation queues'}
           </p>
         </DialogHeader>
 
@@ -790,29 +796,33 @@ export const QueueDetailsModal = ({
           <div className="py-2">
             {/* Both queues side by side — time-bound | manual */}
             <div className="flex flex-col lg:flex-row gap-4">
-              <QueueColumn
-                heading="Time-bound Queue"
-                subheading="AjraSakha & WhatsApp (auto-allocated)"
-                suffix=""
-                dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
-                onQuestionClick={handleQuestionClick}
-                g={{
-                  received: data.received,
-                  receivedStatusCounts: data.receivedStatusCounts,
-                  autoAllocateOff: data.autoAllocateOff,
-                  autoAllocateOpen: data.autoAllocateOpen,
-                  autoAllocateDelayed: data.autoAllocateDelayed,
-                  allocated: data.allocated,
-                  waiting: data.waiting,
-                  freeExperts: data.freeExperts,
-                  stuck: data.stuck,
-                  needsReviewer: data.needsReviewer,
-                  openedIdle: data.openedIdle,
-                  moderatorWaiting: data.moderatorWaitingTimeBound,
-                  moderatorAllocated: data.moderatorAllocatedTimeBound,
-                  availableModerators: data.availableModeratorsTimeBound,
-                }}
-              />
+                  {
+                    (currentUserIsAdmin || !isTrainingUser) && (
+                      <QueueColumn
+                        heading="Time-bound Queue"
+                        subheading="AjraSakha & WhatsApp (auto-allocated)"
+                        suffix=""
+                        dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
+                        onQuestionClick={handleQuestionClick}
+                        g={{
+                          received: data.received,
+                          receivedStatusCounts: data.receivedStatusCounts,
+                          autoAllocateOff: data.autoAllocateOff,
+                          autoAllocateOpen: data.autoAllocateOpen,
+                          autoAllocateDelayed: data.autoAllocateDelayed,
+                          allocated: data.allocated,
+                          waiting: data.waiting,
+                          freeExperts: data.freeExperts,
+                          stuck: data.stuck,
+                          needsReviewer: data.needsReviewer,
+                          openedIdle: data.openedIdle,
+                          moderatorWaiting: data.moderatorWaitingTimeBound,
+                          moderatorAllocated: data.moderatorAllocatedTimeBound,
+                          availableModerators: data.availableModeratorsTimeBound,
+                        }}
+                      />
+                    )
+                  }
               <div className="hidden lg:block w-px bg-gray-200 dark:bg-gray-800 self-stretch" />
               <QueueColumn
                 heading="Manual Queue"
@@ -991,7 +1001,7 @@ export const GateKeeperAuditorQueueModal = ({
             </div>
             <div className="text-left">
               <p className="text-sm font-bold text-gray-900 dark:text-white">
-                Gate Keeper / Auditor Queue
+                Gate Keeper / Auditor / Feed Back Queue
               </p>
               <p className="text-[11px] text-gray-500">
                 Live gate keeper & auditor allocation overview
@@ -1077,6 +1087,22 @@ export const GateKeeperAuditorQueueModal = ({
                 waiting={data.auditorWaiting}
                 allocated={data.auditorAllocated}
                 available={data.availableAuditors}
+                openSection={openSection}
+                toggle={toggle}
+                dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
+                onQuestionClick={handleQuestionClick}
+              />
+              <div className="hidden lg:block w-px bg-gray-200 dark:bg-gray-800 self-stretch" />
+              <RoleQueueColumn
+                heading="Feedback Queue"
+                subheading="Open feedback reviews"
+                assigneeLabel="Reviewer"
+                waitingKey="feedbackWaiting"
+                allocatedKey="feedbackAllocated"
+                availableKey="availableFeedbackReviewers"
+                waiting={data.feedbackWaiting}
+                allocated={data.feedbackAllocated}
+                available={data.availableFeedbackReviewers}
                 openSection={openSection}
                 toggle={toggle}
                 dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}

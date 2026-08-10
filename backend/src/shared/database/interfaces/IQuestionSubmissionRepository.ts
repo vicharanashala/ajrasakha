@@ -188,6 +188,44 @@ export interface IQuestionSubmissionRepository {
     session?: ClientSession,
   ): Promise<IQuestionSubmission[]>;
   updateById(id?: string, update?: any, session?: any);
+  assignFeedbackReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean>;
+  finishOpenFeedbackReviews(
+    questionId: string,
+    finishedAt: Date,
+    session?: ClientSession,
+  ): Promise<number>;
+  findOpenFeedbackReviews(): Promise<
+    {questionId: string; reviewerId: string; assignedAt: Date}[]
+  >;
+  reassignOpenFeedbackReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean>;
+  reassignFeedbackReviewerByIndex(
+    questionId: string,
+    index: number,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean>;
+  removeFeedbackReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean>;
+  addClosedFeedbackToOpenRound(
+    questionId: string,
+    feedbackId: string,
+    closedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean>;
   getLevelWiseReport(
     startDate: string,
     endDate: string,
@@ -248,6 +286,8 @@ export interface IQuestionSubmissionRepository {
   findTimeBoundQuestionsForReallocation(
     sources?: QuestionSource[],
     requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
 
   /** Find all single-allocation submissions that were never allocated — queue is
@@ -256,6 +296,8 @@ export interface IQuestionSubmissionRepository {
   findUnallocatedTimeBoundQuestions(
     sources?: QuestionSource[],
     requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
 
   /** Find time-bound submissions the current expert opened > 45 min ago but still
@@ -270,6 +312,8 @@ export interface IQuestionSubmissionRepository {
   findAnsweredQuestionsNeedingReviewer(
     sources?: QuestionSource[],
     requirePaeReviewNotDone?: boolean,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean
   ): Promise<IQuestionSubmission[]>;
 
   /** Atomically push reviewer into queue, add an in-review history entry, and

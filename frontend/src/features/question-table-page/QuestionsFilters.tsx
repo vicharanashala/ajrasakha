@@ -36,6 +36,9 @@ import {
   MessageCircle,
   AlertTriangle,
   Download,
+  FileText,
+  MessageSquareDiff,
+  MapPin,
 } from "lucide-react";
 import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
@@ -74,11 +77,12 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
+import { StateDistrictAliasModal } from "./StateDistrictAliasModal";
 import { QueueDetailsModal, GateKeeperAuditorQueueModal } from "./QueueDetailsModal";
 import { canViewQueueDetails } from "@/lib/roles";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
-import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
+import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
@@ -116,6 +120,8 @@ type QuestionsFiltersProps = {
   handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
   isBulkAllocatingPae: boolean;
   onAnswerModeChange?: (mode: string) => void;
+  dedicatedSubTab?: DedicatedSubTab;
+  onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
 };
 
 type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
@@ -172,6 +178,8 @@ export const QuestionsFilters = ({
   handleBulkAllocateToPae,
   isBulkAllocatingPae,
   onAnswerModeChange,
+  dedicatedSubTab,
+  onDedicatedSubTabChange,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -212,6 +220,7 @@ export const QuestionsFilters = ({
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [isChemicalModalOpen, setIsChemicalModalOpen] = useState(false);
+  const [isStateAliasModalOpen, setIsStateAliasModalOpen] = useState(false);
   const [isDownloadingCrops, setIsDownloadingCrops] = useState(false);
   const [isDownloadingChemicals, setIsDownloadingChemicals] = useState(false);
   const [isPaeAllocateModalOpen, setIsPaeAllocateModalOpen] = useState(false);
@@ -757,6 +766,8 @@ export const QuestionsFilters = ({
         }
         isDedicatedView={viewMode === "dedicated"}
         onDedicatedClick={() => setViewMode(viewMode === "dedicated" ? "all" : "dedicated")}
+        dedicatedSubTab={dedicatedSubTab}
+        onDedicatedSubTabChange={onDedicatedSubTabChange}
       />
 
       {/* ── ROW 2: Search + View + Filter + Add ── */}
@@ -784,6 +795,34 @@ export const QuestionsFilters = ({
             )}
           </div>
         </div>
+
+        {/* Sub-tabs for dedicated view: Questions and Feedbacks - shown right of search */}
+        {viewMode === "dedicated" && (
+          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border">
+            <button
+              onClick={() => onDedicatedSubTabChange?.("questions")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                dedicatedSubTab === "questions"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              }`}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Questions
+            </button>
+            <button
+              onClick={() => onDedicatedSubTabChange?.("feedbacks")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                dedicatedSubTab === "feedbacks"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              }`}
+            >
+              <MessageSquareDiff className="h-3.5 w-3.5" />
+              Feedbacks
+            </button>
+          </div>
+        )}
 
         {/* Spacer pushes controls to the right */}
         <div className="flex-1" />
@@ -1137,6 +1176,33 @@ export const QuestionsFilters = ({
                 </button>
               )}
 
+              {/* Edit State & District (aliases) — admin/moderator only */}
+              {(userRole === "admin" || userRole === "moderator") && (
+                <button
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-teal-50 dark:hover:bg-teal-500/5 border border-gray-200 dark:border-gray-800 hover:border-teal-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  onClick={() => {
+                    setIsStateAliasModalOpen(true);
+                    setIsSidebarOpen(false);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-teal-100 dark:bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-500">
+                      <MapPin size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
+                          Edit State &amp; District
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        Manage state / district aliases
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
               {/* update chemicals — commented out */}
               {/* {userRole !== "expert" && (
                 <button
@@ -1219,7 +1285,7 @@ export const QuestionsFilters = ({
 
               {/* queue details — admins, moderators, gate keepers & auditors */}
               {canViewQueueDetails(userRole) && (
-                <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
+                <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} currentUserIsAdmin={userRole === "admin"} isTrainingUser={isTrainingUser} />
               )}
 
               {/* gate keeper / auditor queue — admins, moderators, gate keepers & auditors */}
@@ -1527,6 +1593,10 @@ export const QuestionsFilters = ({
       <ChemicalManagementModal
         open={isChemicalModalOpen}
         onOpenChange={setIsChemicalModalOpen}
+      />
+      <StateDistrictAliasModal
+        open={isStateAliasModalOpen}
+        onOpenChange={setIsStateAliasModalOpen}
       />
       <BulkUploadAllocationModal
         open={isPaeAllocateModalOpen}

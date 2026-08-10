@@ -2,10 +2,30 @@
 
 from __future__ import annotations
 
-from typing import TypedDict
+import json
+import logging
+from pathlib import Path
+from typing import Literal, TypedDict
 
-# Domains that REQUIRE a specific crop (not "all").
-CROP_REQUIRED_DOMAINS: frozenset[str] = frozenset({
+
+logger = logging.getLogger(__name__)
+
+CropRequirementMode = Literal[
+    "always_required",
+    "never_required",
+    "conditional",
+]
+
+
+class DomainCropPolicy(TypedDict, total=False):
+    mode: CropRequirementMode
+    default_crop_required: bool | None
+    remarks: str
+    description: str
+    additional_remarks: dict[str, str] | None
+
+# Fallback values keep older deployments working if the JSON asset is missing.
+_LEGACY_CROP_REQUIRED_DOMAINS: frozenset[str] = frozenset({
     "Agriculture Mechanization",
     "Bio-Pesticides and Bio-Fertilizers",
     "Crop Insurance",
@@ -27,8 +47,7 @@ CROP_REQUIRED_DOMAINS: frozenset[str] = frozenset({
     "Horticulture & Allied Agriculture",
 })
 
-# Domains where crop is automatically "all" / not required.
-CROP_ALL_DOMAINS: frozenset[str] = frozenset({
+_LEGACY_CROP_ALL_DOMAINS: frozenset[str] = frozenset({
     "Soil Health Card",
     "Soil Testing",
     "Livestock & Animal Husbandry",
@@ -42,8 +61,87 @@ CROP_ALL_DOMAINS: frozenset[str] = frozenset({
     "General",
 })
 
-ALLOWED_DOMAINS: frozenset[str] = CROP_REQUIRED_DOMAINS | CROP_ALL_DOMAINS
+def _legacy_domain_policies() -> dict[str, DomainCropPolicy]:
+    policies: dict[str, DomainCropPolicy] = {}
+    for domain in _LEGACY_CROP_REQUIRED_DOMAINS:
+        policies[domain] = {
+            "mode": "always_required",
+            "default_crop_required": True,
+            "remarks": "Always",
+        }
+    for domain in _LEGACY_CROP_ALL_DOMAINS:
+        policies[domain] = {
+            "mode": "never_required",
+            "default_crop_required": False,
+            "remarks": "Never",
+        }
+    return policies
 
+
+def _load_domain_crop_policies() -> dict[str, DomainCropPolicy]:
+    path = Path(__file__).with_name("domain_crop_requirements.json")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        entries = payload.get("domains")
+        if not isinstance(entries, list):
+            raise ValueError("domains must be a list")
+
+        policies: dict[str, DomainCropPolicy] = {}
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            name = str(entry.get("name") or "").strip()
+            requirement = entry.get("requirement") or {}
+            mode = requirement.get("decision_mode")
+            if not name or mode not in {
+                "always_required",
+                "never_required",
+                "conditional",
+            }:
+                continue
+            policies[name] = {
+                "mode": mode,
+                "default_crop_required": entry.get("default_crop_required"),
+                "remarks": str(entry.get("remarks") or ""),
+                "description": str(entry.get("description") or ""),
+                "additional_remarks": entry.get("additional_remarks"),
+            }
+
+        if not policies:
+            raise ValueError("no valid domain policies found")
+        return policies
+    except Exception as exc:
+        logger.warning(
+            "Could not load domain_crop_requirements.json (%s: %s); using legacy domain policy",
+            type(exc).__name__,
+            exc,
+        )
+        return _legacy_domain_policies()
+
+
+DOMAIN_CROP_POLICIES: dict[str, DomainCropPolicy] = _load_domain_crop_policies()
+
+# CROP_REQUIRED_DOMAINS remains a compatibility name for domains that may need
+# crop context. Conditional domains are intentionally included.
+CROP_ALWAYS_DOMAINS: frozenset[str] = frozenset(
+    domain
+    for domain, policy in DOMAIN_CROP_POLICIES.items()
+    if policy.get("mode") == "always_required"
+)
+CROP_NEVER_DOMAINS: frozenset[str] = frozenset(
+    domain
+    for domain, policy in DOMAIN_CROP_POLICIES.items()
+    if policy.get("mode") == "never_required"
+)
+CROP_CONDITIONAL_DOMAINS: frozenset[str] = frozenset(
+    domain
+    for domain, policy in DOMAIN_CROP_POLICIES.items()
+    if policy.get("mode") == "conditional"
+)
+CROP_REQUIRED_DOMAINS: frozenset[str] = CROP_ALWAYS_DOMAINS | CROP_CONDITIONAL_DOMAINS
+CROP_ALL_DOMAINS: frozenset[str] = CROP_NEVER_DOMAINS
+
+ALLOWED_DOMAINS: frozenset[str] = frozenset(DOMAIN_CROP_POLICIES)
 ALLOWED_DOMAINS_LIST: list[str] = sorted(ALLOWED_DOMAINS)
 
 # Common LLM / legacy label mistakes -> canonical ALLOWED_DOMAINS name.
@@ -86,14 +184,39 @@ class PlannerToolFlags(TypedDict, total=False):
 
 
 def domain_requires_crop(domain: str) -> bool:
-    d = (domain or "").strip()
-    if not d:
-        return False
-    if d in CROP_ALL_DOMAINS:
-        return False
-    if d in CROP_REQUIRED_DOMAINS:
-        return True
-    return False
+    """Return whether a domain can require crop context.
+
+    This keeps the legacy meaning used by tool routing. Use
+    ``domain_crop_requirement_mode`` when the caller needs to distinguish
+    deterministic and conditional crop decisions.
+    """
+    return domain_crop_requirement_mode(domain) != "never_required"
+
+
+def legacy_domain_requires_crop(domain: str) -> bool:
+    """Return the pre-JSON crop-required classification for compatibility paths."""
+    return normalize_domain(domain) in _LEGACY_CROP_REQUIRED_DOMAINS
+
+
+def get_domain_crop_policy(domain: str) -> DomainCropPolicy:
+    """Return the JSON-backed crop policy for a canonical or aliased domain."""
+    raw = (domain or "").strip()
+    if raw in DOMAIN_CROP_POLICIES:
+        return DOMAIN_CROP_POLICIES[raw]
+    canonical = normalize_domain(raw)
+    return DOMAIN_CROP_POLICIES.get(
+        canonical,
+        {
+            "mode": "never_required",
+            "default_crop_required": False,
+            "remarks": "",
+        },
+    )
+
+
+def domain_crop_requirement_mode(domain: str) -> CropRequirementMode:
+    """Return ``always_required``, ``never_required``, or ``conditional``."""
+    return get_domain_crop_policy(domain).get("mode", "never_required")
 
 
 def normalize_domain(raw: str) -> str:
@@ -133,7 +256,10 @@ def apply_tool_flags_from_domain(domain: str) -> PlannerToolFlags:
     elif d in _SCHEME_DOMAINS:
         flags["schemes"] = True
         flags["knowledge_base"] = False
-    elif d in CROP_REQUIRED_DOMAINS:
+    # Tool routing remains on the legacy knowledge-base classification. Crop
+    # requirement eligibility is broader because conditional domains may still
+    # need a crop without always using the knowledge-base tool.
+    elif d in _LEGACY_CROP_REQUIRED_DOMAINS:
         flags["knowledge_base"] = True
     return flags
 

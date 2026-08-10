@@ -1020,14 +1020,14 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
           <!-- ========================================= -->
 
           <tr style="
-            background-color: #eff6ff;
-            border-bottom: 1px solid #dbeafe;
+            background-color: #ecfdf5;
+            border-bottom: 1px solid #d1fae5;
           ">
             <td style="padding: 20px;">
               <div style="
                 font-size: 14px;
                 font-weight: 700;
-                color: #1e40af;
+                color: #065f46;
               ">
                 Total Questions Entered in System Today
               </div>
@@ -1035,7 +1035,7 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
               <div style="
                 margin-top: 5px;
                 font-size: 12px;
-                color: #2563eb;
+                color: #047857;
               ">
                 New questions created in the system today
               </div>
@@ -1048,7 +1048,7 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
             ">
               <span style="
                 display: inline-block;
-                background-color: #2563eb;
+                background-color: #047857;
                 color: #ffffff;
                 padding: 8px 14px;
                 border-radius: 6px;

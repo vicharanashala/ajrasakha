@@ -17,6 +17,30 @@ import { QuestionLevelResponse } from '#root/modules/question/classes/transforme
 import { ClientSession, ObjectId } from 'mongodb';
 import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
+/** Feedback data structure */
+export interface FeedbackData {
+  _id: { $oid: string };
+  questionId: { $oid: string };
+  userId: { name: string; email: string };
+  answerId: { $oid: string };
+  type: 'thumbs_up' | 'thumbs_down';
+  predefinedOption: string;
+  comment: string;
+  status: 'open' | 'rejected' | 'accepted';
+  reviewNote?: string;
+  createdAt: { $date: string };
+  updatedAt: { $date: string };
+}
+
+/** Paginated feedback response */
+export interface FeedbackResponse {
+  data: FeedbackData[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 /** Lean question shape used in the moderator/admin "Queue Details" modal. */
 export interface QueueQuestionItem {
   _id: string;
@@ -133,6 +157,13 @@ export interface QueueDetailsResponse {
   auditorAllocated: {count: number; items: QueueQuestionItem[]};
   /** Auditors free to take a question. */
   availableAuditors: {count: number; items: QueueExpertItem[]};
+  // ── Feedback-review queue (mirrors the gate-keeper / auditor role queue) ──
+  /** Questions with an open feedback that has not been assigned to a reviewer yet. */
+  feedbackWaiting: {count: number; items: QueueQuestionItem[]};
+  /** Questions with an open feedback-review round assigned to a reviewer. */
+  feedbackAllocated: {count: number; items: QueueQuestionItem[]};
+  /** Moderators/auditors free to take a feedback review. */
+  availableFeedbackReviewers: {count: number; items: QueueExpertItem[]};
   // ── Manual (AGRI_EXPERT/OUTREACH) expert-queue sections — mirror the time-bound
   //    expert sections above, scoped to the manual single-allocation queue. ──
   receivedManual: {count: number; items: QueueQuestionItem[]};
@@ -204,6 +235,10 @@ export type QueueSectionName =
   | 'auditorWaiting'
   | 'auditorAllocated'
   | 'availableAuditors'
+  // Feedback-review queue (mirror the gate-keeper / auditor role queue)
+  | 'feedbackWaiting'
+  | 'feedbackAllocated'
+  | 'availableFeedbackReviewers'
   // Manual (AGRI_EXPERT/OUTREACH) expert-queue variants — same shape as the
   // time-bound expert sections above, scoped to the manual single-allocation queue.
   | 'receivedManual'
@@ -283,6 +318,7 @@ export interface IQuestionService {
   ): Promise<{
     questions: IQuestion[];
     totalPages: number;
+    feedbackQuestions?: IQuestion[];
   }>;
 
   /** Generate questions from raw context (AI) */
@@ -590,10 +626,11 @@ export interface IQuestionService {
    *  to experts with fewer than 3 active time-bound questions. */
   reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
   reallocateManualQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
+  allocateFeedbackQuestions(): Promise<{ message: string; allocated: number; skipped: number }>;
 
   /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
    *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */
-  getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse>;
+  getQueueDetails(startTime?: Date, endTime?: Date, isTrainingUser?: boolean, isAdmin?: boolean): Promise<QueueDetailsResponse>;
 
   /** One server-side paginated section (exact total + requested page of items). */
   getQueueSection(
@@ -632,4 +669,68 @@ export interface IQuestionService {
     questionId: string,
     rawEntry: Record<string, any>,
   ): Promise<{ success: boolean; historyLength: number }>;
+
+  /** Handle feedback action (accept/reject) and notify data release service */
+  getFeedbackTimeline(questionId: string): Promise<{
+    autoAllocateFeedback: boolean;
+    hasOpenFeedback: boolean;
+    reviews: {
+      index: number;
+      reviewerId: string;
+      reviewerName: string;
+      assignedAt: Date;
+      finishedAt: Date | null;
+    }[];
+  }>;
+  getAssignableFeedbackReviewers(): Promise<
+    {_id: string; name: string; email: string; role: string}[]
+  >;
+  assignFeedbackReviewerManually(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{success: true}>;
+  removeFeedbackReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{success: true}>;
+  handleFeedbackAction(
+    questionId: string,
+    feedbackId: string,
+    action: 'accept' | 'reject',
+    reason: string,
+    processedBy: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      feedbackId: string;
+      action: string;
+      reason: string;
+      processedBy: string;
+      processedAt: string;
+    };
+  }>;
+  
+
+  /** Get feedbacks for a question (paginated) */
+  getFeedbacks(
+    questionId: string,
+    page?: number,
+    pageSize?: number,
+  ): Promise<FeedbackResponse>;
+
+  backfillClosedModeratorIds(limit?: number): Promise<{
+    matched: number;
+    updated: number;
+    skippedNoFinalAnswer: number;
+    skippedNoApprover: number;
+  }>;
+
+  handleFeedbackStatusUpdate(
+    questionId: string,
+    source: "DATASET" | "WEB_APPLICATION",
+  ): Promise<{
+    success: boolean;
+  }>;
 }

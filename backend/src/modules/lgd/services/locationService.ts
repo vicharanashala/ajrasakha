@@ -10,6 +10,8 @@ import type {
   ILocationVillage,
   IKvk,
   IKvkSyncResult,
+  IAuditActor,
+  ILocationAudit,
 } from '../interfaces/ILocationService.js';
 import { appConfig } from '#root/config/app.js';
 
@@ -56,6 +58,54 @@ export class LocationService implements ILocationService {
       stateCode: record.state_code,
       stateNameEnglish: record.state_name_english,
     }));
+  }
+
+  public async updateStateAliases(
+    stateCode: number,
+    aliases: string[],
+    name?: string,
+  ): Promise<ILocationState> {
+    if (stateCode === undefined || stateCode === null || Number.isNaN(Number(stateCode))) {
+      throw new BadRequestError('A valid stateCode is required');
+    }
+    // Trim, drop blanks, and de-duplicate (case-insensitive) the aliases.
+    const seen = new Set<string>();
+    const cleaned: string[] = [];
+    for (const a of Array.isArray(aliases) ? aliases : []) {
+      const trimmed = typeof a === 'string' ? a.trim() : '';
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      // Store all location names in Title Case (e.g. "orissa" -> "Orissa").
+      cleaned.push(toTitleCase(trimmed));
+    }
+
+    const set: Record<string, unknown> = { aliases: cleaned, updatedAt: new Date() };
+    // Optionally rename the canonical state name.
+    if (typeof name === 'string') {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        throw new BadRequestError('name cannot be empty');
+      }
+      set.stateNameEnglish = toTitleCase(trimmedName);
+    }
+
+    const collection = await this.db.getCollection<any>('states');
+    const result = await collection.findOneAndUpdate(
+      { stateCode: Number(stateCode) },
+      { $set: set },
+      { returnDocument: 'after' },
+    );
+    const updated = (result as any)?.value ?? result;
+    if (!updated) {
+      throw new BadRequestError(`No state found for stateCode ${stateCode}`);
+    }
+    return {
+      stateCode: updated.stateCode,
+      stateNameEnglish: updated.stateNameEnglish,
+      aliases: Array.isArray(updated.aliases) ? updated.aliases : [],
+    };
   }
 
   public async getDistricts(stateCode: number): Promise<ILocationDistrict[]> {
@@ -177,4 +227,87 @@ export class LocationService implements ILocationService {
       throw new InternalServerError(`LGD service error: ${message}`);
     }
   }
+
+  public async getStateOrDistrictReport(
+    type?: 'state' | 'district',
+  ): Promise<Buffer> {
+    if (type !== 'state' && type !== 'district') {
+      throw new BadRequestError('Invalid type');
+    }
+
+    const stateCollection = await this.db.getCollection<any>('states');
+    const districtCollection = await this.db.getCollection<any>('districts');
+
+    let rows: Record<string, string | number>[] = [];
+
+    if (type === 'state') {
+      const states = await stateCollection
+        .find({})
+        .sort({ stateNameEnglish: 1 })
+        .toArray();
+
+      rows = states.map((state) => ({
+        'State Code': state.stateCode ?? '',
+        'State Name English': state.stateNameEnglish?.trim() ?? '',
+        'State Name Local': state.stateNameLocal?.trim() ?? '',
+        'Aliases': Array.isArray(state.aliases)
+          ? state.aliases.join(', ')
+          : '',
+      }));
+    }
+
+    if (type === 'district') {
+      const districts = await districtCollection
+        .find({})
+        .sort({ districtNameEnglish: 1 })
+        .toArray();
+
+      rows = districts.map((district) => ({
+        'District Code': district.districtCode ?? '',
+        'District Name English': district.districtNameEnglish?.trim() ?? '',
+        'District Name Local': district.districtNameLocal?.trim() ?? '',
+        'State Code': district.stateCode ?? '',
+        'Aliases': Array.isArray(district.aliases)
+          ? district.aliases.join(', ')
+          : '',
+      }));
+    }
+
+    const sheetName = type === 'state' ? 'States' : 'Districts';
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Optional: set readable column widths
+    ws['!cols'] =
+      type === 'state'
+        ? [
+          { wch: 12 }, // State Code
+          { wch: 25 }, // English
+          { wch: 25 }, // Local
+          { wch: 50 }, // Aliases
+        ]
+        : [
+          { wch: 15 }, // District Code
+          { wch: 25 }, // English
+          { wch: 25 }, // Local
+          { wch: 12 }, // State Code
+          { wch: 50 }, // Aliases
+        ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+    return Buffer.from(
+      XLSX.write(wb, {
+        type: 'buffer',
+        bookType: 'xlsx',
+      }),
+    );
+  }
+  
+}
+
+// Escape user-supplied text for safe use inside a MongoDB $regex.
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
