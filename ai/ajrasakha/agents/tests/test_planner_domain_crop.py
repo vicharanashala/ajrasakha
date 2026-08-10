@@ -14,8 +14,8 @@ from ajrasakha.agents.planner import (
 
 
 @pytest.mark.asyncio
-async def test_crop_all_domain_forces_all():
-    plan = {"domain": "Government Schemes", "entities": {}}
+async def test_never_crop_domain_forces_all():
+    plan = {"domain": "Weather", "entities": {}}
     with patch(
         "ajrasakha.agents.planner.is_crop_specific_question",
         new_callable=AsyncMock,
@@ -27,13 +27,13 @@ async def test_crop_all_domain_forces_all():
             config={},
         )
     mock_cls.assert_not_called()
-    assert domain == "Government Schemes"
+    assert domain == "Weather"
     assert out["entities"]["crop"] == "all"
     assert crop_required is False
 
 
 @pytest.mark.asyncio
-async def test_crop_required_general_classifier_sets_all():
+async def test_always_crop_required_domain_requires_crop():
     plan = planner_output_to_plan(
         PlannerOutput(domains=["Plant Protection"], rephrased_query="Leaves turning yellow")
     )
@@ -50,7 +50,7 @@ async def test_crop_required_general_classifier_sets_all():
 
 
 @pytest.mark.asyncio
-async def test_crop_required_specific_classifier_requires_crop():
+async def test_always_crop_required_domain_does_not_call_classifier():
     plan = planner_output_to_plan(
         PlannerOutput(domains=["Plant Protection"], rephrased_query="Leaves turning yellow")
     )
@@ -105,7 +105,7 @@ def test_tool_flags_derived_from_domain():
 
 
 @pytest.mark.asyncio
-async def test_crop_fallback_after_clarify_in_apply_domain_and_crop():
+async def test_crop_required_after_clarify_stays_required():
     plan = planner_output_to_plan(
         PlannerOutput(
             domains=["Plant Protection"],
@@ -124,8 +124,140 @@ async def test_crop_fallback_after_clarify_in_apply_domain_and_crop():
         crop_prefilled=None,
         config={},
     )
+    assert crop_required is True
+    assert out["entities"].get("crop") is None
+
+
+@pytest.mark.asyncio
+async def test_conditional_domain_classifier_can_mark_crop_not_required():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Market Prices"],
+            rephrased_query="What are the general market policies?",
+        )
+    )
+    with patch(
+        "ajrasakha.agents.planner.is_crop_specific_question",
+        new_callable=AsyncMock,
+        return_value="crop_not_required",
+    ) as classifier:
+        out, _domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            [HumanMessage(content="What are the general market policies?")],
+            crop_prefilled=None,
+            config={},
+        )
+
+    assert classifier.await_count == 1
     assert crop_required is False
     assert out["entities"]["crop"] == "all"
+    assert out["crop_requirement_source"] == "conditional_llm_not_required"
+
+
+@pytest.mark.asyncio
+async def test_conditional_classifier_is_skipped_when_crop_is_present():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Market Prices"],
+            rephrased_query="What is the wheat market price today?",
+            entities={"crop": "wheat"},
+        )
+    )
+    with patch(
+        "ajrasakha.agents.planner.is_crop_specific_question",
+        new_callable=AsyncMock,
+        return_value=False,
+    ) as classifier:
+        out, _domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            [HumanMessage(content="What is the wheat market price today?")],
+            crop_prefilled="wheat",
+            config={},
+        )
+
+    classifier.assert_not_awaited()
+    assert crop_required is False
+    assert out["entities"]["crop"] == "Wheat"
+    assert out["crop_requirement_source"] == "existing_crop"
+
+
+@pytest.mark.asyncio
+async def test_conditional_domain_classifier_can_require_missing_crop():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Market Prices"],
+            rephrased_query="What is the market price today?",
+        )
+    )
+    with patch(
+        "ajrasakha.agents.planner.is_crop_specific_question",
+        new_callable=AsyncMock,
+        return_value="input_crop_required",
+    ) as classifier:
+        out, _domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            [HumanMessage(content="What is the market price today?")],
+            crop_prefilled=None,
+            config={},
+        )
+
+    assert classifier.await_count == 1
+    assert crop_required is True
+    assert out["entities"].get("crop") is None
+    assert out["crop_requirement_source"] == "conditional_llm_required"
+
+
+@pytest.mark.asyncio
+async def test_conditional_classifier_can_mark_crop_as_requested_output():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Horticulture & Allied Agriculture"],
+            rephrased_query="Which plant should I grow in the rainy season?",
+            entities={"state": "Punjab"},
+        )
+    )
+    with patch(
+        "ajrasakha.agents.planner.is_crop_specific_question",
+        new_callable=AsyncMock,
+        return_value="crop_output_requested",
+    ) as classifier:
+        out, _domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            [HumanMessage(content="Which plant should I grow in the rainy season?")],
+            crop_prefilled=None,
+            config={},
+        )
+
+    assert classifier.await_count == 1
+    assert crop_required is False
+    assert out["entities"]["crop"] == "all"
+    assert out["crop_requirement_source"] == "conditional_llm_crop_output_requested"
+
+
+@pytest.mark.asyncio
+async def test_seed_drill_question_requires_input_crop():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Agriculture Mechanization"],
+            rephrased_query="Which seed drill should I buy?",
+            entities={"state": "Punjab"},
+        )
+    )
+    with patch(
+        "ajrasakha.agents.planner.is_crop_specific_question",
+        new_callable=AsyncMock,
+        return_value="input_crop_required",
+    ):
+        out, _domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            [HumanMessage(content="Which seed drill should I buy?")],
+            crop_prefilled=None,
+            config={},
+        )
+
+    assert crop_required is True
+    assert out["entities"].get("crop") is None
+    assert out["crop_requirement_source"] == "conditional_llm_required"
 
 
 @pytest.mark.asyncio
@@ -156,22 +288,21 @@ def test_nowcast_routing_heuristics():
 
 def test_strict_weather_tool_routing_rules():
     from ajrasakha.agents.new_weather_agent import route_weather_query_by_heuristics
-    
+
     # 1. Tomorrow's rainfall condition -> MUST route to get_rainfall_and_monsoon_info (Tool 2)
     assert route_weather_query_by_heuristics("tomorrows rainfall condition in palakkad, kerala") == "get_rainfall_and_monsoon_info"
-    
+
     # 2. Temperature tomorrow -> MUST route to get_temperature_info (Tool 3)
     assert route_weather_query_by_heuristics("tomorrow temperature in palakkad") == "get_temperature_info"
-    
+
     # 3. Heavy rain warning -> MUST route to get_weather_alerts (Tool 6)
     assert route_weather_query_by_heuristics("heavy rain warning in palakkad") == "get_weather_alerts"
-    
+
     # 4. Short-term 2 hours rain -> MUST route to get_weather_nowcast (Tool 5)
     assert route_weather_query_by_heuristics("rain in next 2 hours in pala") == "get_weather_nowcast"
-    
+
     # 5. Block / 50km nearby stations -> MUST route to get_location_weather (Tool 4)
     assert route_weather_query_by_heuristics("piravom block weather stations within 50km") == "get_location_weather"
-    
+
     # 6. General weather forecast -> MUST route to get_current_and_forecast_info (Tool 1)
     assert route_weather_query_by_heuristics("5 days weather forecast for palakkad") == "get_current_and_forecast_info"
-

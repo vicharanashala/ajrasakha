@@ -363,7 +363,11 @@ export interface IUserRepository {
   findAvailableStfModerators(): Promise<IUser[]>;
   findAvailableStfModeratorsForSources(sources: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]>;
   findAvailableUsersByRole(role: UserRole): Promise<IUser[]>;
-  addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<void>;
+  findAvailableFeedbackReviewers(): Promise<IUser[]>;
+  findUsersByRoles(roles: UserRole[]): Promise<IUser[]>;
+  claimFeedbackAllocationManual(userId: string, questionId: string, session?: ClientSession): Promise<boolean>;
+  claimFeedbackAllocation(userId: string, questionId: string, session?: ClientSession): Promise<boolean>;
+  addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<boolean>;
   removeAssignedQuestion(moderatorId: string, questionId: string, session?: ClientSession): Promise<void>;
   removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
 
@@ -390,4 +394,11 @@ export interface IUserRepository {
    * @param userId - The ID of the user whose assigned questions should be cleared
    */
   clearAssignedQuestions(userId: string): Promise<{ modifiedCount: number }>;
+
+  /**
+   * Removes a questionId from a specific user's feedbacksAssigned array.
+   * @param userId - The user ID whose feedbacksAssigned array should be updated
+   * @param questionId - The question ID to remove from feedbacksAssigned array
+   */
+  removeFeedbacksAssigned(userId: string, questionId: string, session?: ClientSession): Promise<IUser | null>;
 }

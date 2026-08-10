@@ -14,8 +14,11 @@ export class InternalApiAuth implements ExpressMiddlewareInterface {
       // ];
 
       
-
-      if (!apiKey || apiKey !== process.env.INTERNAL_API_KEY) {
+      const validApiKeys = [
+        process.env.INTERNAL_API_KEY,
+        process.env.REVIEW_SYSTEM_AUTH_KEY,
+      ];
+      if (!apiKey || !validApiKeys.includes(apiKey)) {
         console.log('[InternalApiAuth] UNAUTHORIZED - key missing or mismatch');
         let reso = res.status(401).json({
           success: false,
