@@ -11,13 +11,6 @@ import {
   UpdateCropDto,
   GetAllCropsQuery,
 } from '../classes/validators/CropValidators.js';
-import cropData from '../data/crop_data.json' with { type: 'json' };
-
-interface CropInfo {
-  name_hi: string;
-  sowing_time: string;
-  harvesting_time: string;
-}
 
 @injectable()
 export class CropService extends BaseService implements ICropService {
@@ -32,14 +25,6 @@ export class CropService extends BaseService implements ICropService {
     mongoDatabase: MongoDatabase,
   ) {
     super(mongoDatabase);
-  }
-
-  public getCropSowingInfo(cropName: string): CropInfo | null {
-    const lowerCaseCropName = cropName.toLowerCase();
-    if (cropData.hasOwnProperty(lowerCaseCropName)) {
-      return (cropData as Record<string, CropInfo>)[lowerCaseCropName];
-    }
-    return null;
   }
 
   async getAllCrops(

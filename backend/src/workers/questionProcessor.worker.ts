@@ -95,7 +95,7 @@ const notificationService = new NotificationService(notificationRepo, database);
 const weatherService = new WeatherService();
 const cropService = new CropService(cropRepo, questionRepo, database);
 const locationService = new LocationService();
-const aiService = new AiService(weatherService, cropService, locationService);
+const aiService = new AiService(weatherService, locationService);
 
 const {DuplicateQuestionRepository} =
   await import('#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js');

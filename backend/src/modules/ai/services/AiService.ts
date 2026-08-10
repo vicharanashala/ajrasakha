@@ -5,8 +5,6 @@ import { injectable, inject } from 'inversify';
 import { InternalServerError, NotFoundError } from 'routing-controllers';
 import { WEATHER_TYPES } from '#root/modules/weather/types.js';
 import { IWeatherService } from '#root/modules/weather/services/WeatherService.js';
-import { CROP_TYPES } from '#root/modules/crop/types.js';
-import { ICropService } from '#root/modules/crop/interfaces/ICropService.js';
 import { LGD_TYPES } from '#root/modules/lgd/types.js';
 import { ILocationService } from '#root/modules/lgd/interfaces/ILocationService.js';
 
@@ -57,8 +55,6 @@ export class AiService {
   constructor(
     @inject(WEATHER_TYPES.WeatherService)
     private readonly weatherService: IWeatherService,
-    @inject(CROP_TYPES.CropService)
-    private readonly cropService: ICropService,
     @inject(LGD_TYPES.LocationService)
     private readonly locationService: ILocationService,
   ) {}
@@ -244,23 +240,6 @@ Instructions:
             },
           },
         },
-        {
-          type: "function",
-          function: {
-            name: "get_crop_sowing_info",
-            description: "Get the sowing and harvesting time for a specific crop.",
-            parameters: {
-              type: "object",
-              properties: {
-                crop_name: {
-                  type: "string",
-                  description: "The name of the crop in English, e.g., 'wheat', 'rice'.",
-                },
-              },
-              required: ["crop_name"],
-            },
-          },
-        },
       ];
 
       const messages: any[] = [
@@ -321,15 +300,6 @@ Instructions:
                 content: JSON.stringify({error: `Could not find the location ${args.location}.`}),
               };
           }
-        } else if (toolCall.function.name === 'get_crop_sowing_info') {
-          const args = JSON.parse(toolCall.function.arguments);
-          const cropInfo = this.cropService.getCropSowingInfo(args.crop_name);
-          toolResponseMessage = {
-            tool_call_id: toolCall.id,
-            role: "tool",
-            name: toolCall.function.name,
-            content: cropInfo ? JSON.stringify(cropInfo) : JSON.stringify({error: "Crop not found"}),
-          };
         }
 
         if (toolResponseMessage) {
