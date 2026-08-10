@@ -8207,8 +8207,9 @@ export class QuestionRepository implements IQuestionRepository {
     await this.init();
     const filter: Record<string, unknown> = { 'feedbacks.status': 'open' };
     if (requireAutoAllocate) {
-      // Feedback auto-allocation is ON unless explicitly false (default true).
-      filter.autoAllocateFeedback = { $ne: false };
+      // Only questions with feedback auto-allocation EXPLICITLY true. A missing or
+      // false field means OFF (same convention as autoAllocateModerator).
+      filter.autoAllocateFeedback = true;
     }
     return this.QuestionCollection.find(filter as any)
       .sort({ createdAt: 1 })

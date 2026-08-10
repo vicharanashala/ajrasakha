@@ -41,6 +41,36 @@ export interface FeedbackResponse {
   totalPages: number;
 }
 
+/** A waiting feedback question paired with its eligible (active, free) approver
+ *  moderator — "available moderators to get respective feedback". */
+export type RespectiveFeedbackItem = QueueQuestionItem & {
+  approverId: string;
+  approverName: string;
+};
+
+/** Data for the dedicated Feedback tab. Every section is {count, items} so the UI
+ *  can render counts and lists consistently (mirrors QueueDetailsResponse). */
+export interface FeedbackQueueDetails {
+  /** Open-feedback questions, auto-allocation ON, no reviewer assigned yet. */
+  waitingAuto: { count: number; items: QueueQuestionItem[] };
+  /** Open-feedback questions, auto-allocation OFF (handled manually), unassigned. */
+  waitingManual: { count: number; items: QueueQuestionItem[] };
+  /** Open-feedback questions already assigned to a reviewer. */
+  assigned: { count: number; items: QueueQuestionItem[] };
+  /** Moderators free to take a feedback review. */
+  availableModerators: { count: number; items: QueueExpertItem[] };
+  /** Waiting feedback questions whose approver moderator is active AND free. */
+  respectiveModerators: { count: number; items: RespectiveFeedbackItem[] };
+  /** Auditors free to take a feedback review. */
+  availableAuditors: { count: number; items: QueueExpertItem[] };
+  /** Open-feedback questions whose final-answer approver is an active moderator
+   *  (would be assigned to that moderator). */
+  questionsWithActiveModerator: { count: number; items: QueueQuestionItem[] };
+  /** Open-feedback questions whose approver is NOT an active moderator
+   *  (inactive/blocked/non-moderator → would go to an auditor). */
+  questionsWithoutActiveModerator: { count: number; items: QueueQuestionItem[] };
+}
+
 /** Lean question shape used in the moderator/admin "Queue Details" modal. */
 export interface QueueQuestionItem {
   _id: string;
@@ -726,6 +756,8 @@ export interface IQuestionService {
     skippedNoFinalAnswer: number;
     skippedNoApprover: number;
   }>;
+
+  getFeedbackQueueDetails(): Promise<FeedbackQueueDetails>;
 
   handleFeedbackStatusUpdate(
     questionId: string,

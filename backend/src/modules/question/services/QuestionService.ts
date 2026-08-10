@@ -64,6 +64,7 @@ import {
   RawQueueQuestionRow,
   FeedbackResponse,
   FeedbackData,
+  FeedbackQueueDetails,
 } from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
@@ -9336,6 +9337,143 @@ if (filters.endDate) {
         processedBy,
         processedAt,
       },
+    };
+  }
+
+  /** Data for the dedicated Feedback tab — every feedback-related bucket in one call.
+   *  Read-only; touches no allocation state. */
+  async getFeedbackQueueDetails(): Promise<FeedbackQueueDetails> {
+    // All questions with an open feedback (auto ON and OFF).
+    const openFeedbackQuestions =
+      await this.questionRepo.findQuestionsWithOpenFeedbacks(false);
+    const qIds = openFeedbackQuestions
+      .map(q => q._id?.toString())
+      .filter((id): id is string => Boolean(id));
+
+    // Questions already assigned a reviewer (open feedback-review round).
+    const openReviews =
+      await this.questionSubmissionRepo.findOpenFeedbackReviews();
+    const reviewerByQuestion = new Map<string, string>();
+    for (const o of openReviews) {
+      if (o.questionId && !reviewerByQuestion.has(o.questionId)) {
+        reviewerByQuestion.set(o.questionId, o.reviewerId);
+      }
+    }
+    const assignedIds = new Set(reviewerByQuestion.keys());
+
+    // Final-answer approver per question.
+    const finalAnswers =
+      await this.answerRepo.getFinalAnswersByQuestionIds(qIds);
+    const approverByQuestion = new Map<string, string>();
+    for (const a of finalAnswers) {
+      const qid = a.questionId?.toString();
+      const approver = a.approvedBy?.toString();
+      if (qid && approver && !approverByQuestion.has(qid)) {
+        approverByQuestion.set(qid, approver);
+      }
+    }
+
+    // Names (reviewers + approvers) and approver user docs (for eligibility).
+    const meta = await this.resolveExpertMeta([
+      ...reviewerByQuestion.values(),
+      ...approverByQuestion.values(),
+    ]);
+    const approverIds = [...new Set(approverByQuestion.values())];
+    const approverUsers = approverIds.length
+      ? await this.userRepo.getUsersByIds(approverIds)
+      : [];
+    const approverById = new Map(
+      approverUsers.map(u => [u._id!.toString(), u]),
+    );
+    const isActiveModerator = (u: any) =>
+      !!u &&
+      u.role === 'moderator' &&
+      u.isBlocked !== true &&
+      u.status !== 'in-active';
+
+    const waitingAuto: QueueQuestionItem[] = [];
+    const waitingManual: QueueQuestionItem[] = [];
+    const assigned: QueueQuestionItem[] = [];
+    const withActiveMod: QueueQuestionItem[] = [];
+    const withoutActiveMod: QueueQuestionItem[] = [];
+
+    for (const q of openFeedbackQuestions) {
+      const id = q._id?.toString();
+      if (!id) continue;
+      const base = this.submissionToQueueItem({ question: q });
+
+      if (assignedIds.has(id)) {
+        const reviewerId = reviewerByQuestion.get(id);
+        assigned.push({
+          ...base,
+          assigneeName:
+            (reviewerId && meta.get(reviewerId)?.name) || 'Unknown',
+        });
+      } else if ((q as any).autoAllocateFeedback === true) {
+        // Auto-allocation ON only when explicitly true; missing/false = manual.
+        waitingAuto.push(base);
+      } else {
+        waitingManual.push(base);
+      }
+
+      const approver = approverById.get(approverByQuestion.get(id) ?? '');
+      if (isActiveModerator(approver)) withActiveMod.push(base);
+      else withoutActiveMod.push(base);
+    }
+
+    // Reviewers free for feedback (no feedback held, no time-bound question).
+    const freeReviewers = await this.userRepo.findAvailableFeedbackReviewers();
+    const toExpertItem = (u: any): QueueExpertItem => ({
+      _id: u._id.toString(),
+      name:
+        `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+        u.email ||
+        'Unknown',
+      email: u.email,
+      reputationScore: u.reputation_score,
+      role: u.role,
+      isSpecialTaskForce: u.special_task_force === true,
+      isTrainingUser: u.isTrainingUser === true,
+    });
+    const availableModerators = freeReviewers
+      .filter(u => u.role === 'moderator')
+      .map(toExpertItem);
+    const availableAuditors = freeReviewers
+      .filter(u => u.role === 'auditor')
+      .map(toExpertItem);
+    const freeIds = new Set(freeReviewers.map(u => u._id!.toString()));
+
+    // Respective moderators: waiting-auto questions whose approver is an active
+    // moderator AND currently free (question ↔ eligible-approver pairs).
+    const respectiveModerators = openFeedbackQuestions
+      .filter(q => {
+        const id = q._id?.toString();
+        if (!id || assignedIds.has(id) || (q as any).autoAllocateFeedback !== true)
+          return false;
+        const approverId = approverByQuestion.get(id);
+        const approver = approverById.get(approverId ?? '');
+        return isActiveModerator(approver) && !!approverId && freeIds.has(approverId);
+      })
+      .map(q => {
+        const id = q._id!.toString();
+        const approverId = approverByQuestion.get(id)!;
+        return {
+          ...this.submissionToQueueItem({ question: q }),
+          approverId,
+          approverName: meta.get(approverId)?.name ?? 'Unknown',
+        };
+      });
+
+    const wrap = <T>(items: T[]) => ({ count: items.length, items });
+    return {
+      waitingAuto: wrap(waitingAuto),
+      waitingManual: wrap(waitingManual),
+      assigned: wrap(assigned),
+      availableModerators: wrap(availableModerators),
+      respectiveModerators: wrap(respectiveModerators),
+      availableAuditors: wrap(availableAuditors),
+      questionsWithActiveModerator: wrap(withActiveMod),
+      questionsWithoutActiveModerator: wrap(withoutActiveMod),
     };
   }
 

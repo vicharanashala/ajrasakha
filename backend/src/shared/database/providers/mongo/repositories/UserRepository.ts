@@ -1133,10 +1133,10 @@ export class UserRepository implements IUserRepository {
   }
 
   /** Moderators/auditors currently free to take a NEW feedback review — active, not
-   *  blocked, with an empty feedbacksAssigned. Auditors must ALSO have an empty
-   *  assignedQuestionIds (either one feedback OR one auditor question); moderators may
-   *  hold queue work alongside a feedback. Used by the feedback queue's "available"
-   *  section and mirrors the availability the feedback allocator uses. */
+   *  blocked, with an empty feedbacksAssigned AND no time-bound (AJRASAKHA/WHATSAPP)
+   *  assigned question. Feedback counts as a time-bound item, so a held time-bound
+   *  question blocks feedback for BOTH roles; a manual-source question does not. Mirrors
+   *  the availability the feedback allocator (moderator-queue cron) uses. */
   async findAvailableFeedbackReviewers(): Promise<IUser[]> {
     await this.init();
     const emptyFeedbacks = [
@@ -1144,24 +1144,17 @@ export class UserRepository implements IUserRepository {
       {feedbacksAssigned: null},
       {feedbacksAssigned: {$size: 0}},
     ];
-    const emptyQueue = [
-      {assignedQuestionIds: {$exists: false}},
-      {assignedQuestionIds: null},
-      {assignedQuestionIds: {$size: 0}},
-    ];
+    const noTimeBoundQuestion = {
+      assignedQuestionIds: {
+        $not: {$elemMatch: {source: {$in: TIME_BOUND_SOURCES}}},
+      },
+    };
     return this.usersCollection
       .find({
+        role: {$in: ['moderator', 'auditor']},
         isBlocked: {$ne: true},
         status: {$ne: 'in-active'},
-        $and: [
-          {$or: emptyFeedbacks},
-          {
-            $or: [
-              {role: 'moderator'},
-              {$and: [{role: 'auditor'}, {$or: emptyQueue}]},
-            ],
-          },
-        ],
+        $and: [{$or: emptyFeedbacks}, noTimeBoundQuestion],
       } as any)
       .toArray();
   }

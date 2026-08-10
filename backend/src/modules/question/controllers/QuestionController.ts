@@ -2364,6 +2364,19 @@ export class QuestionController {
     return { success: true, data: result };
   }
 
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Get('/feedback/queue-details')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Feedback tab data — waiting/assigned questions + available reviewers' })
+  async getFeedbackQueueDetails(@CurrentUser() user: IUser) {
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot view the feedback queue');
+    }
+    const data = await this.questionService.getFeedbackQueueDetails();
+    return { success: true, data };
+  }
+
   @Get('/:questionId/feedback-timeline')
   @HttpCode(200)
   @Authorized()
