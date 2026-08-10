@@ -8201,11 +8201,16 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
-  async findQuestionsWithOpenFeedbacks(): Promise<IQuestion[]> {
+  async findQuestionsWithOpenFeedbacks(
+    requireAutoAllocate = false,
+  ): Promise<IQuestion[]> {
     await this.init();
-    return this.QuestionCollection.find({
-      'feedbacks.status': 'open',
-    } as any)
+    const filter: Record<string, unknown> = { 'feedbacks.status': 'open' };
+    if (requireAutoAllocate) {
+      // Feedback auto-allocation is ON unless explicitly false (default true).
+      filter.autoAllocateFeedback = { $ne: false };
+    }
+    return this.QuestionCollection.find(filter as any)
       .sort({ createdAt: 1 })
       .toArray();
   }

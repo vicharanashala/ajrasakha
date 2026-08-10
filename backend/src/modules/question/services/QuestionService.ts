@@ -6788,9 +6788,174 @@ if (filters.endDate) {
         );
       }
 
+      // ── Feedback pass ──────────────────────────────────────────────────────
+      // Feedback-open questions (auto-allocation ON) are allocated in the same run.
+      // A feedback counts as a TIME-BOUND item — it competes for the moderator's
+      // single time-bound slot. Target = the final answer's approver when they are an
+      // active, non-blocked MODERATOR; otherwise an available auditor (one holding no
+      // time-bound question). The claim + submission guards enforce one-at-a-time.
+      const feedbackAssignedModeratorIds = new Set<string>();
+      try {
+        const feedbackQuestions =
+          await this.questionRepo.findQuestionsWithOpenFeedbacks(true);
+        if (feedbackQuestions.length) {
+          const fbIds = feedbackQuestions
+            .map(q => q._id?.toString())
+            .filter((id): id is string => Boolean(id));
+
+          // approvedBy per question, from the final answer.
+          const finalAnswers =
+            await this.answerRepo.getFinalAnswersByQuestionIds(fbIds);
+          const approverByQuestion = new Map<string, string>();
+          for (const a of finalAnswers) {
+            const qid = a.questionId?.toString();
+            const approver = a.approvedBy?.toString();
+            if (qid && approver && !approverByQuestion.has(qid)) {
+              approverByQuestion.set(qid, approver);
+            }
+          }
+
+          // Load approver users to check eligibility (active + non-blocked + moderator).
+          const approverIds = [...new Set(approverByQuestion.values())];
+          const approverUsers = approverIds.length
+            ? await this.userRepo.getUsersByIds(approverIds)
+            : [];
+          const approverById = new Map(
+            approverUsers.map(u => [u._id!.toString(), u]),
+          );
+
+          // Auditor fallback pool — auditors free for feedback (no time-bound
+          // question, no existing feedback).
+          const auditorPool = (
+            await this.userRepo.findAvailableFeedbackReviewers()
+          )
+            .filter(u => u.role === 'auditor')
+            .map(u => u._id!.toString());
+          const usedAssignees = new Set<string>();
+
+          for (const q of feedbackQuestions) {
+            const questionId = q._id?.toString();
+            if (!questionId) continue;
+            const approverId = approverByQuestion.get(questionId);
+            const approver = approverId
+              ? approverById.get(approverId)
+              : undefined;
+
+            // approvedBy gets it only when an active, non-blocked moderator; else auditor.
+            const approverEligible =
+              !!approver &&
+              approver.role === 'moderator' &&
+              approver.isBlocked !== true &&
+              approver.status !== 'in-active' &&
+              !usedAssignees.has(approverId!) &&
+              !(approver.feedbacksAssigned?.length);
+
+            let targetId: string | undefined;
+            let targetIsModerator = false;
+            if (approverEligible) {
+              targetId = approverId;
+              targetIsModerator = true;
+            } else {
+              targetId = auditorPool.find(id => !usedAssignees.has(id));
+            }
+            if (!targetId) {
+              availableWaiting++;
+              continue;
+            }
+
+            try {
+              // Atomic claim: guards feedback-empty AND no time-bound question.
+              const claimed = await this.userRepo.claimFeedbackAllocation(
+                targetId,
+                questionId,
+              );
+              if (!claimed) continue;
+              const roundOpened =
+                await this.questionSubmissionRepo.assignFeedbackReviewer(
+                  questionId,
+                  targetId,
+                  new Date(),
+                );
+              if (!roundOpened) {
+                // Another reviewer already has an open round — release the claim.
+                await this.userRepo.removeFeedbacksAssigned(
+                  targetId,
+                  questionId,
+                );
+                continue;
+              }
+              usedAssignees.add(targetId);
+              if (targetIsModerator) feedbackAssignedModeratorIds.add(targetId);
+
+              await this.notificationService.saveTheNotifications(
+                'A feedback has been assigned to you for review',
+                'Feedback Assigned',
+                questionId,
+                targetId,
+                'moderator_approval',
+              );
+
+              const meta = await this.resolveExpertMeta([targetId]);
+              const reviewerName = meta.get(targetId)?.name ?? targetId;
+              this.auditTrailsService
+                .createAuditTrail({
+                  category: AuditCategory.EXPERTS_CATEGORY,
+                  action: AuditAction.SYSTEM_ALLOCATED,
+                  actor: {
+                    id: 'system',
+                    name: 'System',
+                    email: '',
+                    role: 'system',
+                    avatar: '',
+                  },
+                  context: {
+                    questionId,
+                    question: (q as any)?.question,
+                    expertId: targetId,
+                    operation: 'feedback',
+                  },
+                  changes: { after: { 'feedback reviewer': reviewerName } },
+                  outcome: { status: OutComeStatus.SUCCESS },
+                  createdAt: new Date(),
+                } as ModeratorAuditTrail)
+                .catch((auditErr: any) =>
+                  console.error(
+                    '[ModeratorQueue] Failed to write feedback SYSTEM_ALLOCATED audit:',
+                    auditErr?.message,
+                  ),
+                );
+
+              assigned++;
+              console.log(
+                `[ModeratorQueue] (feedback) Assigned question ${questionId} → ${targetIsModerator ? 'moderator' : 'auditor'} ${targetId}`,
+              );
+            } catch (err: any) {
+              console.error(
+                `[ModeratorQueue] (feedback) Failed to assign ${questionId}:`,
+                err?.message,
+              );
+              failedAssignments++;
+            }
+          }
+        }
+      } catch (fbErr: any) {
+        console.error(
+          '[ModeratorQueue] feedback pass failed:',
+          fbErr?.message,
+        );
+      }
+
+      // A feedback occupies the moderator's time-bound slot, so exclude moderators who
+      // just took a feedback this run OR already hold one from a previous run.
+      const eligibleTimeBoundModerators = timeBoundModerators.filter(
+        m =>
+          !feedbackAssignedModeratorIds.has(m._id!.toString()) &&
+          !((m as any).feedbacksAssigned?.length),
+      );
+
       await runPass(
         'time-bound',
-        timeBoundModerators,
+        eligibleTimeBoundModerators,
         timeBoundQuestions,
         (moderator, question) =>
           this.isQuestionUserTrainingTypeMatch(moderator, question),
