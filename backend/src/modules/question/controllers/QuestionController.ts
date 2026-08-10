@@ -1511,9 +1511,15 @@ export class QuestionController {
           ? 'Auditor'
           : 'Feedback';
 
+    const toggleAction =
+      role === 'gate_keeper'
+        ? AuditAction.TOGGLE_GATE_KEEPER_ALLOCATION
+        : role === 'auditor'
+          ? AuditAction.TOGGLE_AUDITOR_ALLOCATION
+          : AuditAction.TOGGLE_FEEDBACK_ALLOCATION;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
-      action: role === 'gate_keeper' ? AuditAction.TOGGLE_GATE_KEEPER_ALLOCATION : AuditAction.TOGGLE_AUDITOR_ALLOCATION,
+      action: toggleAction,
       actor: this.roleAuditActor(user),
       context: { questionId },
       changes: {},
@@ -2379,11 +2385,77 @@ export class QuestionController {
     if (!body?.userId) {
       throw new BadRequestError('userId is required');
     }
-    return this.questionService.assignFeedbackReviewerManually(
-      params.questionId,
-      body.userId,
-      body.index,
-    );
+    const { questionId } = params;
+    const { userId, index } = body;
+    // A specific round index means a reassignment; otherwise a fresh assignment.
+    const isReassign = typeof index === 'number' && index >= 0;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.SELECT_FEEDBACK_REVIEWER,
+      actor: this.roleAuditActor(user),
+      context: {
+        questionId,
+        operation: isReassign ? 'reassign' : 'assign',
+        ...(isReassign ? { roundIndex: index } : {}),
+      },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevLabel = 'Unassigned';
+    let newUser: any;
+    try {
+      const [qd, timeline, nu] = await Promise.all([
+        this.questionService.getQuestionDataById(questionId),
+        this.questionService.getFeedbackTimeline(questionId),
+        this.userService.getUserById(userId),
+      ]);
+      questionDetails = qd;
+      newUser = nu;
+      // Round being changed: the one at `index` on reassign, else the currently open
+      // round. `!finishedAt && !closed` finds the open round regardless of which
+      // timeline shape (finishedAt-based or closed-based) is in effect.
+      const prevRound = isReassign
+        ? timeline?.reviews?.find((r: any) => r.index === index)
+        : timeline?.reviews?.find((r: any) => !r.finishedAt && !r.closed);
+      if (prevRound?.reviewerName) prevLabel = prevRound.reviewerName;
+
+      await this.questionService.assignFeedbackReviewerManually(
+        questionId,
+        userId,
+        index,
+      );
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { 'feedback reviewer': prevLabel },
+          after: { 'feedback reviewer': this.userLabel(newUser) ?? userId },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return {
+        success: true,
+        message: `Feedback reviewer ${isReassign ? 'reassigned' : 'assigned'} successfully`,
+      };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { 'feedback reviewer': prevLabel } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to assign feedback reviewer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || 'Failed to assign feedback reviewer');
+    }
   }
 
   @Delete('/:questionId/feedback-reviewer')
@@ -2402,10 +2474,56 @@ export class QuestionController {
     if (typeof body?.index !== 'number') {
       throw new BadRequestError('index is required');
     }
-    return this.questionService.removeFeedbackReviewer(
-      params.questionId,
-      body.index,
-    );
+    const { questionId } = params;
+    const { index } = body;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.DELETE_FEEDBACK_REVIEWER,
+      actor: this.roleAuditActor(user),
+      context: { questionId, roundIndex: index },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevLabel = 'Unassigned';
+    try {
+      const [qd, timeline] = await Promise.all([
+        this.questionService.getQuestionDataById(questionId),
+        this.questionService.getFeedbackTimeline(questionId),
+      ]);
+      questionDetails = qd;
+      const prevRound = timeline?.reviews?.find((r: any) => r.index === index);
+      if (prevRound?.reviewerName) prevLabel = prevRound.reviewerName;
+
+      await this.questionService.removeFeedbackReviewer(questionId, index);
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { 'feedback reviewer': prevLabel },
+          after: { 'feedback reviewer': 'Removed' },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return { success: true, message: 'Feedback reviewer removed successfully' };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { 'feedback reviewer': prevLabel } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to remove feedback reviewer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || 'Failed to remove feedback reviewer');
+    }
   }
 
   @Get('/:questionId/chatbot')
@@ -3064,16 +3182,43 @@ export class QuestionController {
     @CurrentUser({ required: true }) user: IUser,
   ) {
     console.log('[QuestionController] handleFeedbackAction:', { questionId, feedbackId, action: body.action, reason: body.reason, userId: user._id });
-    
-    const result = await this.questionService.handleFeedbackAction(
-      questionId,
-      feedbackId,
-      body.action,
-      body.reason,
-      user._id.toString(),
-    );
-    
-    return result;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.QUESTION,
+      action: AuditAction.FEEDBACK_ACTION,
+      actor: this.roleAuditActor(user),
+      context: { questionId, feedbackId, action: body.action },
+      changes: {
+        after: {
+          feedback: body.action === 'accept' ? 'Accepted' : 'Rejected',
+          ...(body.reason ? { reason: body.reason } : {}),
+        },
+      },
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    try {
+      const result = await this.questionService.handleFeedbackAction(
+        questionId,
+        feedbackId,
+        body.action,
+        body.reason,
+        user._id.toString(),
+      );
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return result;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to process feedback action',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      throw err;
+    }
   }
 
   // ─── end point of add or update feedbacks status of the question ─────────────────────────────────
