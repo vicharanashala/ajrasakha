@@ -8,6 +8,8 @@ import {
   FileText,
   Bot,
   ChevronsRight,
+  ClipboardCheck,
+  Search,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
 import { Label } from "../../components/atoms/label";
@@ -31,7 +33,10 @@ import { QuestionDetailsDialog } from "../qa-interface-page/QuestionDetailsDialo
 import { toast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
+type TabType = "review" | "validation";
+
 export const PAEExpertPage = () => {
+  const [activeTab, setActiveTab] = useState<TabType>("review");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState("");
@@ -458,63 +463,106 @@ export const PAEExpertPage = () => {
     );
   };
 
+  const renderValidationTab = () => (
+    <div className="flex flex-col items-center justify-center py-16 px-4">
+      <div className="bg-muted/30 rounded-full p-6 mb-6">
+        <ClipboardCheck className="w-12 h-12 text-muted-foreground" />
+      </div>
+      <h3 className="text-xl font-semibold text-foreground mb-2">No Validation Questions</h3>
+      <p className="text-muted-foreground text-center max-w-md">
+        There are no validation questions assigned to you at the moment. Please check back later or switch to the Review tab to continue with your pending reviews.
+      </p>
+    </div>
+  );
+
   return (
     <div className="mx-auto px-4 md:px-6 bg-transparent py-4">
-      <div className="flex flex-col space-y-6">
-        <div
-          className={`grid grid-cols-1 ${
-            questions.length
-              ? isSidebarCollapsed
-                ? "lg:grid-cols-[minmax(0,_1fr)]"
-                : "lg:grid-cols-[minmax(400px,_1fr)_minmax(400px,_1fr)]"
-              : ""
-          } gap-6 transition-all duration-300 relative`}
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-6 bg-muted/50 p-1 rounded-lg w-fit">
+        <button
+          onClick={() => setActiveTab("review")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+            activeTab === "review"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
         >
-          {isSidebarCollapsed && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsSidebarCollapsed(false)}
-              className="absolute -left-12 h-full text-center ml-2 px-2 z-10 border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent"
-              title="Expand Questions"
-            >
-              <ChevronsRight className="w-4 h-4" />
-              <span className="sr-only">Expand Questions</span>
-            </Button>
-          )}
-
-          <div className={`transition-all duration-300 ${isSidebarCollapsed ? "hidden" : "w-full"}`}>
-            <QaHeader
-              questions={questions}
-              selectedQuestion={selectedQuestion}
-              onQuestionSelect={handleQuestionClick}
-              isLoading={isQuestionsLoading}
-              isLoadingTarget={false}
-              isFetchingNextPage={isFetchingNextPage}
-              onRefresh={refetch}
-              actionType="allocated"
-              onActionTypeChange={() => {}}
-              reviewLevel="all"
-              source="all"
-              states={[]}
-              crops={[]}
-              onFilterChange={() => {}}
-              scrollRef={scrollRef}
-              questionItemRefs={questionItemRefs}
-              setQuestionRef={setQuestionRef}
-              onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              onAiAnswerFetched={handleAiAnswerFetched}
-              hideControls={true}
-            />
-          </div>
-
-          {selectedQuestionData && (
-            <div className="transition-all duration-300 w-full">
-              {renderRightPanel()}
-            </div>
-          )}
-        </div>
+          <Search className="w-4 h-4" />
+          Review
+        </button>
+        <button
+          onClick={() => setActiveTab("validation")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+            activeTab === "validation"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <ClipboardCheck className="w-4 h-4" />
+          Validation
+        </button>
       </div>
+
+      {/* Tab Content */}
+      {activeTab === "review" ? (
+        <div className="flex flex-col space-y-6">
+          <div
+            className={`grid grid-cols-1 ${
+              questions.length
+                ? isSidebarCollapsed
+                  ? "lg:grid-cols-[minmax(0,_1fr)]"
+                  : "lg:grid-cols-[minmax(400px,_1fr)_minmax(400px,_1fr)]"
+                : ""
+            } gap-6 transition-all duration-300 relative`}
+          >
+            {isSidebarCollapsed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="absolute -left-12 h-full text-center ml-2 px-2 z-10 border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent"
+                title="Expand Questions"
+              >
+                <ChevronsRight className="w-4 h-4" />
+                <span className="sr-only">Expand Questions</span>
+              </Button>
+            )}
+
+            <div className={`transition-all duration-300 ${isSidebarCollapsed ? "hidden" : "w-full"}`}>
+              <QaHeader
+                questions={questions}
+                selectedQuestion={selectedQuestion}
+                onQuestionSelect={handleQuestionClick}
+                isLoading={isQuestionsLoading}
+                isLoadingTarget={false}
+                isFetchingNextPage={isFetchingNextPage}
+                onRefresh={refetch}
+                actionType="allocated"
+                onActionTypeChange={() => {}}
+                reviewLevel="all"
+                source="all"
+                states={[]}
+                crops={[]}
+                onFilterChange={() => {}}
+                scrollRef={scrollRef}
+                questionItemRefs={questionItemRefs}
+                setQuestionRef={setQuestionRef}
+                onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                onAiAnswerFetched={handleAiAnswerFetched}
+                hideControls={true}
+              />
+            </div>
+
+            {selectedQuestionData && (
+              <div className="transition-all duration-300 w-full">
+                {renderRightPanel()}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        renderValidationTab()
+      )}
     </div>
   );
 };
