@@ -8,6 +8,7 @@ from langchain_core.messages import HumanMessage
 from ajrasakha.agents.plan_executor import build_tool_calls_from_plan
 from ajrasakha.agents.domains import is_crop_placeholder
 from ajrasakha.agents.planner_rules import (
+    is_explicit_all_crop_request,
     is_crop_output_question,
     merge_entities_from_rephrased_query,
 )
@@ -106,6 +107,14 @@ def test_merge_entities_normalizes_non_specific_crop_alias_to_all(crop_alias):
 )
 def test_crop_output_question_detection(query, expected):
     assert is_crop_output_question(query) is expected
+
+
+@pytest.mark.parametrize(
+    "reply",
+    ["tell me about any general crop", "any crop is fine", "general crops"],
+)
+def test_explicit_non_specific_crop_reply_detection(reply):
+    assert is_explicit_all_crop_request(reply) is True
 
 
 def test_merge_entities_ignores_llm_inferred_kharif_crop_for_crop_output_question():

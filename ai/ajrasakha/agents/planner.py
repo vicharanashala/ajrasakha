@@ -65,9 +65,11 @@ from ajrasakha.agents.planner_rules import (
     is_standalone_clarification_reply,
     merge_clarification_reply_into_query,
     format_prev_plan_context,
+    is_explicit_all_crop_request,
     merge_entities_from_rephrased_query,
     normalize_crop_value,
     resolve_crop_for_turn,
+    resolve_crop_for_turn_with_source,
     is_crop_output_question,
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
@@ -483,11 +485,16 @@ async def _apply_domain_and_crop_async(
     question = plan.get("rephrased_query") or user_text
     original = plan.get("original_query_en") or user_text
     deterministic_crop_output = is_crop_output_question(question) or is_crop_output_question(user_text)
+    deterministic_all_crop = is_explicit_all_crop_request(question) or is_explicit_all_crop_request(user_text)
 
     entities = apply_crop_one_shot_fallback(messages, entities, domains)
 
+    resolved_turn_crop, resolved_turn_source = resolve_crop_for_turn_with_source(messages)
+    # Prefer the deterministic resolution of the current farmer turn over an
+    # LLM entity. The LLM may copy a seasonal term (for example, ``kharif``)
+    # into entities.crop even though the farmer did not name that crop.
     crop = normalize_crop_value(
-        crop_prefilled or resolve_crop_for_turn(messages) or entities.get("crop")
+        resolved_turn_crop or crop_prefilled or entities.get("crop")
     )
     if deterministic_crop_output:
         # A crop-output question asks the system to recommend the crop. Any
@@ -496,6 +503,22 @@ async def _apply_domain_and_crop_async(
         entities["crop"] = "all"
         crop_required = False
         crop_requirement_source = "deterministic_crop_output_requested"
+    elif deterministic_all_crop:
+        # An explicit clarification such as "any general crop" is a resolved
+        # user decision to use the canonical all-crops scope.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = "deterministic_all_crop_requested"
+    elif (
+        resolved_turn_crop == "all"
+        and resolved_turn_source == "crop_clarification_default_all"
+    ):
+        # A non-empty answer to an already-asked crop clarification that does
+        # not resolve to a catalog crop uses MongoDB's canonical all-crops
+        # value. Initial missing-crop turns still go through domain policy.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = resolved_turn_source
     elif crop_slot_satisfied(crop):
         # Preserve the pre-existing crop-present behavior. The new JSON/LLM
         # decision path is intentionally only for turns without a crop name.

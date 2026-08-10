@@ -59,6 +59,9 @@ _MIN_FUZZY_ALIAS_LEN = 3
 _SENTINEL_CROP_NAMES = frozenset({
     "all",
     "all crops",
+    "multiple crops",
+    "general crop",
+    "general crops",
     "n/a",
     "na",
     "weather",
@@ -66,6 +69,27 @@ _SENTINEL_CROP_NAMES = frozenset({
     "crop production",
     "others",
     "other",
+})
+
+# These aliases occur in crop-master data but do not identify one concrete
+# crop.  They must not win over an explicit user scope decision or be treated
+# as a crop name by the planner (for example, ``kharif`` is also present as a
+# Sorghum alias in the catalog).
+_NON_SPECIFIC_CROP_ALIASES = frozenset({
+    "all",
+    "all crop",
+    "all crops",
+    "any crop",
+    "any crops",
+    "general crop",
+    "general crops",
+    "multiple crop",
+    "multiple crops",
+    "kharif",
+    "rabi",
+    "zaid",
+    "rainy season",
+    "monsoon",
 })
 
 _AGENTS_DIR = Path(__file__).resolve().parent
@@ -560,6 +584,53 @@ def resolve_alias_exact(raw: str, *, script: ScriptName | None = None) -> AliasH
             resolved_script = "latin"
     norm = _normalize_alias(raw, resolved_script)
     return _alias_exact.get((norm, resolved_script))
+
+
+def find_crop_mentions(text: str, *, limit: int = 5) -> list[AliasHit]:
+    """Find concrete crop aliases occurring as complete phrases in ``text``.
+
+    ``find_crop_fuzzy_matches`` is intentionally broad because it is used for
+    planner hints.  It tokenizes a sentence, so a generic word such as
+    ``seed`` can match several multi-word crop aliases.  Entity resolution
+    needs a stricter operation: only an exact alias phrase in the farmer's
+    text is accepted, and generic/season aliases are ignored.
+    """
+    if not _loaded or not (text or '').strip():
+        return []
+
+    raw_text = str(text)
+    matches: dict[str, AliasHit] = {}
+    for entry in _entries_by_id.values():
+        if entry.type != "crop" or _is_sentinel_crop(entry.name):
+            continue
+        for indexed_alias in entry.aliases:
+            alias = indexed_alias.alias_normalized
+            if alias in _NON_SPECIFIC_CROP_ALIASES:
+                continue
+            if indexed_alias.script == "latin":
+                phrase = re.escape(alias).replace(r"\ ", r"\s+")
+                found = re.search(rf"(?<!\w){phrase}(?!\w)", raw_text, re.IGNORECASE)
+            else:
+                found = re.search(re.escape(alias), raw_text)
+            if not found:
+                continue
+
+            matches.setdefault(
+                entry.id,
+                AliasHit(
+                    alias=indexed_alias.alias,
+                    script=indexed_alias.script,
+                    entry=entry,
+                    score=100.0,
+                    match_type="exact_mention",
+                ),
+            )
+            break
+
+    return sorted(
+        matches.values(),
+        key=lambda hit: (-(len(hit.alias)), hit.entry.name.lower()),
+    )[:limit]
 
 
 def find_crop_fuzzy_matches(

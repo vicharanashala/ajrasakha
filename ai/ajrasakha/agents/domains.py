@@ -307,26 +307,32 @@ _CROP_ALL_ALIASES: frozenset[str] = frozenset(
         "multiple crops",
         "multiplecrop",
         "multiplecrops",
+    }
+)
+
+_CROP_UNRESOLVED_ALIASES: frozenset[str] = frozenset(
+    {
+        "",
         "not specified",
+        "unknown",
         "none",
         "null",
+        "n/a",
     }
 )
 
 
 def normalize_crop_value(crop: str | None) -> str | None:
-    """Return the canonical ``all`` value for non-specific crop placeholders."""
+    """Normalize every non-specific/missing crop value to the MongoDB value ``all``."""
     if crop is None:
-        return None
+        return "all"
     value = " ".join(str(crop).strip().lower().split())
-    if value in _CROP_ALL_ALIASES:
+    if value in _CROP_UNRESOLVED_ALIASES or value in _CROP_ALL_ALIASES:
         return "all"
     return crop
 
 
 def is_crop_placeholder(crop: str | None) -> bool:
-    """True when crop means 'no specific crop' (all/general)."""
-    if not crop:
-        return False
+    """True when crop is missing or represents the all-crops scope."""
     normalized = normalize_crop_value(crop)
     return normalized == "all"

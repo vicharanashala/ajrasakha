@@ -5,12 +5,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from ajrasakha.agents.domains import apply_tool_flags_from_domain
+from ajrasakha.agents.domains import apply_tool_flags_from_domain, normalize_crop_value
 from ajrasakha.agents.planner import (
     _apply_domain_and_crop_async,
     planner_output_to_plan,
     PlannerOutput,
 )
+from ajrasakha.agents.planner_rules import extract_crop_from_text
 
 
 @pytest.mark.asyncio
@@ -129,6 +130,109 @@ async def test_seed_drill_still_requires_named_crop():
     classifier.assert_awaited_once()
 
 
+def test_crop_master_aliases_resolve_before_legacy_regexes():
+    assert extract_crop_from_text("I am growing gehu") == "Wheat"
+    assert extract_crop_from_text("I am growing rice") == "Paddy"
+
+
+def test_missing_crop_values_use_the_mongodb_all_value():
+    assert normalize_crop_value(None) == "all"
+    assert normalize_crop_value("not specified") == "all"
+    assert normalize_crop_value("none") == "all"
+    assert normalize_crop_value("null") == "all"
+    assert normalize_crop_value("all") == "all"
+
+
+@pytest.mark.asyncio
+async def test_unlisted_crop_scope_phrase_uses_all_after_clarify():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Varieties"],
+            rephrased_query="Which seed varieties are best for my field?",
+        )
+    )
+    messages = [
+        HumanMessage(content="Which seed varieties are best for my field?"),
+        AIMessage(content="Which crop are you growing?"),
+        HumanMessage(content="any broad crop is fine"),
+    ]
+    with patch(
+        "ajrasakha.agents.planner.is_crop_specific_question",
+        new_callable=AsyncMock,
+        return_value="input_crop_required",
+    ) as classifier:
+        out, _domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            messages,
+            crop_prefilled=None,
+            config={},
+        )
+
+    classifier.assert_not_awaited()
+    assert crop_required is False
+    assert out["entities"]["crop"] == "all"
+    assert out["crop_requirement_source"] == "crop_clarification_default_all"
+
+
+@pytest.mark.asyncio
+async def test_general_crop_clarification_resolves_required_crop_once():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Varieties"],
+            rephrased_query="Which seed varieties are best for my field in Delhi?",
+        )
+    )
+    messages = [
+        HumanMessage(content="Which seed varieties are best for my field in Delhi?"),
+        AIMessage(content="Which crop are you growing?"),
+        HumanMessage(content="tell me about any general crop"),
+    ]
+    with patch(
+        "ajrasakha.agents.planner.is_crop_specific_question",
+        new_callable=AsyncMock,
+        return_value="input_crop_required",
+    ) as classifier:
+        out, domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            messages,
+            crop_prefilled=None,
+            config={},
+        )
+
+    assert domain == "Varieties"
+    assert crop_required is False
+    assert out["entities"]["crop"] == "all"
+    assert out["crop_requirement_source"] == "deterministic_all_crop_requested"
+    classifier.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_inherited_all_without_explicit_reply_remains_unresolved_for_required_domain():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Varieties"],
+            rephrased_query="Which seed varieties are best for my field?",
+            entities={"crop": "all"},
+        )
+    )
+    with patch(
+        "ajrasakha.agents.planner.is_crop_specific_question",
+        new_callable=AsyncMock,
+        return_value="input_crop_required",
+    ) as classifier:
+        out, domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            [HumanMessage(content="Which seed varieties are best for my field?")],
+            crop_prefilled=None,
+            config={},
+        )
+
+    assert domain == "Varieties"
+    assert crop_required is True
+    assert out["entities"].get("crop") is None
+    classifier.assert_awaited_once()
+
+
 @pytest.mark.asyncio
 async def test_crop_required_any_when_mixed_domains_crop_required():
     plan = planner_output_to_plan(
@@ -175,7 +279,7 @@ def test_tool_flags_derived_from_domain():
 
 
 @pytest.mark.asyncio
-async def test_crop_required_after_clarify_stays_required():
+async def test_non_specific_crop_clarification_resolves_to_all():
     plan = planner_output_to_plan(
         PlannerOutput(
             domains=["Plant Protection"],
@@ -199,8 +303,9 @@ async def test_crop_required_after_clarify_stays_required():
             crop_prefilled=None,
             config={},
         )
-    assert crop_required is True
-    assert out["entities"].get("crop") is None
+    assert crop_required is False
+    assert out["entities"]["crop"] == "all"
+    assert out["crop_requirement_source"] == "crop_clarification_default_all"
 
 
 @pytest.mark.asyncio
