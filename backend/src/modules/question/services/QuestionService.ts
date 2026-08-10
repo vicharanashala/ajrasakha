@@ -8990,6 +8990,41 @@ if (filters.endDate) {
           console.log(
             `[Feedback] Allocated question ${questionId} to reviewer ${assignedReviewerId ?? approvedByUserId}.`,
           );
+
+          // Audit the system feedback allocation (fire-and-forget, mirrors the
+          // time-bound / moderator-queue crons' SYSTEM_ALLOCATED entries).
+          if (assignedReviewerId) {
+            const meta = await this.resolveExpertMeta([assignedReviewerId]);
+            const reviewerName =
+              meta.get(assignedReviewerId)?.name ?? assignedReviewerId;
+            this.auditTrailsService
+              .createAuditTrail({
+                category: AuditCategory.EXPERTS_CATEGORY,
+                action: AuditAction.SYSTEM_ALLOCATED,
+                actor: {
+                  id: 'system',
+                  name: 'System',
+                  email: '',
+                  role: 'system',
+                  avatar: '',
+                },
+                context: {
+                  questionId,
+                  question: (question as any)?.question,
+                  expertId: assignedReviewerId,
+                  operation: 'feedback',
+                },
+                changes: { after: { 'feedback reviewer': reviewerName } },
+                outcome: { status: OutComeStatus.SUCCESS },
+                createdAt: new Date(),
+              } as ModeratorAuditTrail)
+              .catch((err: any) =>
+                console.error(
+                  '[Feedback] Failed to write SYSTEM_ALLOCATED audit:',
+                  err?.message,
+                ),
+              );
+          }
         } catch (error: any) {
           skipped++;
           const reason =
