@@ -8037,6 +8037,31 @@ if (filters.endDate) {
     );
   }
 
+  /** Waiting feedback questions (closed + open feedback) that don't yet have a
+   *  reviewer — shown in the moderator queue's TIME-BOUND "Waiting for Moderator"
+   *  section, irrespective of the question's source (feedback counts as time-bound).
+   *  Includes both auto-allocate and manual ones (all are awaiting a reviewer).
+   *  Filtered by training-user, matching the in-review query's behaviour. */
+  private async getWaitingFeedbackQuestions(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<any[]> {
+    const [feedbackQs, openReviews] = await Promise.all([
+      this.questionRepo.findQuestionsWithOpenFeedbacks(false),
+      this.questionSubmissionRepo.findOpenFeedbackReviews(),
+    ]);
+    const assignedIds = new Set(openReviews.map(o => o.questionId));
+    return (feedbackQs as any[]).filter(q => {
+      if (assignedIds.has(q._id?.toString())) return false;
+      if (isAdmin !== true && isTrainingUser !== undefined) {
+        return isTrainingUser
+          ? q.isTrainingQuestion === true
+          : q.isTrainingQuestion !== true;
+      }
+      return true;
+    });
+  }
+
   /** Server-side paginated single Queue-Details section: exact total `count`
    *  plus only the requested page of `items` (default 50). Touches no allocation
    *  state and reuses the same queries the reallocation cron relies on. */
@@ -8405,11 +8430,13 @@ if (filters.endDate) {
       }
 
       case 'moderatorWaiting': {
-        // Same method (and therefore the same number) the moderator-queue cron uses:
-        // in-review/duplicate questions with no moderator assigned yet. No date
-        // filter so the count always matches what the cron picks up.
-        const qs =
-          (await this.questionRepo.findUnassignedInReviewQuestions([], isTrainingUser, isAdmin)) as any[];
+        // In-review/duplicate questions with no moderator yet, PLUS waiting feedback
+        // questions (closed + open feedback, no reviewer) — both need the moderator queue.
+        const [inReviewQs, waitingFeedback] = await Promise.all([
+          this.questionRepo.findUnassignedInReviewQuestions([], isTrainingUser, isAdmin),
+          this.getWaitingFeedbackQuestions(isTrainingUser, isAdmin),
+        ]);
+        const qs = [...(inReviewQs as any[]), ...waitingFeedback];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
         // Map a full question doc through the submission mapper (wraps it as `.question`).
@@ -8470,15 +8497,19 @@ if (filters.endDate) {
       // can show the moderator queue split into Time-bound / Manual.
       case 'moderatorWaitingTimeBound':
       case 'moderatorWaitingManual': {
-        const sources =
-          section === 'moderatorWaitingTimeBound'
-            ? TIME_BOUND_SOURCES
-            : MANUAL_SOURCES;
-        const qs = (await this.questionRepo.findUnassignedInReviewQuestions(
+        const isTimeBound = section === 'moderatorWaitingTimeBound';
+        const sources = isTimeBound ? TIME_BOUND_SOURCES : MANUAL_SOURCES;
+        const inReviewQs = (await this.questionRepo.findUnassignedInReviewQuestions(
           sources,
           isTrainingUser,
           isAdmin
         )) as any[];
+        // Feedback questions go in the TIME-BOUND column irrespective of source
+        // (feedback counts as time-bound); the Manual column shows in-review only.
+        const waitingFeedback = isTimeBound
+          ? await this.getWaitingFeedbackQuestions(isTrainingUser, isAdmin)
+          : [];
+        const qs = [...inReviewQs, ...waitingFeedback];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
         return {
@@ -8518,15 +8549,18 @@ if (filters.endDate) {
 
       case 'availableModeratorsTimeBound':
       case 'availableModeratorsManual': {
-        const sources =
-          section === 'availableModeratorsTimeBound'
-            ? TIME_BOUND_SOURCES
-            : MANUAL_SOURCES;
-        const mods = (await this.userRepo.findAvailableStfModeratorsForSources(
+        const isTimeBound = section === 'availableModeratorsTimeBound';
+        const sources = isTimeBound ? TIME_BOUND_SOURCES : MANUAL_SOURCES;
+        const modsRaw = (await this.userRepo.findAvailableStfModeratorsForSources(
           sources,
           isTrainingUser,
           isAdmin
         )) as any[];
+        // Feedback counts as a time-bound item, so a moderator holding a feedback is
+        // NOT free for the time-bound queue (they're still free for the manual one).
+        const mods = isTimeBound
+          ? modsRaw.filter(m => !(m.feedbacksAssigned?.length))
+          : modsRaw;
         const items: QueueExpertItem[] = mods
           .slice(skip, skip + safeLimit)
           .map(m => ({
