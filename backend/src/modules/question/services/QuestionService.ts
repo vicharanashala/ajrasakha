@@ -5605,7 +5605,7 @@ if (filters.endDate) {
         query,
         session,
         filters.duplicateQuestions === 'true',
-        // questionLimit,
+        questionLimit,
       );
       
       if (!questions || questions.length === 0) {
