@@ -9,7 +9,7 @@
  * This job does NOT reimplement any sync logic. It reuses the existing
  * standalone script as-is (backend/scripts/sync-dataset-app.mjs), running it
  * with `--apply`. The script already reads DB_URL/DB_NAME (source) and
- * DATA_APP_DB_URL/DATA_APP_DB_NAME (destination) from the environment and
+ * DATASET_APP_DB_URL/DATASET_APP_DB_NAME (destination) from the environment and
  * connects to both MongoDB clusters itself, so this entrypoint does not
  * touch loadAppModules()/the DI container.
  */

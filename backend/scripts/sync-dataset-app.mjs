@@ -14,7 +14,7 @@
  *    Syncs the `users`, `questions`, and `answers` collections FROM the
  *    Review System's MongoDB (DB_URL / DB_NAME — same vars
  *    backend/src/config/db.ts already uses) INTO the Dataset Application's
- *    MongoDB (DATA_APP_DB_URL / DATA_APP_DB_NAME), so both databases stay
+ *    MongoDB (DATASET_APP_DB_URL / DATASET_APP_DB_NAME), so both databases stay
  *    consistent on a daily cadence.
  *
  *  Matching / update strategy:
@@ -45,8 +45,8 @@
  *  never creates duplicates. `_id` is already uniquely indexed by MongoDB —
  *  no extra index needed.
  *
- *  Reads DB_URL / DB_NAME (source — Review System) and DATA_APP_DB_URL /
- *  DATA_APP_DB_NAME (destination — Dataset Application) from backend/.env.
+ *  Reads DB_URL / DB_NAME (source — Review System) and DATASET_APP_DB_URL /
+ *  DATASET_APP_DB_NAME (destination — Dataset Application) from backend/.env.
  * ============================================================================
  */
 import 'dotenv/config';
@@ -61,14 +61,14 @@ if (!SOURCE_URL) {
   process.exit(1);
 }
 
-const DEST_URL = process.env.DATA_APP_DB_URL;
-const DEST_DB_NAME = process.env.DATA_APP_DB_NAME;
+const DEST_URL = process.env.DATASET_APP_DB_URL;
+const DEST_DB_NAME = process.env.DATASET_APP_DB_NAME;
 if (!DEST_URL) {
-  console.error('❌ DATA_APP_DB_URL is not set (put it in .env).');
+  console.error('❌ DATASET_APP_DB_URL is not set (put it in .env).');
   process.exit(1);
 }
 if (!DEST_DB_NAME) {
-  console.error('❌ DATA_APP_DB_NAME is not set (put it in .env).');
+  console.error('❌ DATASET_APP_DB_NAME is not set (put it in .env).');
   process.exit(1);
 }
 

@@ -136,8 +136,8 @@ These need to be set in **Settings → Secrets and variables → Actions → Sec
 | `LGD_DISTRICTS_API_URL` | `https://api.data.gov.in/resource/37231365-...` | Same value as backend `.env` |
 | `LGD_SUBDISTRICTS_API_URL` | `https://api.data.gov.in/resource/6be51a29-...` | Same value as backend `.env`; used as the "blocks" source |
 | `LGD_VILLAGES_API_URL` | `https://api.data.gov.in/resource/f17a1608-...` | Same value as backend `.env` |
-| `DATA_APP_DB_URL` | `mongodb+srv://user:pass@cluster.mongodb.net/dbname` | Dataset Application's MongoDB, same value as backend `.env` |
-| `DATA_APP_DB_NAME` | `dataset_app` | Dataset Application's DB name, same value as backend `.env` |
+| `DATASET_APP_DB_URL` | `mongodb+srv://user:pass@cluster.mongodb.net/dbname` | Dataset Application's MongoDB, same value as backend `.env` |
+| `DATASET_APP_DB_NAME` | `dataset_app` | Dataset Application's DB name, same value as backend `.env` |
 
 ### New variables to add (Settings → Secrets and variables → Actions → Variables)
 | Variable | Default | Notes |
@@ -220,7 +220,7 @@ net-new and never existed as an in-process cron:
   existing standalone script `backend/scripts/sync-dataset-app.mjs --apply`.
   That script upserts the `users`, `questions`, and `answers` collections
   from the Review System's MongoDB (`DB_URL`/`DB_NAME`) into the Dataset
-  Application's MongoDB (`DATA_APP_DB_URL`/`DATA_APP_DB_NAME`), matched on
+  Application's MongoDB (`DATASET_APP_DB_URL`/`DATASET_APP_DB_NAME`), matched on
   shared `_id`, so re-running it (including the workflow's smoke-test
   execution) is always safe. No new sync logic — this job is only an
   entrypoint around the existing script.
