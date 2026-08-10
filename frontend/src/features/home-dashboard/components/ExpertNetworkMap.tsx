@@ -280,6 +280,7 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
   const [pinsVisible, setPinsVisible] = useState(false);
   const activeProfileId = selectedPinId || activePinId;
   const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   // Reset pins + selection whenever the tab/mode changes
   useEffect(() => {
@@ -288,9 +289,10 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
     setActivePinId(null);
     setSelectedPinId(null);
     setFlyTarget(null);
+    setExpandedGroups({});
   }, [mode]);
 
-  const { statesGeo } = useGeoJson();
+  const { statesGeo, districtsAll } = useGeoJson();
 
   // Parse live API public users from backend response
   const experts = useMemo(() => {
@@ -361,23 +363,32 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
     };
 
     if (mode === "kvk" || mode === "sau") {
-      publicUsers.forEach((u) => {
+      publicUsers.forEach((u, uIdx) => {
         if (safeString(u.role).toLowerCase() === "admin") return;
         const coveredBy =
           [safeString(u.firstName), safeString(u.lastName)]
             .filter(Boolean)
             .join(" ")
-            .trim() || "—";
+            .trim() || `User #${uIdx + 1}`;
 
         if (mode === "kvk") {
-          const kvks = Array.isArray(u.kvkCovered) ? u.kvkCovered : [];
+          let kvks: any[] = [];
+          if (Array.isArray(u.kvkCovered)) {
+            kvks = u.kvkCovered;
+          } else if (u.kvkCovered && typeof u.kvkCovered === "object") {
+            if (Array.isArray((u.kvkCovered as any).name)) {
+              kvks = (u.kvkCovered as any).name.map((n: any) => ({ name: n }));
+            }
+          }
+
           kvks.forEach((k, ki) => {
-            const name = safeString(k?.name);
+            const name = safeString(typeof k === "string" ? k : k?.name);
             if (!name) return;
-            const pos = placeInState(safeString(k?.state));
-            const district = safeString(k?.district);
+            const stateStr = safeString(k?.state) || safeString(u.preference?.state);
+            const pos = placeInState(stateStr);
+            const district = safeString(k?.district) || safeString(u.preference?.district);
             dynamicMapped.push({
-              id: `kvk-${safeString(u.firstName)}-${ki}-${name}`,
+              id: `kvk-${uIdx}-${ki}-${name}`,
               name,
               role: "KVK COVERED",
               roleType: "agronomist",
@@ -395,12 +406,13 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
             });
           });
         } else {
+          if (safeString(u.role).toLowerCase() !== "pae_expert") return;
           const uni = safeString(u.university);
           if (!uni) return;
           const pos = placeInState(safeString(u.preference?.state));
           const district = safeString(u.preference?.district);
           dynamicMapped.push({
-            id: `sau-${safeString(u.firstName)}-${uni}`,
+            id: `sau-${uIdx}-${uni}`,
             name: uni,
             role: "SAU / UNIVERSITY",
             roleType: "researcher",
@@ -554,25 +566,38 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
 
   const visibleExperts = useMemo(() => {
     if (!activeStateName) {
-      if (activeProfileId) {
-        const activeExp = experts.find((e) => e.id === activeProfileId);
-        return activeExp ? [activeExp] : experts;
-      }
       return experts;
     }
     return experts.filter(
       (e) => e.state.toLowerCase() === activeStateName.toLowerCase(),
     );
-  }, [experts, activeStateName, activeProfileId]);
+  }, [experts, activeStateName]);
 
   const bannerExperts = useMemo(() => {
     return activeStateName ? visibleExperts : experts;
   }, [activeStateName, visibleExperts, experts]);
 
-  const hoveredProfile = useMemo(() => {
-    if (!activeProfileId) return null;
-    return experts.find((e) => e.id === activeProfileId) || null;
-  }, [experts, activeProfileId]);
+  const groupedExperts = useMemo(() => {
+    const map = new Map<string, { key: string; name: string; items: ExpertProfile[] }>();
+    bannerExperts.forEach((exp) => {
+      const key = exp.name.trim().toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          name: exp.name.trim(),
+          items: [exp],
+        });
+      } else {
+        map.get(key)!.items.push(exp);
+      }
+    });
+    return Array.from(map.values());
+  }, [bannerExperts]);
+
+  const selectedProfile = useMemo(() => {
+    if (!selectedPinId) return null;
+    return experts.find((e) => e.id === selectedPinId) || null;
+  }, [experts, selectedPinId]);
 
   return (
     <div
@@ -754,10 +779,38 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
             />
 
+            {/* State Outer Boundaries */}
             {Boolean(statesGeo) && (
               <GeoJSON
-                key={`states-${selectedState}-${hoveredState}`}
+                key={`states-outline-${selectedState}-${hoveredState}`}
                 data={statesGeo as any}
+                style={(feature) => {
+                  const stName =
+                    feature?.properties?.NAME_1 ||
+                    feature?.properties?.st_nm ||
+                    "";
+                  const isSelected =
+                    selectedState &&
+                    normalizeState(selectedState) === normalizeState(stName);
+                  const isHovered =
+                    hoveredState &&
+                    normalizeState(hoveredState) === normalizeState(stName);
+
+                  return {
+                    fill: false,
+                    color: isSelected || isHovered ? "#ffffff" : "#4a946e",
+                    weight: isSelected ? 2.4 : isHovered ? 1.8 : 1.2,
+                    interactive: false,
+                  };
+                }}
+              />
+            )}
+
+            {/* District Boundaries + District Names */}
+            {Boolean(districtsAll || statesGeo) && (
+              <GeoJSON
+                key={`districts-${Boolean(districtsAll)}-${selectedState}-${hoveredState}`}
+                data={(districtsAll || statesGeo) as any}
                 style={(feature) => {
                   const stName =
                     feature?.properties?.NAME_1 ||
@@ -776,9 +829,13 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
                       : isHovered
                         ? "#d6b763"
                         : "#133a2a",
-                    fillOpacity: isSelected ? 0.75 : isHovered ? 0.6 : 0.45,
-                    color: isSelected || isHovered ? "#ffffff" : "#3e7e5e",
-                    weight: isSelected ? 2.4 : isHovered ? 1.8 : 0.9,
+                    fillOpacity: isSelected ? 0.7 : isHovered ? 0.55 : 0.4,
+                    color: isSelected
+                      ? "rgba(255, 255, 255, 0.65)"
+                      : isHovered
+                        ? "rgba(255, 255, 255, 0.45)"
+                        : "rgba(86, 185, 138, 0.4)",
+                    weight: isSelected ? 0.9 : 0.5,
                   };
                 }}
                 onEachFeature={(feature, layer) => {
@@ -786,21 +843,37 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
                     feature?.properties?.NAME_1 ||
                     feature?.properties?.st_nm ||
                     "";
-                  layer.bindTooltip(`<b>${stName}</b>`, {
+                  const distName =
+                    feature?.properties?.NAME_2 ||
+                    feature?.properties?.district ||
+                    "";
+
+                  const tooltipContent = distName
+                    ? `<div style="text-align: center;">
+                        <div style="font-weight: 800; font-size: 11px; color: #f1d879;">${distName}</div>
+                        ${stName ? `<div style="font-size: 9.5px; opacity: 0.85; color: #ffffff;">${stName}</div>` : ""}
+                       </div>`
+                    : `<b>${stName}</b>`;
+
+                  layer.bindTooltip(tooltipContent, {
                     sticky: true,
                     className: "india-tooltip",
                   });
                   layer.on({
-                    mouseover: () => setHoveredState(stName),
+                    mouseover: () => {
+                      if (stName) setHoveredState(stName);
+                    },
                     mouseout: () => setHoveredState(null),
                     click: () => {
-                      const norm = normalizeState(stName);
-                      setSelectedState((prev) =>
-                        prev && normalizeState(prev) === norm ? null : stName,
-                      );
-                      setPinsVisible(true);
-                      const bounds = (layer as L.Polygon).getBounds?.();
-                      if (bounds) setFlyTarget(bounds);
+                      if (stName) {
+                        const norm = normalizeState(stName);
+                        setSelectedState((prev) =>
+                          prev && normalizeState(prev) === norm ? null : stName,
+                        );
+                        setPinsVisible(true);
+                        const bounds = (layer as L.Polygon).getBounds?.();
+                        if (bounds) setFlyTarget(bounds);
+                      }
                     },
                   });
                 }}
@@ -1000,6 +1073,7 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
           height: "540px",
           boxSizing: "border-box",
           boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+          position: "relative",
         }}
       >
         {/* Sidebar Header */}
@@ -1084,90 +1158,323 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
             flexDirection: "column",
             gap: "5px",
             paddingRight: "2px",
+            paddingBottom: selectedProfile ? "150px" : "4px",
           }}
         >
-          {bannerExperts.length > 0 ? (
-            bannerExperts.map((exp) => {
-              const isSelected = activeProfileId === exp.id;
-              const subText = exp.coveredBy
-                ? `Covered by ${exp.coveredBy}`
-                : [exp.city, exp.role].filter(Boolean).join(" · ");
-              return (
-                <button
-                  key={exp.id}
-                  onMouseEnter={() => setActivePinId(exp.id)}
-                  onMouseLeave={() => setActivePinId(null)}
-                  onClick={() => {
-                    setSelectedPinId((prev) => (prev === exp.id ? null : exp.id));
-                    if (exp.lat && exp.lng) {
-                      setFlyTarget([[exp.lat, exp.lng], [exp.lat, exp.lng]]);
-                    }
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "6px 8px",
-                    borderRadius: "10px",
-                    textAlign: "left",
-                    cursor: "pointer",
-                    border: isSelected
-                      ? "1px solid #f1d879"
-                      : "1px solid rgba(255,255,255,0.08)",
-                    background: isSelected
-                      ? "rgba(214,183,99,0.22)"
-                      : "rgba(255,255,255,0.04)",
-                    color: "#f8f4e6",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  <img
-                    src={
-                      failedAvatars[exp.id]
-                        ? getInitialsAvatarUrl(exp.name)
-                        : getAvatarUrl(exp.avatar, exp.name)
-                    }
-                    alt=""
-                    onError={() =>
-                      setFailedAvatars((prev) => ({ ...prev, [exp.id]: true }))
-                    }
-                    style={{
-                      width: "28px",
-                      height: "28px",
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                      flexShrink: 0,
-                      border: "1.5px solid rgba(214,183,99,0.5)",
+          {groupedExperts.length > 0 ? (
+            groupedExperts.map((group) => {
+              if (group.items.length === 1) {
+                const exp = group.items[0];
+                const isSelected = activeProfileId === exp.id;
+                const subText = exp.coveredBy
+                  ? mode === "sau"
+                    ? exp.coveredBy
+                    : `Covered by ${exp.coveredBy}`
+                  : [exp.city, exp.role].filter(Boolean).join(" · ");
+                return (
+                  <button
+                    key={exp.id}
+                    onMouseEnter={() => setActivePinId(exp.id)}
+                    onMouseLeave={() => setActivePinId(null)}
+                    onClick={() => {
+                      setSelectedPinId((prev) => (prev === exp.id ? null : exp.id));
+                      if (exp.lat && exp.lng) {
+                        setFlyTarget([[exp.lat, exp.lng], [exp.lat, exp.lng]]);
+                      }
                     }}
-                  />
-                  <span style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
-                    <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "6px 8px",
+                      borderRadius: "10px",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      border: isSelected
+                        ? "1px solid #f1d879"
+                        : "1px solid rgba(255,255,255,0.08)",
+                      background: isSelected
+                        ? "rgba(214,183,99,0.22)"
+                        : "rgba(255,255,255,0.04)",
+                      color: "#f8f4e6",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <img
+                      src={
+                        failedAvatars[exp.id]
+                          ? getInitialsAvatarUrl(exp.name)
+                          : getAvatarUrl(exp.avatar, exp.name)
+                      }
+                      alt=""
+                      onError={() =>
+                        setFailedAvatars((prev) => ({ ...prev, [exp.id]: true }))
+                      }
                       style={{
-                        fontSize: "0.76rem",
-                        fontWeight: 700,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        width: "28px",
+                        height: "28px",
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        flexShrink: 0,
+                        border: "1.5px solid rgba(214,183,99,0.5)",
                       }}
-                    >
-                      {exp.name}
-                    </span>
-                    {subText && (
+                    />
+                    <span style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
                       <span
                         style={{
-                          fontSize: "0.65rem",
-                          fontWeight: 500,
-                          opacity: 0.75,
+                          fontSize: "0.76rem",
+                          fontWeight: 700,
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                         }}
                       >
-                        {subText}
+                        {exp.name}
                       </span>
-                    )}
-                  </span>
-                </button>
+                      {subText && (
+                        <span
+                          style={{
+                            fontSize: "0.65rem",
+                            fontWeight: 500,
+                            opacity: 0.75,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {subText}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              }
+
+              // Group with multiple people/items with same name (> 1)
+              const hasActiveChild = group.items.some((exp) => activeProfileId === exp.id);
+              const isExpanded = expandedGroups[group.key] ?? hasActiveChild;
+              const firstExp = group.items[0];
+
+              return (
+                <div
+                  key={group.key}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    borderRadius: "10px",
+                    border: hasActiveChild
+                      ? "1px solid rgba(241,216,121,0.5)"
+                      : "1px solid rgba(255,255,255,0.08)",
+                    background: hasActiveChild
+                      ? "rgba(214,183,99,0.12)"
+                      : "rgba(255,255,255,0.04)",
+                    overflow: "hidden",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedGroups((prev) => ({
+                        ...prev,
+                        [group.key]: !isExpanded,
+                      }))
+                    }
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "6px 8px",
+                      border: "none",
+                      background: "transparent",
+                      color: "#f8f4e6",
+                      cursor: "pointer",
+                      width: "100%",
+                      textAlign: "left",
+                    }}
+                  >
+                    <img
+                      src={
+                        failedAvatars[firstExp.id]
+                          ? getInitialsAvatarUrl(group.name)
+                          : getAvatarUrl(firstExp.avatar, group.name)
+                      }
+                      alt=""
+                      onError={() =>
+                        setFailedAvatars((prev) => ({ ...prev, [firstExp.id]: true }))
+                      }
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        flexShrink: 0,
+                        border: "1.5px solid rgba(214,183,99,0.5)",
+                      }}
+                    />
+                    <span style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
+                      <span
+                        style={{
+                          fontSize: "0.76rem",
+                          fontWeight: 700,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {group.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "0.63rem",
+                          fontWeight: 500,
+                          color: "#d6b763",
+                          opacity: 0.9,
+                        }}
+                      >
+                        {group.items.length} entries
+                      </span>
+                    </span>
+
+                    <span
+                      style={{
+                        fontSize: "0.68rem",
+                        fontWeight: 800,
+                        background: "rgba(214, 183, 99, 0.25)",
+                        color: "#f1d879",
+                        padding: "1px 7px",
+                        borderRadius: "10px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {group.items.length}
+                    </span>
+
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="#d6b763"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{
+                        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s ease",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
+
+                  {isExpanded && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "4px",
+                        padding: "4px 6px 6px 14px",
+                        borderTop: "1px solid rgba(214,183,99,0.15)",
+                        background: "rgba(0,0,0,0.2)",
+                      }}
+                    >
+                      {group.items.map((exp) => {
+                        const isSelected = activeProfileId === exp.id;
+                        const subText = exp.coveredBy
+                          ? mode === "sau"
+                            ? exp.coveredBy
+                            : `Covered by ${exp.coveredBy}`
+                          : [exp.city, exp.role].filter(Boolean).join(" · ");
+                        return (
+                          <button
+                            key={exp.id}
+                            onMouseEnter={() => setActivePinId(exp.id)}
+                            onMouseLeave={() => setActivePinId(null)}
+                            onClick={() => {
+                              setSelectedPinId((prev) => (prev === exp.id ? null : exp.id));
+                              if (exp.lat && exp.lng) {
+                                setFlyTarget([[exp.lat, exp.lng], [exp.lat, exp.lng]]);
+                              }
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              padding: "5px 8px",
+                              borderRadius: "8px",
+                              textAlign: "left",
+                              cursor: "pointer",
+                              border: isSelected
+                                ? "1px solid #f1d879"
+                                : "1px solid rgba(255,255,255,0.06)",
+                              background: isSelected
+                                ? "rgba(214,183,99,0.22)"
+                                : "rgba(255,255,255,0.04)",
+                              color: "#f8f4e6",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            <img
+                              src={
+                                failedAvatars[exp.id]
+                                  ? getInitialsAvatarUrl(exp.name)
+                                  : getAvatarUrl(exp.avatar, exp.name)
+                              }
+                              alt=""
+                              onError={() =>
+                                setFailedAvatars((prev) => ({ ...prev, [exp.id]: true }))
+                              }
+                              style={{
+                                width: "24px",
+                                height: "24px",
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                                flexShrink: 0,
+                                border: "1.5px solid rgba(214,183,99,0.5)",
+                              }}
+                            />
+                            <span
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                minWidth: 0,
+                                flex: 1,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {exp.name}
+                              </span>
+                              {subText && (
+                                <span
+                                  style={{
+                                    fontSize: "0.62rem",
+                                    fontWeight: 500,
+                                    opacity: 0.75,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {subText}
+                                </span>
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })
           ) : (
@@ -1177,58 +1484,59 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
           )}
         </div>
 
-        {/* Selected / Hovered Profile Details Box */}
-        {hoveredProfile && (
+        {/* Selected Profile Details Overlay Box */}
+        {selectedProfile && (
           <div
             style={{
-              background: "rgba(10, 30, 22, 0.95)",
-              border: "1.5px solid rgba(214, 183, 99, 0.5)",
-              borderRadius: "12px",
+              position: "absolute",
+              bottom: "10px",
+              left: "10px",
+              right: "10px",
+              zIndex: 30,
+              background: "rgba(6, 25, 35, 0.96)",
+              backdropFilter: "blur(16px)",
+              border: "1.5px solid rgba(214, 183, 99, 0.6)",
+              borderRadius: "14px",
               padding: "10px",
-              marginTop: "auto",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.4)",
-              position: "relative",
-              flexShrink: 0,
+              boxShadow: "0 10px 30px rgba(0,0,0,0.7)",
             }}
           >
-            {selectedPinId && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedPinId(null);
-                  setActivePinId(null);
-                }}
-                aria-label="Close detail"
-                style={{
-                  position: "absolute",
-                  top: "6px",
-                  right: "6px",
-                  width: "18px",
-                  height: "18px",
-                  borderRadius: "50%",
-                  border: "1px solid rgba(214,183,99,0.4)",
-                  background: "rgba(255,255,255,0.1)",
-                  color: "#f8f4e6",
-                  cursor: "pointer",
-                  fontSize: "11px",
-                  lineHeight: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                ×
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPinId(null);
+                setActivePinId(null);
+              }}
+              aria-label="Close detail"
+              style={{
+                position: "absolute",
+                top: "6px",
+                right: "6px",
+                width: "20px",
+                height: "20px",
+                borderRadius: "50%",
+                border: "1px solid rgba(214,183,99,0.4)",
+                background: "rgba(255,255,255,0.1)",
+                color: "#f8f4e6",
+                cursor: "pointer",
+                fontSize: "12px",
+                lineHeight: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              ×
+            </button>
 
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
               <img
                 src={
-                  failedAvatars[hoveredProfile.id]
-                    ? getInitialsAvatarUrl(hoveredProfile.name)
-                    : getAvatarUrl(hoveredProfile.avatar, hoveredProfile.name)
+                  failedAvatars[selectedProfile.id]
+                    ? getInitialsAvatarUrl(selectedProfile.name)
+                    : getAvatarUrl(selectedProfile.avatar, selectedProfile.name)
                 }
-                alt={hoveredProfile.name}
+                alt={selectedProfile.name}
                 style={{
                   width: "32px",
                   height: "32px",
@@ -1237,27 +1545,27 @@ export const ExpertNetworkMap: React.FC<ExpertNetworkMapProps> = ({
                   border: "1.5px solid #d6b763",
                 }}
               />
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, paddingRight: "18px" }}>
                 <h4 style={{ margin: 0, fontSize: "0.8rem", fontWeight: 800, color: "#faf8f1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {hoveredProfile.name}
+                  {selectedProfile.name}
                 </h4>
                 <span style={{ fontSize: "0.64rem", fontWeight: 700, color: "#d6b763", textTransform: "uppercase" }}>
-                  {hoveredProfile.role}
+                  {selectedProfile.role}
                 </span>
               </div>
             </div>
 
             <div style={{ fontSize: "0.7rem", color: "#d1d5db", display: "grid", gap: "3px" }}>
-              <div>📍 <strong>{hoveredProfile.city}, {hoveredProfile.state}</strong></div>
-              <div>🏛 {hoveredProfile.institution}</div>
-              {hoveredProfile.coveredBy && (
-                <div>👤 Covered by {hoveredProfile.coveredBy}</div>
+              <div>📍 <strong>{selectedProfile.city}, {selectedProfile.state}</strong></div>
+              <div>🏛 {selectedProfile.institution}</div>
+              {selectedProfile.coveredBy && (
+                <div>👤 {mode === "sau" ? "" : "Covered by: "}{selectedProfile.coveredBy}</div>
               )}
             </div>
 
-            {hoveredProfile.expertise.length > 0 && (
+            {selectedProfile.expertise.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "6px" }}>
-                {hoveredProfile.expertise.map((tag) => (
+                {selectedProfile.expertise.map((tag) => (
                   <span
                     key={tag}
                     style={{
