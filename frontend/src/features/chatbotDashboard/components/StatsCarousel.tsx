@@ -78,7 +78,7 @@ export function StatsCarousel({ children, className }: StatsCarouselProps) {
         {items.map((child, index) => (
           <div
             key={index}
-            className="flex w-full shrink-0 snap-start lg:w-[calc(33.333%-1rem)]"
+            className="grid w-full shrink-0 snap-start lg:w-[calc(33.333%-1rem)]"
           >
             {child}
           </div>
