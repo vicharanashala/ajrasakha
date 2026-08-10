@@ -74,6 +74,8 @@ import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
 import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
+import { DatasetQuestionsFeedbackCard } from "./DatasetQuestionsFeedbackCard";
+import { StatsCarousel } from "./components/StatsCarousel";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
 import {
@@ -427,6 +429,40 @@ export function AnnamDashboard_dev({
     true,
   );
 
+  // All-time dataset totals (no date filter) for the "Dataset Questions and
+  // Feedback Metrics" card — reuses the same paginated endpoint as
+  // `todayActiveFarmersData`, just without the today/verified/active-only
+  // filters, so `totalUsers`/`totalQuestions` reflect the whole dataset.
+  const {
+    data: datasetTotalsData,
+    isLoading: isDatasetTotalsLoading,
+  } = useUserDetails(
+    undefined,
+    undefined,
+    1,
+    1,
+    "",
+    source as any,
+    "",
+    [],
+    [],
+    "",
+    "",
+    "",
+    "",
+    "all",
+    false,
+    false,
+    filters.userType as any,
+    [],
+    "totalQuestions",
+    "desc",
+    false,
+    "",
+    "all",
+    true,
+  );
+
   // ─── Stats Cards Refresh Handler ────────────────────────────────────────────
   // Refresh all related stats cards in the row (Closed in 2h, Question Status, Notifications)
   const handleRefreshStatsCards = useCallback(async () => {
@@ -575,7 +611,7 @@ export function AnnamDashboard_dev({
 
             <div className="flex-1 overflow-y-auto px-5 pb-5">
               {!mapView && source !== "acc" && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-stretch">
+                <StatsCarousel className="mb-6">
                   <ClosedQuestionsCard
                     closedQuestions={
                       questionStatusData?.closedVsTotalQuestions?.closed?.count
@@ -673,7 +709,16 @@ export function AnnamDashboard_dev({
                     onRefresh={handleRefreshStatsCards}
                     onSourceChange={setNotificationsSource}
                   />
-                </div>
+
+                  <DatasetQuestionsFeedbackCard
+                    totalQuestions={datasetTotalsData?.totalQuestions}
+                    totalFeedbacks={
+                      userMetricesData?.feedbackData?.stats?.totalFeedbacks
+                    }
+                    totalUsers={datasetTotalsData?.totalUsers}
+                    isLoading={isDatasetTotalsLoading}
+                  />
+                </StatsCarousel>
               )}
               {/* Source Selection Tabs & Refresh */}
               <SourceTabsHeader
