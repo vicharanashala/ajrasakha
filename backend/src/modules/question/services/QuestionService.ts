@@ -5496,21 +5496,76 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filters.hiddenQuestions === 'true') {
         query.isHidden = { $eq: true };
       }
+      // if (filters.startDate || filters.endDate) {
+      //   // For closed statuses, use closedAt field instead of createdAt
+      //   const isClosedStatus =
+      //     filters.status === 'closed' || filters.status === 'pae_closed' || filters.status === 'dynamic_closed' || filters.status === 'duplicate_closed';
+        
+      //   const dateField = isClosedStatus ? 'closedAt' : 'createdAt';
+      //   query[dateField] = {};
+        
+      //   if (filters.startDate) {
+      //     // Parse date string and set to start of day in IST (00:00:00 IST)
+      //     // IST is UTC+5:30, so 00:00 IST = previous day 18:30 UTC
+      //     const [year, month, day] = filters.startDate.split('-').map(Number);
+      //     // Create date in local time (IST) and convert to UTC
+      //     const startIST = new Date(year, month - 1, day, 0, 0, 0, 0);
+      //     // Subtract 5 hours 30 minutes to get UTC
+      //     const startUTC = new Date(startIST.getTime() - (5 * 60 + 30) * 60 * 1000);
+      //     query[dateField].$gte = startUTC;
+      //   }
+      //   if (filters.endDate) {
+      //     // Parse date string and set to end of day in IST (23:59:59.999 IST)
+      //     // IST is UTC+5:30, so 23:59:59 IST = same day 18:29:59 UTC
+      //     const [year, month, day] = filters.endDate.split('-').map(Number);
+      //     // Create date in local time (IST) and convert to UTC
+      //     const endIST = new Date(year, month - 1, day, 23, 59, 59, 999);
+      //     // Subtract 5 hours 30 minutes to get UTC
+      //     const endUTC = new Date(endIST.getTime() - (5 * 60 + 30) * 60 * 1000);
+      //     query[dateField].$lte = endUTC;
+      //   }
+      // }
+
       if (filters.startDate || filters.endDate) {
-        query.createdAt = {};
-        if (filters.startDate) {
-          query.createdAt.$gte = new Date(filters.startDate);
-        }
-        if (filters.endDate) {
-          const end = new Date(filters.endDate);
-          end.setHours(23, 59, 59, 999);
-          query.createdAt.$lte = end;
-        }
-      }
+  // For closed statuses, filter using closedAt.
+  // Date boundaries are based on IST:
+  // 00:00 IST = previous day 18:30 UTC
+  const isClosedStatus =
+    filters.status === 'closed' ||
+    filters.status === 'pae_closed' ||
+    filters.status === 'dynamic_closed' ||
+    filters.status === 'duplicate_closed';
+
+  const dateField = isClosedStatus ? 'closedAt' : 'createdAt';
+
+  query[dateField] = {};
+
+  if (filters.startDate) {
+  const [year, month, day] = filters.startDate.split('-').map(Number);
+
+  const startUTC = new Date(
+    Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) -
+      (5 * 60 + 30) * 60 * 1000
+  );
+
+  query[dateField].$gte = startUTC;
+}
+
+if (filters.endDate) {
+  const [year, month, day] = filters.endDate.split('-').map(Number);
+
+  const endUTC = new Date(
+    Date.UTC(year, month - 1, day + 2, 0, 0, 0, 0) -
+      (5 * 60 + 30) * 60 * 1000
+  );
+
+  query[dateField].$lt = endUTC;
+}
+}
 
       // Check if this is a closed status report - if so, limit to 50 questions
       const isClosedStatus =
-        filters.status === 'closed' || filters.status === 'pae_closed';
+        filters.status === 'closed' || filters.status === 'pae_closed' || filters.status === 'dynamic_closed' || filters.status === "duplicate_closed";;
       // `allUsers` is a comma-separated list of user (approvedBy) ids.
       const allUserIds =
         filters.allUsers && filters.allUsers !== 'all'
@@ -8936,6 +8991,41 @@ export class QuestionService extends BaseService implements IQuestionService {
           console.log(
             `[Feedback] Allocated question ${questionId} to reviewer ${assignedReviewerId ?? approvedByUserId}.`,
           );
+
+          // Audit the system feedback allocation (fire-and-forget, mirrors the
+          // time-bound / moderator-queue crons' SYSTEM_ALLOCATED entries).
+          if (assignedReviewerId) {
+            const meta = await this.resolveExpertMeta([assignedReviewerId]);
+            const reviewerName =
+              meta.get(assignedReviewerId)?.name ?? assignedReviewerId;
+            this.auditTrailsService
+              .createAuditTrail({
+                category: AuditCategory.EXPERTS_CATEGORY,
+                action: AuditAction.SYSTEM_ALLOCATED,
+                actor: {
+                  id: 'system',
+                  name: 'System',
+                  email: '',
+                  role: 'system',
+                  avatar: '',
+                },
+                context: {
+                  questionId,
+                  question: (question as any)?.question,
+                  expertId: assignedReviewerId,
+                  operation: 'feedback',
+                },
+                changes: { after: { 'feedback reviewer': reviewerName } },
+                outcome: { status: OutComeStatus.SUCCESS },
+                createdAt: new Date(),
+              } as ModeratorAuditTrail)
+              .catch((err: any) =>
+                console.error(
+                  '[Feedback] Failed to write SYSTEM_ALLOCATED audit:',
+                  err?.message,
+                ),
+              );
+          }
         } catch (error: any) {
           skipped++;
           const reason =
