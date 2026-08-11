@@ -10086,6 +10086,7 @@ if (filters.endDate) {
         );
         
         if (!matchedQuestion) {
+          console.log('[PaeValidationQueue] No matching question found for PAE expert', expertId);
           availableWaiting++;
           continue;
         }
