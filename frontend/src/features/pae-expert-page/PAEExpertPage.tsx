@@ -56,6 +56,7 @@ export const PAEExpertPage = () => {
   const questionItemRefs = useRef<Record<string, HTMLDivElement>>({});
 
   // Validation tab state
+  const [isValidationLoaded, setIsValidationLoaded] = useState(false);
   const [isValidationSidebarCollapsed, setIsValidationSidebarCollapsed] = useState(false);
   const [selectedValidationQuestion, setSelectedValidationQuestion] = useState<string | null>(null);
   const validationScrollRef = useRef<HTMLDivElement>(null);
@@ -153,6 +154,21 @@ export const PAEExpertPage = () => {
     const firstId = questions[0]?.id ?? null;
     setSelectedQuestion(firstId);
   }, [isLoaded, questions, questionPages]);
+
+  // Mark validation as loaded when tab is first viewed
+  useEffect(() => {
+    if (activeTab === "validation" && !isValidationLoaded) {
+      setIsValidationLoaded(true);
+    }
+  }, [activeTab, isValidationLoaded]);
+
+  // Auto-select first validation question
+  useEffect(() => {
+    if (!isValidationLoaded || !validationQuestionPages?.pages || validationQuestions.length === 0) return;
+    if (selectedValidationQuestion && validationQuestions.some((q) => q.id === selectedValidationQuestion)) return;
+    const firstId = validationQuestions[0]?.id ?? null;
+    setSelectedValidationQuestion(firstId);
+  }, [isValidationLoaded, validationQuestions, validationQuestionPages]);
 
   // Restore draft when question changes
   useEffect(() => {
@@ -336,17 +352,17 @@ export const PAEExpertPage = () => {
     if (!selectedQuestionData) return null;
 
     return (
-      <Card className="w-full border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
-        <CardHeader className="flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-700">
+      <Card className="w-full md:max-h-[120vh] max-h-[80vh] min-h-[90vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
+        <CardHeader className="border-b flex flex-row flex-wrap items-center justify-between gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-4">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-primary/10">
               <FileText className="w-5 h-5 text-primary" />
             </div>
-            <CardTitle className="text-lg font-semibold">Response</CardTitle>
+            <CardTitle className="text-sm md:text-base font-semibold">Response</CardTitle>
           </div>
           <QuestionDetailsDialog question={selectedQuestionData} />
         </CardHeader>
-        <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden">
+        <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-auto">
           {isSelectedQuestionLoading ? (
             <div className="flex flex-col items-center justify-center py-8">
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -504,17 +520,17 @@ export const PAEExpertPage = () => {
     if (!selectedValidationQuestionData) return null;
 
     return (
-      <Card className="w-full border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
-        <CardHeader className="flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-700">
+      <Card className="w-full md:max-h-[120vh] max-h-[80vh] min-h-[90vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
+        <CardHeader className="border-b flex flex-row flex-wrap items-center justify-between gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-4">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-primary/10">
               <ClipboardCheck className="w-5 h-5 text-primary" />
             </div>
-            <CardTitle className="text-lg font-semibold">Validation Response</CardTitle>
+            <CardTitle className="text-sm md:text-base font-semibold">Validation Response</CardTitle>
           </div>
           <QuestionDetailsDialog question={selectedValidationQuestionData} />
         </CardHeader>
-        <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden">
+        <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-auto">
           {isSelectedValidationQuestionLoading ? (
             <div className="flex flex-col items-center justify-center py-8">
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -608,7 +624,7 @@ export const PAEExpertPage = () => {
         </div>
 
         {selectedValidationQuestionData && (
-          <div className="transition-all duration-300 w-full">
+          <div className="transition-all duration-300 w-full h-full">
             {renderValidationRightPanel()}
           </div>
         )}
