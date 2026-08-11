@@ -213,6 +213,10 @@ export interface IQuestionRepository {
    * @param addText - To add text field without filtering it.
    * @returns A promise that resolves to an object containing the number of modified documents.
    */
+  findClosedQuestionsWithoutModerator(limit: number): Promise<string[]>;
+  bulkSetModeratorId(
+    pairs: { questionId: string; moderatorId: string }[],
+  ): Promise<number>;
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
@@ -642,7 +646,9 @@ export interface IQuestionRepository {
 
   findUnassignedInReviewQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
   findModeratorAssignedQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
-  findQuestionsWithOpenFeedbacks(): Promise<IQuestion[]>;
+  findQuestionsWithOpenFeedbacks(
+    requireAutoAllocate?: boolean,
+  ): Promise<IQuestion[]>;
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 
   /** Gate-keeper / auditor role allocation helpers. */

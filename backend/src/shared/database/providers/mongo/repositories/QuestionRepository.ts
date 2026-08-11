@@ -655,6 +655,7 @@ export class QuestionRepository implements IQuestionRepository {
         consecutiveApprovals,
         autoAllocateFilter,
         autoAllocateModeratorFilter,
+        feedbackFilter,
         sort,
         closedInTwoHrs,
         hiddenQuestions,
@@ -780,6 +781,38 @@ export class QuestionRepository implements IQuestionRepository {
           filter.autoAllocateModerator = true;
         } else if (autoAllocateModeratorFilter === 'off') {
           filter.autoAllocateModerator = false;
+        }
+      }
+
+      // --- Feedback Status Filter ---
+      if (feedbackFilter && feedbackFilter !== 'all') {
+        const normFeedback = feedbackFilter.toLowerCase();
+        if (!filter.$and) filter.$and = [];
+
+        if (normFeedback === 'open') {
+          filter.$and.push({
+            $or: [
+              { feedbacks: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } } },
+              { feedback: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } } },
+            ],
+          });
+        } else if (normFeedback === 'closed') {
+          filter.$and.push({
+            $or: [
+              {
+                feedbacks: {
+                  $elemMatch: { status: { $regex: '^closed$', $options: 'i' } },
+                  $not: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } },
+                },
+              },
+              {
+                feedback: {
+                  $elemMatch: { status: { $regex: '^closed$', $options: 'i' } },
+                  $not: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } },
+                },
+              },
+            ],
+          });
         }
       }
 
@@ -2767,6 +2800,50 @@ export class QuestionRepository implements IQuestionRepository {
         `Failed to find question by text /More: ${error}`,
       );
     }
+  }
+
+  /** Closed questions that have no moderator recorded (moderatorId is null or missing).
+   *  Used by the backfill that restores moderatorId from the final answer's approver —
+   *  moderatorId is cleared when a question closes. Returns up to `limit` question ids. */
+  async findClosedQuestionsWithoutModerator(limit: number): Promise<string[]> {
+    await this.init();
+    const safeLimit = Math.max(1, Math.min(limit || 500, 2000));
+    const docs = await this.QuestionCollection.find(
+      {
+        $and: [
+          { $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }] },
+          { status: 'closed' },
+        ],
+      },
+      { projection: { _id: 1 }, limit: safeLimit },
+    ).toArray();
+    return docs.map(d => d._id!.toString());
+  }
+
+  /** Bulk-set moderatorId on several questions in one round trip. Invalid ids are
+   *  skipped. Returns the number of questions actually modified. */
+  async bulkSetModeratorId(
+    pairs: { questionId: string; moderatorId: string }[],
+  ): Promise<number> {
+    await this.init();
+    const ops = pairs
+      .filter(
+        p => isValidObjectId(p.questionId) && isValidObjectId(p.moderatorId),
+      )
+      .map(p => ({
+        updateOne: {
+          filter: { _id: new ObjectId(p.questionId) },
+          update: {
+            $set: {
+              moderatorId: new ObjectId(p.moderatorId),
+              updatedAt: new Date(),
+            },
+          },
+        },
+      }));
+    if (!ops.length) return 0;
+    const res = await this.QuestionCollection.bulkWrite(ops as any);
+    return res.modifiedCount ?? 0;
   }
 
   async updateQuestion(
@@ -8157,12 +8234,27 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
-  async findQuestionsWithOpenFeedbacks(): Promise<IQuestion[]> {
+  async findQuestionsWithOpenFeedbacks(
+    requireAutoAllocate = false,
+  ): Promise<IQuestion[]> {
     await this.init();
-    return this.QuestionCollection.find({
+    // Feedback questions are CLOSED questions that later received feedback (an open
+    // feedback entry). The in-review pool is handled separately by
+    // findUnassignedInReviewQuestions (autoAllocateModerator), so scope this to closed.
+    const filter: Record<string, unknown> = {
+      status: 'closed',
       'feedbacks.status': 'open',
-    } as any)
-      .sort({ createdAt: 1 })
+    };
+    if (requireAutoAllocate) {
+      // Only questions with feedback auto-allocation EXPLICITLY true. A missing or
+      // false field means OFF (same convention as autoAllocateModerator).
+      filter.autoAllocateFeedback = true;
+    }
+    // Feedback questions are ordered by when their feedback arrived (recentFeedback),
+    // not the question's original createdAt. createdAt is the fallback for legacy
+    // feedback questions that predate the recentFeedback stamp.
+    return this.QuestionCollection.find(filter as any)
+      .sort({ recentFeedback: 1, createdAt: 1 })
       .toArray();
   }
 
@@ -8647,6 +8739,9 @@ export class QuestionRepository implements IQuestionRepository {
           {
             $set: {
               autoAllocateFeedback: true,
+              // Feedback (re)opened now — stamp recency so the moderator queue can
+              // order feedback questions by when feedback arrived, not question age.
+              recentFeedback: '$$NOW',
               feedbacks: {
                 $let: {
                   vars: {

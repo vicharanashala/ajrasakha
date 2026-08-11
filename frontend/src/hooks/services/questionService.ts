@@ -59,6 +59,24 @@ export type QueueSectionResponse = {
   items: (QueueQuestionItem | QueueExpertItem)[];
 };
 
+/** A waiting feedback question paired with its eligible (active, free) approver moderator. */
+export type RespectiveFeedbackItem = QueueQuestionItem & {
+  approverId: string;
+  approverName: string;
+};
+
+/** Data for the dedicated Feedback tab. */
+export type FeedbackQueueDetailsResponse = {
+  waitingAuto: { count: number; items: QueueQuestionItem[] };
+  waitingManual: { count: number; items: QueueQuestionItem[] };
+  assigned: { count: number; items: QueueQuestionItem[] };
+  availableModerators: { count: number; items: QueueExpertItem[] };
+  respectiveModerators: { count: number; items: RespectiveFeedbackItem[] };
+  availableAuditors: { count: number; items: QueueExpertItem[] };
+  questionsWithActiveModerator: { count: number; items: QueueQuestionItem[] };
+  questionsWithoutActiveModerator: { count: number; items: QueueQuestionItem[] };
+};
+
 export type QueueDetailsResponse = {
   received: { count: number; items: QueueQuestionItem[] };
   /** Per-status counts for the received section — accurate DB totals for tab badges. */
@@ -162,6 +180,8 @@ export interface FeedbackReviewRound {
   reviewerName: string;
   assignedAt: string;
   finishedAt: string | null;
+  /** How many feedbacks this reviewer has already acted on (accepted/rejected). */
+  completedCount?: number;
 }
 
 export interface FeedbackTimeline {
@@ -229,6 +249,9 @@ export class QuestionService {
     }
     if (filter.autoAllocateModeratorFilter) {
       params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
+    }
+    if (filter.feedbackFilter && filter.feedbackFilter !== "all") {
+      params.append("feedbackFilter", filter.feedbackFilter);
     }
 
     if (filter.answersCount) {
@@ -677,6 +700,9 @@ export class QuestionService {
     }
     if (filter.autoAllocateModeratorFilter) {
       params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
+    }
+    if (filter.feedbackFilter && filter.feedbackFilter !== "all") {
+      params.append("feedbackFilter", filter.feedbackFilter);
     }
 
     if (filter.isTrainingQuestion === true) {
@@ -1140,6 +1166,9 @@ export class QuestionService {
     if (filter.autoAllocateModeratorFilter) {
       params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
     }
+    if (filter.feedbackFilter && filter.feedbackFilter !== "all") {
+      params.append("feedbackFilter", filter.feedbackFilter);
+    }
 
     if (filter.answersCount) {
       params.append("answersCountMin", filter.answersCount[0].toString());
@@ -1206,6 +1235,16 @@ export class QuestionService {
       success: boolean;
       data: QueueDetailsResponse;
     }>(`${this._baseUrl}/queue-details${queryString ? `?${queryString}` : ""}`, {
+      method: "GET",
+    });
+    return res?.data ?? null;
+  }
+
+  async getFeedbackQueueDetails(): Promise<FeedbackQueueDetailsResponse | null> {
+    const res = await apiFetch<{
+      success: boolean;
+      data: FeedbackQueueDetailsResponse;
+    }>(`${this._baseUrl}/feedback/queue-details`, {
       method: "GET",
     });
     return res?.data ?? null;
