@@ -729,4 +729,50 @@ export interface IQuestionRepository {
     },
     session?: ClientSession,
   ): Promise<void>;
+
+  /** Find questions by their IDs with pagination and join final answers in a single aggregation.
+   *  Uses $lookup to join with the answers collection and get final answers with sources.
+   *  @param ids - Array of question ObjectIds to fetch
+   *  @param page - Page number (1-indexed)
+   *  @param limit - Number of items per page
+   *  @param session - Optional MongoDB client session for transactions
+   *  @returns Promise resolving to paginated questions with answers joined
+   */
+  findByIdsWithAnswers(
+    ids: ObjectId[],
+    page: number,
+    limit: number,
+    session?: ClientSession,
+  ): Promise<{
+    questions: Array<{
+      _id: ObjectId;
+      question: string;
+      status: QuestionStatus;
+      source: QuestionSource;
+      priority?: string;
+      totalAnswersCount?: number;
+      createdAt: Date;
+      state?: string;
+      district?: string;
+      crop?: string;
+      domain?: string;
+      season?: string;
+      normalised_crop?: string;
+      answer?: {
+        _id: ObjectId;
+        answer: string;
+        sources: Array<{
+          source: string;
+          sourceType?: string;
+          sourceName?: string;
+          page?: string | number;
+        }>;
+        authorId: ObjectId;
+        isFinalAnswer: boolean;
+      };
+    }>;
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+  }>;
 }

@@ -8888,4 +8888,155 @@ export class QuestionRepository implements IQuestionRepository {
       { session },
     );
   }
+
+  /** Find questions by their IDs with pagination, joining final answers in a single aggregation pipeline.
+   *  Uses $lookup to join with answers collection and get the final answer with sources.
+   */
+  async findByIdsWithAnswers(
+    ids: ObjectId[],
+    page: number,
+    limit: number,
+    session?: ClientSession,
+  ): Promise<{
+    questions: Array<{
+      _id: ObjectId;
+      question: string;
+      status: QuestionStatus;
+      source: QuestionSource;
+      priority?: string;
+      totalAnswersCount?: number;
+      createdAt: Date;
+      state?: string;
+      district?: string;
+      crop?: string;
+      domain?: string;
+      season?: string;
+      normalised_crop?: string;
+      answer?: {
+        _id: ObjectId;
+        answer: string;
+        sources: Array<{
+          source: string;
+          sourceType?: string;
+          sourceName?: string;
+          page?: string | number;
+        }>;
+        authorId: ObjectId;
+        isFinalAnswer: boolean;
+      };
+    }>;
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+  }> {
+    await this.init();
+
+    const totalCount = ids.length;
+    const totalPages = Math.ceil(totalCount / limit);
+    const safePage = Math.min(Math.max(page, 1), totalPages || 1);
+    const skip = (safePage - 1) * limit;
+
+    // Get the IDs for the current page
+    const pageIds = ids.slice(skip, skip + limit);
+
+    if (pageIds.length === 0) {
+      return {
+        questions: [],
+        totalCount,
+        totalPages,
+        currentPage: safePage,
+      };
+    }
+
+    // Use aggregation pipeline with $lookup to join answers in a single call
+    const pipeline: object[] = [
+      // Match only the questions we need
+      { $match: { _id: { $in: pageIds } } },
+      // Lookup the final answer from answers collection
+      {
+        $lookup: {
+          from: 'answers',
+          let: { questionId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$questionId', '$$questionId'] },
+                    { $eq: ['$isFinalAnswer', true] },
+                  ],
+                },
+              },
+            },
+            // Project only the fields we need
+            {
+              $project: {
+                _id: 1,
+                answer: 1,
+                sources: 1,
+                authorId: 1,
+                isFinalAnswer: 1,
+              },
+            },
+            // Limit to 1 final answer
+            { $limit: 1 },
+          ],
+          as: 'answerData',
+        },
+      },
+      // Unwind the answer array (if exists) or keep as empty
+      {
+        $addFields: {
+          answer: {
+            $cond: {
+              if: { $gt: [{ $size: '$answerData' }, 0] },
+              then: { $arrayElemAt: ['$answerData', 0] },
+              else: null,
+            },
+          },
+        },
+      },
+      // Project the final shape, excluding the answerData array
+      {
+        $project: {
+          answerData: 0,
+        },
+      },
+    ];
+
+    const options = session ? { session } : undefined;
+    const results = await this.QuestionCollection.aggregate(pipeline, options).toArray();
+    // Map the results to the expected shape
+    const questions = results.map((doc: any) => ({
+      _id: doc._id,
+      question: doc.question,
+      status: doc.status,
+      source: doc.source,
+      priority: doc.priority,
+      totalAnswersCount: doc.totalAnswersCount,
+      createdAt: doc.createdAt,
+      state: doc.details.state,
+      district: doc.details.district,
+      crop: doc.details.crop,
+      domain: doc.details.domain,
+      season: doc.details.season,
+      normalised_crop: doc.details.normalised_crop,
+      answer: doc.answer
+        ? {
+            _id: doc.answer._id,
+            answer: doc.answer.answer,
+            sources: doc.answer.sources || [],
+            authorId: doc.answer.authorId,
+            isFinalAnswer: doc.answer.isFinalAnswer,
+          }
+        : undefined,
+    }));
+
+    return {
+      questions,
+      totalCount,
+      totalPages,
+      currentPage: safePage,
+    };
+  }
 }

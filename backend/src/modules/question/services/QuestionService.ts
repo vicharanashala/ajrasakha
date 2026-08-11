@@ -66,6 +66,11 @@ import {
   FeedbackData,
   FeedbackQueueDetails,
 } from '../interfaces/IQuestionService.js';
+import type {
+  PaeValidationQuestion,
+  PaeValidationAnswer,
+  PaeValidationAssignedQuestionsResponse,
+} from '../interfaces/QuestionValidationTypes.js';
 import { isToday } from '#root/utils/date.utils.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
@@ -10128,5 +10133,73 @@ if (filters.endDate) {
       console.error('[PaeValidationQueue] PAE validation queue cron failed:', error?.message);
       throw new BadRequestError(`PAE validation queue cron failed: ${error?.message}`);
     }
+  }
+
+  /** Get all questions assigned to a PAE expert for validation, with pagination.
+   *  Includes answer data and sources from the answer collection.
+   */
+  async getPaeValidationAssignedQuestions(
+    paeExpertId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaeValidationAssignedQuestionsResponse> {
+    // Get the user to check paeValidationAssigned
+    const user = await this.userRepo.findById(paeExpertId);
+    
+    if (!user) {
+      throw new NotFoundError(`User with ID ${paeExpertId} not found`);
+    }
+    
+    // Get the question IDs from paeValidationAssigned
+    const questionIds = (user.paeValidationAssigned || []).map(id => {
+      if (typeof id === 'string') {
+        return new ObjectId(id);
+      }
+      return id as ObjectId;
+    });
+    
+    if (questionIds.length === 0) {
+      return {
+        questions: [],
+        totalCount: 0,
+        totalPages: 0,
+        currentPage: page,
+      };
+    }
+    
+    // Get paginated questions with answers joined in a single aggregation call
+    const { questions: paginatedQuestions, totalCount, totalPages, currentPage } = 
+      await this.questionRepo.findByIdsWithAnswers(questionIds, page, limit);
+    
+    // Transform the results to match the expected response format
+    const questionsWithAnswers: PaeValidationQuestion[] = paginatedQuestions.map(q => ({
+      _id: q._id.toString(),
+      question: q.question,
+      status: q.status,
+      source: q.source,
+      priority: q.priority,
+      totalAnswersCount: q.totalAnswersCount,
+      createdAt: q.createdAt || new Date(),
+      state: q.state,
+      district: q.district,
+      crop: q.crop,
+      domain: q.domain,
+      season: q.season,
+      normalised_crop: q.normalised_crop,
+      answer: q.answer ? {
+        _id: q.answer._id.toString(),
+        answer: q.answer.answer,
+        sources: q.answer.sources || [],
+        authorId: q.answer.authorId.toString(),
+        isFinalAnswer: q.answer.isFinalAnswer,
+      } : undefined,
+    }));
+    
+    return {
+      questions: questionsWithAnswers,
+      totalCount,
+      totalPages,
+      currentPage,
+    };
   }
 }

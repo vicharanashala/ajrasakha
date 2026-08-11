@@ -16,6 +16,12 @@ import {
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { ClientSession, ObjectId } from 'mongodb';
 import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+import type {
+  PaeValidationAnswer,
+  PaeValidationQuestion,
+  PaeValidationSource,
+  PaeValidationAssignedQuestionsResponse,
+} from './QuestionValidationTypes.js';
 
 /** Feedback data structure */
 export interface FeedbackData {
@@ -775,4 +781,16 @@ export interface IQuestionService {
     availableWaiting: number;
     failedAssignments: number;
   }>;
+
+  /** Get all questions assigned to a PAE expert for validation, with pagination.
+   *  Includes answer data and sources from the answer collection.
+   *  @param paeExpertId The PAE expert's user ID
+   *  @param page Page number (1-indexed)
+   *  @param limit Number of items per page
+   *  @returns Promise resolving to paginated questions with answers and sources */
+  getPaeValidationAssignedQuestions(
+    paeExpertId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaeValidationAssignedQuestionsResponse>;
 }

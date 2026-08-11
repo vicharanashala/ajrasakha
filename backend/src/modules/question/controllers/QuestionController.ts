@@ -3271,4 +3271,24 @@ export class QuestionController {
     
     return result;
   }
+
+  // ─── PAE Validation Assigned Questions Endpoint ─────────────────────────────────
+
+  @Get('/pae/validations/assigned')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ 
+    summary: 'Get all questions assigned to the current PAE expert for validation',
+    description: 'Returns paginated questions assigned to the authenticated PAE expert, including their final answers and sources.',
+  })
+  async getPaeValidationAssignedQuestions(
+    @QueryParams() query: { page?: number; limit?: number },
+    @CurrentUser() user: IUser,
+  ) {
+    const page = Number(query.page) || 1;
+    const limit = Math.min(Number(query.limit) || 10, 100); // Cap at 100 per page
+    
+    const userId = user._id.toString();
+    return await this.questionService.getPaeValidationAssignedQuestions(userId, page, limit);
+  }
 }
