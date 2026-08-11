@@ -655,6 +655,7 @@ export class QuestionRepository implements IQuestionRepository {
         consecutiveApprovals,
         autoAllocateFilter,
         autoAllocateModeratorFilter,
+        feedbackFilter,
         sort,
         closedInTwoHrs,
         hiddenQuestions,
@@ -780,6 +781,38 @@ export class QuestionRepository implements IQuestionRepository {
           filter.autoAllocateModerator = true;
         } else if (autoAllocateModeratorFilter === 'off') {
           filter.autoAllocateModerator = false;
+        }
+      }
+
+      // --- Feedback Status Filter ---
+      if (feedbackFilter && feedbackFilter !== 'all') {
+        const normFeedback = feedbackFilter.toLowerCase();
+        if (!filter.$and) filter.$and = [];
+
+        if (normFeedback === 'open') {
+          filter.$and.push({
+            $or: [
+              { feedbacks: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } } },
+              { feedback: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } } },
+            ],
+          });
+        } else if (normFeedback === 'closed') {
+          filter.$and.push({
+            $or: [
+              {
+                feedbacks: {
+                  $elemMatch: { status: { $regex: '^closed$', $options: 'i' } },
+                  $not: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } },
+                },
+              },
+              {
+                feedback: {
+                  $elemMatch: { status: { $regex: '^closed$', $options: 'i' } },
+                  $not: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } },
+                },
+              },
+            ],
+          });
         }
       }
 

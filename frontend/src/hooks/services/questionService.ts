@@ -230,6 +230,9 @@ export class QuestionService {
     if (filter.autoAllocateModeratorFilter) {
       params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
     }
+    if (filter.feedbackFilter && filter.feedbackFilter !== "all") {
+      params.append("feedbackFilter", filter.feedbackFilter);
+    }
 
     if (filter.answersCount) {
       params.append("answersCountMin", filter.answersCount[0].toString());
@@ -677,6 +680,9 @@ export class QuestionService {
     }
     if (filter.autoAllocateModeratorFilter) {
       params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
+    }
+    if (filter.feedbackFilter && filter.feedbackFilter !== "all") {
+      params.append("feedbackFilter", filter.feedbackFilter);
     }
 
     if (filter.isTrainingQuestion === true) {
@@ -1139,6 +1145,9 @@ export class QuestionService {
     }
     if (filter.autoAllocateModeratorFilter) {
       params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
+    }
+    if (filter.feedbackFilter && filter.feedbackFilter !== "all") {
+      params.append("feedbackFilter", filter.feedbackFilter);
     }
 
     if (filter.answersCount) {
