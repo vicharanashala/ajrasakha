@@ -32,6 +32,12 @@ export interface StfModerator {
   assignedQuestionIds?: AssignedQuestion[] | null;
 }
 
+export interface PaeValidationExpert {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 export class UserService {
   private _baseUrl = `${API_BASE_URL}/users`;
 
@@ -332,4 +338,8 @@ export class UserService {
         `${this._baseUrl}/working-hours-trend?${params.toString()}`
       );
     }
+
+    async getPaeValidationExperts(): Promise<PaeValidationExpert[] | null> {
+    return apiFetch<PaeValidationExpert[]>(`${this._baseUrl}/pae-val-experts`);
+  }
 }

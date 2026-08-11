@@ -184,10 +184,25 @@ export interface FeedbackReviewRound {
   completedCount?: number;
 }
 
+export interface PaeValidationReviewRound {
+  index: number;
+  paeId: string;
+  paeName: string;
+  paeAssignedAt: Date;
+  paeFinishedAt: Date | null;
+  paeStatus: string;
+}
+
 export interface FeedbackTimeline {
   autoAllocateFeedback: boolean;
   hasOpenFeedback: boolean;
   reviews: FeedbackReviewRound[];
+}
+
+export interface PaeValidationTimeline {
+  autoAllocatePaeValidationExpert: boolean;
+  hasOpenRound: boolean;
+  reviews: PaeValidationReviewRound[];
 }
 
 export interface FeedbackReviewerOption {
@@ -1084,6 +1099,13 @@ export class QuestionService {
       method: "PATCH",
       body: JSON.stringify({ role, enabled }),
     });
+  }
+
+  //get pae validation timeline
+    async getPaeValidationTimeline(
+    questionId: string,
+  ): Promise<{ success: boolean; data: PaeValidationTimeline } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/pae-validation-timeline`);
   }
 
   async getFeedbackTimeline(
