@@ -194,7 +194,10 @@ test.describe("Expert Manual Allocation Workflow", () => {
 
     await expertAllocationSectionPage.clickAllocate();
 
-    await moderatorAllocationQueuePage.expectExpertStatus("Waiting");
+    await moderatorAllocationQueuePage.expectExpertStatus(
+      process.env.EXPERT_EMAIL!,
+      "Waiting",
+    );
   });
   test("EAW-M011 Moderator allocates multiple experts", async ({
     moderatorAllocationQueuePage,

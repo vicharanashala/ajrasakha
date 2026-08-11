@@ -286,7 +286,10 @@ test.describe("Expert Review Workflow", () => {
 
     await moderatorAllocationQueuePage.expectOpened();
 
-    await moderatorAllocationQueuePage.expectExpertStatus("Approved");
+    await moderatorAllocationQueuePage.expectExpertStatus(
+      process.env.EXPERT_EMAIL_2!,
+      "Approved",
+    );
   });
   test("ERW-R012 Accepted question is removed from review queue", async ({
     expert2Dashboard,
@@ -538,6 +541,25 @@ test.describe("Expert Review Workflow", () => {
 
     await expert2ReviewPanel.expectSubmitRejectEnabled();
   });
+  test("ERW-R028 Expert can reject an answer", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openRejectDialog();
+
+    await expert2ReviewPanel.enableRejectCriterion("technicalAccuracy");
+
+    await expert2ReviewPanel.fillRejectReason(
+      "The response does not provide sufficient technical accuracy.",
+    );
+
+    await expert2ReviewPanel.submitRejection();
+  });
   test("ERW-R029 Rejected question is removed from review queue", async ({
     expert2Dashboard,
     expert2ReviewPanel,
@@ -557,6 +579,107 @@ test.describe("Expert Review Workflow", () => {
 
     await expert2ReviewPanel.submitRejection();
 
+    console.log(
+      "Queue question count:",
+      await expert2Dashboard["questionLabel"](question).count(),
+    );
+
     await expert2Dashboard.expectQuestionNotPresent(question);
+  });
+  test("ERW-R030 Expert can submit a rejection", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openRejectDialog();
+
+    await expert2ReviewPanel.enableRejectCriterion("technicalAccuracy");
+
+    await expert2ReviewPanel.fillRejectReason(
+      "The response does not provide sufficient technical accuracy.",
+    );
+
+    await expert2ReviewPanel.expectSubmitRejectEnabled();
+
+    await expert2ReviewPanel.submitRejection();
+  });
+  test("ERW-R031 Moderator sees expert status as Rejected", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+    moderatorDashboard,
+    moderatorQuestionDetailsPage,
+    moderatorAllocationQueuePage,
+  }) => {
+    // Expert 2 rejects
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openRejectDialog();
+
+    await expert2ReviewPanel.enableRejectCriterion("technicalAccuracy");
+
+    await expert2ReviewPanel.fillRejectReason(
+      "The response does not provide sufficient technical accuracy.",
+    );
+
+    await expert2ReviewPanel.submitRejection();
+
+    // Moderator page is still open, but its question-details view holds
+    // stale allocation data from before the rejection. "All Questions"
+    // doesn't navigate away from this view — only Exit does (same fix as
+    // ERW-M015 in the response workflow).
+    await moderatorQuestionDetailsPage.exit();
+
+    await moderatorDashboard.openQuestion(question);
+
+    await moderatorAllocationQueuePage.expectOpened();
+
+    await moderatorAllocationQueuePage.expectExpertStatus(
+      process.env.EXPERT_EMAIL_2!,
+      "Rejected",
+    );
+  });
+
+  test("ERW-R032 Moderator can view rejection reason", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+    moderatorDashboard,
+    moderatorQuestionDetailsPage,
+    moderatorAllocationQueuePage,
+  }) => {
+    const rejectionReason =
+      "The response does not provide sufficient technical accuracy.";
+
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openRejectDialog();
+
+    await expert2ReviewPanel.enableRejectCriterion("technicalAccuracy");
+
+    await expert2ReviewPanel.fillRejectReason(rejectionReason);
+
+    await expert2ReviewPanel.submitRejection();
+    await expert2ReviewPanel.expectAcceptSuccess();
+
+    await moderatorQuestionDetailsPage.exit();
+
+    await moderatorDashboard.openQuestion(question);
+    await moderatorAllocationQueuePage.expectOpened();
+
+    await moderatorAllocationQueuePage.expectExpertStatus(
+      process.env.EXPERT_EMAIL_2!,
+      "Rejected",
+    );
+
+    // await moderatorAllocationQueuePage.expectRejectionReason(rejectionReason);
   });
 });

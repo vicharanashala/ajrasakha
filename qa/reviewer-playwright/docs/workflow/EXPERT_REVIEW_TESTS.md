@@ -137,7 +137,7 @@ Verify that the second expert can access the question containing the first exper
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -166,7 +166,7 @@ Verify that the second expert can view detailed information about the first expe
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -195,7 +195,7 @@ Verify that the second expert can expand the comments section associated with th
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -226,7 +226,7 @@ Verify that the second expert can access the metadata associated with the answer
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -257,7 +257,7 @@ Verify that closing the answer details does not remove the available review acti
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -291,7 +291,7 @@ Verify that the second expert can open the acceptance confirmation dialog.
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -318,7 +318,7 @@ Verify that the acceptance dialog displays the expected acceptance criteria.
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -344,7 +344,7 @@ Verify that all acceptance criteria are enabled when the acceptance dialog is in
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -370,7 +370,7 @@ Verify that the Confirm Accept action is available when the acceptance dialog is
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -401,7 +401,7 @@ Verify that Expert 2 can accept the answer submitted by Expert 1.
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -449,7 +449,7 @@ Therefore, the test explicitly exits the Question Details view and reopens the q
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -477,7 +477,7 @@ Verify that the accepted question is removed from the second expert's review que
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -506,7 +506,7 @@ Verify that after accepting the current question, the next available question be
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -534,7 +534,7 @@ Verify that the acceptance dialog closes after acceptance is confirmed.
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -569,7 +569,7 @@ Verify that Expert 2 can open the Reject Response dialog.
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -607,7 +607,7 @@ The rejection criteria include:
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -633,7 +633,7 @@ Verify that all rejection criteria are initially disabled.
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -660,7 +660,7 @@ Verify that a rejection reason is required before a rejection can be submitted.
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -691,7 +691,7 @@ Verify that entering a valid rejection reason enables the rejection submission a
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -718,7 +718,7 @@ Verify that Expert 2 can cancel the rejection workflow without submitting a reje
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -745,7 +745,7 @@ Verify that an expert can enable an individual rejection criterion.
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -773,7 +773,7 @@ Verify that an expert can disable a previously enabled rejection criterion.
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -804,7 +804,7 @@ Verify that Reset restores all rejection criteria to their default disabled stat
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -836,7 +836,7 @@ When **Value Addition / Insight** is enabled, the interface displays a warning i
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -868,7 +868,7 @@ Verify that disabling **Value Addition / Insight** removes the rejection restric
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -897,7 +897,7 @@ Verify the initial invalid state of the rejection workflow when neither a reject
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -930,7 +930,7 @@ Verify that the rejection submission action becomes available when a valid rejec
 
 ### Status
 
-Implemented
+✅ Passed
 
 ---
 
@@ -977,14 +977,4 @@ Verify that a question is removed from the second expert's review queue after th
 
 ### Result
 
-❌ **Failed**
-
-### Failure
-
-The final assertion failed while checking that the rejected question was removed from the Expert 2 queue.
-
-Expected:
-
-```text
-Question count = 0
-```
+✅ Passed

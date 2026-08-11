@@ -362,14 +362,17 @@ export class ModeratorAllocationQueuePage {
     return email!;
   }
 
-  async expectExpertStatus(status: string) {
-    await expect(
-      this.statusBadges
-        .filter({
-          hasText: status,
-        })
-        .first(),
-    ).toBeVisible();
+  async expectExpertStatus(
+    email: string,
+    expectedStatus: string,
+  ): Promise<void> {
+    const card = this.expertCard(email);
+
+    const status = card.getByText(expectedStatus, {
+      exact: true,
+    });
+
+    await expect(status).toBeVisible();
   }
   async openRemoveExpertDialog(email: string) {
     const card = this.expertCard(email);
@@ -410,5 +413,31 @@ export class ModeratorAllocationQueuePage {
     await expect(this.noExpertsAllocatedHeading).toBeVisible();
 
     await expect(this.allocationCards).toHaveCount(0);
+  }
+  async getExpertStatus(email: string): Promise<string> {
+    const card = this.expertCard(email);
+
+    const statuses = [
+      "Answer Created",
+      "Approved",
+      "Rejected",
+      "Waiting",
+      "Modified",
+      "Pending",
+      "Your Turn",
+    ];
+
+    for (const status of statuses) {
+      const locator = card.getByText(status, { exact: true });
+
+      if (await locator.count()) {
+        return (await locator.first().innerText()).trim();
+      }
+    }
+
+    throw new Error(`No expert status found for ${email}`);
+  }
+  async expectRejectionReason(reason: string): Promise<void> {
+    await expect(this.page.getByText(reason, { exact: true })).toBeVisible();
   }
 }

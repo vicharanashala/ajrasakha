@@ -74,6 +74,14 @@ export class ReviewPanelPage {
   readonly resetRejectButton: Locator;
   readonly rejectionValidationMessage: Locator;
 
+  readonly rejectNewResponseHeading: Locator;
+  readonly rejectReplacementResponse: Locator;
+  readonly rejectReplacementRemarks: Locator;
+  readonly rejectSourceTypeTrigger: Locator;
+  readonly rejectFinalSubmitButton: Locator;
+  readonly rejectSuccessToast: Locator;
+  readonly editReasonButton: Locator;
+
   constructor(private readonly page: Page) {
     this.acceptButton = page.getByRole("button", { name: "Accept" });
     this.rejectButton = page.getByRole("button", { name: "Reject" });
@@ -186,6 +194,39 @@ export class ReviewPanelPage {
     this.rejectionValidationMessage = this.rejectResponseDialog.getByText(
       /To reject this answer, please disable Value.*Insight/i,
     );
+
+    // -----------------------------
+    // Step 2 of Reject: after "Submit Reason" advances past the
+    // reason/criteria step, the dialog shows a full "Submit New Response"
+    // form requiring a replacement answer before the rejection actually
+    // completes. Scoped to rejectResponseDialog throughout — #new-answer
+    // and #remarks are reused ids also present on the underlying My Queue
+    // panel behind this modal, so an unscoped page-level locator would
+    // strict-mode-violate by matching both.
+    // -----------------------------
+    this.rejectNewResponseHeading = this.rejectResponseDialog.getByText(
+      "Submit New Response",
+      { exact: true },
+    );
+    this.rejectReplacementResponse =
+      this.rejectResponseDialog.locator("#new-answer");
+    this.rejectReplacementRemarks =
+      this.rejectResponseDialog.locator("#remarks");
+    this.rejectSourceTypeTrigger = this.rejectResponseDialog
+      .getByRole("combobox")
+      .filter({ hasText: "Select Source Type" });
+    // Exact match ("^Submit$") deliberately excludes "Submit Reason" —
+    // both are technically within this dialog's DOM across the two steps.
+    this.rejectFinalSubmitButton = this.rejectResponseDialog.getByRole(
+      "button",
+      { name: /^Submit$/ },
+    );
+    this.rejectSuccessToast = page.getByText(
+      "Your response has been submitted. Thank you!",
+    );
+    this.editReasonButton = this.rejectResponseDialog.getByRole("button", {
+      name: "Edit Reason",
+    });
   }
 
   async pause(): Promise<void> {
@@ -369,7 +410,54 @@ export class ReviewPanelPage {
   async expectValueAdditionRejectionWarningHidden(): Promise<void> {
     await expect(this.rejectionValidationMessage).toBeHidden();
   }
-  async submitRejection(): Promise<void> {
+  async submitRejection(
+    replacementAnswer = "Playwright automated rejection — replacement answer.",
+    sourceType: "State" | "Central" | "Research Paper" | "Other" = "State",
+  ): Promise<void> {
+    // Step 1 -> Step 2: "Submit Reason" only advances the wizard, it does
+    // NOT complete the rejection by itself.
     await this.submitRejectButton.click();
+    await expect(this.rejectNewResponseHeading).toBeVisible();
+
+    // Step 2: a replacement response is required before rejection
+    // completes. Every field here is scoped to rejectResponseDialog since
+    // #new-answer/#remarks are also present (behind this modal) on the
+    // underlying My Queue panel.
+    await this.rejectReplacementResponse.fill(replacementAnswer);
+
+    await this.rejectSourceTypeTrigger.click();
+    // NOTE: sub-fields below are assumed identical to
+    // ResponsePage.addSourceReference() (same component, reused) but this
+    // specific instance hasn't been confirmed against live DOM yet — if
+    // this run fails inside this block, that's the first place to check.
+    await this.page.getByRole("option", { name: sourceType }).click();
+    await this.rejectResponseDialog
+      .getByPlaceholder("State Source Name")
+      .fill("Playwright Test Source");
+    await this.rejectResponseDialog
+      .getByPlaceholder("State Source Link URL")
+      .fill("https://workdrive.zohoexternal.in/file/123");
+    await this.rejectResponseDialog
+      .getByPlaceholder("Page(s) e.g. 1,2,3")
+      .fill("1");
+    await this.rejectResponseDialog
+      .getByRole("button")
+      .filter({ has: this.page.locator("svg.lucide-circle-plus") })
+      .click();
+
+    await expect(this.rejectFinalSubmitButton).toBeEnabled();
+    await this.rejectFinalSubmitButton.click();
+
+    // Submit opens a page-level alertdialog — same *pattern* as the normal
+    // answer-submission flow, but different wording: titled "Confirm
+    // Rejection" with a plain "Submit" button (not "Submit Response").
+    const confirmDialog = this.page.getByRole("alertdialog");
+    await expect(confirmDialog).toBeVisible();
+    await confirmDialog.getByRole("button", { name: "Submit" }).click();
+
+    await expect(this.rejectResponseDialog).toBeHidden();
+  }
+  async expectRejectSuccess(): Promise<void> {
+    await expect(this.rejectSuccessToast).toBeVisible();
   }
 }

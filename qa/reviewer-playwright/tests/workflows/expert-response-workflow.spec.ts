@@ -60,7 +60,10 @@ test.describe("Expert Response Workflow", () => {
         process.env.EXPERT_EMAIL!,
       );
 
-      await moderatorAllocationQueuePage.expectExpertStatus("Waiting");
+      await moderatorAllocationQueuePage.expectExpertStatus(
+        process.env.EXPERT_EMAIL!,
+        "Waiting",
+      );
     },
   );
 
@@ -289,7 +292,10 @@ test.describe("Expert Response Workflow", () => {
       // await moderatorDashboard.openQuestion(question);
       await moderatorAllocationQueuePage.expectOpened();
 
-      await moderatorAllocationQueuePage.expectExpertStatus("Answer Created");
+      await moderatorAllocationQueuePage.expectExpertStatus(
+        process.env.EXPERT_EMAIL!,
+        "Answer Created",
+      );
     });
 
     // NOTE: only experttest2..experttest8 are configured in .env

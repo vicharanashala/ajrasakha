@@ -106,18 +106,20 @@ export class ExpertDashboardPage {
         await expect(label).toBeVisible();
         return;
       }
+
       await container.evaluate((el) => {
         el.scrollTop = el.scrollHeight;
       });
+
       await this.page.waitForTimeout(500);
     }
 
-    // Final assertion so failures report a proper Playwright error, not a silent timeout.
     await expect(label).toBeVisible({ timeout: 1000 });
   }
 
   async openQuestion(question: string): Promise<void> {
     const label = this.questionLabel(question);
+
     await expect(label).toBeVisible();
     await label.click();
   }
@@ -140,9 +142,9 @@ export class ExpertDashboardPage {
     await this.page.waitForTimeout(200);
   }
   async expectQuestionRemoved(question: string): Promise<void> {
-    await expect(this.page.getByText(question, { exact: true })).toHaveCount(0);
+    await expect(this.questionLabel(question)).toHaveCount(0);
   }
   async expectQuestionNotPresent(question: string): Promise<void> {
-    await expect(this.page.getByText(question, { exact: true })).toHaveCount(0);
+    await expect(this.questionLabel(question)).toHaveCount(0);
   }
 }
