@@ -86,7 +86,7 @@ import {
 } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
-import { checkDuplicateQuestionHelper } from '../helpers/duplicateQuestionHelper.js';
+import { checkDuplicateQuestionHelper, isQuestionMatchForPaeExpert } from '../helpers/duplicateQuestionHelper.js';
 import {
   DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
   TOTAL_EXPERTS_LIMIT,
@@ -9550,4 +9550,91 @@ if (filters.endDate) {
     success: true,
   };
 }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PAE VALIDATION QUEUE CRON
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Cron job to assign questions pending PAE validation to available PAE experts.
+   */
+  async runPaeValidationQueueCron(): Promise<{
+    assigned: number;
+    availableWaiting: number;
+    failedAssignments: number;
+  }> {
+    console.log('[PaeValidationQueue] Starting PAE validation queue assignment check...');
+    
+    try {
+      const pendingQuestions = await this.questionRepo.findQuestionsPendingPaeValidation();
+      const availableExperts = await this.userRepo.findAvailablePaeExperts();
+      
+      if (!pendingQuestions.length) {
+        console.log('[PaeValidationQueue] No pending questions for PAE validation');
+        return { assigned: 0, availableWaiting: availableExperts.length, failedAssignments: 0 };
+      }
+      
+      if (!availableExperts.length) {
+        console.log('[PaeValidationQueue] No available PAE experts');
+        return { assigned: 0, availableWaiting: 0, failedAssignments: 0 };
+      }
+      
+      console.log(`[PaeValidationQueue] Found ${pendingQuestions.length} pending questions and ${availableExperts.length} available PAE experts`);
+      
+      const claimedQuestionIds = new Set<string>();
+      let assigned = 0;
+      let availableWaiting = 0;
+      let failedAssignments = 0;
+      
+      for (const expert of availableExperts) {
+        const expertId = expert._id!.toString();
+        
+        const matchedQuestion = pendingQuestions.find(
+          (q) => !claimedQuestionIds.has(q._id!.toString()) && isQuestionMatchForPaeExpert(q, expert),
+        );
+        
+        if (!matchedQuestion) {
+          availableWaiting++;
+          continue;
+        }
+        
+        const questionId = matchedQuestion._id!.toString();
+        claimedQuestionIds.add(questionId);
+        
+        try {
+          await this._withTransaction(async (session: ClientSession) => {
+            await this.questionRepo.updatePaeValidationStatus(questionId, 'in-progress', session);
+            await this.questionRepo.addPaeValidationEntry(questionId, {
+              paeAssignedAt: new Date(),
+              paeId: expertId,
+              paeStatus: 'in-progress',
+              paeFinishedAt: null,
+            }, session);
+            await this.userRepo.addPaeValidationAssigned(expertId, questionId, session);
+          });
+
+          await this.notificationService.saveTheNotifications(
+            `A question (${matchedQuestion.question.substring(0, 50)}...) has been assigned to you for PAE validation`,
+            'Question Assigned for PAE Validation',
+            questionId,
+            expertId,
+            'pae_validation',
+          );
+
+          console.log(`[PaeValidationQueue] Assigned question ${questionId} → PAE expert ${expertId}`);
+          assigned++;
+        } catch (error: any) {
+          console.error(`[PaeValidationQueue] Failed to assign question ${questionId} to ${expertId}:`, error?.message);
+          claimedQuestionIds.delete(questionId);
+          failedAssignments++;
+        }
+      }
+      
+      console.log(`[PaeValidationQueue] Done: assigned=${assigned}, availableWaiting=${availableWaiting}, failedAssignments=${failedAssignments}`);
+      return { assigned, availableWaiting, failedAssignments };
+    } catch (error: any) {
+      console.error('[PaeValidationQueue] PAE validation queue cron failed:', error?.message);
+      throw new BadRequestError(`PAE validation queue cron failed: ${error?.message}`);
+    }
+  }
 }

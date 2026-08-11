@@ -726,4 +726,13 @@ export interface IQuestionService {
   ): Promise<{
     success: boolean;
   }>;
+
+  /** PAE Validation Queue Cron - runs every minute to assign questions pending PAE validation
+   *  to available PAE experts based on domain and state preferences.
+   *  @returns Promise resolving to object with assigned count and available waiting count */
+  runPaeValidationQueueCron(): Promise<{
+    assigned: number;
+    availableWaiting: number;
+    failedAssignments: number;
+  }>;
 }

@@ -2949,4 +2949,91 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError('Failed to fetch working hours trend');
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PAE Expert Methods
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /** Find available PAE experts who can take questions for validation.
+   *  Criteria:
+   *  - role must be 'pae_expert'
+   *  - isBlocked must NOT be true
+   *  - status must NOT be 'in-active'
+   *  - paeValidationAssigned must be empty or null (not currently holding any question)
+   */
+  async findAvailablePaeExperts(session?: ClientSession): Promise<IUser[]> {
+    await this.init();
+    return this.usersCollection
+      .find({
+        role: 'pae_expert',
+        isBlocked: { $ne: true },
+        status: { $ne: 'in-active' },
+        $or: [
+          { paeValidationAssigned: { $exists: false } },
+          { paeValidationAssigned: null },
+          { paeValidationAssigned: { $size: 0 } },
+        ],
+      })
+      .toArray();
+  }
+
+  /** Add a question ID to the user's paeValidationAssigned array.
+   *  Uses an aggregation pipeline update for null-safety.
+   */
+  async addPaeValidationAssigned(
+    paeExpertId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    const result = await this.usersCollection.updateOne(
+      { _id: new ObjectId(paeExpertId) },
+      [
+        {
+          $set: {
+            paeValidationAssigned: {
+              $concatArrays: [
+                {
+                  $filter: {
+                    input: { $ifNull: ['$paeValidationAssigned', []] },
+                    as: 'q',
+                    cond: { $ne: ['$$q', qid] },
+                  },
+                },
+                [qid],
+              ],
+            },
+            updatedAt: new Date(),
+          },
+        },
+      ],
+      { session },
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /** Remove a question ID from the user's paeValidationAssigned array. */
+  async removePaeValidationAssigned(
+    paeExpertId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    // Pull both string and ObjectId forms for safety
+    const pullValues: (string | ObjectId)[] = [questionId];
+    if (ObjectId.isValid(questionId)) {
+      pullValues.push(new ObjectId(questionId));
+    }
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(paeExpertId) },
+      {
+        $pull: {
+          paeValidationAssigned: { $in: pullValues } as any,
+        },
+        $set: { updatedAt: new Date() },
+      },
+      { session },
+    );
+  }
 }

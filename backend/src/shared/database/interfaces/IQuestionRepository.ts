@@ -691,4 +691,36 @@ export interface IQuestionRepository {
     questionId: string,
     source: "DATASET" | "WEB_APPLICATION",
   ): Promise<number>;
+
+  /** Find all questions with paeValidation status of 'pending' that are ready for
+   *  PAE expert validation. Questions are sorted by createdAt in ascending order
+   *  (oldest first).
+   *  @param session Optional MongoDB client session for transactions
+   *  @returns Promise resolving to array of questions pending PAE validation */
+  findQuestionsPendingPaeValidation(session?: ClientSession): Promise<IQuestion[]>;
+
+  /** Update the paeValidation status on a question.
+   *  @param questionId The question ID to update
+   *  @param paeValidation The new paeValidation status ('pending' | 'in-progress' | 'completed')
+   *  @param session Optional MongoDB client session for transactions */
+  updatePaeValidationStatus(
+    questionId: string,
+    paeValidation: 'pending' | 'in-progress' | 'completed',
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }>;
+
+  /** Update the paeValidation array in the question's submission document.
+   *  @param questionId The question ID to update
+   *  @param paeValidationEntry The new PAE validation entry to push
+   *  @param session Optional MongoDB client session for transactions */
+  addPaeValidationEntry(
+    questionId: string,
+    paeValidationEntry: {
+      paeAssignedAt: Date;
+      paeId: string | ObjectId;
+      paeStatus: 'in-progress' | 'completed';
+      paeFinishedAt?: Date | null;
+    },
+    session?: ClientSession,
+  ): Promise<void>;
 }

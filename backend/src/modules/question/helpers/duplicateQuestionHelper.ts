@@ -1,9 +1,89 @@
 import { ObjectId, ClientSession } from 'mongodb';
-import { IQuestion, QuestionStatus } from '#root/shared/interfaces/models.js';
+import { IQuestion, QuestionStatus, IUser } from '#root/shared/interfaces/models.js';
 import { AiService } from '#root/modules/ai/services/AiService.js';
 import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
 import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js';
+
+/** Checks if a question's domain matches a PAE expert's preference.
+ *  Matching rules:
+ *  - If user.preference.domain is 'ALL', any domain matches.
+ *  - If user.preference.domain is an array, at least one question domain must match.
+ *  - If user.preference.domain is a string, it must match exactly.
+ *  @param question - The question with details containing domains
+ *  @param user - The PAE expert user with preference settings
+ *  @returns true if domains match, false otherwise
+ */
+export function isDomainMatch(question: IQuestion, user: IUser): boolean {
+  const questionDomains = question.details?.domain || [];
+  const userPreferenceDomain = user.preference?.domain;
+
+  // If no user preference, allow all
+  if (!userPreferenceDomain) {
+    return true;
+  }
+
+  // If user preference is 'ALL', any domain is acceptable
+  if (userPreferenceDomain === 'ALL') {
+    return true;
+  }
+
+  // If user preference is an array, check if any question domain matches
+  if (Array.isArray(userPreferenceDomain)) {
+    return questionDomains.some((qDomain) =>
+      userPreferenceDomain.some(
+        (uDomain) =>
+          uDomain?.toLowerCase() === qDomain?.toLowerCase(),
+      ),
+    );
+  }
+
+  // If user preference is a string, check for exact match
+  if (typeof userPreferenceDomain === 'string') {
+    return questionDomains.some(
+      (qDomain) =>
+        qDomain?.toLowerCase() === userPreferenceDomain?.toLowerCase(),
+    );
+  }
+
+  return false;
+}
+
+/** Checks if a question's state matches a PAE expert's preference.
+ *  Matching rules:
+ *  - If user.preference.state is 'ALL', any state matches.
+ *  - Otherwise, state must match exactly (case-insensitive).
+ *  @param question - The question with details containing state
+ *  @param user - The PAE expert user with preference settings
+ *  @returns true if states match, false otherwise
+ */
+export function isStateMatch(question: IQuestion, user: IUser): boolean {
+  const questionState = question.details?.state || '';
+  const userPreferenceState = user.preference?.state;
+
+  // If no user preference, allow all
+  if (!userPreferenceState) {
+    return true;
+  }
+
+  // If user preference is 'ALL', any state is acceptable
+  if (userPreferenceState === 'ALL') {
+    return true;
+  }
+
+  // Case-insensitive match
+  return questionState?.toLowerCase() === userPreferenceState?.toLowerCase();
+}
+
+/** Checks if a question matches a PAE expert's domain and state preferences.
+ *  Both domain AND state must match for the question to be assigned.
+ *  @param question - The question with details
+ *  @param user - The PAE expert user with preference settings
+ *  @returns true if both domain and state match, false otherwise
+ */
+export function isQuestionMatchForPaeExpert(question: IQuestion, user: IUser): boolean {
+  return isDomainMatch(question, user) && isStateMatch(question, user);
+}
 
 export async function checkDuplicateQuestionHelper(
   baseQuestion: IQuestion,

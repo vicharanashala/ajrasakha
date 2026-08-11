@@ -8717,4 +8717,80 @@ export class QuestionRepository implements IQuestionRepository {
       );
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PAE Validation Methods
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /** Find all questions with paeValidation status of 'pending' that are ready for
+   *  PAE expert validation. Questions are sorted by createdAt in ascending order
+   *  (oldest first).
+   */
+  async findQuestionsPendingPaeValidation(
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection.find(
+      { paeValidation: 'pending' },
+      { session },
+    )
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Update the paeValidation status on a question. */
+  async updatePaeValidationStatus(
+    questionId: string,
+    paeValidation: 'pending' | 'in-progress' | 'completed',
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    const result = await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      {
+        $set: {
+          paeValidation,
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+    return { modifiedCount: result.modifiedCount };
+  }
+
+  /** Update the paeValidation array in the question's submission document.
+   *  Pushes a new PAE validation entry to the paeValidation array.
+   */
+  async addPaeValidationEntry(
+    questionId: string,
+    paeValidationEntry: {
+      paeAssignedAt: Date;
+      paeId: string | ObjectId;
+      paeStatus: 'in-progress' | 'completed';
+      paeFinishedAt?: Date | null;
+    },
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    // Ensure paeId is stored as ObjectId
+    const entryWithObjectId = {
+      ...paeValidationEntry,
+      paeId: ObjectId.isValid(paeValidationEntry.paeId)
+        ? new ObjectId(paeValidationEntry.paeId)
+        : paeValidationEntry.paeId,
+    };
+    await this.QuestionSubmissionCollection.updateOne(
+      { questionId: qid },
+      {
+        $push: {
+          paeValidation: entryWithObjectId,
+        },
+        $set: {
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+  }
 }

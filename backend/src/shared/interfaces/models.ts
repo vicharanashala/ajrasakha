@@ -75,6 +75,9 @@ export interface IUser {
    *  re-routed (handed to an expert) stay for history but do not block new work. */
   assignedQuestionIds?: IAssignedQuestion[] | null;
   isTrainingUser?: boolean;
+  /** Questions assigned to this user for PAE validation (pae_expert only).
+   *  Contains question IDs currently assigned for final validation. */
+  paeValidationAssigned?: (string | ObjectId)[] | null;
   /** Questions assigned to this user for feedback (auditor/moderator only).
    *  Contains question IDs that need feedback review. */
   feedbacksAssigned?: (string | ObjectId)[] | null;
@@ -240,6 +243,11 @@ export interface IQuestion {
   isDelayed?: boolean;
   /** Flag to indicate this question is from the user's feedbacksAssigned array (feedback tab) */
   isFeedbackQuestion?: boolean;
+  /** PAE validation status for questions ready for final validation.
+   *  - 'pending': question is ready for PAE expert validation
+   *  - 'in-progress': PAE expert has been assigned and is working on it
+   *  - 'completed': PAE expert has completed the validation */
+  paeValidation?: 'pending' | 'in-progress' | 'completed';
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -383,6 +391,14 @@ export interface IQuestionSubmission {
   // feedbackReviewFinishedAt?: Date | null;
   // /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
   // feedbackReviewerId?: string | ObjectId | null;
+  /** PAE validation records for this question - tracks PAE expert assignment and completion.
+   *  Each entry contains the PAE assignment details with timestamps and status. */
+  paeValidation?: {
+    paeAssignedAt: Date;
+    paeId: ObjectId | string;
+    paeStatus: 'in-progress' | 'completed';
+    paeFinishedAt?: Date | null;
+  }[];
   createdAt?: Date;
   updatedAt?: Date;
 }
