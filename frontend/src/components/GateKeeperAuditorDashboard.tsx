@@ -469,7 +469,19 @@ export const GateKeeperAuditorDashboard = ({
                         >
                           {q.source}
                         </TableCell>
-                        <TableCell className="align-top">{q.question}</TableCell>
+                        <TableCell className="align-top">
+                          {(q as any).isFeedbackQuestion ? (
+                            <span className="mr-1.5 font-semibold text-red-500">
+                              (Feed Back)
+                            </span>
+                          ) : q.source === "AJRASAKHA" ||
+                            q.source === "WHATSAPP" ? (
+                            <span className="mr-1.5 font-semibold text-red-500">
+                              
+                            </span>
+                          ) : null}
+                          {q.question}
+                        </TableCell>
                         <TableCell className="align-top text-center">
                           <Badge
                             className={`${statusBadgeClass(q.status)} whitespace-nowrap`}

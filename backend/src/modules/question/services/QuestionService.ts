@@ -4084,7 +4084,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const finishedField =
       role === 'gate_keeper' ? 'gateKeeperFinishedAt' : 'auditorFinishedAt';
-    return this.questionRepo.getRoleAssigneeDashboard(
+    const result = await this.questionRepo.getRoleAssigneeDashboard(
       userId,
       assigneeField,
       finishedField,
@@ -4096,6 +4096,51 @@ export class QuestionService extends BaseService implements IQuestionService {
       endDate,
       dateFilterType,
     );
+
+    // Auditors also review FEEDBACK questions (held in their feedbacksAssigned), so
+    // surface those in the dashboard too. Gate keepers never receive feedback.
+    // An auditor holds at most one feedback at a time, so appending to the first
+    // page and bumping the totals keeps pagination effectively correct.
+    if (role === 'auditor') {
+      try {
+        const user = await this.userRepo.findById(userId);
+        const fbAssigned = ((user as any)?.feedbacksAssigned ?? []) as any[];
+        if (fbAssigned.length) {
+          const fbIds = fbAssigned.map(id =>
+            typeof id === 'string' ? new ObjectId(id) : id,
+          );
+          let fbQuestions = await this.questionRepo.findByIds(fbIds);
+          if (search && search.trim()) {
+            const s = search.trim().toLowerCase();
+            fbQuestions = fbQuestions.filter(q =>
+              ((q as any).question ?? '').toLowerCase().includes(s),
+            );
+          }
+          const existing = new Set(
+            (result.questions ?? []).map((q: any) => q._id?.toString()),
+          );
+          const fbToAppend = fbQuestions
+            .filter(q => !existing.has(q._id?.toString()))
+            .map(q => ({...(q as any), isFeedbackQuestion: true}));
+          return {
+            ...result,
+            assignedCount: result.assignedCount + fbToAppend.length,
+            totalCount: result.totalCount + fbToAppend.length,
+            questions:
+              page === 1
+                ? [...fbToAppend, ...result.questions]
+                : result.questions,
+          };
+        }
+      } catch (err) {
+        console.error(
+          '[RoleDashboard] Failed to append auditor feedback questions:',
+          err,
+        );
+      }
+    }
+
+    return result;
   }
 
   /** Manually (re)assign the gate keeper / auditor for a question — mirrors
