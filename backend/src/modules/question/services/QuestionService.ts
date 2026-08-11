@@ -8082,6 +8082,15 @@ if (filters.endDate) {
     );
   }
 
+  /** Effective moderator-queue wait time for a question: feedback questions use
+   *  `recentFeedback` (when the feedback arrived), everything else uses `createdAt`.
+   *  Used to interleave in-review + feedback questions in "Waiting for Moderator". */
+  private effectiveQueueTime(q: any): number {
+    const ts = q?.recentFeedback ?? q?.createdAt;
+    const ms = ts ? new Date(ts).getTime() : 0;
+    return Number.isNaN(ms) ? 0 : ms;
+  }
+
   /** Waiting feedback questions (closed + open feedback) that don't yet have a
    *  reviewer — shown in the moderator queue's TIME-BOUND "Waiting for Moderator"
    *  section, irrespective of the question's source (feedback counts as time-bound).
@@ -8481,7 +8490,11 @@ if (filters.endDate) {
           this.questionRepo.findUnassignedInReviewQuestions([], isTrainingUser, isAdmin),
           this.getWaitingFeedbackQuestions(isTrainingUser, isAdmin),
         ]);
-        const qs = [...(inReviewQs as any[]), ...waitingFeedback];
+        // Order the merged queue by effective wait time: in-review by createdAt,
+        // feedback by recentFeedback (falls back to createdAt).
+        const qs = [...(inReviewQs as any[]), ...waitingFeedback].sort(
+          (a, b) => this.effectiveQueueTime(a) - this.effectiveQueueTime(b),
+        );
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
         // Map a full question doc through the submission mapper (wraps it as `.question`).
@@ -8554,7 +8567,11 @@ if (filters.endDate) {
         const waitingFeedback = isTimeBound
           ? await this.getWaitingFeedbackQuestions(isTrainingUser, isAdmin)
           : [];
-        const qs = [...inReviewQs, ...waitingFeedback];
+        // Order the merged queue by effective wait time: in-review by createdAt,
+        // feedback by recentFeedback (falls back to createdAt).
+        const qs = [...inReviewQs, ...waitingFeedback].sort(
+          (a, b) => this.effectiveQueueTime(a) - this.effectiveQueueTime(b),
+        );
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
         return {

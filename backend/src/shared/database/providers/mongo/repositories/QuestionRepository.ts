@@ -8217,8 +8217,11 @@ export class QuestionRepository implements IQuestionRepository {
       // false field means OFF (same convention as autoAllocateModerator).
       filter.autoAllocateFeedback = true;
     }
+    // Feedback questions are ordered by when their feedback arrived (recentFeedback),
+    // not the question's original createdAt. createdAt is the fallback for legacy
+    // feedback questions that predate the recentFeedback stamp.
     return this.QuestionCollection.find(filter as any)
-      .sort({ createdAt: 1 })
+      .sort({ recentFeedback: 1, createdAt: 1 })
       .toArray();
   }
 
@@ -8703,6 +8706,9 @@ export class QuestionRepository implements IQuestionRepository {
           {
             $set: {
               autoAllocateFeedback: true,
+              // Feedback (re)opened now — stamp recency so the moderator queue can
+              // order feedback questions by when feedback arrived, not question age.
+              recentFeedback: '$$NOW',
               feedbacks: {
                 $let: {
                   vars: {
