@@ -3286,4 +3286,161 @@ export class QuestionController {
     const data = await this.questionService.getPaeValidationTimeline(params.questionId);
     return { success: true, data };
   }
+
+    @Post('/:questionId/pae-val-reviewer')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Manually assign a pae validation reviewer to a question' })
+  async assignPaeValidationReviewer(
+    @Params() params: QuestionIdParam,
+    @Body() body: { userId: string; index?: number },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot assign pae validation reviewers');
+    }
+    if (!body?.userId) {
+      throw new BadRequestError('userId is required');
+    }
+    const { questionId } = params;
+    const { userId, index } = body;
+    // A specific round index means a reassignment; otherwise a fresh assignment.
+    const isReassign = typeof index === 'number' && index >= 0;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.SELECT_PAE_VALIDATION_REVIEWER,
+      actor: this.roleAuditActor(user),
+      context: {
+        questionId,
+        operation: isReassign ? 'reassign' : 'assign',
+        ...(isReassign ? { roundIndex: index } : {}),
+      },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevLabel = 'Unassigned';
+    let newUser: any;
+    try {
+      const [qd, timeline, nu] = await Promise.all([
+        this.questionService.getQuestionDataById(questionId),
+        this.questionService.getFeedbackTimeline(questionId),
+        this.userService.getUserById(userId),
+      ]);
+      questionDetails = qd;
+      newUser = nu;
+      // Round being changed: the one at `index` on reassign, else the currently open
+      // round. `!finishedAt && !closed` finds the open round regardless of which
+      // timeline shape (finishedAt-based or closed-based) is in effect.
+      const prevRound = isReassign
+        ? timeline?.reviews?.find((r: any) => r.index === index)
+        : timeline?.reviews?.find((r: any) => !r.finishedAt && !r.closed);
+      if (prevRound?.reviewerName) prevLabel = prevRound.reviewerName;
+
+      await this.questionService.assignPaeValidationReviewerManually(
+        questionId,
+        userId,
+        index,
+      );
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { 'pae validation reviewer': prevLabel },
+          after: { 'pae validation reviewer': this.userLabel(newUser) ?? userId },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return {
+        success: true,
+        message: `Pae validation reviewer ${isReassign ? 'reassigned' : 'assigned'} successfully`,
+      };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { 'pae validation reviewer': prevLabel } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to assign pae validation reviewer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || 'Failed to assign pae validation reviewer');
+    }
+  }
+
+  @Delete('/:questionId/pae-val-reviewer')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Remove an open pae-validation-review round (by index) from a question' })
+  async removePaeValidationReviewer(
+    @Params() params: QuestionIdParam,
+    @Body() body: { index: number },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot remove pae validation reviewers');
+    }
+    if (typeof body?.index !== 'number') {
+      throw new BadRequestError('index is required');
+    }
+    const { questionId } = params;
+    const { index } = body;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.DELETE_PAE_VALIDATION_REVIEWER,
+      actor: this.roleAuditActor(user),
+      context: { questionId, roundIndex: index },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevLabel = 'Unassigned';
+    try {
+      const [qd, timeline] = await Promise.all([
+        this.questionService.getQuestionDataById(questionId),
+        this.questionService.getPaeValidationTimeline(questionId),
+      ]);
+      questionDetails = qd;
+      const prevRound = timeline?.reviews?.find((r: any) => r.index === index);
+      if (prevRound?.paeName) prevLabel = prevRound.paeName;
+
+      await this.questionService.removePaeValidationReviewer(questionId, index);
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { 'pae validation reviewer': prevLabel },
+          after: { 'pae validation reviewer': 'Removed' },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return { success: true, message: 'Pae validation reviewer removed successfully' };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { 'pae validation reviewer': prevLabel } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to remove pae validation reviewer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || 'Failed to remove pae validation reviewer');
+    }
+  }
 }

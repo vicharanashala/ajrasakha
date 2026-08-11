@@ -333,4 +333,10 @@ export interface IQuestionSubmissionRepository {
   /** Single aggregation: returns a Map<expertId, count> of active single-allocation
    *  questions per expert (defaults to time-bound sources). Used to enforce the cap. */
   getTimeBoundActiveCountPerExpert(sources?: QuestionSource[]): Promise<Map<string, number>>;
+
+  removePaeValidationReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean>;
 }
