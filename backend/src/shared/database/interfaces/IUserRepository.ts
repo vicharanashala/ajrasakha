@@ -401,4 +401,6 @@ export interface IUserRepository {
    * @param questionId - The question ID to remove from feedbacksAssigned array
    */
   removeFeedbacksAssigned(userId: string, questionId: string, session?: ClientSession): Promise<IUser | null>;
+
+  getUsersByRole(roles: UserRole[], session?: ClientSession): Promise<IUser[]>;
 }

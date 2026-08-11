@@ -2943,4 +2943,29 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError('Failed to fetch working hours trend');
     }
   }
+
+  //find all auditors
+   async findAuditors(): Promise<IUser[]> {
+    await this.init();
+    return await this.usersCollection.find({role: 'auditor'}).toArray();
+  }
+
+  async getUsersByRole(roles: UserRole[]) {
+    await this.init();
+
+    return this.usersCollection.find(
+      {
+        role: { $in: roles },
+      },
+      {
+        projection: {
+          _id: 1,
+          email: 1,
+          firstName: 1,
+          lastName: 1,
+        },
+      },
+    ).toArray();
+  }
+
 }
