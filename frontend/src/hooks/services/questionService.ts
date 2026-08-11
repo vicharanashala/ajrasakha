@@ -77,6 +77,58 @@ export type FeedbackQueueDetailsResponse = {
   questionsWithoutActiveModerator: { count: number; items: QueueQuestionItem[] };
 };
 
+/** Source item within an answer's sources array for PAE validation */
+export type PaeValidationSource = {
+  source: string;
+  sourceType?: string;
+  sourceName?: string;
+  page?: string | number;
+};
+
+/** Answer data included in PAE validation question response */
+export type PaeValidationAnswerData = {
+  _id: string;
+  answer: string;
+  sources: PaeValidationSource[];
+  authorId: string;
+  isFinalAnswer: boolean;
+};
+
+/** Single question returned in the PAE validation assigned questions list */
+export type PaeValidationQuestionItem = {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  priority: string;
+  totalAnswersCount: number;
+  createdAt: string | Date;
+  updatedAt?: string | Date;
+  state?: string;
+  district?: string;
+  crop?: string;
+  domain?: string;
+  season?: string;
+  normalised_crop?: string;
+  isAutoAllocate?: boolean;
+  answer?: PaeValidationAnswerData;
+  details?: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+};
+
+/** Paginated response for PAE validation assigned questions */
+export type PaeValidationAssignedQuestionsResponse = {
+  questions: PaeValidationQuestionItem[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+};
+
 export type QueueDetailsResponse = {
   received: { count: number; items: QueueQuestionItem[] };
   /** Per-status counts for the received section — accurate DB totals for tab badges. */
@@ -1336,6 +1388,27 @@ export class QuestionService {
         headers: { "Content-Type": "application/json" },
       }
     );
+  }
+
+  /**
+   * Fetch paginated questions assigned to the current PAE expert for validation.
+   * Returns questions with their final answers and sources included.
+   */
+  async getPaeValidationAssignedQuestions(
+    page: number,
+    limit: number
+  ): Promise<PaeValidationAssignedQuestionsResponse | null> {
+    const params = new URLSearchParams();
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+
+    const res = await apiFetch<{
+      success: boolean;
+      data: PaeValidationAssignedQuestionsResponse;
+    }>(`${this._baseUrl}/pae/validations/assigned?${params.toString()}`, {
+      method: "GET",
+    });
+    return res?.data ?? null;
   }
 
 }
