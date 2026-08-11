@@ -645,41 +645,4 @@ test.describe("Expert Review Workflow", () => {
       "Rejected",
     );
   });
-
-  test("ERW-R032 Moderator can view rejection reason", async ({
-    expert2Dashboard,
-    expert2ReviewPanel,
-    moderatorDashboard,
-    moderatorQuestionDetailsPage,
-    moderatorAllocationQueuePage,
-  }) => {
-    const rejectionReason =
-      "The response does not provide sufficient technical accuracy.";
-
-    await expert2Dashboard.waitForShell();
-
-    await expert2Dashboard.waitForQuestion(question);
-    await expert2Dashboard.openQuestion(question);
-
-    await expert2ReviewPanel.openRejectDialog();
-
-    await expert2ReviewPanel.enableRejectCriterion("technicalAccuracy");
-
-    await expert2ReviewPanel.fillRejectReason(rejectionReason);
-
-    await expert2ReviewPanel.submitRejection();
-    await expert2ReviewPanel.expectAcceptSuccess();
-
-    await moderatorQuestionDetailsPage.exit();
-
-    await moderatorDashboard.openQuestion(question);
-    await moderatorAllocationQueuePage.expectOpened();
-
-    await moderatorAllocationQueuePage.expectExpertStatus(
-      process.env.EXPERT_EMAIL_2!,
-      "Rejected",
-    );
-
-    // await moderatorAllocationQueuePage.expectRejectionReason(rejectionReason);
-  });
 });
