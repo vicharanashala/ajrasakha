@@ -8,8 +8,12 @@ const questionService = new QuestionService();
  * Returns questions with their final answers and sources included.
  * 
  * @param limit - Number of items per page (default: 10)
+ * @param enabled - Whether the query should run (default: true)
  */
-export const useGetPaeValidationAssignedQuestions = (limit: number = 10) => {
+export const useGetPaeValidationAssignedQuestions = (
+  limit: number = 10,
+  enabled: boolean = true,
+) => {
   return useInfiniteQuery({
     queryKey: ["pae-validation-assigned-questions", limit],
     queryFn: async ({ pageParam }) => {
@@ -24,6 +28,7 @@ export const useGetPaeValidationAssignedQuestions = (limit: number = 10) => {
       return lastPage.currentPage + 1;
     },
     // Periodic safety refresh
+    enabled,
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
   });

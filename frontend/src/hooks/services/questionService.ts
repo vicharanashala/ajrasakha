@@ -82,7 +82,7 @@ export type PaeValidationSource = {
   source: string;
   sourceType?: string;
   sourceName?: string;
-  page?: string | number;
+  page?: string | number | null;
 };
 
 /** Answer data included in PAE validation question response */
@@ -107,7 +107,7 @@ export type PaeValidationQuestionItem = {
   state?: string;
   district?: string;
   crop?: string;
-  domain?: string;
+  domain?: string | string[];
   season?: string;
   normalised_crop?: string;
   isAutoAllocate?: boolean;
@@ -1402,13 +1402,17 @@ export class QuestionService {
     params.append("page", String(page));
     params.append("limit", String(limit));
 
-    const res = await apiFetch<{
-      success: boolean;
-      data: PaeValidationAssignedQuestionsResponse;
-    }>(`${this._baseUrl}/pae/validations/assigned?${params.toString()}`, {
+    const res = await apiFetch<
+      | {
+          success: boolean;
+          data: PaeValidationAssignedQuestionsResponse;
+        }
+      | PaeValidationAssignedQuestionsResponse
+    >(`${this._baseUrl}/pae/validations/assigned?${params.toString()}`, {
       method: "GET",
     });
-    return res?.data ?? null;
+    if (!res) return null;
+    return "data" in res ? res.data : res;
   }
 
 }

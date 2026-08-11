@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle,
+  Lightbulb,
   RotateCcw,
   Loader2,
   Send,
@@ -10,17 +11,30 @@ import {
   ChevronsRight,
   ClipboardCheck,
   Search,
+  ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
 import { Label } from "../../components/atoms/label";
 import { Textarea } from "../../components/atoms/textarea";
 import { Button } from "../../components/atoms/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import {
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
+import { useGetPaeValidationAssignedQuestions } from "@/hooks/api/question/useGetPaeValidationAssignedQuestions";
+import type {
+  PaeValidationQuestionItem,
+  PaeValidationSource,
+} from "@/hooks/services/questionService";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { SourceUrlManager } from "../../components/source-url-manager";
-import type { IReviewParmeters, SourceItem } from "@/types";
+import type { IQuestion, IReviewParmeters, SourceItem } from "@/types";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import {
   useReviewAnswer,
@@ -35,6 +49,43 @@ import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
 type TabType = "review" | "validation";
 
+const normalizeValidationSources = (
+  sources: PaeValidationSource[] | undefined,
+): SourceItem[] =>
+  (sources || []).map((source) => {
+    const normalized: SourceItem = { source: source.source };
+    if (source.sourceType) {
+      normalized.sourceType = source.sourceType as SourceItem["sourceType"];
+    }
+    if (source.sourceName) {
+      normalized.sourceName = source.sourceName;
+    }
+    if (source.page) {
+      normalized.page = source.page;
+    }
+    return normalized;
+  });
+
+const formatValidationDomain = (domain: PaeValidationQuestionItem["domain"]) =>
+  Array.isArray(domain) ? domain.join(", ") : domain ?? "";
+
+const toValidationListQuestion = (question: PaeValidationQuestionItem) => ({
+  ...question,
+  id: question._id,
+  text: question.question,
+  createdAt: String(question.createdAt),
+  updatedAt: String(question.updatedAt ?? question.createdAt),
+  details: question.details ?? {
+    state: question.state ?? "",
+    district: question.district ?? "",
+    crop: question.crop ?? "",
+    normalised_crop: question.normalised_crop,
+    season: question.season ?? "",
+    domain: formatValidationDomain(question.domain),
+  },
+  isAutoAllocate: question.isAutoAllocate ?? false,
+});
+
 export const PAEExpertPage = () => {
   const [activeTab, setActiveTab] = useState<TabType>("review");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -46,6 +97,12 @@ export const PAEExpertPage = () => {
   const [filter] = useState<QuestionFilter>("newest");
   const [translatedText, setTranslatedText] = useState("");
   const [translatedDraftText, setTranslatedDraftText] = useState("");
+  const [translatedValidationText, setTranslatedValidationText] = useState("");
+  const [translatedValidationAnswer, setTranslatedValidationAnswer] = useState("");
+  const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
+  const [isNoSourceConfirmOpen, setIsNoSourceConfirmOpen] = useState(false);
+  const [suggestionText, setSuggestionText] = useState("");
+  const [suggestionSources, setSuggestionSources] = useState<SourceItem[]>([]);
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [drafts, setDrafts] = useState<
@@ -98,15 +155,27 @@ export const PAEExpertPage = () => {
     hasNextPage: hasValidationNextPage,
     isFetchingNextPage: isFetchingValidationNextPage,
     refetch: refetchValidation,
-  } = useGetAllocatedQuestions(LIMIT, filter, preferences, "allocated", null, "all");
+  } = useGetPaeValidationAssignedQuestions(
+    LIMIT,
+    activeTab === "validation" || isValidationLoaded,
+  );
 
   const validationQuestions = useMemo(() => {
     if (!validationQuestionPages?.pages) return [];
-    return validationQuestionPages.pages.flat();
+    return validationQuestionPages.pages.flatMap((page) =>
+      (page?.questions ?? []).map(toValidationListQuestion),
+    );
   }, [validationQuestionPages]);
 
-  const { data: selectedValidationQuestionData, isLoading: isSelectedValidationQuestionLoading } =
-    useGetQuestionById(selectedValidationQuestion, "allocated");
+  const selectedValidationQuestionData = useMemo(
+    () =>
+      validationQuestions.find(
+        (question) => question.id === selectedValidationQuestion,
+      ) ?? null,
+    [selectedValidationQuestion, validationQuestions],
+  );
+  const isSelectedValidationQuestionLoading =
+    isValidationQuestionsLoading && Boolean(selectedValidationQuestion);
 
   const questions = useMemo(() => {
     if (!questionPages?.pages) return [];
@@ -136,6 +205,40 @@ export const PAEExpertPage = () => {
 
   const handleValidationQuestionClick = (id: string) => {
     setSelectedValidationQuestion(id);
+  };
+
+  const resetSuggestionForm = () => {
+    setSuggestionText("");
+    setSuggestionSources([]);
+    setIsNoSourceConfirmOpen(false);
+  };
+
+  const handleApproveValidation = () => {
+    if (!selectedValidationQuestionData) return;
+    toast.success("Validation approval is ready to submit once the API is connected.");
+  };
+
+  const submitValidationSuggestion = () => {
+    if (!selectedValidationQuestionData) return;
+    if (!suggestionText.trim()) {
+      toast.error("Please add your suggestion before submitting.");
+      return;
+    }
+    toast.success("Validation suggestion is ready to submit once the API is connected.");
+    setIsSuggestionOpen(false);
+    resetSuggestionForm();
+  };
+
+  const handleSuggestionSubmit = () => {
+    if (!suggestionText.trim()) {
+      toast.error("Please add your suggestion before submitting.");
+      return;
+    }
+    if (suggestionSources.length === 0) {
+      setIsNoSourceConfirmOpen(true);
+      return;
+    }
+    submitValidationSuggestion();
   };
 
   // Load drafts and selected question from localStorage on mount
@@ -169,6 +272,11 @@ export const PAEExpertPage = () => {
     const firstId = validationQuestions[0]?.id ?? null;
     setSelectedValidationQuestion(firstId);
   }, [isValidationLoaded, validationQuestions, validationQuestionPages]);
+
+  useEffect(() => {
+    setTranslatedValidationText("");
+    setTranslatedValidationAnswer("");
+  }, [selectedValidationQuestion]);
 
   // Restore draft when question changes
   useEffect(() => {
@@ -262,6 +370,25 @@ export const PAEExpertPage = () => {
     container.addEventListener("scroll", handleScroll);
     return () => container.removeEventListener("scroll", handleScroll);
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  useEffect(() => {
+    const container = validationScrollRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      if (scrollTop + clientHeight >= scrollHeight - 10) {
+        if (hasValidationNextPage && !isFetchingValidationNextPage) {
+          fetchValidationNextPage();
+        }
+      }
+    };
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [
+    fetchValidationNextPage,
+    hasValidationNextPage,
+    isFetchingValidationNextPage,
+  ]);
 
   const handleReset = () => {
     setNewAnswer("");
@@ -515,9 +642,58 @@ export const PAEExpertPage = () => {
     );
   };
 
+  const renderValidationSources = (sourceItems: SourceItem[]) => (
+    <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
+      <Label className="text-sm font-medium text-foreground">
+        Source References
+      </Label>
+      {sourceItems.length > 0 ? (
+        <div className="mt-3 max-h-44 overflow-y-auto rounded-lg border p-2">
+          <div className="flex flex-col gap-2">
+            {sourceItems.map((item, idx) => (
+              <div
+                key={`${item.source}-${idx}`}
+                className="grid grid-cols-[140px_1fr_auto] items-center gap-6 px-3 py-2 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors"
+              >
+                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap overflow-x-auto">
+                  {item.sourceName || item.sourceType || "Source"}
+                </span>
+                <a
+                  href={item.source}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="truncate hover:underline"
+                  title={item.source}
+                >
+                  {item.source}
+                </a>
+                <div className="flex items-center gap-2">
+                  {item.page && (
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      pg {item.page}
+                    </span>
+                  )}
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No sources added for this answer.
+        </p>
+      )}
+    </div>
+  );
+
   // Validation right panel - read-only view for validation
   const renderValidationRightPanel = () => {
     if (!selectedValidationQuestionData) return null;
+    const finalAnswer = selectedValidationQuestionData.answer?.answer ?? "";
+    const finalSources = normalizeValidationSources(
+      selectedValidationQuestionData.answer?.sources,
+    );
 
     return (
       <Card className="w-full md:max-h-[120vh] max-h-[80vh] min-h-[90vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
@@ -528,7 +704,7 @@ export const PAEExpertPage = () => {
             </div>
             <CardTitle className="text-sm md:text-base font-semibold">Validation Response</CardTitle>
           </div>
-          <QuestionDetailsDialog question={selectedValidationQuestionData} />
+          <QuestionDetailsDialog question={selectedValidationQuestionData as IQuestion} />
         </CardHeader>
         <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-auto">
           {isSelectedValidationQuestionLoading ? (
@@ -539,33 +715,88 @@ export const PAEExpertPage = () => {
           ) : (
             <>
               <div className="flex flex-col w-full">
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Current Query:
-                </Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm font-medium text-muted-foreground">
+                    Current Query:
+                  </Label>
+                  {selectedValidationQuestionData.text?.trim() &&
+                    !isEnglishCharacters(selectedValidationQuestionData.text) && (
+                      <SarvamTranslateDropdown
+                        query={selectedValidationQuestionData.text}
+                        onTranslate={(result) => setTranslatedValidationText(result)}
+                      />
+                    )}
+                </div>
                 <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
-                  {selectedValidationQuestionData.text}
+                  {translatedValidationText || selectedValidationQuestionData.text}
                 </p>
               </div>
 
-              {selectedValidationQuestionData.aiInitialAnswer && (
-                <div>
-                  <Label className="text-sm font-medium flex items-center gap-1">
-                    <Bot className="h-4 w-4 text-blue-600" />
-                    AI Suggested Answer:
+              <div>
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="pae-validation-answer"
+                    className="text-sm font-medium flex items-center gap-1"
+                  >
+                    <ClipboardCheck className="h-4 w-4 text-primary" />
+                    Final Answer:
                   </Label>
-                  <div className="mt-1 p-3 rounded-md border border-blue-400/70 bg-blue-50 dark:bg-blue-950/30 text-sm italic">
-                    {selectedValidationQuestionData.aiInitialAnswer}
-                  </div>
+                  {finalAnswer.trim() && !isEnglishCharacters(finalAnswer) && (
+                    <SarvamTranslateDropdown
+                      query={finalAnswer}
+                      onTranslate={(result) => setTranslatedValidationAnswer(result)}
+                    />
+                  )}
                 </div>
-              )}
+                <div
+                  id="pae-validation-answer"
+                  className="mt-1 max-h-[240px] overflow-y-auto whitespace-pre-wrap rounded-md border border-gray-200 dark:border-gray-600 bg-transparent p-3 text-sm md:text-md break-words"
+                >
+                  {translatedValidationAnswer || finalAnswer || (
+                    <span className="text-muted-foreground">
+                      No final answer available.
+                    </span>
+                  )}
+                </div>
 
-              {/* Placeholder for validation review UI - can be extended */}
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <ClipboardCheck className="w-12 h-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium text-foreground mb-2">Validation Mode</p>
-                <p className="text-sm text-muted-foreground">
-                  Review and validate the response for this question.
-                </p>
+                {renderValidationSources(finalSources)}
+
+                {selectedValidationQuestionData.answer?.isFinalAnswer && (
+                  <p className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                    <CheckCircle className="w-4 h-4" />
+                    This response is marked as the final answer.
+                  </p>
+                )}
+
+                {!selectedValidationQuestionData.answer && (
+                  <div className="mt-3 rounded-md border border-dashed border-gray-200 dark:border-gray-600 p-4 text-sm text-muted-foreground">
+                    No answer data was returned for this validation question.
+                  </div>
+                )}
+
+                <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+                  <ConfirmationModal
+                    title="Approve Validation"
+                    description="Please confirm that this final answer and its sources are correct."
+                    confirmText="Approve"
+                    cancelText="Cancel"
+                    onConfirm={handleApproveValidation}
+                    trigger={
+                      <Button className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>Approve</span>
+                      </Button>
+                    }
+                  />
+                  <Button
+                    variant="secondary"
+                    className="flex items-center gap-2"
+                    onClick={() => setIsSuggestionOpen(true)}
+                  >
+                    <Lightbulb className="h-4 w-4" />
+                    <span>Suggestion</span>
+                  </Button>
+                </div>
               </div>
             </>
           )}
@@ -573,6 +804,75 @@ export const PAEExpertPage = () => {
       </Card>
     );
   };
+
+  const renderSuggestionDialog = () => (
+    <Dialog
+      open={isSuggestionOpen}
+      onOpenChange={(open) => {
+        setIsSuggestionOpen(open);
+        if (!open) resetSuggestionForm();
+      }}
+    >
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-primary" />
+            Add Suggestion
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <div>
+            <Label htmlFor="pae-validation-suggestion" className="text-sm font-medium">
+              Suggestion
+            </Label>
+            <Textarea
+              id="pae-validation-suggestion"
+              value={suggestionText}
+              onChange={(event) => setSuggestionText(event.target.value)}
+              placeholder="Enter your suggested correction or note..."
+              className="mt-1 min-h-[130px] max-h-[260px] resize-y border border-gray-200 dark:border-gray-600 bg-transparent p-3 text-sm"
+            />
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-4">
+            <SourceUrlManager
+              sources={suggestionSources}
+              onSourcesChange={setSuggestionSources}
+              allowAnyUrl
+              label="Reference Links"
+              required={false}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setIsSuggestionOpen(false);
+              resetSuggestionForm();
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleSuggestionSubmit}>
+            Submit
+          </Button>
+        </DialogFooter>
+
+        <ConfirmationModal
+          title="Submit Without Links?"
+          description="No reference link has been added. Do you want to submit this suggestion without a link?"
+          confirmText="Submit"
+          cancelText="Go Back"
+          open={isNoSourceConfirmOpen}
+          onOpenChange={setIsNoSourceConfirmOpen}
+          onConfirm={submitValidationSuggestion}
+        />
+      </DialogContent>
+    </Dialog>
+  );
 
   const renderValidationTab = () => (
     <div className="flex flex-col space-y-6">
@@ -720,6 +1020,7 @@ export const PAEExpertPage = () => {
       ) : (
         renderValidationTab()
       )}
+      {renderSuggestionDialog()}
     </div>
   );
 };
