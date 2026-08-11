@@ -3271,4 +3271,13 @@ export class QuestionController {
     
     return result;
   }
+
+  @Get('/:questionId/pae-validation-timeline')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Pae-validation-review timeline (rounds + reviewers) for a question' })
+  async getPaeValidationTimeline(@Params() params: QuestionIdParam) {
+    const data = await this.questionService.getPaeValidationTimeline(params.questionId);
+    return { success: true, data };
+  }
 }

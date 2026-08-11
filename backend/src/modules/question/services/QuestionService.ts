@@ -10130,4 +10130,57 @@ if (filters.endDate) {
       throw new BadRequestError(`PAE validation queue cron failed: ${error?.message}`);
     }
   }
+
+  //pae validation timeline 
+  async getPaeValidationTimeline(questionId: string): Promise<{
+    autoAllocatePaeValidationExpert: boolean;
+    hasOpenRound: boolean;
+    reviews: {
+      index: number;
+      paeId: string;
+      paeName: string;
+      paeAssignedAt: Date;
+      paeFinishedAt: Date | null;
+      paeStatus: string;
+    }[];
+  }> {
+  const [question, submission] = await Promise.all([
+    this.questionRepo.getById(questionId),
+    this.questionSubmissionRepo.getByQuestionId(questionId),
+  ]);
+
+  const rounds = ((submission as any)?.paeValidation ?? []) as any[];
+
+  const names = await this.resolveExpertMeta(
+    rounds
+      .map((r) => r.paeId?.toString())
+      .filter(Boolean),
+  );
+
+  return {
+    autoAllocatePaeValidationExpert:
+      (question as any)?.autoAllocatePaeValidationExpert === true,
+
+    hasOpenRound:
+      Array.isArray(rounds) &&
+      rounds.some((r) => r?.paeStatus === 'in-progress'),
+
+    reviews: rounds
+      .map((r, i) => ({
+        index: i,
+        paeId: r.paeId?.toString() ?? '',
+        paeName:
+          names.get(r.paeId?.toString())?.name ?? 'Unknown',
+        paeAssignedAt: r.paeAssignedAt,
+        paeFinishedAt: r.paeFinishedAt ?? null,
+        paeStatus: r.paeStatus ?? '',
+      }))
+      .sort(
+        (a, b) =>
+          new Date(a.paeAssignedAt).getTime() -
+          new Date(b.paeAssignedAt).getTime(),
+      ),
+  };
+}
+
 }

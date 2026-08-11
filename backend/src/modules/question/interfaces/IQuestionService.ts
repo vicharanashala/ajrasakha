@@ -775,4 +775,17 @@ export interface IQuestionService {
     availableWaiting: number;
     failedAssignments: number;
   }>;
+
+  getPaeValidationTimeline(questionId: string): Promise<{
+    autoAllocatePaeValidationExpert: boolean;
+    hasOpenRound: boolean;
+    reviews: {
+      index: number;
+      paeId: string;
+      paeName: string;
+      paeAssignedAt: Date;
+      paeFinishedAt: Date | null;
+      paeStatus: string;
+    }[];
+  }>;
 }

@@ -66,6 +66,17 @@ export class UserService extends BaseService {
       .filter(m => m._id);
   }
 
+  async getPaeValidationExperts(): Promise<
+    { _id: string; name: string; email: string }[]
+  > {
+    const experts = await this.userRepo.findAvailablePaeExperts();
+    return experts.map((expert) => ({
+      _id: expert._id?.toString() ?? '',
+      name: `${expert.firstName ?? ''} ${expert.lastName ?? ''}`.trim() || expert.email || 'Unknown',
+      email: expert.email ?? '',
+    }));
+  }
+
   async getUserById(userId: string): Promise<IUser> {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
