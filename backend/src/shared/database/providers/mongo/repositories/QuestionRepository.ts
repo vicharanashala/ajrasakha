@@ -8234,12 +8234,27 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
-  async findQuestionsWithOpenFeedbacks(): Promise<IQuestion[]> {
+  async findQuestionsWithOpenFeedbacks(
+    requireAutoAllocate = false,
+  ): Promise<IQuestion[]> {
     await this.init();
-    return this.QuestionCollection.find({
+    // Feedback questions are CLOSED questions that later received feedback (an open
+    // feedback entry). The in-review pool is handled separately by
+    // findUnassignedInReviewQuestions (autoAllocateModerator), so scope this to closed.
+    const filter: Record<string, unknown> = {
+      status: 'closed',
       'feedbacks.status': 'open',
-    } as any)
-      .sort({ createdAt: 1 })
+    };
+    if (requireAutoAllocate) {
+      // Only questions with feedback auto-allocation EXPLICITLY true. A missing or
+      // false field means OFF (same convention as autoAllocateModerator).
+      filter.autoAllocateFeedback = true;
+    }
+    // Feedback questions are ordered by when their feedback arrived (recentFeedback),
+    // not the question's original createdAt. createdAt is the fallback for legacy
+    // feedback questions that predate the recentFeedback stamp.
+    return this.QuestionCollection.find(filter as any)
+      .sort({ recentFeedback: 1, createdAt: 1 })
       .toArray();
   }
 
@@ -8724,6 +8739,9 @@ export class QuestionRepository implements IQuestionRepository {
           {
             $set: {
               autoAllocateFeedback: true,
+              // Feedback (re)opened now — stamp recency so the moderator queue can
+              // order feedback questions by when feedback arrived, not question age.
+              recentFeedback: '$$NOW',
               feedbacks: {
                 $let: {
                   vars: {

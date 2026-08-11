@@ -64,6 +64,7 @@ import {
   RawQueueQuestionRow,
   FeedbackResponse,
   FeedbackData,
+  FeedbackQueueDetails,
 } from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
@@ -4083,7 +4084,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const finishedField =
       role === 'gate_keeper' ? 'gateKeeperFinishedAt' : 'auditorFinishedAt';
-    return this.questionRepo.getRoleAssigneeDashboard(
+    const result = await this.questionRepo.getRoleAssigneeDashboard(
       userId,
       assigneeField,
       finishedField,
@@ -4095,6 +4096,51 @@ export class QuestionService extends BaseService implements IQuestionService {
       endDate,
       dateFilterType,
     );
+
+    // Auditors also review FEEDBACK questions (held in their feedbacksAssigned), so
+    // surface those in the dashboard too. Gate keepers never receive feedback.
+    // An auditor holds at most one feedback at a time, so appending to the first
+    // page and bumping the totals keeps pagination effectively correct.
+    if (role === 'auditor') {
+      try {
+        const user = await this.userRepo.findById(userId);
+        const fbAssigned = ((user as any)?.feedbacksAssigned ?? []) as any[];
+        if (fbAssigned.length) {
+          const fbIds = fbAssigned.map(id =>
+            typeof id === 'string' ? new ObjectId(id) : id,
+          );
+          let fbQuestions = await this.questionRepo.findByIds(fbIds);
+          if (search && search.trim()) {
+            const s = search.trim().toLowerCase();
+            fbQuestions = fbQuestions.filter(q =>
+              ((q as any).question ?? '').toLowerCase().includes(s),
+            );
+          }
+          const existing = new Set(
+            (result.questions ?? []).map((q: any) => q._id?.toString()),
+          );
+          const fbToAppend = fbQuestions
+            .filter(q => !existing.has(q._id?.toString()))
+            .map(q => ({...(q as any), isFeedbackQuestion: true}));
+          return {
+            ...result,
+            assignedCount: result.assignedCount + fbToAppend.length,
+            totalCount: result.totalCount + fbToAppend.length,
+            questions:
+              page === 1
+                ? [...fbToAppend, ...result.questions]
+                : result.questions,
+          };
+        }
+      } catch (err) {
+        console.error(
+          '[RoleDashboard] Failed to append auditor feedback questions:',
+          err,
+        );
+      }
+    }
+
+    return result;
   }
 
   /** Manually (re)assign the gate keeper / auditor for a question — mirrors
@@ -6788,9 +6834,174 @@ if (filters.endDate) {
         );
       }
 
+      // ── Feedback pass ──────────────────────────────────────────────────────
+      // Feedback-open questions (auto-allocation ON) are allocated in the same run.
+      // A feedback counts as a TIME-BOUND item — it competes for the moderator's
+      // single time-bound slot. Target = the final answer's approver when they are an
+      // active, non-blocked MODERATOR; otherwise an available auditor (one holding no
+      // time-bound question). The claim + submission guards enforce one-at-a-time.
+      const feedbackAssignedModeratorIds = new Set<string>();
+      try {
+        const feedbackQuestions =
+          await this.questionRepo.findQuestionsWithOpenFeedbacks(true);
+        if (feedbackQuestions.length) {
+          const fbIds = feedbackQuestions
+            .map(q => q._id?.toString())
+            .filter((id): id is string => Boolean(id));
+
+          // approvedBy per question, from the final answer.
+          const finalAnswers =
+            await this.answerRepo.getFinalAnswersByQuestionIds(fbIds);
+          const approverByQuestion = new Map<string, string>();
+          for (const a of finalAnswers) {
+            const qid = a.questionId?.toString();
+            const approver = a.approvedBy?.toString();
+            if (qid && approver && !approverByQuestion.has(qid)) {
+              approverByQuestion.set(qid, approver);
+            }
+          }
+
+          // Load approver users to check eligibility (active + non-blocked + moderator).
+          const approverIds = [...new Set(approverByQuestion.values())];
+          const approverUsers = approverIds.length
+            ? await this.userRepo.getUsersByIds(approverIds)
+            : [];
+          const approverById = new Map(
+            approverUsers.map(u => [u._id!.toString(), u]),
+          );
+
+          // Auditor fallback pool — auditors free for feedback (no time-bound
+          // question, no existing feedback).
+          const auditorPool = (
+            await this.userRepo.findAvailableFeedbackReviewers()
+          )
+            .filter(u => u.role === 'auditor')
+            .map(u => u._id!.toString());
+          const usedAssignees = new Set<string>();
+
+          for (const q of feedbackQuestions) {
+            const questionId = q._id?.toString();
+            if (!questionId) continue;
+            const approverId = approverByQuestion.get(questionId);
+            const approver = approverId
+              ? approverById.get(approverId)
+              : undefined;
+
+            // approvedBy gets it only when an active, non-blocked moderator; else auditor.
+            const approverEligible =
+              !!approver &&
+              approver.role === 'moderator' &&
+              approver.isBlocked !== true &&
+              approver.status !== 'in-active' &&
+              !usedAssignees.has(approverId!) &&
+              !(approver.feedbacksAssigned?.length);
+
+            let targetId: string | undefined;
+            let targetIsModerator = false;
+            if (approverEligible) {
+              targetId = approverId;
+              targetIsModerator = true;
+            } else {
+              targetId = auditorPool.find(id => !usedAssignees.has(id));
+            }
+            if (!targetId) {
+              availableWaiting++;
+              continue;
+            }
+
+            try {
+              // Atomic claim: guards feedback-empty AND no time-bound question.
+              const claimed = await this.userRepo.claimFeedbackAllocation(
+                targetId,
+                questionId,
+              );
+              if (!claimed) continue;
+              const roundOpened =
+                await this.questionSubmissionRepo.assignFeedbackReviewer(
+                  questionId,
+                  targetId,
+                  new Date(),
+                );
+              if (!roundOpened) {
+                // Another reviewer already has an open round — release the claim.
+                await this.userRepo.removeFeedbacksAssigned(
+                  targetId,
+                  questionId,
+                );
+                continue;
+              }
+              usedAssignees.add(targetId);
+              if (targetIsModerator) feedbackAssignedModeratorIds.add(targetId);
+
+              await this.notificationService.saveTheNotifications(
+                'A feedback has been assigned to you for review',
+                'Feedback Assigned',
+                questionId,
+                targetId,
+                'moderator_approval',
+              );
+
+              const meta = await this.resolveExpertMeta([targetId]);
+              const reviewerName = meta.get(targetId)?.name ?? targetId;
+              this.auditTrailsService
+                .createAuditTrail({
+                  category: AuditCategory.EXPERTS_CATEGORY,
+                  action: AuditAction.SYSTEM_ALLOCATED,
+                  actor: {
+                    id: 'system',
+                    name: 'System',
+                    email: '',
+                    role: 'system',
+                    avatar: '',
+                  },
+                  context: {
+                    questionId,
+                    question: (q as any)?.question,
+                    expertId: targetId,
+                    operation: 'feedback',
+                  },
+                  changes: { after: { 'feedback reviewer': reviewerName } },
+                  outcome: { status: OutComeStatus.SUCCESS },
+                  createdAt: new Date(),
+                } as ModeratorAuditTrail)
+                .catch((auditErr: any) =>
+                  console.error(
+                    '[ModeratorQueue] Failed to write feedback SYSTEM_ALLOCATED audit:',
+                    auditErr?.message,
+                  ),
+                );
+
+              assigned++;
+              console.log(
+                `[ModeratorQueue] (feedback) Assigned question ${questionId} → ${targetIsModerator ? 'moderator' : 'auditor'} ${targetId}`,
+              );
+            } catch (err: any) {
+              console.error(
+                `[ModeratorQueue] (feedback) Failed to assign ${questionId}:`,
+                err?.message,
+              );
+              failedAssignments++;
+            }
+          }
+        }
+      } catch (fbErr: any) {
+        console.error(
+          '[ModeratorQueue] feedback pass failed:',
+          fbErr?.message,
+        );
+      }
+
+      // A feedback occupies the moderator's time-bound slot, so exclude moderators who
+      // just took a feedback this run OR already hold one from a previous run.
+      const eligibleTimeBoundModerators = timeBoundModerators.filter(
+        m =>
+          !feedbackAssignedModeratorIds.has(m._id!.toString()) &&
+          !((m as any).feedbacksAssigned?.length),
+      );
+
       await runPass(
         'time-bound',
-        timeBoundModerators,
+        eligibleTimeBoundModerators,
         timeBoundQuestions,
         (moderator, question) =>
           this.isQuestionUserTrainingTypeMatch(moderator, question),
@@ -7871,6 +8082,40 @@ if (filters.endDate) {
     );
   }
 
+  /** Effective moderator-queue wait time for a question: feedback questions use
+   *  `recentFeedback` (when the feedback arrived), everything else uses `createdAt`.
+   *  Used to interleave in-review + feedback questions in "Waiting for Moderator". */
+  private effectiveQueueTime(q: any): number {
+    const ts = q?.recentFeedback ?? q?.createdAt;
+    const ms = ts ? new Date(ts).getTime() : 0;
+    return Number.isNaN(ms) ? 0 : ms;
+  }
+
+  /** Waiting feedback questions (closed + open feedback) that don't yet have a
+   *  reviewer — shown in the moderator queue's TIME-BOUND "Waiting for Moderator"
+   *  section, irrespective of the question's source (feedback counts as time-bound).
+   *  Includes both auto-allocate and manual ones (all are awaiting a reviewer).
+   *  Filtered by training-user, matching the in-review query's behaviour. */
+  private async getWaitingFeedbackQuestions(
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<any[]> {
+    const [feedbackQs, openReviews] = await Promise.all([
+      this.questionRepo.findQuestionsWithOpenFeedbacks(false),
+      this.questionSubmissionRepo.findOpenFeedbackReviews(),
+    ]);
+    const assignedIds = new Set(openReviews.map(o => o.questionId));
+    return (feedbackQs as any[]).filter(q => {
+      if (assignedIds.has(q._id?.toString())) return false;
+      if (isAdmin !== true && isTrainingUser !== undefined) {
+        return isTrainingUser
+          ? q.isTrainingQuestion === true
+          : q.isTrainingQuestion !== true;
+      }
+      return true;
+    });
+  }
+
   /** Server-side paginated single Queue-Details section: exact total `count`
    *  plus only the requested page of `items` (default 50). Touches no allocation
    *  state and reuses the same queries the reallocation cron relies on. */
@@ -8239,11 +8484,17 @@ if (filters.endDate) {
       }
 
       case 'moderatorWaiting': {
-        // Same method (and therefore the same number) the moderator-queue cron uses:
-        // in-review/duplicate questions with no moderator assigned yet. No date
-        // filter so the count always matches what the cron picks up.
-        const qs =
-          (await this.questionRepo.findUnassignedInReviewQuestions([], isTrainingUser, isAdmin)) as any[];
+        // In-review/duplicate questions with no moderator yet, PLUS waiting feedback
+        // questions (closed + open feedback, no reviewer) — both need the moderator queue.
+        const [inReviewQs, waitingFeedback] = await Promise.all([
+          this.questionRepo.findUnassignedInReviewQuestions([], isTrainingUser, isAdmin),
+          this.getWaitingFeedbackQuestions(isTrainingUser, isAdmin),
+        ]);
+        // Order the merged queue by effective wait time: in-review by createdAt,
+        // feedback by recentFeedback (falls back to createdAt).
+        const qs = [...(inReviewQs as any[]), ...waitingFeedback].sort(
+          (a, b) => this.effectiveQueueTime(a) - this.effectiveQueueTime(b),
+        );
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
         // Map a full question doc through the submission mapper (wraps it as `.question`).
@@ -8304,15 +8555,23 @@ if (filters.endDate) {
       // can show the moderator queue split into Time-bound / Manual.
       case 'moderatorWaitingTimeBound':
       case 'moderatorWaitingManual': {
-        const sources =
-          section === 'moderatorWaitingTimeBound'
-            ? TIME_BOUND_SOURCES
-            : MANUAL_SOURCES;
-        const qs = (await this.questionRepo.findUnassignedInReviewQuestions(
+        const isTimeBound = section === 'moderatorWaitingTimeBound';
+        const sources = isTimeBound ? TIME_BOUND_SOURCES : MANUAL_SOURCES;
+        const inReviewQs = (await this.questionRepo.findUnassignedInReviewQuestions(
           sources,
           isTrainingUser,
           isAdmin
         )) as any[];
+        // Feedback questions go in the TIME-BOUND column irrespective of source
+        // (feedback counts as time-bound); the Manual column shows in-review only.
+        const waitingFeedback = isTimeBound
+          ? await this.getWaitingFeedbackQuestions(isTrainingUser, isAdmin)
+          : [];
+        // Order the merged queue by effective wait time: in-review by createdAt,
+        // feedback by recentFeedback (falls back to createdAt).
+        const qs = [...inReviewQs, ...waitingFeedback].sort(
+          (a, b) => this.effectiveQueueTime(a) - this.effectiveQueueTime(b),
+        );
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
         return {
@@ -8352,15 +8611,18 @@ if (filters.endDate) {
 
       case 'availableModeratorsTimeBound':
       case 'availableModeratorsManual': {
-        const sources =
-          section === 'availableModeratorsTimeBound'
-            ? TIME_BOUND_SOURCES
-            : MANUAL_SOURCES;
-        const mods = (await this.userRepo.findAvailableStfModeratorsForSources(
+        const isTimeBound = section === 'availableModeratorsTimeBound';
+        const sources = isTimeBound ? TIME_BOUND_SOURCES : MANUAL_SOURCES;
+        const modsRaw = (await this.userRepo.findAvailableStfModeratorsForSources(
           sources,
           isTrainingUser,
           isAdmin
         )) as any[];
+        // Feedback counts as a time-bound item, so a moderator holding a feedback is
+        // NOT free for the time-bound queue (they're still free for the manual one).
+        const mods = isTimeBound
+          ? modsRaw.filter(m => !(m.feedbacksAssigned?.length))
+          : modsRaw;
         const items: QueueExpertItem[] = mods
           .slice(skip, skip + safeLimit)
           .map(m => ({
@@ -9108,7 +9370,7 @@ if (filters.endDate) {
 
       const responseData = await response.json() as { status: string; pendingFeedbackCount: number };
       dataReleaseResponse = responseData
-    // dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
+     //dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
     } catch (error: any) {
       console.error('[QuestionService] handleFeedbackAction: Failed to call data release service:', error);
       throw new InternalServerError('Failed to process feedback action: ' + error.message);
@@ -9174,6 +9436,143 @@ if (filters.endDate) {
     };
   }
 
+  /** Data for the dedicated Feedback tab — every feedback-related bucket in one call.
+   *  Read-only; touches no allocation state. */
+  async getFeedbackQueueDetails(): Promise<FeedbackQueueDetails> {
+    // All questions with an open feedback (auto ON and OFF).
+    const openFeedbackQuestions =
+      await this.questionRepo.findQuestionsWithOpenFeedbacks(false);
+    const qIds = openFeedbackQuestions
+      .map(q => q._id?.toString())
+      .filter((id): id is string => Boolean(id));
+
+    // Questions already assigned a reviewer (open feedback-review round).
+    const openReviews =
+      await this.questionSubmissionRepo.findOpenFeedbackReviews();
+    const reviewerByQuestion = new Map<string, string>();
+    for (const o of openReviews) {
+      if (o.questionId && !reviewerByQuestion.has(o.questionId)) {
+        reviewerByQuestion.set(o.questionId, o.reviewerId);
+      }
+    }
+    const assignedIds = new Set(reviewerByQuestion.keys());
+
+    // Final-answer approver per question.
+    const finalAnswers =
+      await this.answerRepo.getFinalAnswersByQuestionIds(qIds);
+    const approverByQuestion = new Map<string, string>();
+    for (const a of finalAnswers) {
+      const qid = a.questionId?.toString();
+      const approver = a.approvedBy?.toString();
+      if (qid && approver && !approverByQuestion.has(qid)) {
+        approverByQuestion.set(qid, approver);
+      }
+    }
+
+    // Names (reviewers + approvers) and approver user docs (for eligibility).
+    const meta = await this.resolveExpertMeta([
+      ...reviewerByQuestion.values(),
+      ...approverByQuestion.values(),
+    ]);
+    const approverIds = [...new Set(approverByQuestion.values())];
+    const approverUsers = approverIds.length
+      ? await this.userRepo.getUsersByIds(approverIds)
+      : [];
+    const approverById = new Map(
+      approverUsers.map(u => [u._id!.toString(), u]),
+    );
+    const isActiveModerator = (u: any) =>
+      !!u &&
+      u.role === 'moderator' &&
+      u.isBlocked !== true &&
+      u.status !== 'in-active';
+
+    const waitingAuto: QueueQuestionItem[] = [];
+    const waitingManual: QueueQuestionItem[] = [];
+    const assigned: QueueQuestionItem[] = [];
+    const withActiveMod: QueueQuestionItem[] = [];
+    const withoutActiveMod: QueueQuestionItem[] = [];
+
+    for (const q of openFeedbackQuestions) {
+      const id = q._id?.toString();
+      if (!id) continue;
+      const base = this.submissionToQueueItem({ question: q });
+
+      if (assignedIds.has(id)) {
+        const reviewerId = reviewerByQuestion.get(id);
+        assigned.push({
+          ...base,
+          assigneeName:
+            (reviewerId && meta.get(reviewerId)?.name) || 'Unknown',
+        });
+      } else if ((q as any).autoAllocateFeedback === true) {
+        // Auto-allocation ON only when explicitly true; missing/false = manual.
+        waitingAuto.push(base);
+      } else {
+        waitingManual.push(base);
+      }
+
+      const approver = approverById.get(approverByQuestion.get(id) ?? '');
+      if (isActiveModerator(approver)) withActiveMod.push(base);
+      else withoutActiveMod.push(base);
+    }
+
+    // Reviewers free for feedback (no feedback held, no time-bound question).
+    const freeReviewers = await this.userRepo.findAvailableFeedbackReviewers();
+    const toExpertItem = (u: any): QueueExpertItem => ({
+      _id: u._id.toString(),
+      name:
+        `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+        u.email ||
+        'Unknown',
+      email: u.email,
+      reputationScore: u.reputation_score,
+      role: u.role,
+      isSpecialTaskForce: u.special_task_force === true,
+      isTrainingUser: u.isTrainingUser === true,
+    });
+    const availableModerators = freeReviewers
+      .filter(u => u.role === 'moderator')
+      .map(toExpertItem);
+    const availableAuditors = freeReviewers
+      .filter(u => u.role === 'auditor')
+      .map(toExpertItem);
+    const freeIds = new Set(freeReviewers.map(u => u._id!.toString()));
+
+    // Respective moderators: waiting-auto questions whose approver is an active
+    // moderator AND currently free (question ↔ eligible-approver pairs).
+    const respectiveModerators = openFeedbackQuestions
+      .filter(q => {
+        const id = q._id?.toString();
+        if (!id || assignedIds.has(id) || (q as any).autoAllocateFeedback !== true)
+          return false;
+        const approverId = approverByQuestion.get(id);
+        const approver = approverById.get(approverId ?? '');
+        return isActiveModerator(approver) && !!approverId && freeIds.has(approverId);
+      })
+      .map(q => {
+        const id = q._id!.toString();
+        const approverId = approverByQuestion.get(id)!;
+        return {
+          ...this.submissionToQueueItem({ question: q }),
+          approverId,
+          approverName: meta.get(approverId)?.name ?? 'Unknown',
+        };
+      });
+
+    const wrap = <T>(items: T[]) => ({ count: items.length, items });
+    return {
+      waitingAuto: wrap(waitingAuto),
+      waitingManual: wrap(waitingManual),
+      assigned: wrap(assigned),
+      availableModerators: wrap(availableModerators),
+      respectiveModerators: wrap(respectiveModerators),
+      availableAuditors: wrap(availableAuditors),
+      questionsWithActiveModerator: wrap(withActiveMod),
+      questionsWithoutActiveModerator: wrap(withoutActiveMod),
+    };
+  }
+
   /** Feedback-review timeline for a question: each round (reviewer + assigned/finished)
    *  plus the current auto-allocation flag and whether an open feedback exists. */
   async getFeedbackTimeline(questionId: string): Promise<{
@@ -9185,6 +9584,8 @@ if (filters.endDate) {
       reviewerName: string;
       assignedAt: Date;
       finishedAt: Date | null;
+      /** How many feedbacks this reviewer has already acted on (accepted/rejected). */
+      completedCount: number;
     }[];
   }> {
     const [question, submission] = await Promise.all([
@@ -9197,7 +9598,7 @@ if (filters.endDate) {
     );
     const feedbacks = ((question as any)?.feedbacks ?? []) as any[];
     return {
-      autoAllocateFeedback: (question as any)?.autoAllocateFeedback !== false,
+      autoAllocateFeedback: (question as any)?.autoAllocateFeedback === true,
       hasOpenFeedback:
         Array.isArray(feedbacks) && feedbacks.some(f => f?.status === 'open'),
       reviews: rounds
@@ -9210,6 +9611,9 @@ if (filters.endDate) {
             names.get(r.reviewerId?.toString())?.name ?? 'Unknown',
           assignedAt: r.assignedAt,
           finishedAt: r.finishedAt ?? null,
+          completedCount: Array.isArray(r.closedFeedbacks)
+            ? r.closedFeedbacks.length
+            : 0,
         }))
         .sort(
           (a, b) =>
@@ -9244,6 +9648,16 @@ if (filters.endDate) {
     index?: number,
   ): Promise<{success: true}> {
     await this._withTransaction(async session => {
+      // Don't allow assigning a reviewer once the feedback is closed (no open
+      // feedback left on the question).
+      const question = await this.questionRepo.getById(questionId);
+      const feedbacks = ((question as any)?.feedbacks ?? []) as any[];
+      const hasOpenFeedback =
+        Array.isArray(feedbacks) && feedbacks.some(f => f?.status === 'open');
+      if (!hasOpenFeedback) {
+        throw new BadRequestError('This feedback is already closed.');
+      }
+
       const submission =
         await this.questionSubmissionRepo.getByQuestionId(questionId);
       const rounds = ((submission as any)?.feedbackReviews ?? []) as any[];

@@ -24,14 +24,17 @@ import {
   ShieldCheck,
   ShieldUser,
   GraduationCap,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetQueueDetails } from "@/hooks/api/question/useGetQueueDetails";
+import { useGetFeedbackQueueDetails } from "@/hooks/api/question/useGetFeedbackQueueDetails";
 import { useGetQueueSection } from "@/hooks/api/question/useGetQueueSection";
 import { useNavigateToQuestion } from "@/hooks/api/question/useNavigateToQuestion";
 import type {
   QueueQuestionItem,
   QueueExpertItem,
+  RespectiveFeedbackItem,
 } from "@/hooks/services/questionService";
 import { formatDate } from "@/utils/formatDate";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
@@ -1001,7 +1004,7 @@ export const GateKeeperAuditorQueueModal = ({
             </div>
             <div className="text-left">
               <p className="text-sm font-bold text-gray-900 dark:text-white">
-                Gate Keeper / Auditor / Feed Back Queue
+                Gate Keeper / Auditor
               </p>
               <p className="text-[11px] text-gray-500">
                 Live gate keeper & auditor allocation overview
@@ -1092,6 +1095,8 @@ export const GateKeeperAuditorQueueModal = ({
                 dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
                 onQuestionClick={handleQuestionClick}
               />
+              {/* Feedback Queue hidden for now — feedback is allocated via the
+                  moderator-queue cron and doesn't need its own queue column yet.
               <div className="hidden lg:block w-px bg-gray-200 dark:bg-gray-800 self-stretch" />
               <RoleQueueColumn
                 heading="Feedback Queue"
@@ -1108,7 +1113,280 @@ export const GateKeeperAuditorQueueModal = ({
                 dateFilter={{ startTime: dateFilter.startTime ?? undefined, endTime: dateFilter.endTime ?? undefined }}
                 onQuestionClick={handleQuestionClick}
               />
+              */}
             </div>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ── Feedback Queue tab ───────────────────────────────────────────────────────
+// Self-contained collapsible section (client-side; the feedback endpoint returns
+// full arrays, so no server pagination is needed here).
+function FbSection<T>({
+  icon,
+  color,
+  title,
+  description,
+  count,
+  items,
+  renderItem,
+  isOpen,
+  onToggle,
+  emptyText,
+}: {
+  icon: React.ReactNode;
+  color: SectionColor;
+  title: string;
+  description: string;
+  count: number;
+  items: T[];
+  renderItem: (item: T) => React.ReactNode;
+  isOpen: boolean;
+  onToggle: () => void;
+  emptyText: string;
+}) {
+  const c = colorClasses[color];
+  return (
+    <div className="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          "w-full flex items-center justify-between p-3 bg-white dark:bg-[#1a1a1a] transition-colors",
+          c.ring,
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", c.icon)}>
+            {icon}
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">{title}</p>
+            <p className="text-[11px] text-gray-500">{description}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn("px-2 py-0.5 rounded text-[11px] font-bold", c.badge)}>{count}</span>
+          <ChevronDown
+            size={16}
+            className={cn("text-gray-400 transition-transform", isOpen && "rotate-180")}
+          />
+        </div>
+      </button>
+      {isOpen && (
+        <div className="max-h-[320px] overflow-y-auto border-t border-gray-100 dark:border-gray-800">
+          {items.length ? (
+            items.map((item) => renderItem(item))
+          ) : (
+            <p className="px-3 py-6 text-center text-xs text-gray-400">{emptyText}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const FeedbackQueueModal = ({
+  setIsSidebarOpen,
+}: {
+  setIsSidebarOpen?: (v: boolean) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<string | null>("waitingAuto");
+  const { goToQuestion } = useNavigateToQuestion();
+
+  useEffect(() => {
+    if (sessionStorage.getItem("reopenFeedbackQueue") === "1") {
+      sessionStorage.removeItem("reopenFeedbackQueue");
+      setOpen(true);
+      setIsSidebarOpen?.(false);
+    }
+  }, [setIsSidebarOpen]);
+
+  const handleQuestionClick = (item: QueueQuestionItem) => {
+    sessionStorage.setItem("reopenFeedbackQueue", "1");
+    setOpen(false);
+    goToQuestion(item._id, "moderator_queue");
+  };
+
+  const { data, isLoading, isError, error, refetch, isFetching } =
+    useGetFeedbackQueueDetails(open);
+
+  const toggle = (key: string) =>
+    setOpenSection((prev) => (prev === key ? null : key));
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) setIsSidebarOpen?.(false);
+      }}
+    >
+      <DialogTrigger asChild>
+        <button className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-blue-50 dark:hover:bg-blue-500/5 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <MessageSquare size={20} />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                Feedback Queue
+              </p>
+              <p className="text-[11px] text-gray-500">
+                Feedback allocation overview
+              </p>
+            </div>
+          </div>
+        </button>
+      </DialogTrigger>
+
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-[90vw] max-h-[90vh] overflow-y-auto [&_[data-slot=dialog-close]]:size-8 [&_[data-slot=dialog-close]]:flex [&_[data-slot=dialog-close]]:items-center [&_[data-slot=dialog-close]]:justify-center [&_[data-slot=dialog-close]]:rounded-md [&_[data-slot=dialog-close]]:opacity-100 [&_[data-slot=dialog-close]]:transition-colors [&_[data-slot=dialog-close]:hover]:bg-muted [&_[data-slot=dialog-close]_svg]:size-5">
+        <DialogHeader className="space-y-1 pr-8">
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            Feedback Queue
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Open-feedback questions, who they&apos;ll be assigned to, and free reviewers
+          </p>
+        </DialogHeader>
+
+        <div className="flex items-center justify-end border-b border-gray-100 dark:border-gray-800 pb-3">
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60 transition-colors"
+          >
+            <RefreshCcw size={13} className={cn(isFetching && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading feedback queue…
+          </div>
+        ) : isError ? (
+          <div className="py-12 text-center">
+            <AlertTriangle className="h-6 w-6 text-red-500 mx-auto mb-2" />
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {error?.message || "Failed to load feedback queue"}
+            </p>
+            <button type="button" onClick={() => refetch()} className="mt-3 text-xs font-medium text-blue-600 hover:underline">
+              Try again
+            </button>
+          </div>
+        ) : data ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 py-2">
+            <FbSection<QueueQuestionItem>
+              icon={<Hourglass size={18} />}
+              color="amber"
+              title="Waiting — Auto Allocate"
+              description="Open feedback, auto-allocation ON, no reviewer yet"
+              count={data.waitingAuto.count}
+              items={data.waitingAuto.items}
+              isOpen={openSection === "waitingAuto"}
+              onToggle={() => toggle("waitingAuto")}
+              emptyText="Nothing waiting"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+            />
+            <FbSection<QueueQuestionItem>
+              icon={<Power size={18} />}
+              color="blue"
+              title="Waiting — Manual (Auto Off)"
+              description="Open feedback, auto-allocation OFF, unassigned"
+              count={data.waitingManual.count}
+              items={data.waitingManual.items}
+              isOpen={openSection === "waitingManual"}
+              onToggle={() => toggle("waitingManual")}
+              emptyText="Nothing waiting (manual)"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+            />
+            <FbSection<QueueQuestionItem>
+              icon={<UserCheck size={18} />}
+              color="green"
+              title="Assigned Feedback Questions"
+              description="Open feedback with a reviewer assigned"
+              count={data.assigned.count}
+              items={data.assigned.items}
+              isOpen={openSection === "assigned"}
+              onToggle={() => toggle("assigned")}
+              emptyText="No assigned feedback"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showAssignee assigneeLabel="Reviewer" onClick={() => handleQuestionClick(q)} />}
+            />
+            <FbSection<QueueExpertItem>
+              icon={<ShieldUser size={18} />}
+              color="violet"
+              title="Available Moderators"
+              description="Moderators free to take feedback"
+              count={data.availableModerators.count}
+              items={data.availableModerators.items}
+              isOpen={openSection === "availableModerators"}
+              onToggle={() => toggle("availableModerators")}
+              emptyText="No available moderators"
+              renderItem={(e) => <ExpertRow key={e._id} item={e} />}
+            />
+            <FbSection<RespectiveFeedbackItem>
+              icon={<Users size={18} />}
+              color="violet"
+              title="Available Moderators — Respective Feedback"
+              description="Waiting questions whose approver moderator is active & free"
+              count={data.respectiveModerators.count}
+              items={data.respectiveModerators.items}
+              isOpen={openSection === "respectiveModerators"}
+              onToggle={() => toggle("respectiveModerators")}
+              emptyText="No respective-moderator matches"
+              renderItem={(q) => (
+                <QuestionRow
+                  key={q._id}
+                  item={{ ...q, assigneeName: q.approverName }}
+                  showAssignee
+                  assigneeLabel="Approver"
+                  onClick={() => handleQuestionClick(q)}
+                />
+              )}
+            />
+            <FbSection<QueueExpertItem>
+              icon={<ShieldCheck size={18} />}
+              color="violet"
+              title="Available Auditors"
+              description="Auditors free to take feedback"
+              count={data.availableAuditors.count}
+              items={data.availableAuditors.items}
+              isOpen={openSection === "availableAuditors"}
+              onToggle={() => toggle("availableAuditors")}
+              emptyText="No available auditors"
+              renderItem={(e) => <ExpertRow key={e._id} item={e} />}
+            />
+            <FbSection<QueueQuestionItem>
+              icon={<ShieldUser size={18} />}
+              color="green"
+              title="Questions → Active Moderator"
+              description="Approver is an active moderator (goes to moderator)"
+              count={data.questionsWithActiveModerator.count}
+              items={data.questionsWithActiveModerator.items}
+              isOpen={openSection === "questionsWithActiveModerator"}
+              onToggle={() => toggle("questionsWithActiveModerator")}
+              emptyText="None"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+            />
+            <FbSection<QueueQuestionItem>
+              icon={<AlertTriangle size={18} />}
+              color="red"
+              title="Questions → Auditor"
+              description="Approver not an active moderator (goes to auditor)"
+              count={data.questionsWithoutActiveModerator.count}
+              items={data.questionsWithoutActiveModerator.items}
+              isOpen={openSection === "questionsWithoutActiveModerator"}
+              onToggle={() => toggle("questionsWithoutActiveModerator")}
+              emptyText="None"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+            />
           </div>
         ) : null}
       </DialogContent>

@@ -9,6 +9,7 @@ import {
   QuestionStatus,
   QuestionSource,
   IUserHistory,
+  TIME_BOUND_SOURCES,
 } from '#shared/interfaces/models.js';
 import {instanceToPlain} from 'class-transformer';
 import {injectable, inject} from 'inversify';
@@ -1132,10 +1133,10 @@ export class UserRepository implements IUserRepository {
   }
 
   /** Moderators/auditors currently free to take a NEW feedback review — active, not
-   *  blocked, with an empty feedbacksAssigned. Auditors must ALSO have an empty
-   *  assignedQuestionIds (either one feedback OR one auditor question); moderators may
-   *  hold queue work alongside a feedback. Used by the feedback queue's "available"
-   *  section and mirrors the availability the feedback allocator uses. */
+   *  blocked, with an empty feedbacksAssigned AND no time-bound (AJRASAKHA/WHATSAPP)
+   *  assigned question. Feedback counts as a time-bound item, so a held time-bound
+   *  question blocks feedback for BOTH roles; a manual-source question does not. Mirrors
+   *  the availability the feedback allocator (moderator-queue cron) uses. */
   async findAvailableFeedbackReviewers(): Promise<IUser[]> {
     await this.init();
     const emptyFeedbacks = [
@@ -1143,33 +1144,26 @@ export class UserRepository implements IUserRepository {
       {feedbacksAssigned: null},
       {feedbacksAssigned: {$size: 0}},
     ];
-    const emptyQueue = [
-      {assignedQuestionIds: {$exists: false}},
-      {assignedQuestionIds: null},
-      {assignedQuestionIds: {$size: 0}},
-    ];
+    const noTimeBoundQuestion = {
+      assignedQuestionIds: {
+        $not: {$elemMatch: {source: {$in: TIME_BOUND_SOURCES}}},
+      },
+    };
     return this.usersCollection
       .find({
+        role: {$in: ['moderator', 'auditor']},
         isBlocked: {$ne: true},
         status: {$ne: 'in-active'},
-        $and: [
-          {$or: emptyFeedbacks},
-          {
-            $or: [
-              {role: 'moderator'},
-              {$and: [{role: 'auditor'}, {$or: emptyQueue}]},
-            ],
-          },
-        ],
+        $and: [{$or: emptyFeedbacks}, noTimeBoundQuestion],
       } as any)
       .toArray();
   }
 
   /** Atomically claim a feedback-review assignment for a user only when they are an
-   *  active moderator/auditor with an empty feedback array. Auditors must ALSO have an
-   *  empty assignedQuestionIds array — an auditor holds either one feedback OR one
-   *  auditor-level question, never both. Moderators may hold a feedback alongside their
-   *  queue work, so they are exempt from the assignedQuestionIds check. */
+   *  active, non-blocked user with an empty feedback array AND no time-bound
+   *  (AJRASAKHA/WHATSAPP) assigned question. Feedback counts as a time-bound item, so a
+   *  user holding a time-bound question can't also take feedback (and vice versa); a
+   *  MANUAL-source question does not block them. Applies to moderators and auditors. */
   async claimFeedbackAllocation(
     userId: string,
     questionId: string,
@@ -1177,21 +1171,21 @@ export class UserRepository implements IUserRepository {
   ): Promise<boolean> {
     await this.init();
     const qid = new ObjectId(questionId);
-    // const emptyAssignedQuestions = [
-    //   {assignedQuestionIds: {$exists: false}},
-    //   {assignedQuestionIds: null},
-    //   {assignedQuestionIds: {$size: 0}},
-    // ];
     const result = await this.usersCollection.updateOne(
       {
         _id: new ObjectId(userId),
         isBlocked: { $ne: true },
         status: { $ne: 'in-active' },
+        // One feedback at a time.
         $or: [
           { feedbacksAssigned: { $exists: false } },
           { feedbacksAssigned: null },
           { feedbacksAssigned: { $size: 0 } },
         ],
+        // No time-bound assigned question — feedback shares the time-bound slot.
+        assignedQuestionIds: {
+          $not: { $elemMatch: { source: { $in: TIME_BOUND_SOURCES } } },
+        },
       } as any,
       [
         {

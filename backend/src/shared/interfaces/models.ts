@@ -234,6 +234,10 @@ export interface IQuestion {
     source?: string;
     status?: string;
   }[] | null;
+  /** When the most recent feedback was (re)opened on this question. Stamped whenever
+   *  a feedback status flips to 'open'. The moderator queue orders feedback questions
+   *  by this (rather than the question's original createdAt). */
+  recentFeedback?: Date | null;
   /** Set when a moderator cancels a duplicate flag and reopens the question. The
    *  cancel reason and timestamp are recorded in the audit trail, not on the question. */
   isDuplicateCancelled?: boolean;
