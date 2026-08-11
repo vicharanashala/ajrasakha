@@ -609,6 +609,102 @@ export const useDatasetTotals = () => {
   });
 };
 
+
+export type DatasetQuestionListItem = {
+  questionId: string;
+  question: string;
+  createdAt: string;
+};
+
+export type DatasetFeedbackListItem = {
+  email: string;
+  questionId: string;
+  rating: string;
+  tag: string;
+  createdAt: string;
+};
+
+export type DatasetUserListItem = {
+  name: string;
+  email: string;
+  phone: string;
+  age: number | null;
+  createdAt: string;
+};
+
+export type DatasetListResponse<T> = {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+const EMPTY_DATASET_LIST = {
+  data: [],
+  total: 0,
+  page: 1,
+  pageSize: 10,
+  totalPages: 1,
+};
+
+export const useDatasetQuestionsList = (
+  page: number = 1,
+  pageSize: number = 10,
+  enabled: boolean = true,
+) => {
+  return useQuery<DatasetListResponse<DatasetQuestionListItem>>({
+    queryKey: ["dataset-questions-list", page, pageSize],
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DatasetListResponse<DatasetQuestionListItem>>(
+        `${API_BASE_URL}/analytics/dataset/questions?page=${page}&pageSize=${pageSize}`,
+      );
+      return result ?? EMPTY_DATASET_LIST;
+    },
+    enabled,
+    placeholderData: (prev) => prev,
+  });
+};
+
+export const useDatasetFeedbacksList = (
+  page: number = 1,
+  pageSize: number = 10,
+  enabled: boolean = true,
+) => {
+  return useQuery<DatasetListResponse<DatasetFeedbackListItem>>({
+    queryKey: ["dataset-feedbacks-list", page, pageSize],
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DatasetListResponse<DatasetFeedbackListItem>>(
+        `${API_BASE_URL}/analytics/dataset/feedbacks?page=${page}&pageSize=${pageSize}`,
+      );
+      return result ?? EMPTY_DATASET_LIST;
+    },
+    enabled,
+    placeholderData: (prev) => prev,
+  });
+};
+
+export const useDatasetUsersList = (
+  page: number = 1,
+  pageSize: number = 10,
+  enabled: boolean = true,
+) => {
+  return useQuery<DatasetListResponse<DatasetUserListItem>>({
+    queryKey: ["dataset-users-list", page, pageSize],
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DatasetListResponse<DatasetUserListItem>>(
+        `${API_BASE_URL}/analytics/dataset/users?page=${page}&pageSize=${pageSize}`,
+      );
+      return result ?? EMPTY_DATASET_LIST;
+    },
+    enabled,
+    placeholderData: (prev) => prev,
+  });
+};
+
 export const useResponseAdherenceTable = (source?: string, userType?: string, startTime?: Date, endTime?: Date, shouldLoad?: boolean) => {
   const params = new URLSearchParams();
   params.append("source", source || 'vicharanashala');
