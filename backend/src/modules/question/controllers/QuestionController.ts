@@ -1476,14 +1476,14 @@ export class QuestionController {
   @OpenAPI({ summary: 'Toggle gate keeper / auditor / feedback auto-allocation for a question' })
   async toggleRoleAllocation(
     @Params() params: QuestionIdParam,
-    @Body() body: { role: 'gate_keeper' | 'auditor' | 'feedback'; enabled: boolean },
+    @Body() body: { role: 'gate_keeper' | 'auditor' | 'feedback' | 'pae_validator'; enabled: boolean },
     @CurrentUser() user: IUser,
   ) {
     verifyNotTester(user);
     const { questionId } = params;
     const { role, enabled } = body;
-    if (role !== 'gate_keeper' && role !== 'auditor' && role !== 'feedback') {
-      throw new BadRequestError("role must be 'gate_keeper', 'auditor' or 'feedback'");
+    if (role !== 'gate_keeper' && role !== 'auditor' && role !== 'feedback' && role !== 'pae_validator') {
+      throw new BadRequestError("role must be 'gate_keeper', 'auditor', 'feedback' or 'pae_validator'");
     }
     if (user.role === 'expert') {
       throw new ForbiddenError('Experts cannot change auto-allocation');
@@ -1491,7 +1491,7 @@ export class QuestionController {
     // Gate keeper / auditor allocation: admins, moderators, gate keepers and auditors.
     // Feedback allocation: any non-expert (already gated above).
     if (
-      role !== 'feedback' &&
+      role !== 'feedback' && role !== 'pae_validator' &&
       !['admin', 'moderator', 'gate_keeper', 'auditor'].includes(user.role)
     ) {
       throw new ForbiddenError(
@@ -1503,20 +1503,26 @@ export class QuestionController {
         ? 'autoAllocateGateKeeper'
         : role === 'auditor'
           ? 'autoAllocateAuditor'
-          : 'autoAllocateFeedback';
+          : role === 'pae_validator'
+            ? 'autoAllocatePaeValidationExpert'
+            : 'autoAllocateFeedback';
     const label =
       role === 'gate_keeper'
         ? 'Gate keeper'
         : role === 'auditor'
           ? 'Auditor'
-          : 'Feedback';
+          : role === 'pae_validator'
+            ? 'PAE Validator'
+            : 'Feedback';
 
     const toggleAction =
       role === 'gate_keeper'
         ? AuditAction.TOGGLE_GATE_KEEPER_ALLOCATION
         : role === 'auditor'
           ? AuditAction.TOGGLE_AUDITOR_ALLOCATION
-          : AuditAction.TOGGLE_FEEDBACK_ALLOCATION;
+          : role === 'pae_validator'
+            ? AuditAction.TOGGLE_PAE_VALIDATOR_ALLOCATION
+            : AuditAction.TOGGLE_FEEDBACK_ALLOCATION;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: toggleAction,
