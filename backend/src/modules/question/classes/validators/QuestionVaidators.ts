@@ -829,6 +829,14 @@ class GetDetailedQuestionsQuery {
   autoAllocateModeratorFilter?: string;
 
   @JSONSchema({
+    description: 'to filter questions based on feedback status (all, open, closed)',
+    example: 'open',
+    type: 'string',
+  })
+  @IsOptional()
+  feedbackFilter?: string;
+
+  @JSONSchema({
     description: 'Filter for questions closed within the last 2 hours',
     example: 'true',
     type: 'boolean',

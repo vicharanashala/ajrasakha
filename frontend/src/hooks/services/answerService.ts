@@ -97,6 +97,7 @@ export class AnswerService {
     sources?: SourceItem[],
     source?: string,
     questionId?: string,
+    closeIntent?: "gdb" | "notify",
   ) {
     try {
       return await apiFetch<SubmitAnswerResponse>(`${this._baseUrl}`, {
@@ -107,6 +108,7 @@ export class AnswerService {
           ...(sources && { sources }),
           ...(source && { source }),
           ...(questionId && { questionId }),
+          ...(closeIntent && { closeIntent }),
         }),
       });
     } catch (error) {

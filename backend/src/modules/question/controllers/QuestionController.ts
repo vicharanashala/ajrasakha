@@ -2347,6 +2347,36 @@ export class QuestionController {
     };
   }
 
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Post('/admin/backfill-closed-moderator')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Backfill moderatorId on closed questions (moderatorId null/missing) from the final answer approver',
+  })
+  async backfillClosedModeratorIds(
+    @Body() body: { limit?: number },
+  ) {
+    const safeLimit = Math.max(1, Math.min(Number(body?.limit) || 500, 2000));
+    const result =
+      await this.questionService.backfillClosedModeratorIds(safeLimit);
+    return { success: true, data: result };
+  }
+
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Get('/feedback/queue-details')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Feedback tab data — waiting/assigned questions + available reviewers' })
+  async getFeedbackQueueDetails(@CurrentUser() user: IUser) {
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot view the feedback queue');
+    }
+    const data = await this.questionService.getFeedbackQueueDetails();
+    return { success: true, data };
+  }
+
   @Get('/:questionId/feedback-timeline')
   @HttpCode(200)
   @Authorized()

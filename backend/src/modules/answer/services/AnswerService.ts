@@ -1937,22 +1937,36 @@ answer: ${updates.answer}`;
       // through "Notify User") close as `dynamic_closed` rather than `closed`, so they
       // stay distinguishable downstream. The customer webhook carries the same status.
       // `tag === 'static_dynamic'` questions are also closed this way.
+      // A duplicate question carries a referenceQuestionId — used as the fallback to
+      // tell duplicate from dynamic when `auditorReviewType` wasn't stamped at push
+      // time (mirrors the frontend's isDuplicateQuestion / isDynamicQuestion logic).
+      const hasDuplicateRef = !!(question as any).referenceQuestionId;
       const isDynamicClose =
         question.status === 'dynamic' ||
         question.tag === 'static_dynamic' ||
         (question.status === 'auditor_review' &&
-          question.auditorReviewType === 'dynamic');
+          (question.auditorReviewType === 'dynamic' ||
+            (!question.auditorReviewType && !hasDuplicateRef)));
       // Duplicate questions finalised via the Auditor "Notify User" flow close as
       // `duplicate_closed` (same handling as dynamic's `dynamic_closed`). The customer
       // webhook carries this status too (via notifyCustomerOnClose(..., closeStatus)).
       const isDuplicateClose =
         question.status === 'duplicate' ||
         (question.status === 'auditor_review' &&
-          question.auditorReviewType === 'duplicate');
-      const closeStatus: QuestionStatus = isDuplicateClose
-        ? 'duplicate_closed'
-        : isDynamicClose
-          ? 'dynamic_closed'
+          (question.auditorReviewType === 'duplicate' ||
+            (!question.auditorReviewType && hasDuplicateRef)));
+      // Auditor finalise:
+      //  - "Push to GDB" (closeIntent 'gdb')  → close as plain `closed`.
+      //  - "Notify User" (closeIntent 'notify') → keep it distinguishable:
+      //       dynamic  → `dynamic_closed`, duplicate → `duplicate_closed`.
+      // Anything else (normal close) stays `closed`.
+      const closeStatus: QuestionStatus =
+        updates.closeIntent === 'notify'
+          ? isDuplicateClose
+            ? 'duplicate_closed'
+            : isDynamicClose
+              ? 'dynamic_closed'
+              : 'closed'
           : 'closed';
 
       // DUPLICATE / DYNAMIC QUESTION FLOW
