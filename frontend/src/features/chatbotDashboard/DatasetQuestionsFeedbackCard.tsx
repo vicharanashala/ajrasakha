@@ -8,9 +8,29 @@ import { motion } from "framer-motion";
 import CountUp from "react-countup";
 import { Database, InfoIcon, Percent, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/atoms/skeleton";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  useDatasetQuestionsList,
+  useDatasetFeedbacksList,
+  useDatasetUsersList,
+  type DatasetQuestionListItem,
+  type DatasetFeedbackListItem,
+  type DatasetUserListItem,
+} from "./hooks/useDashboardData";
+import { DatasetListModal } from "./components/DatasetListModal";
+import type { ReusableTableColumn } from "./components/ReusableDataTable";
+
+const DATASET_LIST_PAGE_SIZE = 10;
+
+function formatDatasetDate(value?: string) {
+  if (!value) return "-";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "-" : d.toLocaleString();
+}
+
+type ActiveDatasetList = "questions" | "feedbacks" | "users" | null;
 
 type DatasetQuestionsFeedbackCardProps = {
   totalQuestions?: number;
@@ -39,6 +59,78 @@ export function DatasetQuestionsFeedbackCard({
   const safeUsers = totalUsers ?? 0;
   const feedbackPct =
     safeQuestions > 0 ? (safeFeedbacks / safeQuestions) * 100 : 0;
+
+  
+  const [activeList, setActiveList] = useState<ActiveDatasetList>(null);
+  const [listPage, setListPage] = useState(1);
+
+  const openList = useCallback((list: Exclude<ActiveDatasetList, null>) => {
+    setActiveList(list);
+    setListPage(1);
+  }, []);
+  const closeList = useCallback(() => {
+    setActiveList(null);
+    setListPage(1);
+  }, []);
+
+  const questionsListQuery = useDatasetQuestionsList(
+    listPage,
+    DATASET_LIST_PAGE_SIZE,
+    activeList === "questions",
+  );
+  const feedbacksListQuery = useDatasetFeedbacksList(
+    listPage,
+    DATASET_LIST_PAGE_SIZE,
+    activeList === "feedbacks",
+  );
+  const usersListQuery = useDatasetUsersList(
+    listPage,
+    DATASET_LIST_PAGE_SIZE,
+    activeList === "users",
+  );
+
+  const questionColumns = useMemo<ReusableTableColumn<DatasetQuestionListItem>[]>(
+    () => [
+      { key: "questionId", header: "Question ID", render: (r) => r.questionId || "-" },
+      { key: "question", header: "Question", render: (r) => r.question || "-" },
+      {
+        key: "createdAt",
+        header: "Created At",
+        render: (r) => formatDatasetDate(r.createdAt),
+      },
+    ],
+    [],
+  );
+
+  const feedbackColumns = useMemo<ReusableTableColumn<DatasetFeedbackListItem>[]>(
+    () => [
+      { key: "email", header: "Email", render: (r) => r.email || "-" },
+      { key: "questionId", header: "Question ID", render: (r) => r.questionId || "-" },
+      { key: "rating", header: "Rating", render: (r) => r.rating || "-" },
+      { key: "tag", header: "Tag", render: (r) => r.tag || "-" },
+      {
+        key: "createdAt",
+        header: "Created At",
+        render: (r) => formatDatasetDate(r.createdAt),
+      },
+    ],
+    [],
+  );
+
+  const userColumns = useMemo<ReusableTableColumn<DatasetUserListItem>[]>(
+    () => [
+      { key: "name", header: "Name", render: (r) => r.name || "-" },
+      { key: "email", header: "Email", render: (r) => r.email || "-" },
+      { key: "phone", header: "Phone", render: (r) => r.phone || "-" },
+      { key: "age", header: "Age", render: (r) => r.age ?? "-" },
+      {
+        key: "createdAt",
+        header: "Created At",
+        render: (r) => formatDatasetDate(r.createdAt),
+      },
+    ],
+    [],
+  );
 
   return (
     <div
@@ -113,19 +205,22 @@ export function DatasetQuestionsFeedbackCard({
                   label="Total Questions"
                   count={safeQuestions}
                   accent="emerald"
-                  tooltip="Total number of questions asked"
+                  tooltip="Total number of questions asked — click to view the list"
+                  onClick={() => openList("questions")}
                 />
                 <StatTile
                   label="Total Feedbacks"
                   count={safeFeedbacks}
                   accent="amber"
-                  tooltip="Total number of feedbacks received"
+                  tooltip="Total number of feedbacks received — click to view the list"
+                  onClick={() => openList("feedbacks")}
                 />
                 <StatTile
                   label="Total Users"
                   count={safeUsers}
                   accent="blue"
-                  tooltip="Total number of users"
+                  tooltip="Total number of users — click to view the list"
+                  onClick={() => openList("users")}
                 />
               </div>
 
@@ -165,6 +260,51 @@ export function DatasetQuestionsFeedbackCard({
           </TooltipProvider>
         )}
       </div>
+
+      <DatasetListModal<DatasetQuestionListItem>
+        isOpen={activeList === "questions"}
+        onClose={closeList}
+        title="All Questions"
+        description={`Total: ${(questionsListQuery.data?.total ?? safeQuestions).toLocaleString()}`}
+        columns={questionColumns}
+        rows={questionsListQuery.data?.data ?? []}
+        isLoading={questionsListQuery.isLoading}
+        page={listPage}
+        totalPages={questionsListQuery.data?.totalPages ?? 1}
+        totalCount={questionsListQuery.data?.total ?? safeQuestions}
+        onPageChange={setListPage}
+        getRowKey={(r) => r.questionId}
+      />
+
+      <DatasetListModal<DatasetFeedbackListItem>
+        isOpen={activeList === "feedbacks"}
+        onClose={closeList}
+        title="All Feedbacks"
+        description={`Total: ${(feedbacksListQuery.data?.total ?? safeFeedbacks).toLocaleString()}`}
+        columns={feedbackColumns}
+        rows={feedbacksListQuery.data?.data ?? []}
+        isLoading={feedbacksListQuery.isLoading}
+        page={listPage}
+        totalPages={feedbacksListQuery.data?.totalPages ?? 1}
+        totalCount={feedbacksListQuery.data?.total ?? safeFeedbacks}
+        onPageChange={setListPage}
+        getRowKey={(r, i) => `${r.email}-${r.questionId}-${i}`}
+      />
+
+      <DatasetListModal<DatasetUserListItem>
+        isOpen={activeList === "users"}
+        onClose={closeList}
+        title="All Users"
+        description={`Total: ${(usersListQuery.data?.total ?? safeUsers).toLocaleString()}`}
+        columns={userColumns}
+        rows={usersListQuery.data?.data ?? []}
+        isLoading={usersListQuery.isLoading}
+        page={listPage}
+        totalPages={usersListQuery.data?.totalPages ?? 1}
+        totalCount={usersListQuery.data?.total ?? safeUsers}
+        onPageChange={setListPage}
+        getRowKey={(r, i) => `${r.email}-${i}`}
+      />
     </div>
   );
 }
@@ -192,11 +332,13 @@ function StatTile({
   count,
   accent,
   tooltip,
+  onClick,
 }: {
   label: string;
   count: number;
   accent: keyof typeof ACCENT;
   tooltip: string;
+  onClick?: () => void;
 }) {
   const a = ACCENT[accent];
   return (
@@ -205,10 +347,24 @@ function StatTile({
         <motion.div
           whileHover={{ y: -2 }}
           transition={{ duration: 0.15 }}
+          onClick={onClick}
+          role={onClick ? "button" : undefined}
+          tabIndex={onClick ? 0 : undefined}
+          onKeyDown={
+            onClick
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onClick();
+                  }
+                }
+              : undefined
+          }
           className={cn(
             "group/tile relative flex flex-col items-start gap-1.5 overflow-hidden rounded-xl p-3 text-left",
             "bg-background/40 ring-1 ring-border/50 transition-all duration-200",
             "hover:bg-background/80 hover:shadow-md",
+            onClick && "cursor-pointer",
             a.ring,
             a.glow,
           )}
