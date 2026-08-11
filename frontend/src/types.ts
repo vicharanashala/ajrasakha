@@ -685,6 +685,7 @@ export interface IDetailedQuestion {
   isDuplicateCancelled?: boolean;
   duplicateCancelReason?: string;
   isAutoAllocate?: boolean;
+  autoAllocatePaeValidationExpert?: boolean;
 }
 
 export interface IDetailedQuestionResponse {

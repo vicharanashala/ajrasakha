@@ -223,6 +223,7 @@ export interface IQuestion {
   auditorAssignedAt?: Date | null;
   /** Timestamp when the auditor finished (acted on) the question. */
   auditorFinishedAt?: Date | null;
+  autoAllocatePaeValidationExpert?: boolean;
   referenceQuestionDetails?: Array<{
     _id: ObjectId | string;
     duplicate: boolean;
