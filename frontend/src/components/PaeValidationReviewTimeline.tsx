@@ -79,27 +79,25 @@ export const PaeValidationReviewTimeline = ({
             );
     }, [usersData, searchTerm]);
 
-    console.log('candidates', candidates)
-
     const assign = useMutation({
         mutationFn: (userId: string) =>
-            qs.assignFeedbackReviewer(questionId, userId, changeIndex),
+            qs.assignPaeValidationReviewer(questionId, userId, changeIndex),
         onSuccess: () => {
             toast.success(
                 changeIndex !== undefined ? "Reviewer changed" : "Reviewer assigned",
             );
             closeModal();
-            queryClient.invalidateQueries({ queryKey: ["feedback-timeline", questionId] });
+            queryClient.invalidateQueries({ queryKey: ["pae-validation", questionId] });
             queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
         },
         onError: (e: any) => toast.error(e?.message || "Failed to assign reviewer"),
     });
 
     const remove = useMutation({
-        mutationFn: (index: number) => qs.removeFeedbackReviewer(questionId, index),
+        mutationFn: (index: number) => qs.removePaeValidationReviewer(questionId, index),
         onSuccess: () => {
             toast.success("Reviewer removed");
-            queryClient.invalidateQueries({ queryKey: ["feedback-timeline", questionId] });
+            queryClient.invalidateQueries({ queryKey: ["pae-validation", questionId] });
             queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
         },
         onError: (e: any) => toast.error(e?.message || "Failed to remove reviewer"),
@@ -122,12 +120,12 @@ export const PaeValidationReviewTimeline = ({
         let toastId;
         try {
             toastId = toast.loading(`Turning auto allocation ${next ? "on" : "off"}...`);
-            await toggle.mutateAsync({ questionId, role: "feedback", enabled: next });
+            await toggle.mutateAsync({ questionId, role: "pae_validator", enabled: next });
             await queryClient.invalidateQueries({
-                queryKey: ["feedback-timeline", questionId],
+                queryKey: ["pae-validation", questionId],
             });
             toast.dismiss(toastId);
-            toast.success(`Feedback auto allocation turned ${next ? "on" : "off"}.`);
+            toast.success(`PAE Validation auto allocation turned ${next ? "on" : "off"}.`);
         } catch {
             toast.dismiss(toastId);
             toast.error("Failed to update auto allocation");

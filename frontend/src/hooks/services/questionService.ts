@@ -1092,7 +1092,7 @@ export class QuestionService {
 
   async toggleRoleAllocation(
     questionId: string,
-    role: "gate_keeper" | "auditor" | "feedback",
+    role: "gate_keeper" | "auditor" | "feedback" | "pae_validator",
     enabled: boolean,
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/role-allocation`, {
@@ -1139,6 +1139,30 @@ export class QuestionService {
     index: number,
   ): Promise<{ success: true } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/feedback-reviewer`, {
+      method: "DELETE",
+      body: JSON.stringify({ index }),
+    });
+  }
+
+  //assign pae reviewer
+   async assignPaeValidationReviewer(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{ success: true } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/pae-val-reviewer`, {
+      method: "POST",
+      body: JSON.stringify(
+        typeof index === "number" ? { userId, index } : { userId },
+      ),
+    });
+  }
+
+  async removePaeValidationReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: true } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/pae-val-reviewer`, {
       method: "DELETE",
       body: JSON.stringify({ index }),
     });
