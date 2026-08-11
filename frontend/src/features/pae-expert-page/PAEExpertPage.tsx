@@ -55,6 +55,12 @@ export const PAEExpertPage = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const questionItemRefs = useRef<Record<string, HTMLDivElement>>({});
 
+  // Validation tab state
+  const [isValidationSidebarCollapsed, setIsValidationSidebarCollapsed] = useState(false);
+  const [selectedValidationQuestion, setSelectedValidationQuestion] = useState<string | null>(null);
+  const validationScrollRef = useRef<HTMLDivElement>(null);
+  const validationQuestionItemRefs = useRef<Record<string, HTMLDivElement>>({});
+
   const preferences = useMemo(
     () => ({
       status: "all" as const,
@@ -83,6 +89,24 @@ export const PAEExpertPage = () => {
     refetch,
   } = useGetAllocatedQuestions(LIMIT, filter, preferences, "allocated", null, "all");
 
+  // Validation questions hook
+  const {
+    data: validationQuestionPages,
+    isLoading: isValidationQuestionsLoading,
+    fetchNextPage: fetchValidationNextPage,
+    hasNextPage: hasValidationNextPage,
+    isFetchingNextPage: isFetchingValidationNextPage,
+    refetch: refetchValidation,
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences, "allocated", null, "all");
+
+  const validationQuestions = useMemo(() => {
+    if (!validationQuestionPages?.pages) return [];
+    return validationQuestionPages.pages.flat();
+  }, [validationQuestionPages]);
+
+  const { data: selectedValidationQuestionData, isLoading: isSelectedValidationQuestionLoading } =
+    useGetQuestionById(selectedValidationQuestion, "allocated");
+
   const questions = useMemo(() => {
     if (!questionPages?.pages) return [];
     return questionPages.pages.flat();
@@ -99,6 +123,18 @@ export const PAEExpertPage = () => {
     } else {
       delete questionItemRefs.current[questionId];
     }
+  };
+
+  const setValidationQuestionRef = (questionId: string, element: HTMLDivElement | null) => {
+    if (element) {
+      validationQuestionItemRefs.current[questionId] = element;
+    } else {
+      delete validationQuestionItemRefs.current[questionId];
+    }
+  };
+
+  const handleValidationQuestionClick = (id: string) => {
+    setSelectedValidationQuestion(id);
   };
 
   // Load drafts and selected question from localStorage on mount
@@ -463,15 +499,120 @@ export const PAEExpertPage = () => {
     );
   };
 
+  // Validation right panel - read-only view for validation
+  const renderValidationRightPanel = () => {
+    if (!selectedValidationQuestionData) return null;
+
+    return (
+      <Card className="w-full border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
+        <CardHeader className="flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <ClipboardCheck className="w-5 h-5 text-primary" />
+            </div>
+            <CardTitle className="text-lg font-semibold">Validation Response</CardTitle>
+          </div>
+          <QuestionDetailsDialog question={selectedValidationQuestionData} />
+        </CardHeader>
+        <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden">
+          {isSelectedValidationQuestionLoading ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="mt-2 text-sm text-muted-foreground">Loading...</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col w-full">
+                <Label className="text-sm font-medium text-muted-foreground">
+                  Current Query:
+                </Label>
+                <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
+                  {selectedValidationQuestionData.text}
+                </p>
+              </div>
+
+              {selectedValidationQuestionData.aiInitialAnswer && (
+                <div>
+                  <Label className="text-sm font-medium flex items-center gap-1">
+                    <Bot className="h-4 w-4 text-blue-600" />
+                    AI Suggested Answer:
+                  </Label>
+                  <div className="mt-1 p-3 rounded-md border border-blue-400/70 bg-blue-50 dark:bg-blue-950/30 text-sm italic">
+                    {selectedValidationQuestionData.aiInitialAnswer}
+                  </div>
+                </div>
+              )}
+
+              {/* Placeholder for validation review UI - can be extended */}
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <ClipboardCheck className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium text-foreground mb-2">Validation Mode</p>
+                <p className="text-sm text-muted-foreground">
+                  Review and validate the response for this question.
+                </p>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
   const renderValidationTab = () => (
-    <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="bg-muted/30 rounded-full p-6 mb-6">
-        <ClipboardCheck className="w-12 h-12 text-muted-foreground" />
+    <div className="flex flex-col space-y-6">
+      <div
+        className={`grid grid-cols-1 ${
+          validationQuestions.length
+            ? isValidationSidebarCollapsed
+              ? "lg:grid-cols-[minmax(0,_1fr)]"
+              : "lg:grid-cols-[minmax(400px,_1fr)_minmax(400px,_1fr)]"
+            : ""
+        } gap-6 transition-all duration-300 relative`}
+      >
+        {isValidationSidebarCollapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsValidationSidebarCollapsed(false)}
+            className="absolute -left-12 h-full text-center ml-2 px-2 z-10 border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent"
+            title="Expand Questions"
+          >
+            <ChevronsRight className="w-4 h-4" />
+            <span className="sr-only">Expand Questions</span>
+          </Button>
+        )}
+
+        <div className={`transition-all duration-300 ${isValidationSidebarCollapsed ? "hidden" : "w-full"}`}>
+          <QaHeader
+            questions={validationQuestions}
+            selectedQuestion={selectedValidationQuestion}
+            onQuestionSelect={handleValidationQuestionClick}
+            isLoading={isValidationQuestionsLoading}
+            isLoadingTarget={false}
+            isFetchingNextPage={isFetchingValidationNextPage}
+            onRefresh={refetchValidation}
+            actionType="allocated"
+            onActionTypeChange={() => {}}
+            reviewLevel="all"
+            source="all"
+            states={[]}
+            crops={[]}
+            onFilterChange={() => {}}
+            scrollRef={validationScrollRef}
+            questionItemRefs={validationQuestionItemRefs}
+            setQuestionRef={setValidationQuestionRef}
+            onToggleCollapse={() => setIsValidationSidebarCollapsed(!isValidationSidebarCollapsed)}
+            onAiAnswerFetched={() => {}}
+            hideControls={true}
+          />
+        </div>
+
+        {selectedValidationQuestionData && (
+          <div className="transition-all duration-300 w-full">
+            {renderValidationRightPanel()}
+          </div>
+        )}
       </div>
-      <h3 className="text-xl font-semibold text-foreground mb-2">No Validation Questions</h3>
-      <p className="text-muted-foreground text-center max-w-md">
-        There are no validation questions assigned to you at the moment. Please check back later or switch to the Review tab to continue with your pending reviews.
-      </p>
     </div>
   );
 
