@@ -9353,7 +9353,7 @@ if (filters.endDate) {
 
       const responseData = await response.json() as { status: string; pendingFeedbackCount: number };
       dataReleaseResponse = responseData
-    // dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
+     //dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
     } catch (error: any) {
       console.error('[QuestionService] handleFeedbackAction: Failed to call data release service:', error);
       throw new InternalServerError('Failed to process feedback action: ' + error.message);
@@ -9567,6 +9567,8 @@ if (filters.endDate) {
       reviewerName: string;
       assignedAt: Date;
       finishedAt: Date | null;
+      /** How many feedbacks this reviewer has already acted on (accepted/rejected). */
+      completedCount: number;
     }[];
   }> {
     const [question, submission] = await Promise.all([
@@ -9592,6 +9594,9 @@ if (filters.endDate) {
             names.get(r.reviewerId?.toString())?.name ?? 'Unknown',
           assignedAt: r.assignedAt,
           finishedAt: r.finishedAt ?? null,
+          completedCount: Array.isArray(r.closedFeedbacks)
+            ? r.closedFeedbacks.length
+            : 0,
         }))
         .sort(
           (a, b) =>
@@ -9626,6 +9631,16 @@ if (filters.endDate) {
     index?: number,
   ): Promise<{success: true}> {
     await this._withTransaction(async session => {
+      // Don't allow assigning a reviewer once the feedback is closed (no open
+      // feedback left on the question).
+      const question = await this.questionRepo.getById(questionId);
+      const feedbacks = ((question as any)?.feedbacks ?? []) as any[];
+      const hasOpenFeedback =
+        Array.isArray(feedbacks) && feedbacks.some(f => f?.status === 'open');
+      if (!hasOpenFeedback) {
+        throw new BadRequestError('This feedback is already closed.');
+      }
+
       const submission =
         await this.questionSubmissionRepo.getByQuestionId(questionId);
       const rounds = ((submission as any)?.feedbackReviews ?? []) as any[];

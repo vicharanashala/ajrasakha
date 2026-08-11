@@ -180,6 +180,8 @@ export interface FeedbackReviewRound {
   reviewerName: string;
   assignedAt: string;
   finishedAt: string | null;
+  /** How many feedbacks this reviewer has already acted on (accepted/rejected). */
+  completedCount?: number;
 }
 
 export interface FeedbackTimeline {

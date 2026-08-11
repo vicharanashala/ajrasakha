@@ -143,7 +143,11 @@ export const FeedbackReviewTimeline = ({
 
   // "Select Reviewer" shows when auto is OFF (to assign/change), for non-experts.
   const showSelect = canManage && !autoOn;
-  const openRoundIndex = timeline.reviews.find((r) => !r.finishedAt)?.index;
+  const openRound = timeline.reviews.find((r) => !r.finishedAt);
+  const openRoundIndex = openRound?.index;
+  // The current reviewer has already submitted some feedback — replacing them risks
+  // erasing that completed work, so confirm first.
+  const openRoundCompleted = (openRound?.completedCount ?? 0) > 0;
 
   return (
     <div className="w-full space-y-6 my-6">
@@ -186,18 +190,35 @@ export const FeedbackReviewTimeline = ({
                 </Label>
               </div>
 
-              {showSelect && (
-                <Button
-                  variant="default"
-                  className="gap-2 w-full sm:w-auto"
-                  onClick={() =>
-                    openPicker(hasOpenRound ? openRoundIndex : undefined)
-                  }
-                >
-                  <UserPlus className="w-4 h-4" />
-                  {hasOpenRound ? "Change Reviewer" : "Select Reviewer"}
-                </Button>
-              )}
+              {showSelect &&
+                (hasOpenRound && openRoundCompleted ? (
+                  // Replacing a reviewer who already submitted feedback — confirm first.
+                  <ConfirmationModal
+                    title="Replace this reviewer?"
+                    description={`${openRound?.reviewerName ?? "This user"} has already completed ${openRound?.completedCount} feedback${(openRound?.completedCount ?? 0) === 1 ? "" : "s"} on this question. Replacing them may erase that completed work. Are you sure you want to replace the user?`}
+                    confirmText="Replace"
+                    cancelText="Cancel"
+                    type="edit"
+                    onConfirm={() => openPicker(openRoundIndex)}
+                    trigger={
+                      <Button variant="default" className="gap-2 w-full sm:w-auto">
+                        <UserPlus className="w-4 h-4" />
+                        Change Reviewer
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <Button
+                    variant="default"
+                    className="gap-2 w-full sm:w-auto"
+                    onClick={() =>
+                      openPicker(hasOpenRound ? openRoundIndex : undefined)
+                    }
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    {hasOpenRound ? "Change Reviewer" : "Select Reviewer"}
+                  </Button>
+                ))}
             </div>
           )}
         </div>
@@ -234,7 +255,11 @@ export const FeedbackReviewTimeline = ({
                     <div className="absolute -top-1 right-0 w-6 h-6 flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       <ConfirmationModal
                         title="Remove feedback reviewer?"
-                        description={`Remove ${r.reviewerName}'s feedback review from this question? This releases them and cannot be undone.`}
+                        description={
+                          (r.completedCount ?? 0) > 0
+                            ? `${r.reviewerName} has already completed ${r.completedCount} feedback${r.completedCount === 1 ? "" : "s"} on this question. Removing them may erase that completed work. Are you sure you want to remove the user?`
+                            : `Remove ${r.reviewerName}'s feedback review from this question? This releases them and cannot be undone.`
+                        }
                         confirmText="Remove"
                         cancelText="Cancel"
                         type="delete"

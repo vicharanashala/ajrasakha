@@ -710,6 +710,7 @@ export interface IQuestionService {
       reviewerName: string;
       assignedAt: Date;
       finishedAt: Date | null;
+      completedCount: number;
     }[];
   }>;
   getAssignableFeedbackReviewers(): Promise<
