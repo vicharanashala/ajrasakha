@@ -1,4 +1,4 @@
-import type { IUser, IUnverifiedUser, ReviewLevelCount } from "@/types";
+import type { IUser, IUnverifiedUser, ReviewLevelCount, UserRole } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 import { formatDateLocal } from "@/utils/formatDate";
@@ -51,6 +51,23 @@ export class UserService {
   async getModerators(): Promise<{ _id: string; name: string; email: string }[] | null> {
     return apiFetch<{ _id: string; name: string; email: string }[]>(
       `${this._baseUrl}/moderators`,
+    );
+  }
+
+  /**
+ * All users ({_id, name, email}) — based on the given roles.
+ */
+  async getUsersByRole(
+    roles: UserRole[],
+  ): Promise<{ _id: string; name: string; email: string }[] | null> {
+    const params = new URLSearchParams();
+    
+    roles.forEach((role) => {
+      params.append('role', role);
+    });
+
+    return apiFetch<{ _id: string; name: string; email: string }[]>(
+      `${this._baseUrl}/by-role?${params.toString()}`,
     );
   }
 
