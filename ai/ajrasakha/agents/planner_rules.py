@@ -11,6 +11,7 @@ from ajrasakha.agents.domains import (
     crop_counts_as_resolved,
     domain_requires_crop,
     is_crop_placeholder,
+    normalize_crop_value,
     normalize_domain,
 )
 from ajrasakha.agents.location_context import (
@@ -141,6 +142,26 @@ _META_CLARIFY_RE = re.compile(
 )
 _CROP_CLARIFY_RE = re.compile(
     r"which crop|what crop|कौन सी फसल|कौनसी फसल",
+    re.I,
+)
+
+_EXPLICIT_ALL_CROP_RE = re.compile(
+    r"\b(?:all|any|multiple|several|various|different)\s+(?:general\s+)?crops?\b|"
+    r"\b(?:a|some|general)\s+(?:general\s+)?crops?\b|"
+    r"\bcrops?\s+(?:do not|don't|does not|doesn't)\s+matter\b",
+    re.I,
+)
+_ALL_CROP_CLARIFICATION_RE = re.compile(
+    r"^\s*(?:all|any|multiple|multiple\s+crops?|general)\s*[.!?]*\s*$",
+    re.I,
+)
+_CROP_OUTPUT_RE = re.compile(
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
+    r"(?:should|can|could|would|to)\b.*\b(?:grow|plant|cultivate|sow)\b)|"
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
+    r"(?:suitable|best|good|recommended|ideal)\b)|"
+    r"(?:\bwhat\s+to\s+(?:grow|plant|cultivate|sow)\b)|"
+    r"(?:\bwhat\s+should\s+i\s+(?:grow|plant|cultivate|sow)\b)",
     re.I,
 )
 
@@ -426,29 +447,108 @@ def apply_crop_one_shot_fallback(
     return entities
 
 
-def resolve_crop_for_turn(messages: list[BaseMessage]) -> Optional[str]:
-    """Crop from latest message, or last few human lines only during crop clarify."""
-    if is_crop_clarify_turn(messages):
-        text = recent_human_text(messages, max_turns=3)
-    else:
-        text = latest_human_text(messages)
-    crop = extract_crop_from_text(text)
-    if crop:
-        resolved = crop[0].upper() + crop[1:].lower()
-        source = "recent_human_text" if is_crop_clarify_turn(messages) else "latest_human_text"
+def resolve_crop_for_turn_with_source(
+    messages: list[BaseMessage],
+) -> tuple[Optional[str], str]:
+    """Resolve the crop slot as ``specific`` or the canonical ``all`` scope.
+
+    A missing/ambiguous value is represented as ``all`` for persistence and
+    downstream tools. The requirement gate still treats ``all`` as unsatisfied
+    when the selected domain needs a specific crop, so this normalization does
+    not suppress a necessary crop follow-up.
+    """
+    crop_clarify = is_crop_clarify_turn(messages)
+    latest_text = latest_human_text(messages)
+    text = recent_human_text(messages, max_turns=3) if crop_clarify else latest_text
+
+    if is_crop_output_question(text) or is_explicit_all_crop_request(text):
+        source = (
+            "deterministic_non_specific_crop_request"
+            if is_crop_output_question(text)
+            else "deterministic_all_crop_request"
+        )
         trace_resolution(
-            "crop_from_text",
-            crop=resolved,
+            "crop_scope_from_text",
+            crop="all",
             crop_source=source,
             text_preview=text[:120] if text else None,
         )
-        return resolved
-    return None
+        return "all", source
+
+    crop = extract_crop_from_text(latest_text if crop_clarify else text)
+    if crop:
+        trace_resolution(
+            "crop_from_text",
+            crop=crop,
+            crop_source="crop_master_exact_alias",
+            text_preview=(latest_text if crop_clarify else text)[:120],
+        )
+        return crop, "crop_master_exact_alias"
+
+    if crop_clarify and latest_text.strip():
+        # The user answered the crop question, but did not provide a resolvable
+        # crop. Represent that answer using MongoDB's canonical all-crops value;
+        # the planner will treat this clarification turn as resolved.
+        trace_resolution(
+            "crop_clarification_fallback",
+            crop="all",
+            crop_source="crop_clarification_default_all",
+            text_preview=latest_text[:120],
+        )
+        return "all", "crop_clarification_default_all"
+
+    trace_resolution(
+        "crop_unresolved",
+        crop="all",
+        crop_source="unresolved_default_all",
+        text_preview=text[:120] if text else None,
+    )
+    return "all", "unresolved_default_all"
+
+
+def resolve_crop_for_turn(messages: list[BaseMessage]) -> Optional[str]:
+    """Backward-compatible crop-only wrapper around the three-state resolver."""
+    crop, _source = resolve_crop_for_turn_with_source(messages)
+    return crop
+
+
+def is_explicit_all_crop_request(text: str | None) -> bool:
+    """True when the farmer explicitly asks for non-specific/all-crop handling."""
+    raw = (text or "").strip()
+    return bool(_EXPLICIT_ALL_CROP_RE.search(raw) or _ALL_CROP_CLARIFICATION_RE.match(raw))
+
+
+def is_crop_output_question(text: str | None) -> bool:
+    """True when the farmer asks which crop/plant to grow, not for crop input."""
+    return bool(_CROP_OUTPUT_RE.search((text or "").strip()))
 
 
 def extract_crop_from_text(text: str) -> Optional[str]:
     if not text:
         return None
+
+    # Resolve against the complete crop-master alias catalog before using the
+    # small legacy fallback list below. This keeps new crops/Indian-language
+    # aliases working without continually expanding planner regexes.
+    try:
+        from ajrasakha.agents.crop_chemical_resolver import (
+            ensure_crop_master_loaded,
+            find_crop_mentions,
+        )
+
+        ensure_crop_master_loaded()
+        mentions = find_crop_mentions(text, limit=1)
+        if mentions:
+            return mentions[0].entry.name
+    except Exception as exc:
+        # The generated catalog is an enhancement; preserve the existing
+        # planner fallback behavior if it is unavailable or malformed.
+        trace_resolution(
+            "crop_master_resolution_failed",
+            error_type=type(exc).__name__,
+            error=str(exc),
+        )
+
     for name, pattern in _CROP_PATTERNS:
         if pattern.search(text):
             return name
@@ -477,17 +577,30 @@ def merge_entities_from_rephrased_query(
     """
     # Start with previous entities, override with new plan entities
     merged: PlannerEntities = {**(prev_entities or {}), **dict(plan.get("entities") or {})}
+    if merged.get("crop"):
+        merged["crop"] = normalize_crop_value(merged["crop"])
     text = entity_text_from_plan(plan, messages)
 
     # --- Crop Resolution ---
     crop_source: str | None = None
     domains = list(plan.get("domains") or [normalize_domain(plan.get("domain") or "General")])
     current_crop_mentioned = False
+    raw_latest_text = latest_human_text(messages)
+    crop_output_requested = is_crop_output_question(text) or is_crop_output_question(raw_latest_text)
+    explicit_all_requested = is_explicit_all_crop_request(text) or is_explicit_all_crop_request(raw_latest_text)
 
     if is_crop_clarify_turn(messages):
-        turn_crop = extract_crop_from_text(text)
+        turn_crop = (
+            "all"
+            if crop_output_requested or explicit_all_requested
+            else extract_crop_from_text(text)
+        )
         if turn_crop:
-            crop_source = "rephrased_query_text (crop_clarify_turn)"
+            crop_source = (
+                "deterministic_non_specific_crop_request (crop_clarify_turn)"
+                if turn_crop == "all"
+                else "rephrased_query_text (crop_clarify_turn)"
+            )
             current_crop_mentioned = True
         else:
             turn_crop = resolve_crop_for_turn(messages)
@@ -495,13 +608,26 @@ def merge_entities_from_rephrased_query(
                 crop_source = "recent_human_text (crop_clarify_turn)"
                 current_crop_mentioned = True
     else:
-        turn_crop = extract_crop_from_text(text)
+        turn_crop = (
+            "all"
+            if crop_output_requested or explicit_all_requested
+            else extract_crop_from_text(text)
+        )
         if turn_crop:
-            crop_source = "rephrased_query_text"
+            crop_source = (
+                "deterministic_non_specific_crop_request"
+                if turn_crop == "all"
+                else "rephrased_query_text"
+            )
             current_crop_mentioned = True
 
     if turn_crop:
-        merged["crop"] = turn_crop[0].upper() + turn_crop[1:].lower()
+        normalized_turn_crop = normalize_crop_value(turn_crop)
+        merged["crop"] = (
+            "all"
+            if normalized_turn_crop == "all"
+            else turn_crop[0].upper() + turn_crop[1:].lower()
+        )
     elif merged.get("crop"):
         prev_crop = merged.get("crop")
         # Check if we should inherit crop from previous turn

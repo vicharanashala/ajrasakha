@@ -65,8 +65,12 @@ from ajrasakha.agents.planner_rules import (
     is_standalone_clarification_reply,
     merge_clarification_reply_into_query,
     format_prev_plan_context,
+    is_explicit_all_crop_request,
     merge_entities_from_rephrased_query,
+    normalize_crop_value,
     resolve_crop_for_turn,
+    resolve_crop_for_turn_with_source,
+    is_crop_output_question,
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
@@ -475,14 +479,47 @@ async def _apply_domain_and_crop_async(
         plan["chemical_checker"] = False
 
     entities: PlannerEntities = dict(plan.get("entities") or {})
+    if entities.get("crop"):
+        entities["crop"] = normalize_crop_value(entities["crop"])
     user_text = latest_human_text(messages)
     question = plan.get("rephrased_query") or user_text
     original = plan.get("original_query_en") or user_text
+    deterministic_crop_output = is_crop_output_question(question) or is_crop_output_question(user_text)
+    deterministic_all_crop = is_explicit_all_crop_request(question) or is_explicit_all_crop_request(user_text)
 
     entities = apply_crop_one_shot_fallback(messages, entities, domains)
 
-    crop = crop_prefilled or resolve_crop_for_turn(messages) or entities.get("crop")
-    if crop_slot_satisfied(crop):
+    resolved_turn_crop, resolved_turn_source = resolve_crop_for_turn_with_source(messages)
+    # Prefer the deterministic resolution of the current farmer turn over an
+    # LLM entity. The LLM may copy a seasonal term (for example, ``kharif``)
+    # into entities.crop even though the farmer did not name that crop.
+    crop = normalize_crop_value(
+        resolved_turn_crop or crop_prefilled or entities.get("crop")
+    )
+    if deterministic_crop_output:
+        # A crop-output question asks the system to recommend the crop. Any
+        # crop entity inferred by the LLM (for example, "Kharif crops" or
+        # "Sorghum") is not a farmer-provided input crop.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = "deterministic_crop_output_requested"
+    elif deterministic_all_crop:
+        # An explicit clarification such as "any general crop" is a resolved
+        # user decision to use the canonical all-crops scope.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = "deterministic_all_crop_requested"
+    elif (
+        resolved_turn_crop == "all"
+        and resolved_turn_source == "crop_clarification_default_all"
+    ):
+        # A non-empty answer to an already-asked crop clarification that does
+        # not resolve to a catalog crop uses MongoDB's canonical all-crops
+        # value. Initial missing-crop turns still go through domain policy.
+        entities["crop"] = "all"
+        crop_required = False
+        crop_requirement_source = resolved_turn_source
+    elif crop_slot_satisfied(crop):
         # Preserve the pre-existing crop-present behavior. The new JSON/LLM
         # decision path is intentionally only for turns without a crop name.
         if any(legacy_domain_requires_crop(domain) for domain in domains):
@@ -504,28 +541,37 @@ async def _apply_domain_and_crop_async(
             if domain_crop_requirement_mode(domain) == "conditional"
         ]
 
-        # Deterministic policies short-circuit the classifier. Conditional
-        # domains are classified concurrently only when no crop is available.
+        async def classify_domain(domain: str) -> CropRequirementDecision:
+            policy = get_domain_crop_policy(domain)
+            additional = policy.get("additional_remarks") or {}
+            additional_text = "; ".join(
+                f"{key}: {value}" for key, value in additional.items()
+            )
+            return await is_crop_specific_question(
+                question,
+                original,
+                domain,
+                config=config,
+                domain_description=policy.get("description", ""),
+                domain_remarks=policy.get("remarks", ""),
+                additional_remarks=additional_text,
+                default_crop_required=bool(policy.get("default_crop_required")),
+            )
+
+        # Always-required domains retain their existing behavior unless the
+        # classifier explicitly recognizes that the farmer is asking which
+        # crop to grow. This prevents an always-required domain from turning
+        # a crop recommendation into an unnecessary input-crop question.
         crop_required = bool(always_domains)
         crop_requirement_source = "always_required" if always_domains else "never_required"
-        if not crop_required and conditional_domains:
-            async def classify_domain(domain: str) -> CropRequirementDecision:
-                policy = get_domain_crop_policy(domain)
-                additional = policy.get("additional_remarks") or {}
-                additional_text = "; ".join(
-                    f"{key}: {value}" for key, value in additional.items()
-                )
-                return await is_crop_specific_question(
-                    question,
-                    original,
-                    domain,
-                    config=config,
-                    domain_description=policy.get("description", ""),
-                    domain_remarks=policy.get("remarks", ""),
-                    additional_remarks=additional_text,
-                    default_crop_required=bool(policy.get("default_crop_required")),
-                )
-
+        if always_domains:
+            output_decision = await classify_domain(always_domains[0])
+            if output_decision == "crop_output_requested":
+                crop_required = False
+                crop_requirement_source = "always_domain_crop_output_requested"
+        elif conditional_domains:
+            # Conditional domains are classified concurrently only when no
+            # crop is available.
             conditional_results: list[CropRequirementDecision] = await asyncio.gather(
                 *(classify_domain(domain) for domain in conditional_domains)
             )
