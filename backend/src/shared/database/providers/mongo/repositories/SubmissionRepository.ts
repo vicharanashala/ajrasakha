@@ -4213,6 +4213,52 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     return map;
   }
 
+  /**
+   * Update the PAE validation status in the question submission's paeValidation array.
+   * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.
+   */
+  async updatePaeValidationStatus(
+    questionId: string,
+    paeId: string,
+    paeStatus: 'in-progress' | 'completed',
+    paeFinishedAt: Date | null,
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    
+    // Convert paeId to ObjectId for matching (the paeId stored may be string or ObjectId)
+    let paeIdValue: string | ObjectId = paeId;
+    if (ObjectId.isValid(paeId)) {
+      paeIdValue = new ObjectId(paeId);
+    }
+    
+    // Use positional operator to update the matching array element
+    const updateFields: any = {
+      'paeValidation.$.paeStatus': paeStatus,
+    };
+    
+    // Only set paeFinishedAt when completing
+    if (paeFinishedAt !== null) {
+      updateFields['paeValidation.$.paeFinishedAt'] = paeFinishedAt;
+    }
+    
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        'paeValidation.paeId': paeIdValue,
+      },
+      {
+        $set: {
+          ...updateFields,
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+    
+    return { modifiedCount: result.modifiedCount };
+  }
+
   //get level wise answer submission percentage report
   async getLevelWiseReport(
     startDate: string,

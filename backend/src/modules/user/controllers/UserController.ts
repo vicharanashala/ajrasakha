@@ -1358,4 +1358,16 @@ export class UserController {
   ): Promise<any>{
     return await this.userService.getWorkingHoursTrend(query)
   }
+
+  @Get('/by-role')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: '({_id, name, email}) List users filtered by roles',
+  })
+  async getUsersByRole(
+    @QueryParams() query: { role: UserRole[] },
+  ) {
+    return await this.userService.getUsersByRole(query.role ?? []);
+  }
 }

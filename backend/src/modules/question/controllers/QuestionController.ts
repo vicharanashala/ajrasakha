@@ -54,6 +54,7 @@ import {
   ApproveInitialAnswerBody,
   ReplaceQueueExpertRequest,
   ReallocateExpertsSelectedQuestionsRequest,
+  ProcessPaeValidationRequest,
 } from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
 import {
@@ -820,7 +821,7 @@ export class QuestionController {
       duplicateQuestions?: string;
       startDate?: string;
       endDate?: string;
-      moderator?: string;
+      allUsers?: string;
     },
     @CurrentUser() user: IUser,
     @Res() response: any,
@@ -857,7 +858,7 @@ export class QuestionController {
         duplicateQuestions: query.duplicateQuestions,
         startDate: query.startDate,
         endDate: query.endDate,
-        moderator: query.moderator,
+        allUsers: query.allUsers,
       });
     } catch (err: any) {
       auditPayload = {
@@ -3442,5 +3443,62 @@ export class QuestionController {
       if (err instanceof InternalServerError) throw new InternalServerError(err.message);
       throw new BadRequestError(err?.message || 'Failed to remove pae validation reviewer');
     }
+  }
+  
+  // ─── PAE Validation Assigned Questions Endpoint ─────────────────────────────────
+
+  @Get('/pae/validations/assigned')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ 
+    summary: 'Get all questions assigned to the current PAE expert for validation',
+    description: 'Returns paginated questions assigned to the authenticated PAE expert, including their final answers and sources.',
+  })
+  async getPaeValidationAssignedQuestions(
+    @QueryParams() query: { page?: number; limit?: number },
+    @CurrentUser() user: IUser,
+  ) {
+    const page = Number(query.page) || 1;
+    const limit = Math.min(Number(query.limit) || 10, 100); // Cap at 100 per page
+    
+    const userId = user._id.toString();
+    return await this.questionService.getPaeValidationAssignedQuestions(userId, page, limit);
+  }
+
+  /**
+   * Process a PAE validation decision for a question.
+   * 
+   * When status is 'approve':
+   * - Updates question.paeValidation to 'completed'
+   * - Removes the question from the PAE expert's paeValidationAssigned array
+   * - Updates the question submission's paeValidation array entry to 'completed'
+   * 
+   * When status is 'feedback':
+   * - Logs the feedback (can be extended to store feedback details)
+   * - The question remains assigned to the PAE expert for further work
+   */
+  @Post('/pae/validations/process')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ 
+    summary: 'Process PAE validation decision (approve/feedback)',
+    description: 'Process a PAE validation decision for an assigned question. When approved, the question is marked as completed and removed from the assignment. When feedback is provided, the question remains assigned for further work.',
+  })
+  async processPaeValidation(
+    @Body() body: ProcessPaeValidationRequest,
+    @CurrentUser() user: IUser,
+  ) {
+    const paeExpertId = user._id.toString();
+    const { questionId, status, suggestionComment, suggestionLink, suggestionSourceName } = body;
+    
+    return await this.questionService.processPaeValidation(
+      paeExpertId,
+      questionId,
+      status,
+      suggestionComment,
+      suggestionLink,
+      undefined,
+      suggestionSourceName,
+    );
   }
 }

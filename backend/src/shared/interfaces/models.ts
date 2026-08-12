@@ -418,6 +418,36 @@ export interface IComment {
   createdAt: Date;
 }
 
+/** Feedback submitted by a PAE expert during validation */
+export interface IFeedback {
+  _id?: string | ObjectId;
+  /** The question this feedback is for */
+  questionId: string | ObjectId;
+  /** Information about the user who submitted the feedback */
+  userId: {
+    name: string;
+    email: string;
+  };
+  /** The answer this feedback is associated with (optional) */
+  answerId?: string | ObjectId;
+  /** Type of feedback (e.g., 'PAE_VALIDATION') */
+  type: string;
+  /** The feedback comment */
+  comment: string;
+  /** Optional link with name and source URL */
+  link?: {
+    name: string;
+    source: string;
+  };
+  /** Status of the feedback: open (pending review), approved, or rejected */
+  status: 'open' | 'approved' | 'rejected';
+  createdAt?: Date;
+  /** Timestamp when the feedback was approved (if applicable) */
+  approvedAt?: Date | null;
+  /** Optional review note from moderator */
+  reviewNote?: string | null;
+}
+
 export type RequestStatus = 'pending' | 'rejected' | 'approved' | 'in-review';
 
 export interface IRequestResponse {

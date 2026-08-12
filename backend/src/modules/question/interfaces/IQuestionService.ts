@@ -16,6 +16,12 @@ import {
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { ClientSession, ObjectId } from 'mongodb';
 import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+import type {
+  PaeValidationAnswer,
+  PaeValidationQuestion,
+  PaeValidationSource,
+  PaeValidationAssignedQuestionsResponse,
+} from './QuestionValidationTypes.js';
 
 /** Feedback data structure */
 export interface FeedbackData {
@@ -603,7 +609,7 @@ export interface IQuestionService {
     isOnHold?: string;
     startDate?: string;
     endDate?: string;
-    moderator?: string;
+    allUsers?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,
@@ -799,4 +805,46 @@ export interface IQuestionService {
     questionId: string,
     index: number,
   ): Promise<{success: true}>;
+  /** Get all questions assigned to a PAE expert for validation, with pagination.
+   *  Includes answer data and sources from the answer collection.
+   *  @param paeExpertId The PAE expert's user ID
+   *  @param page Page number (1-indexed)
+   *  @param limit Number of items per page
+   *  @returns Promise resolving to paginated questions with answers and sources */
+  getPaeValidationAssignedQuestions(
+    paeExpertId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaeValidationAssignedQuestionsResponse>;
+
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * 
+   * When status is 'approve':
+   * - Updates question.paeValidation to 'completed'
+   * - Removes the question from the user's paeValidationAssigned array
+   * - Updates the question submission's paeValidation array entry to 'completed' with paeFinishedAt
+   * 
+   * When status is 'feedback':
+   * - Creates a new feedback entry in the feedbacks collection
+   * - Updates the question's feedbacks array with source 'PAE_Validation' and status 'open'
+   * - The question remains in the user's paeValidationAssigned for further work
+   * 
+   * @param paeExpertId The PAE expert's user ID (from current user)
+   * @param questionId The question ID to process
+   * @param status The validation decision ('approve' or 'feedback')
+   * @param suggestionComment Optional comment explaining feedback
+   * @param suggestionLink Optional reference link URL
+   * @param answerId Optional answer ID associated with the feedback
+   * @param suggestionSourceName Optional name of the source for the suggestion link
+   */
+  processPaeValidation(
+    paeExpertId: string,
+    questionId: string,
+    status: 'approve' | 'feedback',
+    suggestionComment?: string,
+    suggestionLink?: string,
+    answerId?: string,
+    suggestionSourceName?: string,
+  ): Promise<{ success: boolean; message: string }>;
 }

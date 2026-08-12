@@ -346,4 +346,20 @@ export interface IQuestionSubmissionRepository {
     index: number,
     session?: ClientSession,
   ): Promise<boolean>;
+  /**
+   * Update the PAE validation status in the question submission's paeValidation array.
+   * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.
+   * @param questionId - The question ID
+   * @param paeId - The PAE expert's user ID to match in the array
+   * @param paeStatus - The new status ('in-progress' | 'completed')
+   * @param paeFinishedAt - The completion timestamp (null for in-progress)
+   * @param session - Optional MongoDB client session for transactions
+   */
+  updatePaeValidationStatus(
+    questionId: string,
+    paeId: string,
+    paeStatus: 'in-progress' | 'completed',
+    paeFinishedAt: Date | null,
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }>;
 }

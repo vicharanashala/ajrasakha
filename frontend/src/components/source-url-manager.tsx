@@ -32,6 +32,8 @@ interface SourceUrlManagerProps {
   onSourcesChange: (sources: SourceItem[]) => void;
   className?: string;
   allowAnyUrl?: boolean;
+  label?: string;
+  required?: boolean;
 }
 
 export const SourceUrlManager = ({
@@ -39,6 +41,8 @@ export const SourceUrlManager = ({
   onSourcesChange,
   className,
   allowAnyUrl = false,
+  label = "Source References",
+  required = true,
 }: SourceUrlManagerProps) => {
   const [selectedType, setSelectedType] = useState<SourceType | "">("");
   const [sourceName, setSourceName] = useState("");
@@ -149,7 +153,8 @@ export const SourceUrlManager = ({
   return (
     <div className={`grid gap-3 ${className}`}>
       <label className="text-sm font-medium text-foreground">
-        Source References *
+        {label}
+        {required ? " *" : ""}
       </label>
 
       <div className="space-y-3">

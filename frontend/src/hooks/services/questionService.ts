@@ -77,6 +77,58 @@ export type FeedbackQueueDetailsResponse = {
   questionsWithoutActiveModerator: { count: number; items: QueueQuestionItem[] };
 };
 
+/** Source item within an answer's sources array for PAE validation */
+export type PaeValidationSource = {
+  source: string;
+  sourceType?: string;
+  sourceName?: string;
+  page?: string | number | null;
+};
+
+/** Answer data included in PAE validation question response */
+export type PaeValidationAnswerData = {
+  _id: string;
+  answer: string;
+  sources: PaeValidationSource[];
+  authorId: string;
+  isFinalAnswer: boolean;
+};
+
+/** Single question returned in the PAE validation assigned questions list */
+export type PaeValidationQuestionItem = {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  priority: string;
+  totalAnswersCount: number;
+  createdAt: string | Date;
+  updatedAt?: string | Date;
+  state?: string;
+  district?: string;
+  crop?: string;
+  domain?: string | string[];
+  season?: string;
+  normalised_crop?: string;
+  isAutoAllocate?: boolean;
+  answer?: PaeValidationAnswerData;
+  details?: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+};
+
+/** Paginated response for PAE validation assigned questions */
+export type PaeValidationAssignedQuestionsResponse = {
+  questions: PaeValidationQuestionItem[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+};
+
 export type QueueDetailsResponse = {
   received: { count: number; items: QueueQuestionItem[] };
   /** Per-status counts for the received section — accurate DB totals for tab badges. */
@@ -931,7 +983,7 @@ export class QuestionService {
     duplicateQuestions?: boolean;
     startDate?: string;
     endDate?: string;
-    moderator?: string;
+    allUsers?: string;
   }): Promise<Blob> {
     const params = new URLSearchParams();
     if (filters.startDate) {
@@ -967,8 +1019,8 @@ export class QuestionService {
     if (filters.duplicateQuestions) {
       params.append("duplicateQuestions", String(filters.duplicateQuestions));
     }
-    if (filters.moderator && filters.moderator !== "all") {
-      params.append("moderator", filters.moderator);
+    if (filters.allUsers && filters.allUsers !== "all") {
+      params.append("allUsers", filters.allUsers);
     }
 
     // Get the current Firebase user and token
@@ -1276,26 +1328,19 @@ export class QuestionService {
     if (endTime) {
       params.append("endTime", endTime.toISOString());
     }
-    const queryString = params.toString();
-    const res = await apiFetch<{
-      success: boolean;
-      data: QueueDetailsResponse;
-    }>(`${this._baseUrl}/queue-details${queryString ? `?${queryString}` : ""}`, {
-      method: "GET",
-    });
+    const res = await apiFetch<{ success: boolean; data: QueueDetailsResponse }>(
+      `${this._baseUrl}/queue-details${params.toString() ? `?${params.toString()}` : ""}`,
+      { method: "GET" }
+    );
     return res?.data ?? null;
   }
 
-  async getFeedbackQueueDetails(): Promise<FeedbackQueueDetailsResponse | null> {
-    const res = await apiFetch<{
-      success: boolean;
-      data: FeedbackQueueDetailsResponse;
-    }>(`${this._baseUrl}/feedback/queue-details`, {
-      method: "GET",
-    });
-    return res?.data ?? null;
-  }
-
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * @param payload The validation decision payload
+   * @returns Promise resolving to the response
+   */
+ 
   async getQueueSection(
     section: string,
     page: number,
@@ -1384,4 +1429,55 @@ export class QuestionService {
     );
   }
 
+  /**
+   * Fetch paginated questions assigned to the current PAE expert for validation.
+   * Returns questions with their final answers and sources included.
+   */
+  async getPaeValidationAssignedQuestions(
+    page: number,
+    limit: number
+  ): Promise<PaeValidationAssignedQuestionsResponse | null> {
+    const params = new URLSearchParams();
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+
+    const res = await apiFetch<
+      | {
+          success: boolean;
+          data: PaeValidationAssignedQuestionsResponse;
+        }
+      | PaeValidationAssignedQuestionsResponse
+    >(`${this._baseUrl}/pae/validations/assigned?${params.toString()}`, {
+      method: "GET",
+    });
+    if (!res) return null;
+    return "data" in res ? res.data : res;
+  }
+
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * @param payload The validation decision payload
+   * @returns Promise resolving to the response
+   */
+async processPaeValidation(
+    payload: {
+      questionId: string;
+      status: "approve" | "feedback";
+      suggestionComment?: string;
+      suggestionLink?: string;
+      suggestionSourceName?: string;
+      answerId?: string;
+    }
+  ): Promise<{ success: boolean; message: string } | null> {
+    const res = await apiFetch<{ success: boolean; message: string }>(
+      `${this._baseUrl}/pae/validations/process`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+    return res;
+  }
+
 }
+  

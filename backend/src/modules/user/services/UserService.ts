@@ -1181,4 +1181,25 @@ export class UserService extends BaseService {
   }
 }
 
+  async getUsersByRole(
+    roles: UserRole[],
+  ): Promise<{ _id: string; name: string; email: string }[]> {
+    if (!roles?.length) {
+      throw new BadRequestError('At least one role must be provided');
+    }
+
+    const users = await this.userRepo.getUsersByRole(roles);
+
+    return users
+      .map((user) => ({
+        _id: user._id?.toString() ?? '',
+        name:
+          `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() ||
+          user.email ||
+          'Unknown',
+        email: user.email ?? '',
+      }))
+      .filter((user) => user._id);
+  }
+
 }

@@ -24,6 +24,7 @@ import {
   UserRole,
   TIME_BOUND_SOURCES,
   MANUAL_SOURCES,
+  IFeedback,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -66,6 +67,11 @@ import {
   FeedbackData,
   FeedbackQueueDetails,
 } from '../interfaces/IQuestionService.js';
+import type {
+  PaeValidationQuestion,
+  PaeValidationAnswer,
+  PaeValidationAssignedQuestionsResponse,
+} from '../interfaces/QuestionValidationTypes.js';
 import { isToday } from '#root/utils/date.utils.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
@@ -73,6 +79,7 @@ import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import ExcelJS from 'exceljs';
 import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
 import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
+import { IFeedbackRepository } from '#root/shared/database/interfaces/IFeedbackRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
 import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js';
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
@@ -165,6 +172,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     private readonly callDetailsRepository: ICallDetailsRepository,
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(CORE_TYPES.FeedbackRepository)
+    private readonly feedbackRepo: IFeedbackRepository,
   ) {
     super(mongoDatabase);
   }
@@ -5477,8 +5487,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     duplicateQuestions?: string;
     startDate?: string;
     endDate?: string;
-    /** Moderator (= final answer's approvedBy) to filter closed questions by. */
-    moderator?: string;
+    /** All Users to filter questions by. */
+    allUsers?: string;
   }): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       // Build filter query
@@ -5528,10 +5538,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (filters.status === 'pae_closed') {
           query.status = 'closed';
           query.pae_review = true;
-        } else if (filters.status === 'closed') {
-          // When filtering by 'closed', include dynamic_closed and duplicate_closed as well
-          query.status = { $in: ['closed', 'dynamic_closed', 'duplicate_closed'] };
-        } else {
+        }
+        else if ( filters.status === 'all-closed'){
+          query.status = { $in: ['closed','duplicate_closed','dynamic_closed']}
+        }
+        else {
           query.status = filters.status;
         }
       }
@@ -5610,33 +5621,33 @@ if (filters.endDate) {
 
       // Check if this is a closed status report - if so, limit to 50 questions
       const isClosedStatus =
-        filters.status === 'closed' || filters.status === 'pae_closed' || filters.status === 'dynamic_closed' || filters.status === "duplicate_closed";
-      // `moderator` is a comma-separated list of moderator (approvedBy) ids.
-      const moderatorIds =
-        filters.moderator && filters.moderator !== 'all'
-          ? filters.moderator
+        filters.status === 'closed' || filters.status === 'pae_closed' || filters.status === 'dynamic_closed' || filters.status === "duplicate_closed";;
+      // `allUsers` is a comma-separated list of user (approvedBy) ids.
+      const allUserIds =
+        filters.allUsers && filters.allUsers !== 'all'
+          ? filters.allUsers
             .split(',')
             .map(s => s.trim())
             .filter(Boolean)
           : [];
-      const filterByModerator = moderatorIds.length > 0;
-      // Answer / Sources / Moderator details only exist on a closed question's final
-      // answer, so they are included for closed reports or when filtering by moderator.
-      const includeAnswerDetails = isClosedStatus || filterByModerator;
+      const filterByAllUsers = allUserIds.length > 0;
+      // Answer / Sources / All Users details only exist on a closed question's final
+      // answer, so they are included for closed reports or when filtering by all users.
+      const includeAnswerDetails = isClosedStatus || filterByAllUsers;
       const questionLimit = includeAnswerDetails ? 50 : undefined;
 
-      // Moderator filter (= final answer's approvedBy): restrict to the closed questions
-      // those moderators approved. Final answers only exist for closed questions, so this
+      // All Users filter (= final answer's approvedBy): restrict to the closed questions
+      // those users approved. Final answers only exist for closed questions, so this
       // also scopes the report to closed questions.
-      if (filterByModerator) {
+      if (filterByAllUsers) {
         const approvedQuestionIds =
           await this.answerRepo.getFinalAnswerQuestionIdsByApprover(
-            moderatorIds,
+            allUserIds,
             session,
           );
         if (!approvedQuestionIds.length) {
           console.log(
-            'No closed questions approved by the selected moderator(s)',
+            'No closed questions approved by the selected user(s)',
           );
           return null;
         }
@@ -5652,7 +5663,7 @@ if (filters.endDate) {
         filters.duplicateQuestions === 'true',
         questionLimit,
       );
-
+      
       if (!questions || questions.length === 0) {
         console.log('No questions found for given filters');
         return null;
@@ -5712,7 +5723,7 @@ if (filters.endDate) {
       if (includeAnswerDetails) {
         columns.push({ header: 'Answer', key: 'answer', width: 80 });
         columns.push({ header: 'Sources', key: 'sources', width: 50 });
-        columns.push({ header: 'Moderator', key: 'moderator', width: 25 });
+        columns.push({ header: 'AllUsers', key: 'allUsers', width: 25 });
       }
 
       sheet.columns = columns;
@@ -5743,7 +5754,7 @@ if (filters.endDate) {
           const qId = q._id.toString();
           rowData.answer = questionAnswers.get(qId) || '';
           rowData.sources = questionSources.get(qId) || '';
-          rowData.moderator = questionModerator.get(qId) || '';
+          rowData.allUsers = questionModerator.get(qId) || '';
         }
 
         sheet.addRow(rowData);
@@ -10316,4 +10327,223 @@ if (filters.endDate) {
     return {success: true};
   }
 
+  /** Get all questions assigned to a PAE expert for validation, with pagination.
+   *  Includes answer data and sources from the answer collection.
+   */
+  async getPaeValidationAssignedQuestions(
+    paeExpertId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaeValidationAssignedQuestionsResponse> {
+    // Get the user to check paeValidationAssigned
+    const user = await this.userRepo.findById(paeExpertId);
+    
+    if (!user) {
+      throw new NotFoundError(`User with ID ${paeExpertId} not found`);
+    }
+    
+    // Get the question IDs from paeValidationAssigned
+    const questionIds = (user.paeValidationAssigned || []).map(id => {
+      if (typeof id === 'string') {
+        return new ObjectId(id);
+      }
+      return id as ObjectId;
+    });
+    
+    if (questionIds.length === 0) {
+      return {
+        questions: [],
+        totalCount: 0,
+        totalPages: 0,
+        currentPage: page,
+      };
+    }
+    
+    // Get paginated questions with answers joined in a single aggregation call
+    const { questions: paginatedQuestions, totalCount, totalPages, currentPage } = 
+      await this.questionRepo.findByIdsWithAnswers(questionIds, page, limit);
+    
+    // Transform the results to match the expected response format
+    const questionsWithAnswers: PaeValidationQuestion[] = paginatedQuestions.map(q => ({
+      _id: q._id.toString(),
+      question: q.question,
+      status: q.status,
+      source: q.source,
+      priority: q.priority,
+      totalAnswersCount: q.totalAnswersCount,
+      createdAt: q.createdAt || new Date(),
+      state: q.state,
+      district: q.district,
+      crop: q.crop,
+      domain: q.domain,
+      season: q.season,
+      normalised_crop: q.normalised_crop,
+      answer: q.answer ? {
+        _id: q.answer._id.toString(),
+        answer: q.answer.answer,
+        sources: q.answer.sources || [],
+        authorId: q.answer.authorId.toString(),
+        isFinalAnswer: q.answer.isFinalAnswer,
+      } : undefined,
+    }));
+    
+    return {
+      questions: questionsWithAnswers,
+      totalCount,
+      totalPages,
+      currentPage,
+    };
+  }
+
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * 
+   * When status is 'approve':
+   * - Updates question.paeValidation to 'completed'
+   * - Removes the question from the user's paeValidationAssigned array
+   * - Updates the question submission's paeValidation array entry to 'completed' with paeFinishedAt
+   * 
+   * When status is 'feedback':
+   * - Currently just logs the feedback; can be extended to store feedback in the submission
+   * - The question remains in the user's paeValidationAssigned for further work
+   */
+  async processPaeValidation(
+    paeExpertId: string,
+    questionId: string,
+    status: 'approve' | 'feedback',
+    suggestionComment?: string,
+    suggestionLink?: string,
+    answerId?: string,
+    suggestionSourceName?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // Verify the question exists and is assigned to this PAE expert
+    const question = await this.questionRepo.getById(questionId);
+    if (!question) {
+      throw new NotFoundError(`Question with ID ${questionId} not found`);
+    }
+
+    // Check if the question is in paeValidation status (either pending or in-progress)
+    if (!question.paeValidation || question.paeValidation === 'completed') {
+      throw new BadRequestError(
+        `Question ${questionId} is not in a valid state for PAE validation`,
+      );
+    }
+
+    // Verify the user has this question assigned
+    const user = await this.userRepo.findById(paeExpertId);
+    if (!user) {
+      throw new NotFoundError(`User with ID ${paeExpertId} not found`);
+    }
+
+    const questionIds = (user.paeValidationAssigned || []).map(id =>
+      typeof id === 'string' ? id : (id as ObjectId).toString()
+    );
+    
+    if (!questionIds.includes(questionId)) {
+      throw new BadRequestError(
+        `Question ${questionId} is not assigned to this PAE expert`,
+      );
+    }
+
+    if (status === 'approve') {
+      // Use transaction to update all related documents atomically
+      await this._withTransaction(async (session: ClientSession) => {
+        // 1. Update question.paeValidation to 'completed'
+        await this.questionRepo.updatePaeValidationStatus(
+          questionId,
+          'completed',
+          session,
+        );
+
+        // 2. Remove the question from user's paeValidationAssigned array
+        await this.userRepo.removePaeValidationAssigned(
+          paeExpertId,
+          questionId,
+          session,
+        );
+
+        // 3. Update the question submission's paeValidation array entry to 'completed'
+        await this.questionSubmissionRepo.updatePaeValidationStatus(
+          questionId,
+          paeExpertId,
+          'completed',
+          new Date(),
+          session,
+        );
+      });
+
+      return {
+        success: true,
+        message: `Question ${questionId} has been approved and PAE validation completed`,
+      };
+    } else {
+      // Status is 'feedback' - store the feedback and keep the question assigned
+      const now = new Date();
+      
+      await this._withTransaction(async (session: ClientSession) => {
+        // 1. Update the question submission's paeValidation array entry with paeFinishedAt
+        // (Mark this validation round as finished even though we're providing feedback)
+        await this.questionSubmissionRepo.updatePaeValidationStatus(
+          questionId,
+          paeExpertId,
+          'completed',
+          now,
+          session,
+        );
+
+        await this.userRepo.removePaeValidationAssigned(
+          paeExpertId,
+          questionId,
+          session,
+        );
+
+        // 2. Create a new feedback entry in the feedbacks collection
+        const feedbackData: Omit<IFeedback, '_id'> = {
+          questionId: new ObjectId(questionId),
+          userId: {
+            name: `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`.trim(),
+            email: user.email,
+          },
+          type: 'PAE_VALIDATION',
+          comment: suggestionComment || '',
+          answerId: answerId ? new ObjectId(answerId) : undefined,
+          link: suggestionLink
+            ? { name: suggestionSourceName || suggestionLink, source: suggestionLink }
+            : undefined,
+          status: 'open',
+          createdAt: now,
+        };
+
+        const createdFeedback = await this.feedbackRepo.create(feedbackData, session);
+
+        // 3. Update the question's feedbacks array
+        await this.questionRepo.addFeedback(
+          questionId,
+          {
+            source: 'PAE_Validation',
+            status: 'open',
+          },
+          session,
+        );
+
+        console.log(
+          `[processPaeValidation] Feedback created for question ${questionId} by PAE expert ${paeExpertId}`,
+          {
+            feedbackId: createdFeedback._id?.toString(),
+            suggestionComment,
+            suggestionLink,
+            suggestionSourceName,
+          },
+        );
+      });
+
+      // Note: Question remains in user's paeValidationAssigned for further work
+      // The moderator will need to address the feedback
+
+      return {
+        success: true,
+        message: `Feedback noted for question ${questionId}. The question remains assigned for further work.`,
+      };
+    }
+  }
 }
