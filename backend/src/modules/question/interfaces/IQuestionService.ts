@@ -737,6 +737,7 @@ export interface IQuestionService {
     action: 'accept' | 'reject',
     reason: string,
     processedBy: string,
+    source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation', 
   ): Promise<{
     success: boolean;
     message: string;
@@ -768,7 +769,7 @@ export interface IQuestionService {
 
   handleFeedbackStatusUpdate(
     questionId: string,
-    source: "DATASET" | "WEB_APPLICATION",
+    source: "DATASET" | "WEB_APPLICATION" | "PAE_Validation",
   ): Promise<{
     success: boolean;
   }>;

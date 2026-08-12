@@ -9335,6 +9335,7 @@ if (filters.endDate) {
     action: 'accept' | 'reject',
     reason: string,
     processedBy: string,
+    source:'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation'
   ): Promise<{
     success: boolean;
     message: string;
@@ -9346,6 +9347,53 @@ if (filters.endDate) {
       processedAt: string;
     };
   }> {
+    if(source === "PAE_Validation"){
+      const feedback = await this.feedbackRepo.findById(feedbackId.toString());
+      if(!feedback){
+        throw new NotFoundError(`Feedback with ID ${feedbackId} not found`);
+      }
+      
+      // Update the feedback in the feedbacks collection
+      await this.feedbackRepo.updateFeedbackAction(feedbackId.toString(), action, reason, processedBy);
+      
+      const processedAt = new Date().toISOString();
+      
+      // Record this individual feedback as closed on the OPEN feedback-review round
+      // (so the view can hide accept/reject for it going forward).
+      await this.questionSubmissionRepo.addClosedFeedbackToOpenRound(
+        questionId,
+        feedbackId,
+        new Date(),
+      );
+      
+      // Check if all feedbacks are processed (for PAE_Validation, we only have one feedback)
+      // Update the question's feedbacks array to mark this feedback as closed
+      await this.questionRepo.updateQuestion(
+        questionId,
+        { 
+          'feedbacks.$[].status': 'closed',
+        } as any
+      );
+      
+      // Close the open feedback-review round on the submission (stamps finishedAt
+      // on the round that has no finishedAt yet).
+      await this.questionSubmissionRepo.finishOpenFeedbackReviews(questionId, new Date());
+      
+      // Remove the questionId from the processedBy user's feedbacksAssigned array
+      await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+      
+      return {
+        success: true,
+        message: `Feedback ${action}ed successfully. All feedbacks processed.`,
+        data: {
+          feedbackId,
+          action,
+          reason,
+          processedBy,
+          processedAt,
+        },
+      };
+    }
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
     
@@ -10038,7 +10086,7 @@ if (filters.endDate) {
    */
   async handleFeedbackStatusUpdate(
   questionId: string,
-  source: 'DATASET' | 'WEB_APPLICATION',
+  source: 'DATASET' | 'WEB_APPLICATION' | "PAE_Validation",
 ): Promise<{ success: boolean }> {
   const matchedCount = await this.questionRepo.addOrUpdateFeedbackStatus(
     questionId,

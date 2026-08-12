@@ -3209,10 +3209,10 @@ export class QuestionController {
   async handleFeedbackAction(
     @Param('questionId') questionId: string,
     @Param('feedbackId') feedbackId: string,
-    @Body() body: { action: 'accept' | 'reject'; reason: string },
+    @Body() body: { action: 'accept' | 'reject'; reason: string,source:'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation' },
     @CurrentUser({ required: true }) user: IUser,
   ) {
-    console.log('[QuestionController] handleFeedbackAction:', { questionId, feedbackId, action: body.action, reason: body.reason, userId: user._id });
+    console.log('[QuestionController] handleFeedbackAction:', { questionId, feedbackId, action: body.action, reason: body.reason, userId: user._id, source: body.source });
 
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
@@ -3234,6 +3234,7 @@ export class QuestionController {
         body.action,
         body.reason,
         user._id.toString(),
+        body.source
       );
       this.auditTrailsService.createAuditTrail(auditPayload);
       return result;
@@ -3262,7 +3263,7 @@ export class QuestionController {
   })
   async handleUpdateFeedbackStatus(
     @Param('questionId') questionId: string,
-    @Body() body: { source: "DATASET"| "WEB_APPLICATION" },
+    @Body() body: { source: "DATASET"| "WEB_APPLICATION" | "PAE_Validation" },
   ) {
     
     const result = await this.questionService.handleFeedbackStatusUpdate(

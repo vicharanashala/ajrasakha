@@ -439,7 +439,7 @@ export interface IFeedback {
     source: string;
   };
   /** Status of the feedback: open (pending review), approved, or rejected */
-  status: 'open' | 'approved' | 'rejected';
+  status: 'open' | 'accept' | 'reject';
   createdAt?: Date;
   /** Timestamp when the feedback was approved (if applicable) */
   approvedAt?: Date | null;

@@ -8724,13 +8724,14 @@ export class QuestionRepository implements IQuestionRepository {
   //add or update feedback status of the question
   async addOrUpdateFeedbackStatus(
     questionId: string,
-    source: 'DATASET' | 'WEB_APPLICATION',
+    source: 'DATASET' | 'WEB_APPLICATION' | "PAE_Validation",
     session?: ClientSession,
   ): Promise<number> {
     try {
       const normalizedSource = source.toUpperCase() as
         | 'DATASET'
-        | 'WEB_APPLICATION';
+        | 'WEB_APPLICATION'
+        | "PAE_Validation";
       await this.init();
 
       const result = await this.QuestionCollection.updateOne(
