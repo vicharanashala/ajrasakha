@@ -2114,6 +2114,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           updates.status === 'duplicate_closed'
         ) {
           updates.isClosed = true;
+          updates.paeValidation= 'pending';
+          updates.autoAllocatePaeValidationExpert = true;
           if (!updates.closedAt) updates.closedAt = new Date();
         }
         const updateResult = await this.questionRepo.updateQuestion(
@@ -10634,6 +10636,12 @@ if (filters.endDate) {
         };
 
         const createdFeedback = await this.feedbackRepo.create(feedbackData, session);
+
+        await this.questionRepo.updateQuestion(
+                  questionId,
+                  {autoAllocateFeedback: true} as any,
+                  session,
+                );
 
         // 3. Update the question's feedbacks array
         await this.questionRepo.addFeedback(

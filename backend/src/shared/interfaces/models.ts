@@ -253,6 +253,7 @@ export interface IQuestion {
    *  - 'in-progress': PAE expert has been assigned and is working on it
    *  - 'completed': PAE expert has completed the validation */
   paeValidation?: 'pending' | 'in-progress' | 'completed';
+  autoAllocateFeedback?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

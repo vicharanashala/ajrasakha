@@ -2007,6 +2007,7 @@ answer: ${updates.answer}`;
             embedding: questionEmbedding,
             status: closeStatus,
             paeValidation: 'pending',
+            autoAllocatePaeValidationExpert: true,
             closedAt: new Date(),
 
           },
@@ -2066,6 +2067,7 @@ answer: ${updates.answer}`;
           embedding: questionEmbedding,
           status: closeStatus,
           paeValidation: 'pending',
+          autoAllocateFeedback: true,
           closedAt: new Date(),
         },
         session,
@@ -2146,7 +2148,7 @@ answer: ${updates.answer}`;
           // Close the child question, marking it system-closed.
           await this.questionRepo.updateQuestion(
             childId,
-            { status: 'closed', closedAt: new Date(), closedBy: 'System', paeValidation: 'pending' },
+            { status: 'closed', closedAt: new Date(), closedBy: 'System', paeValidation: 'pending', autoAllocatePaeValidationExpert: true },
             session,
           );
           // Free any moderator holding the child.
@@ -2279,7 +2281,7 @@ answer: ${updates.answer}`;
 
           await this.questionRepo.updateQuestion(
             questionId,
-            { status: 'closed', closedAt: new Date(), closedBy: 'System' , paeValidation: 'pending'},
+            { status: 'closed', closedAt: new Date(), closedBy: 'System' , paeValidation: 'pending', autoAllocatePaeValidationExpert: true},
             session,
           );
 
@@ -2610,7 +2612,7 @@ answer: ${updates.answer}`;
         {
           totalAnswersCount: updatedAnswerCount,
           status: isFinalAnswer ? 'open' : 'closed',
-          ...(!isFinalAnswer && { paeValidation: 'pending' }),
+          ...(!isFinalAnswer && { paeValidation: 'pending', autoAllocatePaeValidationExpert: true }),
         },
         session,
       );
