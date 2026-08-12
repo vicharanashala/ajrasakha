@@ -86,7 +86,7 @@ export class FeedbackRepository implements IFeedbackRepository {
       { _id: new ObjectId(feedbackId) } as any,
       {
         $set: {
-          action,
+          status:action,
           reviewNote:reason,
           approvedAt: new Date(),
         },

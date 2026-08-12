@@ -10597,6 +10597,11 @@ if (filters.endDate) {
       await this._withTransaction(async (session: ClientSession) => {
         // 1. Update the question submission's paeValidation array entry with paeFinishedAt
         // (Mark this validation round as finished even though we're providing feedback)
+        await this.questionRepo.updatePaeValidationStatus(
+          questionId,
+          'completed',
+          session,
+        );
         await this.questionSubmissionRepo.updatePaeValidationStatus(
           questionId,
           paeExpertId,

@@ -24,7 +24,7 @@ export function isDomainMatch(question: IQuestion, user: IUser): boolean {
   }
 
   // If user preference is 'ALL', any domain is acceptable
-  if (userPreferenceDomain === 'ALL') {
+  if ( typeof userPreferenceDomain === 'string' && userPreferenceDomain.toUpperCase() === 'ALL') {
     return true;
   }
 
@@ -67,7 +67,7 @@ export function isStateMatch(question: IQuestion, user: IUser): boolean {
   }
 
   // If user preference is 'ALL', any state is acceptable
-  if (userPreferenceState === 'ALL') {
+  if (typeof userPreferenceState === 'string' && userPreferenceState.toUpperCase() === 'ALL') {
     return true;
   }
 
