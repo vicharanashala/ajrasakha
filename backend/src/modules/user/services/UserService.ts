@@ -462,7 +462,14 @@ export class UserService extends BaseService {
       return this._withTransaction(async (session: ClientSession) => {
         const updatedUser = await this.userRepo.edit(
           userId,
-          { isVerified },
+          // Block until verified: verifying unblocks + activates the account,
+          // un-verifying blocks + deactivates it (status gate covers the roles
+          // whose access is driven by status rather than isBlocked).
+          {
+            isVerified,
+            isBlocked: !isVerified,
+            status: isVerified ? 'active' : 'in-active',
+          },
           session,
         );
         if (!updatedUser)

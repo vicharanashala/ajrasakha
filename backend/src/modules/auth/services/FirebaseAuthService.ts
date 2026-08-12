@@ -266,8 +266,10 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
               lastName,
               role: body.role,
               isVerified,
-              isBlocked: false,
-              status: 'active',
+              // Blocked + in-active until verified (status gate covers moderator/
+              // expert/gate_keeper/auditor whose access is driven by status).
+              isBlocked: !isVerified,
+              status: isVerified ? 'active' : 'in-active',
             },
             session,
           );
@@ -284,6 +286,9 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
           lastName,
           role: body.role,
           isVerified,
+          // Blocked + in-active until verified.
+          isBlocked: !isVerified,
+          status: isVerified ? 'active' : 'in-active',
         });
 
         const createdId = await this.userRepository.create(newUser, session);
@@ -365,6 +370,9 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         lastName: names.slice(1).join(' ') || '',
         role: 'pae_expert',
         isVerified: false,
+        // Blocked + in-active until an admin verifies the account.
+        isBlocked: true,
+        status: 'in-active',
       };
 
       await this._withTransaction(async (session) => {

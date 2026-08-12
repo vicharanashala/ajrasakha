@@ -796,7 +796,7 @@ const UserRow: React.FC<UserRowProps> = ({
                     ? "Blocking this expert will restrict their access to the review system until they are unblocked. Once blocked, they will no longer be able to review, submit answers, or perform any actions within the platform. They will also be excluded from all current and future allocations. Are you sure you want to proceed?"
                     : `Blocking this ${actionRole} will restrict their access to the platform until they are unblocked. They will not be able to manage reviews, moderate content, or perform any administrative actions. Are you sure you want to proceed?`
                   : confirmAction === "verify"
-                    ? "This action will verify the user's account, granting them full access to the platform's features. Are you sure you want to proceed?"
+                    ? "This action will verify the user's account, granting them full access to the platform's features. It will also unblock the user and set their status to active. Are you sure you want to proceed?"
                     : actionRole === "expert"
                       ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
                       : confirmAction === "make-stf"
