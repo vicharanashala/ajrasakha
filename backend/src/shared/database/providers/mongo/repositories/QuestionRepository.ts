@@ -3564,73 +3564,70 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get moderator breakdown
-    const moderatorBreakdown = (await this.AnswersCollection.aggregate(
+    const moderatorBreakdown = (await this.QuestionCollection.aggregate(
       [
+        // Start from CLOSED questions, NOT answers. The old answer-first pipeline
+        // counted orphaned final answers whose question was deleted (question got
+        // deleted but the answer didn't), inflating the counts. Starting from the
+        // questions collection means a deleted question simply can't be counted.
         {
           $match: {
-            status: 'approved',
-            isFinalAnswer: true,
-            approvedBy: { $exists: true, $ne: null },
+            closedAt: { $gte: start, $lt: end },
+            status: { $in: ['closed', 'dynamic_closed', 'duplicate_closed'] },
+            ...(!isAdmin &&
+              (isTrainingUser
+                ? { isTrainingQuestion: true }
+                : { isTrainingQuestion: { $ne: true } })),
           },
         },
 
-        // Lookup question
+        // Look up this question's FINAL answer and its approver — the person who
+        // closed it, moderator OR auditor. Take the most recent one so each closed
+        // question is credited exactly once.
         {
           $lookup: {
-            from: 'questions',
-            localField: 'questionId',
-            foreignField: '_id',
-            as: 'question',
+            from: 'answers',
+            let: { qid: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$questionId', '$$qid'] },
+                      { $eq: ['$isFinalAnswer', true] },
+                    ],
+                  },
+                  approvedBy: { $exists: true, $ne: null },
+                },
+              },
+              { $sort: { updatedAt: -1 } },
+              { $limit: 1 },
+            ],
+            as: 'finalAnswer',
           },
         },
 
+        // Drop closed questions with no final answer / no approver.
         {
           $unwind: {
-            path: '$question',
+            path: '$finalAnswer',
             preserveNullAndEmptyArrays: false,
           },
         },
 
-        // Filter by question.closedAt AND a genuine close status. A moderator
-        // "approval" is a question that ended up closed / dynamic_closed /
-        // duplicate_closed — not any answer that merely has a closedAt.
-        {
-          $match: {
-            'question.closedAt': {
-              $gte: start,
-              $lt: end,
-            },
-            'question.status': {
-              $in: ['closed', 'dynamic_closed', 'duplicate_closed'],
-            },
-            ...(!isAdmin &&
-              (isTrainingUser
-                ? {
-                  'question.isTrainingQuestion': true,
-                }
-                : {
-                  'question.isTrainingQuestion': { $ne: true },
-                })),
-          },
-        },
-
-        // Group by moderator, with per-close-status counts.
+        // Group by the approver (from the final answer), with per-close-status counts.
         {
           $group: {
-            _id: '$approvedBy',
+            _id: '$finalAnswer.approvedBy',
             count: { $sum: 1 },
             closedCount: {
-              $sum: { $cond: [{ $eq: ['$question.status', 'closed'] }, 1, 0] },
+              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] },
             },
             dynamicClosedCount: {
-              $sum: {
-                $cond: [{ $eq: ['$question.status', 'dynamic_closed'] }, 1, 0],
-              },
+              $sum: { $cond: [{ $eq: ['$status', 'dynamic_closed'] }, 1, 0] },
             },
             duplicateClosedCount: {
-              $sum: {
-                $cond: [{ $eq: ['$question.status', 'duplicate_closed'] }, 1, 0],
-              },
+              $sum: { $cond: [{ $eq: ['$status', 'duplicate_closed'] }, 1, 0] },
             },
           },
         },
