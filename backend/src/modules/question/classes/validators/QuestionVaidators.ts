@@ -562,6 +562,15 @@ class ProcessPaeValidationRequest {
   @IsOptional()
   @IsString()
   suggestionLink?: string;
+
+  @JSONSchema({
+    description: 'Name of the source for the suggestion link (optional)',
+    example: 'ICAR Fertilizer Guidelines',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  suggestionSourceName?: string;
 }
 class RemoveAllocateBody {
   @IsNumber()

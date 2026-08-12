@@ -28,6 +28,7 @@ import {
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetPaeValidationAssignedQuestions } from "@/hooks/api/question/useGetPaeValidationAssignedQuestions";
+import { useProcessPaeValidation } from "@/hooks/api/question/useProcessPaeValidation";
 import type {
   PaeValidationQuestionItem,
   PaeValidationSource,
@@ -186,6 +187,7 @@ export const PAEExpertPage = () => {
     useGetQuestionById(selectedQuestion, "allocated");
 
   const { mutateAsync: respondQuestion, isPending: isResponding } = useReviewAnswer();
+  const { mutateAsync: processPaeValidation, isPending: isProcessingPaeValidation } = useProcessPaeValidation();
 
   const setQuestionRef = (questionId: string, element: HTMLDivElement | null) => {
     if (element) {
@@ -213,20 +215,62 @@ export const PAEExpertPage = () => {
     setIsNoSourceConfirmOpen(false);
   };
 
-  const handleApproveValidation = () => {
-    if (!selectedValidationQuestionData) return;
-    toast.success("Validation approval is ready to submit once the API is connected.");
+  const handleApproveValidation = async () => {
+    if (!selectedValidationQuestion) return;
+    
+    try {
+      const response = await processPaeValidation({
+        questionId: selectedValidationQuestion,
+        status: 'approve',
+      });
+      
+      if (response?.success) {
+        toast.success("Validation approved successfully!");
+        // Refetch the validation questions to update the list
+        refetchValidation();
+        setSelectedValidationQuestion(null);
+      } else {
+        toast.error(response?.message || "Failed to approve validation");
+      }
+    } catch (error) {
+      console.error("Error approving validation:", error);
+      toast.error("Failed to approve validation. Please try again.");
+    }
   };
 
-  const submitValidationSuggestion = () => {
-    if (!selectedValidationQuestionData) return;
+  const submitValidationSuggestion = async () => {
+    if (!selectedValidationQuestion) return;
     if (!suggestionText.trim()) {
       toast.error("Please add your suggestion before submitting.");
       return;
     }
-    toast.success("Validation suggestion is ready to submit once the API is connected.");
-    setIsSuggestionOpen(false);
-    resetSuggestionForm();
+    
+    try {
+      // Extract link and source name from the first suggestion source
+      const firstSource = suggestionSources[0];
+      const suggestionLink = firstSource?.source || undefined;
+      const suggestionSourceName = firstSource?.sourceName || firstSource?.source || undefined;
+      
+      const response = await processPaeValidation({
+        questionId: selectedValidationQuestion,
+        status: 'feedback',
+        suggestionComment: suggestionText,
+        suggestionLink,
+        suggestionSourceName,
+      });
+      
+      if (response?.success) {
+        toast.success("Validation suggestion submitted successfully!");
+        setIsSuggestionOpen(false);
+        resetSuggestionForm();
+        refetchValidation();
+      } else {
+        toast.error(response?.message || "Failed to submit suggestion");
+      }
+    } catch (error) {
+      console.error("Error submitting validation suggestion:", error);
+      toast.error("Failed to submit suggestion. Please try again.");
+    }
   };
 
   const handleSuggestionSubmit = () => {
@@ -618,7 +662,7 @@ export const PAEExpertPage = () => {
                         {isResponding ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Submitting…</span>
+                            <span>Submitting...</span>
                           </>
                         ) : (
                           <>

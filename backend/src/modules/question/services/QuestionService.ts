@@ -10227,6 +10227,8 @@ if (filters.endDate) {
     status: 'approve' | 'feedback',
     suggestionComment?: string,
     suggestionLink?: string,
+    answerId?: string,
+    suggestionSourceName?: string,
   ): Promise<{ success: boolean; message: string }> {
     // Verify the question exists and is assigned to this PAE expert
     const question = await this.questionRepo.getById(questionId);
@@ -10318,8 +10320,9 @@ if (filters.endDate) {
           },
           type: 'PAE_VALIDATION',
           comment: suggestionComment || '',
+          answerId: answerId ? new ObjectId(answerId) : undefined,
           link: suggestionLink
-            ? { name: suggestionLink, source: suggestionLink }
+            ? { name: suggestionSourceName || suggestionLink, source: suggestionLink }
             : undefined,
           status: 'open',
           createdAt: now,
@@ -10344,6 +10347,7 @@ if (filters.endDate) {
             feedbackId: createdFeedback._id?.toString(),
             suggestionComment,
             suggestionLink,
+            suggestionSourceName,
           },
         );
       });

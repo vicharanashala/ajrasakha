@@ -3305,7 +3305,7 @@ export class QuestionController {
    * - Logs the feedback (can be extended to store feedback details)
    * - The question remains assigned to the PAE expert for further work
    */
-  @Post('/process-pae-validation')
+  @Post('/pae/validations/process')
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ 
@@ -3317,7 +3317,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
   ) {
     const paeExpertId = user._id.toString();
-    const { questionId, status, suggestionComment, suggestionLink } = body;
+    const { questionId, status, suggestionComment, suggestionLink, suggestionSourceName } = body;
     
     return await this.questionService.processPaeValidation(
       paeExpertId,
@@ -3325,6 +3325,8 @@ export class QuestionController {
       status,
       suggestionComment,
       suggestionLink,
+      undefined,
+      suggestionSourceName,
     );
   }
 }

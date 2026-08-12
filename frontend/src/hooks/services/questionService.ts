@@ -1282,26 +1282,19 @@ export class QuestionService {
     if (endTime) {
       params.append("endTime", endTime.toISOString());
     }
-    const queryString = params.toString();
-    const res = await apiFetch<{
-      success: boolean;
-      data: QueueDetailsResponse;
-    }>(`${this._baseUrl}/queue-details${queryString ? `?${queryString}` : ""}`, {
-      method: "GET",
-    });
+    const res = await apiFetch<{ success: boolean; data: QueueDetailsResponse }>(
+      `${this._baseUrl}/queue-details${params.toString() ? `?${params.toString()}` : ""}`,
+      { method: "GET" }
+    );
     return res?.data ?? null;
   }
 
-  async getFeedbackQueueDetails(): Promise<FeedbackQueueDetailsResponse | null> {
-    const res = await apiFetch<{
-      success: boolean;
-      data: FeedbackQueueDetailsResponse;
-    }>(`${this._baseUrl}/feedback/queue-details`, {
-      method: "GET",
-    });
-    return res?.data ?? null;
-  }
-
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * @param payload The validation decision payload
+   * @returns Promise resolving to the response
+   */
+ 
   async getQueueSection(
     section: string,
     page: number,
@@ -1415,4 +1408,30 @@ export class QuestionService {
     return "data" in res ? res.data : res;
   }
 
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * @param payload The validation decision payload
+   * @returns Promise resolving to the response
+   */
+async processPaeValidation(
+    payload: {
+      questionId: string;
+      status: "approve" | "feedback";
+      suggestionComment?: string;
+      suggestionLink?: string;
+      suggestionSourceName?: string;
+      answerId?: string;
+    }
+  ): Promise<{ success: boolean; message: string } | null> {
+    const res = await apiFetch<{ success: boolean; message: string }>(
+      `${this._baseUrl}/pae/validations/process`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+    return res;
+  }
+
 }
+  

@@ -803,14 +803,17 @@ export interface IQuestionService {
    * - Updates the question submission's paeValidation array entry to 'completed' with paeFinishedAt
    * 
    * When status is 'feedback':
-   * - Updates the question submission's paeValidation array entry with feedback details
+   * - Creates a new feedback entry in the feedbacks collection
+   * - Updates the question's feedbacks array with source 'PAE_Validation' and status 'open'
    * - The question remains in the user's paeValidationAssigned for further work
    * 
    * @param paeExpertId The PAE expert's user ID (from current user)
    * @param questionId The question ID to process
    * @param status The validation decision ('approve' or 'feedback')
    * @param suggestionComment Optional comment explaining feedback
-   * @param suggestionLink Optional reference link
+   * @param suggestionLink Optional reference link URL
+   * @param answerId Optional answer ID associated with the feedback
+   * @param suggestionSourceName Optional name of the source for the suggestion link
    */
   processPaeValidation(
     paeExpertId: string,
@@ -818,5 +821,7 @@ export interface IQuestionService {
     status: 'approve' | 'feedback',
     suggestionComment?: string,
     suggestionLink?: string,
+    answerId?: string,
+    suggestionSourceName?: string,
   ): Promise<{ success: boolean; message: string }>;
 }
