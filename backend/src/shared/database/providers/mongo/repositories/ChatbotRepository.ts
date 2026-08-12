@@ -18572,6 +18572,99 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async getCoordinatorFarmerGeoData(coordinatorId: string) {
+    await this.init('annam');
+    const coordinator = await this.users.findOne({
+      _id: new ObjectId(coordinatorId),
+    });
+    if (!coordinator) throw new BadRequestError('Coordinator not found');
+
+    const assignedIds: ObjectId[] = coordinator.assignedCoordinators ?? [];
+    if (assignedIds.length === 0) {
+      return { coordinatorId, farmers: [], stats: { total: 0, withLocation: 0, totalQuestions: 0 } };
+    }
+
+    const farmers = await this.users
+      .find(
+        { _id: { $in: assignedIds } },
+        {
+          projection: {
+            _id: 1,
+            name: 1,
+            firstName: 1,
+            lastName: 1,
+            email: 1,
+            firebaseUID: 1,
+            userRole: 1,
+            'farmerProfile.farmerName': 1,
+            'farmerProfile.location': 1,
+            'farmerProfile.district': 1,
+            'farmerProfile.blockName': 1,
+            'farmerProfile.villageName': 1,
+            'farmerProfile.primaryCrop': 1,
+            'farmerProfile.cropsCultivated': 1,
+            'farmerProfile.state': 1,
+          },
+        },
+      )
+      .toArray();
+
+    // Fetch question counts per farmer from questions collection
+    const farmerObjectIds = farmers.map((f: any) => new ObjectId(f._id));
+    const questionCounts = await this.questions
+      .aggregate([
+        { $match: { userId: { $in: farmerObjectIds } } },
+        {
+          $group: {
+            _id: '$userId',
+            totalQuestions: { $sum: 1 },
+            closedQuestions: { $sum: { $cond: ['$isClosed', 1, 0] } },
+            lastQuestionAt: { $max: '$createdAt' },
+          },
+        },
+      ])
+      .toArray();
+
+    const countMap = new Map(
+      questionCounts.map((q: any) => [q._id.toString(), q]),
+    );
+
+    const enrichedFarmers = farmers.map((f: any) => {
+      const id = f._id.toString();
+      const qc = countMap.get(id);
+      return {
+        userId: id,
+        name: f.name || `${f.firstName ?? ''} ${f.lastName ?? ''}`.trim(),
+        email: f.email,
+        userRole: f.userRole,
+        farmerProfile: f.farmerProfile ?? {},
+        location: f.farmerProfile?.location ?? null,
+        totalQuestions: qc?.totalQuestions ?? 0,
+        closedQuestions: qc?.closedQuestions ?? 0,
+        lastQuestionAt: qc?.lastQuestionAt ?? null,
+      };
+    });
+
+    const withLocation = enrichedFarmers.filter((f: any) => f.location?.latitude && f.location?.longitude);
+    const totalQuestions = enrichedFarmers.reduce((sum: number, f: any) => sum + f.totalQuestions, 0);
+
+    return {
+      coordinatorId,
+      coordinatorRole: coordinator.userRole,
+      scope: {
+        district: coordinator.farmerProfile?.district,
+        block: coordinator.farmerProfile?.blockName,
+        state: coordinator.farmerProfile?.state,
+      },
+      farmers: enrichedFarmers,
+      stats: {
+        total: enrichedFarmers.length,
+        withLocation: withLocation.length,
+        totalQuestions,
+      },
+    };
+  }
+
   async getVillageUserCounts(
     state: string,
     district: string,

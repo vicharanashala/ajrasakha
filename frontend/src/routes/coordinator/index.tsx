@@ -5,6 +5,7 @@ import { isCoordinatorRole } from "@/lib/roles";
 import { useAuthStore } from "@/stores/auth-store";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+import CoordinatorMapDashboard from "@/features/chatbotDashboard/components/CoordinatorMapDashboard";
 
 export const Route = createFileRoute("/coordinator/")({
   component: RouteComponent,
@@ -22,7 +23,6 @@ function RouteComponent() {
       navigate({ to: "/auth" });
       return;
     }
-
     if (currentUser && !isCoordinatorRole(currentUser.role)) {
       navigate({ to: "/home" });
     }
@@ -39,6 +39,9 @@ function RouteComponent() {
           <UserProfileActions />
         </div>
       </header>
+      <main>
+        <CoordinatorMapDashboard />
+      </main>
     </div>
   );
 }
