@@ -101,7 +101,12 @@ def test_merge_entities_normalizes_non_specific_crop_alias_to_all(crop_alias):
     [
         ("Which crop should I grow in kharif season?", True),
         ("What plant is best for the rainy season?", True),
+        ("Which crop can be grown with less water?", True),
+        ("Which crop can be cultivated with little water?", True),
+        ("What crop needs minimal irrigation?", True),
+        ("Could you recommend a crop for the rainy season?", True),
         ("Which crop are you growing?", False),
+        ("What crop do you currently grow?", False),
         ("Which seed drill should I buy?", False),
     ],
 )

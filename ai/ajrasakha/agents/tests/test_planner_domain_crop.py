@@ -415,6 +415,32 @@ async def test_conditional_classifier_can_mark_crop_as_requested_output():
 
 
 @pytest.mark.asyncio
+async def test_passive_crop_output_question_skips_crop_requirement_classifier():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Cultural Practices"],
+            rephrased_query="Which crop can be grown with less water?",
+        )
+    )
+    with patch(
+        "ajrasakha.agents.planner.is_crop_specific_question",
+        new_callable=AsyncMock,
+        return_value="input_crop_required",
+    ) as classifier:
+        out, _domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            [HumanMessage(content="Which crop can be grown with less water?")],
+            crop_prefilled=None,
+            config={},
+        )
+
+    classifier.assert_not_awaited()
+    assert crop_required is False
+    assert out["entities"]["crop"] == "all"
+    assert out["crop_requirement_source"] == "deterministic_crop_output_requested"
+
+
+@pytest.mark.asyncio
 async def test_seed_drill_question_requires_input_crop():
     plan = planner_output_to_plan(
         PlannerOutput(
