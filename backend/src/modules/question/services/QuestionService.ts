@@ -24,6 +24,7 @@ import {
   UserRole,
   TIME_BOUND_SOURCES,
   MANUAL_SOURCES,
+  IFeedback,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -78,6 +79,7 @@ import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import ExcelJS from 'exceljs';
 import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
 import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
+import { IFeedbackRepository } from '#root/shared/database/interfaces/IFeedbackRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
 import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js';
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
@@ -170,6 +172,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     private readonly callDetailsRepository: ICallDetailsRepository,
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(CORE_TYPES.FeedbackRepository)
+    private readonly feedbackRepo: IFeedbackRepository,
   ) {
     super(mongoDatabase);
   }
@@ -10284,16 +10289,67 @@ if (filters.endDate) {
         message: `Question ${questionId} has been approved and PAE validation completed`,
       };
     } else {
-      // Status is 'feedback' - for now, just acknowledge and keep the question assigned
-      // In a full implementation, you might want to:
-      // - Store feedback details somewhere (e.g., in the submission's paeValidation array)
-      // - Notify other users
-      // - Create audit logs
+      // Status is 'feedback' - store the feedback and keep the question assigned
+      const now = new Date();
       
-      console.log(
-        `[processPaeValidation] Feedback provided for question ${questionId} by PAE expert ${paeExpertId}`,
-        { suggestionComment, suggestionLink },
-      );
+      await this._withTransaction(async (session: ClientSession) => {
+        // 1. Update the question submission's paeValidation array entry with paeFinishedAt
+        // (Mark this validation round as finished even though we're providing feedback)
+        await this.questionSubmissionRepo.updatePaeValidationStatus(
+          questionId,
+          paeExpertId,
+          'completed',
+          now,
+          session,
+        );
+
+        await this.userRepo.removePaeValidationAssigned(
+          paeExpertId,
+          questionId,
+          session,
+        );
+
+        // 2. Create a new feedback entry in the feedbacks collection
+        const feedbackData: Omit<IFeedback, '_id'> = {
+          questionId: new ObjectId(questionId),
+          userId: {
+            name: `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`.trim(),
+            email: user.email,
+          },
+          type: 'PAE_VALIDATION',
+          comment: suggestionComment || '',
+          link: suggestionLink
+            ? { name: suggestionLink, source: suggestionLink }
+            : undefined,
+          status: 'open',
+          createdAt: now,
+        };
+
+        const createdFeedback = await this.feedbackRepo.create(feedbackData, session);
+
+        // 3. Update the question's feedbacks array
+        await this.questionRepo.addFeedback(
+          questionId,
+          {
+            source: 'PAE_Validation',
+            status: 'open',
+            recentFeedback: now,
+          },
+          session,
+        );
+
+        console.log(
+          `[processPaeValidation] Feedback created for question ${questionId} by PAE expert ${paeExpertId}`,
+          {
+            feedbackId: createdFeedback._id?.toString(),
+            suggestionComment,
+            suggestionLink,
+          },
+        );
+      });
+
+      // Note: Question remains in user's paeValidationAssigned for further work
+      // The moderator will need to address the feedback
 
       return {
         success: true,

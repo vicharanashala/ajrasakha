@@ -8889,6 +8889,48 @@ export class QuestionRepository implements IQuestionRepository {
     );
   }
 
+  /**
+   * Adds a feedback entry to the question's feedbacks array.
+   * Also updates recentFeedback timestamp if provided.
+   */
+  async addFeedback(
+    questionId: string,
+    feedbackEntry: {
+      source: string;
+      status: string;
+      recentFeedback?: Date;
+    },
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    const now = new Date();
+
+    const updateOps: any = {
+      $push: {
+        feedbacks: {
+          source: feedbackEntry.source,
+          status: feedbackEntry.status,
+        },
+      },
+    };
+
+    // If recentFeedback is provided, also set it
+    if (feedbackEntry.recentFeedback || true) {
+      updateOps.$set = {
+        recentFeedback: feedbackEntry.recentFeedback || now,
+      };
+    }
+
+    const result = await this.QuestionCollection.updateOne(
+      { _id: qid },
+      updateOps,
+      { session },
+    );
+
+    return { modifiedCount: result.modifiedCount };
+  }
+
   /** Find questions by their IDs with pagination, joining final answers in a single aggregation pipeline.
    *  Uses $lookup to join with answers collection and get the final answer with sources.
    */

@@ -775,4 +775,20 @@ export interface IQuestionRepository {
     totalPages: number;
     currentPage: number;
   }>;
+
+  /**
+   * Adds a feedback entry to the question's feedbacks array.
+   * @param questionId The question ID to update
+   * @param feedbackEntry The feedback entry to add
+   * @param session Optional MongoDB client session for transactions
+   */
+  addFeedback(
+    questionId: string,
+    feedbackEntry: {
+      source: string;
+      status: string;
+      recentFeedback?: Date;
+    },
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }>;
 }
