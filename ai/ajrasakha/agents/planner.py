@@ -42,6 +42,7 @@ from ajrasakha.agents.domains import (
 from ajrasakha.agents.language import _llm_detect_language, detect_script_language, resolve_planner_language_pair
 from ajrasakha.agents.translation_catalog import (
     OFFICIAL_LANGUAGES,
+    get_catalog,
     get_crop_follow_up,
     get_state_follow_up,
     language_pair_from_plan,
@@ -747,6 +748,12 @@ async def planner_node(
     state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
     crop_resolved = resolve_crop_for_turn(messages)
     clarification_query = merge_clarification_reply_into_query(prev_plan, user_text)
+    previous_vocal_language = (prev_plan.get("vocal_language") or "").strip()
+    previous_script_language = (prev_plan.get("script_language") or "").strip()
+    preserve_clarification_language = bool(
+        clarification_query
+        and (previous_script_language, previous_vocal_language) in get_catalog()
+    )
 
     llm_messages: list[BaseMessage] = [SystemMessage(content=PLANNER_SYSTEM_PROMPT)]
     conv_block = format_conversation_for_planner(messages) or user_text
@@ -911,6 +918,9 @@ async def planner_node(
             ):
                 if key in prev_plan:
                     plan[key] = prev_plan[key]
+            if preserve_clarification_language:
+                plan["vocal_language"] = previous_vocal_language
+                plan["script_language"] = previous_script_language
             trace_event(
                 "planner_clarification_query_assembled",
                 previous_query=(
@@ -923,22 +933,33 @@ async def planner_node(
                 llm_rephrased_query=plan.get("rephrased_query"),
             )
 
-        # Use Unicode-based script detection first (before LLM detection)
-        detected_script = detect_script_language(user_text)
-
-        # Use LLM-based language detection for vocal_language with script context
-        # to avoid incorrect inference from state/crop names
-        detected_vocal = _llm_detect_language(user_text, script_context=detected_script)
-        vocal = _coerce_official_language(detected_vocal) or "English"
-
-        if vocal != plan.get("vocal_language"):
-            logger.info(
-                "Planner vocal_language corrected via LLM detection: prev_vocal=%s -> detected_vocal=%s",
-                plan.get("vocal_language"),
-                vocal,
+        if preserve_clarification_language:
+            # A short answer to our location/crop question is data, not a new
+            # language preference. The preceding block restores the prior pair;
+            # do not immediately replace it by detecting the short reply alone.
+            trace_event(
+                "planner_clarification_language_preserved",
+                vocal_language=plan.get("vocal_language"),
+                script_language=plan.get("script_language"),
+                clarification_reply=user_text,
             )
-        plan["vocal_language"] = vocal
-        plan["script_language"] = detected_script
+        else:
+            # Use Unicode-based script detection first (before LLM detection).
+            detected_script = detect_script_language(user_text)
+
+            # Use LLM-based language detection for vocal_language with script context
+            # to avoid incorrect inference from state/crop names.
+            detected_vocal = _llm_detect_language(user_text, script_context=detected_script)
+            vocal = _coerce_official_language(detected_vocal) or "English"
+
+            if vocal != plan.get("vocal_language"):
+                logger.info(
+                    "Planner vocal_language corrected via LLM detection: prev_vocal=%s -> detected_vocal=%s",
+                    plan.get("vocal_language"),
+                    vocal,
+                )
+            plan["vocal_language"] = vocal
+            plan["script_language"] = detected_script
 
         if not plan.get("rephrased_query"):
             plan["rephrased_query"] = user_text
