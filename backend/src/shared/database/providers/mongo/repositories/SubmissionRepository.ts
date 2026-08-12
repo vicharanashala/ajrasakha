@@ -4213,6 +4213,52 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     return map;
   }
 
+  /**
+   * Update the PAE validation status in the question submission's paeValidation array.
+   * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.
+   */
+  async updatePaeValidationStatus(
+    questionId: string,
+    paeId: string,
+    paeStatus: 'in-progress' | 'completed',
+    paeFinishedAt: Date | null,
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    
+    // Convert paeId to ObjectId for matching (the paeId stored may be string or ObjectId)
+    let paeIdValue: string | ObjectId = paeId;
+    if (ObjectId.isValid(paeId)) {
+      paeIdValue = new ObjectId(paeId);
+    }
+    
+    // Use positional operator to update the matching array element
+    const updateFields: any = {
+      'paeValidation.$.paeStatus': paeStatus,
+    };
+    
+    // Only set paeFinishedAt when completing
+    if (paeFinishedAt !== null) {
+      updateFields['paeValidation.$.paeFinishedAt'] = paeFinishedAt;
+    }
+    
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        'paeValidation.paeId': paeIdValue,
+      },
+      {
+        $set: {
+          ...updateFields,
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+    
+    return { modifiedCount: result.modifiedCount };
+  }
+
   //get level wise answer submission percentage report
   async getLevelWiseReport(
     startDate: string,
@@ -4963,5 +5009,68 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         'Failed to remove second history and queue entry',
       );
     }
+  }
+
+    /**
+   * Remove a SPECIFIC pae-validation round (by array index) — only if it is still
+   * open (not completed). Unsets the element then compacts the array so other rounds
+   * keep their reviewers. Returns true if a round was removed.
+   */
+  async removePaeValidationReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const unset = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        [`paeValidation.${index}.paeFinishedAt`]: null,
+      } as any,
+      {$unset: {[`paeValidation.${index}`]: 1}} as any,
+      {session},
+    );
+    if (unset.modifiedCount === 0) return false;
+    // Compact: drop the null hole left by $unset.
+    await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {$pull: {paeValidation: null}, $set: {updatedAt: new Date()}} as any,
+      {session},
+    );
+    return true;
+  }
+
+  // Assign or replace the current PAE validation review round. If the
+  // submission has no paeValidation entries, this creates one. If the array
+  // already contains an item, it is replaced with the new active round.
+  async assignPaeValidationReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+  
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+      },
+      {
+        $set: {
+          paeValidation: [
+            {
+              paeId: new ObjectId(reviewerId),
+              paeAssignedAt: assignedAt,
+              paeStatus: 'in-progress',
+              paeFinishedAt: null,
+            },
+          ],
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+
+    return result.modifiedCount > 0;
   }
 }

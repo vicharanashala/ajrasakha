@@ -575,6 +575,7 @@ export interface IQuestionFullData {
     createdAt?: string;
     updatedAt?: string;
   } | null;
+  paeValidation?: "in-progress" | "completed" | "pending"
 }
 
 export interface QuestionFullDataResponse {
@@ -685,6 +686,7 @@ export interface IDetailedQuestion {
   isDuplicateCancelled?: boolean;
   duplicateCancelReason?: string;
   isAutoAllocate?: boolean;
+  autoAllocatePaeValidationExpert?: boolean;
 }
 
 export interface IDetailedQuestionResponse {

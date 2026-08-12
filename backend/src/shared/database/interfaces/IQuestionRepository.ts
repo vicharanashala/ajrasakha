@@ -695,6 +695,100 @@ export interface IQuestionRepository {
 
   addOrUpdateFeedbackStatus(
     questionId: string,
-    source: "DATASET" | "WEB_APPLICATION",
+    source: "DATASET" | "WEB_APPLICATION" | "PAE_Validation",
   ): Promise<number>;
+
+  /** Find all questions with paeValidation status of 'pending' that are ready for
+   *  PAE expert validation. Questions are sorted by createdAt in ascending order
+   *  (oldest first).
+   *  @param session Optional MongoDB client session for transactions
+   *  @returns Promise resolving to array of questions pending PAE validation */
+  findQuestionsPendingPaeValidation(session?: ClientSession): Promise<IQuestion[]>;
+
+  /** Update the paeValidation status on a question.
+   *  @param questionId The question ID to update
+   *  @param paeValidation The new paeValidation status ('pending' | 'in-progress' | 'completed')
+   *  @param session Optional MongoDB client session for transactions */
+  updatePaeValidationStatus(
+    questionId: string,
+    paeValidation: 'pending' | 'in-progress' | 'completed',
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }>;
+
+  /** Update the paeValidation array in the question's submission document.
+   *  @param questionId The question ID to update
+   *  @param paeValidationEntry The new PAE validation entry to push
+   *  @param session Optional MongoDB client session for transactions */
+  addPaeValidationEntry(
+    questionId: string,
+    paeValidationEntry: {
+      paeAssignedAt: Date;
+      paeId: string | ObjectId;
+      paeStatus: 'in-progress' | 'completed';
+      paeFinishedAt?: Date | null;
+    },
+    session?: ClientSession,
+  ): Promise<void>;
+
+  /** Find questions by their IDs with pagination and join final answers in a single aggregation.
+   *  Uses $lookup to join with the answers collection and get final answers with sources.
+   *  @param ids - Array of question ObjectIds to fetch
+   *  @param page - Page number (1-indexed)
+   *  @param limit - Number of items per page
+   *  @param session - Optional MongoDB client session for transactions
+   *  @returns Promise resolving to paginated questions with answers joined
+   */
+  findByIdsWithAnswers(
+    ids: ObjectId[],
+    page: number,
+    limit: number,
+    session?: ClientSession,
+  ): Promise<{
+    questions: Array<{
+      _id: ObjectId;
+      question: string;
+      status: QuestionStatus;
+      source: QuestionSource;
+      priority?: string;
+      totalAnswersCount?: number;
+      createdAt: Date;
+      state?: string;
+      district?: string;
+      crop?: string;
+      domain?: string;
+      season?: string;
+      normalised_crop?: string;
+      answer?: {
+        _id: ObjectId;
+        answer: string;
+        sources: Array<{
+          source: string;
+          sourceType?: string;
+          sourceName?: string;
+          page?: string | number;
+        }>;
+        authorId: ObjectId;
+        isFinalAnswer: boolean;
+      };
+    }>;
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+  }>;
+
+  /**
+   * Adds a feedback entry to the question's feedbacks array.
+   * @param questionId The question ID to update
+   * @param feedbackEntry The feedback entry to add
+   * @param session Optional MongoDB client session for transactions
+   */
+  addFeedback(
+    questionId: string,
+    feedbackEntry: {
+      source: string;
+      status: string;
+      recentFeedback?: Date;
+    },
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }>;
 }

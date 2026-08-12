@@ -8747,13 +8747,14 @@ export class QuestionRepository implements IQuestionRepository {
   //add or update feedback status of the question
   async addOrUpdateFeedbackStatus(
     questionId: string,
-    source: 'DATASET' | 'WEB_APPLICATION',
+    source: 'DATASET' | 'WEB_APPLICATION' | "PAE_Validation",
     session?: ClientSession,
   ): Promise<number> {
     try {
       const normalizedSource = source.toUpperCase() as
         | 'DATASET'
-        | 'WEB_APPLICATION';
+        | 'WEB_APPLICATION'
+        | "PAE_Validation";
       await this.init();
 
       const result = await this.QuestionCollection.updateOne(
@@ -8834,5 +8835,326 @@ export class QuestionRepository implements IQuestionRepository {
         `Error while updating Question: More info: ${error}`,
       );
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PAE Validation Methods
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /** Find all questions with paeValidation status of 'pending' that are ready for
+   *  PAE expert validation. Questions are sorted by createdAt in ascending order
+   *  (oldest first).
+   */
+  async findQuestionsPendingPaeValidation(
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection.find(
+      { paeValidation: 'pending',autoAllocatePaeValidationExpert:true },
+      { session },
+    )
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Update the paeValidation status on a question. */
+  async updatePaeValidationStatus(
+    questionId: string,
+    paeValidation: 'pending' | 'in-progress' | 'completed',
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    const result = await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      {
+        $set: {
+          paeValidation,
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+    return { modifiedCount: result.modifiedCount };
+  }
+
+  /** Update the paeValidation array in the question's submission document.
+   *  Pushes a new PAE validation entry to the paeValidation array.
+   */
+  async addPaeValidationEntry(
+    questionId: string,
+    paeValidationEntry: {
+      paeAssignedAt: Date;
+      paeId: string | ObjectId;
+      paeStatus: 'in-progress' | 'completed';
+      paeFinishedAt?: Date | null;
+    },
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    // Ensure paeId is stored as ObjectId
+    const entryWithObjectId = {
+      ...paeValidationEntry,
+      paeId: ObjectId.isValid(paeValidationEntry.paeId)
+        ? new ObjectId(paeValidationEntry.paeId)
+        : paeValidationEntry.paeId,
+    };
+    await this.QuestionSubmissionCollection.updateOne(
+      { questionId: qid },
+      {
+        $push: {
+          paeValidation: entryWithObjectId,
+        },
+        $set: {
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+  }
+
+  /**
+   * Adds a feedback entry to the question's feedbacks array.
+   * Updates recentFeedback timestamp only if:
+   * - There is no existing open feedback, OR
+   * - All existing feedbacks are closed (meaning this is the first/recent open feedback)
+   */
+  async addFeedback(
+    questionId: string,
+    feedbackEntry: {
+      source: string;
+      status: string;
+      recentFeedback?: Date;
+    },
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    const now = new Date();
+
+    // Only consider updating recentFeedback for open status feedbacks
+    const shouldCheckForOpenFeedbacks = feedbackEntry.status === 'open';
+
+    // Check if there's already an open feedback BEFORE we add the new one
+    // We need to do this check first to determine whether to update recentFeedback
+    let hasExistingOpenFeedback = false;
+    if (shouldCheckForOpenFeedbacks) {
+      const existingQuestion = await this.QuestionCollection.findOne(
+        { _id: qid },
+        { 
+          projection: { _id: 1 }, 
+          // Use readConcern 'snapshot' for transaction consistency
+          ...(session ? { session } : {}) 
+        }
+      );
+      
+      if (existingQuestion) {
+        // Use aggregation to check existing feedbacks in a transaction-safe way
+        const pipeline = [
+          { $match: { _id: qid } },
+          { 
+            $project: {
+              hasOpenFeedback: {
+                $gt: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: { $ifNull: ['$feedbacks', []] },
+                        cond: { $eq: ['$$this.status', 'open'] }
+                      }
+                    }
+                  },
+                  0
+                ]
+              }
+            }
+          }
+        ];
+        
+        const result = await this.QuestionCollection.aggregate(pipeline, { session }).toArray();
+        hasExistingOpenFeedback = result[0]?.hasOpenFeedback === true;
+      }
+    }
+
+    // Determine if we should update recentFeedback:
+    // - If there's already an open feedback, don't update recentFeedback (leave it as is)
+    // - If no open feedbacks exist, update recentFeedback to now (this is the first open feedback)
+    const shouldUpdateRecentFeedback = shouldCheckForOpenFeedbacks && !hasExistingOpenFeedback;
+
+    // Build the update operations
+    const updateOps: any = {
+      $push: {
+        feedbacks: {
+          source: feedbackEntry.source,
+          status: feedbackEntry.status,
+        },
+      },
+    };
+
+    // Add $set operation if we need to update recentFeedback
+    if (shouldUpdateRecentFeedback) {
+      updateOps.$set = {
+        recentFeedback: feedbackEntry.recentFeedback || now,
+      };
+    }
+
+    const result = await this.QuestionCollection.updateOne(
+      { _id: qid },
+      updateOps,
+      { session },
+    );
+
+    return { modifiedCount: result.modifiedCount };
+  }
+
+  /** Find questions by their IDs with pagination, joining final answers in a single aggregation pipeline.
+   *  Uses $lookup to join with answers collection and get the final answer with sources.
+   */
+  async findByIdsWithAnswers(
+    ids: ObjectId[],
+    page: number,
+    limit: number,
+    session?: ClientSession,
+  ): Promise<{
+    questions: Array<{
+      _id: ObjectId;
+      question: string;
+      status: QuestionStatus;
+      source: QuestionSource;
+      priority?: string;
+      totalAnswersCount?: number;
+      createdAt: Date;
+      state?: string;
+      district?: string;
+      crop?: string;
+      domain?: string;
+      season?: string;
+      normalised_crop?: string;
+      answer?: {
+        _id: ObjectId;
+        answer: string;
+        sources: Array<{
+          source: string;
+          sourceType?: string;
+          sourceName?: string;
+          page?: string | number;
+        }>;
+        authorId: ObjectId;
+        isFinalAnswer: boolean;
+      };
+    }>;
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+  }> {
+    await this.init();
+
+    const totalCount = ids.length;
+    const totalPages = Math.ceil(totalCount / limit);
+    const safePage = Math.min(Math.max(page, 1), totalPages || 1);
+    const skip = (safePage - 1) * limit;
+
+    // Get the IDs for the current page
+    const pageIds = ids.slice(skip, skip + limit);
+
+    if (pageIds.length === 0) {
+      return {
+        questions: [],
+        totalCount,
+        totalPages,
+        currentPage: safePage,
+      };
+    }
+
+    // Use aggregation pipeline with $lookup to join answers in a single call
+    const pipeline: object[] = [
+      // Match only the questions we need
+      { $match: { _id: { $in: pageIds } } },
+      // Lookup the final answer from answers collection
+      {
+        $lookup: {
+          from: 'answers',
+          let: { questionId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$questionId', '$$questionId'] },
+                    { $eq: ['$isFinalAnswer', true] },
+                  ],
+                },
+              },
+            },
+            // Project only the fields we need
+            {
+              $project: {
+                _id: 1,
+                answer: 1,
+                sources: 1,
+                authorId: 1,
+                isFinalAnswer: 1,
+              },
+            },
+            // Limit to 1 final answer
+            { $limit: 1 },
+          ],
+          as: 'answerData',
+        },
+      },
+      // Unwind the answer array (if exists) or keep as empty
+      {
+        $addFields: {
+          answer: {
+            $cond: {
+              if: { $gt: [{ $size: '$answerData' }, 0] },
+              then: { $arrayElemAt: ['$answerData', 0] },
+              else: null,
+            },
+          },
+        },
+      },
+      // Project the final shape, excluding the answerData array
+      {
+        $project: {
+          answerData: 0,
+        },
+      },
+    ];
+
+    const options = session ? { session } : undefined;
+    const results = await this.QuestionCollection.aggregate(pipeline, options).toArray();
+    // Map the results to the expected shape
+    const questions = results.map((doc: any) => ({
+      _id: doc._id,
+      question: doc.question,
+      status: doc.status,
+      source: doc.source,
+      priority: doc.priority,
+      totalAnswersCount: doc.totalAnswersCount,
+      createdAt: doc.createdAt,
+      state: doc.details.state,
+      district: doc.details.district,
+      crop: doc.details.crop,
+      domain: doc.details.domain,
+      season: doc.details.season,
+      normalised_crop: doc.details.normalised_crop,
+      answer: doc.answer
+        ? {
+            _id: doc.answer._id,
+            answer: doc.answer.answer,
+            sources: doc.answer.sources || [],
+            authorId: doc.answer.authorId,
+            isFinalAnswer: doc.answer.isFinalAnswer,
+          }
+        : undefined,
+    }));
+
+    return {
+      questions,
+      totalCount,
+      totalPages,
+      currentPage: safePage,
+    };
   }
 }

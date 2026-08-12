@@ -2006,7 +2006,9 @@ answer: ${updates.answer}`;
             text,
             embedding: questionEmbedding,
             status: closeStatus,
+            paeValidation: 'pending',
             closedAt: new Date(),
+
           },
           session,
           true,
@@ -2063,6 +2065,7 @@ answer: ${updates.answer}`;
           text,
           embedding: questionEmbedding,
           status: closeStatus,
+          paeValidation: 'pending',
           closedAt: new Date(),
         },
         session,
@@ -2143,7 +2146,7 @@ answer: ${updates.answer}`;
           // Close the child question, marking it system-closed.
           await this.questionRepo.updateQuestion(
             childId,
-            { status: 'closed', closedAt: new Date(), closedBy: 'System' },
+            { status: 'closed', closedAt: new Date(), closedBy: 'System', paeValidation: 'pending' },
             session,
           );
           // Free any moderator holding the child.
@@ -2276,7 +2279,7 @@ answer: ${updates.answer}`;
 
           await this.questionRepo.updateQuestion(
             questionId,
-            { status: 'closed', closedAt: new Date(), closedBy: 'System' },
+            { status: 'closed', closedAt: new Date(), closedBy: 'System' , paeValidation: 'pending'},
             session,
           );
 
@@ -2607,6 +2610,7 @@ answer: ${updates.answer}`;
         {
           totalAnswersCount: updatedAnswerCount,
           status: isFinalAnswer ? 'open' : 'closed',
+          ...(!isFinalAnswer && { paeValidation: 'pending' }),
         },
         session,
       );

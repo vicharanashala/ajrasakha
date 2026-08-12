@@ -520,6 +520,58 @@ class BulkPaeAllocateRequest {
   @IsMongoId()
   paeExpertId!: string;
 }
+
+/**
+ * DTO for processing PAE validation decisions (approve/feedback)
+ */
+class ProcessPaeValidationRequest {
+  @JSONSchema({
+    description: 'MongoDB ObjectId of the question to validate',
+    example: '650e9c0f5f1b2c00sdf2f4d9e',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsMongoId()
+  questionId!: string;
+
+  @JSONSchema({
+    description: 'Validation decision: "approve" or "feedback"',
+    example: 'approve',
+    type: 'string',
+    enum: ['approve', 'feedback'],
+  })
+  @IsNotEmpty()
+  @IsString()
+  @IsIn(['approve', 'feedback'])
+  status!: 'approve' | 'feedback';
+
+  @JSONSchema({
+    description: 'Comment explaining the feedback (required when status is "feedback")',
+    example: 'The answer needs more specific information about dosage',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  suggestionComment?: string;
+
+  @JSONSchema({
+    description: 'Link to reference material (optional)',
+    example: 'https://soilhealth.dac.gov.in/fertilizer-dosage',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  suggestionLink?: string;
+
+  @JSONSchema({
+    description: 'Name of the source for the suggestion link (optional)',
+    example: 'ICAR Fertilizer Guidelines',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  suggestionSourceName?: string;
+}
 class RemoveAllocateBody {
   @IsNumber()
   index!: number;
@@ -998,6 +1050,7 @@ export const QUESTION_VALIDATORS = [
   AddQuestionBodyDto,
   AllocateExpertsRequest,
   BulkPaeAllocateRequest,
+  ProcessPaeValidationRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,
@@ -1022,6 +1075,7 @@ export {
   AddQuestionBodyDto,
   AllocateExpertsRequest,
   BulkPaeAllocateRequest,
+  ProcessPaeValidationRequest,
   ExpertInput,
   RemoveAllocateBody,
   ReplaceQueueExpertRequest,

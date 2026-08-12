@@ -16,6 +16,12 @@ import {
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { ClientSession, ObjectId } from 'mongodb';
 import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+import type {
+  PaeValidationAnswer,
+  PaeValidationQuestion,
+  PaeValidationSource,
+  PaeValidationAssignedQuestionsResponse,
+} from './QuestionValidationTypes.js';
 
 /** Feedback data structure */
 export interface FeedbackData {
@@ -23,11 +29,12 @@ export interface FeedbackData {
   questionId: { $oid: string };
   userId: { name: string; email: string };
   answerId: { $oid: string };
-  type: 'thumbs_up' | 'thumbs_down';
+  type: 'thumbs_up' | 'thumbs_down' | 'PAE_VALIDATION';
   predefinedOption: string;
   comment: string;
   status: 'open' | 'rejected' | 'accepted';
   reviewNote?: string;
+  link?:{name: string; source: string};
   createdAt: { $date: string };
   updatedAt: { $date: string };
 }
@@ -731,6 +738,7 @@ export interface IQuestionService {
     action: 'accept' | 'reject',
     reason: string,
     processedBy: string,
+    source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation', 
   ): Promise<{
     success: boolean;
     message: string;
@@ -762,8 +770,83 @@ export interface IQuestionService {
 
   handleFeedbackStatusUpdate(
     questionId: string,
-    source: "DATASET" | "WEB_APPLICATION",
+    source: "DATASET" | "WEB_APPLICATION" | "PAE_Validation",
   ): Promise<{
     success: boolean;
   }>;
+
+  /** PAE Validation Queue Cron - runs every minute to assign questions pending PAE validation
+   *  to available PAE experts based on domain and state preferences.
+   *  @returns Promise resolving to object with assigned count and available waiting count */
+  runPaeValidationQueueCron(): Promise<{
+    assigned: number;
+    availableWaiting: number;
+    failedAssignments: number;
+  }>;
+
+  getPaeValidationTimeline(questionId: string): Promise<{
+    autoAllocatePaeValidationExpert: boolean;
+    hasOpenRound: boolean;
+    reviews: {
+      index: number;
+      paeId: string;
+      paeName: string;
+      paeAssignedAt: Date;
+      paeFinishedAt: Date | null;
+      paeStatus: string;
+    }[];
+  }>;
+
+  assignPaeValidationReviewerManually(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{success: true}>;
+  
+  removePaeValidationReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{success: true}>;
+  /** Get all questions assigned to a PAE expert for validation, with pagination.
+   *  Includes answer data and sources from the answer collection.
+   *  @param paeExpertId The PAE expert's user ID
+   *  @param page Page number (1-indexed)
+   *  @param limit Number of items per page
+   *  @returns Promise resolving to paginated questions with answers and sources */
+  getPaeValidationAssignedQuestions(
+    paeExpertId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaeValidationAssignedQuestionsResponse>;
+
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * 
+   * When status is 'approve':
+   * - Updates question.paeValidation to 'completed'
+   * - Removes the question from the user's paeValidationAssigned array
+   * - Updates the question submission's paeValidation array entry to 'completed' with paeFinishedAt
+   * 
+   * When status is 'feedback':
+   * - Creates a new feedback entry in the feedbacks collection
+   * - Updates the question's feedbacks array with source 'PAE_Validation' and status 'open'
+   * - The question remains in the user's paeValidationAssigned for further work
+   * 
+   * @param paeExpertId The PAE expert's user ID (from current user)
+   * @param questionId The question ID to process
+   * @param status The validation decision ('approve' or 'feedback')
+   * @param suggestionComment Optional comment explaining feedback
+   * @param suggestionLink Optional reference link URL
+   * @param answerId Optional answer ID associated with the feedback
+   * @param suggestionSourceName Optional name of the source for the suggestion link
+   */
+  processPaeValidation(
+    paeExpertId: string,
+    questionId: string,
+    status: 'approve' | 'feedback',
+    suggestionComment?: string,
+    suggestionLink?: string,
+    answerId?: string,
+    suggestionSourceName?: string,
+  ): Promise<{ success: boolean; message: string }>;
 }

@@ -94,6 +94,11 @@ class User implements IUser {
   @Expose()
   feedbacksAssigned?: (string | ObjectId)[] | null;
 
+  @Transform(ObjectIdArrayToStringArray.transformer, {toPlainOnly: true})
+  @Transform(StringArrayToObjectIdArray.transformer, {toClassOnly: true})
+  @Expose()
+  paeValidationAssigned?: (string | ObjectId)[] | null;
+
   constructor(data: Partial<IUser>) {
     this._id = data?._id ? new ObjectId(data?._id) : null;
     this.firebaseUID = data?.firebaseUID;
@@ -129,6 +134,7 @@ class User implements IUser {
     this.currentCallUuid = data?.currentCallUuid || null;
     this.isTrainingUser = data?.isTrainingUser || false;
     this.feedbacksAssigned = data?.feedbacksAssigned || null;
+    this.paeValidationAssigned = data?.paeValidationAssigned || null;
   }
 }
 

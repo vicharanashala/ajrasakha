@@ -24,6 +24,7 @@ import {
   UserRole,
   TIME_BOUND_SOURCES,
   MANUAL_SOURCES,
+  IFeedback,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -66,6 +67,11 @@ import {
   FeedbackData,
   FeedbackQueueDetails,
 } from '../interfaces/IQuestionService.js';
+import type {
+  PaeValidationQuestion,
+  PaeValidationAnswer,
+  PaeValidationAssignedQuestionsResponse,
+} from '../interfaces/QuestionValidationTypes.js';
 import { isToday } from '#root/utils/date.utils.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
@@ -73,6 +79,7 @@ import { sendEmailWithAttachment } from '#root/utils/mailer.js';
 import ExcelJS from 'exceljs';
 import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
 import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
+import { IFeedbackRepository } from '#root/shared/database/interfaces/IFeedbackRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
 import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js';
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
@@ -87,7 +94,7 @@ import {
 } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
-import { checkDuplicateQuestionHelper } from '../helpers/duplicateQuestionHelper.js';
+import { checkDuplicateQuestionHelper, isQuestionMatchForPaeExpert } from '../helpers/duplicateQuestionHelper.js';
 import {
   DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
   TOTAL_EXPERTS_LIMIT,
@@ -165,6 +172,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     private readonly callDetailsRepository: ICallDetailsRepository,
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(CORE_TYPES.FeedbackRepository)
+    private readonly feedbackRepo: IFeedbackRepository,
   ) {
     super(mongoDatabase);
   }
@@ -9325,6 +9335,7 @@ if (filters.endDate) {
     action: 'accept' | 'reject',
     reason: string,
     processedBy: string,
+    source:'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation'
   ): Promise<{
     success: boolean;
     message: string;
@@ -9336,6 +9347,53 @@ if (filters.endDate) {
       processedAt: string;
     };
   }> {
+    if(source === "PAE_Validation"){
+      const feedback = await this.feedbackRepo.findById(feedbackId.toString());
+      if(!feedback){
+        throw new NotFoundError(`Feedback with ID ${feedbackId} not found`);
+      }
+      
+      // Update the feedback in the feedbacks collection
+      await this.feedbackRepo.updateFeedbackAction(feedbackId.toString(), action, reason, processedBy);
+      
+      const processedAt = new Date().toISOString();
+      
+      // Record this individual feedback as closed on the OPEN feedback-review round
+      // (so the view can hide accept/reject for it going forward).
+      await this.questionSubmissionRepo.addClosedFeedbackToOpenRound(
+        questionId,
+        feedbackId,
+        new Date(),
+      );
+      
+      // Check if all feedbacks are processed (for PAE_Validation, we only have one feedback)
+      // Update the question's feedbacks array to mark this feedback as closed
+      await this.questionRepo.updateQuestion(
+        questionId,
+        { 
+          'feedbacks.$[].status': 'closed',
+        } as any
+      );
+      
+      // Close the open feedback-review round on the submission (stamps finishedAt
+      // on the round that has no finishedAt yet).
+      await this.questionSubmissionRepo.finishOpenFeedbackReviews(questionId, new Date());
+      
+      // Remove the questionId from the processedBy user's feedbacksAssigned array
+      await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+      
+      return {
+        success: true,
+        message: `Feedback ${action}ed successfully. All feedbacks processed.`,
+        data: {
+          feedbackId,
+          action,
+          reason,
+          processedBy,
+          processedAt,
+        },
+      };
+    }
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
     
@@ -9843,89 +9901,6 @@ if (filters.endDate) {
     page: number = 1,
     pageSize: number = 5,
   ): Promise<FeedbackResponse> {
-    // Mock data with status and reviewNote fields
-   /* const mockData = [
-      {
-        _id: { $oid: 'fb001' },
-        questionId: { $oid: questionId },
-        userId: { name: 'Rajesh Kumar', email: 'rajesh@example.com' },
-        answerId: { $oid: 'ans001' },
-        type: 'thumbs_up' as const,
-        predefinedOption: 'Accurate and helpful',
-        comment: 'This answer solved my problem completely. The step-by-step instructions were very clear.',
-        status: 'open' as const,
-        reviewNote: undefined,
-        createdAt: { $date: '2026-08-01T10:30:00.000Z' },
-        updatedAt: { $date: '2026-08-01T10:30:00.000Z' },
-      },
-      {
-        _id: { $oid: 'fb002' },
-        questionId: { $oid: questionId },
-        userId: { name: 'Priya Sharma', email: 'priya@example.com' },
-        answerId: { $oid: 'ans002' },
-        type: 'thumbs_down' as const,
-        predefinedOption: 'Incomplete information',
-        comment: 'The answer was missing important details about pesticide dosage.',
-        status: 'accepted' as const,
-        reviewNote: 'Valid feedback - dosage information will be added to improve the answer.',
-        createdAt: { $date: '2026-08-02T14:15:00.000Z' },
-        updatedAt: { $date: '2026-08-03T09:00:00.000Z' },
-      },
-      {
-        _id: { $oid: 'fb003' },
-        questionId: { $oid: questionId },
-        userId: { name: 'Amit Patel', email: 'amit@example.com' },
-        answerId: { $oid: 'ans001' },
-        type: 'thumbs_up' as const,
-        predefinedOption: 'Well explained',
-        comment: 'Very detailed and easy to understand. Great work!',
-        status: 'rejected' as const,
-        reviewNote: 'Duplicate feedback - similar to fb001. No action needed.',
-        createdAt: { $date: '2026-08-03T08:45:00.000Z' },
-        updatedAt: { $date: '2026-08-03T11:20:00.000Z' },
-      },
-      {
-        _id: { $oid: 'fb004' },
-        questionId: { $oid: questionId },
-        userId: { name: 'Sunita Devi', email: 'sunita@example.com' },
-        answerId: { $oid: 'ans003' },
-        type: 'thumbs_down' as const,
-        predefinedOption: 'Incorrect information',
-        comment: 'The recommended pesticide is not suitable for my region.',
-        status: 'open' as const,
-        reviewNote: undefined,
-        createdAt: { $date: '2026-08-04T16:00:00.000Z' },
-        updatedAt: { $date: '2026-08-04T16:00:00.000Z' },
-      },
-      {
-        _id: { $oid: 'fb005' },
-        questionId: { $oid: questionId },
-        userId: { name: 'Vikram Singh', email: 'vikram@example.com' },
-        answerId: { $oid: 'ans002' },
-        type: 'thumbs_up' as const,
-        predefinedOption: 'Accurate and helpful',
-        comment: 'Perfect solution for my crop issue. Thank you!',
-        status: 'accepted' as const,
-        reviewNote: 'Positive feedback acknowledged.',
-        createdAt: { $date: '2026-08-05T11:30:00.000Z' },
-        updatedAt: { $date: '2026-08-05T14:00:00.000Z' },
-      },
-    ];
-
-    // Calculate pagination
-    const totalCount = mockData.length;
-    const totalPages = Math.ceil(totalCount / pageSize);
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const paginatedData = mockData.slice(startIndex, endIndex);
-
-    return {
-      data: paginatedData,
-      totalCount,
-      page,
-      pageSize,
-      totalPages,
-    };*/
 
     // Empty result used whenever the external data-release service can't be reached
     // or isn't configured — feedbacks are supplementary, so a failure here must not
@@ -9938,17 +9913,144 @@ if (filters.endDate) {
       totalPages: 0,
     };
 
+    const question = await this.questionRepo.getById(questionId);
+
+    const externalFeedbacks =
+      question?.feedbacks?.filter(
+        f =>
+          f.source === 'DATASET' ||
+          f.source === 'WEB_APPLICATION',
+      ) ?? [];
+
+    // PAE flow
+    const paeFeedbackData =
+      (await this.feedbackRepo.findByQuestionId(questionId)) ?? [];
+
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
 
+  
+    /**
+        * Normalize external feedbacks to FeedbackData.
+        */
+    //Helpers for converting MongoDB values
+    //to the extended JSON format expected by frontend.
+    // The data-release service returns feedbacks in a flat shape
+    // ({ id, questionId, answerId as strings, createdAt as ISO strings }) and
+    // already paginates the result. Normalize each item to the extended-JSON
+    // shape the frontend consumes ({ _id: { $oid }, createdAt: { $date }, … })
+    // and pass the service's own pagination through unchanged.
+    const asOid = (value: any): { $oid: string } => ({
+      $oid:
+        typeof value === 'string'
+          ? value
+          : value?.$oid ??
+          value?.toHexString?.() ??
+          value?._id?.toHexString?.() ??
+          '',
+    });
+
+    const asDate = (value: any): { $date: string } => ({
+      $date:
+        typeof value === 'string'
+          ? value
+          : value?.$date ??
+          value?.toISOString?.() ??
+          '',
+    });
+
+
+    /**
+   * PAE feedbacks
+   *
+   * PAE and external feedbacks come from different sources,
+   * but both are converted to the common FeedbackData response.
+   */
+    const paeData: FeedbackData[] = paeFeedbackData.map(
+      (feedback: any) => ({
+        _id: asOid(feedback._id),
+
+        questionId: asOid(
+          feedback.questionId ?? questionId,
+        ),
+
+        userId: {
+          name: feedback.userId?.name ?? '',
+          email: feedback.userId?.email ?? '',
+        },
+
+        answerId: feedback.answerId
+          ? asOid(feedback.answerId)
+          : null,
+
+        type: 'PAE_VALIDATION',
+
+        predefinedOption:
+          feedback.predefinedOption ?? '',
+
+        comment: feedback.comment ?? '',
+
+        status: feedback.status,
+
+        link: feedback.link,
+
+        reviewNote: feedback.reviewNote,
+
+        createdAt: asDate(feedback.createdAt),
+
+        updatedAt: asDate(
+          feedback.updatedAt ?? feedback.createdAt,
+        ),
+      }),
+    );
+
+    /**
+  * If there are no external feedbacks,
+  * return PAE feedbacks only.
+  */
+    if (externalFeedbacks.length === 0) {
+      if (paeData.length === 0) {
+        return emptyResponse;
+      }
+
+      const totalCount = paeData.length;
+
+      return {
+        data: paeData,
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      };
+    }
+
+    /**
+  * External service is not configured.
+  * PAE feedbacks should still be returned.
+  */
     if (!dataReleaseUrl || !authKey) {
       console.warn(
         '[QuestionService] getFeedbacks: data-release service not configured (DATA_RELEASE_URL / REVIEW_SYSTEM_AUTH_KEY missing) — returning empty feedbacks.',
       );
-      return emptyResponse;
+
+      if (paeData.length === 0) {
+        return emptyResponse;
+      }
+      const totalCount = paeData.length;
+
+      return {
+        data: paeData,
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      };
     }
 
     try {
+      /**
+     * External feedback flow
+     */
       const response = await fetch(
         `${dataReleaseUrl}/feedbacks/question/${questionId}?page=${page}&pageSize=${pageSize}`,
         {
@@ -9970,19 +10072,8 @@ if (filters.endDate) {
       limit?: number;
       totalPages?: number;
     };
-
-    // The data-release service returns feedbacks in a flat shape
-    // ({ id, questionId, answerId as strings, createdAt as ISO strings }) and
-    // already paginates the result. Normalize each item to the extended-JSON
-    // shape the frontend consumes ({ _id: { $oid }, createdAt: { $date }, … })
-    // and pass the service's own pagination through unchanged.
-    const asOid = (v: any): {$oid: string} => ({
-      $oid: typeof v === 'string' ? v : v?.$oid ?? v?._id ?? '',
-    });
-    const asDate = (v: any): {$date: string} => ({
-      $date: typeof v === 'string' ? v : v?.$date ?? '',
-    });
-    const data: FeedbackData[] = (Array.isArray(res.data) ? res.data : []).map(
+  
+    const externalData: FeedbackData[] = (Array.isArray(res.data) ? res.data : []).map(
       (f: any) => ({
         _id: asOid(f.id ?? f._id),
         questionId: f.questionId ? asOid(f.questionId) : {$oid: questionId},
@@ -10001,7 +10092,25 @@ if (filters.endDate) {
       }),
     );
 
-    const totalCount = typeof res.total === 'number' ? res.total : data.length;
+      /**
+     * Combine external + PAE feedbacks.
+     */
+      const data: FeedbackData[] = [
+        ...externalData,
+        ...paeData,
+      ];
+
+      if (data.length === 0) {
+        return emptyResponse;
+      }
+     const externalTotal =
+      typeof res.total === 'number'
+        ? res.total
+        : externalData.length;
+
+    const totalCount =
+      externalTotal + paeData.length;
+    console.log('final:',data)
     return {
       data,
       totalCount,
@@ -10019,7 +10128,22 @@ if (filters.endDate) {
         '[QuestionService] getFeedbacks: Failed to call data release service:',
         error?.message ?? error,
       );
-      return emptyResponse;
+
+      if (paeData.length === 0) {
+        return emptyResponse;
+      }
+
+       const totalCount = paeData.length;
+
+      return {
+        data: paeData,
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(
+          totalCount / pageSize,
+        ),
+      };
     }
   }
 
@@ -10028,7 +10152,7 @@ if (filters.endDate) {
    */
   async handleFeedbackStatusUpdate(
   questionId: string,
-  source: 'DATASET' | 'WEB_APPLICATION',
+  source: 'DATASET' | 'WEB_APPLICATION' | "PAE_Validation",
 ): Promise<{ success: boolean }> {
   const matchedCount = await this.questionRepo.addOrUpdateFeedbackStatus(
     questionId,
@@ -10043,4 +10167,502 @@ if (filters.endDate) {
     success: true,
   };
 }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PAE VALIDATION QUEUE CRON
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Cron job to assign questions pending PAE validation to available PAE experts.
+   */
+  async runPaeValidationQueueCron(): Promise<{
+    assigned: number;
+    availableWaiting: number;
+    failedAssignments: number;
+  }> {
+    console.log('[PaeValidationQueue] Starting PAE validation queue assignment check...');
+    
+    try {
+      const pendingQuestions = await this.questionRepo.findQuestionsPendingPaeValidation();
+      const availableExperts = await this.userRepo.findAvailablePaeExperts();
+      
+      if (!pendingQuestions.length) {
+        console.log('[PaeValidationQueue] No pending questions for PAE validation');
+        return { assigned: 0, availableWaiting: availableExperts.length, failedAssignments: 0 };
+      }
+      
+      if (!availableExperts.length) {
+        console.log('[PaeValidationQueue] No available PAE experts');
+        return { assigned: 0, availableWaiting: 0, failedAssignments: 0 };
+      }
+      
+      console.log(`[PaeValidationQueue] Found ${pendingQuestions.length} pending questions and ${availableExperts.length} available PAE experts`);
+      
+      const claimedQuestionIds = new Set<string>();
+      let assigned = 0;
+      let availableWaiting = 0;
+      let failedAssignments = 0;
+      
+      for (const expert of availableExperts) {
+        const expertId = expert._id!.toString();
+        
+        const matchedQuestion = pendingQuestions.find(
+          (q) => !claimedQuestionIds.has(q._id!.toString()) && isQuestionMatchForPaeExpert(q, expert),
+        );
+        
+        if (!matchedQuestion) {
+          console.log('[PaeValidationQueue] No matching question found for PAE expert', expertId);
+          availableWaiting++;
+          continue;
+        }
+        
+        const questionId = matchedQuestion._id!.toString();
+        claimedQuestionIds.add(questionId);
+        
+        try {
+          await this._withTransaction(async (session: ClientSession) => {
+            await this.questionRepo.updatePaeValidationStatus(questionId, 'in-progress', session);
+            await this.questionRepo.addPaeValidationEntry(questionId, {
+              paeAssignedAt: new Date(),
+              paeId: expertId,
+              paeStatus: 'in-progress',
+              paeFinishedAt: null,
+            }, session);
+            await this.userRepo.addPaeValidationAssigned(expertId, questionId, session);
+          });
+
+          await this.notificationService.saveTheNotifications(
+            `A question (${matchedQuestion.question.substring(0, 50)}...) has been assigned to you for PAE validation`,
+            'Question Assigned for PAE Validation',
+            questionId,
+            expertId,
+            'pae_validation',
+          );
+
+          console.log(`[PaeValidationQueue] Assigned question ${questionId} → PAE expert ${expertId}`);
+          assigned++;
+        } catch (error: any) {
+          console.error(`[PaeValidationQueue] Failed to assign question ${questionId} to ${expertId}:`, error?.message);
+          claimedQuestionIds.delete(questionId);
+          failedAssignments++;
+        }
+      }
+      
+      console.log(`[PaeValidationQueue] Done: assigned=${assigned}, availableWaiting=${availableWaiting}, failedAssignments=${failedAssignments}`);
+      return { assigned, availableWaiting, failedAssignments };
+    } catch (error: any) {
+      console.error('[PaeValidationQueue] PAE validation queue cron failed:', error?.message);
+      throw new BadRequestError(`PAE validation queue cron failed: ${error?.message}`);
+    }
+  }
+
+  //pae validation timeline 
+  async getPaeValidationTimeline(questionId: string): Promise<{
+    autoAllocatePaeValidationExpert: boolean;
+    hasOpenRound: boolean;
+    reviews: {
+      index: number;
+      paeId: string;
+      paeName: string;
+      paeAssignedAt: Date;
+      paeFinishedAt: Date | null;
+      paeStatus: string;
+    }[];
+  }> {
+  const [question, submission] = await Promise.all([
+    this.questionRepo.getById(questionId),
+    this.questionSubmissionRepo.getByQuestionId(questionId),
+  ]);
+
+  const rounds = ((submission as any)?.paeValidation ?? []) as any[];
+
+  const names = await this.resolveExpertMeta(
+    rounds
+      .map((r) => r.paeId?.toString())
+      .filter(Boolean),
+  );
+
+  return {
+    autoAllocatePaeValidationExpert:
+      (question as any)?.autoAllocatePaeValidationExpert === true,
+
+    hasOpenRound:
+      Array.isArray(rounds) &&
+      rounds.some((r) => r?.paeStatus === 'in-progress'),
+
+    reviews: rounds
+      .map((r, i) => ({
+        index: i,
+        paeId: r.paeId?.toString() ?? '',
+        paeName:
+          names.get(r.paeId?.toString())?.name ?? 'Unknown',
+        paeAssignedAt: r.paeAssignedAt,
+        paeFinishedAt: r.paeFinishedAt ?? null,
+        paeStatus: r.paeStatus ?? '',
+      }))
+      .sort(
+        (a, b) =>
+          new Date(a.paeAssignedAt).getTime() -
+          new Date(b.paeAssignedAt).getTime(),
+      ),
+  };
+}
+
+  /** Manually assign OR reassign the pae validation reviewer (admin/moderator). When a round
+   *  is already open it repoints that round to the new reviewer and releases the old one;
+   *  otherwise it opens a fresh round. Respects the same one-at-a-time;
+   *  rules as the cron. */
+  async assignPaeValidationReviewerManually(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{success: true}> {
+    await this._withTransaction(async session => {
+      // Don't allow assigning a reviewer once the feedback is closed (no open
+      // feedback left on the question).
+      // const question = await this.questionRepo.getById(questionId);
+      // const feedbacks = ((question as any)?.feedbacks ?? []) as any[];
+      // const hasOpenFeedback =
+      //   Array.isArray(feedbacks) && feedbacks.some(f => f?.status === 'open');
+      // if (!hasOpenFeedback) {
+      //   throw new BadRequestError('This feedback is already closed.');
+      // }
+
+      const question = await this.questionRepo.getById(questionId);
+
+      if((question as any)?.paeValidation === 'completed')throw new BadRequestError('This question has already completed PAE validation.');
+      
+
+      const submission =
+        await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const rounds = ((submission as any)?.paeValidation ?? []) as any[];
+
+      // Resolve the round being changed: an explicit index (one of several rounds)
+      // or the single open round when none is given.
+      const targetIndex =
+        typeof index === 'number' && index >= 0
+          ? index
+          : rounds.findIndex(r => !r.paeFinishedAt);
+      const targetRound = targetIndex >= 0 ? rounds[targetIndex] : undefined;
+
+      if (targetRound && targetRound.paeFinishedAt) {
+        throw new BadRequestError(
+          'That pae validation review is already completed and cannot be reassigned.',
+        );
+      }
+      const oldReviewerId = targetRound?.paeId?.toString();
+      if (oldReviewerId === userId) {
+        return; // already assigned to this reviewer — no-op
+      }
+
+      // Claim the new reviewer's slot first (fails if they're not free). Manual claim
+      // lets an admin/moderator pick ANY active user (not restricted to mod/auditor),
+      // still one feedback at a time.
+      const claimed = await this.userRepo.addPaeValidationAssigned(
+        userId,
+        questionId,
+        session,
+      );
+      if (!claimed) {
+        throw new BadRequestError(
+          'Selected user is not available (already holds a pae validation, or is inactive/blocked).',
+        );
+      }
+        // Fresh assignment: open a new round.
+        const assigned =
+          await this.questionSubmissionRepo.assignPaeValidationReviewer(
+            questionId,
+            userId,
+            new Date(),
+            session,
+          );
+        if (!assigned) {
+          throw new BadRequestError(
+            'This question already has an open pae validation review.',
+          );
+        }
+
+        if (oldReviewerId) {
+          await this.userRepo.removePaeValidationAssigned(
+            oldReviewerId,
+            questionId,
+            session,
+          );
+        }
+
+        await this.questionRepo.updatePaeValidationStatus(
+          questionId,
+          'in-progress',
+          session,
+        );
+      
+    });
+    return {success: true};
+  }
+
+  //Remove an OPEN pae-validation--review round by index (admin/moderator/etc). 
+  async removePaeValidationReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{success: true}> {
+    await this._withTransaction(async session => {
+      const submission =
+        await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const rounds = ((submission as any)?.paeValidation ?? []) as any[];
+      const round = rounds[index];
+      if (!round) {
+        throw new BadRequestError('No pae validation review found at that position.');
+      }
+      if (round.paeFinishedAt) {
+        throw new BadRequestError(
+          'A completed pae validation review cannot be removed.',
+        );
+      }
+      const removed =
+        await this.questionSubmissionRepo.removePaeValidationReviewByIndex(
+          questionId,
+          index,
+          session,
+        );
+      if (!removed) {
+        throw new BadRequestError('Could not remove the pae validation review.');
+      }
+
+      await this.questionRepo.updatePaeValidationStatus(questionId, 'pending', session);
+      const reviewerId = round.paeId?.toString();
+      if (reviewerId) {
+        await this.userRepo.removePaeValidationAssigned(
+          reviewerId,
+          questionId,
+          session,
+        );
+      }
+    });
+    return {success: true};
+  }
+
+  /** Get all questions assigned to a PAE expert for validation, with pagination.
+   *  Includes answer data and sources from the answer collection.
+   */
+  async getPaeValidationAssignedQuestions(
+    paeExpertId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaeValidationAssignedQuestionsResponse> {
+    // Get the user to check paeValidationAssigned
+    const user = await this.userRepo.findById(paeExpertId);
+    
+    if (!user) {
+      throw new NotFoundError(`User with ID ${paeExpertId} not found`);
+    }
+    
+    // Get the question IDs from paeValidationAssigned
+    const questionIds = (user.paeValidationAssigned || []).map(id => {
+      if (typeof id === 'string') {
+        return new ObjectId(id);
+      }
+      return id as ObjectId;
+    });
+    
+    if (questionIds.length === 0) {
+      return {
+        questions: [],
+        totalCount: 0,
+        totalPages: 0,
+        currentPage: page,
+      };
+    }
+    
+    // Get paginated questions with answers joined in a single aggregation call
+    const { questions: paginatedQuestions, totalCount, totalPages, currentPage } = 
+      await this.questionRepo.findByIdsWithAnswers(questionIds, page, limit);
+    
+    // Transform the results to match the expected response format
+    const questionsWithAnswers: PaeValidationQuestion[] = paginatedQuestions.map(q => ({
+      _id: q._id.toString(),
+      question: q.question,
+      status: q.status,
+      source: q.source,
+      priority: q.priority,
+      totalAnswersCount: q.totalAnswersCount,
+      createdAt: q.createdAt || new Date(),
+      state: q.state,
+      district: q.district,
+      crop: q.crop,
+      domain: q.domain,
+      season: q.season,
+      normalised_crop: q.normalised_crop,
+      answer: q.answer ? {
+        _id: q.answer._id.toString(),
+        answer: q.answer.answer,
+        sources: q.answer.sources || [],
+        authorId: q.answer.authorId.toString(),
+        isFinalAnswer: q.answer.isFinalAnswer,
+      } : undefined,
+    }));
+    
+    return {
+      questions: questionsWithAnswers,
+      totalCount,
+      totalPages,
+      currentPage,
+    };
+  }
+
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * 
+   * When status is 'approve':
+   * - Updates question.paeValidation to 'completed'
+   * - Removes the question from the user's paeValidationAssigned array
+   * - Updates the question submission's paeValidation array entry to 'completed' with paeFinishedAt
+   * 
+   * When status is 'feedback':
+   * - Currently just logs the feedback; can be extended to store feedback in the submission
+   * - The question remains in the user's paeValidationAssigned for further work
+   */
+  async processPaeValidation(
+    paeExpertId: string,
+    questionId: string,
+    status: 'approve' | 'feedback',
+    suggestionComment?: string,
+    suggestionLink?: string,
+    answerId?: string,
+    suggestionSourceName?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // Verify the question exists and is assigned to this PAE expert
+    const question = await this.questionRepo.getById(questionId);
+    if (!question) {
+      throw new NotFoundError(`Question with ID ${questionId} not found`);
+    }
+
+    // Check if the question is in paeValidation status (either pending or in-progress)
+    if (!question.paeValidation || question.paeValidation === 'completed') {
+      throw new BadRequestError(
+        `Question ${questionId} is not in a valid state for PAE validation`,
+      );
+    }
+
+    // Verify the user has this question assigned
+    const user = await this.userRepo.findById(paeExpertId);
+    if (!user) {
+      throw new NotFoundError(`User with ID ${paeExpertId} not found`);
+    }
+
+    const questionIds = (user.paeValidationAssigned || []).map(id =>
+      typeof id === 'string' ? id : (id as ObjectId).toString()
+    );
+    
+    if (!questionIds.includes(questionId)) {
+      throw new BadRequestError(
+        `Question ${questionId} is not assigned to this PAE expert`,
+      );
+    }
+
+    if (status === 'approve') {
+      // Use transaction to update all related documents atomically
+      await this._withTransaction(async (session: ClientSession) => {
+        // 1. Update question.paeValidation to 'completed'
+        await this.questionRepo.updatePaeValidationStatus(
+          questionId,
+          'completed',
+          session,
+        );
+
+        // 2. Remove the question from user's paeValidationAssigned array
+        await this.userRepo.removePaeValidationAssigned(
+          paeExpertId,
+          questionId,
+          session,
+        );
+
+        // 3. Update the question submission's paeValidation array entry to 'completed'
+        await this.questionSubmissionRepo.updatePaeValidationStatus(
+          questionId,
+          paeExpertId,
+          'completed',
+          new Date(),
+          session,
+        );
+      });
+
+      return {
+        success: true,
+        message: `Question ${questionId} has been approved and PAE validation completed`,
+      };
+    } else {
+      // Status is 'feedback' - store the feedback and keep the question assigned
+      const now = new Date();
+      
+      await this._withTransaction(async (session: ClientSession) => {
+        // 1. Update the question submission's paeValidation array entry with paeFinishedAt
+        // (Mark this validation round as finished even though we're providing feedback)
+        await this.questionRepo.updatePaeValidationStatus(
+          questionId,
+          'completed',
+          session,
+        );
+        await this.questionSubmissionRepo.updatePaeValidationStatus(
+          questionId,
+          paeExpertId,
+          'completed',
+          now,
+          session,
+        );
+
+        await this.userRepo.removePaeValidationAssigned(
+          paeExpertId,
+          questionId,
+          session,
+        );
+
+        // 2. Create a new feedback entry in the feedbacks collection
+        const feedbackData: Omit<IFeedback, '_id'> = {
+          questionId: new ObjectId(questionId),
+          userId: {
+            name: `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`.trim(),
+            email: user.email,
+          },
+          type: 'PAE_VALIDATION',
+          comment: suggestionComment || '',
+          answerId: answerId ? new ObjectId(answerId) : undefined,
+          link: suggestionLink
+            ? { name: suggestionSourceName || suggestionLink, source: suggestionLink }
+            : undefined,
+          status: 'open',
+          createdAt: now,
+        };
+
+        const createdFeedback = await this.feedbackRepo.create(feedbackData, session);
+
+        // 3. Update the question's feedbacks array
+        await this.questionRepo.addFeedback(
+          questionId,
+          {
+            source: 'PAE_Validation',
+            status: 'open',
+          },
+          session,
+        );
+
+        console.log(
+          `[processPaeValidation] Feedback created for question ${questionId} by PAE expert ${paeExpertId}`,
+          {
+            feedbackId: createdFeedback._id?.toString(),
+            suggestionComment,
+            suggestionLink,
+            suggestionSourceName,
+          },
+        );
+      });
+
+      // Note: Question remains in user's paeValidationAssigned for further work
+      // The moderator will need to address the feedback
+
+      return {
+        success: true,
+        message: `Feedback noted for question ${questionId}. The question remains assigned for further work.`,
+      };
+    }
+  }
 }

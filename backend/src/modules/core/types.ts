@@ -28,6 +28,7 @@ export const CORE_TYPES = {
   NotificationRepository:Symbol.for('NotificationRepository'),
   ReviewRepository:Symbol.for('ReviewRepository'),
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
+  FeedbackRepository: Symbol.for('FeedbackRepository'),
   CheckOverlapsService: Symbol.for('CheckOverlapsService'),
 
 };
