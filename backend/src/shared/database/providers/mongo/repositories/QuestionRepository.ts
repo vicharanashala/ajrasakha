@@ -8827,7 +8827,7 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<IQuestion[]> {
     await this.init();
     return this.QuestionCollection.find(
-      { paeValidation: 'pending' },
+      { paeValidation: 'pending',autoAllocatePaeValidationExpert:true },
       { session },
     )
       .sort({ createdAt: 1 })
