@@ -337,7 +337,7 @@ export const QuestionDetails = ({
             <PaeValidationReviewTimeline
               questionId={question._id}
               canManage={
-                currentUser.role === "admin" || currentUser.role === "moderator"
+                question?.paeValidation !== 'completed' && (currentUser.role === "admin" || currentUser.role === "moderator")
               }
             />
           )}

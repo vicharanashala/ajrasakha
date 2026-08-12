@@ -575,6 +575,7 @@ export interface IQuestionFullData {
     createdAt?: string;
     updatedAt?: string;
   } | null;
+  paeValidation?: "in-progress" | "completed" | "pending"
 }
 
 export interface QuestionFullDataResponse {
