@@ -300,6 +300,9 @@ def test_strict_weather_tool_routing_rules():
 
     # 4. Short-term 2 hours rain -> MUST route to get_weather_nowcast (Tool 5)
     assert route_weather_query_by_heuristics("rain in next 2 hours in pala") == "get_weather_nowcast"
+    # Word-form hours ("two" not "2") must still hit nowcast
+    assert route_weather_query_by_heuristics("next two hours in Sri Muktsar Sahib district") == "get_weather_nowcast"
+    assert route_weather_query_by_heuristics("weather for the next three hours in kerala") == "get_weather_nowcast"
 
     # 5. Block / 50km nearby stations -> MUST route to get_location_weather (Tool 4)
     assert route_weather_query_by_heuristics("piravom block weather stations within 50km") == "get_location_weather"

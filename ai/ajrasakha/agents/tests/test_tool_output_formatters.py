@@ -421,3 +421,53 @@ def test_format_weather_success_false_returns_empty():
     out = format_tool_output("weather", json.dumps(payload))
     # Should show error message (this is the formatted output from the tool)
     assert "404 Not Found" in out
+
+
+def test_format_today_current_weather_not_labeled_forecast():
+    """Today/current responses should be labeled Current weather and include live details."""
+    payload = {
+        "resolved_location": "Ludhiana, Punjab, India",
+        "summary": "Today's Weather in Ludhiana",
+        "data_source": "India Meteorological Department (IMD)",
+        "weather_data": {
+            "selected_timeframe": "today",
+            "today_weather": {
+                "date": "2026-08-11",
+                "station": "Ludhiana",
+                "forecast": "Partly cloudy sky",
+                "forecast_min_temp": "26.0",
+                "forecast_max_temp": "35.0",
+            },
+            "data_source": "India Meteorological Department (IMD)",
+        },
+        "imd_current_weather": {
+            "success": True,
+            "distance_km": 3.2,
+            "station": {
+                "name": "Ludhiana",
+                "district": "Ludhiana",
+                "state": "PUNJAB",
+                "date": "2026-08-11",
+                "time": "11:30:00",
+                "temperature_c": 34,
+                "feel_like_c": 36,
+                "humidity_pct": 55,
+                "wind_speed_kmph": 12,
+                "wind_direction": "Easterly",
+                "mslp": 1002,
+                "past_24hrs_rainfall_mm": 0.0,
+                "weather_code_raw": "05",
+                "weather_description": "Haze",
+                "sunrise": "05:45",
+                "sunset": "19:10",
+            },
+        },
+    }
+    out = format_tool_output("get_current_and_forecast_info", json.dumps(payload))
+    assert out.startswith("Current weather — Ludhiana")
+    assert "Forecast —" not in out
+    assert "Humidity: 55%" in out
+    assert "Easterly" in out
+    assert "Haze (code 05)" in out
+    assert "Today's forecast" in out
+    assert "Data source: India Meteorological Department (IMD)" in out

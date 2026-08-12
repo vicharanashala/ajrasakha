@@ -15,4 +15,4 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8007
 
-CMD ["fastmcp", "run", "weather_tools.py", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8007"]
+CMD ["fastmcp", "run", "weather_tools2.py", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8007"]

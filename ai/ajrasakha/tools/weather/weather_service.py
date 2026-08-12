@@ -560,12 +560,122 @@ class LatLonWeatherService:
                 "feel_like_c": s.get("Feel Like"),
                 "humidity_pct": s.get("RH"),
                 "wind_speed_kmph": s.get("WIND_SPEED"),
-                "wind_direction_deg": s.get("WIND_DIRECTION"),
+                # AWS WIND_DIRECTION uses the same IMD compass codes as current_wx (not degrees).
+                "wind_direction_code": s.get("WIND_DIRECTION"),
                 "mslp": s.get("MSLP"),
                 "weather_message": s.get("WEATHER_MESSAGE"),
+                "weather_code": s.get("WEATHER_CODE"),
                 "latitude": s.get("Latitude"),
                 "longitude": s.get("Longitude"),
             },
+        }
+
+    def get_nearest_current_wx(self, lat: float, lon: float) -> dict[str, Any]:
+        """
+        Nearest IMD Current Weather observation (mirror of api.imd.gov.in/api/v1/current_wx).
+
+        Mirror endpoint: `{IMD_CITY_BASE}/current_wx_api.php` (optional `?id=StationId`).
+        Station coordinates come from cityweather_loc.php (Station_Code ↔ Station Id).
+        """
+        try:
+            wx_raw = self._get_json(self.city_base, "current_wx_api.php")
+        except requests.RequestException as e:
+            return {"success": False, "error": str(e)}
+
+        wx_rows = wx_raw if isinstance(wx_raw, list) else [wx_raw] if wx_raw else []
+        if not wx_rows:
+            return {"success": False, "error": "No current weather rows from current_wx_api.php"}
+
+        try:
+            fc_raw = self._get_json(
+                self.city_base, "cityweather_loc.php", {"lat": lat, "lon": lon}
+            )
+        except requests.RequestException as e:
+            return {"success": False, "error": f"cityweather_loc lookup failed: {e}"}
+
+        fc_rows = fc_raw if isinstance(fc_raw, list) else [fc_raw] if fc_raw else []
+        coords_by_code: dict[str, tuple[float, float, str | None]] = {}
+        for r in fc_rows:
+            if not isinstance(r, dict):
+                continue
+            code = str(r.get("Station_Code") or "").strip()
+            slat = _safe_float(r.get("Latitude"))
+            slon = _safe_float(r.get("Longitude"))
+            if not code or slat is None or slon is None:
+                continue
+            coords_by_code[code] = (slat, slon, r.get("Station_Name"))
+
+        best: tuple[float, dict[str, Any], float, float] | None = None
+        for row in wx_rows:
+            if not isinstance(row, dict):
+                continue
+            sid = str(
+                row.get("Station Id")
+                or row.get("Station_Id")
+                or row.get("station_id")
+                or ""
+            ).strip()
+            if not sid or sid not in coords_by_code:
+                continue
+            slat, slon, _ = coords_by_code[sid]
+            d = _haversine_km(lat, lon, slat, slon)
+            if best is None or d < best[0]:
+                best = (d, row, slat, slon)
+
+        if not best:
+            return {
+                "success": False,
+                "error": "Could not match current_wx stations to coordinates near query point",
+            }
+
+        dkm, row, slat, slon = best
+        station_id = str(
+            row.get("Station Id") or row.get("Station_Id") or ""
+        ).strip()
+        # Prefer single-station refresh when id is known (mirrors ?id=StationId).
+        if station_id:
+            try:
+                one = self._get_json(
+                    self.city_base, "current_wx_api.php", {"id": station_id}
+                )
+                one_rows = one if isinstance(one, list) else [one] if one else []
+                if one_rows and isinstance(one_rows[0], dict):
+                    row = one_rows[0]
+            except requests.RequestException:
+                pass
+
+        station_name = str(row.get("Station") or "").strip() or (
+            coords_by_code.get(station_id, (None, None, None))[2]
+        )
+        return {
+            "success": True,
+            "endpoint": "current_wx_api.php",
+            "distance_km": round(dkm, 2),
+            "station": {
+                "station_id": station_id or None,
+                "name": station_name,
+                "date": row.get("Date of Observation") or row.get("Date"),
+                "time": row.get("Time") or row.get("Time of Observation"),
+                "temperature_c": row.get("Temperature"),
+                "feel_like_c": row.get("Feel Like"),
+                "humidity_pct": row.get("Humidity"),
+                "wind_speed_kmph": row.get("Wind Speed KMPH") or row.get("Wind Speed"),
+                # IMD current_wx Wind Direction is a code (0/20/50/…/360), not continuous degrees.
+                "wind_direction_code": row.get("Wind Direction"),
+                "mslp": row.get("Mean Sea Level Pressure") or row.get("M.S.L.P"),
+                "nebulosity": row.get("Nebulosity"),
+                "past_24hrs_rainfall_mm": row.get("Last 24 hrs Rainfall"),
+                "weather_code": row.get("Weather Code"),
+                "weather_message": row.get("WEATHER_MESSAGE"),
+                "weather_icon": row.get("WEATHER_ICON"),
+                "sunrise": row.get("Sunrise"),
+                "sunset": row.get("Sunset"),
+                "moonrise": row.get("Moonrise"),
+                "moonset": row.get("Moonset"),
+                "latitude": slat,
+                "longitude": slon,
+            },
+            "raw": row,
         }
 
     def get_nearby_aws_stations(

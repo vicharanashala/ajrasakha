@@ -6,8 +6,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
+import random
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Any, Optional, Dict, List, Union
 
@@ -23,6 +26,17 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 from ajrasakha.tools.weather.weather_service import get_service
+from ajrasakha.tools.weather.code import (
+    DISTRICT_WARNING_COLOR_CODES,
+    NOWCAST_CATEGORY_CODES,
+    NOWCAST_COLOR_CODES,
+    RAINFALL_CATEGORY_CODES,
+)
+from ajrasakha.tools.weather.imd_codes import (
+    describe_district_warnings,
+    describe_wind_direction,
+    enrich_station_fields,
+)
 
 load_dotenv()
 
@@ -51,6 +65,34 @@ WS_BASE_URL = os.getenv(
 WS_HISTORY_PATH = "/history/WS_Nearest_Sensors"
 WS_NEARBY_PATH = "/nearby/WS_Nearest_Sensors"
 WS_TIMEOUT_SECONDS = float(os.getenv("WS_NEAREST_SENSORS_TIMEOUT", "12"))
+# Annam WS typically only returns stations within ~10 km of the query pin.
+# When the exact lat/lon misses, probe random pins within this radius.
+WS_PROBE_RADIUS_KM = float(os.getenv("WS_PROBE_RADIUS_KM", "30"))
+WS_PROBE_COUNT = int(os.getenv("WS_PROBE_COUNT", "15"))  # try 10–20 nearby pins
+WS_PROBE_MAX_WORKERS = int(os.getenv("WS_PROBE_MAX_WORKERS", "5"))
+
+# Human-facing data source labels (WS nearest sensors == Annam weather stations)
+DATA_SOURCE_IMD = "India Meteorological Department (IMD)"
+DATA_SOURCE_ANNAM = "Annam Weather Station"
+
+
+def _label_data_source(raw: Any) -> str:
+    """Map internal source codes / legacy labels to IMD vs Annam Weather Station."""
+    text = str(raw or "").strip().lower()
+    if not text:
+        return DATA_SOURCE_IMD
+    if (
+        text in {"ws", "ws_nearest_sensors", "annam", "annam weather station"}
+        or text.startswith("ws")
+        or "annam" in text
+        or "nearest_sensors" in text
+    ):
+        return DATA_SOURCE_ANNAM
+    return DATA_SOURCE_IMD
+
+
+def _is_annam_source(raw: Any) -> bool:
+    return _label_data_source(raw) == DATA_SOURCE_ANNAM
 
 
 STATE_CENTER_COORDINATES = {
@@ -163,7 +205,8 @@ def _build_nearest_station_context(
             "distance_from_requested_place_km": 0.0,
             "search_radius_km": 50.0,
             "nearest_station_note": f"Notice: '{clean_place.title()}' was queried as a state. Weather observations are retrieved for central IMD observation location '{loc_name}'.",
-            "station_details": (aws.get("station", {}) if aws else {})
+            "station_details": (aws.get("station", {}) if aws else {}),
+            "data_source": DATA_SOURCE_IMD,
         }
 
     place_label = requested_place
@@ -181,7 +224,8 @@ def _build_nearest_station_context(
             "distance_from_requested_place_km": dkm,
             "search_radius_km": 50.0,
             "nearest_station_note": note,
-            "station_details": st
+            "station_details": st,
+            "data_source": DATA_SOURCE_IMD,
         }
     else:
         return {
@@ -189,7 +233,8 @@ def _build_nearest_station_context(
             "distance_from_requested_place_km": None,
             "search_radius_km": 50.0,
             "nearest_station_note": f"Notice: No active IMD weather station found within 50.0 km radius search range of {place_label}.",
-            "station_details": {}
+            "station_details": {},
+            "data_source": DATA_SOURCE_IMD,
         }
 
 
@@ -230,6 +275,32 @@ def _ws_station_label(row: dict[str, Any]) -> str:
     )
 
 
+def _ws_nearby_rows(payload: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Normalize API 'nearby' field to a list of station dicts (string errors become [])."""
+    if not isinstance(payload, dict):
+        return []
+    nearby = payload.get("nearby")
+    if isinstance(nearby, list):
+        return [r for r in nearby if isinstance(r, dict)]
+    if isinstance(nearby, str) and nearby.strip():
+        logger.info("WS API nearby notice: %s", nearby.strip())
+    return []
+
+
+def _ws_history_rows(payload: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return []
+    history = payload.get("history")
+    if isinstance(history, list):
+        return [r for r in history if isinstance(r, dict)]
+    return []
+
+
+def _ws_row_has_observation(row: dict[str, Any]) -> bool:
+    """True when a nearby/history row has a usable live temperature reading."""
+    return _ws_safe_float(row.get("Temperature")) is not None
+
+
 def _fetch_ws_history(lat: float, lon: float) -> dict[str, Any] | None:
     """Fetch nearest sensor latest + last-7-day history. Returns None on failure/empty."""
     url = f"{WS_BASE_URL}{WS_HISTORY_PATH}"
@@ -248,12 +319,13 @@ def _fetch_ws_history(lat: float, lon: float) -> dict[str, Any] | None:
 
     if not isinstance(data, dict):
         return None
-    nearby = data.get("nearby") or []
-    history = data.get("history") or []
-    if not nearby and not history:
+    nearby_rows = _ws_nearby_rows(data)
+    history_rows = _ws_history_rows(data)
+    if not nearby_rows and not history_rows:
         logger.info("WS history API returned empty nearby/history for lat=%s lon=%s", lat, lon)
         return None
-    return data
+    # Re-normalize so callers always see list-shaped nearby.
+    return {"nearby": nearby_rows, "history": history_rows}
 
 
 def _fetch_ws_nearby(lat: float, lon: float) -> dict[str, Any] | None:
@@ -274,13 +346,13 @@ def _fetch_ws_nearby(lat: float, lon: float) -> dict[str, Any] | None:
 
     if not isinstance(data, dict):
         return None
-    nearby = data.get("nearby") or []
-    if not nearby:
+    nearby_rows = _ws_nearby_rows(data)
+    if not nearby_rows:
         return None
-    return data
+    return {"nearby": nearby_rows}
 
 
-def _map_ws_reading_to_today(row: dict[str, Any], *, source_label: str = "WS_Nearest_Sensors") -> dict[str, Any]:
+def _map_ws_reading_to_today(row: dict[str, Any], *, source_label: str = DATA_SOURCE_ANNAM) -> dict[str, Any]:
     """Normalize a WS nearby/history row into IMD today_raw-compatible keys."""
     ts = _ws_parse_timestamp(row.get("TimeStamp"))
     date_str = ts.strftime("%Y-%m-%d") if ts else datetime.now().strftime("%Y-%m-%d")
@@ -314,6 +386,7 @@ def _map_ws_reading_to_today(row: dict[str, Any], *, source_label: str = "WS_Nea
         "distance_to_station_km": round(dist, 2) if dist is not None else None,
         "wind_speed_mps": wind_speed,
         "wind_direction_deg": wind_dir,
+        "wind_direction": describe_wind_direction(wind_dir) if wind_dir is not None else None,
         "atm_pressure": pressure,
         "wind_gust_mps": gust,
         "observation_timestamp": row.get("TimeStamp"),
@@ -361,30 +434,132 @@ def _aggregate_ws_history_by_date(history_rows: list[dict[str, Any]]) -> dict[st
             "forecast": None,
             "observation_count": len(rows),
             "latest_timestamp": latest.get("TimeStamp"),
-            "data_source": "WS_Nearest_Sensors History",
+            "data_source": DATA_SOURCE_ANNAM,
         }
     return daily
 
 
-def _get_ws_today_and_history(lat: float, lon: float) -> dict[str, Any] | None:
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in km between two WGS84 points."""
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(min(1.0, a)))
+
+
+def _random_points_within_radius(
+    lat: float,
+    lon: float,
+    *,
+    radius_km: float = WS_PROBE_RADIUS_KM,
+    count: int = WS_PROBE_COUNT,
+) -> list[tuple[float, float]]:
     """
-    Prefer endpoint.md history API for today + last-7-day history.
-    Returns None when WS has no usable data (caller should fall back to IMD).
+    Sample `count` points uniformly at random inside a circle of `radius_km`
+    around (lat, lon). Used to find an Annam station when the exact pin is
+    outside the API's ~10 km coverage window.
+    """
+    if count <= 0 or radius_km <= 0:
+        return []
+    points: list[tuple[float, float]] = []
+    cos_lat = math.cos(math.radians(lat))
+    # Avoid division by zero near the poles.
+    cos_lat = cos_lat if abs(cos_lat) > 1e-6 else 1e-6
+    for _ in range(count):
+        # Uniform-in-area: r = R * sqrt(u), theta = 2πv
+        r_km = radius_km * math.sqrt(random.random())
+        theta = random.uniform(0.0, 2.0 * math.pi)
+        dlat = (r_km / 111.32) * math.cos(theta)
+        dlon = (r_km / (111.32 * cos_lat)) * math.sin(theta)
+        points.append((lat + dlat, lon + dlon))
+    return points
+
+
+def _rebase_ws_distances_to_query(
+    result: dict[str, Any],
+    query_lat: float,
+    query_lon: float,
+) -> dict[str, Any]:
+    """Rewrite DistanceKM / distance_to_station_km relative to the original query pin."""
+    nearby_rows = result.get("raw_nearby") or []
+    for row in nearby_rows:
+        if not isinstance(row, dict):
+            continue
+        slat = _ws_safe_float(row.get("Latitude"))
+        slon = _ws_safe_float(row.get("Longitude"))
+        if slat is None or slon is None:
+            continue
+        row["DistanceKM"] = round(_haversine_km(query_lat, query_lon, slat, slon), 2)
+
+    today = result.get("today")
+    if isinstance(today, dict):
+        slat = _ws_safe_float(today.get("nearest_station_lat"))
+        slon = _ws_safe_float(today.get("nearest_station_lon"))
+        if slat is not None and slon is not None:
+            today["distance_to_station_km"] = round(
+                _haversine_km(query_lat, query_lon, slat, slon), 2
+            )
+    return result
+
+
+def _get_ws_at_coords(lat: float, lon: float) -> dict[str, Any] | None:
+    """
+    Fetch Annam WS today + last-7-day history for a single lat/lon pin.
+    Fallback chain for this pin:
+      1) /history at query coords
+      2) /nearby for a live reading
+      3) /history again at the nearest station's own lat/lon
+    Returns None when Annam has no usable data at this pin.
     """
     payload = _fetch_ws_history(lat, lon)
-    if not payload:
+    nearby_rows = _ws_nearby_rows(payload)
+    history_rows = _ws_history_rows(payload)
+
+    # If history endpoint has no usable live reading, try nearby list, then
+    # re-query history at the closest station coordinates.
+    if not any(_ws_row_has_observation(r) for r in nearby_rows) and not history_rows:
+        nearby_payload = _fetch_ws_nearby(lat, lon)
+        nearby_rows = _ws_nearby_rows(nearby_payload)
+        usable = next((r for r in nearby_rows if _ws_row_has_observation(r)), None)
+        if usable and _ws_safe_float(usable.get("Temperature")) is not None:
+            payload = {"nearby": [usable], "history": []}
+            history_rows = []
+            nearby_rows = [usable]
+        else:
+            # Retry history at station pin (history API often needs station-proximate coords).
+            for cand in nearby_rows:
+                slat = _ws_safe_float(cand.get("Latitude"))
+                slon = _ws_safe_float(cand.get("Longitude"))
+                if slat is None or slon is None:
+                    continue
+                retry = _fetch_ws_history(slat, slon)
+                retry_nearby = _ws_nearby_rows(retry)
+                retry_history = _ws_history_rows(retry)
+                if retry_nearby or retry_history:
+                    # Preserve original distance from query point when available.
+                    if retry_nearby and cand.get("DistanceKM") is not None:
+                        retry_nearby[0].setdefault("DistanceKM", cand.get("DistanceKM"))
+                    payload = {"nearby": retry_nearby, "history": retry_history}
+                    nearby_rows = retry_nearby
+                    history_rows = retry_history
+                    break
+
+    if not payload and not nearby_rows and not history_rows:
+        return None
+    if not nearby_rows and not history_rows:
         return None
 
-    nearby = payload.get("nearby") or []
-    history = payload.get("history") or []
-    nearby0 = nearby[0] if nearby and isinstance(nearby[0], dict) else None
-    history_rows = [r for r in history if isinstance(r, dict)]
+    nearby0 = next((r for r in nearby_rows if _ws_row_has_observation(r)), None)
+    if nearby0 is None and nearby_rows:
+        nearby0 = nearby_rows[0]
 
     daily = _aggregate_ws_history_by_date(history_rows)
     today_str = datetime.now().strftime("%Y-%m-%d")
 
     today_raw = None
-    if nearby0:
+    if nearby0 and _ws_row_has_observation(nearby0):
         today_raw = _map_ws_reading_to_today(nearby0)
         # Enrich today's min/max from same-day history samples when available.
         day_agg = daily.get(today_raw.get("date") or today_str)
@@ -403,7 +578,7 @@ def _get_ws_today_and_history(lat: float, lon: float) -> dict[str, Any] | None:
         today_raw = dict(daily[latest_date])
         today_raw.setdefault("forecast_min_temp", today_raw.get("observed_min_temp"))
         today_raw.setdefault("forecast_max_temp", today_raw.get("observed_max_temp"))
-        today_raw["data_source"] = "WS_Nearest_Sensors History"
+        today_raw["data_source"] = DATA_SOURCE_ANNAM
 
     if not today_raw and not daily:
         return None
@@ -413,16 +588,100 @@ def _get_ws_today_and_history(lat: float, lon: float) -> dict[str, Any] | None:
         "source": "ws",
         "today": today_raw or {},
         "history_by_date": daily,
-        "raw_nearby": nearby,
+        "raw_nearby": nearby_rows,
         "raw_history_count": len(history_rows),
     }
+
+
+def _probe_ws_within_radius(
+    lat: float,
+    lon: float,
+    *,
+    radius_km: float = WS_PROBE_RADIUS_KM,
+    count: int = WS_PROBE_COUNT,
+) -> dict[str, Any] | None:
+    """
+    When the exact query pin has no Annam station (~10 km API window), try
+    random pins inside `radius_km` until one returns usable WS data.
+    """
+    probes = _random_points_within_radius(lat, lon, radius_km=radius_km, count=count)
+    if not probes:
+        return None
+
+    logger.info(
+        "WS Annam miss at lat=%s lon=%s; probing %d random pins within %.0f km",
+        lat,
+        lon,
+        len(probes),
+        radius_km,
+    )
+
+    workers = max(1, min(WS_PROBE_MAX_WORKERS, len(probes)))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(_get_ws_at_coords, plat, plon): (plat, plon) for plat, plon in probes
+        }
+        for fut in as_completed(futures):
+            plat, plon = futures[fut]
+            try:
+                result = fut.result()
+            except Exception as exc:
+                logger.warning("WS probe failed at lat=%s lon=%s: %s", plat, plon, exc)
+                continue
+            if not result:
+                continue
+            # Cancel remaining probes once we have a hit.
+            for pending in futures:
+                pending.cancel()
+            result = _rebase_ws_distances_to_query(result, lat, lon)
+            result["ws_probe"] = {
+                "used": True,
+                "query_lat": lat,
+                "query_lon": lon,
+                "probe_lat": plat,
+                "probe_lon": plon,
+                "radius_km": radius_km,
+                "probe_count": count,
+            }
+            dist = (result.get("today") or {}).get("distance_to_station_km")
+            logger.info(
+                "WS Annam hit via probe pin lat=%s lon=%s (station ~%s km from query)",
+                plat,
+                plon,
+                dist,
+            )
+            return result
+
+    logger.info(
+        "WS Annam still empty after %d probes within %.0f km of lat=%s lon=%s",
+        count,
+        radius_km,
+        lat,
+        lon,
+    )
+    return None
+
+
+def _get_ws_today_and_history(lat: float, lon: float) -> dict[str, Any] | None:
+    """
+    Prefer Annam WS for today + last-7-day history.
+    Fallback chain:
+      1) Exact agent lat/lon (/history → /nearby → station-pin retry)
+      2) Random 10–20 pins inside ~30 km (Annam API ~10 km window miss)
+    Returns None when Annam has no usable data (caller should fall back to IMD).
+    """
+    result = _get_ws_at_coords(lat, lon)
+    if result:
+        return result
+    return _probe_ws_within_radius(lat, lon)
 
 
 def _get_forecast_bundle_ws_first(svc, lat: float, lon: float) -> dict[str, Any]:
     """
     Build a forecast-bundle-compatible dict.
-    - today/history: WS history API first, IMD fallback
-    - multi-day forecast days: always from IMD when available
+    Priority:
+      - today / history observations: Annam Weather Station first, IMD fallback
+      - multi-day forecast days (day 2+): IMD only (Annam has no multi-day forecast feed)
     """
     ws = _get_ws_today_and_history(lat, lon)
     imd = None
@@ -438,38 +697,53 @@ def _get_forecast_bundle_ws_first(svc, lat: float, lon: float) -> dict[str, Any]
 
     if ws and ws.get("today"):
         today = dict(ws["today"])
-        # Fill forecast text / sunrise / sunset from IMD when WS lacks them.
+        # Keep Annam observations primary. Only borrow IMD sky text / sun times when missing.
         if today.get("forecast") is None and imd_today.get("forecast") is not None:
             today["forecast"] = imd_today.get("forecast")
         for k in ("sunrise", "sunset"):
             if today.get(k) is None and imd_today.get(k) is not None:
                 today[k] = imd_today.get(k)
-        # Prefer IMD forecast min/max for "today forecast" fields when present.
-        if imd_today.get("forecast_min_temp") is not None:
-            today["forecast_min_temp"] = imd_today.get("forecast_min_temp")
-        if imd_today.get("forecast_max_temp") is not None:
-            today["forecast_max_temp"] = imd_today.get("forecast_max_temp")
+        # Do not overwrite Annam observed temps with IMD forecast temps.
+        today.setdefault("forecast_min_temp", today.get("observed_min_temp"))
+        today.setdefault("forecast_max_temp", today.get("observed_max_temp"))
 
+        today["data_source"] = DATA_SOURCE_ANNAM
+        ws_meta = {
+            "raw_history_count": ws.get("raw_history_count"),
+            "source": DATA_SOURCE_ANNAM,
+        }
+        if ws.get("ws_probe"):
+            ws_meta["probe"] = ws["ws_probe"]
         return {
             "success": True,
             "today": today,
             "forecast": imd_forecast,
             "history_by_date": ws.get("history_by_date") or {},
             "data_source_today": "ws",
+            "data_source": DATA_SOURCE_ANNAM,
+            # Multi-day outlook only — omit unless forecast days are actually present.
+            "forecast_data_source": DATA_SOURCE_IMD if imd_forecast else None,
             "stations_returned": imd.get("stations_returned") if imd_ok else 1,
-            "ws_meta": {
-                "raw_history_count": ws.get("raw_history_count"),
-                "source": "WS_Nearest_Sensors",
-            },
+            "ws_meta": ws_meta,
         }
 
     if imd_ok:
         out = dict(imd)
         out["history_by_date"] = {}
         out["data_source_today"] = "imd"
+        out["data_source"] = DATA_SOURCE_IMD
+        # Single source — do not also emit a separate forecast_data_source line.
+        out["forecast_data_source"] = None
+        out["annam_unavailable_note"] = (
+            "Annam Weather Station data was not available for this location; "
+            "using India Meteorological Department (IMD)."
+        )
+        today_imd = out.get("today")
+        if isinstance(today_imd, dict):
+            today_imd["data_source"] = DATA_SOURCE_IMD
         return out
 
-    return {"success": False, "error": "No weather data from WS history API or IMD", "history_by_date": {}}
+    return {"success": False, "error": "No weather data from Annam Weather Station or IMD", "history_by_date": {}}
 
 
 def _lookup_history_day(
@@ -481,7 +755,7 @@ def _lookup_history_day(
     """Return a daily history record for date_str from WS aggregates when present."""
     if history_by_date and date_str in history_by_date:
         return history_by_date[date_str]
-    if today_raw and today_raw.get("date") == date_str and today_raw.get("data_source", "").startswith("WS"):
+    if today_raw and today_raw.get("date") == date_str and _is_annam_source(today_raw.get("data_source")):
         return today_raw
     return None
 
@@ -497,16 +771,16 @@ def _build_ws_nearest_station_context(
         return None
     if not ws_today:
         return None
-    st_name = ws_today.get("station") or "Nearest Weather Station"
+    st_name = ws_today.get("station") or "Annam Weather Station"
     dkm = ws_today.get("distance_to_station_km")
     place_label = requested_place
     if dkm is not None and float(dkm) > 0.5:
         note = (
-            f"Notice: Weather observations retrieved from nearest weather station '{st_name}' "
+            f"Notice: Weather observations retrieved from nearest Annam weather station '{st_name}' "
             f"located {float(dkm):.1f} km from {place_label}."
         )
     else:
-        note = f"Observed weather data from weather station '{st_name}' at {place_label}."
+        note = f"Observed weather data from Annam weather station '{st_name}' at {place_label}."
     return {
         "nearest_station_name": st_name,
         "distance_from_requested_place_km": dkm,
@@ -517,9 +791,9 @@ def _build_ws_nearest_station_context(
             "code": ws_today.get("station_code"),
             "lat": ws_today.get("nearest_station_lat"),
             "lon": ws_today.get("nearest_station_lon"),
-            "data_source": ws_today.get("data_source"),
+            "data_source": DATA_SOURCE_ANNAM,
         },
-        "data_source": "WS_Nearest_Sensors",
+        "data_source": DATA_SOURCE_ANNAM,
     }
 
 
@@ -588,7 +862,7 @@ async def get_current_and_forecast_info(
                     "observed_past_24hrs_rainfall": today_raw.get("past_24hrs_rainfall"),
                     "humidity_0830": today_raw.get("humidity_0830"),
                     "humidity_1730": today_raw.get("humidity_1730"),
-                    "data_source": today_raw.get("data_source") or data_source_today,
+                    "data_source": today_raw.get("data_source") or _label_data_source(data_source_today),
                 }
             ]
 
@@ -603,13 +877,19 @@ async def get_current_and_forecast_info(
                     "min_temp": item.get("min_temp"),
                     "max_temp": item.get("max_temp"),
                     "forecast": item.get("forecast"),
-                    "data_source": "imd",
+                    "data_source": DATA_SOURCE_IMD,
                 })
 
             eff_from_date = from_date
             eff_to_date = to_date
-            if qt == "previous" and not eff_from_date:
-                eff_from_date = today_str
+            # Bare "previous/past" with no range → last 7 days (inclusive of today)
+            if qt == "previous" and not eff_from_date and not target_date:
+                try:
+                    base = datetime.strptime(today_str, "%Y-%m-%d")
+                except Exception:
+                    base = datetime.now()
+                eff_from_date = (base - timedelta(days=6)).strftime("%Y-%m-%d")
+                eff_to_date = today_str
             if eff_from_date and not eff_to_date:
                 eff_to_date = today_str
 
@@ -637,7 +917,7 @@ async def get_current_and_forecast_info(
                             ),
                             "humidity_0830": ws_hist.get("humidity_0830"),
                             "humidity_1730": ws_hist.get("humidity_1730"),
-                            "data_source": ws_hist.get("data_source") or "WS_Nearest_Sensors History",
+                            "data_source": ws_hist.get("data_source") or DATA_SOURCE_ANNAM,
                         }
                     elif matched_item:
                         result_payload["target_date_weather"] = matched_item
@@ -656,7 +936,7 @@ async def get_current_and_forecast_info(
                                 "max_temp": today_raw.get("observed_max_temp") or today_raw.get("forecast_max_temp", "30.0"),
                                 "forecast": "Normal weather",
                                 "observed_past_24hrs_rainfall": today_raw.get("past_24hrs_rainfall", "0.0"),
-                                "data_source": "imd_fallback",
+                                "data_source": DATA_SOURCE_IMD,
                             }
                         else:
                             result_payload["target_date_weather"] = {
@@ -704,7 +984,7 @@ async def get_current_and_forecast_info(
                             ),
                             "humidity_0830": ws_hist.get("humidity_0830"),
                             "humidity_1730": ws_hist.get("humidity_1730"),
-                            "data_source": ws_hist.get("data_source") or "WS_Nearest_Sensors History",
+                            "data_source": ws_hist.get("data_source") or DATA_SOURCE_ANNAM,
                         })
                         continue
 
@@ -718,7 +998,7 @@ async def get_current_and_forecast_info(
                             "observed_min_temp": today_raw.get("observed_min_temp"),
                             "observed_max_temp": today_raw.get("observed_max_temp"),
                             "observed_past_24hrs_rainfall": today_raw.get("past_24hrs_rainfall"),
-                            "data_source": "IMD Station Recorded Historical Observation"
+                            "data_source": DATA_SOURCE_IMD,
                         })
 
                 result_payload["historical_weather_range"] = ranged_items
@@ -736,8 +1016,25 @@ async def get_current_and_forecast_info(
                 result_payload["today_weather"] = today_raw
 
             result_payload["data_source_today"] = data_source_today
+            result_payload["data_source"] = _label_data_source(data_source_today)
+            # Only expose IMD as a separate forecast source when multi-day forecast is returned.
+            showing_multiday = bool(
+                result_payload.get("forecast_list")
+                or (isinstance(result_payload.get("selected_timeframe"), str)
+                    and "days_forecast" in result_payload.get("selected_timeframe", ""))
+            )
+            if showing_multiday and data_source_today == "ws" and bundle.get("forecast"):
+                result_payload["forecast_data_source"] = DATA_SOURCE_IMD
+            if bundle.get("annam_unavailable_note"):
+                result_payload["annam_unavailable_note"] = bundle.get("annam_unavailable_note")
 
         place_label = location or district or resolved_name or "Location"
+        # IMD Current Weather API (current_wx) — used for live observation on "today"/current queries
+        imd_current = None
+        want_current = (qt in {"today", "current", ""}) and not target_date and not from_date and forecast_days <= 1
+        if want_current or qt in {"today", "current"}:
+            imd_current = _fetch_imd_current_wx(svc, actual_lat, actual_lon)
+
         if target_date:
             m_target = next((item for item in full_7day_forecast if item.get("date") == target_date), None)
             if m_target:
@@ -750,7 +1047,23 @@ async def get_current_and_forecast_info(
             limit_days = max(1, min(7, forecast_days))
             human_sum = f"{limit_days}-Day Weather Forecast for {place_label}: Temperatures ranging between {today_raw.get('forecast_min_temp', 'N/A')}°C and {today_raw.get('forecast_max_temp', 'N/A')}°C. Forecast: {today_raw.get('forecast', 'Generally cloudy sky with rain')}."
         else:
-            human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm, Forecast: {today_raw.get('forecast', 'Normal weather')}."
+            cond = today_raw.get("forecast", "Normal weather")
+            if isinstance(imd_current, dict) and imd_current.get("success"):
+                cst = imd_current.get("station") or {}
+                cond = cst.get("weather_description") or cst.get("weather_message") or cond
+                wind_desc = cst.get("wind_direction") or describe_wind_direction(
+                    cst.get("wind_direction_code") or cst.get("wind_direction_deg")
+                )
+                human_sum = (
+                    f"Today's Weather in {place_label}: "
+                    f"Temp: {cst.get('temperature_c', today_raw.get('observed_min_temp', 'N/A'))}°C, "
+                    f"Humidity: {cst.get('humidity_pct', today_raw.get('humidity_0830', 'N/A'))}%, "
+                    f"Wind: {wind_desc or 'N/A'} "
+                    f"{cst.get('wind_speed_kmph', '')} kmph, "
+                    f"Condition: {cond}."
+                )
+            else:
+                human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm, Forecast: {cond}."
 
         ws_ctx = _build_ws_nearest_station_context(
             actual_lat, actual_lon, location or district or resolved_name, today_raw if data_source_today == "ws" else None
@@ -762,7 +1075,12 @@ async def get_current_and_forecast_info(
             "resolved_location": _build_resolved_location_name(location, district, resolved_name or (geo.get("display_name") if geo else None)),
             "summary": human_sum,
             "weather_data": result_payload,
+            "data_source": result_payload.get("data_source") or _label_data_source(data_source_today),
         }
+        if result_payload.get("forecast_data_source"):
+            res_dict["forecast_data_source"] = result_payload["forecast_data_source"]
+        if result_payload.get("annam_unavailable_note"):
+            res_dict["annam_unavailable_note"] = result_payload["annam_unavailable_note"]
         if target_date:
             res_dict["target_date"] = target_date
         if from_date:
@@ -770,122 +1088,93 @@ async def get_current_and_forecast_info(
             res_dict["to_date"] = to_date or datetime.now().strftime("%Y-%m-%d")
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
+        if isinstance(imd_current, dict) and imd_current.get("success"):
+            res_dict["imd_current_weather"] = imd_current
+            if isinstance(result_payload, dict) and result_payload.get("selected_timeframe") == "today":
+                result_payload["imd_current_weather"] = imd_current
+                res_dict["weather_data"] = result_payload
         return res_dict
 
     return await asyncio.to_thread(_run)
 
 
-RAINFALL_CATEGORY_DECODER = {
-    "LE": "Large Excess (60% or more above normal)",
-    "E": "Excess (20% to 59% above normal)",
-    "N": "Normal (-19% to +19% of normal)",
-    "D": "Deficient (-59% to -20% below normal)",
-    "LD": "Large Deficient (-99% to -60% below normal)",
-    "NR": "No Rain (-100% no rainfall)",
-    "ND": "No Data (Data not available)"
-}
+RAINFALL_CATEGORY_DECODER = RAINFALL_CATEGORY_CODES
 
-CURRENT_WEATHER_CODE_DECODER = {
-    "01": "Clouds generally dissolving or becoming less developed",
-    "02": "State of sky on the whole unchanged",
-    "03": "Clouds generally forming or developing",
-    "04": "Visibility reduced by smoke",
-    "05": "Haze",
-    "06": "Widespread dust in suspension in the air",
-    "07": "Dust or sand raised by wind",
-    "08": "Well-developed dust/sand whirls",
-    "09": "Duststorm or sandstorm within sight",
-    "10": "Mist",
-    "11": "Patches of shallow fog/ice fog",
-    "12": "Continuous shallow fog/ice fog",
-    "13": "Lightning visible, no thunder heard",
-    "14": "Precipitation within sight, not reaching ground",
-    "15": "Precipitation within sight, reaching ground (>5 km distant)",
-    "16": "Precipitation within sight, near but not at station",
-    "17": "Thunderstorm, no precipitation at observation time",
-    "18": "Squalls at or within sight",
-    "19": "Funnel cloud(s) at or within sight",
-    "20": "Drizzle or snow grains not falling as showers",
-    "21": "Rain not falling as showers",
-    "22": "Snow not falling as showers",
-    "23": "Rain and snow / ice pellets",
-    "24": "Freezing drizzle or freezing rain",
-    "25": "Showers of rain",
-    "26": "Showers of snow or rain+snow",
-    "27": "Showers of hail",
-    "28": "Fog or ice fog",
-    "29": "Thunderstorm with or without precipitation",
-    "30": "Slight/moderate duststorm/sandstorm - decreased",
-    "31": "Slight/moderate duststorm/sandstorm - no change",
-    "32": "Slight/moderate duststorm/sandstorm - increased",
-    "33": "Severe duststorm/sandstorm - decreased",
-    "34": "Severe duststorm/sandstorm - no change",
-    "35": "Severe duststorm/sandstorm - increased",
-    "36": "Slight/moderate blowing snow low",
-    "37": "Heavy drifting snow low",
-    "38": "Slight/moderate blowing snow high",
-    "39": "Heavy drifting snow high",
-    "40": "Fog/ice fog at a distance",
-    "41": "Fog or ice fog in patches",
-    "42": "Fog/ice fog, sky visible, becoming thinner",
-    "43": "Fog/ice fog, sky invisible, becoming thinner",
-    "44": "Fog/ice fog, sky visible, no change",
-    "45": "Fog/ice fog, sky invisible, no change",
-    "46": "Fog/ice fog, sky visible, becoming thicker",
-    "47": "Fog/ice fog, sky invisible, becoming thicker",
-    "48": "Fog depositing rime, sky visible",
-    "49": "Fog depositing rime, sky invisible",
-    "50": "Drizzle, intermittent slight",
-    "51": "Drizzle, continuous slight",
-    "52": "Drizzle, intermittent moderate",
-    "53": "Drizzle, continuous moderate",
-    "54": "Drizzle, intermittent heavy",
-    "55": "Drizzle, continuous heavy",
-    "56": "Drizzle, freezing, slight",
-    "57": "Drizzle, freezing, moderate/heavy",
-    "58": "Drizzle and rain, slight",
-    "59": "Drizzle and rain, moderate/heavy",
-    "60": "Rain, intermittent slight",
-    "61": "Rain, continuous slight",
-    "62": "Rain, intermittent moderate",
-    "63": "Rain, continuous moderate",
-    "64": "Rain, intermittent heavy",
-    "65": "Rain, continuous heavy",
-    "66": "Rain, freezing, slight",
-    "67": "Rain, freezing, moderate/heavy",
-    "68": "Rain or drizzle and snow, slight",
-    "69": "Rain or drizzle and snow, moderate/heavy",
-    "70": "Intermittent fall of snowflakes, slight",
-    "71": "Continuous fall of snowflakes, slight",
-    "72": "Intermittent fall of snowflakes, moderate",
-    "73": "Continuous fall of snowflakes, moderate",
-    "74": "Intermittent fall of snowflakes, heavy",
-    "75": "Continuous fall of snowflakes, heavy",
-    "76": "Ice prisms",
-    "77": "Snow grains",
-    "78": "Isolated star-like snow crystals",
-    "79": "Ice pellets",
-    "80": "Rain shower(s), slight",
-    "81": "Rain shower(s), moderate or heavy",
-    "82": "Rain shower(s), violent",
-    "83": "Shower(s) of rain and snow, slight",
-    "84": "Shower(s) of rain and snow, moderate or heavy",
-    "85": "Snow shower(s), slight",
-    "86": "Snow shower(s), moderate or heavy",
-    "87": "Shower(s) of snow pellets/ice pellets, slight",
-    "88": "Shower(s) of snow pellets/ice pellets, moderate or heavy",
-    "89": "Shower(s) of hail, slight",
-    "90": "Shower(s) of hail, moderate or heavy",
-    "91": "Slight rain at observation; thunderstorm preceding hour",
-    "92": "Moderate/heavy rain at observation; thunderstorm preceding hour",
-    "93": "Slight snow/hail at observation; thunderstorm preceding hour",
-    "94": "Moderate/heavy snow/hail at observation; thunderstorm preceding hour",
-    "95": "Thunderstorm, slight/moderate, with rain/snow",
-    "96": "Thunderstorm, slight/moderate, with hail",
-    "97": "Thunderstorm, heavy, with rain/snow",
-    "98": "Thunderstorm combined with duststorm/sandstorm",
-    "99": "Thunderstorm, heavy, with hail"
+# District warning DayN_Color → human severity (codes + hex from code.py).
+_DISTRICT_WARNING_SEVERITY = {
+    "1": "Red (Take Action)",
+    "2": "Orange (Be Prepared)",
+    "3": "Yellow (Be Updated)",
+    "4": "Green (No Warning)",
 }
+WARNING_COLOR_DECODER: dict[str, str] = dict(_DISTRICT_WARNING_SEVERITY)
+for _c, _info in DISTRICT_WARNING_COLOR_CODES.items():
+    _label = _DISTRICT_WARNING_SEVERITY.get(str(_c))
+    if not _label:
+        continue
+    _hex = str(_info.get("Hex", ""))
+    if _hex:
+        WARNING_COLOR_DECODER[_hex] = _label
+        WARNING_COLOR_DECODER[_hex.lower()] = _label
+        WARNING_COLOR_DECODER[_hex.upper()] = _label
+
+# Nowcast color codes → severity text (codes + hex from code.py).
+_NOWCAST_SEVERITY = {
+    "1": "Green (No Warning)",
+    "2": "Yellow (Light-Moderate Warning)",
+    "3": "Orange (Moderate-Severe Warning)",
+    "4": "Red (Severe-Very Severe Warning)",
+}
+NOWCAST_COLOR_DECODER: dict[str, str] = dict(_NOWCAST_SEVERITY)
+for _c, _info in NOWCAST_COLOR_CODES.items():
+    _label = _NOWCAST_SEVERITY.get(str(_c))
+    if not _label:
+        continue
+    _hex = str(_info.get("Hex", ""))
+    if _hex:
+        NOWCAST_COLOR_DECODER[_hex] = _label
+        NOWCAST_COLOR_DECODER[_hex.lower()] = _label
+        NOWCAST_COLOR_DECODER[_hex.upper()] = _label
+
+# Nowcast Cat values are looked up by numeric/text Code from NOWCAST_CATEGORY_CODES.
+NOWCAST_CAT_DECODER: dict[str, dict[str, str]] = {}
+for _cat, _info in NOWCAST_CATEGORY_CODES.items():
+    _code = str(_info.get("Code", "")).strip()
+    _desc = str(_info.get("Description", "")).strip()
+    if not _code or _code.lower() == "text":
+        continue
+    NOWCAST_CAT_DECODER[_code] = {
+        "category_code": _code,
+        "category_description": _desc,
+        "category_key": _cat,
+    }
+
+
+def _describe_warning_code(code: Any) -> str | None:
+    """Map district-warning code to label; None if unknown."""
+    label = describe_district_warnings(code)
+    if not label or label == str(code).strip():
+        num = str(code).strip()
+        return label if label and label != num else None
+    return label
+
+
+def _fetch_imd_current_wx(svc, lat: float, lon: float) -> dict[str, Any] | None:
+    """Fetch + code-enrich nearest IMD current_wx observation. None on hard failure."""
+    try:
+        raw = svc.get_nearest_current_wx(lat, lon)
+    except Exception as exc:
+        logger.warning("get_nearest_current_wx failed: %s", exc)
+        return {"success": False, "error": str(exc)}
+    if not isinstance(raw, dict):
+        return None
+    if not raw.get("success"):
+        return raw
+    out = dict(raw)
+    out["station"] = enrich_station_fields(raw.get("station") or {})
+    out["data_source"] = DATA_SOURCE_IMD
+    return out
+
 
 # --------------------------------------------------------------------------
 # TOOL 2: get_rainfall_and_monsoon_info (Cluster 2 & 3)
@@ -943,7 +1232,7 @@ async def get_rainfall_and_monsoon_info(
                 "date": base_dt.strftime("%Y-%m-%d"),
                 "observed_past_24hrs_rainfall_mm": today_raw.get("past_24hrs_rainfall", "0"),
                 "forecast": today_raw.get("forecast", "N/A"),
-                "data_source": today_raw.get("data_source") or bundle.get("data_source_today"),
+                "data_source": _label_data_source(today_raw.get("data_source") or bundle.get("data_source_today")),
             }
         ]
         raw_fc_days = bundle.get("forecast", []) if bundle.get("success") else []
@@ -954,14 +1243,20 @@ async def get_rainfall_and_monsoon_info(
                 "day": day_num,
                 "date": item_dt.strftime("%Y-%m-%d"),
                 "forecast": item.get("forecast"),
-                "data_source": "imd",
+                "data_source": DATA_SOURCE_IMD,
             })
 
         eff_from_date = from_date
         eff_to_date = to_date
         dt = (data_type or "current").lower()
-        if (dt == "historical" or dt == "previous") and not eff_from_date:
-            eff_from_date = today_str
+        # Bare historical/previous with no range → last 7 days (inclusive of today)
+        if (dt == "historical" or dt == "previous" or (query_type or "").lower() == "previous") and not eff_from_date and not target_date:
+            try:
+                base = datetime.strptime(today_str, "%Y-%m-%d")
+            except Exception:
+                base = datetime.now()
+            eff_from_date = (base - timedelta(days=6)).strftime("%Y-%m-%d")
+            eff_to_date = today_str
         if eff_from_date and not eff_to_date:
             eff_to_date = today_str
 
@@ -1006,7 +1301,7 @@ async def get_rainfall_and_monsoon_info(
                         or ws_hist.get("observed_past_24hrs_rainfall")
                         or 0.0
                     ),
-                    "data_source": ws_hist.get("data_source") or "WS_Nearest_Sensors History",
+                    "data_source": ws_hist.get("data_source") or DATA_SOURCE_ANNAM,
                 }
             elif matched_rf and target_date >= today_str:
                 filtered_payload["rainfall_target_date"] = matched_rf
@@ -1026,7 +1321,7 @@ async def get_rainfall_and_monsoon_info(
                             "district": matched or hint,
                             "forecast": "Observed rainfall",
                             "observed_past_24hrs_rainfall_mm": rec.get("Daily Actual") or today_raw.get("past_24hrs_rainfall", "0.0"),
-                            "data_source": "imd_fallback",
+                            "data_source": DATA_SOURCE_IMD,
                         }
                     else:
                         filtered_payload["rainfall_target_date"] = {
@@ -1065,7 +1360,8 @@ async def get_rainfall_and_monsoon_info(
                             or ws_hist.get("observed_past_24hrs_rainfall")
                             or 0.0
                         ),
-                        "source": ws_hist.get("data_source") or "WS_Nearest_Sensors History",
+                        "source": ws_hist.get("data_source") or DATA_SOURCE_ANNAM,
+                        "data_source": ws_hist.get("data_source") or DATA_SOURCE_ANNAM,
                     })
                     continue
                 m_item = next((item for item in rainfall_7day_list if item.get("date") == d_str), None)
@@ -1082,7 +1378,8 @@ async def get_rainfall_and_monsoon_info(
                         "departure_pct": rec.get("Daily Departure Per", "N/A"),
                         "category_code": cat_code,
                         "category_description": cat_desc,
-                        "source": "IMD District Recorded Historical Rainfall"
+                        "source": DATA_SOURCE_IMD,
+                        "data_source": DATA_SOURCE_IMD,
                     })
             filtered_payload["timeframe"] = f"date_range ({eff_from_date} to {eff_to_date})"
             filtered_payload["rainfall_range"] = ranged_rf
@@ -1112,8 +1409,16 @@ async def get_rainfall_and_monsoon_info(
                 "category_code": cat_code,
                 "category_description": cat_desc,
                 "weekly_cumulative_mm": rec.get("Weekly Actual", "N/A"),
-                "data_source": today_raw.get("data_source") or bundle.get("data_source_today"),
+                "data_source": _label_data_source(today_raw.get("data_source") or bundle.get("data_source_today")),
             }
+
+        # Prefer district rainfall stats from IMD when present; observation rain from Annam/WS when used.
+        obs_source = _label_data_source(today_raw.get("data_source") or bundle.get("data_source_today"))
+        filtered_payload["data_source"] = DATA_SOURCE_IMD if (rec or dt == "monsoon_status") else obs_source
+        if obs_source == DATA_SOURCE_ANNAM and (dt in {"current", "today"} or "today_rainfall" in filtered_payload):
+            filtered_payload["observation_data_source"] = DATA_SOURCE_ANNAM
+            filtered_payload["district_stats_data_source"] = DATA_SOURCE_IMD
+            filtered_payload["data_source"] = DATA_SOURCE_ANNAM
 
         place_label = matched or hint or resolved_name or "Location"
         if target_date:
@@ -1138,7 +1443,12 @@ async def get_rainfall_and_monsoon_info(
             "district": matched or hint,
             "summary": human_sum,
             "results": filtered_payload,
+            "data_source": filtered_payload.get("data_source") or _label_data_source(bundle.get("data_source_today")),
         }
+        if filtered_payload.get("observation_data_source"):
+            res_dict["observation_data_source"] = filtered_payload["observation_data_source"]
+        if filtered_payload.get("district_stats_data_source"):
+            res_dict["district_stats_data_source"] = filtered_payload["district_stats_data_source"]
         if target_date:
             res_dict["target_date"] = target_date
         if from_date:
@@ -1183,6 +1493,7 @@ async def get_temperature_info(
     def _run():
         geo = svc.reverse_geocode(actual_lat, actual_lon)
         aws = svc.get_nearest_aws(actual_lat, actual_lon, geo.get("state"), geo.get("raw_address"))
+        imd_current = _fetch_imd_current_wx(svc, actual_lat, actual_lon)
         fc = _get_forecast_bundle_ws_first(svc, actual_lat, actual_lon)
         history_by_date = fc.get("history_by_date") or {}
 
@@ -1204,7 +1515,7 @@ async def get_temperature_info(
                 "humidity_0830": today_fc.get("humidity_0830"),
                 "humidity_1730": today_fc.get("humidity_1730"),
                 "forecast_condition": today_fc.get("forecast"),
-                "data_source": today_fc.get("data_source") or fc.get("data_source_today"),
+                "data_source": _label_data_source(today_fc.get("data_source") or fc.get("data_source_today")),
             }
         ]
         raw_fc = fc.get("forecast", []) if fc.get("success") else []
@@ -1217,33 +1528,40 @@ async def get_temperature_info(
                 "min_temp_c": item.get("min_temp"),
                 "max_temp_c": item.get("max_temp"),
                 "forecast_condition": item.get("forecast"),
-                "data_source": "imd",
+                "data_source": DATA_SOURCE_IMD,
             })
 
         eff_from_date = from_date
         eff_to_date = to_date
         qt = (query_type or "").lower()
 
-        # If previous/historical is requested without from_date, default from_date to today's date
-        if qt == "previous" and not eff_from_date:
-            eff_from_date = today_str
+        # Bare previous/past with no range → last 7 days (inclusive of today)
+        if qt == "previous" and not eff_from_date and not target_date:
+            try:
+                base = datetime.strptime(today_str, "%Y-%m-%d")
+            except Exception:
+                base = datetime.now()
+            eff_from_date = (base - timedelta(days=6)).strftime("%Y-%m-%d")
+            eff_to_date = today_str
 
         # If from_date is set but to_date is missing, default to_date to today's date
         if eff_from_date and not eff_to_date:
             eff_to_date = today_str
 
-        # Prefer WS live reading for current temp when available
+        # Prefer Annam WS, then IMD current_wx, then AWS for live temp
         temp_obs = aws.get("station", {}) if aws.get("success") else {}
+        if isinstance(imd_current, dict) and imd_current.get("success"):
+            temp_obs = {**temp_obs, **(imd_current.get("station") or {})}
         if fc.get("data_source_today") == "ws" and today_fc:
             curr_temp = today_fc.get("observed_max_temp") or today_fc.get("observed_min_temp") or temp_obs.get("temperature_c") or "N/A"
             humidity = today_fc.get("humidity_0830") or temp_obs.get("humidity_pct") or "N/A"
-            weather_msg = today_fc.get("forecast") or temp_obs.get("weather_message") or "N/A"
+            weather_msg = today_fc.get("forecast") or temp_obs.get("weather_description") or temp_obs.get("weather_message") or "N/A"
             feel_like = temp_obs.get("feel_like_c") or "N/A"
         else:
             curr_temp = temp_obs.get("temperature_c") or today_fc.get("observed_min_temp") or "N/A"
             feel_like = temp_obs.get("feel_like_c") or "N/A"
             humidity = temp_obs.get("humidity_pct") or today_fc.get("humidity_0830") or "N/A"
-            weather_msg = temp_obs.get("weather_message") or today_fc.get("forecast") or "N/A"
+            weather_msg = temp_obs.get("weather_description") or temp_obs.get("weather_message") or today_fc.get("forecast") or "N/A"
 
         adv = (advisory_type or "current_temp").lower()
         qt = (query_type or "").lower()
@@ -1272,7 +1590,7 @@ async def get_temperature_info(
                     "max_temp": ws_hist.get("observed_max_temp") or ws_hist.get("max_temp"),
                     "humidity_0830": ws_hist.get("humidity_0830"),
                     "humidity_1730": ws_hist.get("humidity_1730"),
-                    "data_source": ws_hist.get("data_source") or "WS_Nearest_Sensors History",
+                    "data_source": ws_hist.get("data_source") or DATA_SOURCE_ANNAM,
                 }
             elif m_target and target_date >= today_str:
                 timeframe_payload["target_date_temperature"] = m_target
@@ -1292,7 +1610,7 @@ async def get_temperature_info(
                             "forecast": "Observed temperature",
                             "min_temp": today_fc.get("observed_min_temp") or today_fc.get("forecast_min_temp", "22.5"),
                             "max_temp": today_fc.get("observed_max_temp") or today_fc.get("forecast_max_temp", "30.0"),
-                            "data_source": "imd_fallback",
+                            "data_source": DATA_SOURCE_IMD,
                         }
                     else:
                         timeframe_payload["target_date_temperature"] = {
@@ -1329,7 +1647,8 @@ async def get_temperature_info(
                         "observed_max_temp_c": ws_hist.get("observed_max_temp"),
                         "humidity_0830": ws_hist.get("humidity_0830"),
                         "humidity_1730": ws_hist.get("humidity_1730"),
-                        "source": ws_hist.get("data_source") or "WS_Nearest_Sensors History",
+                        "source": ws_hist.get("data_source") or DATA_SOURCE_ANNAM,
+                        "data_source": ws_hist.get("data_source") or DATA_SOURCE_ANNAM,
                     })
                     continue
                 match = next((item for item in temp_7day_list if item.get("date") == d_str), None)
@@ -1341,7 +1660,8 @@ async def get_temperature_info(
                         "station": temp_obs.get("name"),
                         "observed_min_temp_c": today_fc.get("observed_min_temp"),
                         "observed_max_temp_c": today_fc.get("observed_max_temp"),
-                        "source": "IMD Station Recorded Historical Observation"
+                        "source": DATA_SOURCE_IMD,
+                        "data_source": DATA_SOURCE_IMD,
                     })
             timeframe_payload["selected_timeframe"] = f"date_range ({eff_from_date or today_str} to {eff_to_date or today_str})"
             timeframe_payload["temperature_range"] = ranged_temp
@@ -1362,8 +1682,11 @@ async def get_temperature_info(
                 "forecast_max_temp_c": today_fc.get("forecast_max_temp"),
                 "sunrise": today_fc.get("sunrise"),
                 "sunset": today_fc.get("sunset"),
-                "data_source": today_fc.get("data_source") or fc.get("data_source_today"),
+                "data_source": _label_data_source(today_fc.get("data_source") or fc.get("data_source_today")),
             }
+
+        temp_data_source = _label_data_source(today_fc.get("data_source") or fc.get("data_source_today"))
+        timeframe_payload["data_source"] = temp_data_source
 
         ws_ctx = _build_ws_nearest_station_context(
             actual_lat, actual_lon, district or location or resolved_name,
@@ -1376,6 +1699,7 @@ async def get_temperature_info(
             "resolved_location": _build_resolved_location_name(location, district, resolved_name or (geo.get("display_name") if geo else None)),
             "summary": temp_summary,
             "temperature_timeframe_data": timeframe_payload,
+            "data_source": temp_data_source,
         }
         if target_date:
             res_dict["target_date"] = target_date
@@ -1385,7 +1709,11 @@ async def get_temperature_info(
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
         if aws and aws.get("success"):
-            res_dict["nearest_live_aws_station"] = aws
+            aws_out = dict(aws)
+            aws_out["station"] = enrich_station_fields(aws.get("station") or {})
+            res_dict["nearest_live_aws_station"] = aws_out
+        if isinstance(imd_current, dict) and imd_current.get("success"):
+            res_dict["imd_current_weather"] = imd_current
         return res_dict
 
     return await asyncio.to_thread(_run)
@@ -1430,6 +1758,10 @@ async def get_location_weather(
             today_fc = b.get("forecast", {}).get("today", {}) if isinstance(b.get("forecast"), dict) else {}
 
         aws_st = b.get("nearest_aws", {}).get("station", {}) if isinstance(b.get("nearest_aws"), dict) else {}
+        if aws_st:
+            aws_st = enrich_station_fields(aws_st)
+        imd_current = _fetch_imd_current_wx(svc, actual_lat, actual_lon)
+        cur_st = (imd_current.get("station") if isinstance(imd_current, dict) and imd_current.get("success") else {}) or {}
 
         if include_nearby_stations:
             ws_nearby = _fetch_ws_nearby(actual_lat, actual_lon)
@@ -1452,17 +1784,17 @@ async def get_location_weather(
                         "timestamp": row.get("TimeStamp"),
                         "lat": _ws_safe_float(row.get("Latitude")),
                         "lon": _ws_safe_float(row.get("Longitude")),
-                        "data_source": "WS_Nearest_Sensors",
+                        "data_source": DATA_SOURCE_ANNAM,
                     })
                 nearby_data = {
                     "success": True,
                     "nearby_stations": stations,
-                    "data_source": "WS_Nearest_Sensors",
+                    "data_source": DATA_SOURCE_ANNAM,
                     "radius_km": radius_km,
                 }
                 nearby_summary_str = (
-                    f"{len(stations)} weather stations found within {radius_km} km radius"
-                    if stations else "No WS stations found within radius"
+                    f"{len(stations)} Annam weather stations found within {radius_km} km radius"
+                    if stations else "No Annam weather stations found within radius"
                 )
             else:
                 nearby_data = svc.get_nearby_aws_stations(
@@ -1477,17 +1809,27 @@ async def get_location_weather(
         curr_t = (
             today_fc.get("observed_max_temp")
             or today_fc.get("observed_min_temp")
+            or cur_st.get("temperature_c")
             or aws_st.get("temperature_c")
             or "N/A"
         )
-        hum = today_fc.get("humidity_0830") or aws_st.get("humidity_pct") or "N/A"
-        w_msg = today_fc.get("forecast") or aws_st.get("weather_message") or "Normal Weather"
+        hum = today_fc.get("humidity_0830") or cur_st.get("humidity_pct") or aws_st.get("humidity_pct") or "N/A"
+        w_msg = (
+            today_fc.get("forecast")
+            or cur_st.get("weather_description")
+            or cur_st.get("weather_message")
+            or aws_st.get("weather_description")
+            or aws_st.get("weather_message")
+            or "Normal Weather"
+        )
 
+        loc_data_source = _label_data_source(ws_bundle.get("data_source_today") or today_fc.get("data_source"))
         human_sum = {
             "requested_place": resolved_name or geo.get("display_name"),
             "current_weather": f"Temperature: {curr_t}°C | Humidity: {hum}% | Condition: '{w_msg}'",
             "today_forecast": f"Min: {today_fc.get('forecast_min_temp', 'N/A')}°C | Max: {today_fc.get('forecast_max_temp', 'N/A')}°C | Forecast: {today_fc.get('forecast', 'N/A')}",
             "data_source_today": ws_bundle.get("data_source_today") or today_fc.get("data_source") or "imd",
+            "data_source": loc_data_source,
         }
         if nearby_summary_str:
             human_sum["nearby_stations_within_50km"] = nearby_summary_str
@@ -1511,17 +1853,21 @@ async def get_location_weather(
                 "forecast": ws_bundle.get("forecast", []),
                 "history_by_date": ws_bundle.get("history_by_date") or {},
                 "data_source_today": ws_bundle.get("data_source_today"),
+                "data_source": loc_data_source,
             }
 
         res_dict = {
             "resolved_location": _build_resolved_location_name(loc_query, district, resolved_name or (geo.get("display_name") if geo else None)),
             "summary": human_sum,
             "weather_details": weather_details,
+            "data_source": loc_data_source,
         }
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
         if nearby_data is not None:
             res_dict["nearby_stations_within_radius"] = nearby_data
+        if isinstance(imd_current, dict) and imd_current.get("success"):
+            res_dict["imd_current_weather"] = imd_current
         return res_dict
 
     return await asyncio.to_thread(_run)
@@ -1530,39 +1876,6 @@ async def get_location_weather(
 # --------------------------------------------------------------------------
 # TOOL 5: get_weather_nowcast (Cluster 5)
 # --------------------------------------------------------------------------
-NOWCAST_CAT_DECODER = {
-    "1": {"category_code": "1", "category_description": "No Weather"},
-    "2": {"category_code": "2", "category_description": "Light rain: < 5 mm/hr"},
-    "3": {"category_code": "3", "category_description": "Light snow: < 5 cm/hr"},
-    "4": {"category_code": "4", "category_description": "Light Thunderstorms with maximum surface wind speed less than 40 kmph (in gusts)"},
-    "5": {"category_code": "5", "category_description": "Slight dust storm: wind speed up to 41 kmph and visibility less than 1000 m but more than 500 m"},
-    "6": {"category_code": "6", "category_description": "Low cloud to ground Lightning probability (< 30%)"},
-    "7": {"category_code": "7", "category_description": "Moderate rain: 5-15 mm/hr"},
-    "8": {"category_code": "8", "category_description": "Moderate snow: 5-15 cm/hr"},
-    "9": {"category_code": "9", "category_description": "Moderate Thunderstorms with maximum surface wind speed between 41 - 61 kmph (in gusts)"},
-    "10": {"category_code": "10", "category_description": "Moderate dust storm: wind speed between 41-61 kmph and visibility between 200 and 500 m due to dust"},
-    "11": {"category_code": "11", "category_description": "Moderate cloud to ground Lightning probability (30 - 60%)"},
-    "12": {"category_code": "12", "category_description": "Heavy rain: > 15 mm/hr"},
-    "13": {"category_code": "13", "category_description": "Heavy snow: > 15 cm/hr"},
-    "14": {"category_code": "14", "category_description": "Severe Thunderstorms with maximum surface wind speed 62 - 87 kmph (in gusts)"},
-    "15": {"category_code": "15", "category_description": "Very Severe Thunderstorms with maximum surface wind speed > 87 kmph (in gusts)"},
-    "16": {"category_code": "16", "category_description": "Other Warnings"},
-    "31": {"category_code": "31", "category_description": "Thunderstorms with Hail"},
-    "32": {"category_code": "32", "category_description": "Severe dust storm: surface wind speed (in gusts) exceeding 61 kmph and visibility less than 200 m due to dust"},
-    "33": {"category_code": "33", "category_description": "High cloud to ground Lightning probability (> 60%)"}
-}
-
-NOWCAST_COLOR_DECODER = {
-    "1": "Green (No Warning)",
-    "2": "Yellow (Light-Moderate Warning)",
-    "3": "Orange (Moderate-Severe Warning)",
-    "4": "Red (Severe-Very Severe Warning)",
-    "#008000": "Green (No Warning)",
-    "#FFFF00": "Yellow (Light-Moderate Warning)",
-    "#FFA500": "Orange (Moderate-Severe Warning)",
-    "#ff0000": "Red (Severe-Very Severe Warning)"
-}
-
 @mcp.tool()
 async def get_weather_nowcast(
     lat: Optional[float] = None,
@@ -1606,16 +1919,39 @@ async def get_weather_nowcast(
         severity_label = NOWCAST_COLOR_DECODER.get(color_code, "Green (No Warning)")
 
         aws = svc.get_nearest_aws(actual_lat, actual_lon, s_name, geo.get("raw_address"))
+        if aws and aws.get("success"):
+            aws = dict(aws)
+            aws["station"] = enrich_station_fields(aws.get("station") or {})
         aws_st = aws.get("station", {}) if aws.get("success") else {}
+        imd_current = _fetch_imd_current_wx(svc, actual_lat, actual_lon)
+        cur_st = (imd_current.get("station") if isinstance(imd_current, dict) and imd_current.get("success") else {}) or {}
 
         window_h = min(3, max(1, hours_ahead))
         place_label = location or resolved_name or matched or hint or "Location"
+
+        live_msg = (
+            cur_st.get("weather_description")
+            or cur_st.get("weather_message")
+            or aws_st.get("weather_description")
+            or aws_st.get("weather_message")
+            or "Normal / Clear Sky"
+        )
+        live_temp = cur_st.get("temperature_c") or aws_st.get("temperature_c") or "N/A"
+        live_hum = cur_st.get("humidity_pct") or aws_st.get("humidity_pct") or "N/A"
+        live_wind = cur_st.get("wind_direction") or aws_st.get("wind_direction") or ""
 
         if active_warnings or cons_msg:
             warn_str = ", ".join([f"{w['category_description']} (Code: {w['category_code']})" for w in active_warnings]) if active_warnings else cons_msg
             nowcast_summary = f"Nowcast Warning (Next {window_h} Hours for {place_label}): {warn_str}. Severity: {severity_label}. Valid Upto: {valid_upto or 'Next 3 hours'}."
         else:
-            nowcast_summary = f"Nowcast Update (Next {window_h} Hours for {place_label}): Current station weather is '{aws_st.get('weather_message', 'Normal / Clear Sky')}'. Temp: {aws_st.get('temperature_c', 'N/A')}°C, Humidity: {aws_st.get('humidity_pct', 'N/A')}%. No severe short-term warnings. Severity: {severity_label}."
+            nowcast_summary = (
+                f"Nowcast Update (Next {window_h} Hours for {place_label}): "
+                f"Current station weather is '{live_msg}'"
+                f"{' (code ' + str(cur_st.get('weather_code_raw') or aws_st.get('weather_code_raw')) + ')' if (cur_st.get('weather_code_raw') or aws_st.get('weather_code_raw')) else ''}. "
+                f"Temp: {live_temp}°C, Humidity: {live_hum}%"
+                f"{(', Wind: ' + live_wind) if live_wind else ''}. "
+                f"No severe short-term warnings. Severity: {severity_label}."
+            )
 
         if include_nearby_stations:
             nearby_data = svc.get_nearby_aws_stations(
@@ -1633,9 +1969,12 @@ async def get_weather_nowcast(
             "valid_upto": valid_upto,
             "active_nowcast_categories": active_warnings if active_warnings else [{"category_code": "1", "category_description": "No Weather"}],
             "consolidated_message": cons_msg,
+            "data_source": DATA_SOURCE_IMD,
         }
         if aws and aws.get("success"):
             res_dict["nearest_live_aws_station"] = aws
+        if isinstance(imd_current, dict) and imd_current.get("success"):
+            res_dict["imd_current_weather"] = imd_current
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
         if nearby_data is not None:
@@ -1648,40 +1987,6 @@ async def get_weather_nowcast(
 # --------------------------------------------------------------------------
 # TOOL 6: get_weather_alerts (Cluster 6)
 # --------------------------------------------------------------------------
-WARNING_CODE_DECODER = {
-    "1": "No Warning",
-    "2": "Heavy Rain",
-    "3": "Heavy Snow",
-    "4": "Thunderstorm & Lightning, Squall",
-    "5": "Hailstorm",
-    "6": "Dust Storm",
-    "7": "Dust Raising Winds",
-    "8": "Strong Surface Winds",
-    "9": "Heat Wave",
-    "10": "Hot Day",
-    "11": "Warm Night",
-    "12": "Cold Wave",
-    "13": "Cold Day",
-    "14": "Ground Frost",
-    "15": "Fog",
-    "16": "Very Heavy Rain",
-    "17": "Extremely Heavy Rain"
-}
-
-WARNING_COLOR_DECODER = {
-    "1": "Red (Take Action)",
-    "2": "Orange (Be Prepared)",
-    "3": "Yellow (Be Updated)",
-    "4": "Green (No Warning)",
-    "#FF0000": "Red (Take Action)",
-    "#ff0000": "Red (Take Action)",
-    "#ffa500": "Orange (Be Prepared)",
-    "#FFA500": "Orange (Be Prepared)",
-    "#ffff00": "Yellow (Be Updated)",
-    "#FFFF00": "Yellow (Be Updated)",
-    "#7cfc00": "Green (No Warning)"
-}
-
 @mcp.tool()
 async def get_weather_alerts(
     lat: Optional[float] = None,
@@ -1726,7 +2031,11 @@ async def get_weather_alerts(
             w_code_str = str(raw_rec.get("Day_1") or raw_rec.get("day_1") or "1")
             c_code_str = str(raw_rec.get("Day1_Color") or raw_rec.get("day1_color") or "4")
 
-            w_labels = [WARNING_CODE_DECODER[c.strip()] for c in w_code_str.split(",") if c.strip() in WARNING_CODE_DECODER]
+            w_labels = [
+                label
+                for c in w_code_str.split(",")
+                if (label := _describe_warning_code(c.strip())) is not None
+            ]
             w_text = ", ".join(w_labels) if w_labels else "No Warning"
             severity_text = WARNING_COLOR_DECODER.get(c_code_str, "Green (No Warning)")
 
@@ -1754,6 +2063,7 @@ async def get_weather_alerts(
             "total_districts_in_state": len(decoded_state_districts),
             "districts_under_alert_count": active_count,
             "district_alerts_list": decoded_state_districts,
+            "data_source": DATA_SOURCE_IMD,
         }
         if filtered_sub is not None:
             res_dict["subdivision_warnings"] = filtered_sub
@@ -1775,7 +2085,11 @@ async def get_weather_alerts(
             w_code_str = str(rec.get(f"Day_{day_num}") or rec.get(f"day_{day_num}") or "1")
             c_code_str = str(rec.get(f"Day{day_num}_Color") or rec.get(f"day{day_num}_color") or "4")
 
-            w_labels = [WARNING_CODE_DECODER[c.strip()] for c in w_code_str.split(",") if c.strip() in WARNING_CODE_DECODER]
+            w_labels = [
+                label
+                for c in w_code_str.split(",")
+                if (label := _describe_warning_code(c.strip())) is not None
+            ]
             warn_text = ", ".join(w_labels) if w_labels else "No Warning"
             severity_text = WARNING_COLOR_DECODER.get(c_code_str, "Green (No Warning)")
 
@@ -1817,6 +2131,7 @@ async def get_weather_alerts(
             "district": matched or hint,
             "summary": alerts_summary,
             "district_5day_warnings": decoded_5day_warnings,
+            "data_source": DATA_SOURCE_IMD,
         }
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
@@ -1828,7 +2143,7 @@ async def get_weather_alerts(
 
 
 # --------------------------------------------------------------------------
-# TOOL 7: get_sowing_weather_guide (Cluster 7 - COMMENTED OUT AS REQUESTED)
+# TOOL 7: get_sowing_weather_guide (Cluster 7)
 # --------------------------------------------------------------------------
 @mcp.tool()
 async def get_sowing_weather_guide(
@@ -1880,6 +2195,7 @@ async def get_sowing_weather_guide(
             "weekly_forecast": fc.get("forecast"),
             "recent_rainfall": rainfall_data,
             "data_source_today": fc.get("data_source_today"),
+            "data_source": _label_data_source(fc.get("data_source_today") or today_fc.get("data_source")),
             "ws_history_by_date": fc.get("history_by_date") or {},
         }
 

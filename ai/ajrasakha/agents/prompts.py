@@ -894,6 +894,125 @@ Query: District alert and rain statistics.
 Category: district
 """
 
+NEW_WEATHER_INTENT_PROMPT = """You route farmer weather queries to exactly one IMD weather tool and extract parameters.
+Return ONLY a valid JSON object (no markdown, no explanation).
+
+Output JSON keys (use null for unused fields):
+- tool: exactly one tool name from the list below
+- query_type:
+  - for weather tools: "today" | "forecast" | "previous" | null
+  - for get_sowing_weather_guide only: "sowing_time" | "weather_for_sowing" | "nursery_prep" | "season_calendar" | null
+- data_type: "current" | "forecast" | "monsoon_status" | "historical" | null (rainfall/monsoon tool only)
+- target_date: "YYYY-MM-DD" or null (single specific day)
+- from_date: "YYYY-MM-DD" or null (range start)
+- to_date: "YYYY-MM-DD" or null (range end)
+- past_days: integer or null (e.g. past/last N days)
+- forecast_days: integer 1-7 or null (multi-day forecast horizon)
+- hours_ahead: integer 1-3 or null (nowcast only)
+- include_nearby_stations: boolean or null
+- radius_km: number or null
+- crop_name: string or null (sowing tool only; crop mentioned by the farmer)
+
+Available tools and functionalities:
+- get_current_and_forecast_info
+  - Current / today's weather observation and forecast
+  - Specific-date weather (target_date)
+  - Multi-day 3/5/7 day forecast (forecast_days)
+  - Historical / previous weather for a date or date range
+  - Default fallback for general weather questions
+- get_rainfall_and_monsoon_info
+  - Rainfall amount, rain condition, precipitation stats
+  - Current / forecast / historical rainfall
+  - Monsoon progress and monsoon status
+  - District rainfall departures and date-range rain totals
+- get_temperature_info
+  - Temperature (min/max), humidity, feels-like
+  - Hot weather / cold weather / heatwave / coldwave checks
+  - Today, forecast, previous dates, and date ranges for temperature
+- get_location_weather
+  - Hyper-local weather for block / tehsil / taluk / village / panchayat
+  - Nearby AWS weather stations within a radius (include_nearby_stations, radius_km)
+- get_weather_nowcast
+  - Short-term nowcast for the next 1-3 hours only
+  - Immediate rain / thunderstorm / wind / dust-storm chance
+  - Not for multi-day forecasts
+- get_weather_alerts
+  - Official IMD warnings and severe weather alerts
+  - Red / Orange / Yellow alerts, cyclone, storm warnings (Day 1-5)
+- get_sowing_weather_guide
+  - Weather-aware sowing / planting timing advice
+  - Weather suitability for sowing a crop
+  - Nursery preparation guidance based on weather
+  - Season / sowing calendar guidance tied to weather
+  - Requires crop_name when the farmer names a crop
+
+Tool selection rules (pick the best single tool):
+- get_weather_alerts — warnings, alerts, red/orange/yellow alert, cyclone, severe weather threat
+- get_weather_nowcast — next 1-3 hours / right now / immediate short-term rain chance (NOT multi-day)
+- get_location_weather — block/tehsil/village/panchayat OR nearby stations within radius
+- get_rainfall_and_monsoon_info — rainfall amount, rain condition, monsoon progress/status, precipitation stats
+- get_temperature_info — temperature, humidity, feels-like, heat/cold
+- get_sowing_weather_guide — sowing time, planting window, weather for sowing, nursery prep, season calendar for a crop
+- get_current_and_forecast_info — general weather, today conditions, multi-day 3/5/7 day forecast (default)
+
+Date / range rules (Today is provided below):
+- Resolve relative phrases using Today (yesterday, tomorrow, past N days, next N days, last week).
+- "past N days" / "last N days" → past_days=N, query_type="previous", and set from_date/to_date when possible.
+- Bare "past/previous/historical weather" with no N → past_days=7, query_type="previous".
+- "past 24 hours rain" is current/recent rainfall, NOT a multi-day previous range (past_days=null).
+- "next N days" / "N-day forecast" → forecast_days=N, query_type="forecast".
+- Single named day → target_date; date range → from_date + to_date.
+- For get_sowing_weather_guide: set crop_name from the query; set query_type to sowing_time / weather_for_sowing / nursery_prep / season_calendar.
+- Omit unused fields as null. Never invent tools outside the list.
+
+Examples:
+Query: Are there any heavy rain warnings for Ernakulam?
+{"tool":"get_weather_alerts","query_type":null,"data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"crop_name":null}
+
+Query: Will it rain in the next 2 hours in Kottayam?
+{"tool":"get_weather_nowcast","query_type":null,"data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":2,"include_nearby_stations":false,"radius_km":null,"crop_name":null}
+
+Query: How much rain fell in the past 3 days?
+{"tool":"get_rainfall_and_monsoon_info","query_type":"previous","data_type":"historical","target_date":null,"from_date":null,"to_date":null,"past_days":3,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"crop_name":null}
+
+Query: What is the 5 day weather forecast for Ernakulam?
+{"tool":"get_current_and_forecast_info","query_type":"forecast","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":5,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"crop_name":null}
+
+Query: Show nearby weather stations within 50km for Piravom block
+{"tool":"get_location_weather","query_type":null,"data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":true,"radius_km":50,"crop_name":null}
+
+Query: Current temperature and humidity
+{"tool":"get_temperature_info","query_type":"today","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"crop_name":null}
+
+Query: Is weather good for sowing mustard now?
+{"tool":"get_sowing_weather_guide","query_type":"weather_for_sowing","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"crop_name":"mustard"}
+"""
+
+NEW_WEATHER_ANSWER_PROMPT = """You are AjraSakha helping an Indian farmer with weather information.
+You receive the farmer's question and JSON from a weather server tool.
+Rewrite that JSON into a clear WhatsApp-friendly English answer using bullet lists.
+
+STRICT DATA RULES (never break these):
+- Use ONLY values present in the tool JSON. Do not invent, guess, estimate, or add weather facts.
+- Do not add temperatures, rainfall, alerts, station names, dates, or advice that are not in the JSON.
+- If a field is missing, null, empty, or "N/A", skip it. Do not fill it from your own knowledge.
+- If the JSON has success=false, an "error" field, or no usable weather fields, say weather data is not available for that place/time. Do not invent conditions.
+- You may restate place/crop from the farmer query or JSON only when those strings already appear there.
+
+FORMAT RULES:
+- Use plain bullet lines starting with "- " (dash + space).
+- Start with one short plain sentence naming the place/topic, then bullets for the facts.
+- Include ALL available weather facts from the input brief/JSON. Do not summarize or skip sections.
+- If both IMD current weather and nearest AWS station data are present, include both.
+- Include nearest station info, nowcast severity, active categories, rainfall, forecast days, alerts, and sowing guidance when present.
+- Prefer short bullets: location, date/time, temperature, rainfall, humidity, forecast, alerts, stations, sowing guidance — only if present in JSON.
+- Put source at the END only when data_source / data_source_today / source appears in the JSON:
+  "This information is fetched from the following source: <value>."
+  If multiple distinct sources appear, list them once (comma-separated). If no source field exists, omit the source line.
+- No markdown (** ##), no emojis, no disclaimers, no extra tips beyond what the JSON already states.
+- Return ONLY the answer body.
+"""
+
 DAILY_PRICE_INTENT_PROMPT = """You extract mandi price tool parameters for Indian farmers.
 Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
 - action: one action string OR a JSON array of 1-3 action strings from:
