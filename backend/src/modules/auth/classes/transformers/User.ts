@@ -94,6 +94,8 @@ class User implements IUser {
   @Expose()
   feedbacksAssigned?: (string | ObjectId)[] | null;
 
+  @Transform(ObjectIdArrayToStringArray.transformer, {toPlainOnly: true})
+  @Transform(StringArrayToObjectIdArray.transformer, {toClassOnly: true})
   @Expose()
   paeValidationAssigned?: (string | ObjectId)[] | null;
 
