@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, User, Mail, Clock, MessageSquare, Check, X, ChevronLeft, ChevronUp, Lock, CheckCircle2, XCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, User, Mail, Clock, MessageSquare, Check, X, ChevronLeft, ChevronUp, Lock, CheckCircle2, XCircle, ClipboardCheck, ExternalLink, LinkIcon } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import { Skeleton } from "./atoms/skeleton";
@@ -145,9 +145,10 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
 
     const renderFeedbackItem = (feedback: FeedbackData, index: number) => {
         const isPositive = feedback.type === "thumbs_up";
-        const FeedbackIcon = isPositive ? ThumbsUp : ThumbsDown;
-        const iconColor = isPositive ? "text-green-500" : "text-red-500";
-        const bgColor = isPositive ? "bg-green-500/10" : "bg-red-500/10";
+        const isPae = feedback.type === "PAE_VALIDATION";
+        const FeedbackIcon = isPae ? ClipboardCheck:isPositive ? ThumbsUp : ThumbsDown;
+        const iconColor = isPae ? "text-blue-500" :isPositive ? "text-green-500" : "text-red-500";
+        const bgColor = isPae? "bg-blue-500/10" :isPositive ? "bg-green-500/10" : "bg-red-500/10";
         const isExpanded = expandedFeedbackId === feedback._id.$oid;
         const isClosed = feedback.status !== "open";
 
@@ -172,9 +173,9 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                             </span>
                             <Badge
                                 variant="outline"
-                                className={`text-[10px] px-1.5 py-0.5 ${isPositive ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400'}`}
+                                className={`text-[10px] px-1.5 py-0.5 ${isPae ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400' : isPositive ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400' : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400'}`}
                             >
-                                {isPositive ? "Thumbs Up" : "Thumbs Down"}
+                                { isPae ? "Pae Suggestion" :isPositive ? "Thumbs Up" : "Thumbs Down"}
                             </Badge>
                             {getStatusBadge(feedback.status)}
                         </div>
@@ -268,6 +269,42 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                                 <span className="text-muted-foreground bg-muted/50 p-3 rounded-lg border border-border/50 whitespace-pre-wrap">
                                     {feedback.comment}
                                 </span>
+                            </div>
+                        )}
+
+                        {feedback.link && (
+                            <div className="flex flex-col gap-2">
+                                <span className="text-sm font-semibold text-gray-700">
+                                    Attached Link:
+                                </span>
+
+                                { }
+                                <a
+                                    href={feedback.link.source}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="group flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                                >
+                                    { }
+                                    <div className="flex-shrink-0 w-8 h-8 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                                        <LinkIcon size={16} />
+                                    </div>
+
+                                    { }
+                                    <div className="flex-col flex overflow-hidden min-w-0 flex-1">
+                                        <span className="text-sm font-medium text-gray-900 truncate">
+                                            {feedback.link.name}
+                                        </span>
+                                        <span className="text-xs text-gray-500 truncate group-hover:text-blue-600 transition-colors">
+                                            {feedback.link.source}
+                                        </span>
+                                    </div>
+
+                                    { }
+                                    <div className="flex-shrink-0 text-gray-400 group-hover:text-blue-500 transition-colors">
+                                        <ExternalLink size={16} />
+                                    </div>
+                                </a>
                             </div>
                         )}
 

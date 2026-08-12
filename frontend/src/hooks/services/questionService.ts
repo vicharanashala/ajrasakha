@@ -209,13 +209,14 @@ export interface FeedbackData {
     email: string;
   };
   answerId: { $oid: string };
-  type: "thumbs_up" | "thumbs_down";
+  type: "thumbs_up" | "thumbs_down" | "PAE_VALIDATION";
   predefinedOption: string;
   comment: string;
   status: "open" | "rejected" | "accepted";
   reviewNote?: string;
   createdAt: { $date: string };
   updatedAt: { $date: string };
+  link?: { name: string; source: string};
 }
 
 export interface FeedbackResponse {
