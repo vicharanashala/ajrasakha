@@ -88,6 +88,7 @@ export const PaeValidationReviewTimeline = ({
             );
             closeModal();
             queryClient.invalidateQueries({ queryKey: ["pae-validation", questionId] });
+            queryClient.invalidateQueries({ queryKey: ["pae_validation_experts"] });
             queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
         },
         onError: (e: any) => toast.error(e?.message || "Failed to assign reviewer"),
@@ -98,6 +99,7 @@ export const PaeValidationReviewTimeline = ({
         onSuccess: () => {
             toast.success("Reviewer removed");
             queryClient.invalidateQueries({ queryKey: ["pae-validation", questionId] });
+            queryClient.invalidateQueries({ queryKey: ["pae_validation_experts"] });
             queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
         },
         onError: (e: any) => toast.error(e?.message || "Failed to remove reviewer"),
@@ -133,7 +135,7 @@ export const PaeValidationReviewTimeline = ({
     };
 
     if (isLoading || !timeline) return null;
-    if (!timeline.hasOpenRound && timeline.reviews.length === 0) return null;
+    // if (!timeline.hasOpenRound && timeline.reviews.length === 0) return null;
 
     // "Select Reviewer" shows when auto is OFF (to assign/change), for non-experts.
     const showSelect = canManage && !autoOn;
