@@ -695,7 +695,7 @@ export interface IQuestionRepository {
 
   addOrUpdateFeedbackStatus(
     questionId: string,
-    source: "DATASET" | "WEB_APPLICATION",
+    source: "DATASET" | "WEB_APPLICATION" | "PAE_Validation",
   ): Promise<number>;
 
   /** Find all questions with paeValidation status of 'pending' that are ready for

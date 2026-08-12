@@ -43,6 +43,7 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalAction, setModalAction] = useState<'accept' | 'reject' | null>(null);
     const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
+    const [selectedFeedbackSource, setSelectedFeedbackSource] = useState<'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation'>('WEB_APPLICATION');
     const [reason, setReason] = useState("");
     
     const {
@@ -67,9 +68,10 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
         return null;
     }
 
-    const openActionModal = (feedbackId: string, action: 'accept' | 'reject') => {
+    const openActionModal = (feedbackId: string, action: 'accept' | 'reject', source?: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation') => {
         setSelectedFeedbackId(feedbackId);
         setModalAction(action);
+        setSelectedFeedbackSource(source || 'WEB_APPLICATION');
         setReason("");
         setIsModalOpen(true);
     };
@@ -99,17 +101,25 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
         }
 
         handleFeedbackAction(
-            { questionId, feedbackId: selectedFeedbackId, action: modalAction, reason },
+            { questionId, feedbackId: selectedFeedbackId, action: modalAction, reason, source: selectedFeedbackSource },
             { onSuccess: () => onSubmitSuccess(modalAction), onError: onSubmitError }
         );
     };
 
-    const handleAccept = (feedbackId: string) => {
-        openActionModal(feedbackId, 'accept');
+    const handleAccept = (feedbackId: string, type?: string) => {
+        // Map feedback.type to the expected source values
+        // type can be 'thumbs_up', 'thumbs_down', or 'PAE_VALIDATION'
+        const source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation' = 
+            type === 'PAE_VALIDATION' ? 'PAE_Validation' : 'WEB_APPLICATION';
+        openActionModal(feedbackId, 'accept', source);
     };
 
-    const handleReject = (feedbackId: string) => {
-        openActionModal(feedbackId, 'reject');
+    const handleReject = (feedbackId: string, type?: string) => {
+        // Map feedback.type to the expected source values
+        // type can be 'thumbs_up', 'thumbs_down', or 'PAE_VALIDATION'
+        const source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation' = 
+            type === 'PAE_VALIDATION' ? 'PAE_Validation' : 'WEB_APPLICATION';
+        openActionModal(feedbackId, 'reject', source);
     };
 
     const toggleFeedback = (feedbackId: string) => {
@@ -336,7 +346,7 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                         {feedback.status === "open" && isAssignedReviewer && (
                             <div className="flex items-center gap-3 pt-2">
                                 <Button
-                                    onClick={() => handleAccept(feedback._id.$oid)}
+                                    onClick={() => handleAccept(feedback._id.$oid, feedback.type)}
                                     className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
                                     size="sm"
                                 >
@@ -344,7 +354,7 @@ const OpenFeedback = ({ questionId, currentUser }: OpenFeedbackProps) => {
                                     Accept
                                 </Button>
                                 <Button
-                                    onClick={() => handleReject(feedback._id.$oid)}
+                                    onClick={() => handleReject(feedback._id.$oid, feedback.type)}
                                     variant="outline"
                                     className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-500/30 dark:hover:bg-red-500/10"
                                     size="sm"

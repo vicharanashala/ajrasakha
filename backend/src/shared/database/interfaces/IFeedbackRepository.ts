@@ -34,4 +34,6 @@ export interface IFeedbackRepository {
     feedbackId: string,
     session?: ClientSession,
   ): Promise<IFeedback | null>;
+
+  updateFeedbackAction(feedbackId: string, action: 'accept' | 'reject', reason: string, processedBy: string): Promise<void>;
 }

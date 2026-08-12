@@ -74,4 +74,23 @@ export class FeedbackRepository implements IFeedbackRepository {
       { session },
     );
   }
+
+  async updateFeedbackAction(
+    feedbackId: string,
+    action: 'accept' | 'reject',
+    reason: string,
+    processedBy: string,
+  ): Promise<void> {
+    await this.init();
+    await this.FeedbacksCollection.updateOne(
+      { _id: new ObjectId(feedbackId) } as any,
+      {
+        $set: {
+          action,
+          reviewNote:reason,
+          approvedAt: new Date(),
+        },
+      },
+    );
+  }
 }
