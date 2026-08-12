@@ -15,6 +15,99 @@ from ajrasakha.agents.daily_price_agent import (
 )
 
 
+def test_heuristic_intent_modal_price_defaults_to_today():
+    intent = _heuristic_intent("what is the modal price of onion assam")
+    assert intent["action"] == "get_today_price"
+    assert intent["lookback_days"] is None
+
+
+def test_normalize_intent_modal_price_overrides_gemma_summary():
+    intent = _normalize_intent(
+        {
+            "action": "get_price_summary",
+            "nearest_market": True,
+            "lookback_days": 7,
+            "state": "Assam",
+        },
+        "what is the modal price of onion assam",
+    )
+    assert intent["action"] == "get_today_price"
+    assert intent["actions"] == ["get_today_price"]
+    assert intent["lookback_days"] is None
+    assert intent["state"] == "Assam"
+
+
+def test_normalize_intent_modal_price_overrides_gemma_history():
+    intent = _normalize_intent(
+        {
+            "action": "get_price_history",
+            "nearest_market": True,
+            "lookback_days": 7,
+            "state": "Assam",
+        },
+        "what is the modal price of onion in Assam",
+    )
+    assert intent["action"] == "get_today_price"
+    assert intent["lookback_days"] is None
+
+
+def test_normalize_intent_average_modal_price_stays_summary():
+    intent = _normalize_intent(
+        {
+            "action": "get_price_summary",
+            "nearest_market": True,
+            "lookback_days": 7,
+        },
+        "what is the average modal price of onion this week",
+    )
+    assert intent["action"] == "get_price_summary"
+    assert intent["lookback_days"] == 7
+
+
+def test_build_tool_args_modal_price_uses_today_without_lookback():
+    args = _build_tool_args(
+        {
+            "action": "get_today_price",
+            "actions": ["get_today_price"],
+            "nearest_market": True,
+            "radius_km": None,
+            "lookback_days": None,
+            "from_date": None,
+            "to_date": None,
+            "market_name": None,
+            "state": "Assam",
+            "sort_order": None,
+        },
+        lat=26.15,
+        lon=91.69,
+        crop="onion",
+        state="Assam",
+    )
+    assert args["action"] == "get_today_price"
+    assert "lookback_days" not in args
+
+
+def test_normalize_intent_extracts_named_apmc_from_query():
+    intent = _normalize_intent(
+        {"action": "get_today_price", "nearest_market": True},
+        "price of wheat in karapa apmc",
+    )
+    assert intent["action"] == "get_today_price"
+    assert intent["market_name"] == "karapa apmc"
+
+
+def test_fallback_unavailable_uses_tool_error_message():
+    from ajrasakha.agents.daily_price_agent import _fallback_unavailable_answer
+
+    msg = _fallback_unavailable_answer(
+        {"error": "Mandi price data is not available for wheat in karapa apmc."},
+        crop="wheat",
+        state="Andhra Pradesh",
+        market_name="karapa apmc",
+    )
+    assert msg == "Mandi price data is not available for wheat in karapa apmc."
+
+
 def test_heuristic_intent_defaults_to_today_price():
     intent = _heuristic_intent("What is the price of wheat today?")
     assert intent["action"] == "get_today_price"
