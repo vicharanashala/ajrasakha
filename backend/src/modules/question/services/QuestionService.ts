@@ -9865,17 +9865,144 @@ if (filters.endDate) {
       totalPages: 0,
     };
 
+    const question = await this.questionRepo.getById(questionId);
+
+    const externalFeedbacks =
+      question?.feedbacks?.filter(
+        f =>
+          f.source === 'DATASET' ||
+          f.source === 'WEB_APPLICATION',
+      ) ?? [];
+
+    // PAE flow
+    const paeFeedbackData =
+      (await this.feedbackRepo.findByQuestionId(questionId)) ?? [];
+
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
 
+  
+    /**
+        * Normalize external feedbacks to FeedbackData.
+        */
+    //Helpers for converting MongoDB values
+    //to the extended JSON format expected by frontend.
+    // The data-release service returns feedbacks in a flat shape
+    // ({ id, questionId, answerId as strings, createdAt as ISO strings }) and
+    // already paginates the result. Normalize each item to the extended-JSON
+    // shape the frontend consumes ({ _id: { $oid }, createdAt: { $date }, … })
+    // and pass the service's own pagination through unchanged.
+    const asOid = (value: any): { $oid: string } => ({
+      $oid:
+        typeof value === 'string'
+          ? value
+          : value?.$oid ??
+          value?.toHexString?.() ??
+          value?._id?.toHexString?.() ??
+          '',
+    });
+
+    const asDate = (value: any): { $date: string } => ({
+      $date:
+        typeof value === 'string'
+          ? value
+          : value?.$date ??
+          value?.toISOString?.() ??
+          '',
+    });
+
+
+    /**
+   * PAE feedbacks
+   *
+   * PAE and external feedbacks come from different sources,
+   * but both are converted to the common FeedbackData response.
+   */
+    const paeData: FeedbackData[] = paeFeedbackData.map(
+      (feedback: any) => ({
+        _id: asOid(feedback._id),
+
+        questionId: asOid(
+          feedback.questionId ?? questionId,
+        ),
+
+        userId: {
+          name: feedback.userId?.name ?? '',
+          email: feedback.userId?.email ?? '',
+        },
+
+        answerId: feedback.answerId
+          ? asOid(feedback.answerId)
+          : null,
+
+        type: 'PAE_VALIDATION',
+
+        predefinedOption:
+          feedback.predefinedOption ?? '',
+
+        comment: feedback.comment ?? '',
+
+        status: feedback.status,
+
+        link: feedback.link,
+
+        reviewNote: feedback.reviewNote,
+
+        createdAt: asDate(feedback.createdAt),
+
+        updatedAt: asDate(
+          feedback.updatedAt ?? feedback.createdAt,
+        ),
+      }),
+    );
+
+    /**
+  * If there are no external feedbacks,
+  * return PAE feedbacks only.
+  */
+    if (externalFeedbacks.length === 0) {
+      if (paeData.length === 0) {
+        return emptyResponse;
+      }
+
+      const totalCount = paeData.length;
+
+      return {
+        data: paeData,
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      };
+    }
+
+    /**
+  * External service is not configured.
+  * PAE feedbacks should still be returned.
+  */
     if (!dataReleaseUrl || !authKey) {
       console.warn(
         '[QuestionService] getFeedbacks: data-release service not configured (DATA_RELEASE_URL / REVIEW_SYSTEM_AUTH_KEY missing) — returning empty feedbacks.',
       );
-      return emptyResponse;
+
+      if (paeData.length === 0) {
+        return emptyResponse;
+      }
+      const totalCount = paeData.length;
+
+      return {
+        data: paeData,
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      };
     }
 
     try {
+      /**
+     * External feedback flow
+     */
       const response = await fetch(
         `${dataReleaseUrl}/feedbacks/question/${questionId}?page=${page}&pageSize=${pageSize}`,
         {
@@ -9897,19 +10024,8 @@ if (filters.endDate) {
       limit?: number;
       totalPages?: number;
     };
-
-    // The data-release service returns feedbacks in a flat shape
-    // ({ id, questionId, answerId as strings, createdAt as ISO strings }) and
-    // already paginates the result. Normalize each item to the extended-JSON
-    // shape the frontend consumes ({ _id: { $oid }, createdAt: { $date }, … })
-    // and pass the service's own pagination through unchanged.
-    const asOid = (v: any): {$oid: string} => ({
-      $oid: typeof v === 'string' ? v : v?.$oid ?? v?._id ?? '',
-    });
-    const asDate = (v: any): {$date: string} => ({
-      $date: typeof v === 'string' ? v : v?.$date ?? '',
-    });
-    const data: FeedbackData[] = (Array.isArray(res.data) ? res.data : []).map(
+  
+    const externalData: FeedbackData[] = (Array.isArray(res.data) ? res.data : []).map(
       (f: any) => ({
         _id: asOid(f.id ?? f._id),
         questionId: f.questionId ? asOid(f.questionId) : {$oid: questionId},
@@ -9928,7 +10044,25 @@ if (filters.endDate) {
       }),
     );
 
-    const totalCount = typeof res.total === 'number' ? res.total : data.length;
+      /**
+     * Combine external + PAE feedbacks.
+     */
+      const data: FeedbackData[] = [
+        ...externalData,
+        ...paeData,
+      ];
+
+      if (data.length === 0) {
+        return emptyResponse;
+      }
+     const externalTotal =
+      typeof res.total === 'number'
+        ? res.total
+        : externalData.length;
+
+    const totalCount =
+      externalTotal + paeData.length;
+    console.log('final:',data)
     return {
       data,
       totalCount,
@@ -9946,7 +10080,22 @@ if (filters.endDate) {
         '[QuestionService] getFeedbacks: Failed to call data release service:',
         error?.message ?? error,
       );
-      return emptyResponse;
+
+      if (paeData.length === 0) {
+        return emptyResponse;
+      }
+
+       const totalCount = paeData.length;
+
+      return {
+        data: paeData,
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(
+          totalCount / pageSize,
+        ),
+      };
     }
   }
 
