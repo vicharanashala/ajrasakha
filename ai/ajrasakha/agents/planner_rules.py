@@ -156,10 +156,24 @@ _ALL_CROP_CLARIFICATION_RE = re.compile(
     re.I,
 )
 _CROP_OUTPUT_RE = re.compile(
+    # Direct recommendation questions in active voice.
     r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
     r"(?:should|can|could|would|to)\b.*\b(?:grow|plant|cultivate|sow)\b)|"
+    # The same intent in passive voice, which is a common translation form:
+    # "Which crop can be grown with less water?"
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
+    r"(?:can|could|may|would|should)\s+be\s+"
+    r"(?:grown|cultivated|planted|sown|raised)\b)|"
     r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
     r"(?:suitable|best|good|recommended|ideal)\b)|"
+    # Resource/condition questions where the crop itself is the requested
+    # recommendation, including "which crop needs less water?"
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
+    r"(?:needs?|requires?|uses?)\b.*\b(?:less|little|low|minimal)\s+"
+    r"(?:water|irrigation)\b)|"
+    # Explicit recommendation requests.
+    r"(?:\b(?:can|could|would|should)\s+you\s+"
+    r"(?:recommend|suggest)\b.*\b(?:crop|crops|plant|plants)\b)|"
     r"(?:\bwhat\s+to\s+(?:grow|plant|cultivate|sow)\b)|"
     r"(?:\bwhat\s+should\s+i\s+(?:grow|plant|cultivate|sow)\b)",
     re.I,
