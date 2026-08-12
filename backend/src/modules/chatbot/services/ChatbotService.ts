@@ -29,6 +29,7 @@ import type {
   PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
+import {sendEmailWithAttachment} from '#root/utils/mailer.js';
 import {GrowthResponse} from '../types/chatbot.type.js';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -3904,6 +3905,55 @@ export class ChatbotService extends BaseService implements IChatbotService {
     ajrasakhaPaeContributionToGDBPct: 0,
     manualPaeContributionToGDBPct: 0,
       }));
+  }
+
+  async sendResponseAdherenceReportEmail(
+    emails: string[],
+    reportContent: string,
+    fileName: string,
+    context?: {
+      source?: string;
+      userType?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ): Promise<{success: boolean; message: string}> {
+    try {
+      const dateRangeLabel =
+        context?.startDate || context?.endDate
+          ? ` (${context?.startDate || ''}${
+              context?.endDate && context.endDate !== context.startDate
+                ? ` to ${context.endDate}`
+                : ''
+            })`
+          : '';
+      const title = `AjraSakha Response Adherence Report${dateRangeLabel}`;
+      const html = `
+        <p>Hello,</p>
+        <p>Please find attached the <b>AjraSakha Response Adherence</b> report.</p>
+        ${context?.source ? `<p>Source: <b>${context.source}</b></p>` : ''}
+        ${context?.userType ? `<p>User Type: <b>${context.userType}</b></p>` : ''}
+        <br />
+        <p>Regards,<br/>Ajrasakha System</p>
+      `;
+
+      await sendEmailWithAttachment(
+        emails,
+        title,
+        html,
+        reportContent,
+        fileName || 'response-adherence-report.csv',
+        'text/csv',
+      );
+
+      return {
+        success: true,
+        message: 'Response adherence report sent via email',
+      };
+    } catch (error) {
+      console.error('Error in sendResponseAdherenceReportEmail:', error);
+      throw error;
+    }
   }
 
   async getQuestionsByCrop(

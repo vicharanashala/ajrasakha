@@ -390,6 +390,18 @@ export interface IChatbotService {
     endTime?: string,
   ): Promise<ResponseAdherenceTable>;
 
+  sendResponseAdherenceReportEmail(
+    emails: string[],
+    reportContent: string,
+    fileName: string,
+    context?: {
+      source?: string;
+      userType?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ): Promise<{success: boolean; message: string}>;
+
   getQuestionsByStatus(        
     status?: string,
     page?: number,

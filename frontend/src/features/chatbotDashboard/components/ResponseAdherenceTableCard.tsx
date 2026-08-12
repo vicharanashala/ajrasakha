@@ -3,7 +3,7 @@ import { Button } from "@/components/atoms/button";
 import { useState } from "react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { CalendarIcon, ClipboardCheck, Download, InfoIcon, RefreshCw } from "lucide-react";
+import { CalendarIcon, ClipboardCheck, Download, InfoIcon, Mail, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/atoms/accordion";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +11,9 @@ import { Skeleton } from "@/components/atoms/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import { BreakdownTooltip } from "@/components/atoms/source-breakdown-tooltip";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
+import { Input } from "@/components/atoms/input";
+import { useSendResponseAdherenceReportEmail } from "../hooks/useSendResponseAdherenceReportEmail";
 
 type ResponseAdherenceTableData = {
   date: string;
@@ -627,6 +630,11 @@ export function ResponseAdherenceTableCard({
   );
 
   const effectiveDate = selectedDate ?? internalDate;
+
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailInputError, setEmailInputError] = useState<string | null>(null);
+  const sendReportEmail = useSendResponseAdherenceReportEmail();
 
   const toggleRow = (rowId: string) =>
     setCheckedRows((prev) => ({ ...prev, [rowId]: !prev[rowId] }));
@@ -1352,9 +1360,11 @@ export function ResponseAdherenceTableCard({
 
   const hasSelectedRows = rowExportData.some((row) => checkedRows[row.id]);
 
-  const handleDownloadSelectedFields = () => {
+  // Shared by both the "Download .xlsx" button and the "Email Report" dialog,
+  // so the emailed report always matches exactly what the download would have produced.
+  const buildCsvContent = (): string | null => {
     const selectedRows = rowExportData.filter((row) => checkedRows[row.id]);
-    if (!selectedRows.length) return;
+    if (!selectedRows.length) return null;
 
     const header = ["Field"];
     if (checkedColumns.whatsapp) {
@@ -1390,17 +1400,72 @@ export function ResponseAdherenceTableCard({
         .join(",");
     });
 
-    const csvContent = ["\uFEFF" + header.join(","), ...lines].join("\r\n");
+    return ["\uFEFF" + header.join(","), ...lines].join("\r\n");
+  };
+
+  const buildReportFileName = () => {
+    const now = new Date();
+    const timestamp = `${now.getHours()}-${now.getMinutes()}-${now.getSeconds()}`;
+    return `response-adherence-report-${effectiveDate}-${timestamp}.csv`;
+  };
+
+  const handleDownloadSelectedFields = () => {
+    const csvContent = buildCsvContent();
+    if (!csvContent) return;
+
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const downloadUrl = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = downloadUrl;
-    const now = new Date();
-    const timestamp = `${now.getHours()}-${now.getMinutes()}-${now.getSeconds()}`;
-    anchor.download = `response-adherence-report-${effectiveDate}-${timestamp}.csv`;    document.body.appendChild(anchor);
+    anchor.download = buildReportFileName();
+    document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
     URL.revokeObjectURL(downloadUrl);
+  };
+
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const parseEmailInput = (value: string): string[] =>
+    value
+      .split(/[,\s]+/)
+      .map((email) => email.trim())
+      .filter(Boolean);
+
+  const handleSendReportEmail = () => {
+    const emails = parseEmailInput(emailInput);
+    if (!emails.length) {
+      setEmailInputError("Enter at least one email address");
+      return;
+    }
+    const invalidEmails = emails.filter((email) => !EMAIL_REGEX.test(email));
+    if (invalidEmails.length) {
+      setEmailInputError(`Invalid email address: ${invalidEmails.join(", ")}`);
+      return;
+    }
+    const csvContent = buildCsvContent();
+    if (!csvContent) {
+      setEmailInputError("Select at least one row to include in the report");
+      return;
+    }
+
+    setEmailInputError(null);
+    sendReportEmail.mutate(
+      {
+        emails,
+        reportContent: csvContent,
+        fileName: buildReportFileName(),
+        userType,
+        startDate: effectiveDate,
+        endDate: effectiveDate,
+      },
+      {
+        onSuccess: () => {
+          setEmailDialogOpen(false);
+          setEmailInput("");
+        },
+      },
+    );
   };
 
   const rowCheck = (rowId: string) => (
@@ -1702,6 +1767,24 @@ export function ResponseAdherenceTableCard({
                         Download .xlsx
                       </Button>
                     </motion.div>
+
+                    {/* Email Report */}
+                    <motion.div
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEmailDialogOpen(true)}
+                        disabled={!hasSelectedRows}
+                        className="h-9 px-4 text-sm gap-2 border-border/70 bg-background/80 shadow-sm hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        Email Report
+                      </Button>
+                    </motion.div>
                   </div>
                 </div>
               </AccordionTrigger>
@@ -1903,6 +1986,52 @@ export function ResponseAdherenceTableCard({
           </AccordionItem>
         </Accordion>
       </Card>
+
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Email Response Adherence Report</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-foreground">
+              Recipient email address(es)
+            </label>
+            <Input
+              type="text"
+              placeholder="name@example.com, name2@example.com"
+              value={emailInput}
+              onChange={(e) => {
+                setEmailInput(e.target.value);
+                if (emailInputError) setEmailInputError(null);
+              }}
+              aria-invalid={!!emailInputError}
+            />
+            <span className="text-xs text-muted-foreground">
+              Separate multiple addresses with a comma or space.
+            </span>
+            {emailInputError && (
+              <span className="text-xs text-destructive">{emailInputError}</span>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEmailDialogOpen(false)}
+              disabled={sendReportEmail.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSendReportEmail}
+              disabled={sendReportEmail.isPending}
+            >
+              {sendReportEmail.isPending ? "Sending..." : "Send"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
