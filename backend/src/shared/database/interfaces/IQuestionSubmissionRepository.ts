@@ -334,6 +334,18 @@ export interface IQuestionSubmissionRepository {
    *  questions per expert (defaults to time-bound sources). Used to enforce the cap. */
   getTimeBoundActiveCountPerExpert(sources?: QuestionSource[]): Promise<Map<string, number>>;
 
+   assignPaeValidationReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean>;
+  
+  removePaeValidationReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean>;
   /**
    * Update the PAE validation status in the question submission's paeValidation array.
    * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.

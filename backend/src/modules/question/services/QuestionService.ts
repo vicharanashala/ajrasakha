@@ -10145,6 +10145,7 @@ if (filters.endDate) {
         );
         
         if (!matchedQuestion) {
+          console.log('[PaeValidationQueue] No matching question found for PAE expert', expertId);
           availableWaiting++;
           continue;
         }
@@ -10187,6 +10188,191 @@ if (filters.endDate) {
       console.error('[PaeValidationQueue] PAE validation queue cron failed:', error?.message);
       throw new BadRequestError(`PAE validation queue cron failed: ${error?.message}`);
     }
+  }
+
+  //pae validation timeline 
+  async getPaeValidationTimeline(questionId: string): Promise<{
+    autoAllocatePaeValidationExpert: boolean;
+    hasOpenRound: boolean;
+    reviews: {
+      index: number;
+      paeId: string;
+      paeName: string;
+      paeAssignedAt: Date;
+      paeFinishedAt: Date | null;
+      paeStatus: string;
+    }[];
+  }> {
+  const [question, submission] = await Promise.all([
+    this.questionRepo.getById(questionId),
+    this.questionSubmissionRepo.getByQuestionId(questionId),
+  ]);
+
+  const rounds = ((submission as any)?.paeValidation ?? []) as any[];
+
+  const names = await this.resolveExpertMeta(
+    rounds
+      .map((r) => r.paeId?.toString())
+      .filter(Boolean),
+  );
+
+  return {
+    autoAllocatePaeValidationExpert:
+      (question as any)?.autoAllocatePaeValidationExpert === true,
+
+    hasOpenRound:
+      Array.isArray(rounds) &&
+      rounds.some((r) => r?.paeStatus === 'in-progress'),
+
+    reviews: rounds
+      .map((r, i) => ({
+        index: i,
+        paeId: r.paeId?.toString() ?? '',
+        paeName:
+          names.get(r.paeId?.toString())?.name ?? 'Unknown',
+        paeAssignedAt: r.paeAssignedAt,
+        paeFinishedAt: r.paeFinishedAt ?? null,
+        paeStatus: r.paeStatus ?? '',
+      }))
+      .sort(
+        (a, b) =>
+          new Date(a.paeAssignedAt).getTime() -
+          new Date(b.paeAssignedAt).getTime(),
+      ),
+  };
+}
+
+  /** Manually assign OR reassign the pae validation reviewer (admin/moderator). When a round
+   *  is already open it repoints that round to the new reviewer and releases the old one;
+   *  otherwise it opens a fresh round. Respects the same one-at-a-time;
+   *  rules as the cron. */
+  async assignPaeValidationReviewerManually(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{success: true}> {
+    await this._withTransaction(async session => {
+      // Don't allow assigning a reviewer once the feedback is closed (no open
+      // feedback left on the question).
+      // const question = await this.questionRepo.getById(questionId);
+      // const feedbacks = ((question as any)?.feedbacks ?? []) as any[];
+      // const hasOpenFeedback =
+      //   Array.isArray(feedbacks) && feedbacks.some(f => f?.status === 'open');
+      // if (!hasOpenFeedback) {
+      //   throw new BadRequestError('This feedback is already closed.');
+      // }
+
+      const question = await this.questionRepo.getById(questionId);
+
+      if((question as any)?.paeStatus === 'completed')throw new BadRequestError('This question has already completed PAE validation.');
+      
+
+      const submission =
+        await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const rounds = ((submission as any)?.paeValidation ?? []) as any[];
+
+      // Resolve the round being changed: an explicit index (one of several rounds)
+      // or the single open round when none is given.
+      const targetIndex =
+        typeof index === 'number' && index >= 0
+          ? index
+          : rounds.findIndex(r => !r.paeFinishedAt);
+      const targetRound = targetIndex >= 0 ? rounds[targetIndex] : undefined;
+
+      if (targetRound && targetRound.paeFinishedAt) {
+        throw new BadRequestError(
+          'That pae validation review is already completed and cannot be reassigned.',
+        );
+      }
+      const oldReviewerId = targetRound?.paeId?.toString();
+      if (oldReviewerId === userId) {
+        return; // already assigned to this reviewer — no-op
+      }
+
+      // Claim the new reviewer's slot first (fails if they're not free). Manual claim
+      // lets an admin/moderator pick ANY active user (not restricted to mod/auditor),
+      // still one feedback at a time.
+      const claimed = await this.userRepo.addPaeValidationAssigned(
+        userId,
+        questionId,
+        session,
+      );
+      if (!claimed) {
+        throw new BadRequestError(
+          'Selected user is not available (already holds a pae validation, or is inactive/blocked).',
+        );
+      }
+        // Fresh assignment: open a new round.
+        const assigned =
+          await this.questionSubmissionRepo.assignPaeValidationReviewer(
+            questionId,
+            userId,
+            new Date(),
+            session,
+          );
+        if (!assigned) {
+          throw new BadRequestError(
+            'This question already has an open pae validation review.',
+          );
+        }
+
+        if (oldReviewerId) {
+          await this.userRepo.removePaeValidationAssigned(
+            oldReviewerId,
+            questionId,
+            session,
+          );
+        }
+
+        await this.questionRepo.updatePaeValidationStatus(
+          questionId,
+          'in-progress',
+          session,
+        );
+      
+    });
+    return {success: true};
+  }
+
+  //Remove an OPEN pae-validation--review round by index (admin/moderator/etc). 
+  async removePaeValidationReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{success: true}> {
+    await this._withTransaction(async session => {
+      const submission =
+        await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const rounds = ((submission as any)?.paeValidation ?? []) as any[];
+      const round = rounds[index];
+      if (!round) {
+        throw new BadRequestError('No pae validation review found at that position.');
+      }
+      if (round.paeFinishedAt) {
+        throw new BadRequestError(
+          'A completed pae validation review cannot be removed.',
+        );
+      }
+      const removed =
+        await this.questionSubmissionRepo.removePaeValidationReviewByIndex(
+          questionId,
+          index,
+          session,
+        );
+      if (!removed) {
+        throw new BadRequestError('Could not remove the pae validation review.');
+      }
+
+      await this.questionRepo.updatePaeValidationStatus(questionId, 'pending', session);
+      const reviewerId = round.paeId?.toString();
+      if (reviewerId) {
+        await this.userRepo.removePaeValidationAssigned(
+          reviewerId,
+          questionId,
+          session,
+        );
+      }
+    });
+    return {success: true};
   }
 
   /** Get all questions assigned to a PAE expert for validation, with pagination.

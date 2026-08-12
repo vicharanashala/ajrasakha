@@ -5010,4 +5010,67 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       );
     }
   }
+
+    /**
+   * Remove a SPECIFIC pae-validation round (by array index) — only if it is still
+   * open (not completed). Unsets the element then compacts the array so other rounds
+   * keep their reviewers. Returns true if a round was removed.
+   */
+  async removePaeValidationReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const unset = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        [`paeValidation.${index}.paeFinishedAt`]: null,
+      } as any,
+      {$unset: {[`paeValidation.${index}`]: 1}} as any,
+      {session},
+    );
+    if (unset.modifiedCount === 0) return false;
+    // Compact: drop the null hole left by $unset.
+    await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {$pull: {paeValidation: null}, $set: {updatedAt: new Date()}} as any,
+      {session},
+    );
+    return true;
+  }
+
+  // Assign or replace the current PAE validation review round. If the
+  // submission has no paeValidation entries, this creates one. If the array
+  // already contains an item, it is replaced with the new active round.
+  async assignPaeValidationReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+  
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+      },
+      {
+        $set: {
+          paeValidation: [
+            {
+              paeId: new ObjectId(reviewerId),
+              paeAssignedAt: assignedAt,
+              paeStatus: 'in-progress',
+              paeFinishedAt: null,
+            },
+          ],
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+
+    return result.modifiedCount > 0;
+  }
 }

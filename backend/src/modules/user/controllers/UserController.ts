@@ -287,6 +287,20 @@ export class UserController {
     return await this.userService.getModeratorsList();
   }
 
+  @Get('/pae-val-experts')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'List PAE validation experts',
+    description:
+      'Returns users with role pae_expert whose paeValidationAssigned array is empty or missing.',
+  })
+  async getPaeValidationExperts(): Promise<
+    { _id: string; name: string; email: string }[]
+  > {
+    return await this.userService.getPaeValidationExperts();
+  }
+
   @OpenAPI({
     summary: 'Get STF moderators',
     description: 'Returns non-blocked moderators that have Special Task Force enabled. Filters by isTrainingUser status.',

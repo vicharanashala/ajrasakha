@@ -783,6 +783,29 @@ export interface IQuestionService {
     failedAssignments: number;
   }>;
 
+  getPaeValidationTimeline(questionId: string): Promise<{
+    autoAllocatePaeValidationExpert: boolean;
+    hasOpenRound: boolean;
+    reviews: {
+      index: number;
+      paeId: string;
+      paeName: string;
+      paeAssignedAt: Date;
+      paeFinishedAt: Date | null;
+      paeStatus: string;
+    }[];
+  }>;
+
+  assignPaeValidationReviewerManually(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{success: true}>;
+  
+  removePaeValidationReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{success: true}>;
   /** Get all questions assigned to a PAE expert for validation, with pagination.
    *  Includes answer data and sources from the answer collection.
    *  @param paeExpertId The PAE expert's user ID
