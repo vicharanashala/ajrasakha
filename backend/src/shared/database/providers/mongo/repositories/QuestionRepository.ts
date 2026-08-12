@@ -3574,10 +3574,10 @@ export class QuestionRepository implements IQuestionRepository {
           $match: {
             closedAt: { $gte: start, $lt: end },
             status: { $in: ['closed', 'dynamic_closed', 'duplicate_closed'] },
-            ...(!isAdmin &&
+           /* ...(!isAdmin &&
               (isTrainingUser
                 ? { isTrainingQuestion: true }
-                : { isTrainingQuestion: { $ne: true } })),
+                : { isTrainingQuestion: { $ne: true } })),*/
           },
         },
 
