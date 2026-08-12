@@ -3548,7 +3548,7 @@ export class QuestionRepository implements IQuestionRepository {
     endDate?: Date,
   ): Promise<{
     todayApproved: number;
-    moderatorBreakdown?: { moderatorName: string; count: number; moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
+    moderatorBreakdown?: { moderatorName: string; count: number; closedCount?: number; dynamicClosedCount?: number; duplicateClosedCount?: number; moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
   }> {
     await this.init();
 
@@ -3591,12 +3591,17 @@ export class QuestionRepository implements IQuestionRepository {
           },
         },
 
-        // Filter by question.closedAt
+        // Filter by question.closedAt AND a genuine close status. A moderator
+        // "approval" is a question that ended up closed / dynamic_closed /
+        // duplicate_closed — not any answer that merely has a closedAt.
         {
           $match: {
             'question.closedAt': {
               $gte: start,
               $lt: end,
+            },
+            'question.status': {
+              $in: ['closed', 'dynamic_closed', 'duplicate_closed'],
             },
             ...(!isAdmin &&
               (isTrainingUser
@@ -3609,11 +3614,24 @@ export class QuestionRepository implements IQuestionRepository {
           },
         },
 
-        // Group by moderator
+        // Group by moderator, with per-close-status counts.
         {
           $group: {
             _id: '$approvedBy',
             count: { $sum: 1 },
+            closedCount: {
+              $sum: { $cond: [{ $eq: ['$question.status', 'closed'] }, 1, 0] },
+            },
+            dynamicClosedCount: {
+              $sum: {
+                $cond: [{ $eq: ['$question.status', 'dynamic_closed'] }, 1, 0],
+              },
+            },
+            duplicateClosedCount: {
+              $sum: {
+                $cond: [{ $eq: ['$question.status', 'duplicate_closed'] }, 1, 0],
+              },
+            },
           },
         },
 
@@ -3729,6 +3747,9 @@ export class QuestionRepository implements IQuestionRepository {
               ],
             },
             count: 1,
+            closedCount: 1,
+            dynamicClosedCount: 1,
+            duplicateClosedCount: 1,
 
             moderatorHours: {
               $round: [
@@ -3820,6 +3841,9 @@ export class QuestionRepository implements IQuestionRepository {
     ).toArray()) as {
       moderatorName: string;
       count: number;
+      closedCount: number;
+      dynamicClosedCount: number;
+      duplicateClosedCount: number;
       moderatorHours: number;
       auditorHours: number;
       gateKeeperHours: number;
