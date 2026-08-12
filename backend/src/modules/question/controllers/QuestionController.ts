@@ -54,6 +54,7 @@ import {
   ApproveInitialAnswerBody,
   ReplaceQueueExpertRequest,
   ReallocateExpertsSelectedQuestionsRequest,
+  ProcessPaeValidationRequest,
 } from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
 import {
@@ -3290,5 +3291,40 @@ export class QuestionController {
     
     const userId = user._id.toString();
     return await this.questionService.getPaeValidationAssignedQuestions(userId, page, limit);
+  }
+
+  /**
+   * Process a PAE validation decision for a question.
+   * 
+   * When status is 'approve':
+   * - Updates question.paeValidation to 'completed'
+   * - Removes the question from the PAE expert's paeValidationAssigned array
+   * - Updates the question submission's paeValidation array entry to 'completed'
+   * 
+   * When status is 'feedback':
+   * - Logs the feedback (can be extended to store feedback details)
+   * - The question remains assigned to the PAE expert for further work
+   */
+  @Post('/process-pae-validation')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ 
+    summary: 'Process PAE validation decision (approve/feedback)',
+    description: 'Process a PAE validation decision for an assigned question. When approved, the question is marked as completed and removed from the assignment. When feedback is provided, the question remains assigned for further work.',
+  })
+  async processPaeValidation(
+    @Body() body: ProcessPaeValidationRequest,
+    @CurrentUser() user: IUser,
+  ) {
+    const paeExpertId = user._id.toString();
+    const { questionId, status, suggestionComment, suggestionLink } = body;
+    
+    return await this.questionService.processPaeValidation(
+      paeExpertId,
+      questionId,
+      status,
+      suggestionComment,
+      suggestionLink,
+    );
   }
 }

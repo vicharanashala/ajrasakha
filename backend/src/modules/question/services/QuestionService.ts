@@ -10203,4 +10203,102 @@ if (filters.endDate) {
       currentPage,
     };
   }
+
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * 
+   * When status is 'approve':
+   * - Updates question.paeValidation to 'completed'
+   * - Removes the question from the user's paeValidationAssigned array
+   * - Updates the question submission's paeValidation array entry to 'completed' with paeFinishedAt
+   * 
+   * When status is 'feedback':
+   * - Currently just logs the feedback; can be extended to store feedback in the submission
+   * - The question remains in the user's paeValidationAssigned for further work
+   */
+  async processPaeValidation(
+    paeExpertId: string,
+    questionId: string,
+    status: 'approve' | 'feedback',
+    suggestionComment?: string,
+    suggestionLink?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // Verify the question exists and is assigned to this PAE expert
+    const question = await this.questionRepo.getById(questionId);
+    if (!question) {
+      throw new NotFoundError(`Question with ID ${questionId} not found`);
+    }
+
+    // Check if the question is in paeValidation status (either pending or in-progress)
+    if (!question.paeValidation || question.paeValidation === 'completed') {
+      throw new BadRequestError(
+        `Question ${questionId} is not in a valid state for PAE validation`,
+      );
+    }
+
+    // Verify the user has this question assigned
+    const user = await this.userRepo.findById(paeExpertId);
+    if (!user) {
+      throw new NotFoundError(`User with ID ${paeExpertId} not found`);
+    }
+
+    const questionIds = (user.paeValidationAssigned || []).map(id =>
+      typeof id === 'string' ? id : (id as ObjectId).toString()
+    );
+    
+    if (!questionIds.includes(questionId)) {
+      throw new BadRequestError(
+        `Question ${questionId} is not assigned to this PAE expert`,
+      );
+    }
+
+    if (status === 'approve') {
+      // Use transaction to update all related documents atomically
+      await this._withTransaction(async (session: ClientSession) => {
+        // 1. Update question.paeValidation to 'completed'
+        await this.questionRepo.updatePaeValidationStatus(
+          questionId,
+          'completed',
+          session,
+        );
+
+        // 2. Remove the question from user's paeValidationAssigned array
+        await this.userRepo.removePaeValidationAssigned(
+          paeExpertId,
+          questionId,
+          session,
+        );
+
+        // 3. Update the question submission's paeValidation array entry to 'completed'
+        await this.questionSubmissionRepo.updatePaeValidationStatus(
+          questionId,
+          paeExpertId,
+          'completed',
+          new Date(),
+          session,
+        );
+      });
+
+      return {
+        success: true,
+        message: `Question ${questionId} has been approved and PAE validation completed`,
+      };
+    } else {
+      // Status is 'feedback' - for now, just acknowledge and keep the question assigned
+      // In a full implementation, you might want to:
+      // - Store feedback details somewhere (e.g., in the submission's paeValidation array)
+      // - Notify other users
+      // - Create audit logs
+      
+      console.log(
+        `[processPaeValidation] Feedback provided for question ${questionId} by PAE expert ${paeExpertId}`,
+        { suggestionComment, suggestionLink },
+      );
+
+      return {
+        success: true,
+        message: `Feedback noted for question ${questionId}. The question remains assigned for further work.`,
+      };
+    }
+  }
 }

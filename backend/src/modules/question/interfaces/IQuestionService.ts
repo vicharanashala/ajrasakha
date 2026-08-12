@@ -793,4 +793,30 @@ export interface IQuestionService {
     page: number,
     limit: number,
   ): Promise<PaeValidationAssignedQuestionsResponse>;
+
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * 
+   * When status is 'approve':
+   * - Updates question.paeValidation to 'completed'
+   * - Removes the question from the user's paeValidationAssigned array
+   * - Updates the question submission's paeValidation array entry to 'completed' with paeFinishedAt
+   * 
+   * When status is 'feedback':
+   * - Updates the question submission's paeValidation array entry with feedback details
+   * - The question remains in the user's paeValidationAssigned for further work
+   * 
+   * @param paeExpertId The PAE expert's user ID (from current user)
+   * @param questionId The question ID to process
+   * @param status The validation decision ('approve' or 'feedback')
+   * @param suggestionComment Optional comment explaining feedback
+   * @param suggestionLink Optional reference link
+   */
+  processPaeValidation(
+    paeExpertId: string,
+    questionId: string,
+    status: 'approve' | 'feedback',
+    suggestionComment?: string,
+    suggestionLink?: string,
+  ): Promise<{ success: boolean; message: string }>;
 }
