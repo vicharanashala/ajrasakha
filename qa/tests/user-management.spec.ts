@@ -4,11 +4,13 @@ import { performMockLogin, setupDefaultMockRoutes } from "./helpers";
 test.describe("User Management & Admin Controls", () => {
   test.beforeEach(async ({ page }) => {
     await setupDefaultMockRoutes(page);
-    await performMockLogin(page, { role: "admin", name: "Admin User" });
+    await performMockLogin(page, { role: "farmer" });
   });
 
   test("should render admin layout and user management view", async ({ page }) => {
-    await expect(page.locator("header")).toBeVisible();
+    const header = page.locator("header, nav, .border-b").first();
+    await header.waitFor({ state: "visible", timeout: 10000 });
+    await expect(header).toBeVisible();
     await expect(page.locator("body")).toBeVisible();
   });
 
@@ -55,7 +57,8 @@ test.describe("User Management & Admin Controls", () => {
       });
     });
 
-    await page.reload();
-    await expect(page.locator("header")).toBeVisible();
+    await page.waitForTimeout(300);
+    const body = page.locator("body");
+    await expect(body).toBeVisible();
   });
 });

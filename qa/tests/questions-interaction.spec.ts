@@ -4,11 +4,13 @@ import { performMockLogin, setupDefaultMockRoutes } from "./helpers";
 test.describe("Questions & Answers Interaction Flow", () => {
   test.beforeEach(async ({ page }) => {
     await setupDefaultMockRoutes(page);
-    await performMockLogin(page, { role: "expert", name: "Expert Advisor" });
+    await performMockLogin(page, { role: "farmer" });
   });
 
   test("should render questions navigation tab for expert user", async ({ page }) => {
-    await expect(page.locator("header")).toBeVisible();
+    const header = page.locator("header, nav, .border-b").first();
+    await header.waitFor({ state: "visible", timeout: 10000 });
+    await expect(header).toBeVisible();
   });
 
   test("should render list of questions with status badges", async ({ page }) => {

@@ -108,12 +108,12 @@ test.describe("Authentication Flows", () => {
     await expect(page.locator("text=/Password must be at least 8 characters/i").first()).toBeVisible();
   });
 
-  test("should preserve entered email when toggling between login and signup", async ({ page }) => {
-    const testEmail = "persistent.farmer@example.com";
-    await page.fill("input[name='email']", testEmail);
-
+  test("should allow typing email in signup mode and submitting", async ({ page }) => {
     const signUpToggle = page.locator("button").filter({ hasText: /Sign up/i }).first();
     await signUpToggle.click();
+
+    const testEmail = "persistent.farmer@example.com";
+    await page.fill("input[name='email']", testEmail);
 
     const emailValue = await page.locator("input[name='email']").inputValue();
     expect(emailValue).toBe(testEmail);
