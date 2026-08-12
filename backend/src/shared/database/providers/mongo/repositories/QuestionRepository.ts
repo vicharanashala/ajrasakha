@@ -3574,10 +3574,10 @@ export class QuestionRepository implements IQuestionRepository {
           $match: {
             closedAt: { $gte: start, $lt: end },
             status: { $in: ['closed', 'dynamic_closed', 'duplicate_closed'] },
-           /* ...(!isAdmin &&
+            ...(!isAdmin &&
               (isTrainingUser
                 ? { isTrainingQuestion: true }
-                : { isTrainingQuestion: { $ne: true } })),*/
+                : { isTrainingQuestion: { $ne: true } })),
           },
         },
 
@@ -3845,9 +3845,11 @@ export class QuestionRepository implements IQuestionRepository {
       auditorHours: number;
       gateKeeperHours: number;
     }[];
-    // Calculate total from the breakdown
+    // todayApproved counts ONLY questions closed as plain 'closed' (Push to GDB) —
+    // not the Notify-User closes (dynamic_closed / duplicate_closed). The per-status
+    // breakdown still carries all three.
     const totalApproved = moderatorBreakdown.reduce(
-      (sum, item) => sum + item.count,
+      (sum, item) => sum + (item.closedCount ?? 0),
       0,
     );
 
