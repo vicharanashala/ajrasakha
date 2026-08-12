@@ -614,10 +614,14 @@ test.describe("Expert Review Workflow", () => {
     moderatorQuestionDetailsPage,
     moderatorAllocationQueuePage,
   }) => {
-    // Expert 2 rejects
+    // ============================================================
+    // EXPERT 2 — Reject the question
+    // ============================================================
+
     await expert2Dashboard.waitForShell();
 
     await expert2Dashboard.waitForQuestion(question);
+
     await expert2Dashboard.openQuestion(question);
 
     await expert2ReviewPanel.openRejectDialog();
@@ -630,19 +634,281 @@ test.describe("Expert Review Workflow", () => {
 
     await expert2ReviewPanel.submitRejection();
 
-    // Moderator page is still open, but its question-details view holds
-    // stale allocation data from before the rejection. "All Questions"
-    // doesn't navigate away from this view — only Exit does (same fix as
-    // ERW-M015 in the response workflow).
+    // ============================================================
+    // MODERATOR — Leave stale question-details view
+    // ============================================================
+
     await moderatorQuestionDetailsPage.exit();
+
+    // ============================================================
+    // MODERATOR — Reopen the question
+    // ============================================================
 
     await moderatorDashboard.openQuestion(question);
 
     await moderatorAllocationQueuePage.expectOpened();
 
+    // ============================================================
+    // MODERATOR — Verify Expert 2 is Rejected
+    // ============================================================
+
     await moderatorAllocationQueuePage.expectExpertStatus(
       process.env.EXPERT_EMAIL_2!,
       "Rejected",
     );
+  });
+
+  // MODIFICATION======================================================================================
+  test("ERW-R033 Expert can open Modify dialog", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.expectReviewActionsVisible();
+
+    await expert2ReviewPanel.openModifyDialog();
+  });
+  test("ERW-R034 Modify dialog displays all review criteria enabled", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.expectModifyCriteriaVisible();
+    await expert2ReviewPanel.expectAllModifyCriteriaEnabled();
+  });
+  test("ERW-R035 Modify Proceed is disabled when all criteria are enabled", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.expectAllModifyCriteriaEnabled();
+
+    await expert2ReviewPanel.expectAllParametersGoodWarningVisible();
+    await expert2ReviewPanel.expectProceedDisabled();
+  });
+  test("ERW-R036 Modification reason is required", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.expectModifyReasonRequired();
+  });
+  test("ERW-R037 Modify allows proceeding with a short reason", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.disableModifyCriterion("technicalAccuracy");
+
+    await expert2ReviewPanel.fillModifyReason("123456789");
+
+    await expert2ReviewPanel.proceedToUpdatedResponse();
+  });
+  test("ERW-R038 Disabling only Value Addition does not allow modification", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.disableModifyCriterion("valueAddition");
+
+    await expert2ReviewPanel.fillModifyReason(
+      "This modification requires an improved answer.",
+    );
+
+    await expert2ReviewPanel.expectProceedDisabled();
+  });
+  test("ERW-R039 One review criterion disabled allows modification", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.disableModifyCriterion("technicalAccuracy");
+
+    await expert2ReviewPanel.fillModifyReason(
+      "The response needs improved technical accuracy.",
+    );
+
+    await expert2ReviewPanel.expectProceedEnabled();
+  });
+  test("ERW-R040 Reset restores default Modify criteria state", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.disableModifyCriterion("technicalAccuracy");
+    await expert2ReviewPanel.disableModifyCriterion("practicalUtility");
+
+    await expert2ReviewPanel.resetModifyCriteria();
+
+    await expert2ReviewPanel.expectModifyCriteriaResetState();
+  });
+  test("ERW-R041 Proceed opens Submit Updated Response", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.disableModifyCriterion("technicalAccuracy");
+
+    await expert2ReviewPanel.fillModifyReason(
+      "The response needs improved technical accuracy.",
+    );
+
+    await expert2ReviewPanel.expectProceedEnabled();
+
+    await expert2ReviewPanel.proceedToUpdatedResponse();
+
+    await expert2ReviewPanel.expectModifyDraftResponseVisible();
+  });
+  test("ERW-R042 Modify pre-populates the existing answer", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.disableModifyCriterion("technicalAccuracy");
+
+    await expert2ReviewPanel.fillModifyReason(
+      "The response needs improved technical accuracy.",
+    );
+
+    await expert2ReviewPanel.proceedToUpdatedResponse();
+
+    await expert2ReviewPanel.expectModifyDraftResponseNotEmpty();
+  });
+  test("ERW-R043 Modify rejects unchanged answer", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.disableModifyCriterion("technicalAccuracy");
+
+    await expert2ReviewPanel.fillModifyReason(
+      "The response needs improved technical accuracy.",
+    );
+
+    await expert2ReviewPanel.proceedToUpdatedResponse();
+
+    const existingAnswer = await expert2ReviewPanel.getModifyDraftResponse();
+
+    await expert2ReviewPanel.fillModifyDraftResponse(existingAnswer);
+
+    // First submit opens the confirmation dialog.
+    await expert2ReviewPanel.modifyFinalSubmitButton.click();
+
+    await expert2ReviewPanel.expectConfirmModificationDialog();
+
+    // Confirm the modification.
+    await expert2ReviewPanel.confirmModification();
+
+    // The backend should reject the unchanged answer.
+    await expert2ReviewPanel.expectIdenticalAnswerError();
+  });
+  test("ERW-R044 Changed answer opens Confirm Modification dialog", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.disableModifyCriterion("technicalAccuracy");
+
+    await expert2ReviewPanel.fillModifyReason(
+      "The response needs improved technical accuracy.",
+    );
+
+    await expert2ReviewPanel.proceedToUpdatedResponse();
+
+    await expert2ReviewPanel.fillModifyDraftResponse(
+      "Playwright automated modification with an updated answer.",
+    );
+
+    await expert2ReviewPanel.modifyFinalSubmitButton.click();
+
+    await expert2ReviewPanel.expectConfirmModificationDialog();
+  });
+  test("ERW-R045 Expert can submit a modified answer", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+  }) => {
+    await expert2Dashboard.waitForShell();
+
+    await expert2Dashboard.waitForQuestion(question);
+    await expert2Dashboard.openQuestion(question);
+
+    await expert2ReviewPanel.openModifyDialog();
+
+    await expert2ReviewPanel.submitModification(
+      "Playwright automated modification — updated answer.",
+      "The original response requires improved technical accuracy.",
+    );
+
+    await expert2ReviewPanel.expectModifyDialogClosed();
   });
 });

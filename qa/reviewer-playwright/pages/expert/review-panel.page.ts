@@ -14,19 +14,6 @@ import { expect, type Locator, type Page } from "@playwright/test";
  *     details") — reuse workflowResponsePage's existing
  *     openMetadataDialog()/expectMetadataDialog() for that; not
  *     duplicated here.
- *
- * STILL NOT VERIFIED — built from screenshots (image 11/12) plus this
- * app's own established switch pattern (confirmed elsewhere on the
- * moderator's Auto-allocate switch: role="switch" + label[for] gives the
- * accessible name), not from live DOM of this specific dialog:
- *   - The "Confirm Acceptance" alertdialog's accessible name/heading text,
- *     and the six toggle switches' accessible names.
- *
- * COMPLETELY UNKNOWN — no screenshots or DOM at all yet:
- *   - Reject dialog/flow.
- *   - Modify dialog/flow.
- * Do not call reject()/modify() (not yet implemented) until that DOM is
- * provided — see the note in the spec file.
  */
 export class ReviewPanelPage {
   readonly acceptButton: Locator;
@@ -82,6 +69,32 @@ export class ReviewPanelPage {
   readonly rejectSuccessToast: Locator;
   readonly editReasonButton: Locator;
 
+  // -----------------------------
+  // Modify
+  // -----------------------------
+  readonly modifyResponseDialog: Locator;
+  readonly modifyResetButton: Locator;
+  readonly modifyCriteriaSwitches: Locator;
+  readonly modifyCriteriaToggles: Record<
+    | "contextRelevance"
+    | "technicalAccuracy"
+    | "practicalUtility"
+    | "valueAddition"
+    | "credibilityTrust"
+    | "readabilityCommunication",
+    Locator
+  >;
+  readonly modifyReasonInput: Locator;
+  readonly modifyProceedButton: Locator;
+  readonly modifyAllGoodWarning: Locator;
+
+  readonly modifyUpdatedResponseHeading: Locator;
+  readonly modifyDraftResponse: Locator;
+  readonly modifyFinalSubmitButton: Locator;
+  readonly editModifyReasonButton: Locator;
+  readonly identicalAnswerErrorToast: Locator;
+  readonly confirmModificationDialog: Locator;
+  readonly confirmModificationButton: Locator;
   constructor(private readonly page: Page) {
     this.acceptButton = page.getByRole("button", { name: "Accept" });
     this.rejectButton = page.getByRole("button", { name: "Reject" });
@@ -227,6 +240,96 @@ export class ReviewPanelPage {
     this.editReasonButton = this.rejectResponseDialog.getByRole("button", {
       name: "Edit Reason",
     });
+
+    // -----------------------------
+    // Modify
+    // -----------------------------
+    this.modifyResponseDialog = page.getByRole("dialog", {
+      name: "Modify Response",
+    });
+
+    this.modifyResetButton = this.modifyResponseDialog.getByRole("button", {
+      name: "Reset",
+    });
+
+    this.modifyCriteriaSwitches = this.modifyResponseDialog.getByRole("switch");
+
+    // Same as Reject's criteria: these switches have no aria-label/for
+    // association, so they must be located via the sibling <label> text
+    // in the same row rather than an accessible name.
+    const modifyCriterionRow = (name: string): Locator =>
+      this.modifyResponseDialog
+        .getByText(name, { exact: true })
+        .locator("xpath=ancestor::div[.//*[@role='switch']][1]");
+
+    this.modifyCriteriaToggles = {
+      contextRelevance: modifyCriterionRow("Context & Relevance").getByRole(
+        "switch",
+      ),
+      technicalAccuracy:
+        modifyCriterionRow("Technical Accuracy").getByRole("switch"),
+      practicalUtility:
+        modifyCriterionRow("Practical Utility").getByRole("switch"),
+      valueAddition: modifyCriterionRow("Value Addition / Insight").getByRole(
+        "switch",
+      ),
+      credibilityTrust: modifyCriterionRow("Credibility & Trust").getByRole(
+        "switch",
+      ),
+      readabilityCommunication: modifyCriterionRow(
+        "Readability & Communication",
+      ).getByRole("switch"),
+    };
+
+    // "Reason for Modification *" IS properly label-associated
+    // (for="reason" / id="reason"), unlike the criteria switches above.
+    this.modifyReasonInput = this.modifyResponseDialog.getByRole("textbox", {
+      name: "Reason for Modification *",
+    });
+
+    this.modifyProceedButton = this.modifyResponseDialog.getByRole("button", {
+      name: "Proceed",
+    });
+
+    this.modifyAllGoodWarning = this.modifyResponseDialog.getByText(
+      "All review parameters look good. You can safely accept this answer.",
+      { exact: true },
+    );
+
+    // -----------------------------
+    // Step 2 of Modify: "Submit Updated Response". Unlike Reject's step 2,
+    // the draft response and source reference are pre-populated from the
+    // original answer (not blank) — the required action is editing the
+    // existing text, not filling from scratch. Scoped to
+    // modifyResponseDialog for the same #new-answer duplicate-id reason
+    // as Reject.
+    // -----------------------------
+    this.modifyUpdatedResponseHeading = this.modifyResponseDialog.getByText(
+      "Submit Updated Response",
+      { exact: true },
+    );
+    this.modifyDraftResponse = this.modifyResponseDialog.locator("#new-answer");
+    this.modifyFinalSubmitButton = this.modifyResponseDialog.getByRole(
+      "button",
+      { name: /^Submit$/ },
+    );
+    this.editModifyReasonButton = this.modifyResponseDialog.getByRole(
+      "button",
+      { name: "Edit Reason" },
+    );
+
+    this.identicalAnswerErrorToast = page.getByText(
+      /identical to the existing answer/i,
+    );
+    this.confirmModificationDialog = page.getByRole("alertdialog");
+
+    this.confirmModificationButton = this.confirmModificationDialog.getByRole(
+      "button",
+      {
+        name: "Submit",
+        exact: true,
+      },
+    );
   }
 
   async pause(): Promise<void> {
@@ -426,10 +529,6 @@ export class ReviewPanelPage {
     await this.rejectReplacementResponse.fill(replacementAnswer);
 
     await this.rejectSourceTypeTrigger.click();
-    // NOTE: sub-fields below are assumed identical to
-    // ResponsePage.addSourceReference() (same component, reused) but this
-    // specific instance hasn't been confirmed against live DOM yet — if
-    // this run fails inside this block, that's the first place to check.
     await this.page.getByRole("option", { name: sourceType }).click();
     await this.rejectResponseDialog
       .getByPlaceholder("State Source Name")
@@ -455,9 +554,270 @@ export class ReviewPanelPage {
     await expect(confirmDialog).toBeVisible();
     await confirmDialog.getByRole("button", { name: "Submit" }).click();
 
+    // Wait for actual submission confirmation before trusting the
+    // rejection completed — the dialog closing on click is not itself
+    // sufficient signal (unlike Accept's dialog, which only closes once
+    // its own request resolves). Same generic success toast as a normal
+    // answer submission.
+    await expect(this.page.getByText(/submitted|success|saved/i)).toBeVisible();
+
     await expect(this.rejectResponseDialog).toBeHidden();
   }
   async expectRejectSuccess(): Promise<void> {
     await expect(this.rejectSuccessToast).toBeVisible();
+  }
+
+  // -----------------------------
+  // Modify
+  // -----------------------------
+
+  async openModifyDialog(): Promise<void> {
+    await this.modifyButton.click();
+    await expect(this.modifyResponseDialog).toBeVisible();
+  }
+
+  async expectModifyCriteriaVisible(): Promise<void> {
+    await expect(this.modifyCriteriaSwitches).toHaveCount(6);
+
+    const count = await this.modifyCriteriaSwitches.count();
+
+    for (let i = 0; i < count; i++) {
+      await expect(this.modifyCriteriaSwitches.nth(i)).toBeVisible();
+    }
+  }
+
+  async expectAllModifyCriteriaEnabled(): Promise<void> {
+    const count = await this.modifyCriteriaSwitches.count();
+
+    expect(count).toBe(6);
+
+    for (let i = 0; i < count; i++) {
+      await expect(this.modifyCriteriaSwitches.nth(i)).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+    }
+  }
+
+  async enableModifyCriterion(
+    criterion:
+      | "contextRelevance"
+      | "technicalAccuracy"
+      | "practicalUtility"
+      | "valueAddition"
+      | "credibilityTrust"
+      | "readabilityCommunication",
+  ): Promise<void> {
+    const toggle = this.modifyCriteriaToggles[criterion];
+
+    await expect(toggle).toBeVisible();
+
+    await toggle.click();
+
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+  }
+
+  async disableModifyCriterion(
+    criterion:
+      | "contextRelevance"
+      | "technicalAccuracy"
+      | "practicalUtility"
+      | "valueAddition"
+      | "credibilityTrust"
+      | "readabilityCommunication",
+  ): Promise<void> {
+    const toggle = this.modifyCriteriaToggles[criterion];
+
+    await toggle.click();
+
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+  }
+
+  async resetModifyCriteria(): Promise<void> {
+    await this.modifyResetButton.click();
+  }
+
+  async expectModifyCriteriaResetState(): Promise<void> {
+    await expect(this.modifyCriteriaToggles.contextRelevance).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+
+    await expect(this.modifyCriteriaToggles.technicalAccuracy).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+
+    await expect(this.modifyCriteriaToggles.practicalUtility).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+
+    await expect(this.modifyCriteriaToggles.valueAddition).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    await expect(this.modifyCriteriaToggles.credibilityTrust).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+
+    await expect(
+      this.modifyCriteriaToggles.readabilityCommunication,
+    ).toHaveAttribute("aria-checked", "false");
+  }
+
+  async fillModifyReason(reason: string): Promise<void> {
+    await this.modifyReasonInput.fill(reason);
+  }
+
+  async expectProceedDisabled(): Promise<void> {
+    await expect(this.modifyProceedButton).toBeDisabled();
+  }
+
+  async expectProceedEnabled(): Promise<void> {
+    await expect(this.modifyProceedButton).toBeEnabled();
+  }
+
+  async expectAllParametersGoodWarningVisible(): Promise<void> {
+    await expect(this.modifyAllGoodWarning).toBeVisible();
+  }
+
+  async expectAllParametersGoodWarningHidden(): Promise<void> {
+    await expect(this.modifyAllGoodWarning).toBeHidden();
+  }
+
+  async proceedToUpdatedResponse(): Promise<void> {
+    await this.modifyProceedButton.click();
+    await expect(this.modifyUpdatedResponseHeading).toBeVisible();
+  }
+
+  /**
+   * Full modification flow. By default disables "technicalAccuracy" (any
+   * criterion other than valueAddition satisfies the "at least one other
+   * toggle off" rule) and supplies a >=10-character reason, since:
+   *   - All 6 criteria true -> Proceed stays disabled ("all good" warning).
+   *   - valueAddition off alone is NOT sufficient -> still need one more
+   *     criterion off, same special-casing as Reject's warning.
+   *   - Reason must be at least 10 characters.
+   * Step 2 requires the draft response to actually differ from the
+   * original text, or the backend responds with "BadRequestError: The
+   * submitted answer is identical to the existing answer." — the default
+   * updatedAnswer text is written to differ from the original answer text
+   * used elsewhere in this workflow for that reason.
+   */
+  // async submitModification(
+  //   updatedAnswer = "Playwright automated modification — updated answer.",
+  //   reason = "Playwright automated modification reason for testing.",
+  // ): Promise<void> {
+  //   await this.disableModifyCriterion("technicalAccuracy");
+  //   await this.fillModifyReason(reason);
+
+  //   await expect(this.modifyProceedButton).toBeEnabled();
+  //   await this.proceedToUpdatedResponse();
+
+  //   // Step 2: the field is pre-populated with the original answer — must
+  //   // actually change it, not just re-fill with the same text.
+  //   await this.modifyDraftResponse.fill(updatedAnswer);
+
+  //   await this.modifyFinalSubmitButton.click();
+
+  //   const confirmDialog = this.page.getByRole("alertdialog");
+  //   await expect(confirmDialog).toBeVisible();
+  //   await confirmDialog.getByRole("button", { name: "Submit" }).click();
+
+  //   await expect(this.page.getByText(/submitted|success|saved/i)).toBeVisible();
+
+  //   await expect(this.modifyResponseDialog).toBeHidden();
+  // }
+  async submitModification(
+    updatedAnswer = "Playwright automated modification — updated answer.",
+    reason = "Playwright automated modification reason for testing.",
+  ): Promise<void> {
+    await this.disableModifyCriterion("technicalAccuracy");
+
+    await this.fillModifyReason(reason);
+
+    await expect(this.modifyProceedButton).toBeEnabled();
+
+    await this.proceedToUpdatedResponse();
+
+    await expect(this.modifyDraftResponse).toBeVisible();
+
+    await this.modifyDraftResponse.fill(updatedAnswer);
+
+    await this.modifyFinalSubmitButton.click();
+
+    const confirmDialog = this.page.getByRole("alertdialog", {
+      name: "Confirm Modification",
+    });
+
+    await expect(confirmDialog).toBeVisible();
+
+    await confirmDialog
+      .getByRole("button", {
+        name: "Submit",
+      })
+      .click();
+
+    await expect(this.modifyResponseDialog).toBeHidden();
+  }
+
+  async expectIdenticalAnswerError(): Promise<void> {
+    await expect(this.identicalAnswerErrorToast).toBeVisible();
+  }
+  // async expectIdenticalAnswerError(): Promise<void> {
+  //   await expect(this.identicalAnswerErrorToast).toBeVisible();
+  // }
+  async expectModifyReasonRequired(): Promise<void> {
+    await expect(this.modifyReasonInput).toBeVisible();
+    await expect(this.modifyReasonInput).toHaveValue("");
+    await expect(this.modifyProceedButton).toBeDisabled();
+  }
+
+  async expectModifyDialogClosed(): Promise<void> {
+    await expect(this.modifyResponseDialog).toBeHidden();
+  }
+
+  async expectModifyDraftResponseVisible(): Promise<void> {
+    await expect(this.modifyDraftResponse).toBeVisible();
+  }
+
+  async expectModifyDraftResponseNotEmpty(): Promise<void> {
+    await expect(this.modifyDraftResponse).not.toHaveValue("");
+  }
+
+  async getModifyDraftResponse(): Promise<string> {
+    return this.modifyDraftResponse.inputValue();
+  }
+
+  async fillModifyDraftResponse(answer: string): Promise<void> {
+    await this.modifyDraftResponse.fill(answer);
+  }
+
+  async expectModifySubmitEnabled(): Promise<void> {
+    await expect(this.modifyFinalSubmitButton).toBeEnabled();
+  }
+
+  async expectConfirmModificationDialog(): Promise<void> {
+    const confirmDialog = this.page.getByRole("alertdialog", {
+      name: "Confirm Modification",
+    });
+
+    await expect(confirmDialog).toBeVisible();
+  }
+
+  async confirmModification(): Promise<void> {
+    const confirmationDialog = this.page.getByRole("alertdialog");
+
+    await expect(confirmationDialog).toBeVisible();
+
+    await confirmationDialog
+      .getByRole("button", {
+        name: "Submit",
+        exact: true,
+      })
+      .click();
   }
 }

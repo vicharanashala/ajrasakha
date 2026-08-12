@@ -368,6 +368,15 @@ export class ModeratorAllocationQueuePage {
   ): Promise<void> {
     const card = this.expertCard(email);
 
+    await expect(card).toBeVisible();
+
+    console.log("=================================");
+    console.log("EXPERT:", email);
+    console.log("EXPECTED STATUS:", expectedStatus);
+    console.log("CARD TEXT:");
+    console.log(await card.innerText());
+    console.log("=================================");
+
     const status = card.getByText(expectedStatus, {
       exact: true,
     });
