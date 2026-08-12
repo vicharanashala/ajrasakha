@@ -10336,7 +10336,6 @@ if (filters.endDate) {
           {
             source: 'PAE_Validation',
             status: 'open',
-            recentFeedback: now,
           },
           session,
         );

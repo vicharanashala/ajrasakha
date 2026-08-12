@@ -8891,7 +8891,9 @@ export class QuestionRepository implements IQuestionRepository {
 
   /**
    * Adds a feedback entry to the question's feedbacks array.
-   * Also updates recentFeedback timestamp if provided.
+   * Updates recentFeedback timestamp only if:
+   * - There is no existing open feedback, OR
+   * - All existing feedbacks are closed (meaning this is the first/recent open feedback)
    */
   async addFeedback(
     questionId: string,
@@ -8906,6 +8908,56 @@ export class QuestionRepository implements IQuestionRepository {
     const qid = new ObjectId(questionId);
     const now = new Date();
 
+    // Only consider updating recentFeedback for open status feedbacks
+    const shouldCheckForOpenFeedbacks = feedbackEntry.status === 'open';
+
+    // Check if there's already an open feedback BEFORE we add the new one
+    // We need to do this check first to determine whether to update recentFeedback
+    let hasExistingOpenFeedback = false;
+    if (shouldCheckForOpenFeedbacks) {
+      const existingQuestion = await this.QuestionCollection.findOne(
+        { _id: qid },
+        { 
+          projection: { _id: 1 }, 
+          // Use readConcern 'snapshot' for transaction consistency
+          ...(session ? { session } : {}) 
+        }
+      );
+      
+      if (existingQuestion) {
+        // Use aggregation to check existing feedbacks in a transaction-safe way
+        const pipeline = [
+          { $match: { _id: qid } },
+          { 
+            $project: {
+              hasOpenFeedback: {
+                $gt: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: { $ifNull: ['$feedbacks', []] },
+                        cond: { $eq: ['$$this.status', 'open'] }
+                      }
+                    }
+                  },
+                  0
+                ]
+              }
+            }
+          }
+        ];
+        
+        const result = await this.QuestionCollection.aggregate(pipeline, { session }).toArray();
+        hasExistingOpenFeedback = result[0]?.hasOpenFeedback === true;
+      }
+    }
+
+    // Determine if we should update recentFeedback:
+    // - If there's already an open feedback, don't update recentFeedback (leave it as is)
+    // - If no open feedbacks exist, update recentFeedback to now (this is the first open feedback)
+    const shouldUpdateRecentFeedback = shouldCheckForOpenFeedbacks && !hasExistingOpenFeedback;
+
+    // Build the update operations
     const updateOps: any = {
       $push: {
         feedbacks: {
@@ -8915,8 +8967,8 @@ export class QuestionRepository implements IQuestionRepository {
       },
     };
 
-    // If recentFeedback is provided, also set it
-    if (feedbackEntry.recentFeedback || true) {
+    // Add $set operation if we need to update recentFeedback
+    if (shouldUpdateRecentFeedback) {
       updateOps.$set = {
         recentFeedback: feedbackEntry.recentFeedback || now,
       };
