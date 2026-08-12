@@ -209,7 +209,7 @@ export interface FeedbackData {
     email: string;
   };
   answerId: { $oid: string };
-  type: "thumbs_up" | "thumbs_down";
+  type: "thumbs_up" | "thumbs_down" | "PAE_VALIDATION";
   predefinedOption: string;
   comment: string;
   status: "open" | "rejected" | "accepted";
@@ -1335,6 +1335,16 @@ export class QuestionService {
     return res?.data ?? null;
   }
 
+  async getFeedbackQueueDetails(): Promise<FeedbackQueueDetailsResponse | null> {
+    const res = await apiFetch<{
+      success: boolean;
+      data: FeedbackQueueDetailsResponse;
+    }>(`${this._baseUrl}/feedback/queue-details`, {
+      method: "GET",
+    });
+    return res?.data ?? null;
+  }
+
   /**
    * Process a PAE validation decision (approve or provide feedback).
    * @param payload The validation decision payload
@@ -1418,12 +1428,13 @@ export class QuestionService {
     feedbackId: string,
     action: 'accept' | 'reject',
     reason: string,
+    source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation',
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch<{ success: boolean; message: string } | null>(
       `${this._baseUrl}/${questionId}/${feedbackId}/feedback-action`,
       {
         method: "POST",
-        body: JSON.stringify({ action, reason }),
+        body: JSON.stringify({ action, reason, source }),
         headers: { "Content-Type": "application/json" },
       }
     );
