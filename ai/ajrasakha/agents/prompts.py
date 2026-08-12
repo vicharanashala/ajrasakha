@@ -931,8 +931,10 @@ Rules:
 - Do NOT add search_markets together with get_today_price unless the farmer explicitly asks
   which mandis / list markets / find APMC.
 - "today" / "latest" / "current" / "now" (price) → get_today_price
+- Modal / min / max price with NO time period (e.g. "what is modal price of onion") → get_today_price
+  (the tool returns today's price, or the latest available price if today is missing — NOT price history)
 - History / last N days / week / month / date range (price) → get_price_history with lookback_days or from_date/to_date
-- Average / summary / min-max-modal stats → get_price_summary
+- Average / summary / statistics / min-max stats across a period → get_price_summary
 - Highest / maximum / best selling price (with a past period) → get_highest_price
 - Today's arrival / stock arrived today → get_today_arrival
 - Arrival over days / arrival history → get_arrival_history
@@ -952,6 +954,12 @@ Query: Onion prices in Maharashtra last 15 days
 Query: What is the average tomato price this week?
 {"action":"get_price_summary","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
 
+Query: What is the modal price of onion in Assam?
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Assam","sort_order":null}
+
+Query: What is the price of wheat in Karapa APMC?
+{"action":"get_today_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Karapa APMC","state":"Andhra Pradesh","sort_order":null}
+
 Query: Which mandis are near me?
 {"action":"search_markets","nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
 
@@ -969,13 +977,40 @@ Write a clear, practical answer in English WhatsApp-friendly plain text.
 Rules:
 - Use ONLY facts from the tool JSON (prices, arrivals, markets, dates, varieties, grades, stats, source_system).
 - If the tool JSON has "results" keyed by action name, answer each part clearly (e.g. price first, then market list).
+- For get_today_price, report modal/min/max from price_records (NOT averages across days).
 - Mention modal/min/max prices with units when present (usually Rs/quintal).
 - Mention arrival quantities when the data includes them.
 - Name the market and date when available.
+- If resolution.latest_price_notice is present, say today's price was not found and you are showing the latest available price with that date.
+- If resolution.fallback is present, briefly explain the requested market/location had no data and you are showing alternatives.
+- If the farmer named a specific mandi/APMC in the query or resolution.requested_market_name is set,
+  answer ONLY for that mandi. Do NOT substitute other markets from the same state.
+- If the tool JSON has an "error" field, repeat that error message clearly (it already names crop and mandi when relevant).
 - If records are limited, say so briefly.
+
+Multiple markets (2 or more price_records):
+- Start with one short intro sentence (crop, place, date if known).
+- Then list each market as a numbered item (1), 2), 3), ...).
+- Use this structure for every item:
+  1) Market name (variety, grade if present)
+     Modal: Rs X/quintal | Min: Rs Y | Max: Rs Z
+- Put each market on its own lines (blank line between items is OK).
+- Do NOT cram all markets into one long comma-separated sentence.
+- Example:
+  Onion prices from other markets in Kerala for 12-Aug-2026:
+
+  1) Kattappana (small, grade b)
+     Modal: Rs 7000/quintal | Min: Rs 6500 | Max: Rs 7000
+
+  2) Kanjirappally (big, faq)
+     Modal: Rs 3800/quintal | Min: Rs 3500 | Max: Rs 4000
+
+Single market: one short paragraph is fine (market, date, modal/min/max).
+
 - Put sources at the END only (never inline with prices). After the price/arrival answer, add one short closing line:
   "This information is fetched from the following source: <source_system>."
   If multiple distinct source_system values appear, list them once in that closing line (comma-separated).
+  Copy source_system exactly from the tool JSON (e.g. Agmarknet, eNAM) — do not shorten or rename it.
   Do not invent a source if source_system is missing or null; omit the closing line in that case.
 - If the tool JSON has an "error" field, empty price/arrival lists, or otherwise no usable data,
   clearly tell the farmer that mandi price data is not available for that crop/location/date.

@@ -139,10 +139,73 @@ _MARKET_DISCOVERY_PHRASES = (
     "find apmc",
 )
 
+_HISTORICAL_PRICE_KEYWORDS = (
+    "average",
+    "avg",
+    "summary",
+    "statistics",
+    "stats",
+    "trend",
+    "history",
+    "week",
+    "month",
+    " days",
+    "last ",
+    "past ",
+    "from ",
+    "between",
+    "min max",
+)
+
+_POINT_IN_TIME_PRICE_KEYWORDS = (
+    "modal price",
+    "modal rate",
+    "min price",
+    "minimum price",
+    "min rate",
+    "max price",
+    "maximum price",
+    "max rate",
+)
+
+_NAMED_MARKET_QUERY = re.compile(
+    r"\b(?:in|at)\s+(.+?\s+(?:apmc|mandi|market))\b",
+    re.IGNORECASE,
+)
+_NAMED_MARKET_QUERY_SHORT = re.compile(
+    r"\b(?:in|at)\s+([a-z0-9][a-z0-9\s\-']{0,40}?)\s*(?:apmc|mandi|market)\b",
+    re.IGNORECASE,
+)
+
 
 def _is_market_discovery_query(query: str) -> bool:
     q = (query or "").lower()
     return any(phrase in q for phrase in _MARKET_DISCOVERY_PHRASES)
+
+
+def _asks_for_historical_or_summary_price(query: str) -> bool:
+    q = (query or "").lower()
+    return any(keyword in q for keyword in _HISTORICAL_PRICE_KEYWORDS)
+
+
+def _asks_for_point_in_time_price(query: str) -> bool:
+    q = (query or "").lower()
+    return any(keyword in q for keyword in _POINT_IN_TIME_PRICE_KEYWORDS)
+
+
+def _should_use_today_price_for_query(query: str) -> bool:
+    """Modal/min/max price without a time period → today's price (latest fallback in tool)."""
+    return _asks_for_point_in_time_price(query) and not _asks_for_historical_or_summary_price(query)
+
+
+def _extract_market_name_from_query(query: str) -> str | None:
+    for pattern in (_NAMED_MARKET_QUERY, _NAMED_MARKET_QUERY_SHORT):
+        match = pattern.search(query or "")
+        if match:
+            name = match.group(1).strip()
+            if name:
+                return name
+    return None
 
 
 def _heuristic_intent(query: str) -> dict[str, Any]:
@@ -294,6 +357,19 @@ def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
         out["nearest_market"] = True
         if out.get("radius_km") is None:
             out["radius_km"] = 50
+    if (
+        _should_use_today_price_for_query(query)
+        and out["action"] in {"get_price_summary", "get_price_history"}
+    ):
+        out["action"] = "get_today_price"
+        out["actions"] = ["get_today_price"]
+        out["lookback_days"] = None
+        out["from_date"] = None
+        out["to_date"] = None
+    if not out.get("market_name"):
+        extracted_market = _extract_market_name_from_query(query)
+        if extracted_market:
+            out["market_name"] = extracted_market
     return out
 
 
@@ -478,21 +554,34 @@ def _build_tool_args(
     if "get_extreme_arrival" in actions and intent.get("sort_order"):
         args["sort_order"] = intent["sort_order"]
 
+    if args.get("market_name"):
+        args["nearest_market"] = False
+
     return args
 
 
-def _fallback_unavailable_answer(payload: Any, *, crop: str | None = None, state: str | None = None) -> str:
+def _fallback_unavailable_answer(
+    payload: Any,
+    *,
+    crop: str | None = None,
+    state: str | None = None,
+    market_name: str | None = None,
+) -> str:
     """Deterministic English reply when Gemma cannot phrase an unavailable result."""
+    if isinstance(payload, dict) and payload.get("error"):
+        return str(payload["error"]).strip()
+
     parts = ["Mandi price data is not available"]
     crop_clean = (crop or "").strip()
+    market_clean = (market_name or "").strip()
     state_clean = (state or "").strip()
     if crop_clean and crop_clean.lower() not in {"all", "any", "general"}:
         parts.append(f"for {crop_clean}")
-    if state_clean and state_clean.lower() not in {"all", "not specified", "unknown"}:
+    if market_clean:
+        parts.append(f"in {market_clean}")
+    elif state_clean and state_clean.lower() not in {"all", "not specified", "unknown"}:
         parts.append(f"in {state_clean}")
     parts.append("right now.")
-    if isinstance(payload, dict) and payload.get("error"):
-        return " ".join(parts)
     return " ".join(parts)
 
 
@@ -502,6 +591,7 @@ async def synthesize_daily_price_answer(
     *,
     crop: str | None = None,
     state: str | None = None,
+    market_name: str | None = None,
 ) -> str:
     """Ask Gemma to turn tool JSON into a farmer-facing English answer."""
     payload = _unwrap_tool_payload(tool_result)
@@ -525,7 +615,12 @@ async def synthesize_daily_price_answer(
     if answer and answer.strip():
         return answer.strip()
     if _tool_result_is_empty(payload):
-        return _fallback_unavailable_answer(payload, crop=crop, state=state)
+        return _fallback_unavailable_answer(
+            payload,
+            crop=crop,
+            state=state,
+            market_name=market_name,
+        )
     return ""
 
 
@@ -605,6 +700,7 @@ async def daily_price(
             tool_result,
             crop=crop,
             state=tool_args.get("state") or state,
+            market_name=tool_args.get("market_name"),
         )
         return json.dumps(
             {"answer": answer or "", "tool_data": tool_payload},
@@ -615,7 +711,11 @@ async def daily_price(
         logger.error("daily_price agent failed: %s", exc, exc_info=True)
         return json.dumps(
             {
-                "answer": _fallback_unavailable_answer({"error": str(exc)}, crop=crop, state=state),
+                "answer": _fallback_unavailable_answer(
+                    {"error": str(exc)},
+                    crop=crop,
+                    state=state,
+                ),
                 "tool_data": {"error": str(exc)},
             },
             default=str,

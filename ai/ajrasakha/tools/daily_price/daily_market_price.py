@@ -89,6 +89,54 @@ mcp = FastMCP(
     )
 )
 
+_SOURCE_SYSTEM_DISPLAY_NAMES: dict[str, str] = {
+    "agmark": "Agmarknet",
+    "agmarknet": "Agmarknet",
+    "enam": "eNAM",
+    "ajrasakhaagmarknet": "Agmarknet",
+    "ajrasakhaagmark": "Agmarknet",
+}
+
+
+def _normalize_source_system_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", value.strip().lower())
+
+
+def display_source_system(value: Any) -> Optional[str]:
+    """Map DB source_system codes to farmer-facing names (e.g. agmark → Agmarknet)."""
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    key = _normalize_source_system_key(raw)
+    if key in _SOURCE_SYSTEM_DISPLAY_NAMES:
+        return _SOURCE_SYSTEM_DISPLAY_NAMES[key]
+    if key.startswith("agmark"):
+        return "Agmarknet"
+    if key.startswith("enam"):
+        return "eNAM"
+    return raw
+
+
+def _norm(value: Optional[str]) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip().lower()
+    return cleaned or None
+
+
+def _norm_commodity_name(
+    value: Optional[Union[str, list[str]]],
+) -> Optional[Union[str, list[str]]]:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        normalized = [_norm(str(item)) for item in value]
+        out = [item for item in normalized if item]
+        return out or None
+    return _norm(str(value))
+
 
 # --------------------------------------------------------------------------
 # SINGLE EXPOSED TOOL — 8 ACTIONS
@@ -177,6 +225,10 @@ def mandi_price_tool(
         sort_by       : Field to sort extreme queries by ("price" or "arrival").
         sort_order    : Direction for extreme queries ("highest" or "lowest").
     """
+    state = _norm(state)
+    market_name = _norm(market_name)
+    commodity_name = _norm_commodity_name(commodity_name)
+
     logger.info(
         "mandi_price_tool called | action=%s, commodity_name=%s, market_name=%s, state=%s, lat=%s, long=%s, nearest_market=%s, radius_km=%s, from_date=%s, to_date=%s, lookback_days=%s, sort_by=%s, sort_order=%s",
         action, commodity_name, market_name, state, lat, long, nearest_market, radius_km, from_date, to_date, lookback_days, sort_by, sort_order
@@ -186,11 +238,8 @@ def mandi_price_tool(
     # NESTED HELPERS
     # ======================================================================
 
-    def _norm(s: Optional[str]) -> Optional[str]:
-        return s.strip().lower() if isinstance(s, str) else s
-
     def _state_exact_values(state: str) -> list[str]:
-        """Exact state keys for DB match (no regex), including known synonyms."""
+        """Exact lowercase state keys for DB match, including known synonyms."""
         n = _norm(state)
         if not n:
             return []
@@ -198,14 +247,11 @@ def mandi_price_tool(
         for key in _STATE_SYNONYMS.get(n, (n,)):
             if key not in values:
                 values.append(key)
-            titled = " ".join(part.capitalize() for part in key.split())
-            if titled not in values:
-                values.append(titled)
         return values
 
     def _mc_state_values(state: str) -> list[str]:
         """Lowercase exact keys for markets_commodities.state."""
-        return [v for v in _state_exact_values(state) if v == v.lower()]
+        return _state_exact_values(state)
 
     def _require_state(state_val: Optional[str]) -> Optional[dict]:
         if not state_val or not str(state_val).strip():
@@ -326,13 +372,25 @@ def mandi_price_tool(
             "grade":            mc.get("grade"),
             "commodity_group":  mc.get("commodity_group"),
             "source_url":    mc.get("source_url"),
-            "source_system": mc.get("source_system"),
+            "source_system": display_source_system(mc.get("source_system")),
             "modal_price":      _round2(pr.get("modal_price")),
             "min_price":        _round2(pr.get("min_price")),
             "max_price":        _round2(pr.get("max_price")),
             "arrival_quantity": _round2(pr.get("arrival_quantity")),
         }
         return record
+
+    def _extract_source_systems(records: list[dict]) -> list[str]:
+        """Unique non-empty source_system values from price records (stable order)."""
+        seen: list[str] = []
+        for record in records:
+            source = record.get("source_system")
+            if not source:
+                continue
+            source_str = str(source).strip()
+            if source_str and source_str not in seen:
+                seen.append(source_str)
+        return seen
 
     def _compute_stats(records: list[dict]) -> dict:
         def _vals(key):
@@ -391,17 +449,13 @@ def mandi_price_tool(
         results: dict[str, Optional[dict]] = {}
         for raw in names:
             norm = _norm(raw)
-            candidates = [norm]
-            if isinstance(raw, str) and raw.strip() and raw.strip() not in candidates:
-                candidates.append(raw.strip())
-            doc = None
-            for key in candidates:
-                doc = coll.find_one(
-                    {"active": True, "$or": [{"canonical_name": key}, {"aliases": key}]},
-                    max_time_ms=MONGO_MAX_TIME_MS,
-                )
-                if doc:
-                    break
+            if not norm:
+                results[raw] = None
+                continue
+            doc = coll.find_one(
+                {"active": True, "$or": [{"canonical_name": norm}, {"aliases": norm}]},
+                max_time_ms=MONGO_MAX_TIME_MS,
+            )
             results[raw] = doc
             if doc:
                 logger.info(
@@ -413,14 +467,14 @@ def mandi_price_tool(
         return results
 
     def _market_name_tokens(market_name: str) -> list[str]:
-        """Build searchable market tokens; strip common suffixes like mandi/apmc."""
-        raw = (market_name or "").strip()
+        """Build searchable lowercase market tokens; strip common suffixes like mandi/apmc."""
+        raw = _norm(market_name) or ""
         if not raw:
             return []
         tokens = [raw]
-        cleaned = re.sub(r"\b(mandi|apmc|market)\b", "", raw, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\b(mandi|apmc|market)\b", "", raw).strip()
         cleaned = re.sub(r"\s+", " ", cleaned).strip(" -_")
-        if cleaned and cleaned.lower() not in {t.lower() for t in tokens}:
+        if cleaned and cleaned not in tokens:
             tokens.append(cleaned)
         return tokens
 
@@ -478,7 +532,7 @@ def mandi_price_tool(
             len(market_ids) if market_ids is not None else None,
         )
         coll = available_mandi_col()
-        state_values = _state_exact_values(state or "")
+        state_values = _mc_state_values(state or "")
         query: dict[str, Any] = {"state": {"$in": state_values}}
         if market_ids is not None:
             query["_id"] = {"$in": list(market_ids)}
@@ -571,24 +625,80 @@ def mandi_price_tool(
         mc_coll = markets_commodities_col()
         pr_coll = price_records_col()
 
-        # ── Step 2: state + crop on markets_commodities ──────────────────
-        mc_filter: dict[str, Any] = {
-            "commodity_alias_lookup_id": {"$in": alias_ids},
-            "state": {"$in": state_norm_values},
-        }
-        logger.info("Narrowing markets_commodities by state+crop: %s", mc_filter)
-        mc_docs_list = list(mc_coll.find(mc_filter).max_time_ms(MONGO_MAX_TIME_MS))
-        logger.info("Found %d markets_commodities for state+crop.", len(mc_docs_list))
-        if not mc_docs_list:
+        explicit_market_query = bool(market_name and str(market_name).strip())
+        crop_label = (
+            str(commodity_list[0])
+            if len(commodity_list) == 1
+            else ", ".join(str(c) for c in commodity_list)
+        )
+
+        def _named_market_unavailable(*, market_not_found: bool, matched_docs: list[dict]) -> dict:
+            market_label = market_name or "the requested market"
+            if matched_docs:
+                names = [d.get("name") for d in matched_docs if d.get("name")]
+                if len(names) == 1:
+                    market_label = names[0]
+                elif names:
+                    market_label = ", ".join(names)
+            if market_not_found:
+                error = f"Market '{market_name}' was not found in {state}."
+            else:
+                error = f"Mandi price data is not available for {crop_label} in {market_label}."
             return {
-                "error": f"No markets_commodities entries matched crop={commodity_list} in state={state}.",
+                "error": error,
+                "resolution": {
+                    "requested_market_name": market_name,
+                    "requested_commodity": commodity_list,
+                    "requested_state": state,
+                    "markets_matched": [
+                        {"name": d.get("name"), "district": d.get("district")}
+                        for d in matched_docs
+                    ],
+                },
             }
 
-        candidate_market_ids = list({
-            d["market_id"] for d in mc_docs_list if d.get("market_id")
-        })
-        if not candidate_market_ids:
-            return {"error": f"No linked markets found for crop={commodity_list} in state={state}."}
+        # ── Step 2: resolve markets_commodities ─────────────────────────
+        if explicit_market_query:
+            # Named mandi: resolve the mandi first, then check crop at that mandi only.
+            market_search = _do_search_markets(
+                market_name=market_name,
+                state=state,
+                nearest_market=False,
+                market_ids=None,
+            )
+            matched_mandi_docs = market_search.get("_raw_docs") or []
+            if not matched_mandi_docs:
+                return _named_market_unavailable(market_not_found=True, matched_docs=[])
+            named_market_ids = [d["_id"] for d in matched_mandi_docs]
+            mc_filter_named: dict[str, Any] = {
+                "commodity_alias_lookup_id": {"$in": alias_ids},
+                "market_id": {"$in": named_market_ids},
+            }
+            logger.info("Named-mandi markets_commodities filter: %s", mc_filter_named)
+            mc_docs_list = list(mc_coll.find(mc_filter_named).max_time_ms(MONGO_MAX_TIME_MS))
+            if not mc_docs_list:
+                return _named_market_unavailable(
+                    market_not_found=False,
+                    matched_docs=matched_mandi_docs,
+                )
+            candidate_market_ids = named_market_ids
+        else:
+            mc_filter = {
+                "commodity_alias_lookup_id": {"$in": alias_ids},
+                "state": {"$in": state_norm_values},
+            }
+            logger.info("Narrowing markets_commodities by state+crop: %s", mc_filter)
+            mc_docs_list = list(mc_coll.find(mc_filter).max_time_ms(MONGO_MAX_TIME_MS))
+            logger.info("Found %d markets_commodities for state+crop.", len(mc_docs_list))
+            if not mc_docs_list:
+                return {
+                    "error": f"No markets_commodities entries matched crop={commodity_list} in state={state}.",
+                }
+            candidate_market_ids = list({
+                d["market_id"] for d in mc_docs_list if d.get("market_id")
+            })
+            if not candidate_market_ids:
+                return {"error": f"No linked markets found for crop={commodity_list} in state={state}."}
 
         # ── Step 3: optional date narrowing on price_records ────────────
         date_clause, date_meta = _date_query(
@@ -744,11 +854,14 @@ def mandi_price_tool(
 
         stages: list[tuple[str, Optional[str], Optional[float], Optional[float], bool]] = []
         # (priority_label, market_name, lat, lon, nearest_market)
-        if market_name and str(market_name).strip():
+        if explicit_market_query:
             stages.append(("market_name", market_name, None, None, False))
-        if lat is not None and long is not None:
-            stages.append(("lat_long", None, lat, long, nearest_market if nearest_market else True))
-        stages.append(("state", None, None, None, False))
+        else:
+            if market_name and str(market_name).strip():
+                stages.append(("market_name", market_name, None, None, False))
+            if lat is not None and long is not None:
+                stages.append(("lat_long", None, lat, long, nearest_market if nearest_market else True))
+            stages.append(("state", None, None, None, False))
 
         result: dict[str, Any] = {"error": "No price records found."}
         raw_docs: list[dict] = []
@@ -786,11 +899,19 @@ def mandi_price_tool(
                 long=stage_lon,
                 nearest_market=stage_nearest,
                 radius_km=radius_km if priority_label == "lat_long" else None,
-                market_ids=date_filtered_market_ids,
+                market_ids=(
+                    candidate_market_ids
+                    if explicit_market_query and priority_label == "market_name"
+                    else date_filtered_market_ids
+                ),
             )
             stage_docs = market_result.get("_raw_docs") or []
             if not stage_docs:
                 logger.info("Stage %s found 0 markets; trying next priority.", priority_label)
+                if explicit_market_query and priority_label == "market_name":
+                    result = _named_market_unavailable(market_not_found=True, matched_docs=[])
+                    chosen_stage = priority_label
+                    break
                 continue
 
             stage_mandi = {d["_id"]: d for d in stage_docs}
@@ -800,7 +921,9 @@ def mandi_price_tool(
                 result = stage_result
                 chosen_stage = priority_label
                 raw_docs = stage_docs
-                if len(tried) > 1:
+                if explicit_market_query:
+                    result.setdefault("resolution", {})["requested_market_name"] = market_name
+                elif len(tried) > 1:
                     result.setdefault("resolution", {})["fallback"] = (
                         f"Used location priority '{priority_label}' after "
                         f"{', '.join(tried[:-1])} returned no price records."
@@ -810,6 +933,12 @@ def mandi_price_tool(
                 "Stage %s returned 0 price records; trying next priority.",
                 priority_label,
             )
+            if explicit_market_query and priority_label == "market_name":
+                result = _named_market_unavailable(market_not_found=False, matched_docs=stage_docs)
+                if isinstance(stage_result, dict) and stage_result.get("resolution"):
+                    result["resolution"].update(stage_result["resolution"])
+                chosen_stage = priority_label
+                break
             result = stage_result
             raw_docs = stage_docs
 
@@ -895,13 +1024,19 @@ def mandi_price_tool(
         )
         if result.get("error"):
             return result
-        # Return only stats (summary), omit individual records
-        return {
+        records = result.get("price_records") or []
+        source_systems = _extract_source_systems(records)
+        summary: dict[str, Any] = {
             "action":     "get_price_summary",
             "stats":      result.get("stats"),
             "resolution": result.get("resolution"),
             "total_records_analysed": result.get("total_records_returned"),
         }
+        if source_systems:
+            summary["source_system"] = (
+                source_systems[0] if len(source_systems) == 1 else ", ".join(source_systems)
+            )
+        return summary
 
     # ======================================================================
     # ACTION 4: get_highest_price
