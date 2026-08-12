@@ -10216,7 +10216,7 @@ if (filters.endDate) {
 
       const question = await this.questionRepo.getById(questionId);
 
-      if((question as any)?.paeStatus === 'completed')throw new BadRequestError('This question has already completed PAE validation.');
+      if((question as any)?.paeValidation === 'completed')throw new BadRequestError('This question has already completed PAE validation.');
       
 
       const submission =
