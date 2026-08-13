@@ -5592,7 +5592,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     filters.status === 'closed' ||
     filters.status === 'pae_closed' ||
     filters.status === 'dynamic_closed' ||
-    filters.status === 'duplicate_closed';
+    filters.status === 'duplicate_closed' ||
+    filters.status === 'all-closed';
 
   const dateField = isClosedStatus ? 'closedAt' : 'createdAt';
 
@@ -5623,7 +5624,7 @@ if (filters.endDate) {
 
       // Check if this is a closed status report - if so, limit to 50 questions
       const isClosedStatus =
-        filters.status === 'closed' || filters.status === 'pae_closed' || filters.status === 'dynamic_closed' || filters.status === "duplicate_closed";;
+        filters.status === 'closed' || filters.status === 'pae_closed' || filters.status === 'dynamic_closed' || filters.status === "duplicate_closed" || filters.status === 'all-closed';
       // `allUsers` is a comma-separated list of user (approvedBy) ids.
       const allUserIds =
         filters.allUsers && filters.allUsers !== 'all'
@@ -5720,6 +5721,13 @@ if (filters.endDate) {
         { header: 'Priority', key: 'priority', width: 15 },
         { header: 'Source', key: 'source', width: 15 },
       ];
+      if (isClosedStatus) {
+        columns.push({
+          header: 'Closed At',
+          key: 'closedAt',
+          width: 22,
+        });
+      }
 
       // Add Answer / Sources / Moderator columns for closed questions.
       if (includeAnswerDetails) {
@@ -5750,6 +5758,10 @@ if (filters.endDate) {
           priority: q.priority,
           source: q.source,
         };
+
+        if (isClosedStatus) {
+          rowData.closedAt = q.closedAt;
+        }
 
         // Add answer / sources / moderator for closed questions.
         if (includeAnswerDetails) {
