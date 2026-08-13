@@ -3920,23 +3920,64 @@ export class ChatbotService extends BaseService implements IChatbotService {
     reportHtml?: string,
   ): Promise<{success: boolean; message: string}> {
     try {
+      const formatDateStr = (d?: string) => {
+        if (!d) return '';
+        const parts = d.split(/[-/]/);
+        if (parts.length === 3 && parts[0].length === 4) {
+          return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return d;
+      };
+      
+      const formattedStartDate = formatDateStr(context?.startDate);
+      const formattedEndDate = formatDateStr(context?.endDate);
+
       const dateRangeLabel =
-        context?.startDate || context?.endDate
-          ? ` (${context?.startDate || ''}${
-              context?.endDate && context.endDate !== context.startDate
-                ? ` to ${context.endDate}`
+        formattedStartDate || formattedEndDate
+          ? ` (${formattedStartDate || ''}${
+              formattedEndDate && formattedEndDate !== formattedStartDate
+                ? ` to ${formattedEndDate}`
                 : ''
             })`
           : '';
       const title = `AjraSakha Response Adherence Report${dateRangeLabel}`;
+      const platformUrl = appConfig.frontendUrl;
       const html = `
-        <p>Hello,</p>
-        <p>Please find attached the <b>AjraSakha Response Adherence</b> report. It is also shown below for quick reference.</p>
-        ${context?.source ? `<p>Source: <b>${context.source}</b></p>` : ''}
-        ${context?.userType ? `<p>User Type: <b>${context.userType}</b></p>` : ''}
-        ${reportHtml ? `<div style="overflow-x:auto;">${reportHtml}</div>` : ''}
-        <br />
-        <p>Regards,<br/>Ajrasakha System</p>
+        <div style="font-family: sans-serif; max-width: 800px; margin: 0 auto; color: #333; border: 1px solid #eaeaea; border-radius: 8px; overflow: hidden;">
+          <div style="text-align: center; padding: 20px 0; background-color: #f8fdf8; border-bottom: 2px solid #2e7d32;">
+            <img src="${platformUrl}/annam-logo.png" alt="Annam.ai Logo" style="height: 70px;" />
+          </div>
+          <div style="padding: 30px 20px;">
+            <h2 style="color: #2e7d32; margin-top: 0; text-align: center;">AjraSakha Response Adherence Report</h2>
+            <p style="font-size: 16px; line-height: 1.5;">Hello,</p>
+            <p style="font-size: 16px; line-height: 1.5;">Please find attached the <b>AjraSakha Response Adherence</b> report. A summary is also provided below for quick reference.</p>
+            
+            ${(context?.source || context?.userType || formattedStartDate || formattedEndDate) ? `
+            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #2e7d32;">
+              ${context?.source ? `<p style="margin: 5px 0;"><strong>Source:</strong> ${context.source}</p>` : ''}
+              ${context?.userType ? `<p style="margin: 5px 0;">The report includes data for <strong>${context.userType.toLowerCase() === 'all' ? 'external and internal' : context.userType}</strong> user types.</p>` : ''}
+              ${(formattedStartDate || formattedEndDate) ? `<p style="margin: 5px 0;"><strong>Date:</strong> ${formattedStartDate || ''} ${formattedEndDate && formattedEndDate !== formattedStartDate ? `to ${formattedEndDate}` : ''}</p>` : ''}
+            </div>
+            ` : ''}
+            
+            ${reportHtml ? `<div style="overflow-x:auto; margin-top: 20px;">${reportHtml}</div>` : ''}
+            
+            <div style="margin-top: 30px; text-align: center;">
+              <a href="${platformUrl}" style="display:inline-block; padding: 12px 24px; background-color: #2e7d32; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">
+                Go to AjraSakha Platform
+              </a>
+            </div>
+            
+            <p style="margin-top: 30px; font-size: 14px; color: #555; line-height: 1.5; text-align: center;">
+              If you encounter any issues with the report or have any questions regarding the data, please contact the Developer Team for assistance.
+            </p>
+          </div>
+          <div style="background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 13px; color: #666; border-top: 1px solid #ddd;">
+            <p style="margin: 0;">Regards,</p>
+            <p style="margin: 5px 0 0 0;"><strong>Ajrasakha System</strong></p>
+            <p style="margin: 15px 0 0 0; font-size: 11px; color: #999;">&copy; ${new Date().getFullYear()} Annam.ai. All rights reserved.</p>
+          </div>
+        </div>
       `;
 
       await sendEmailWithAttachment(
