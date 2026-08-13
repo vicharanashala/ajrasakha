@@ -195,7 +195,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     user: IUser,
     question: IQuestion,
   ): boolean {
-    return (question.isTrainingQuestion === true) === (user.isTrainingUser === true);
+    return (
+      (question.isTrainingQuestion === true) === (user.isTrainingUser === true)
+    );
   }
 
   async createBulkQuestions(
@@ -388,13 +390,15 @@ export class QuestionService extends BaseService implements IQuestionService {
   async normalizeQuestionState(
     currentValues: string[],
     standardizedTo: string,
-  ): Promise<{ matched: number; modified: number }> {
+  ): Promise<{matched: number; modified: number}> {
     const cleaned = (currentValues ?? [])
       .map(v => (typeof v === 'string' ? v.trim() : ''))
       .filter(Boolean);
     const target = (standardizedTo ?? '').trim();
     if (cleaned.length === 0) {
-      throw new BadRequestError('current values must be a non-empty array of strings');
+      throw new BadRequestError(
+        'current values must be a non-empty array of strings',
+      );
     }
     if (!target) {
       throw new BadRequestError('standardizedTo is required');
@@ -408,12 +412,14 @@ export class QuestionService extends BaseService implements IQuestionService {
    *  `districts` collection (districtNameEnglish). Matching ones update questions whose
    *  details.district === existingName; non-matching names are returned untouched. */
   async normalizeQuestionDistricts(
-    mappings: { existingName: string; standardiseTo: string }[],
+    mappings: {existingName: string; standardiseTo: string}[],
   ) {
     const cleaned = (mappings ?? [])
       .map(m => ({
-        existingName: typeof m?.existingName === 'string' ? m.existingName.trim() : '',
-        standardiseTo: typeof m?.standardiseTo === 'string' ? m.standardiseTo.trim() : '',
+        existingName:
+          typeof m?.existingName === 'string' ? m.existingName.trim() : '',
+        standardiseTo:
+          typeof m?.standardiseTo === 'string' ? m.standardiseTo.trim() : '',
       }))
       .filter(m => m.existingName && m.standardiseTo);
     if (cleaned.length === 0) {
@@ -464,7 +470,11 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getDetailedQuestions(
     query: GetDetailedQuestionsQuery,
     body: DetailedQuestionsBodyDto,
-  ): Promise<{ questions: IQuestion[]; totalPages: number; feedbackQuestions?: IQuestion[] }> {
+  ): Promise<{
+    questions: IQuestion[];
+    totalPages: number;
+    feedbackQuestions?: IQuestion[];
+  }> {
     let searchEmbedding: number[] | null = null;
 
     if (query?.search) {
@@ -491,7 +501,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     );
 
     // Check if this is a dedicated view (moderator/gatekeeper/auditor assigned questions)
-    const { moderatorId, gateKeeperId, auditorId } = query;
+    const {moderatorId, gateKeeperId, auditorId} = query;
     const assignedUserId = moderatorId || gateKeeperId || auditorId;
     if (assignedUserId) {
       try {
@@ -504,7 +514,8 @@ export class QuestionService extends BaseService implements IQuestionService {
             return id;
           });
 
-          const feedbackQuestions = await this.questionRepo.findByIds(feedbackQuestionIds);
+          const feedbackQuestions =
+            await this.questionRepo.findByIds(feedbackQuestionIds);
           const feedbackQuestionsWithFlag = feedbackQuestions.map(q => ({
             ...q,
             isFeedbackQuestion: true,
@@ -629,14 +640,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     crop?: string,
   ): Promise<GeneratedQuestionResponse[]> {
     try {
-      const payload: any = { query: context };
+      const payload: any = {query: context};
       if (state) payload.state = state;
       if (crop) payload.crop = crop;
 
       const agentSearchResponse = await axios.post(
         'http://100.100.108.44:6002/search',
         payload,
-        { timeout: 100000 },
+        {timeout: 100000},
       );
       console.log(
         'Agent Search Output:',
@@ -736,8 +747,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     try {
       const extractResponse = await axios.post(
         'http://100.100.108.44:6002/extract',
-        { query },
-        { timeout: 100000 },
+        {query},
+        {timeout: 100000},
       );
       return extractResponse.data;
     } catch (error) {
@@ -749,7 +760,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   /**
    * HIL Flow: Create thread for ACC Agent
    */
-  async createAccAgentThread(): Promise<{ thread_id: string }> {
+  async createAccAgentThread(): Promise<{thread_id: string}> {
     try {
       const result = await this.accAgentService.createThread();
       return result;
@@ -780,7 +791,10 @@ export class QuestionService extends BaseService implements IQuestionService {
     extracted_primary_crop?: string;
   }> {
     try {
-      const result = await this.accAgentService.extractData(threadId, transcript);
+      const result = await this.accAgentService.extractData(
+        threadId,
+        transcript,
+      );
 
       return result;
     } catch (error) {
@@ -808,7 +822,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       farmerVillage?: string;
       farmerBlock?: string;
       farmerPrimaryCrop?: string;
-    }
+    },
   ): Promise<void> {
     try {
       await this.accAgentService.updateState(threadId, correctedData);
@@ -824,8 +838,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   async resumeAccAgentAndGetAnswer(
     threadId: string,
     callUuid?: string,
-    metadata?: QAMetadata
-  ): Promise<{ final_answer: string }> {
+    metadata?: QAMetadata,
+  ): Promise<{final_answer: string}> {
     try {
       const result = await this.accAgentService.resumeAndGetAnswer(threadId);
 
@@ -839,27 +853,38 @@ export class QuestionService extends BaseService implements IQuestionService {
               answer: result.final_answer,
               agri_specialist: 'ACC_AGENT',
               referenceSource: 'acc_agent_hitl',
-              id: new ObjectId().toString()
-            }
-          ]
+              id: new ObjectId().toString(),
+            },
+          ],
         };
 
         // Check if call_details document exists
-        const existingCallDetails = await this.callDetailsRepository.getByCallUuid(callUuid);
+        const existingCallDetails =
+          await this.callDetailsRepository.getByCallUuid(callUuid);
 
         if (existingCallDetails) {
           // Update existing document
           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
         } else {
-          console.warn(`[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`);
+          console.warn(
+            `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
+          );
           // Create a new call_details document with the Q/A pairs
           await this.callDetailsRepository.create({
             callUuid,
             QA_pairs: qaPairs,
             status: 'completed',
             direction: 'inbound',
-            caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
-            agent: { transcript: '', translation: '', detectedLanguage: 'unknown' }
+            caller: {
+              transcript: '',
+              translation: '',
+              detectedLanguage: 'unknown',
+            },
+            agent: {
+              transcript: '',
+              translation: '',
+              detectedLanguage: 'unknown',
+            },
           });
         }
       }
@@ -879,7 +904,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getAccAgentState(
     threadId: string,
     callUuid?: string,
-    metadata?: QAMetadata
+    metadata?: QAMetadata,
   ): Promise<any> {
     try {
       // 1. Resume the agent
@@ -891,13 +916,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       // 3. If callUuid and metadata are provided, store Q/A pairs in call_details
       if (callUuid && metadata) {
         const finalAnswerObj = threadState?.values?.final_answer;
-        const finalAnswerMarkdown = typeof finalAnswerObj === 'string' ? finalAnswerObj : finalAnswerObj?.final_answer || '';
+        const finalAnswerMarkdown =
+          typeof finalAnswerObj === 'string'
+            ? finalAnswerObj
+            : finalAnswerObj?.final_answer || '';
 
         const weather = finalAnswerObj?.weather || null;
         const similarPair = finalAnswerObj?.gdb?.similar_pair1 || null;
-        const authorName = similarPair?.details?.[0]?.author_name || "";
-        const sourceName = similarPair?.details?.[0]?.source_name || "";
-        const sourceLink = similarPair?.details?.[0]?.source_link || "";
+        const authorName = similarPair?.details?.[0]?.author_name || '';
+        const sourceName = similarPair?.details?.[0]?.source_name || '';
+        const sourceLink = similarPair?.details?.[0]?.source_link || '';
 
         const qaPairs: QAPairs = {
           metadata,
@@ -908,30 +936,41 @@ export class QuestionService extends BaseService implements IQuestionService {
               agri_specialist: 'ACC_AGENT',
               referenceSource: 'acc_agent_hitl',
               id: new ObjectId().toString(),
-              ...(weather ? { weather } : {}),
-              ...(authorName ? { authorName } : {}),
-              ...(sourceName ? { sourceName } : {}),
-              ...(sourceLink ? { sourceLink } : {})
-            } as any
-          ]
+              ...(weather ? {weather} : {}),
+              ...(authorName ? {authorName} : {}),
+              ...(sourceName ? {sourceName} : {}),
+              ...(sourceLink ? {sourceLink} : {}),
+            } as any,
+          ],
         };
 
         // Check if call_details document exists
-        const existingCallDetails = await this.callDetailsRepository.getByCallUuid(callUuid);
+        const existingCallDetails =
+          await this.callDetailsRepository.getByCallUuid(callUuid);
 
         if (existingCallDetails) {
           // Update existing document
           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
         } else {
-          console.warn(`[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`);
+          console.warn(
+            `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
+          );
           // Create a new call_details document with the Q/A pairs
           await this.callDetailsRepository.create({
             callUuid,
             QA_pairs: qaPairs,
             status: 'completed',
             direction: 'inbound',
-            caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
-            agent: { transcript: '', translation: '', detectedLanguage: 'unknown' }
+            caller: {
+              transcript: '',
+              translation: '',
+              detectedLanguage: 'unknown',
+            },
+            agent: {
+              transcript: '',
+              translation: '',
+              detectedLanguage: 'unknown',
+            },
           });
         }
       }
@@ -939,11 +978,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       // 4. Return the full thread state
       return threadState;
     } catch (error) {
-      console.error('[QuestionService] getAccAgentState: Error resuming or fetching state', error);
-      throw new InternalServerError('Failed to resume or fetch ACC Agent state');
+      console.error(
+        '[QuestionService] getAccAgentState: Error resuming or fetching state',
+        error,
+      );
+      throw new InternalServerError(
+        'Failed to resume or fetch ACC Agent state',
+      );
     }
   }
-
 
   // Reusable duplicate detection helper.
 
@@ -982,7 +1025,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
 
-    const logData: Record<string, any> = { questionId, manual: true };
+    const logData: Record<string, any> = {questionId, manual: true};
     const result = await this.runDuplicateCheckPipeline(
       question,
       question.details,
@@ -996,24 +1039,26 @@ export class QuestionService extends BaseService implements IQuestionService {
           : result.referenceQuestionId
             ? new ObjectId(String(result.referenceQuestionId))
             : null;
-      
+
       // Get submission to check queue length
-      const questionSubmission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const questionSubmission =
+        await this.questionSubmissionRepo.getByQuestionId(questionId);
       const queueLength = questionSubmission?.queue?.length || 0;
 
       // Only flip the status to 'duplicate' when the question is still open/delayed.
       // For any other status (in-review, closed, etc.) the workflow is already past
       // that point, so the status must not change — we just record the reference.
       const canMarkDuplicate =
-        (question.status === 'open' || question.status === 'delayed') && queueLength === 0;
+        (question.status === 'open' || question.status === 'delayed') &&
+        queueLength === 0;
       await this.questionRepo.updateQuestion(questionId, {
-        ...(canMarkDuplicate ? { status: 'duplicate' } : {}),
+        ...(canMarkDuplicate ? {status: 'duplicate'} : {}),
         similarityScore: result.similarityScore,
         referenceQuestionId: refId,
         referenceQuestion: result.referenceQuestion,
         referenceSource: result.referenceSource,
         isDuplicateChecked: true,
-        ...(result.isExact !== undefined ? { isExact: result.isExact } : {}),
+        ...(result.isExact !== undefined ? {isExact: result.isExact} : {}),
       });
       return {
         message: canMarkDuplicate
@@ -1025,15 +1070,18 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     if (result.isQueueDuplicate) {
-      const refId = result.referenceQuestionId instanceof ObjectId
-        ? result.referenceQuestionId
-        : result.referenceQuestionId
-          ? new ObjectId(String(result.referenceQuestionId))
-          : null;
+      const refId =
+        result.referenceQuestionId instanceof ObjectId
+          ? result.referenceQuestionId
+          : result.referenceQuestionId
+            ? new ObjectId(String(result.referenceQuestionId))
+            : null;
       const canMarkQueue =
         question.status === 'open' || question.status === 'delayed';
       await this.questionRepo.updateQuestion(questionId, {
-        ...(canMarkQueue ? { status: 'queue_duplicate', isAutoAllocate: false } : {}),
+        ...(canMarkQueue
+          ? {status: 'queue_duplicate', isAutoAllocate: false}
+          : {}),
         similarityScore: result.similarityScore,
         referenceQuestionId: refId,
         referenceQuestion: result.referenceQuestion,
@@ -1054,13 +1102,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         status: 'non_agri',
         isDuplicateChecked: true,
       });
-      return { message: 'Question marked as non-agri.', isDuplicate: false };
+      return {message: 'Question marked as non-agri.', isDuplicate: false};
     }
 
     await this.questionRepo.updateQuestion(questionId, {
       isDuplicateChecked: true,
     });
-    return { message: 'No duplicate found.', isDuplicate: false };
+    return {message: 'No duplicate found.', isDuplicate: false};
   }
 
   private async runDuplicateCheckPipeline(
@@ -1087,7 +1135,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       state: details.state,
       rephrased_query: baseQuestion.question,
     });
-
 
     const extractObjectId = (id: any): ObjectId | null => {
       const raw = id?.$oid ?? id;
@@ -1150,7 +1197,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Reference details come from the top-level response (duplicate_question_id /
       // query / similarity_score), not the candidates_checked array.
       const dupId =
-        pendingResult?.duplicate_question_id ?? pendingResult?.matched_question_id;
+        pendingResult?.duplicate_question_id ??
+        pendingResult?.matched_question_id;
       // Only treat as a queue-duplicate when the GDB returned a usable reference id —
       // a null/undefined duplicate_question_id means no queued match.
       const foundInGdbQueue =
@@ -1166,7 +1214,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           referenceQuestionId: refId,
           referenceQuestion: pendingResult!.query,
           referenceSource: 'reviewer',
-          similarityScore: Number(((pendingResult!.similarity_score ?? 0) * 100).toFixed(2)),
+          similarityScore: Number(
+            ((pendingResult!.similarity_score ?? 0) * 100).toFixed(2),
+          ),
         };
       }
     } catch (queueError: any) {
@@ -1181,7 +1231,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (llmResult.isNonAgri) {
         logData.outcome = 'NON_AGRI_DETECTED';
         chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
-        return { isDuplicate: false, isNonAgri: true };
+        return {isDuplicate: false, isNonAgri: true};
       }
     } catch (llmError: any) {
       console.warn(
@@ -1189,7 +1239,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
     }
 
-    return { isDuplicate: false };
+    return {isDuplicate: false};
   }
 
   async addQuestion(
@@ -1206,8 +1256,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
       const popContextFromBody = body.popContext;
       const toolsUsed = body.tools_used || [];
-      const isTrainingQuestion =
-        body.isTrainingQuestion === true;
+      const isTrainingQuestion = body.isTrainingQuestion === true;
 
       body = normalizeKeysToLower(body);
       let {
@@ -1324,7 +1373,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       let textEmbedding: number[] = [];
 
       if (appConfig.ENABLE_AI_SERVER) {
-        const { embedding } = await this.aiService.getEmbedding(text);
+        const {embedding} = await this.aiService.getEmbedding(text);
         textEmbedding = embedding;
       }
       logData.embeddingGenerated = textEmbedding.length > 0;
@@ -1335,7 +1384,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         let contextId: ObjectId | null = null;
 
         if (context) {
-          const { insertedId } = await this.contextRepo.addContext(
+          const {insertedId} = await this.contextRepo.addContext(
             context,
             session,
           );
@@ -1370,11 +1419,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           createdAt: new Date(),
           updatedAt: new Date(),
           isTrainingQuestion,
-          ...(source !== 'AGRI_EXPERT' && { originalQuestion: originalquestion }),
-          ...(messageId && { messageId }),
-          ...(threadId && { threadId }),
-          ...(referenceQuestionDetails?.length && { referenceQuestionDetails }),
-          ...(popContext && { popContext }),
+          ...(source !== 'AGRI_EXPERT' && {originalQuestion: originalquestion}),
+          ...(messageId && {messageId}),
+          ...(threadId && {threadId}),
+          ...(referenceQuestionDetails?.length && {referenceQuestionDetails}),
+          ...(popContext && {popContext}),
         };
 
         // 🔹 Save question
@@ -1417,7 +1466,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionId,
             source,
             details,
-            baseQuestion: { ...baseQuestion, _id: savedQuestion._id },
+            baseQuestion: {...baseQuestion, _id: savedQuestion._id},
             logData,
           }).catch((err: any) =>
             console.error(
@@ -1454,7 +1503,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     baseQuestion: IQuestion;
     logData: Record<string, any>;
   }): Promise<void> {
-    const { questionId, source, details, baseQuestion, logData } = params;
+    const {questionId, source, details, baseQuestion, logData} = params;
     try {
       if (source === 'AGRI_EXPERT') {
         // Manual single-allocation: AGRI_EXPERT questions are no longer bulk-allocated
@@ -1591,11 +1640,12 @@ export class QuestionService extends BaseService implements IQuestionService {
               logData,
             );
 
-            const refId = result.referenceQuestionId instanceof ObjectId
-              ? result.referenceQuestionId
-              : result.referenceQuestionId
-                ? new ObjectId(String(result.referenceQuestionId))
-                : null;
+            const refId =
+              result.referenceQuestionId instanceof ObjectId
+                ? result.referenceQuestionId
+                : result.referenceQuestionId
+                  ? new ObjectId(String(result.referenceQuestionId))
+                  : null;
 
             // 1. Duplicate
             if (result.isDuplicate) {
@@ -1612,7 +1662,7 @@ export class QuestionService extends BaseService implements IQuestionService {
                 referenceQuestion: result.referenceQuestion,
                 referenceSource: result.referenceSource,
                 ...(result.isExact !== undefined
-                  ? { isExact: result.isExact }
+                  ? {isExact: result.isExact}
                   : {}),
               });
               return;
@@ -1668,7 +1718,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             : 'question_from_whatsapp';
 
         const moderators = [...allModerators, ...taskForceModerators].filter(
-          (moderator) => moderator.isTrainingUser !== true,
+          moderator => moderator.isTrainingUser !== true,
         );
 
         await Promise.all(
@@ -1697,9 +1747,9 @@ export class QuestionService extends BaseService implements IQuestionService {
   private async validateTimeBoundQuestionThread(
     questionId: string,
     threadId?: string,
-  ): Promise<{ isValid: boolean; reason?: string; data?: any }> {
+  ): Promise<{isValid: boolean; reason?: string; data?: any}> {
     if (!threadId?.trim()) {
-      return { isValid: false, reason: 'THREAD_ID_MISSING' };
+      return {isValid: false, reason: 'THREAD_ID_MISSING'};
     }
 
     // Retry with backoff — the external thread system may not have the data
@@ -1721,7 +1771,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         const matchedQuestion = await this.getMatchedQuestion(questionId);
         hadSuccessfulApiCall = true; // API responded (even if no match returned)
         if (matchedQuestion) {
-          return { isValid: true, data: matchedQuestion };
+          return {isValid: true, data: matchedQuestion};
         }
       } catch (error: any) {
         const notFoundMessages = [
@@ -1749,11 +1799,11 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     // API responded but found no match → question is a test, mark isTesting
     if (hadSuccessfulApiCall) {
-      return { isValid: false, reason: 'Thread_id_not_found' };
+      return {isValid: false, reason: 'Thread_id_not_found'};
     }
 
     // All attempts threw errors (API failure) → don't mark isTesting, proceed normally
-    return { isValid: true, reason: lastError?.message || 'API_FAILED' };
+    return {isValid: true, reason: lastError?.message || 'API_FAILED'};
   }
 
   async getQuestionDataById(questionId: string): Promise<IQuestion | null> {
@@ -1794,7 +1844,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     await this.questionRepo.updateQuestion(
       questionId,
-      { 'details.normalised_crop': resolved.name } as any,
+      {'details.normalised_crop': resolved.name} as any,
       session,
     );
     return resolved.name;
@@ -1803,7 +1853,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async ensureNormalisedLocation(
     questionId: string,
     session?: ClientSession,
-  ): Promise<{ valid: true }> {
+  ): Promise<{valid: true}> {
     const question = await this.questionRepo.getById(questionId, session);
     const rawState = question.details?.state?.trim() ?? '';
     const rawDistrict = question.details?.district?.trim() ?? '';
@@ -1841,7 +1891,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (normalisedState !== rawState) {
         await this.questionRepo.updateQuestion(
           questionId,
-          { 'details.state': normalisedState } as any,
+          {'details.state': normalisedState} as any,
           session,
         );
       }
@@ -1880,13 +1930,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (normalisedDistrict !== rawDistrict) {
         await this.questionRepo.updateQuestion(
           questionId,
-          { 'details.district': normalisedDistrict } as any,
+          {'details.district': normalisedDistrict} as any,
           session,
         );
       }
     }
 
-    return { valid: true };
+    return {valid: true};
   }
 
   async getQuestionById(questionId: string): Promise<QuestionResponse> {
@@ -1977,7 +2027,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     questionId: string,
     updates: Partial<IQuestion>,
     threadUpdate?: boolean,
-  ): Promise<{ modifiedCount: number }> {
+  ): Promise<{modifiedCount: number}> {
     try {
       // ─── Normalize crop against crop_master DB (mirrors addQuestion logic) ───
       // Lifted OUTSIDE the transaction: cropRepository calls don't use the session,
@@ -2019,126 +2069,130 @@ export class QuestionService extends BaseService implements IQuestionService {
           updates.details.normalised_crop = normalised_crop;
         }
       }
-      const result = await this._withTransaction(async (session: ClientSession) => {
-        const existingQuestion = await this.questionRepo.getById(
-          questionId,
-          session,
-        );
-
-        if (!existingQuestion) {
-          throw new BadRequestError(`Question with ID ${questionId} not found`);
-        }
-
-        // if (existingQuestion.status == 'closed')
-        //   throw new BadRequestError(
-        //     'You cannot modify a question that has already been closed.',
-        //   );
-
-        const answers = await this.answerRepo.getByQuestionId(
-          questionId,
-          session,
-        );
-        if (
-          updates.status === 'closed' &&
-          answers.every(answer => answer.isFinalAnswer === false)
-        ) {
-          throw new BadRequestError(
-            `Cannot close this question as it has non-final answer`,
-          );
-        }
-        if (threadUpdate) {
-          return await this.questionRepo.updateThreadId(
+      const result = await this._withTransaction(
+        async (session: ClientSession) => {
+          const existingQuestion = await this.questionRepo.getById(
             questionId,
-            updates.threadId!,
             session,
           );
-        }
-        // When a question is passed, remove it from any moderator's assignedQuestionIds
-        // so the cron sees them as available again. Keyed by questionId so a
-        // malformed/missing moderatorId can't leave an orphan entry behind.
-        if (updates.status === 'pass') {
-          await this.ensureNormalisedLocation(questionId, session);
-          // Check for pending allocations before allowing pass
-          const questionSubmission =
-            await this.questionSubmissionRepo.getByQuestionId(
+
+          if (!existingQuestion) {
+            throw new BadRequestError(
+              `Question with ID ${questionId} not found`,
+            );
+          }
+
+          // if (existingQuestion.status == 'closed')
+          //   throw new BadRequestError(
+          //     'You cannot modify a question that has already been closed.',
+          //   );
+
+          const answers = await this.answerRepo.getByQuestionId(
+            questionId,
+            session,
+          );
+          if (
+            updates.status === 'closed' &&
+            answers.every(answer => answer.isFinalAnswer === false)
+          ) {
+            throw new BadRequestError(
+              `Cannot close this question as it has non-final answer`,
+            );
+          }
+          if (threadUpdate) {
+            return await this.questionRepo.updateThreadId(
               questionId,
+              updates.threadId!,
               session,
             );
-
-          if (questionSubmission) {
-            const queueLength = questionSubmission.queue.length;
-            const historyLength = questionSubmission.history.length;
-
-            // Condition 1: queue.length > 0 and history.length == 0
-            // This means it is assigned but not completed
-            if (queueLength > 0 && historyLength === 0) {
-              throw new BadRequestError(
-                'Cannot pass the question. There is a pending reviewer allocation. Please remove the pending reviewer before passing the question.',
+          }
+          // When a question is passed, remove it from any moderator's assignedQuestionIds
+          // so the cron sees them as available again. Keyed by questionId so a
+          // malformed/missing moderatorId can't leave an orphan entry behind.
+          if (updates.status === 'pass') {
+            await this.ensureNormalisedLocation(questionId, session);
+            // Check for pending allocations before allowing pass
+            const questionSubmission =
+              await this.questionSubmissionRepo.getByQuestionId(
+                questionId,
+                session,
               );
-            }
 
-            // Condition 2: queue.length > 0 and history.length > 0
-            // Check if the last history item status is 'in-review' AND question status is NOT 'in-review'
-            if (queueLength > 0 && historyLength > 0) {
-              const lastHistoryItem =
-                questionSubmission.history[historyLength - 1];
-              if (
-                lastHistoryItem.status === 'in-review' &&
-                existingQuestion.status !== 'in-review'
-              ) {
+            if (questionSubmission) {
+              const queueLength = questionSubmission.queue.length;
+              const historyLength = questionSubmission.history.length;
+
+              // Condition 1: queue.length > 0 and history.length == 0
+              // This means it is assigned but not completed
+              if (queueLength > 0 && historyLength === 0) {
                 throw new BadRequestError(
                   'Cannot pass the question. There is a pending reviewer allocation. Please remove the pending reviewer before passing the question.',
                 );
               }
+
+              // Condition 2: queue.length > 0 and history.length > 0
+              // Check if the last history item status is 'in-review' AND question status is NOT 'in-review'
+              if (queueLength > 0 && historyLength > 0) {
+                const lastHistoryItem =
+                  questionSubmission.history[historyLength - 1];
+                if (
+                  lastHistoryItem.status === 'in-review' &&
+                  existingQuestion.status !== 'in-review'
+                ) {
+                  throw new BadRequestError(
+                    'Cannot pass the question. There is a pending reviewer allocation. Please remove the pending reviewer before passing the question.',
+                  );
+                }
+              }
+            }
+
+            try {
+              await this.userRepo.removeAssignedQuestionFromAllModerators(
+                questionId,
+                session,
+              );
+            } catch (err: any) {
+              console.error(
+                '[ModeratorQueue] Failed to clear passed question from moderators:',
+                err?.message,
+              );
             }
           }
-
-          try {
-            await this.userRepo.removeAssignedQuestionFromAllModerators(
-              questionId,
-              session,
-            );
-          } catch (err: any) {
-            console.error(
-              '[ModeratorQueue] Failed to clear passed question from moderators:',
-              err?.message,
-            );
+          // Auditor "Notify User" flow closes dynamic questions as `dynamic_closed` and
+          // duplicate questions as `duplicate_closed`. Stamp closedAt/isClosed just like the
+          // regular `closed` transition so analytics and closed-question filters treat them
+          // consistently.
+          if (
+            updates.status === 'dynamic_closed' ||
+            updates.status === 'duplicate_closed'
+          ) {
+            updates.isClosed = true;
+            updates.paeValidation = 'pending';
+            updates.autoAllocatePaeValidationExpert = true;
+            if (!updates.closedAt) updates.closedAt = new Date();
           }
-        }
-        // Auditor "Notify User" flow closes dynamic questions as `dynamic_closed` and
-        // duplicate questions as `duplicate_closed`. Stamp closedAt/isClosed just like the
-        // regular `closed` transition so analytics and closed-question filters treat them
-        // consistently.
-        if (
-          updates.status === 'dynamic_closed' ||
-          updates.status === 'duplicate_closed'
-        ) {
-          updates.isClosed = true;
-          updates.paeValidation= 'pending';
-          updates.autoAllocatePaeValidationExpert = true;
-          if (!updates.closedAt) updates.closedAt = new Date();
-        }
-        const updateResult = await this.questionRepo.updateQuestion(
-          questionId,
-          updates,
-          session,
-        );
-
-        // In-transaction: if the status changed, free any gate keeper / auditor whose
-        // handling scope the question has now left (pass / push-to-auditor / close, etc.)
-        // so the status change and the release commit atomically — a failure here rolls
-        // back the whole update, preventing a stuck assignee. (The queue cron still
-        // reconciles as a backstop for any release missed by other paths.)
-        if (!threadUpdate && updates.status) {
-          await this.freeRoleAssigneeOnStatusChange(
+          const updateResult = await this.questionRepo.updateQuestion(
             questionId,
-            updates.status,
+            updates,
             session,
           );
-        }
 
-        return updateResult;
-      });
+          // In-transaction: if the status changed, free any gate keeper / auditor whose
+          // handling scope the question has now left (pass / push-to-auditor / close, etc.)
+          // so the status change and the release commit atomically — a failure here rolls
+          // back the whole update, preventing a stuck assignee. (The queue cron still
+          // reconciles as a backstop for any release missed by other paths.)
+          if (!threadUpdate && updates.status) {
+            await this.freeRoleAssigneeOnStatusChange(
+              questionId,
+              updates.status,
+              session,
+            );
+          }
+
+          return updateResult;
+        },
+      );
 
       return result;
     } catch (error) {
@@ -2150,7 +2204,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     questionId: string,
     session?: ClientSession,
     BATCH_EXPECTED_TO_ADD: number = DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-  ): Promise<{ data?: ObjectId[]; status: boolean }> {
+  ): Promise<{data?: ObjectId[]; status: boolean}> {
     const question = await this.questionRepo.getById(questionId, session);
     if (!question) throw new NotFoundError('Question not found');
 
@@ -2162,7 +2216,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       console.log(
         'This question is currently being reviewed or has been closed. Please check back later!',
       );
-      return { data: [], status: false };
+      return {data: [], status: false};
     }
     // Single-allocation sources (time-bound AJRASAKHA/WHATSAPP and manual
     // AGRI_EXPERT/OUTREACH) are managed by the single-allocation cron — bulk
@@ -2175,7 +2229,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       console.log(
         `[autoAllocateExperts] ${reason} — questionId: ${questionId}`,
       );
-      return { data: [], status: false };
+      return {data: [], status: false};
     }
     if (question.status == 'draft') {
       await this.questionRepo.updateQuestion(
@@ -2203,7 +2257,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       lastSubmission.status === 'in-review' &&
       !lastSubmission.answer
     ) {
-      return { data: [], status: false };
+      return {data: [], status: false};
     }
 
     const EXISTING_QUEUE_COUNT = questionSubmission.queue.length || 0;
@@ -2211,69 +2265,69 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     if (EXISTING_QUEUE_COUNT >= TOTAL_EXPERTS_LIMIT) {
       console.log('Cannot auto allocate as queue is full');
-      return { data: [], status: false };
+      return {data: [], status: false};
     }
 
     let allExpertIds: string[] = [];
-      const isAjrasakha = question.source == 'AJRASAKHA' ? true : false;
-      const isTrainingQuestion = question.isTrainingQuestion === true;
-      if (isAjrasakha) {
-        const users = await this.userRepo.getExpertsWithFallback(
-          details,
-          session,
-        );
-        
-        allExpertIds = users
-          .filter(user => user.isTrainingUser !== true)
-          .map(user => user._id.toString());
-      } else {
-        const expertTMU = [];
-        const expertNormal = [];
-        const [users, preferredExperts] = await Promise.all([
-          this.userRepo.findAll(),
-          this.userRepo.findExpertsByPreference(details, session),
-        ]);
+    const isAjrasakha = question.source == 'AJRASAKHA' ? true : false;
+    const isTrainingQuestion = question.isTrainingQuestion === true;
+    if (isAjrasakha) {
+      const users = await this.userRepo.getExpertsWithFallback(
+        details,
+        session,
+      );
 
-        for (const user of users) {
-          if (user.role !== 'expert' || user.isBlocked === true) {
-            continue;
-          }
+      allExpertIds = users
+        .filter(user => user.isTrainingUser !== true)
+        .map(user => user._id.toString());
+    } else {
+      const expertTMU = [];
+      const expertNormal = [];
+      const [users, preferredExperts] = await Promise.all([
+        this.userRepo.findAll(),
+        this.userRepo.findExpertsByPreference(details, session),
+      ]);
 
-          if (user.isTrainingUser) {
-            expertTMU.push(user);
-          } else {
-            expertNormal.push(user);
-          }
+      for (const user of users) {
+        if (user.role !== 'expert' || user.isBlocked === true) {
+          continue;
         }
 
-        const eligibleUsers = isTrainingQuestion ? expertTMU : expertNormal;
-
-        const preferredTMU = [];
-        const preferredNormal = [];
-
-        for (const user of preferredExperts) {
-          if (user.isTrainingUser) {
-            preferredTMU.push(user);
-          } else {
-            preferredNormal.push(user);
-          }
+        if (user.isTrainingUser) {
+          expertTMU.push(user);
+        } else {
+          expertNormal.push(user);
         }
-        const eligiblePreferredExperts = isTrainingQuestion
-          ? preferredTMU
-          : preferredNormal;
-
-        const expertIdsSet = new Set<string>();
-
-        // Add preferred experts first to the set to ensure they get priority in allocation
-        eligiblePreferredExperts.forEach(user =>
-          expertIdsSet.add(user._id.toString()),
-        );
-
-        // Add remaining
-        eligibleUsers.forEach(user => expertIdsSet.add(user._id.toString()));
-
-        allExpertIds = Array.from(expertIdsSet);
       }
+
+      const eligibleUsers = isTrainingQuestion ? expertTMU : expertNormal;
+
+      const preferredTMU = [];
+      const preferredNormal = [];
+
+      for (const user of preferredExperts) {
+        if (user.isTrainingUser) {
+          preferredTMU.push(user);
+        } else {
+          preferredNormal.push(user);
+        }
+      }
+      const eligiblePreferredExperts = isTrainingQuestion
+        ? preferredTMU
+        : preferredNormal;
+
+      const expertIdsSet = new Set<string>();
+
+      // Add preferred experts first to the set to ensure they get priority in allocation
+      eligiblePreferredExperts.forEach(user =>
+        expertIdsSet.add(user._id.toString()),
+      );
+
+      // Add remaining
+      eligibleUsers.forEach(user => expertIdsSet.add(user._id.toString()));
+
+      allExpertIds = Array.from(expertIdsSet);
+    }
 
     let updatedQueue;
 
@@ -2314,7 +2368,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (filteredExperts.length === 0) {
         await this.questionRepo.updateQuestion(
           questionId,
-          { status: 'in-review' },
+          {status: 'in-review'},
           session,
         );
         const payload: Partial<IAnswer> = {
@@ -2339,7 +2393,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         }
 
-        return { data: [], status: false };
+        return {data: [], status: false};
       }
 
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);
@@ -2377,7 +2431,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
           await this.questionRepo.updateQuestion(
             questionId,
-            { firstAllocationAt: new Date() },
+            {firstAllocationAt: new Date()},
             session,
           );
         }
@@ -2438,7 +2492,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   async toggleAutoAllocate(
     questionId: string,
-  ): Promise<{ message: string; data?: ObjectId[] }> {
+  ): Promise<{message: string; data?: ObjectId[]}> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
         //1. Validate question existence
@@ -2558,7 +2612,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             questionId,
             {
               status: 'open',
-              ...(isPaeAllocation && { pae_review: true }),
+              ...(isPaeAllocation && {pae_review: true}),
             },
             session,
           );
@@ -2652,7 +2706,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
           await this.questionRepo.updateQuestion(
             questionId,
-            { firstAllocationAt: new Date() },
+            {firstAllocationAt: new Date()},
             session,
           );
         }
@@ -2662,14 +2716,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         // moderator intentionally toggled off auto-allocate and is now manually
         // picking an expert. Reopen the question so the selected expert can see
         // it in their dashboard (only open/delayed questions are visible there).
-        const updateData:any = {
+        const updateData: any = {
           firstAllocationAt: new Date(),
         };
         if (question.status === 'duplicate') {
           updateData.status = 'open';
         }
 
-        await this.questionRepo.updateQuestion(questionId,updateData,session,);
+        await this.questionRepo.updateQuestion(questionId, updateData, session);
 
         const expertIds = experts.map(e => new ObjectId(e));
 
@@ -2757,7 +2811,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
     questionIds: string[],
     paeExpertId: string,
-  ): Promise<{ jobId: string; message: string }> {
+  ): Promise<{jobId: string; message: string}> {
     // Validate actor and PAE expert before handing off to worker
     const actor = await this.userRepo.findById(userId);
     if (!actor) throw new UnauthorizedError('Cannot find user, try relogin!');
@@ -3292,7 +3346,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (initialAnswer && initialAnswer._id) {
           await this.answerRepo.updateAnswer(
             initialAnswer._id.toString(),
-            { authorId: new ObjectId(newExpertId) },
+            {authorId: new ObjectId(newExpertId)},
             session,
           );
         }
@@ -3728,7 +3782,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async deleteQuestion(
     questionId: string,
     session?: ClientSession,
-  ): Promise<{ deletedCount: number }> {
+  ): Promise<{deletedCount: number}> {
     const execute = async (activeSession: ClientSession) => {
       const question = await this.questionRepo.getById(
         questionId,
@@ -3905,7 +3959,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Resolve the currently assigned moderator (if any). Guard against a malformed
       // moderatorId (e.g. a serialized-Buffer object that stringifies to a non-hex
       // value) so a bad value can't blow up the whole question fetch with a BSONError.
-      let assigned_moderator: { name: string; email: string } | null = null;
+      let assigned_moderator: {name: string; email: string} | null = null;
       const assignedModeratorId = (question as any).moderatorId?.toString();
       if (assignedModeratorId && ObjectId.isValid(assignedModeratorId)) {
         const mod = await this.userRepo.findById(assignedModeratorId);
@@ -4285,7 +4339,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (query?.search) {
         try {
           // const embedding=[]
-          const { embedding } = await this.aiService.getEmbedding(query.search);
+          const {embedding} = await this.aiService.getEmbedding(query.search);
           searchEmbedding = embedding;
         } catch (err) {
           console.error(
@@ -4337,7 +4391,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       session,
     );
     for (const submission of submissions) {
-      const { questionId, queue = [], history = [] } = submission;
+      const {questionId, queue = [], history = []} = submission;
 
       if (!queue.length) continue;
       const indicesToRemove = new Set<number>();
@@ -4378,7 +4432,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           'system',
           questionId.toString(),
           index,
-          { skipAutoAllocate: true },
+          {skipAutoAllocate: true},
           session,
         );
       }
@@ -4780,7 +4834,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
-      const flatAssignments: { submissionId: string; expertId: string }[] = [];
+      const flatAssignments: {submissionId: string; expertId: string}[] = [];
       for (const expertId in assignments) {
         for (const submission of assignments[expertId]) {
           flatAssignments.push({
@@ -4913,7 +4967,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
-      const flatAssignments: { submissionId: string; expertId: string }[] = [];
+      const flatAssignments: {submissionId: string; expertId: string}[] = [];
 
       for (const expertId in assignments) {
         for (const submission of assignments[expertId]) {
@@ -4974,7 +5028,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Identify experts name and status for display
       const expertInfoMap = new Map<
         string,
-        { name: string; status: string; isBlocked: boolean }
+        {name: string; status: string; isBlocked: boolean}
       >();
       if (questions.length > 0) {
         // Collect all expert IDs in queues
@@ -5083,9 +5137,9 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async manualReallocate(
-    assignments: { submissionId: string; expertId: string }[],
+    assignments: {submissionId: string; expertId: string}[],
     inactiveExpertIds?: string[],
-  ): Promise<{ message: string; submissionsProcessed: number }> {
+  ): Promise<{message: string; submissionsProcessed: number}> {
     if (assignments.length > 0) {
       startBalanceWorkloadWorkers(assignments, inactiveExpertIds);
     }
@@ -5121,7 +5175,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     startDate: string,
     endDate: string,
     emails: string | string[],
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{success: boolean; message: string}> {
     try {
       if (!startDate || !endDate) {
         throw new Error('startDate and endDate are required');
@@ -5276,14 +5330,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     sheet.mergeCells('A1:K1');
     const titleCell = sheet.getCell('A1');
     titleCell.value = 'Out Reach Data Report';
-    titleCell.font = { bold: true, size: 14 };
-    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    titleCell.font = {bold: true, size: 14};
+    titleCell.alignment = {horizontal: 'center', vertical: 'middle'};
 
     sheet.mergeCells('A2:K2');
     const dateRangeCell = sheet.getCell('A2');
     dateRangeCell.value = `Date Range: ${this.formatDate(startDate)} - ${this.formatDate(endDate)}`;
-    dateRangeCell.font = { bold: true, size: 11 };
-    dateRangeCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    dateRangeCell.font = {bold: true, size: 11};
+    dateRangeCell.alignment = {horizontal: 'center', vertical: 'middle'};
 
     // Add empty row
     sheet.addRow([]);
@@ -5304,12 +5358,12 @@ export class QuestionService extends BaseService implements IQuestionService {
     ]);
 
     // Style the header row
-    headerRow.font = { bold: true };
-    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    headerRow.font = {bold: true};
+    headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
     headerRow.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFD3D3D3' },
+      fgColor: {argb: 'FFD3D3D3'},
     };
 
     // Set column widths
@@ -5342,8 +5396,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       ]);
 
       // Enable text wrapping for long content
-      row.getCell(1).alignment = { wrapText: true, vertical: 'top' }; // Question
-      row.getCell(10).alignment = { wrapText: true, vertical: 'top' }; // Text
+      row.getCell(1).alignment = {wrapText: true, vertical: 'top'}; // Question
+      row.getCell(10).alignment = {wrapText: true, vertical: 'top'}; // Text
     });
 
     // Generate buffer
@@ -5364,14 +5418,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     startDate?: Date,
     endDate?: Date,
     isTrainingUser?: boolean,
-    isAdmin?: boolean
+    isAdmin?: boolean,
   ) {
     const result = await this.answerRepo.groupbyquestion(
       consecutiveApprovals,
       startDate,
       endDate,
       isTrainingUser,
-      isAdmin
+      isAdmin,
     );
 
     // Check if there's any data with reasons
@@ -5390,10 +5444,10 @@ export class QuestionService extends BaseService implements IQuestionService {
     const sheet = workbook.addWorksheet('Question Reasons');
 
     sheet.columns = [
-      { header: 'Created At', key: 'createdAt', width: 22 },
-      { header: 'Question', key: 'question', width: 50 },
-      { header: 'Reason For Modification', key: 'mod', width: 50 },
-      { header: 'Reason For Rejection', key: 'rej', width: 50 },
+      {header: 'Created At', key: 'createdAt', width: 22},
+      {header: 'Question', key: 'question', width: 50},
+      {header: 'Reason For Modification', key: 'mod', width: 50},
+      {header: 'Reason For Rejection', key: 'rej', width: 50},
     ];
 
     let rowCount = 0;
@@ -5410,8 +5464,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         rej: rejList.map((r, i) => `${i + 1}) ${r}`).join('\n'),
       });
 
-      row.getCell('mod').alignment = { wrapText: true };
-      row.getCell('rej').alignment = { wrapText: true };
+      row.getCell('mod').alignment = {wrapText: true};
+      row.getCell('rej').alignment = {wrapText: true};
       rowCount++;
     });
 
@@ -5423,7 +5477,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     startDate?: Date,
     endDate?: Date,
     isTrainingUser?: boolean,
-    isAdmin?: boolean
+    isAdmin?: boolean,
   ): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       // Get monthly statistics from the repository
@@ -5446,12 +5500,12 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Define columns matching the template
       sheet.columns = [
-        { header: 'Year', key: 'year', width: 12 },
-        { header: 'Month', key: 'month', width: 15 },
-        { header: 'Total No. of Q', key: 'totalQuestions', width: 18 },
-        { header: 'Modified Answ', key: 'modifiedAnswers', width: 18 },
-        { header: 'Rejected Answ', key: 'rejectedAnswers', width: 18 },
-        { header: 'Total (Modified + Rejected)', key: 'total', width: 28 },
+        {header: 'Year', key: 'year', width: 12},
+        {header: 'Month', key: 'month', width: 15},
+        {header: 'Total No. of Q', key: 'totalQuestions', width: 18},
+        {header: 'Modified Answ', key: 'modifiedAnswers', width: 18},
+        {header: 'Rejected Answ', key: 'rejectedAnswers', width: 18},
+        {header: 'Total (Modified + Rejected)', key: 'total', width: 28},
       ];
 
       // Add data rows
@@ -5468,8 +5522,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Style the header row
       const headerRow = sheet.getRow(1);
-      headerRow.font = { bold: true };
-      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      headerRow.font = {bold: true};
+      headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
 
       // Generate buffer
       const buffer = await workbook.xlsx.writeBuffer();
@@ -5513,9 +5567,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           // Single crop - use regex match
           if (crops[0] === '__NOT_SET__') {
             query.$or = [
-              { 'details.normalised_crop': { $exists: false } },
-              { 'details.normalised_crop': null },
-              { 'details.normalised_crop': '' },
+              {'details.normalised_crop': {$exists: false}},
+              {'details.normalised_crop': null},
+              {'details.normalised_crop': ''},
             ];
           } else {
             query['details.normalised_crop'] = {
@@ -5540,11 +5594,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (filters.status === 'pae_closed') {
           query.status = 'closed';
           query.pae_review = true;
-        }
-        else if ( filters.status === 'all-closed'){
-          query.status = { $in: ['closed','duplicate_closed','dynamic_closed']}
-        }
-        else {
+        } else if (filters.status === 'all-closed') {
+          query.status = {
+            $in: ['closed', 'duplicate_closed', 'dynamic_closed'],
+          };
+        } else {
           query.status = filters.status;
         }
       }
@@ -5552,86 +5606,60 @@ export class QuestionService extends BaseService implements IQuestionService {
         query.source = filters.source;
       }
       if (filters.hiddenQuestions === 'true') {
-        query.isHidden = { $eq: true };
+        query.isHidden = {$eq: true};
       }
-      // if (filters.startDate || filters.endDate) {
-      //   // For closed statuses, use closedAt field instead of createdAt
-      //   const isClosedStatus =
-      //     filters.status === 'closed' || filters.status === 'pae_closed' || filters.status === 'dynamic_closed' || filters.status === 'duplicate_closed';
-        
-      //   const dateField = isClosedStatus ? 'closedAt' : 'createdAt';
-      //   query[dateField] = {};
-        
-      //   if (filters.startDate) {
-      //     // Parse date string and set to start of day in IST (00:00:00 IST)
-      //     // IST is UTC+5:30, so 00:00 IST = previous day 18:30 UTC
-      //     const [year, month, day] = filters.startDate.split('-').map(Number);
-      //     // Create date in local time (IST) and convert to UTC
-      //     const startIST = new Date(year, month - 1, day, 0, 0, 0, 0);
-      //     // Subtract 5 hours 30 minutes to get UTC
-      //     const startUTC = new Date(startIST.getTime() - (5 * 60 + 30) * 60 * 1000);
-      //     query[dateField].$gte = startUTC;
-      //   }
-      //   if (filters.endDate) {
-      //     // Parse date string and set to end of day in IST (23:59:59.999 IST)
-      //     // IST is UTC+5:30, so 23:59:59 IST = same day 18:29:59 UTC
-      //     const [year, month, day] = filters.endDate.split('-').map(Number);
-      //     // Create date in local time (IST) and convert to UTC
-      //     const endIST = new Date(year, month - 1, day, 23, 59, 59, 999);
-      //     // Subtract 5 hours 30 minutes to get UTC
-      //     const endUTC = new Date(endIST.getTime() - (5 * 60 + 30) * 60 * 1000);
-      //     query[dateField].$lte = endUTC;
-      //   }
-      // }
-
       if (filters.startDate || filters.endDate) {
-  // For closed statuses, filter using closedAt.
-  // Date boundaries are based on IST:
-  // 00:00 IST = previous day 18:30 UTC
-  const isClosedStatus =
-    filters.status === 'closed' ||
-    filters.status === 'pae_closed' ||
-    filters.status === 'dynamic_closed' ||
-    filters.status === 'duplicate_closed' ||
-    filters.status === 'all-closed';
+        // For closed statuses, filter using closedAt.
+        // Date boundaries are based on IST:
+        // 00:00 IST = previous day 18:30 UTC
+        const isClosedStatus =
+          filters.status === 'closed' ||
+          filters.status === 'pae_closed' ||
+          filters.status === 'dynamic_closed' ||
+          filters.status === 'duplicate_closed' ||
+          filters.status === 'all-closed';
 
-  const dateField = isClosedStatus ? 'closedAt' : 'createdAt';
+        const dateField = isClosedStatus ? 'closedAt' : 'createdAt';
 
-  query[dateField] = {};
+        query[dateField] = {};
 
-  if (filters.startDate) {
-  const [year, month, day] = filters.startDate.split('-').map(Number);
+        if (filters.startDate) {
+          const [year, month, day] = filters.startDate.split('-').map(Number);
 
-  const startUTC = new Date(
-    Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) -
-      (5 * 60 + 30) * 60 * 1000
-  );
+          const startUTC = new Date(
+            Date.UTC(year, month - 1, day, 0, 0, 0, 0) -
+              (5 * 60 + 30) * 60 * 1000,
+          );
 
-  query[dateField].$gte = startUTC;
-}
+          query[dateField].$gte = startUTC;
+        }
 
-if (filters.endDate) {
-  const [year, month, day] = filters.endDate.split('-').map(Number);
+        if (filters.endDate) {
+          const [year, month, day] = filters.endDate.split('-').map(Number);
 
-  const endUTC = new Date(
-    Date.UTC(year, month - 1, day + 2, 0, 0, 0, 0) -
-      (5 * 60 + 30) * 60 * 1000
-  );
+          const endUTC = new Date(
+            Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) -
+              (5 * 60 + 30) * 60 * 1000,
+          );
 
-  query[dateField].$lt = endUTC;
-}
-}
+          query[dateField].$lt = endUTC;
+        }
+      }
 
       // Check if this is a closed status report - if so, limit to 50 questions
       const isClosedStatus =
-        filters.status === 'closed' || filters.status === 'pae_closed' || filters.status === 'dynamic_closed' || filters.status === "duplicate_closed" || filters.status === 'all-closed';
+        filters.status === 'closed' ||
+        filters.status === 'pae_closed' ||
+        filters.status === 'dynamic_closed' ||
+        filters.status === 'duplicate_closed' ||
+        filters.status === 'all-closed';
       // `allUsers` is a comma-separated list of user (approvedBy) ids.
       const allUserIds =
         filters.allUsers && filters.allUsers !== 'all'
           ? filters.allUsers
-            .split(',')
-            .map(s => s.trim())
-            .filter(Boolean)
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean)
           : [];
       const filterByAllUsers = allUserIds.length > 0;
       // Answer / Sources / All Users details only exist on a closed question's final
@@ -5649,9 +5677,7 @@ if (filters.endDate) {
             session,
           );
         if (!approvedQuestionIds.length) {
-          console.log(
-            'No closed questions approved by the selected user(s)',
-          );
+          console.log('No closed questions approved by the selected user(s)');
           return null;
         }
         query._id = {
@@ -5666,7 +5692,7 @@ if (filters.endDate) {
         filters.duplicateQuestions === 'true',
         questionLimit,
       );
-      
+
       if (!questions || questions.length === 0) {
         console.log('No questions found for given filters');
         return null;
@@ -5710,16 +5736,16 @@ if (filters.endDate) {
 
       // Define columns - add Answer column for closed status
       const columns = [
-        { header: 'Created At', key: 'createdAt', width: 22 },
-        { header: 'Question', key: 'question', width: 60 },
-        { header: 'State', key: 'state', width: 20 },
-        { header: 'District', key: 'district', width: 20 },
-        { header: 'Crop', key: 'crop', width: 20 },
-        { header: 'Season', key: 'season', width: 20 },
-        { header: 'Domain', key: 'domain', width: 25 },
-        { header: 'Status', key: 'status', width: 15 },
-        { header: 'Priority', key: 'priority', width: 15 },
-        { header: 'Source', key: 'source', width: 15 },
+        {header: 'Created At', key: 'createdAt', width: 22},
+        {header: 'Question', key: 'question', width: 60},
+        {header: 'State', key: 'state', width: 20},
+        {header: 'District', key: 'district', width: 20},
+        {header: 'Crop', key: 'crop', width: 20},
+        {header: 'Season', key: 'season', width: 20},
+        {header: 'Domain', key: 'domain', width: 25},
+        {header: 'Status', key: 'status', width: 15},
+        {header: 'Priority', key: 'priority', width: 15},
+        {header: 'Source', key: 'source', width: 15},
       ];
       if (isClosedStatus) {
         columns.push({
@@ -5731,9 +5757,9 @@ if (filters.endDate) {
 
       // Add Answer / Sources / Moderator columns for closed questions.
       if (includeAnswerDetails) {
-        columns.push({ header: 'Answer', key: 'answer', width: 80 });
-        columns.push({ header: 'Sources', key: 'sources', width: 50 });
-        columns.push({ header: 'AllUsers', key: 'allUsers', width: 25 });
+        columns.push({header: 'Answer', key: 'answer', width: 80});
+        columns.push({header: 'Sources', key: 'sources', width: 50});
+        columns.push({header: 'AllUsers', key: 'allUsers', width: 25});
       }
 
       sheet.columns = columns;
@@ -5776,8 +5802,8 @@ if (filters.endDate) {
 
       // Style the header row
       const headerRow = sheet.getRow(1);
-      headerRow.font = { bold: true };
-      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      headerRow.font = {bold: true};
+      headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
 
       // Generate buffer
       const buffer = await workbook.xlsx.writeBuffer();
@@ -5789,7 +5815,7 @@ if (filters.endDate) {
     startDate?: Date,
     endDate?: Date,
     isTrainingUser?: boolean,
-    isAdmin?: boolean
+    isAdmin?: boolean,
   ): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       if (!startDate || !endDate) {
@@ -5842,22 +5868,22 @@ if (filters.endDate) {
 
       // Define columns with metadata for both question and reference question
       sheet.columns = [
-        { header: 'createdAt', key: 'createdAt', width: 22 },
-        { header: 'question', key: 'question', width: 60 },
-        { header: 'q_state', key: 'q_state', width: 18 },
-        { header: 'q_district', key: 'q_district', width: 20 },
-        { header: 'q_crop', key: 'q_crop', width: 18 },
-        { header: 'q_season', key: 'q_season', width: 18 },
-        { header: 'q_domain', key: 'q_domain', width: 22 },
-        { header: 'source', key: 'source', width: 15 },
-        { header: 'similarityScore', key: 'similarityScore', width: 18 },
-        { header: 'referenceQuestion', key: 'referenceQuestion', width: 60 },
-        { header: 'referenceSource', key: 'referenceSource', width: 20 },
-        { header: 'ref_state', key: 'ref_state', width: 18 },
-        { header: 'ref_district', key: 'ref_district', width: 20 },
-        { header: 'ref_crop', key: 'ref_crop', width: 18 },
-        { header: 'ref_season', key: 'ref_season', width: 18 },
-        { header: 'ref_domain', key: 'ref_domain', width: 22 },
+        {header: 'createdAt', key: 'createdAt', width: 22},
+        {header: 'question', key: 'question', width: 60},
+        {header: 'q_state', key: 'q_state', width: 18},
+        {header: 'q_district', key: 'q_district', width: 20},
+        {header: 'q_crop', key: 'q_crop', width: 18},
+        {header: 'q_season', key: 'q_season', width: 18},
+        {header: 'q_domain', key: 'q_domain', width: 22},
+        {header: 'source', key: 'source', width: 15},
+        {header: 'similarityScore', key: 'similarityScore', width: 18},
+        {header: 'referenceQuestion', key: 'referenceQuestion', width: 60},
+        {header: 'referenceSource', key: 'referenceSource', width: 20},
+        {header: 'ref_state', key: 'ref_state', width: 18},
+        {header: 'ref_district', key: 'ref_district', width: 20},
+        {header: 'ref_crop', key: 'ref_crop', width: 18},
+        {header: 'ref_season', key: 'ref_season', width: 18},
+        {header: 'ref_domain', key: 'ref_domain', width: 22},
       ];
 
       // Add data rows
@@ -5887,8 +5913,8 @@ if (filters.endDate) {
 
       // Style the header row
       const headerRow = sheet.getRow(1);
-      headerRow.font = { bold: true };
-      headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+      headerRow.font = {bold: true};
+      headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
 
       // Generate buffer
       const buffer = await workbook.xlsx.writeBuffer();
@@ -6036,7 +6062,7 @@ if (filters.endDate) {
     // NORMAL FLOW
     // =========================
 
-    const { question, details, createdAt, messageId, userId } = questionData;
+    const {question, details, createdAt, messageId, userId} = questionData;
 
     /* if(!messageId) {
        throw new Error('Question does not have messageId, cannot reliably fetch matched message');
@@ -6150,7 +6176,7 @@ if (filters.endDate) {
       throw new Error('Question not found');
     }
 
-    const { question, details, createdAt, messageId } = questionData;
+    const {question, details, createdAt, messageId} = questionData;
 
     const annamMessages = await this.chatbotRepository.findFromSecondDb({
       question,
@@ -6169,7 +6195,9 @@ if (filters.endDate) {
         email: message?.userDetails?.email || '',
         avatar: message?.userDetails?.avatar || null,
       },
-      createdAt: message?.createdAt ? new Date(message.createdAt).toISOString() : '',
+      createdAt: message?.createdAt
+        ? new Date(message.createdAt).toISOString()
+        : '',
     };
   }
   async checkStatus(questionIds: string[]): Promise<ICheckStatusResponse[]> {
@@ -6185,7 +6213,7 @@ if (filters.endDate) {
     questionId: string,
     userId: string,
     action: 'hold' | 'unhold',
-  ): Promise<{ id: string }> {
+  ): Promise<{id: string}> {
     return await this._withTransaction(async session => {
       if (action === 'unhold') {
         const question = await this.questionRepo.getById(questionId, session);
@@ -6219,7 +6247,7 @@ if (filters.endDate) {
           },
           session,
         );
-        return { id: questionId };
+        return {id: questionId};
       }
       const user = await this.userRepo.findById(userId, session);
       if (user.role == 'expert') {
@@ -6252,7 +6280,7 @@ if (filters.endDate) {
         },
         session,
       );
-      return { id: questionId };
+      return {id: questionId};
     });
   }
   async checkSubmissionExists(questionId: string): Promise<boolean> {
@@ -6296,7 +6324,7 @@ if (filters.endDate) {
 
       await this.questionSubmissionRepo.updateSubmissionState(
         questionId,
-        { queue: [] },
+        {queue: []},
         session,
       );
 
@@ -6358,8 +6386,8 @@ if (filters.endDate) {
     body: DetailedQuestionsBodyDto,
   ): Promise<{
     totalQuestions: number;
-    statuses: { status: string; count: number }[];
-    sourceCounts: { source: string; count: number }[];
+    statuses: {status: string; count: number}[];
+    sourceCounts: {source: string; count: number}[];
   }> {
     const result = await this.questionRepo.getQuestionStatusSummary(
       query,
@@ -6385,7 +6413,7 @@ if (filters.endDate) {
   }
   async generateAiInitialAnswer(
     questionId: string,
-  ): Promise<{ aiInitialAnswer: string }> {
+  ): Promise<{aiInitialAnswer: string}> {
     return this._withTransaction(async session => {
       const question = await this.questionRepo.getById(questionId, session);
 
@@ -6408,7 +6436,7 @@ if (filters.endDate) {
         throw new InternalServerError('AI failed to generate answer');
       }
 
-      return { aiInitialAnswer: res.answer };
+      return {aiInitialAnswer: res.answer};
     });
   }
 
@@ -6433,11 +6461,11 @@ if (filters.endDate) {
 
       await this.questionRepo.updateQuestion(
         questionId,
-        { aiInitialAnswer: answer },
+        {aiInitialAnswer: answer},
         session,
       );
 
-      return { success: true };
+      return {success: true};
     });
   }
 
@@ -6556,7 +6584,7 @@ if (filters.endDate) {
       if (!assigned) unallocatedQuestionsCount++;
     }
 
-    const flatAssignments: { submissionId: string; expertId: string }[] = [];
+    const flatAssignments: {submissionId: string; expertId: string}[] = [];
 
     for (const expertId in assignments) {
       for (const submission of assignments[expertId]) {
@@ -6654,7 +6682,7 @@ if (filters.endDate) {
       }
 
       try {
-        const { embedding } = await this.aiService.getEmbedding(inputText);
+        const {embedding} = await this.aiService.getEmbedding(inputText);
         await this.questionRepo.updateQuestionEmbedding(
           q._id.toString(),
           embedding,
@@ -6827,8 +6855,8 @@ if (filters.endDate) {
                   question: (nextQuestion as any)?.question,
                   moderatorId,
                 },
-                changes: { after: { moderator: moderatorName } },
-                outcome: { status: OutComeStatus.SUCCESS },
+                changes: {after: {moderator: moderatorName}},
+                outcome: {status: OutComeStatus.SUCCESS},
                 createdAt: new Date(),
               } as ModeratorAuditTrail)
               .catch((auditErr: any) =>
@@ -6919,7 +6947,7 @@ if (filters.endDate) {
               approver.isBlocked !== true &&
               approver.status !== 'in-active' &&
               !usedAssignees.has(approverId!) &&
-              !(approver.feedbacksAssigned?.length);
+              !approver.feedbacksAssigned?.length;
 
             let targetId: string | undefined;
             let targetIsModerator = false;
@@ -6985,8 +7013,8 @@ if (filters.endDate) {
                     expertId: targetId,
                     operation: 'feedback',
                   },
-                  changes: { after: { 'feedback reviewer': reviewerName } },
-                  outcome: { status: OutComeStatus.SUCCESS },
+                  changes: {after: {'feedback reviewer': reviewerName}},
+                  outcome: {status: OutComeStatus.SUCCESS},
                   createdAt: new Date(),
                 } as ModeratorAuditTrail)
                 .catch((auditErr: any) =>
@@ -7010,10 +7038,7 @@ if (filters.endDate) {
           }
         }
       } catch (fbErr: any) {
-        console.error(
-          '[ModeratorQueue] feedback pass failed:',
-          fbErr?.message,
-        );
+        console.error('[ModeratorQueue] feedback pass failed:', fbErr?.message);
       }
 
       // A feedback occupies the moderator's time-bound slot, so exclude moderators who
@@ -7021,7 +7046,7 @@ if (filters.endDate) {
       const eligibleTimeBoundModerators = timeBoundModerators.filter(
         m =>
           !feedbackAssignedModeratorIds.has(m._id!.toString()) &&
-          !((m as any).feedbacksAssigned?.length),
+          !(m as any).feedbacksAssigned?.length,
       );
 
       await runPass(
@@ -7042,7 +7067,7 @@ if (filters.endDate) {
       console.log(
         `[ModeratorQueue] Done. assigned=${assigned}, availableWaiting=${availableWaiting}, failed=${failedAssignments}`,
       );
-      return { assigned, availableWaiting, failedAssignments };
+      return {assigned, availableWaiting, failedAssignments};
     } catch (error: any) {
       console.error(
         '[ModeratorQueue] runModeratorQueueCron failed:',
@@ -7064,7 +7089,9 @@ if (filters.endDate) {
     'duplicate',
     'queue_duplicate',
   ];
-  private static readonly AUDITOR_STATUSES: QuestionStatus[] = ['auditor_review'];
+  private static readonly AUDITOR_STATUSES: QuestionStatus[] = [
+    'auditor_review',
+  ];
 
   /**
    * Gate-keeper / auditor single-allocation cron. One question per user at a time:
@@ -7098,7 +7125,7 @@ if (filters.endDate) {
       notificationTitle: 'Question Assigned',
       notificationMessage: 'A question has been assigned to you for audit',
     });
-    return { gateKeeperAssigned, auditorAssigned };
+    return {gateKeeperAssigned, auditorAssigned};
   }
 
   /** Assigns one unassigned question (in the given statuses) to each free user of a
@@ -7256,7 +7283,11 @@ if (filters.endDate) {
           await this.questionRepo.markRoleFinished(
             questionId,
             'gateKeeperFinishedAt',
-            await this.resolveRoleFinishTime(questionId, 'gate_keeper', session),
+            await this.resolveRoleFinishTime(
+              questionId,
+              'gate_keeper',
+              session,
+            ),
             session,
           );
         }
@@ -7366,8 +7397,8 @@ if (filters.endDate) {
     label: string;
     sources: QuestionSource[];
     requirePaeReviewNotDone: boolean;
-  }): Promise<{ message: string; reallocated: number; skipped: number }> {
-    const { label, sources, requirePaeReviewNotDone } = cfg;
+  }): Promise<{message: string; reallocated: number; skipped: number}> {
+    const {label, sources, requirePaeReviewNotDone} = cfg;
     console.log(
       `[${label}] Starting reallocation + initial-allocation + reviewer-assignment check...`,
     );
@@ -7443,7 +7474,6 @@ if (filters.endDate) {
         };
       }
 
-
       const getEligibleExpertsForQuestion = (question?: IQuestion | null) => {
         return question?.isTrainingQuestion === true
           ? TMU_experts
@@ -7473,9 +7503,9 @@ if (filters.endDate) {
               role: 'system',
               avatar: '',
             },
-            context: { questionId: qId, question: qText, expertId: assigneeId },
-            changes: { after: { [roleLabel]: name } },
-            outcome: { status: OutComeStatus.SUCCESS },
+            context: {questionId: qId, question: qText, expertId: assigneeId},
+            changes: {after: {[roleLabel]: name}},
+            outcome: {status: OutComeStatus.SUCCESS},
             createdAt: new Date(),
           } as ModeratorAuditTrail)
           .catch((err: any) =>
@@ -7506,7 +7536,7 @@ if (filters.endDate) {
         queue: (s.queue ?? []).map((q: any) => q?.toString()),
         createdAt: s.question?.createdAt ?? s.createdAt,
       });
-     /* console.log(
+      /* console.log(
         '[TimeBound][diag] stuck:',
         JSON.stringify(stuckSubmissions.map(summarizeSub)),
       );
@@ -7533,7 +7563,7 @@ if (filters.endDate) {
           free: active < MAX_TIME_BOUND,
         };
       });
-    /*  console.log(
+      /*  console.log(
         `[TimeBound][diag] experts=${allExperts.length}, free=${expertDiag.filter(x => x.free).length}, ` +
         `freeSTF=${expertDiag.filter(x => x.free && x.stf).length}, busyMapSize=${timeBoundCounts.size}`,
       );
@@ -7541,7 +7571,7 @@ if (filters.endDate) {
 
       // ── Merge all lists into one priority queue ordered by question.createdAt ──
       type WorkType = 'stuck' | 'openedIdle' | 'unallocated' | 'needsReviewer';
-      const workQueue: { type: WorkType; submission: any }[] = [
+      const workQueue: {type: WorkType; submission: any}[] = [
         ...stuckSubmissions.map((s: any) => ({
           type: 'stuck' as WorkType,
           submission: s,
@@ -7612,16 +7642,18 @@ if (filters.endDate) {
       let unallocatedProcessed = 0;
       let unallocatedRemaining = unallocatedSubmissions.length;
 
-      for (const { type, submission } of workQueue) {
+      for (const {type, submission} of workQueue) {
         const questionId = submission.questionId?.toString();
         const question = submission.question;
         const sourceLabel =
-          ({
-            AJRASAKHA: 'Ajrasakha',
-            WHATSAPP: 'WhatsApp',
-            AGRI_EXPERT: 'Agri Expert',
-            OUTREACH: 'Outreach',
-          } as Record<string, string>)[question?.source] ??
+          (
+            {
+              AJRASAKHA: 'Ajrasakha',
+              WHATSAPP: 'WhatsApp',
+              AGRI_EXPERT: 'Agri Expert',
+              OUTREACH: 'Outreach',
+            } as Record<string, string>
+          )[question?.source] ??
           question?.source ??
           'Unknown';
         const history: any[] = submission.history || [];
@@ -7732,7 +7764,7 @@ if (filters.endDate) {
               );
               await this.questionRepo.updateQuestion(
                 questionId,
-                { isAutoAllocate: true, firstAllocationAt: new Date() },
+                {isAutoAllocate: true, firstAllocationAt: new Date()},
                 session,
               );
               await this.questionSubmissionRepo.setCurrentExpertAllocatedAt(
@@ -7878,7 +7910,7 @@ if (filters.endDate) {
         const workerResult = await startBalanceWorkloadWorkers(flatAssignments);
         console.log(
           `[TimeBound] Triggered reallocation for ${flatAssignments.length} stuck submission(s); ` +
-          `workers persisted=${workerResult.processed}, failedWorkers=${workerResult.failedWorkers}`,
+            `workers persisted=${workerResult.processed}, failedWorkers=${workerResult.failedWorkers}`,
         );
 
         // Audit each stuck reallocation as a system allocation ("System Allocated").
@@ -7951,10 +7983,7 @@ if (filters.endDate) {
         skipped,
       };
     } catch (error: any) {
-      console.error(
-        `[${label}] single-allocation run failed:`,
-        error?.message,
-      );
+      console.error(`[${label}] single-allocation run failed:`, error?.message);
       throw new InternalServerError(
         `Failed to run ${label} allocation: ${error?.message}`,
       );
@@ -7966,7 +7995,7 @@ if (filters.endDate) {
   /** Current assignee the cron would penalise/replace (used for STUCK items). */
   private deriveCurrentExpertId(
     queue: (ObjectId | string)[] = [],
-    history: { updatedBy?: ObjectId | string; status?: string }[] = [],
+    history: {updatedBy?: ObjectId | string; status?: string}[] = [],
   ): string | null {
     if (!queue?.length) return null;
     if (!history?.length) return queue[0]?.toString() ?? null;
@@ -7980,7 +8009,7 @@ if (filters.endDate) {
    *  assigned expert has finished their step (author answered, awaiting reviewer). */
   private derivePendingAssigneeId(
     queue: (ObjectId | string)[] = [],
-    history: { answer?: unknown; status?: string }[] = [],
+    history: {answer?: unknown; status?: string}[] = [],
   ): string | null {
     if (!queue?.length) return null;
     for (let i = 0; i < queue.length; i++) {
@@ -8049,7 +8078,7 @@ if (filters.endDate) {
 
   /** Format an answer's sources into a newline-separated cell for the Excel report. */
   private formatAnswerSources(
-    sources?: { source: string; sourceName?: string; page?: string | number }[],
+    sources?: {source: string; sourceName?: string; page?: string | number}[],
   ): string {
     if (!sources?.length) return '';
     return sources
@@ -8083,8 +8112,8 @@ if (filters.endDate) {
 
   private async resolveExpertMeta(
     ids: string[],
-  ): Promise<Map<string, { name: string; isTrainingUser: boolean }>> {
-    const map = new Map<string, { name: string; isTrainingUser: boolean }>();
+  ): Promise<Map<string, {name: string; isTrainingUser: boolean}>> {
+    const map = new Map<string, {name: string; isTrainingUser: boolean}>();
     const unique = [...new Set(ids.filter(Boolean))];
     if (!unique.length) return map;
     const users = await this.userRepo.getUsersByIds(unique);
@@ -8100,7 +8129,7 @@ if (filters.endDate) {
   }
 
   private expertMetaToNames(
-    meta: Map<string, { name: string; isTrainingUser: boolean }>,
+    meta: Map<string, {name: string; isTrainingUser: boolean}>,
   ): Map<string, string> {
     return new Map(
       Array.from(meta.entries()).map(([id, value]) => [id, value.name]),
@@ -8162,8 +8191,17 @@ if (filters.endDate) {
     // filter, mirroring the manual single-allocation cron. Moderator ...Manual sections
     // have their own dedicated cases and are NOT remapped here.
     const EXPERT_SECTIONS = new Set([
-      'received', 'autoAllocateOff', 'autoAllocateOpen', 'autoAllocateDelayed',
-      'allocated', 'waiting', 'freeExperts', 'stuck', 'needsReviewer', 'openedIdle', 'totalWork',
+      'received',
+      'autoAllocateOff',
+      'autoAllocateOpen',
+      'autoAllocateDelayed',
+      'allocated',
+      'waiting',
+      'freeExperts',
+      'stuck',
+      'needsReviewer',
+      'openedIdle',
+      'totalWork',
     ]);
     let baseSection: string = section;
     let expertSources: QuestionSource[] = TIME_BOUND_SOURCES;
@@ -8193,7 +8231,7 @@ if (filters.endDate) {
               : baseSection === 'autoAllocateDelayed'
                 ? 'autoAllocateDelayed'
                 : 'autoOff';
-        const { count, items } = await this.questionRepo.getQueueQuestionSection(
+        const {count, items} = await this.questionRepo.getQueueQuestionSection(
           kind,
           skip,
           safeLimit,
@@ -8202,13 +8240,13 @@ if (filters.endDate) {
           expertSources,
           requirePaeNotDone,
           isTrainingUser,
-          isAdmin
+          isAdmin,
         );
-        return { count, items: items.map(r => this.rawToQueueItem(r)) };
+        return {count, items: items.map(r => this.rawToQueueItem(r))};
       }
 
       case 'allocated': {
-        const { count, items } = await this.questionRepo.getQueueQuestionSection(
+        const {count, items} = await this.questionRepo.getQueueQuestionSection(
           'allocated',
           skip,
           safeLimit,
@@ -8217,7 +8255,7 @@ if (filters.endDate) {
           expertSources,
           requirePaeNotDone,
           isTrainingUser,
-          isAdmin
+          isAdmin,
         );
         const byQuestion = new Map<string, string | null>();
         const ids: string[] = [];
@@ -8260,7 +8298,7 @@ if (filters.endDate) {
             expertSources,
             requirePaeNotDone,
             isTrainingUser,
-            isAdmin
+            isAdmin,
           )) as any[];
         const pageSubs = subs.slice(skip, skip + safeLimit);
         return {
@@ -8279,7 +8317,8 @@ if (filters.endDate) {
         // Free = experts with no active time-bound allocation. busyMap is the
         // authoritative "currently holding pending work" set the cron uses.
         const free = (allExperts as any[]).filter(
-          e => !busyMap.has(e._id.toString()) &&
+          e =>
+            !busyMap.has(e._id.toString()) &&
             (isAdmin ||
               (isTrainingUser
                 ? e.isTrainingUser === true
@@ -8299,7 +8338,7 @@ if (filters.endDate) {
             isSpecialTaskForce: e.special_task_force === true,
             isTrainingUser: e.isTrainingUser === true,
           }));
-        return { count: free.length, items };
+        return {count: free.length, items};
       }
 
       case 'stuck': {
@@ -8310,7 +8349,7 @@ if (filters.endDate) {
             expertSources,
             requirePaeNotDone,
             isTrainingUser,
-            isAdmin
+            isAdmin,
           )) as any[];
         const count = stuckSubs.length;
         const pageSubs = stuckSubs.slice(skip, skip + safeLimit);
@@ -8343,7 +8382,7 @@ if (filters.endDate) {
               : undefined,
           };
         });
-        return { count, items };
+        return {count, items};
       }
 
       case 'openedIdle': {
@@ -8384,7 +8423,7 @@ if (filters.endDate) {
               : undefined,
           };
         });
-        return { count, items };
+        return {count, items};
       }
 
       case 'needsReviewer': {
@@ -8429,12 +8468,12 @@ if (filters.endDate) {
             expertName: completedExpertNames[completedExpertNames.length - 1],
             isTrainingUser:
               completedIds.length > 0
-                ? experts.get(completedIds[completedIds.length - 1])?.isTrainingUser ===
-                  true
+                ? experts.get(completedIds[completedIds.length - 1])
+                    ?.isTrainingUser === true
                 : undefined,
           };
         });
-        return { count, items };
+        return {count, items};
       }
 
       case 'totalWork': {
@@ -8447,19 +8486,19 @@ if (filters.endDate) {
             expertSources,
             requirePaeNotDone,
             isTrainingUser,
-            isAdmin
+            isAdmin,
           ),
           this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
             expertSources,
             requirePaeNotDone,
             isTrainingUser,
-            isAdmin
+            isAdmin,
           ),
           this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
             expertSources,
             requirePaeNotDone,
             isTrainingUser,
-            isAdmin
+            isAdmin,
           ),
         ]);
 
@@ -8505,14 +8544,18 @@ if (filters.endDate) {
           ...this.submissionToQueueItem(t.sub),
           workType: t.workType,
         }));
-        return { count, items };
+        return {count, items};
       }
 
       case 'moderatorWaiting': {
         // In-review/duplicate questions with no moderator yet, PLUS waiting feedback
         // questions (closed + open feedback, no reviewer) — both need the moderator queue.
         const [inReviewQs, waitingFeedback] = await Promise.all([
-          this.questionRepo.findUnassignedInReviewQuestions([], isTrainingUser, isAdmin),
+          this.questionRepo.findUnassignedInReviewQuestions(
+            [],
+            isTrainingUser,
+            isAdmin,
+          ),
           this.getWaitingFeedbackQuestions(isTrainingUser, isAdmin),
         ]);
         // Order the merged queue by effective wait time: in-review by createdAt,
@@ -8533,8 +8576,11 @@ if (filters.endDate) {
         // Questions currently assigned to a moderator (moderatorId set). Re-routed
         // questions always carry a moderatorId, so they appear here too. Each item
         // is tagged with the assigned moderator's name.
-        const qs =
-          (await this.questionRepo.findModeratorAssignedQuestions([],isTrainingUser,isAdmin)) as any[];
+        const qs = (await this.questionRepo.findModeratorAssignedQuestions(
+          [],
+          isTrainingUser,
+          isAdmin,
+        )) as any[];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
         const ids = pageQs
@@ -8542,7 +8588,7 @@ if (filters.endDate) {
           .filter(Boolean) as string[];
         const moderators = await this.resolveExpertMeta(ids);
         const items: QueueQuestionItem[] = pageQs.map(q => ({
-          ...this.submissionToQueueItem({ question: q }),
+          ...this.submissionToQueueItem({question: q}),
           moderatorName: q.moderatorId
             ? (moderators.get(q.moderatorId.toString())?.name ?? 'Unknown')
             : undefined,
@@ -8550,7 +8596,7 @@ if (filters.endDate) {
             ? moderators.get(q.moderatorId.toString())?.isTrainingUser === true
             : undefined,
         }));
-        return { count, items };
+        return {count, items};
       }
 
       case 'availableModerators': {
@@ -8572,7 +8618,7 @@ if (filters.endDate) {
             isSpecialTaskForce: m.special_task_force === true,
             isTrainingUser: m.isTrainingUser === true,
           }));
-        return { count: mods.length, items };
+        return {count: mods.length, items};
       }
 
       // ── Source-split moderator-queue sections (time-bound vs manual) ──
@@ -8582,11 +8628,12 @@ if (filters.endDate) {
       case 'moderatorWaitingManual': {
         const isTimeBound = section === 'moderatorWaitingTimeBound';
         const sources = isTimeBound ? TIME_BOUND_SOURCES : MANUAL_SOURCES;
-        const inReviewQs = (await this.questionRepo.findUnassignedInReviewQuestions(
-          sources,
-          isTrainingUser,
-          isAdmin
-        )) as any[];
+        const inReviewQs =
+          (await this.questionRepo.findUnassignedInReviewQuestions(
+            sources,
+            isTrainingUser,
+            isAdmin,
+          )) as any[];
         // Feedback questions go in the TIME-BOUND column irrespective of source
         // (feedback counts as time-bound); the Manual column shows in-review only.
         const waitingFeedback = isTimeBound
@@ -8601,7 +8648,7 @@ if (filters.endDate) {
         const pageQs = qs.slice(skip, skip + safeLimit);
         return {
           count,
-          items: pageQs.map(q => this.submissionToQueueItem({ question: q })),
+          items: pageQs.map(q => this.submissionToQueueItem({question: q})),
         };
       }
 
@@ -8614,7 +8661,7 @@ if (filters.endDate) {
         const qs = (await this.questionRepo.findModeratorAssignedQuestions(
           sources,
           isTrainingUser,
-          isAdmin
+          isAdmin,
         )) as any[];
         const count = qs.length;
         const pageQs = qs.slice(skip, skip + safeLimit);
@@ -8623,7 +8670,7 @@ if (filters.endDate) {
           .filter(Boolean) as string[];
         const moderators = await this.resolveExpertMeta(ids);
         const items: QueueQuestionItem[] = pageQs.map(q => ({
-          ...this.submissionToQueueItem({ question: q }),
+          ...this.submissionToQueueItem({question: q}),
           moderatorName: q.moderatorId
             ? (moderators.get(q.moderatorId.toString())?.name ?? 'Unknown')
             : undefined,
@@ -8631,22 +8678,23 @@ if (filters.endDate) {
             ? moderators.get(q.moderatorId.toString())?.isTrainingUser === true
             : undefined,
         }));
-        return { count, items };
+        return {count, items};
       }
 
       case 'availableModeratorsTimeBound':
       case 'availableModeratorsManual': {
         const isTimeBound = section === 'availableModeratorsTimeBound';
         const sources = isTimeBound ? TIME_BOUND_SOURCES : MANUAL_SOURCES;
-        const modsRaw = (await this.userRepo.findAvailableStfModeratorsForSources(
-          sources,
-          isTrainingUser,
-          isAdmin
-        )) as any[];
+        const modsRaw =
+          (await this.userRepo.findAvailableStfModeratorsForSources(
+            sources,
+            isTrainingUser,
+            isAdmin,
+          )) as any[];
         // Feedback counts as a time-bound item, so a moderator holding a feedback is
         // NOT free for the time-bound queue (they're still free for the manual one).
         const mods = isTimeBound
-          ? modsRaw.filter(m => !(m.feedbacksAssigned?.length))
+          ? modsRaw.filter(m => !m.feedbacksAssigned?.length)
           : modsRaw;
         const items: QueueExpertItem[] = mods
           .slice(skip, skip + safeLimit)
@@ -8662,7 +8710,7 @@ if (filters.endDate) {
             isSpecialTaskForce: m.special_task_force === true,
             isTrainingUser: m.isTrainingUser === true,
           }));
-        return { count: mods.length, items };
+        return {count: mods.length, items};
       }
 
       // ── Gate keeper / auditor role queues (mirror the moderator queue sections) ──
@@ -8704,7 +8752,9 @@ if (filters.endDate) {
           const id = (q as any)[assigneeField]?.toString();
           return {
             ...this.submissionToQueueItem({question: q}),
-            assigneeName: id ? (assignees.get(id)?.name ?? 'Unknown') : undefined,
+            assigneeName: id
+              ? (assignees.get(id)?.name ?? 'Unknown')
+              : undefined,
             isTrainingUser: id
               ? assignees.get(id)?.isTrainingUser === true
               : undefined,
@@ -8740,7 +8790,8 @@ if (filters.endDate) {
       // ── Feedback-review queue ──
       case 'feedbackAllocated': {
         // One row per open feedback-review round (reviewer + question).
-        const open = await this.questionSubmissionRepo.findOpenFeedbackReviews();
+        const open =
+          await this.questionSubmissionRepo.findOpenFeedbackReviews();
         const count = open.length;
         const page = open.slice(skip, skip + safeLimit);
         const questions = await this.questionRepo.findByIds(
@@ -8749,9 +8800,7 @@ if (filters.endDate) {
             .filter(Boolean)
             .map(id => new ObjectId(id)),
         );
-        const qById = new Map(
-          questions.map(q => [q._id?.toString(), q]),
-        );
+        const qById = new Map(questions.map(q => [q._id?.toString(), q]));
         const reviewers = await this.resolveExpertMeta(
           page.map(o => o.reviewerId).filter(Boolean),
         );
@@ -8802,7 +8851,7 @@ if (filters.endDate) {
       }
 
       default:
-        return { count: 0, items: [] };
+        return {count: 0, items: []};
     }
   }
 
@@ -8831,7 +8880,7 @@ if (filters.endDate) {
           startTime,
           endTime,
           isTrainingUser,
-          isAdmin
+          isAdmin,
         );
       } catch (err: any) {
         console.error(
@@ -8839,7 +8888,7 @@ if (filters.endDate) {
           err?.message,
           err?.stack?.split('\n')?.slice(0, 4)?.join('\n'),
         );
-        return { count: 0, items: [] };
+        return {count: 0, items: []};
       }
     };
     const [
@@ -8923,7 +8972,7 @@ if (filters.endDate) {
             '[getQueueDetails] receivedStatusCounts failed:',
             err?.message,
           );
-          return [] as { status: string; count: number }[];
+          return [] as {status: string; count: number}[];
         }),
       safe('receivedManual'),
       safe('autoAllocateOffManual'),
@@ -9011,7 +9060,8 @@ if (filters.endDate) {
         autoAllocateOpenManual as QueueDetailsResponse['autoAllocateOpenManual'],
       autoAllocateDelayedManual:
         autoAllocateDelayedManual as QueueDetailsResponse['autoAllocateDelayedManual'],
-      allocatedManual: allocatedManual as QueueDetailsResponse['allocatedManual'],
+      allocatedManual:
+        allocatedManual as QueueDetailsResponse['allocatedManual'],
       waitingManual: waitingManual as QueueDetailsResponse['waitingManual'],
       freeExpertsManual:
         freeExpertsManual as QueueDetailsResponse['freeExpertsManual'],
@@ -9028,15 +9078,17 @@ if (filters.endDate) {
    * This is used for migration purposes to fix duplicate entries.
    * @param submissionId - The submission document ID
    */
-  async backgroundProcessAction(userId: string): Promise<{ modifiedCount: number }> {
-        return await this.userRepo.clearAssignedQuestions(userId);
+  async backgroundProcessAction(
+    userId: string,
+  ): Promise<{modifiedCount: number}> {
+    return await this.userRepo.clearAssignedQuestions(userId);
   }
 
   /** Admin utility: remove a submission history entry (by 0-based index) for a question. */
   async removeSubmissionHistoryEntry(
     questionId: string,
     index: number,
-  ): Promise<{ success: boolean; historyLength: number }> {
+  ): Promise<{success: boolean; historyLength: number}> {
     const updated = await this.questionSubmissionRepo.removeHistoryEntryByIndex(
       questionId,
       index,
@@ -9051,7 +9103,7 @@ if (filters.endDate) {
   async removeSubmissionQueueEntry(
     questionId: string,
     index: number,
-  ): Promise<{ success: boolean; queueLength: number }> {
+  ): Promise<{success: boolean; queueLength: number}> {
     const updated = await this.questionSubmissionRepo.removeQueueEntryByIndex(
       questionId,
       index,
@@ -9066,7 +9118,7 @@ if (filters.endDate) {
   async addSubmissionQueueEntry(
     questionId: string,
     expertId: string,
-  ): Promise<{ success: boolean; queueLength: number }> {
+  ): Promise<{success: boolean; queueLength: number}> {
     if (!expertId || !ObjectId.isValid(expertId)) {
       throw new BadRequestError('A valid expertId is required');
     }
@@ -9074,7 +9126,7 @@ if (filters.endDate) {
       questionId,
       expertId,
     );
-    return { success: true, queueLength: updated?.queue?.length ?? 0 };
+    return {success: true, queueLength: updated?.queue?.length ?? 0};
   }
 
   /** Admin utility: append a history entry to a question's submission history.
@@ -9082,7 +9134,7 @@ if (filters.endDate) {
   async addSubmissionHistoryEntry(
     questionId: string,
     rawEntry: Record<string, any>,
-  ): Promise<{ success: boolean; historyLength: number }> {
+  ): Promise<{success: boolean; historyLength: number}> {
     const entry = this.buildHistoryEntry(rawEntry);
     const updated = await this.questionSubmissionRepo.addHistoryEntry(
       questionId,
@@ -9220,7 +9272,7 @@ if (filters.endDate) {
             candidateIds.push(approvedByUserId);
 
             // Fetch other available auditors to use as fallback.
-            
+
             const availAuditors =
               await this.userRepo.findAvailableUsersByRole('auditor');
             for (const a of availAuditors) {
@@ -9301,8 +9353,8 @@ if (filters.endDate) {
                   expertId: assignedReviewerId,
                   operation: 'feedback',
                 },
-                changes: { after: { 'feedback reviewer': reviewerName } },
-                outcome: { status: OutComeStatus.SUCCESS },
+                changes: {after: {'feedback reviewer': reviewerName}},
+                outcome: {status: OutComeStatus.SUCCESS},
                 createdAt: new Date(),
               } as ModeratorAuditTrail)
               .catch((err: any) =>
@@ -9349,7 +9401,7 @@ if (filters.endDate) {
     action: 'accept' | 'reject',
     reason: string,
     processedBy: string,
-    source:'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation'
+    source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation',
   ): Promise<{
     success: boolean;
     message: string;
@@ -9361,17 +9413,22 @@ if (filters.endDate) {
       processedAt: string;
     };
   }> {
-    if(source === "PAE_Validation"){
+    if (source === 'PAE_Validation') {
       const feedback = await this.feedbackRepo.findById(feedbackId.toString());
-      if(!feedback){
+      if (!feedback) {
         throw new NotFoundError(`Feedback with ID ${feedbackId} not found`);
       }
-      
+
       // Update the feedback in the feedbacks collection
-      await this.feedbackRepo.updateFeedbackAction(feedbackId.toString(), action, reason, processedBy);
-      
+      await this.feedbackRepo.updateFeedbackAction(
+        feedbackId.toString(),
+        action,
+        reason,
+        processedBy,
+      );
+
       const processedAt = new Date().toISOString();
-      
+
       // Record this individual feedback as closed on the OPEN feedback-review round
       // (so the view can hide accept/reject for it going forward).
       await this.questionSubmissionRepo.addClosedFeedbackToOpenRound(
@@ -9379,23 +9436,23 @@ if (filters.endDate) {
         feedbackId,
         new Date(),
       );
-      
+
       // Check if all feedbacks are processed (for PAE_Validation, we only have one feedback)
       // Update the question's feedbacks array to mark this feedback as closed
-      await this.questionRepo.updateQuestion(
-        questionId,
-        { 
-          'feedbacks.$[].status': 'closed',
-        } as any
-      );
-      
+      await this.questionRepo.updateQuestion(questionId, {
+        'feedbacks.$[].status': 'closed',
+      } as any);
+
       // Close the open feedback-review round on the submission (stamps finishedAt
       // on the round that has no finishedAt yet).
-      await this.questionSubmissionRepo.finishOpenFeedbackReviews(questionId, new Date());
-      
+      await this.questionSubmissionRepo.finishOpenFeedbackReviews(
+        questionId,
+        new Date(),
+      );
+
       // Remove the questionId from the processedBy user's feedbacksAssigned array
       await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
-      
+
       return {
         success: true,
         message: `Feedback ${action}ed successfully. All feedbacks processed.`,
@@ -9410,13 +9467,17 @@ if (filters.endDate) {
     }
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
-    
+
     if (!dataReleaseUrl) {
-      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+      throw new Error(
+        'DATA_RELEASE_URL environment variable is not configured',
+      );
     }
 
     if (!authKey) {
-      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+      throw new Error(
+        'REVIEW_SYSTEM_AUTH_KEY environment variable is not configured',
+      );
     }
 
     // Call the data release service
@@ -9425,28 +9486,41 @@ if (filters.endDate) {
       status: action === 'accept' ? 'accepted' : 'rejected',
     };
 
-    let dataReleaseResponse: { status: string; pendingFeedbackCount: number };
-  
+    let dataReleaseResponse: {status: string; pendingFeedbackCount: number};
+
     try {
-    const response = await fetch(`${dataReleaseUrl}/feedbacks/${feedbackId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authKey}`,
+      const response = await fetch(
+        `${dataReleaseUrl}/feedbacks/${feedbackId}/status`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authKey}`,
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
 
       if (!response.ok) {
-        throw new Error(`Data release service returned status ${response.status}`);
+        throw new Error(
+          `Data release service returned status ${response.status}`,
+        );
       }
 
-      const responseData = await response.json() as { status: string; pendingFeedbackCount: number };
-      dataReleaseResponse = responseData
-     //dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
+      const responseData = (await response.json()) as {
+        status: string;
+        pendingFeedbackCount: number;
+      };
+      dataReleaseResponse = responseData;
+      //dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
     } catch (error: any) {
-      console.error('[QuestionService] handleFeedbackAction: Failed to call data release service:', error);
-      throw new InternalServerError('Failed to process feedback action: ' + error.message);
+      console.error(
+        '[QuestionService] handleFeedbackAction: Failed to call data release service:',
+        error,
+      );
+      throw new InternalServerError(
+        'Failed to process feedback action: ' + error.message,
+      );
     }
 
     const processedAt = new Date().toISOString();
@@ -9464,12 +9538,9 @@ if (filters.endDate) {
       const now = new Date();
 
       // Update the question's feedbacks.source to 'closed' and set feedbackReviewFinishedAt
-      await this.questionRepo.updateQuestion(
-        questionId,
-        { 
-          'feedbacks.$[].status': 'closed',
-        } as any
-      );
+      await this.questionRepo.updateQuestion(questionId, {
+        'feedbacks.$[].status': 'closed',
+      } as any);
 
       // await this.questionSubmissionRepo.(questionId, now);
 
@@ -9477,7 +9548,10 @@ if (filters.endDate) {
 
       // Close the open feedback-review round on the submission (stamps finishedAt
       // on the round that has no finishedAt yet).
-      await this.questionSubmissionRepo.finishOpenFeedbackReviews(questionId, now);
+      await this.questionSubmissionRepo.finishOpenFeedbackReviews(
+        questionId,
+        now,
+      );
 
       // Remove the questionId from the processedBy user's feedbacksAssigned array
       await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
@@ -9569,14 +9643,13 @@ if (filters.endDate) {
     for (const q of openFeedbackQuestions) {
       const id = q._id?.toString();
       if (!id) continue;
-      const base = this.submissionToQueueItem({ question: q });
+      const base = this.submissionToQueueItem({question: q});
 
       if (assignedIds.has(id)) {
         const reviewerId = reviewerByQuestion.get(id);
         assigned.push({
           ...base,
-          assigneeName:
-            (reviewerId && meta.get(reviewerId)?.name) || 'Unknown',
+          assigneeName: (reviewerId && meta.get(reviewerId)?.name) || 'Unknown',
         });
       } else if ((q as any).autoAllocateFeedback === true) {
         // Auto-allocation ON only when explicitly true; missing/false = manual.
@@ -9617,23 +9690,29 @@ if (filters.endDate) {
     const respectiveModerators = openFeedbackQuestions
       .filter(q => {
         const id = q._id?.toString();
-        if (!id || assignedIds.has(id) || (q as any).autoAllocateFeedback !== true)
+        if (
+          !id ||
+          assignedIds.has(id) ||
+          (q as any).autoAllocateFeedback !== true
+        )
           return false;
         const approverId = approverByQuestion.get(id);
         const approver = approverById.get(approverId ?? '');
-        return isActiveModerator(approver) && !!approverId && freeIds.has(approverId);
+        return (
+          isActiveModerator(approver) && !!approverId && freeIds.has(approverId)
+        );
       })
       .map(q => {
         const id = q._id!.toString();
         const approverId = approverByQuestion.get(id)!;
         return {
-          ...this.submissionToQueueItem({ question: q }),
+          ...this.submissionToQueueItem({question: q}),
           approverId,
           approverName: meta.get(approverId)?.name ?? 'Unknown',
         };
       });
 
-    const wrap = <T>(items: T[]) => ({ count: items.length, items });
+    const wrap = <T>(items: T[]) => ({count: items.length, items});
     return {
       waitingAuto: wrap(waitingAuto),
       waitingManual: wrap(waitingManual),
@@ -9680,8 +9759,7 @@ if (filters.endDate) {
         .map((r, i) => ({
           index: i,
           reviewerId: r.reviewerId?.toString(),
-          reviewerName:
-            names.get(r.reviewerId?.toString())?.name ?? 'Unknown',
+          reviewerName: names.get(r.reviewerId?.toString())?.name ?? 'Unknown',
           assignedAt: r.assignedAt,
           finishedAt: r.finishedAt ?? null,
           completedCount: Array.isArray(r.closedFeedbacks)
@@ -9699,7 +9777,10 @@ if (filters.endDate) {
   async getAssignableFeedbackReviewers(): Promise<
     {_id: string; name: string; email: string; role: string}[]
   > {
-    const users = await this.userRepo.findUsersByRoles(['moderator', 'auditor']);
+    const users = await this.userRepo.findUsersByRoles([
+      'moderator',
+      'auditor',
+    ]);
     return users.map(u => ({
       _id: u._id!.toString(),
       name:
@@ -9881,7 +9962,7 @@ if (filters.endDate) {
       }
     }
 
-    const pairs: { questionId: string; moderatorId: string }[] = [];
+    const pairs: {questionId: string; moderatorId: string}[] = [];
     let skippedNoFinalAnswer = 0;
     let skippedNoApprover = 0;
     for (const qid of questionIds) {
@@ -9894,7 +9975,7 @@ if (filters.endDate) {
         skippedNoApprover++;
         continue;
       }
-      pairs.push({ questionId: qid, moderatorId: approver });
+      pairs.push({questionId: qid, moderatorId: approver});
     }
 
     const updated = await this.questionRepo.bulkSetModeratorId(pairs);
@@ -9915,7 +9996,6 @@ if (filters.endDate) {
     page: number = 1,
     pageSize: number = 5,
   ): Promise<FeedbackResponse> {
-
     // Empty result used whenever the external data-release service can't be reached
     // or isn't configured — feedbacks are supplementary, so a failure here must not
     // 500 the whole question-details view. It just shows "no feedbacks".
@@ -9931,9 +10011,7 @@ if (filters.endDate) {
 
     const externalFeedbacks =
       question?.feedbacks?.filter(
-        f =>
-          f.source === 'DATASET' ||
-          f.source === 'WEB_APPLICATION',
+        f => f.source === 'DATASET' || f.source === 'WEB_APPLICATION',
       ) ?? [];
 
     // PAE flow
@@ -9943,10 +10021,9 @@ if (filters.endDate) {
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
 
-  
     /**
-        * Normalize external feedbacks to FeedbackData.
-        */
+     * Normalize external feedbacks to FeedbackData.
+     */
     //Helpers for converting MongoDB values
     //to the extended JSON format expected by frontend.
     // The data-release service returns feedbacks in a flat shape
@@ -9954,74 +10031,62 @@ if (filters.endDate) {
     // already paginates the result. Normalize each item to the extended-JSON
     // shape the frontend consumes ({ _id: { $oid }, createdAt: { $date }, … })
     // and pass the service's own pagination through unchanged.
-    const asOid = (value: any): { $oid: string } => ({
+    const asOid = (value: any): {$oid: string} => ({
       $oid:
         typeof value === 'string'
           ? value
-          : value?.$oid ??
-          value?.toHexString?.() ??
-          value?._id?.toHexString?.() ??
-          '',
+          : (value?.$oid ??
+            value?.toHexString?.() ??
+            value?._id?.toHexString?.() ??
+            ''),
     });
 
-    const asDate = (value: any): { $date: string } => ({
+    const asDate = (value: any): {$date: string} => ({
       $date:
         typeof value === 'string'
           ? value
-          : value?.$date ??
-          value?.toISOString?.() ??
-          '',
+          : (value?.$date ?? value?.toISOString?.() ?? ''),
     });
 
+    /**
+     * PAE feedbacks
+     *
+     * PAE and external feedbacks come from different sources,
+     * but both are converted to the common FeedbackData response.
+     */
+    const paeData: FeedbackData[] = paeFeedbackData.map((feedback: any) => ({
+      _id: asOid(feedback._id),
+
+      questionId: asOid(feedback.questionId ?? questionId),
+
+      userId: {
+        name: feedback.userId?.name ?? '',
+        email: feedback.userId?.email ?? '',
+      },
+
+      answerId: feedback.answerId ? asOid(feedback.answerId) : null,
+
+      type: 'PAE_VALIDATION',
+
+      predefinedOption: feedback.predefinedOption ?? '',
+
+      comment: feedback.comment ?? '',
+
+      status: feedback.status,
+
+      link: feedback.link,
+
+      reviewNote: feedback.reviewNote,
+
+      createdAt: asDate(feedback.createdAt),
+
+      updatedAt: asDate(feedback.updatedAt ?? feedback.createdAt),
+    }));
 
     /**
-   * PAE feedbacks
-   *
-   * PAE and external feedbacks come from different sources,
-   * but both are converted to the common FeedbackData response.
-   */
-    const paeData: FeedbackData[] = paeFeedbackData.map(
-      (feedback: any) => ({
-        _id: asOid(feedback._id),
-
-        questionId: asOid(
-          feedback.questionId ?? questionId,
-        ),
-
-        userId: {
-          name: feedback.userId?.name ?? '',
-          email: feedback.userId?.email ?? '',
-        },
-
-        answerId: feedback.answerId
-          ? asOid(feedback.answerId)
-          : null,
-
-        type: 'PAE_VALIDATION',
-
-        predefinedOption:
-          feedback.predefinedOption ?? '',
-
-        comment: feedback.comment ?? '',
-
-        status: feedback.status,
-
-        link: feedback.link,
-
-        reviewNote: feedback.reviewNote,
-
-        createdAt: asDate(feedback.createdAt),
-
-        updatedAt: asDate(
-          feedback.updatedAt ?? feedback.createdAt,
-        ),
-      }),
-    );
-
-    /**
-  * If there are no external feedbacks,
-  * return PAE feedbacks only.
-  */
+     * If there are no external feedbacks,
+     * return PAE feedbacks only.
+     */
     if (externalFeedbacks.length === 0) {
       if (paeData.length === 0) {
         return emptyResponse;
@@ -10039,9 +10104,9 @@ if (filters.endDate) {
     }
 
     /**
-  * External service is not configured.
-  * PAE feedbacks should still be returned.
-  */
+     * External service is not configured.
+     * PAE feedbacks should still be returned.
+     */
     if (!dataReleaseUrl || !authKey) {
       console.warn(
         '[QuestionService] getFeedbacks: data-release service not configured (DATA_RELEASE_URL / REVIEW_SYSTEM_AUTH_KEY missing) — returning empty feedbacks.',
@@ -10063,32 +10128,35 @@ if (filters.endDate) {
 
     try {
       /**
-     * External feedback flow
-     */
+       * External feedback flow
+       */
       const response = await fetch(
         `${dataReleaseUrl}/feedbacks/question/${questionId}?page=${page}&pageSize=${pageSize}`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authKey}`,
+            Authorization: `Bearer ${authKey}`,
           },
-        }
+        },
       );
-    
+
       if (!response.ok) {
-        throw new Error(`Data release service returned status ${response.status}`);
+        throw new Error(
+          `Data release service returned status ${response.status}`,
+        );
       }
-    const res = await response.json() as {
-      data?: any[];
-      total?: number;
-      page?: number;
-      limit?: number;
-      totalPages?: number;
-    };
-  
-    const externalData: FeedbackData[] = (Array.isArray(res.data) ? res.data : []).map(
-      (f: any) => ({
+      const res = (await response.json()) as {
+        data?: any[];
+        total?: number;
+        page?: number;
+        limit?: number;
+        totalPages?: number;
+      };
+
+      const externalData: FeedbackData[] = (
+        Array.isArray(res.data) ? res.data : []
+      ).map((f: any) => ({
         _id: asOid(f.id ?? f._id),
         questionId: f.questionId ? asOid(f.questionId) : {$oid: questionId},
         userId: {
@@ -10103,38 +10171,31 @@ if (filters.endDate) {
         reviewNote: f.reviewNote,
         createdAt: asDate(f.createdAt),
         updatedAt: asDate(f.updatedAt),
-      }),
-    );
+      }));
 
       /**
-     * Combine external + PAE feedbacks.
-     */
-      const data: FeedbackData[] = [
-        ...externalData,
-        ...paeData,
-      ];
+       * Combine external + PAE feedbacks.
+       */
+      const data: FeedbackData[] = [...externalData, ...paeData];
 
       if (data.length === 0) {
         return emptyResponse;
       }
-     const externalTotal =
-      typeof res.total === 'number'
-        ? res.total
-        : externalData.length;
+      const externalTotal =
+        typeof res.total === 'number' ? res.total : externalData.length;
 
-    const totalCount =
-      externalTotal + paeData.length;
-    console.log('final:',data)
-    return {
-      data,
-      totalCount,
-      page: typeof res.page === 'number' ? res.page : page,
-      pageSize: typeof res.limit === 'number' ? res.limit : pageSize,
-      totalPages:
-        typeof res.totalPages === 'number'
-          ? res.totalPages
-          : Math.ceil(totalCount / pageSize),
-    };
+      const totalCount = externalTotal + paeData.length;
+      console.log('final:', data);
+      return {
+        data,
+        totalCount,
+        page: typeof res.page === 'number' ? res.page : page,
+        pageSize: typeof res.limit === 'number' ? res.limit : pageSize,
+        totalPages:
+          typeof res.totalPages === 'number'
+            ? res.totalPages
+            : Math.ceil(totalCount / pageSize),
+      };
     } catch (error: any) {
       // Network failure (ECONNREFUSED / timeout), non-OK status, or bad JSON —
       // log and degrade to an empty list rather than 500ing the question view.
@@ -10147,40 +10208,38 @@ if (filters.endDate) {
         return emptyResponse;
       }
 
-       const totalCount = paeData.length;
+      const totalCount = paeData.length;
 
       return {
         data: paeData,
         totalCount,
         page,
         pageSize,
-        totalPages: Math.ceil(
-          totalCount / pageSize,
-        ),
+        totalPages: Math.ceil(totalCount / pageSize),
       };
     }
   }
 
-    /**
+  /**
    * handle Feedback Status Update for a question
    */
   async handleFeedbackStatusUpdate(
-  questionId: string,
-  source: 'DATASET' | 'WEB_APPLICATION' | "PAE_Validation",
-): Promise<{ success: boolean }> {
-  const matchedCount = await this.questionRepo.addOrUpdateFeedbackStatus(
-    questionId,
-    source,
-  );
+    questionId: string,
+    source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation',
+  ): Promise<{success: boolean}> {
+    const matchedCount = await this.questionRepo.addOrUpdateFeedbackStatus(
+      questionId,
+      source,
+    );
 
-  if (matchedCount === 0) {
-    throw new NotFoundError('Question not found');
+    if (matchedCount === 0) {
+      throw new NotFoundError('Question not found');
+    }
+
+    return {
+      success: true,
+    };
   }
-
-  return {
-    success: true,
-  };
-}
 
   // ─────────────────────────────────────────────────────────────────────────────
   // PAE VALIDATION QUEUE CRON
@@ -10194,55 +10253,83 @@ if (filters.endDate) {
     availableWaiting: number;
     failedAssignments: number;
   }> {
-    console.log('[PaeValidationQueue] Starting PAE validation queue assignment check...');
-    
+    console.log(
+      '[PaeValidationQueue] Starting PAE validation queue assignment check...',
+    );
+
     try {
-      const pendingQuestions = await this.questionRepo.findQuestionsPendingPaeValidation();
+      const pendingQuestions =
+        await this.questionRepo.findQuestionsPendingPaeValidation();
       const availableExperts = await this.userRepo.findAvailablePaeExperts();
-      
+
       if (!pendingQuestions.length) {
-        console.log('[PaeValidationQueue] No pending questions for PAE validation');
-        return { assigned: 0, availableWaiting: availableExperts.length, failedAssignments: 0 };
+        console.log(
+          '[PaeValidationQueue] No pending questions for PAE validation',
+        );
+        return {
+          assigned: 0,
+          availableWaiting: availableExperts.length,
+          failedAssignments: 0,
+        };
       }
-      
+
       if (!availableExperts.length) {
         console.log('[PaeValidationQueue] No available PAE experts');
-        return { assigned: 0, availableWaiting: 0, failedAssignments: 0 };
+        return {assigned: 0, availableWaiting: 0, failedAssignments: 0};
       }
-      
-      console.log(`[PaeValidationQueue] Found ${pendingQuestions.length} pending questions and ${availableExperts.length} available PAE experts`);
-      
+
+      console.log(
+        `[PaeValidationQueue] Found ${pendingQuestions.length} pending questions and ${availableExperts.length} available PAE experts`,
+      );
+
       const claimedQuestionIds = new Set<string>();
       let assigned = 0;
       let availableWaiting = 0;
       let failedAssignments = 0;
-      
+
       for (const expert of availableExperts) {
         const expertId = expert._id!.toString();
-        
+
         const matchedQuestion = pendingQuestions.find(
-          (q) => !claimedQuestionIds.has(q._id!.toString()) && isQuestionMatchForPaeExpert(q, expert),
+          q =>
+            !claimedQuestionIds.has(q._id!.toString()) &&
+            isQuestionMatchForPaeExpert(q, expert),
         );
-        
+
         if (!matchedQuestion) {
-          console.log('[PaeValidationQueue] No matching question found for PAE expert', expertId);
+          console.log(
+            '[PaeValidationQueue] No matching question found for PAE expert',
+            expertId,
+          );
           availableWaiting++;
           continue;
         }
-        
+
         const questionId = matchedQuestion._id!.toString();
         claimedQuestionIds.add(questionId);
-        
+
         try {
           await this._withTransaction(async (session: ClientSession) => {
-            await this.questionRepo.updatePaeValidationStatus(questionId, 'in-progress', session);
-            await this.questionRepo.addPaeValidationEntry(questionId, {
-              paeAssignedAt: new Date(),
-              paeId: expertId,
-              paeStatus: 'in-progress',
-              paeFinishedAt: null,
-            }, session);
-            await this.userRepo.addPaeValidationAssigned(expertId, questionId, session);
+            await this.questionRepo.updatePaeValidationStatus(
+              questionId,
+              'in-progress',
+              session,
+            );
+            await this.questionRepo.addPaeValidationEntry(
+              questionId,
+              {
+                paeAssignedAt: new Date(),
+                paeId: expertId,
+                paeStatus: 'in-progress',
+                paeFinishedAt: null,
+              },
+              session,
+            );
+            await this.userRepo.addPaeValidationAssigned(
+              expertId,
+              questionId,
+              session,
+            );
           });
 
           await this.notificationService.saveTheNotifications(
@@ -10253,24 +10340,36 @@ if (filters.endDate) {
             'pae_validation',
           );
 
-          console.log(`[PaeValidationQueue] Assigned question ${questionId} → PAE expert ${expertId}`);
+          console.log(
+            `[PaeValidationQueue] Assigned question ${questionId} → PAE expert ${expertId}`,
+          );
           assigned++;
         } catch (error: any) {
-          console.error(`[PaeValidationQueue] Failed to assign question ${questionId} to ${expertId}:`, error?.message);
+          console.error(
+            `[PaeValidationQueue] Failed to assign question ${questionId} to ${expertId}:`,
+            error?.message,
+          );
           claimedQuestionIds.delete(questionId);
           failedAssignments++;
         }
       }
-      
-      console.log(`[PaeValidationQueue] Done: assigned=${assigned}, availableWaiting=${availableWaiting}, failedAssignments=${failedAssignments}`);
-      return { assigned, availableWaiting, failedAssignments };
+
+      console.log(
+        `[PaeValidationQueue] Done: assigned=${assigned}, availableWaiting=${availableWaiting}, failedAssignments=${failedAssignments}`,
+      );
+      return {assigned, availableWaiting, failedAssignments};
     } catch (error: any) {
-      console.error('[PaeValidationQueue] PAE validation queue cron failed:', error?.message);
-      throw new BadRequestError(`PAE validation queue cron failed: ${error?.message}`);
+      console.error(
+        '[PaeValidationQueue] PAE validation queue cron failed:',
+        error?.message,
+      );
+      throw new BadRequestError(
+        `PAE validation queue cron failed: ${error?.message}`,
+      );
     }
   }
 
-  //pae validation timeline 
+  //pae validation timeline
   async getPaeValidationTimeline(questionId: string): Promise<{
     autoAllocatePaeValidationExpert: boolean;
     hasOpenRound: boolean;
@@ -10283,44 +10382,41 @@ if (filters.endDate) {
       paeStatus: string;
     }[];
   }> {
-  const [question, submission] = await Promise.all([
-    this.questionRepo.getById(questionId),
-    this.questionSubmissionRepo.getByQuestionId(questionId),
-  ]);
+    const [question, submission] = await Promise.all([
+      this.questionRepo.getById(questionId),
+      this.questionSubmissionRepo.getByQuestionId(questionId),
+    ]);
 
-  const rounds = ((submission as any)?.paeValidation ?? []) as any[];
+    const rounds = ((submission as any)?.paeValidation ?? []) as any[];
 
-  const names = await this.resolveExpertMeta(
-    rounds
-      .map((r) => r.paeId?.toString())
-      .filter(Boolean),
-  );
+    const names = await this.resolveExpertMeta(
+      rounds.map(r => r.paeId?.toString()).filter(Boolean),
+    );
 
-  return {
-    autoAllocatePaeValidationExpert:
-      (question as any)?.autoAllocatePaeValidationExpert === true,
+    return {
+      autoAllocatePaeValidationExpert:
+        (question as any)?.autoAllocatePaeValidationExpert === true,
 
-    hasOpenRound:
-      Array.isArray(rounds) &&
-      rounds.some((r) => r?.paeStatus === 'in-progress'),
+      hasOpenRound:
+        Array.isArray(rounds) &&
+        rounds.some(r => r?.paeStatus === 'in-progress'),
 
-    reviews: rounds
-      .map((r, i) => ({
-        index: i,
-        paeId: r.paeId?.toString() ?? '',
-        paeName:
-          names.get(r.paeId?.toString())?.name ?? 'Unknown',
-        paeAssignedAt: r.paeAssignedAt,
-        paeFinishedAt: r.paeFinishedAt ?? null,
-        paeStatus: r.paeStatus ?? '',
-      }))
-      .sort(
-        (a, b) =>
-          new Date(a.paeAssignedAt).getTime() -
-          new Date(b.paeAssignedAt).getTime(),
-      ),
-  };
-}
+      reviews: rounds
+        .map((r, i) => ({
+          index: i,
+          paeId: r.paeId?.toString() ?? '',
+          paeName: names.get(r.paeId?.toString())?.name ?? 'Unknown',
+          paeAssignedAt: r.paeAssignedAt,
+          paeFinishedAt: r.paeFinishedAt ?? null,
+          paeStatus: r.paeStatus ?? '',
+        }))
+        .sort(
+          (a, b) =>
+            new Date(a.paeAssignedAt).getTime() -
+            new Date(b.paeAssignedAt).getTime(),
+        ),
+    };
+  }
 
   /** Manually assign OR reassign the pae validation reviewer (admin/moderator). When a round
    *  is already open it repoints that round to the new reviewer and releases the old one;
@@ -10344,8 +10440,10 @@ if (filters.endDate) {
 
       const question = await this.questionRepo.getById(questionId);
 
-      if((question as any)?.paeValidation === 'completed')throw new BadRequestError('This question has already completed PAE validation.');
-      
+      if ((question as any)?.paeValidation === 'completed')
+        throw new BadRequestError(
+          'This question has already completed PAE validation.',
+        );
 
       const submission =
         await this.questionSubmissionRepo.getByQuestionId(questionId);
@@ -10382,39 +10480,38 @@ if (filters.endDate) {
           'Selected user is not available (already holds a pae validation, or is inactive/blocked).',
         );
       }
-        // Fresh assignment: open a new round.
-        const assigned =
-          await this.questionSubmissionRepo.assignPaeValidationReviewer(
-            questionId,
-            userId,
-            new Date(),
-            session,
-          );
-        if (!assigned) {
-          throw new BadRequestError(
-            'This question already has an open pae validation review.',
-          );
-        }
-
-        if (oldReviewerId) {
-          await this.userRepo.removePaeValidationAssigned(
-            oldReviewerId,
-            questionId,
-            session,
-          );
-        }
-
-        await this.questionRepo.updatePaeValidationStatus(
+      // Fresh assignment: open a new round.
+      const assigned =
+        await this.questionSubmissionRepo.assignPaeValidationReviewer(
           questionId,
-          'in-progress',
+          userId,
+          new Date(),
           session,
         );
-      
+      if (!assigned) {
+        throw new BadRequestError(
+          'This question already has an open pae validation review.',
+        );
+      }
+
+      if (oldReviewerId) {
+        await this.userRepo.removePaeValidationAssigned(
+          oldReviewerId,
+          questionId,
+          session,
+        );
+      }
+
+      await this.questionRepo.updatePaeValidationStatus(
+        questionId,
+        'in-progress',
+        session,
+      );
     });
     return {success: true};
   }
 
-  //Remove an OPEN pae-validation--review round by index (admin/moderator/etc). 
+  //Remove an OPEN pae-validation--review round by index (admin/moderator/etc).
   async removePaeValidationReviewer(
     questionId: string,
     index: number,
@@ -10425,7 +10522,9 @@ if (filters.endDate) {
       const rounds = ((submission as any)?.paeValidation ?? []) as any[];
       const round = rounds[index];
       if (!round) {
-        throw new BadRequestError('No pae validation review found at that position.');
+        throw new BadRequestError(
+          'No pae validation review found at that position.',
+        );
       }
       if (round.paeFinishedAt) {
         throw new BadRequestError(
@@ -10439,10 +10538,16 @@ if (filters.endDate) {
           session,
         );
       if (!removed) {
-        throw new BadRequestError('Could not remove the pae validation review.');
+        throw new BadRequestError(
+          'Could not remove the pae validation review.',
+        );
       }
 
-      await this.questionRepo.updatePaeValidationStatus(questionId, 'pending', session);
+      await this.questionRepo.updatePaeValidationStatus(
+        questionId,
+        'pending',
+        session,
+      );
       const reviewerId = round.paeId?.toString();
       if (reviewerId) {
         await this.userRepo.removePaeValidationAssigned(
@@ -10465,11 +10570,11 @@ if (filters.endDate) {
   ): Promise<PaeValidationAssignedQuestionsResponse> {
     // Get the user to check paeValidationAssigned
     const user = await this.userRepo.findById(paeExpertId);
-    
+
     if (!user) {
       throw new NotFoundError(`User with ID ${paeExpertId} not found`);
     }
-    
+
     // Get the question IDs from paeValidationAssigned
     const questionIds = (user.paeValidationAssigned || []).map(id => {
       if (typeof id === 'string') {
@@ -10477,7 +10582,7 @@ if (filters.endDate) {
       }
       return id as ObjectId;
     });
-    
+
     if (questionIds.length === 0) {
       return {
         questions: [],
@@ -10486,35 +10591,42 @@ if (filters.endDate) {
         currentPage: page,
       };
     }
-    
+
     // Get paginated questions with answers joined in a single aggregation call
-    const { questions: paginatedQuestions, totalCount, totalPages, currentPage } = 
-      await this.questionRepo.findByIdsWithAnswers(questionIds, page, limit);
-    
+    const {
+      questions: paginatedQuestions,
+      totalCount,
+      totalPages,
+      currentPage,
+    } = await this.questionRepo.findByIdsWithAnswers(questionIds, page, limit);
+
     // Transform the results to match the expected response format
-    const questionsWithAnswers: PaeValidationQuestion[] = paginatedQuestions.map(q => ({
-      _id: q._id.toString(),
-      question: q.question,
-      status: q.status,
-      source: q.source,
-      priority: q.priority,
-      totalAnswersCount: q.totalAnswersCount,
-      createdAt: q.createdAt || new Date(),
-      state: q.state,
-      district: q.district,
-      crop: q.crop,
-      domain: q.domain,
-      season: q.season,
-      normalised_crop: q.normalised_crop,
-      answer: q.answer ? {
-        _id: q.answer._id.toString(),
-        answer: q.answer.answer,
-        sources: q.answer.sources || [],
-        authorId: q.answer.authorId.toString(),
-        isFinalAnswer: q.answer.isFinalAnswer,
-      } : undefined,
-    }));
-    
+    const questionsWithAnswers: PaeValidationQuestion[] =
+      paginatedQuestions.map(q => ({
+        _id: q._id.toString(),
+        question: q.question,
+        status: q.status,
+        source: q.source,
+        priority: q.priority,
+        totalAnswersCount: q.totalAnswersCount,
+        createdAt: q.createdAt || new Date(),
+        state: q.state,
+        district: q.district,
+        crop: q.crop,
+        domain: q.domain,
+        season: q.season,
+        normalised_crop: q.normalised_crop,
+        answer: q.answer
+          ? {
+              _id: q.answer._id.toString(),
+              answer: q.answer.answer,
+              sources: q.answer.sources || [],
+              authorId: q.answer.authorId.toString(),
+              isFinalAnswer: q.answer.isFinalAnswer,
+            }
+          : undefined,
+      }));
+
     return {
       questions: questionsWithAnswers,
       totalCount,
@@ -10525,12 +10637,12 @@ if (filters.endDate) {
 
   /**
    * Process a PAE validation decision (approve or provide feedback).
-   * 
+   *
    * When status is 'approve':
    * - Updates question.paeValidation to 'completed'
    * - Removes the question from the user's paeValidationAssigned array
    * - Updates the question submission's paeValidation array entry to 'completed' with paeFinishedAt
-   * 
+   *
    * When status is 'feedback':
    * - Currently just logs the feedback; can be extended to store feedback in the submission
    * - The question remains in the user's paeValidationAssigned for further work
@@ -10543,7 +10655,7 @@ if (filters.endDate) {
     suggestionLink?: string,
     answerId?: string,
     suggestionSourceName?: string,
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{success: boolean; message: string}> {
     // Verify the question exists and is assigned to this PAE expert
     const question = await this.questionRepo.getById(questionId);
     if (!question) {
@@ -10564,9 +10676,9 @@ if (filters.endDate) {
     }
 
     const questionIds = (user.paeValidationAssigned || []).map(id =>
-      typeof id === 'string' ? id : (id as ObjectId).toString()
+      typeof id === 'string' ? id : (id as ObjectId).toString(),
     );
-    
+
     if (!questionIds.includes(questionId)) {
       throw new BadRequestError(
         `Question ${questionId} is not assigned to this PAE expert`,
@@ -10607,7 +10719,7 @@ if (filters.endDate) {
     } else {
       // Status is 'feedback' - store the feedback and keep the question assigned
       const now = new Date();
-      
+
       await this._withTransaction(async (session: ClientSession) => {
         // 1. Update the question submission's paeValidation array entry with paeFinishedAt
         // (Mark this validation round as finished even though we're providing feedback)
@@ -10641,19 +10753,25 @@ if (filters.endDate) {
           comment: suggestionComment || '',
           answerId: answerId ? new ObjectId(answerId) : undefined,
           link: suggestionLink
-            ? { name: suggestionSourceName || suggestionLink, source: suggestionLink }
+            ? {
+                name: suggestionSourceName || suggestionLink,
+                source: suggestionLink,
+              }
             : undefined,
           status: 'open',
           createdAt: now,
         };
 
-        const createdFeedback = await this.feedbackRepo.create(feedbackData, session);
+        const createdFeedback = await this.feedbackRepo.create(
+          feedbackData,
+          session,
+        );
 
         await this.questionRepo.updateQuestion(
-                  questionId,
-                  {autoAllocateFeedback: true} as any,
-                  session,
-                );
+          questionId,
+          {autoAllocateFeedback: true} as any,
+          session,
+        );
 
         // 3. Update the question's feedbacks array
         await this.questionRepo.addFeedback(
