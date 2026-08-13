@@ -1055,6 +1055,29 @@ export class UserRepository implements IUserRepository {
    *  them; moderators use findAvailableStfModerators*, not this method.) */
   async findAvailableUsersByRole(role: UserRole): Promise<IUser[]> {
     await this.init();
+    const emptyFeedbacks = [
+      { feedbacksAssigned: { $exists: false } },
+      { feedbacksAssigned: null },
+      { feedbacksAssigned: { $size: 0 } },
+    ];
+    // What counts as "already busy with a question":
+    //  - Auditors: only a TIME-BOUND (AJRASAKHA/WHATSAPP) assigned question blocks
+    //    them; a manual-source auditor question does NOT (time-bound = the one slot).
+    //  - Other roles (gate keeper): any assigned question blocks (strict, unchanged).
+    const noBlockingQuestion =
+      role === 'auditor'
+        ? {
+            assignedQuestionIds: {
+              $not: { $elemMatch: { source: { $in: TIME_BOUND_SOURCES } } },
+            },
+          }
+        : {
+            $or: [
+              { assignedQuestionIds: { $exists: false } },
+              { assignedQuestionIds: null },
+              { assignedQuestionIds: { $size: 0 } },
+            ],
+          };
     return this.usersCollection
       .find({
         role,
@@ -1062,14 +1085,11 @@ export class UserRepository implements IUserRepository {
         // Only active users. status defaults to 'active' on creation, so treat a
         // missing/null status as active and exclude only explicitly in-active users.
         status: { $ne: 'in-active' },
-
-        $or: [
-          { assignedQuestionIds: { $exists: false } },
-          { assignedQuestionIds: null },
-          { assignedQuestionIds: { $size: 0 } },
-        ],
-
-      })
+        // Free of a blocking question AND any feedback — an auditor holds EITHER one
+        // time-bound item (question OR feedback), never both. Gate keepers never
+        // receive feedback, so the feedbacksAssigned clause is a no-op for them.
+        $and: [noBlockingQuestion, { $or: emptyFeedbacks }],
+      } as any)
       .toArray();
   }
 
@@ -1233,6 +1253,30 @@ export class UserRepository implements IUserRepository {
     const result = await this.usersCollection.updateOne(
       {
         _id: new ObjectId(moderatorId),
+        // Auditor either-or guard (mirrors findAvailableUsersByRole): an auditor's one
+        // time-bound slot must be free — no feedback AND no time-bound assigned
+        // question. A manual-source assigned question is fine. Non-auditors are
+        // unconstrained.
+        $or: [
+          { role: { $ne: 'auditor' } },
+          {
+            role: 'auditor',
+            $and: [
+              {
+                $or: [
+                  { feedbacksAssigned: { $exists: false } },
+                  { feedbacksAssigned: null },
+                  { feedbacksAssigned: { $size: 0 } },
+                ],
+              },
+              {
+                assignedQuestionIds: {
+                  $not: { $elemMatch: { source: { $in: TIME_BOUND_SOURCES } } },
+                },
+              },
+            ],
+          },
+        ],
       },
       [
         {
