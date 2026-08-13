@@ -16,6 +16,7 @@
 import {spawn} from 'child_process';
 import path from 'path';
 import {fileURLToPath} from 'url';
+import {sendEmailNotification} from '#root/utils/mailer.js';
 
 // build/jobs/dataset-app-sync/run.js -> ../../../scripts (i.e. backend/scripts,
 // which the Dockerfile copies to /app/scripts alongside /app/build).
@@ -24,25 +25,37 @@ const SCRIPTS_DIR = path.resolve(__dirname, '../../../scripts');
 
 const SCRIPT = 'sync-dataset-app.mjs';
 
-function runScript(scriptFile: string): Promise<void> {
+function runScript(scriptFile: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const scriptPath = path.join(SCRIPTS_DIR, scriptFile);
     const child = spawn('node', [scriptPath, '--apply'], {
-      stdio: 'inherit',
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: process.env,
     });
 
+    let output = '';
+
+    child.stdout?.on('data', data => {
+      process.stdout.write(data);
+      output += data.toString();
+    });
+
+    child.stderr?.on('data', data => {
+      process.stderr.write(data);
+      output += data.toString();
+    });
+
     child.on('error', err => {
-      reject(new Error(`Failed to start ${scriptFile}: ${err.message}`));
+      reject(new Error(`Failed to start ${scriptFile}: ${err.message}\n\nOutput:\n${output}`));
     });
 
     child.on('exit', (code, signal) => {
       if (code === 0) {
-        resolve();
+        resolve(output);
       } else {
         reject(
           new Error(
-            `${scriptFile} exited with code ${code}${signal ? ` (signal ${signal})` : ''}`,
+            `${scriptFile} exited with code ${code}${signal ? ` (signal ${signal})` : ''}\n\nOutput:\n${output}`,
           ),
         );
       }
@@ -52,8 +65,31 @@ function runScript(scriptFile: string): Promise<void> {
 
 async function main(): Promise<void> {
   console.log(`[dataset-app-sync-job] ▶ starting ${SCRIPT} --apply`);
-  await runScript(SCRIPT);
-  console.log('[dataset-app-sync-job] ✅ sync completed successfully');
+  const emailTo = process.env.BACKUP_NOTIFICATION_EMAIL;
+  try {
+    const output = await runScript(SCRIPT);
+    console.log('[dataset-app-sync-job] ✅ sync completed successfully');
+    
+    if (emailTo) {
+      await sendEmailNotification(
+        emailTo,
+        'Dataset App Sync - Success',
+        '',
+        `<p>The daily sync from Review System to Dataset Application completed successfully.</p><pre>${output}</pre>`
+      );
+      console.log(`[dataset-app-sync-job] 📧 Success email sent to ${emailTo}`);
+    }
+  } catch (err) {
+    if (emailTo) {
+      await sendEmailNotification(
+        emailTo,
+        'Dataset App Sync - FAILED',
+        '',
+        `<p>The daily sync from Review System to Dataset Application <b>FAILED</b>.</p><pre>${err instanceof Error ? err.message : String(err)}</pre>`
+      ).catch(e => console.error('[dataset-app-sync-job] Failed to send error email', e));
+    }
+    throw err;
+  }
 }
 
 main()
