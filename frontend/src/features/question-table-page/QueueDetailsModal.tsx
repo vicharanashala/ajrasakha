@@ -25,6 +25,7 @@ import {
   ShieldUser,
   GraduationCap,
   MessageSquare,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetQueueDetails } from "@/hooks/api/question/useGetQueueDetails";
@@ -39,6 +40,7 @@ import type {
 import { formatDate } from "@/utils/formatDate";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
+import { useGetPaeValidationQueueDetails } from "@/hooks/api/question/useGetPaeValidationQueueDetails";
 
 type SectionColor = "blue" | "green" | "amber" | "violet" | "red" | "slate";
 
@@ -1386,6 +1388,162 @@ export const FeedbackQueueModal = ({
               onToggle={() => toggle("questionsWithoutActiveModerator")}
               emptyText="None"
               renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+            />
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ── Pae Validation Queue tab ───────────────────────────────────────────────────────
+
+const PaeSection = FbSection
+export const PaeValidationQueueModal = ({
+  setIsSidebarOpen,
+}: {
+  setIsSidebarOpen?: (v: boolean) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<string | null>("waitingAuto");
+  const { goToQuestion } = useNavigateToQuestion();
+
+  useEffect(() => {
+    if (sessionStorage.getItem("reopenPaeValidationQueue") === "1") {
+      sessionStorage.removeItem("reopenPaeValidationQueue");
+      setOpen(true);
+      setIsSidebarOpen?.(false);
+    }
+  }, [setIsSidebarOpen]);
+
+  const handleQuestionClick = (item: QueueQuestionItem) => {
+    sessionStorage.setItem("reopenPaeValidationQueue", "1");
+    setOpen(false);
+    goToQuestion(item._id, "moderator_queue");
+  };
+
+  const { data, isLoading, isError, error, refetch, isFetching } =
+    useGetPaeValidationQueueDetails(open);
+  console.log('dataaa:',data)
+  const toggle = (key: string) =>
+    setOpenSection((prev) => (prev === key ? null : key));
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) setIsSidebarOpen?.(false);
+      }}
+    >
+      <DialogTrigger asChild>
+        <button className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-orange-50 dark:hover:bg-orange-500/5 border border-gray-200 dark:border-gray-800 hover:border-orange-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-400">
+              <ClipboardCheck size={20} />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                PAE Validation Queue
+              </p>
+              <p className="text-[11px] text-gray-500">
+                PAE validation allocation overview
+              </p>
+            </div>
+          </div>
+        </button>
+      </DialogTrigger>
+
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-[90vw] max-h-[90vh] overflow-y-auto [&_[data-slot=dialog-close]]:size-8 [&_[data-slot=dialog-close]]:flex [&_[data-slot=dialog-close]]:items-center [&_[data-slot=dialog-close]]:justify-center [&_[data-slot=dialog-close]]:rounded-md [&_[data-slot=dialog-close]]:opacity-100 [&_[data-slot=dialog-close]]:transition-colors [&_[data-slot=dialog-close]:hover]:bg-muted [&_[data-slot=dialog-close]_svg]:size-5">
+        <DialogHeader className="space-y-1 pr-8">
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <ClipboardCheck className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+            Pae Validation Queue
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Open-pae validation questions, who they&apos;ll be assigned to, and free reviewers
+          </p>
+        </DialogHeader>
+
+        <div className="flex items-center justify-end border-b border-gray-100 dark:border-gray-800 pb-3">
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60 transition-colors"
+          >
+            <RefreshCcw size={13} className={cn(isFetching && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading pae validation queue…
+          </div>
+        ) : isError ? (
+          <div className="py-12 text-center">
+            <AlertTriangle className="h-6 w-6 text-red-500 mx-auto mb-2" />
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {error?.message || "Failed to load pae validation queue"}
+            </p>
+            <button type="button" onClick={() => refetch()} className="mt-3 text-xs font-medium text-blue-600 hover:underline">
+              Try again
+            </button>
+          </div>
+        ) : data ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 py-2">
+            {/* need */}
+            <PaeSection<QueueQuestionItem>
+              icon={<Hourglass size={18} />}
+              color="amber"
+              title="Waiting — Auto Allocate"
+              description="Open pae validation, auto-allocation ON, no reviewer yet"
+              count={data.waitingAuto.count}
+              items={data.waitingAuto.items}
+              isOpen={openSection === "waitingAuto"}
+              onToggle={() => toggle("waitingAuto")}
+              emptyText="Nothing waiting"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+            />
+            {/* need */}
+            <PaeSection<QueueQuestionItem>
+              icon={<Power size={18} />}
+              color="blue"
+              title="Waiting — Manual (Auto Off)"
+              description="Open pae validation, auto-allocation OFF, unassigned"
+              count={data.waitingManual.count}
+              items={data.waitingManual.items}
+              isOpen={openSection === "waitingManual"}
+              onToggle={() => toggle("waitingManual")}
+              emptyText="Nothing waiting (manual)"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+            />
+            {/* need */}
+            <PaeSection<QueueQuestionItem>
+              icon={<UserCheck size={18} />}
+              color="green"
+              title="Assigned Pae Validation Questions"
+              description="Open pae validation with a reviewer assigned"
+              count={data.assigned.count}
+              items={data.assigned.items}
+              isOpen={openSection === "assigned"}
+              onToggle={() => toggle("assigned")}
+              emptyText="No assigned pae validation"
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showAssignee assigneeLabel="Reviewer" onClick={() => handleQuestionClick(q)} />}
+            />
+            {/* need */}
+            <PaeSection<QueueExpertItem>
+              icon={<ShieldUser size={18} />}
+              color="violet"
+              title="Available Pae Experts"
+              description="Pae Experts free to take pae validation"
+              count={data.availablePaeExperts.count}
+              items={data.availablePaeExperts.items}
+              isOpen={openSection === "availableModerators"}
+              onToggle={() => toggle("availableModerators")}
+              emptyText="No available moderators"
+              renderItem={(e) => <ExpertRow key={e._id} item={e} />}
             />
           </div>
         ) : null}

@@ -77,6 +77,14 @@ export type FeedbackQueueDetailsResponse = {
   questionsWithoutActiveModerator: { count: number; items: QueueQuestionItem[] };
 };
 
+/** Data for the dedicated Pae tab. */
+export type PaeValidationQueueDetailsResponse = {
+  waitingAuto: { count: number; items: QueueQuestionItem[] };
+  waitingManual: { count: number; items: QueueQuestionItem[] };
+  assigned: { count: number; items: QueueQuestionItem[] };
+  availablePaeExperts: { count: number; items: QueueExpertItem[] };
+};
+
 /** Source item within an answer's sources array for PAE validation */
 export type PaeValidationSource = {
   source: string;
@@ -1341,6 +1349,16 @@ export class QuestionService {
       success: boolean;
       data: FeedbackQueueDetailsResponse;
     }>(`${this._baseUrl}/feedback/queue-details`, {
+      method: "GET",
+    });
+    return res?.data ?? null;
+  }
+
+  async getPaeValidaitonQueueDetails(): Promise<PaeValidationQueueDetailsResponse | null> {
+    const res = await apiFetch<{
+      success: boolean;
+      data: PaeValidationQueueDetailsResponse;
+    }>(`${this._baseUrl}/pae-val/queue-details`, {
       method: "GET",
     });
     return res?.data ?? null;
