@@ -3846,16 +3846,118 @@ export class QuestionRepository implements IQuestionRepository {
       gateKeeperHours: number;
     }[];
     // todayApproved counts ONLY questions closed as plain 'closed' (Push to GDB) —
-    // not the Notify-User closes (dynamic_closed / duplicate_closed). The per-status
-    // breakdown still carries all three.
-    const totalApproved = moderatorBreakdown.reduce(
-      (sum, item) => sum + (item.closedCount ?? 0),
-      0,
-    );
+    // not the Notify-User closes (dynamic_closed / duplicate_closed). Compute it as a
+    // DIRECT count of closed questions in the window (not the by-approver breakdown
+    // sum) so it isn't undercounted when a closed question has no attributable final
+    // answer / approver — those are dropped from the per-approver breakdown but must
+    // still be counted in the total.
+    const totalApproved = await this.QuestionCollection.countDocuments({
+      status: 'closed',
+      closedAt: { $gte: start, $lt: end },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
+    } as any);
 
     return {
       todayApproved: totalApproved,
       moderatorBreakdown: moderatorBreakdown,
+    };
+  }
+
+  /** Diagnostic: closed questions in a window vs their answers. Surfaces the
+   *  "count mismatch" — closed questions that DON'T have a final answer with a valid
+   *  ObjectId `approvedBy` (the ones dropped from the moderator breakdown), with the
+   *  reason (no answers / no final answer / final answer missing approver / approvedBy
+   *  stored as a non-ObjectId). */
+  async getClosedAnswerMismatch(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
+    window: { start: Date; end: Date };
+    totalClosed: number;
+    matched: number;
+    mismatched: number;
+    items: any[];
+  }> {
+    await this.init();
+    const rows = (await this.QuestionCollection.aggregate([
+      { $match: { status: 'closed', closedAt: { $gte: startDate, $lt: endDate } } },
+      {
+        $lookup: {
+          from: 'answers',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'answers',
+        },
+      },
+      {
+        $addFields: {
+          totalAnswers: { $size: '$answers' },
+          finalAnswers: {
+            $filter: {
+              input: '$answers',
+              as: 'a',
+              cond: { $eq: ['$$a.isFinalAnswer', true] },
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          // Final answers that have a proper ObjectId approvedBy — what the breakdown counts.
+          finalWithObjectIdApprover: {
+            $filter: {
+              input: '$finalAnswers',
+              as: 'a',
+              cond: {
+                $and: [
+                  { $ne: [{ $ifNull: ['$$a.approvedBy', null] }, null] },
+                  { $eq: [{ $type: '$$a.approvedBy' }, 'objectId'] },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          question: 1,
+          source: 1,
+          status: 1,
+          closedBy: 1,
+          closedAt: 1,
+          moderatorId: 1,
+          totalAnswers: 1,
+          finalAnswerCount: { $size: '$finalAnswers' },
+          finalWithApproverCount: { $size: '$finalWithObjectIdApprover' },
+          // approvedBy value + BSON type on each final answer, to spot string ids.
+          finalAnswerApprovers: {
+            $map: {
+              input: '$finalAnswers',
+              as: 'a',
+              in: {
+                approvedBy: '$$a.approvedBy',
+                approvedByType: { $type: '$$a.approvedBy' },
+                status: '$$a.status',
+              },
+            },
+          },
+          isMatched: { $gt: [{ $size: '$finalWithObjectIdApprover' }, 0] },
+        },
+      },
+      { $sort: { closedAt: 1 } },
+    ]).toArray()) as any[];
+
+    const mismatchedItems = rows.filter(r => !r.isMatched);
+    return {
+      window: { start: startDate, end: endDate },
+      totalClosed: rows.length,
+      matched: rows.length - mismatchedItems.length,
+      mismatched: mismatchedItems.length,
+      items: mismatchedItems,
     };
   }
 

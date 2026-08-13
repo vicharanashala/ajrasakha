@@ -766,6 +766,14 @@ export interface IQuestionService {
     skippedNoApprover: number;
   }>;
 
+  getClosedAnswerMismatch(startTime?: Date, endTime?: Date): Promise<{
+    window: { start: Date; end: Date };
+    totalClosed: number;
+    matched: number;
+    mismatched: number;
+    items: any[];
+  }>;
+
   getFeedbackQueueDetails(): Promise<FeedbackQueueDetails>;
 
   handleFeedbackStatusUpdate(

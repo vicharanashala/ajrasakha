@@ -327,6 +327,7 @@ export interface IQuestionRepository {
   * @returns A promise that resolves to question document
   */
   getTodayApproved(isTrainingUser?: boolean, isAdmin?: boolean, session?:ClientSession):Promise<{todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[]}>;
+  getClosedAnswerMismatch(startDate: Date, endDate: Date): Promise<{ window: { start: Date; end: Date }; totalClosed: number; matched: number; mismatched: number; items: any[] }>;
 
   /**
    * get monthly analytics.

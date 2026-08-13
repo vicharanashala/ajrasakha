@@ -9929,6 +9929,31 @@ export class QuestionService extends BaseService implements IQuestionService {
    * answer (isFinalAnswer: true) `approvedBy` — the approver is effectively the
    * moderator. Paginated via `limit` so it can be run repeatedly until nothing is left.
    */
+  /** Diagnostic: closed questions in a window that don't have a final answer with a
+   *  valid ObjectId approvedBy — i.e. the ones dropped from the moderator breakdown,
+   *  which explains the "closed count vs breakdown count" mismatch. */
+  async getClosedAnswerMismatch(
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<{
+    window: { start: Date; end: Date };
+    totalClosed: number;
+    matched: number;
+    mismatched: number;
+    items: any[];
+  }> {
+    let start = startTime;
+    let end = endTime;
+    if (!start || !end) {
+      // Default to the current IST day if no window is given.
+      start = new Date();
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      end.setDate(end.getDate() + 1);
+    }
+    return this.questionRepo.getClosedAnswerMismatch(start, end);
+  }
+
   async backfillClosedModeratorIds(limit = 500): Promise<{
     matched: number;
     updated: number;
