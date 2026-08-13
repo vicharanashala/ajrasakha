@@ -44,6 +44,12 @@ import {WhatsappUsers} from '#root/utils/dummyWhatsAppUsers.js';
 import {access} from 'node:fs';
 import {aiConfig} from '#root/config/ai.js';
 import {appConfig} from '#root/config/app.js';
+import {emailConfig} from '#root/config/mail.js';
+import {getISTStartOfToday} from '#root/utils/date.utils.js';
+import {
+  buildResponseAdherenceCsv,
+  buildResponseAdherenceHtmlTable,
+} from '../utils/responseAdherenceReport.js';
 import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
@@ -3997,6 +4003,54 @@ export class ChatbotService extends BaseService implements IChatbotService {
       console.error('Error in sendResponseAdherenceReportEmail:', error);
       throw error;
     }
+  }
+
+  /**
+   * Cloud Run Job entrypoint for the daily 7 PM (Asia/Kolkata) Response Adherence Summary
+   * report — see backend/src/jobs/response-adherence-report/run.ts. 
+   */
+  async sendDailyResponseAdherenceReportEmail(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    const recipients = (emailConfig.RESPONSE_ADHERENCE_REPORT_EMAILS || '')
+      .split(',')
+      .map(email => email.trim())
+      .filter(Boolean);
+
+    if (!recipients.length) {
+      console.warn(
+        '[sendDailyResponseAdherenceReportEmail] RESPONSE_ADHERENCE_REPORT_EMAILS is not configured; skipping send.',
+      );
+      return {
+        success: false,
+        message: 'RESPONSE_ADHERENCE_REPORT_EMAILS is not configured; report was not sent',
+      };
+    }
+
+    const now = new Date();
+    const startOfDayIST = getISTStartOfToday(now);
+    const dateLabel = now.toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
+
+    // source is intentionally left undefined (all sources combined) — the report's three
+    // columns (Whatsapp / AjraSakha / Manual) are the breakdown, not the `source` filter.
+    const table = await this.getResponseAdherenceTable(
+      undefined,
+      'all',
+      startOfDayIST.toISOString(),
+      now.toISOString(),
+    );
+
+    const reportContent = buildResponseAdherenceCsv(table, dateLabel);
+    const reportHtml = buildResponseAdherenceHtmlTable(table, dateLabel);
+
+    return this.sendResponseAdherenceReportEmail(
+      recipients,
+      reportContent,
+      `response-adherence-report-${dateLabel}.csv`,
+      {userType: 'all', startDate: dateLabel, endDate: dateLabel},
+      reportHtml,
+    );
   }
 
   async getQuestionsByCrop(

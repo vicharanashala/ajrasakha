@@ -403,7 +403,12 @@ export interface IChatbotService {
     reportHtml?: string,
   ): Promise<{success: boolean; message: string}>;
 
-  getQuestionsByStatus(        
+  sendDailyResponseAdherenceReportEmail(): Promise<{
+    success: boolean;
+    message: string;
+  }>;
+
+  getQuestionsByStatus(
     status?: string,
     page?: number,
     limit?: number,

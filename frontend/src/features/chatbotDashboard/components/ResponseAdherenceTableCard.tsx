@@ -3,7 +3,7 @@ import { Button } from "@/components/atoms/button";
 import { useState } from "react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { CalendarIcon, ClipboardCheck, Download, InfoIcon, Mail, RefreshCw } from "lucide-react";
+import { CalendarIcon, ClipboardCheck, Download, InfoIcon, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/atoms/accordion";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,9 +11,6 @@ import { Skeleton } from "@/components/atoms/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import { BreakdownTooltip } from "@/components/atoms/source-breakdown-tooltip";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
-import { Input } from "@/components/atoms/input";
-import { useSendResponseAdherenceReportEmail } from "../hooks/useSendResponseAdherenceReportEmail";
 
 type ResponseAdherenceTableData = {
   date: string;
@@ -630,11 +627,6 @@ export function ResponseAdherenceTableCard({
   );
 
   const effectiveDate = selectedDate ?? internalDate;
-
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [emailInput, setEmailInput] = useState("");
-  const [emailInputError, setEmailInputError] = useState<string | null>(null);
-  const sendReportEmail = useSendResponseAdherenceReportEmail();
 
   const toggleRow = (rowId: string) =>
     setCheckedRows((prev) => ({ ...prev, [rowId]: !prev[rowId] }));
@@ -1418,42 +1410,6 @@ export function ResponseAdherenceTableCard({
     return `response-adherence-report-${effectiveDate}-${timestamp}.csv`;
   };
 
-  const htmlEscape = (value: string | number) => {
-    const str = String(value ?? "");
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  };
-
-  // Same full-table data as the email's CSV attachment, rendered as an inline-styled
-  // HTML table so it also displays directly in the email body (not just as an attachment).
-  const buildReportHtmlTable = (): string | null => {
-    const selectedRows = rowExportData.filter((row) => ALL_ROW_IDS.includes(row.id));
-    if (!selectedRows.length) return null;
-
-    const thStyle =
-      "padding:8px;border:1px solid #e5e5e5;text-align:left;background:#f5f5f5;font-family:sans-serif;font-size:13px;";
-    const tdStyle =
-      "padding:8px;border:1px solid #e5e5e5;font-family:sans-serif;font-size:13px;";
-
-    const headerCells = ["Field", "Whatsapp", "AjraSakha", "Manual", "Notes"]
-      .map((label) => `<th style="${thStyle}">${htmlEscape(label)}</th>`)
-      .join("");
-
-    const bodyRows = selectedRows
-      .map((row) => {
-        const cells = [row.field, row.whatsapp, row.ajraSakha, row.manual, row.notes]
-          .map((value) => `<td style="${tdStyle}">${htmlEscape(value)}</td>`)
-          .join("");
-        return `<tr>${cells}</tr>`;
-      })
-      .join("");
-
-    return `<table style="border-collapse:collapse;width:100%;margin-top:12px;"><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
-  };
-
   const handleDownloadSelectedFields = () => {
     const csvContent = buildCsvContent();
     if (!csvContent) return;
@@ -1467,57 +1423,6 @@ export function ResponseAdherenceTableCard({
     anchor.click();
     document.body.removeChild(anchor);
     URL.revokeObjectURL(downloadUrl);
-  };
-
-  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  const parseEmailInput = (value: string): string[] =>
-    value
-      .split(/[,\s]+/)
-      .map((email) => email.trim())
-      .filter(Boolean);
-
-  const handleSendReportEmail = () => {
-    const emails = parseEmailInput(emailInput);
-    if (!emails.length) {
-      setEmailInputError("Enter at least one email address");
-      return;
-    }
-    const invalidEmails = emails.filter((email) => !EMAIL_REGEX.test(email));
-    if (invalidEmails.length) {
-      setEmailInputError(`Invalid email address: ${invalidEmails.join(", ")}`);
-      return;
-    }
-    // Email always includes the full table exactly as shown in the UI,
-    // independent of whatever rows/columns are checked in the download panel.
-    const csvContent = buildCsvContent({
-      rowIds: ALL_ROW_IDS,
-      columns: { whatsapp: true, ajraSakha: true, manual: true },
-    });
-    if (!csvContent) {
-      setEmailInputError("No report data available to send yet");
-      return;
-    }
-    const reportHtml = buildReportHtmlTable();
-
-    setEmailInputError(null);
-    sendReportEmail.mutate(
-      {
-        emails,
-        reportContent: csvContent,
-        reportHtml: reportHtml ?? undefined,
-        fileName: buildReportFileName(),
-        userType,
-        startDate: effectiveDate,
-        endDate: effectiveDate,
-      },
-      {
-        onSuccess: () => {
-          setEmailDialogOpen(false);
-          setEmailInput("");
-        },
-      },
-    );
   };
 
   const rowCheck = (rowId: string) => (
@@ -1827,24 +1732,6 @@ export function ResponseAdherenceTableCard({
                         Download .xlsx
                       </Button>
                     </motion.div>
-
-                    {/* Email Report */}
-                    <motion.div
-                      whileHover={{ y: -1 }}
-                      whileTap={{ scale: 0.97 }}
-                    >
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEmailDialogOpen(true)}
-                        disabled={isLoading || sendReportEmail.isPending}
-                        className="h-9 px-4 text-sm gap-2 border-border/70 bg-background/80 shadow-sm hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-                      >
-                        <Mail className="w-3.5 h-3.5" />
-                        Email Report
-                      </Button>
-                    </motion.div>
                   </div>
                 </div>
               </AccordionTrigger>
@@ -2046,52 +1933,6 @@ export function ResponseAdherenceTableCard({
           </AccordionItem>
         </Accordion>
       </Card>
-
-      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Email Response Adherence Report</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-foreground">
-              Recipient email address(es)
-            </label>
-            <Input
-              type="text"
-              placeholder="name@example.com, name2@example.com"
-              value={emailInput}
-              onChange={(e) => {
-                setEmailInput(e.target.value);
-                if (emailInputError) setEmailInputError(null);
-              }}
-              aria-invalid={!!emailInputError}
-            />
-            <span className="text-xs text-muted-foreground">
-              Separate multiple addresses with a comma or space.
-            </span>
-            {emailInputError && (
-              <span className="text-xs text-destructive">{emailInputError}</span>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setEmailDialogOpen(false)}
-              disabled={sendReportEmail.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSendReportEmail}
-              disabled={sendReportEmail.isPending}
-            >
-              {sendReportEmail.isPending ? "Sending..." : "Send"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </motion.div>
   );
 }
