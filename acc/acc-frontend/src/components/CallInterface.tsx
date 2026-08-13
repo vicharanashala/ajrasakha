@@ -666,14 +666,6 @@ export const CallInterface = () => {
     setEditableDistrict("");
     setEditableDomain([]);
     setEditableSeason("");
-    setEditableFarmerName("");
-    setEditableFarmerPhone("");
-    setEditableFarmerAge("");
-    setEditableFarmerGender("");
-    setEditableFarmerVillage("");
-    setEditableFarmerBlock("");
-    setEditableFarmerPrimaryCrop("");
-    setShouldUpdateFarmerProfile(true);
   };
 
   const handleResetConversation = () => {
@@ -700,14 +692,6 @@ export const CallInterface = () => {
     setEditableDistrict("");
     setEditableDomain([]);
     setEditableSeason("");
-    setEditableFarmerName("");
-    setEditableFarmerPhone("");
-    setEditableFarmerAge("");
-    setEditableFarmerGender("");
-    setEditableFarmerVillage("");
-    setEditableFarmerBlock("");
-    setEditableFarmerPrimaryCrop("");
-    setShouldUpdateFarmerProfile(true);
     setIsSimulatingMode(false);
     setSimText("");
     setSimOriginalText("");
@@ -967,62 +951,13 @@ export const CallInterface = () => {
           : [extractedData.extracted_domain]
         : [];
 
-      // Save/update farmer details if option is enabled and phone number is provided
-      if (shouldUpdateFarmerProfile && editableFarmerPhone.trim()) {
-        try {
-          const phoneNoKey = editableFarmerPhone.trim();
-          const profilePayload = {
-            farmerName: editableFarmerName.trim() || undefined,
-            phoneNo: phoneNoKey,
-            age: editableFarmerAge.trim() ? parseInt(editableFarmerAge.trim(), 10) : undefined,
-            gender: editableFarmerGender.trim() || undefined,
-            villageName: editableFarmerVillage.trim() || undefined,
-            blockName: editableFarmerBlock.trim() || undefined,
-            state: editableState.trim() || undefined,
-            district: editableDistrict.trim() || undefined,
-            primaryCrop: editableFarmerPrimaryCrop.trim() || undefined,
-          };
-
-          console.log(`[FARMER_FLOW] Saving/updating farmer details for phone ${phoneNoKey}:`, profilePayload);
-
-          // Check if farmer exists
-          let existing = null;
-          try {
-            existing = await plivoService.getFarmerByPhoneNo(phoneNoKey);
-          } catch (err) {
-            console.warn(`[FARMER_FLOW] Error checking existing farmer:`, err);
-          }
-
-          if (existing && existing.profile) {
-            // Update
-            const updatedProfile = { ...existing.profile, ...profilePayload };
-            await plivoService.updateFarmer(phoneNoKey, updatedProfile);
-            console.log(`[FARMER_FLOW] Successfully updated farmer profile for ${phoneNoKey}`);
-          } else {
-            // Create
-            await plivoService.createFarmer(phoneNoKey, profilePayload);
-            console.log(`[FARMER_FLOW] Successfully created farmer profile for ${phoneNoKey}`);
-          }
-        } catch (farmerErr) {
-          console.error(`[FARMER_FLOW] Failed to auto-save farmer profile:`, farmerErr);
-          toast.error("Failed to automatically save farmer profile details.");
-        }
-      }
-
       const wasEdited =
         editableQuery !== extractedData?.extracted_query ||
         editableCrop !== extractedData?.extracted_crop ||
         editableState !== extractedData?.extracted_state ||
         editableDistrict !== extractedData?.extracted_district ||
         JSON.stringify(finalDomain) !== JSON.stringify(extractedDomainArray) ||
-        editableSeason !== "" ||
-        editableFarmerName !== (extractedData?.extracted_name || "") ||
-        editableFarmerPhone !== (extractedData?.extracted_phone || "") ||
-        editableFarmerAge !== (extractedData?.extracted_age !== undefined && extractedData?.extracted_age !== null ? String(extractedData.extracted_age) : "") ||
-        editableFarmerGender !== (extractedData?.extracted_gender || "") ||
-        editableFarmerVillage !== (extractedData?.extracted_village || "") ||
-        editableFarmerBlock !== (extractedData?.extracted_block || "") ||
-        editableFarmerPrimaryCrop !== (extractedData?.extracted_primary_crop || "");
+        editableSeason !== (extractedData as any)?.extracted_season;
 
       if (wasEdited) {
         // Step 3: Update state with corrections
@@ -1035,13 +970,6 @@ export const CallInterface = () => {
             district: editableDistrict,
             domain: finalDomain,
             season: editableSeason,
-            farmerName: editableFarmerName.trim() || undefined,
-            farmerPhone: editableFarmerPhone.trim() || undefined,
-            farmerAge: editableFarmerAge.trim() ? parseInt(editableFarmerAge.trim(), 10) : undefined,
-            farmerGender: editableFarmerGender.trim() || undefined,
-            farmerVillage: editableFarmerVillage.trim() || undefined,
-            farmerBlock: editableFarmerBlock.trim() || undefined,
-            farmerPrimaryCrop: editableFarmerPrimaryCrop.trim() || undefined,
           },
         });
         toast.info("Updated extracted data with your corrections.");
@@ -1053,7 +981,7 @@ export const CallInterface = () => {
         extracted_crop: editableCrop,
         extracted_state: editableState,
         extracted_district: editableDistrict,
-        extracted_block: editableFarmerBlock,
+        extracted_block: extractedData?.extracted_block || "",
         standardized_domains: finalDomain,
         extracted_domain: finalDomain,
         extracted_season: editableSeason,
@@ -1079,7 +1007,7 @@ export const CallInterface = () => {
           : finalAnswerObj?.final_answer || result?.final_answer || "";
 
       const weather = finalAnswerObj?.weather || null;
-      const similarPair = finalAnswerObj?.gdb?.similar_pair1 || null;
+      const similarPair = finalAnswerObj?.gdb?.similar_pair1 || finalAnswerObj?.gdb?.exact_match || null;
       const authorName = similarPair?.details?.[0]?.author_name || "";
       const sourceName = similarPair?.details?.[0]?.source_name || "";
       const sourceLink = similarPair?.details?.[0]?.source_link || "";

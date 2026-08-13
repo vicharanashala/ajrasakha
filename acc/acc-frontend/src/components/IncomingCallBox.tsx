@@ -1389,10 +1389,10 @@ export const IncomingCallBox = ({
             </div>
 
             {/* Expandable Sections (Only shown when explicitly expanded) */}
-            {(incomingCall || lastCallNumber) && isFarmerInfoExpanded && (
+            {(incomingCall || lastCallNumber || extractedFarmerProfile) && isFarmerInfoExpanded && (
               <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                 <FarmerDetails
-                  phoneNo={incomingCall?.number || lastCallNumber || ""}
+                  phoneNo={incomingCall?.number || lastCallNumber || extractedFarmerProfile?.phoneNo || ""}
                   defaultOpen={false}
                   extractedProfile={extractedFarmerProfile}
                   className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10"
