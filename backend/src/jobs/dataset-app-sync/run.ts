@@ -17,6 +17,7 @@ import {spawn} from 'child_process';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import {sendEmailNotification} from '#root/utils/mailer.js';
+import {appConfig} from '#root/config/app.js';
 
 // build/jobs/dataset-app-sync/run.js -> ../../../scripts (i.e. backend/scripts,
 // which the Dockerfile copies to /app/scripts alongside /app/build).
@@ -63,6 +64,39 @@ function runScript(scriptFile: string): Promise<string> {
   });
 }
 
+function buildEmailTemplate(title: string, message: string, details: string, isError: boolean = false): string {
+  const platformUrl = appConfig.frontendUrl;
+  const color = isError ? '#d32f2f' : '#2e7d32';
+  const bgColor = isError ? '#fff5f5' : '#f8fdf8';
+  return `
+    <div style="font-family: sans-serif; max-width: 800px; margin: 0 auto; color: #333; border: 1px solid #eaeaea; border-radius: 8px; overflow: hidden;">
+      <div style="text-align: center; padding: 20px 0; background-color: ${bgColor}; border-bottom: 2px solid ${color};">
+        <img src="${platformUrl}/annam-logo.png" alt="Annam.ai Logo" style="height: 70px;" />
+      </div>
+      <div style="padding: 30px 20px;">
+        <h2 style="color: ${color}; margin-top: 0; text-align: center;">${title}</h2>
+        <p style="font-size: 16px; line-height: 1.5;">Hello,</p>
+        <p style="font-size: 16px; line-height: 1.5;">${message}</p>
+        
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid ${color}; overflow-x: auto;">
+          <pre style="margin: 0; font-family: monospace; font-size: 13px; color: #333; white-space: pre-wrap;">${details}</pre>
+        </div>
+        
+        <div style="margin-top: 30px; text-align: center;">
+          <a href="${platformUrl}" style="display:inline-block; padding: 12px 24px; background-color: #2e7d32; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">
+            Go to AjraSakha Platform
+          </a>
+        </div>
+      </div>
+      <div style="background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 13px; color: #666; border-top: 1px solid #ddd;">
+        <p style="margin: 0;">Regards,</p>
+        <p style="margin: 5px 0 0 0;"><strong>Ajrasakha System</strong></p>
+        <p style="margin: 15px 0 0 0; font-size: 11px; color: #999;">&copy; ${new Date().getFullYear()} Annam.ai. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+}
+
 async function main(): Promise<void> {
   console.log(`[dataset-app-sync-job] ▶ starting ${SCRIPT} --apply`);
   const emailTo = process.env.BACKUP_NOTIFICATION_EMAIL;
@@ -71,22 +105,25 @@ async function main(): Promise<void> {
     console.log('[dataset-app-sync-job] ✅ sync completed successfully');
     
     if (emailTo) {
-      await sendEmailNotification(
-        emailTo,
-        'Dataset App Sync - Success',
-        '',
-        `<p>The daily sync from Review System to Dataset Application completed successfully.</p><pre>${output}</pre>`
+      const html = buildEmailTemplate(
+        'Dataset Sync Report',
+        'The daily sync from GDB to the Dataset Application completed <strong>successfully</strong>.',
+        output
       );
+      await sendEmailNotification(emailTo, 'Dataset App Sync - Success', '', html);
       console.log(`[dataset-app-sync-job] 📧 Success email sent to ${emailTo}`);
     }
   } catch (err) {
     if (emailTo) {
-      await sendEmailNotification(
-        emailTo,
-        'Dataset App Sync - FAILED',
-        '',
-        `<p>The daily sync from Review System to Dataset Application <b>FAILED</b>.</p><pre>${err instanceof Error ? err.message : String(err)}</pre>`
-      ).catch(e => console.error('[dataset-app-sync-job] Failed to send error email', e));
+      const details = err instanceof Error ? err.message : String(err);
+      const html = buildEmailTemplate(
+        'Dataset Sync Alert',
+        'The daily sync from GDB to the Dataset Application <strong style="color: #d32f2f;">FAILED</strong>.',
+        details,
+        true
+      );
+      await sendEmailNotification(emailTo, 'Dataset App Sync - FAILED', '', html)
+        .catch(e => console.error('[dataset-app-sync-job] Failed to send error email', e));
     }
     throw err;
   }
