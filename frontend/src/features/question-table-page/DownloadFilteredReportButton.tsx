@@ -35,9 +35,18 @@ const getDefaultDates = () => {
   return { startTime: oneMonthAgo, endTime: today };
 };
 
-const toDateString = (d: Date | undefined) =>
-  d ? d.toISOString().split("T")[0] : undefined;
+// const toDateString = (d: Date | undefined) =>
+//   d ? d.toISOString().split("T")[0] : undefined;
 
+const toDateString = (d: Date | undefined) => {
+  if (!d) return undefined;
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
 export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
   const questionService = new QuestionService();
   const [isDownloading, setIsDownloading] = useState(false);
