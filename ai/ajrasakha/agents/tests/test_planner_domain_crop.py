@@ -441,6 +441,40 @@ async def test_passive_crop_output_question_skips_crop_requirement_classifier():
 
 
 @pytest.mark.asyncio
+async def test_crop_availability_clarification_is_not_asked_twice():
+    plan = planner_output_to_plan(
+        PlannerOutput(
+            domains=["Market Information"],
+            rephrased_query=(
+                "Which crops are available in Kathua mandi? "
+                "Crop: I am asking you which crops are avaible."
+            ),
+        )
+    )
+    messages = [
+        HumanMessage(content="Could you tell me which crops are avaibles in kathua mandi?"),
+        AIMessage(content="Which crop are you growing?"),
+        HumanMessage(content="I am asking you which crops are avaible."),
+    ]
+    with patch(
+        "ajrasakha.agents.planner.is_crop_specific_question",
+        new_callable=AsyncMock,
+        return_value="input_crop_required",
+    ) as classifier:
+        out, _domain, crop_required = await _apply_domain_and_crop_async(
+            plan,
+            messages,
+            crop_prefilled=None,
+            config={},
+        )
+
+    classifier.assert_not_awaited()
+    assert crop_required is False
+    assert out["entities"]["crop"] == "all"
+    assert out["crop_requirement_source"] == "deterministic_crop_output_requested"
+
+
+@pytest.mark.asyncio
 async def test_seed_drill_question_requires_input_crop():
     plan = planner_output_to_plan(
         PlannerOutput(

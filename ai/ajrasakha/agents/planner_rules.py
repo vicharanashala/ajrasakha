@@ -171,6 +171,11 @@ _CROP_OUTPUT_RE = re.compile(
     r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants)\b.*\b"
     r"(?:needs?|requires?|uses?)\b.*\b(?:less|little|low|minimal)\s+"
     r"(?:water|irrigation)\b)|"
+    # Crop-listing questions ask for crops as the answer, rather than asking
+    # the farmer to provide a crop input. Include common market wording and
+    # the frequent "avaible" misspelling seen in user messages.
+    r"(?:\b(?:which|what)\s+(?:crop|crops|plant|plants|commodities)\b.*\b"
+    r"(?:avail\w*|avaibles?|present|sold|offered|listed)\b)|"
     # Explicit recommendation requests.
     r"(?:\b(?:can|could|would|should)\s+you\s+"
     r"(?:recommend|suggest)\b.*\b(?:crop|crops|plant|plants)\b)|"

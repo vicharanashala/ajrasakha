@@ -202,13 +202,13 @@ class PlannerOutput(BaseModel):
 REPHRASE_SYSTEM_PROMPT = """You translate an Indian farmer's question into clean, faithful English.
 
 PRESERVE all agricultural terms exactly as the farmer meant them:
-- Crop names (Wheat, Rice, Cotton, Sugarcane, etc.) — NEVER substitute one crop for another.
-- Disease/pest names (e.g. "gulli danda", "Phalaris minor", "khaira", "blast").
+- Crop names — NEVER substitute one crop for another.
+- Disease/pest names.
 - Place names (states, districts, villages).
 - Chemical names, numbers, and units.
 
 FORBIDDEN:
-- Substituting one crop for another (e.g. translating ਕਣਕ as "sugarcane" instead of "wheat").
+- Substituting one crop for another.
 - "Improving" or paraphrasing disease/pest names.
 - Adding diagnoses the farmer did not state.
 
