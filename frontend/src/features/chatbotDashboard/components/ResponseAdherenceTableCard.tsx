@@ -1418,6 +1418,42 @@ export function ResponseAdherenceTableCard({
     return `response-adherence-report-${effectiveDate}-${timestamp}.csv`;
   };
 
+  const htmlEscape = (value: string | number) => {
+    const str = String(value ?? "");
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  };
+
+  // Same full-table data as the email's CSV attachment, rendered as an inline-styled
+  // HTML table so it also displays directly in the email body (not just as an attachment).
+  const buildReportHtmlTable = (): string | null => {
+    const selectedRows = rowExportData.filter((row) => ALL_ROW_IDS.includes(row.id));
+    if (!selectedRows.length) return null;
+
+    const thStyle =
+      "padding:8px;border:1px solid #e5e5e5;text-align:left;background:#f5f5f5;font-family:sans-serif;font-size:13px;";
+    const tdStyle =
+      "padding:8px;border:1px solid #e5e5e5;font-family:sans-serif;font-size:13px;";
+
+    const headerCells = ["Field", "Whatsapp", "AjraSakha", "Manual", "Notes"]
+      .map((label) => `<th style="${thStyle}">${htmlEscape(label)}</th>`)
+      .join("");
+
+    const bodyRows = selectedRows
+      .map((row) => {
+        const cells = [row.field, row.whatsapp, row.ajraSakha, row.manual, row.notes]
+          .map((value) => `<td style="${tdStyle}">${htmlEscape(value)}</td>`)
+          .join("");
+        return `<tr>${cells}</tr>`;
+      })
+      .join("");
+
+    return `<table style="border-collapse:collapse;width:100%;margin-top:12px;"><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+  };
+
   const handleDownloadSelectedFields = () => {
     const csvContent = buildCsvContent();
     if (!csvContent) return;
@@ -1462,12 +1498,14 @@ export function ResponseAdherenceTableCard({
       setEmailInputError("No report data available to send yet");
       return;
     }
+    const reportHtml = buildReportHtmlTable();
 
     setEmailInputError(null);
     sendReportEmail.mutate(
       {
         emails,
         reportContent: csvContent,
+        reportHtml: reportHtml ?? undefined,
         fileName: buildReportFileName(),
         userType,
         startDate: effectiveDate,

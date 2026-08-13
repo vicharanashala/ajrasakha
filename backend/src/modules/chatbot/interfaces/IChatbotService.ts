@@ -400,6 +400,7 @@ export interface IChatbotService {
       startDate?: string;
       endDate?: string;
     },
+    reportHtml?: string,
   ): Promise<{success: boolean; message: string}>;
 
   getQuestionsByStatus(        

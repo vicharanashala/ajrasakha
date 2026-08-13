@@ -457,6 +457,14 @@ export class SendResponseAdherenceReportRequest {
   @IsString()
   reportContent!: string;
 
+  @JSONSchema({
+    description: 'The report rendered as an HTML table, embedded directly in the email body in addition to the CSV attachment',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  reportHtml?: string;
+
   @JSONSchema({ description: 'Attachment file name', example: 'response-adherence-report-2026-08-12.csv', type: 'string' })
   @IsOptional()
   @IsString()

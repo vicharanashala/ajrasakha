@@ -3917,6 +3917,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       startDate?: string;
       endDate?: string;
     },
+    reportHtml?: string,
   ): Promise<{success: boolean; message: string}> {
     try {
       const dateRangeLabel =
@@ -3930,9 +3931,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const title = `AjraSakha Response Adherence Report${dateRangeLabel}`;
       const html = `
         <p>Hello,</p>
-        <p>Please find attached the <b>AjraSakha Response Adherence</b> report.</p>
+        <p>Please find attached the <b>AjraSakha Response Adherence</b> report. It is also shown below for quick reference.</p>
         ${context?.source ? `<p>Source: <b>${context.source}</b></p>` : ''}
         ${context?.userType ? `<p>User Type: <b>${context.userType}</b></p>` : ''}
+        ${reportHtml ? `<div style="overflow-x:auto;">${reportHtml}</div>` : ''}
         <br />
         <p>Regards,<br/>Ajrasakha System</p>
       `;

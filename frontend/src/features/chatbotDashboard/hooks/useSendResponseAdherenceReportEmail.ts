@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 interface SendResponseAdherenceReportEmailParams {
   emails: string[];
   reportContent: string;
+  reportHtml?: string;
   fileName?: string;
   source?: string;
   userType?: string;

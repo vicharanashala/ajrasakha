@@ -2091,7 +2091,7 @@ export class ChatbotController {
     @Body() body: SendResponseAdherenceReportRequest,
     @CurrentUser() user: IUser,
   ) {
-    const {emails, reportContent, fileName, source, userType, startDate, endDate} = body;
+    const {emails, reportContent, reportHtml, fileName, source, userType, startDate, endDate} = body;
 
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ADMIN_REPORT,
@@ -2122,6 +2122,7 @@ export class ChatbotController {
         reportContent,
         fileName || `response-adherence-report-${startDate || ''}.csv`,
         {source, userType, startDate, endDate},
+        reportHtml,
       );
       this.auditTrailsService.createAuditTrail(auditPayload);
       return result;
