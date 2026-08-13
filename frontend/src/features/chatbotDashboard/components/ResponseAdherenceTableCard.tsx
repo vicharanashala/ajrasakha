@@ -1362,18 +1362,27 @@ export function ResponseAdherenceTableCard({
 
   // Shared by both the "Download .xlsx" button and the "Email Report" dialog,
   // so the emailed report always matches exactly what the download would have produced.
-  const buildCsvContent = (): string | null => {
-    const selectedRows = rowExportData.filter((row) => checkedRows[row.id]);
+  const buildCsvContent = (
+    options?: {
+      rowIds?: readonly string[];
+      columns?: { whatsapp: boolean; ajraSakha: boolean; manual: boolean };
+    },
+  ): string | null => {
+    const rowIds = options?.rowIds;
+    const columns = options?.columns ?? checkedColumns;
+    const selectedRows = rowIds
+      ? rowExportData.filter((row) => rowIds.includes(row.id))
+      : rowExportData.filter((row) => checkedRows[row.id]);
     if (!selectedRows.length) return null;
 
     const header = ["Field"];
-    if (checkedColumns.whatsapp) {
+    if (columns.whatsapp) {
       header.push("Whatsapp");
     }
-    if (checkedColumns.ajraSakha) {
+    if (columns.ajraSakha) {
       header.push("AjraSakha");
     }
-    if (checkedColumns.manual) {
+    if (columns.manual) {
       header.push("Manual");
     }
     header.push("Notes");
@@ -1381,15 +1390,15 @@ export function ResponseAdherenceTableCard({
     const lines = selectedRows.map((row) => {
       const values: (string | number)[] = [row.field];
 
-      if (checkedColumns.whatsapp) {
+      if (columns.whatsapp) {
         values.push(row.whatsapp);
       }
 
-      if (checkedColumns.ajraSakha) {
+      if (columns.ajraSakha) {
         values.push(row.ajraSakha);
       }
 
-      if (checkedColumns.manual) {
+      if (columns.manual) {
         values.push(row.manual);
       }
 
@@ -1443,9 +1452,14 @@ export function ResponseAdherenceTableCard({
       setEmailInputError(`Invalid email address: ${invalidEmails.join(", ")}`);
       return;
     }
-    const csvContent = buildCsvContent();
+    // Email always includes the full table exactly as shown in the UI,
+    // independent of whatever rows/columns are checked in the download panel.
+    const csvContent = buildCsvContent({
+      rowIds: ALL_ROW_IDS,
+      columns: { whatsapp: true, ajraSakha: true, manual: true },
+    });
     if (!csvContent) {
-      setEmailInputError("Select at least one row to include in the report");
+      setEmailInputError("No report data available to send yet");
       return;
     }
 
@@ -1778,7 +1792,7 @@ export function ResponseAdherenceTableCard({
                         variant="outline"
                         size="sm"
                         onClick={() => setEmailDialogOpen(true)}
-                        disabled={!hasSelectedRows}
+                        disabled={isLoading || sendReportEmail.isPending}
                         className="h-9 px-4 text-sm gap-2 border-border/70 bg-background/80 shadow-sm hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
                       >
                         <Mail className="w-3.5 h-3.5" />
