@@ -9929,6 +9929,25 @@ export class QuestionService extends BaseService implements IQuestionService {
    * answer (isFinalAnswer: true) `approvedBy` — the approver is effectively the
    * moderator. Paginated via `limit` so it can be run repeatedly until nothing is left.
    */
+  /** Bulk-set `normalizedDomain` on questions from a list of
+   *  { "Question ID", "Standardized Domain" } entries. Returns modified / not-matched
+   *  counts. */
+  async setNormalizedDomains(
+    entries: { 'Question ID'?: string; 'Standardized Domain'?: string }[],
+  ): Promise<{
+    total: number;
+    matched: number;
+    modified: number;
+    notMatched: number;
+    invalid: number;
+  }> {
+    const pairs = (Array.isArray(entries) ? entries : []).map(e => ({
+      questionId: String(e?.['Question ID'] ?? '').trim(),
+      normalizedDomain: String(e?.['Standardized Domain'] ?? '').trim(),
+    }));
+    return this.questionRepo.bulkSetNormalizedDomain(pairs);
+  }
+
   /** Diagnostic: closed questions in a window that don't have a final answer with a
    *  valid ObjectId approvedBy — i.e. the ones dropped from the moderator breakdown,
    *  which explains the "closed count vs breakdown count" mismatch. */

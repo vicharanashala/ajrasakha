@@ -774,6 +774,10 @@ export interface IQuestionService {
     items: any[];
   }>;
 
+  setNormalizedDomains(
+    entries: { 'Question ID'?: string; 'Standardized Domain'?: string }[],
+  ): Promise<{ total: number; matched: number; modified: number; notMatched: number; invalid: number }>;
+
   getFeedbackQueueDetails(): Promise<FeedbackQueueDetails>;
 
   handleFeedbackStatusUpdate(

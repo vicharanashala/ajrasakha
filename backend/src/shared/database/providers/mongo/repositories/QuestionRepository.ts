@@ -2802,6 +2802,48 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Bulk-replace `details.domain` on questions from a { questionId, normalizedDomain }
+   *  list (one DB round trip) — the existing domain values are removed and replaced
+   *  with the single standardized domain. Reports how many questions were modified and
+   *  how many ids didn't match any document (or were invalid). */
+  async bulkSetNormalizedDomain(
+    pairs: { questionId: string; normalizedDomain: string }[],
+  ): Promise<{
+    total: number;
+    matched: number;
+    modified: number;
+    notMatched: number;
+    invalid: number;
+  }> {
+    await this.init();
+    const total = pairs.length;
+    const valid = pairs.filter(
+      p => p.questionId && isValidObjectId(p.questionId),
+    );
+    const invalid = total - valid.length;
+    if (!valid.length) {
+      return { total, matched: 0, modified: 0, notMatched: invalid, invalid };
+    }
+    const ops = valid.map(p => ({
+      updateOne: {
+        filter: { _id: new ObjectId(p.questionId) },
+        update: {
+          $set: {
+            // Remove existing domain values and replace with the standardized one.
+            'details.domain': [p.normalizedDomain ?? ''],
+            updatedAt: new Date(),
+          },
+        },
+      },
+    }));
+    const res = await this.QuestionCollection.bulkWrite(ops as any);
+    const matched = res.matchedCount ?? 0;
+    const modified = res.modifiedCount ?? 0;
+    // notMatched = valid ids that hit no document + the invalid ones.
+    const notMatched = valid.length - matched + invalid;
+    return { total, matched, modified, notMatched, invalid };
+  }
+
   /** Closed questions that have no moderator recorded (moderatorId is null or missing).
    *  Used by the backfill that restores moderatorId from the final answer's approver —
    *  moderatorId is cleared when a question closes. Returns up to `limit` question ids. */
