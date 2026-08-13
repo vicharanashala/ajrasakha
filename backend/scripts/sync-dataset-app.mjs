@@ -149,6 +149,25 @@ try {
   const sourceDb = sourceClient.db(SOURCE_DB_NAME);
   const destDb = destClient.db(DEST_DB_NAME);
 
+  if (APPLY) {
+    console.log('\n🛡️  Performing safety check on document counts...');
+    for (const name of COLLECTIONS) {
+      const sourceCount = await sourceDb.collection(name).countDocuments();
+      const destCount = await destDb.collection(name).countDocuments();
+      
+      console.log(`   ${name}: Source=${sourceCount}, Destination=${destCount}`);
+      
+      if (destCount > sourceCount) {
+        throw new Error(
+          `Safety check failed for collection '${name}'. ` +
+          `Destination (${destCount}) has MORE documents than Source (${sourceCount}). ` +
+          `Aborting to prevent potential data loss.`
+        );
+      }
+    }
+    console.log('   ✅ Safety check passed.');
+  }
+
   const summary = {};
   for (const name of COLLECTIONS) {
     summary[name] = await syncCollection(sourceDb, destDb, name);
