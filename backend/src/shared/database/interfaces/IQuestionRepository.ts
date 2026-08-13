@@ -217,6 +217,9 @@ export interface IQuestionRepository {
   bulkSetModeratorId(
     pairs: { questionId: string; moderatorId: string }[],
   ): Promise<number>;
+  bulkSetNormalizedDomain(
+    pairs: { questionId: string; normalizedDomain: string }[],
+  ): Promise<{ total: number; matched: number; modified: number; notMatched: number; invalid: number }>;
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,

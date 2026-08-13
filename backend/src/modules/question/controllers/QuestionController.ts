@@ -2373,6 +2373,23 @@ export class QuestionController {
   }
 
   // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Post('/admin/normalized-domain')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Bulk-set normalizedDomain on questions from [{ "Question ID", "Standardized Domain" }]; returns modified / not-matched counts',
+  })
+  async setNormalizedDomains(
+    @Body() body: { 'Question ID'?: string; 'Standardized Domain'?: string }[] | { data?: any[] },
+  ) {
+    // Accept either a raw JSON array or { data: [...] }.
+    const entries = Array.isArray(body) ? body : (body?.data ?? []);
+    const result = await this.questionService.setNormalizedDomains(entries as any);
+    return { success: true, data: result };
+  }
+
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
   @Post('/admin/backfill-closed-moderator')
   @HttpCode(200)
   @UseBefore(InternalApiAuth)
