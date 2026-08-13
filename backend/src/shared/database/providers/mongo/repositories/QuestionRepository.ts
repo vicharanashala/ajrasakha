@@ -9157,4 +9157,24 @@ export class QuestionRepository implements IQuestionRepository {
       currentPage: safePage,
     };
   }
+
+  async findQuestionsWithOpenPaeValidation(
+    requireAutoAllocate = false,
+  ): Promise<IQuestion[]> {
+    await this.init();
+
+    const filter: Record<string, unknown> = {
+      status: {$in:['closed','dynamic_closed','duplicate_closed']},
+      paeValidation: {$ne:'completed'},
+    };
+    if (requireAutoAllocate) {
+      // Only questions with pae validation auto-allocation EXPLICITLY true. A missing or
+      // false field means OFF (same convention as autoAllocateModerator).
+      filter.autoAllocatePaeValidationExpert = true;
+    }
+
+    return this.QuestionCollection.find(filter as any)
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
 }

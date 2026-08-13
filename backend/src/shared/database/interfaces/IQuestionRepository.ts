@@ -791,4 +791,8 @@ export interface IQuestionRepository {
     },
     session?: ClientSession,
   ): Promise<{ modifiedCount: number }>;
+
+  findQuestionsWithOpenPaeValidation(
+    requireAutoAllocate?: boolean,
+  ): Promise<IQuestion[]>;
 }

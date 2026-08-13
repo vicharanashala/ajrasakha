@@ -66,6 +66,7 @@ import {
   FeedbackResponse,
   FeedbackData,
   FeedbackQueueDetails,
+  PaeValidationQueueDetails,
 } from '../interfaces/IQuestionService.js';
 import type {
   PaeValidationQuestion,
@@ -10672,5 +10673,78 @@ if (filters.endDate) {
         message: `Feedback noted for question ${questionId}. The question remains assigned for further work.`,
       };
     }
+  }
+
+    /** Data for the dedicated pae validation tab. **/
+
+  async getPaeValidationQueueDetails(): Promise<PaeValidationQueueDetails> {
+    // All questions with an open pae validaiton (auto ON and OFF).
+    const openPaeValidationQuestions =
+      await this.questionRepo.findQuestionsWithOpenPaeValidation(false);
+
+    // Questions already assigned a reviewer .
+    const openReviews =
+      await this.questionSubmissionRepo.findOpenPaeValidationReviews();
+    const reviewerByQuestion = new Map<string, string>();
+    for (const o of openReviews) {
+      if (o.questionId && !reviewerByQuestion.has(o.questionId)) {
+        reviewerByQuestion.set(o.questionId, o.reviewerId);
+      }
+    }
+    const assignedIds = new Set(reviewerByQuestion.keys());
+
+    // Names of reviewers.
+    const meta = await this.resolveExpertMeta([
+      ...reviewerByQuestion.values()
+    ]);
+
+    const waitingAuto: QueueQuestionItem[] = [];
+    const waitingManual: QueueQuestionItem[] = [];
+    const assigned: QueueQuestionItem[] = [];
+
+    for (const q of openPaeValidationQuestions) {
+
+      const id = q._id?.toString();
+      if (!id) continue;
+      const base = this.submissionToQueueItem({ question: q });
+
+      if (assignedIds.has(id)) {
+        const reviewerId = reviewerByQuestion.get(id);
+        assigned.push({
+          ...base,
+          assigneeName:
+            (reviewerId && meta.get(reviewerId)?.name) || 'Unknown',
+        });
+      } else if ((q as any).autoAllocatePaeValidationExpert === true && (q as any).paeValidation === 'pending') {
+        // Auto-allocation ON only when explicitly true; missing/false = manual.
+        waitingAuto.push(base);
+      } else if ((q as any).autoAllocatePaeValidationExpert === false && (q as any).paeValidation === 'pending') {
+        waitingManual.push(base);
+      }
+    }
+    // Reviewers free for pae validaiton.
+    const availablePaeExperts = await this.userRepo.findAvailablePaeExperts();
+    const toExpertItem = (u: any): QueueExpertItem => ({
+      _id: u._id.toString(),
+      name:
+        `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+        u.email ||
+        'Unknown',
+      email: u.email,
+      reputationScore: u.reputation_score,
+      role: u.role,
+      isSpecialTaskForce: u.special_task_force === true,
+      isTrainingUser: u.isTrainingUser === true,
+    });
+
+    const availablePaeExpertItems = availablePaeExperts.map(toExpertItem);
+
+    const wrap = <T>(items: T[]) => ({ count: items.length, items });
+    return {
+      waitingAuto: wrap(waitingAuto),
+      waitingManual: wrap(waitingManual),
+      assigned: wrap(assigned),
+      availablePaeExperts: wrap(availablePaeExpertItems),
+    };
   }
 }

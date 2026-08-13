@@ -3502,4 +3502,16 @@ export class QuestionController {
       suggestionSourceName,
     );
   }
+
+  @Get('/pae-val/queue-details')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Feedback tab data — waiting/assigned questions + available reviewers' })
+  async getPaeValidationQueueDetails(@CurrentUser() user: IUser) {
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot view the feedback queue');
+    }
+    const data = await this.questionService.getPaeValidationQueueDetails();
+    return { success: true, data };
+  }
 }
