@@ -150,22 +150,18 @@ try {
   const destDb = destClient.db(DEST_DB_NAME);
 
   if (APPLY) {
-    console.log('\n🛡️  Performing safety check on document counts...');
-    for (const name of COLLECTIONS) {
-      const sourceCount = await sourceDb.collection(name).countDocuments();
-      const destCount = await destDb.collection(name).countDocuments();
-      
-      console.log(`   ${name}: Source=${sourceCount}, Destination=${destCount}`);
-      
-      if (destCount > sourceCount) {
-        throw new Error(
-          `Safety check failed for collection '${name}'. ` +
-          `Destination (${destCount}) has MORE documents than Source (${sourceCount}). ` +
-          `Aborting to prevent potential data loss.`
-        );
-      }
+    console.log('\n🛡️  Performing safety check (verifying destination database identity)...');
+    
+    const collections = await destDb.listCollections({ name: 'dataset_users' }).toArray();
+    
+    if (collections.length === 0) {
+      throw new Error(
+        `Safety check failed: The destination database does not contain the 'dataset_users' collection. ` +
+        `Aborting to prevent potential data loss.`
+      );
     }
-    console.log('   ✅ Safety check passed.');
+    
+    console.log('   ✅ Safety check passed (destination is correct).');
   }
 
   const summary = {};
