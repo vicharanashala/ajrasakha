@@ -1663,17 +1663,6 @@ export function ResponseAdherenceTableCard({
         className="group mb-4 overflow-hidden rounded-2xl border border-border/60  bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
 "
       >
-        <button
-            onClick={handleRefresh}
-            className="absolute top-10 right-113 z-50 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
-            title="Refresh"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5  ${
-                isLoading ? "animate-spin" : ""
-              }`}
-            />
-        </button>
         <Accordion type="single" collapsible>
           <AccordionItem value="response-adherence" className="border-none">
             {/* ── Card Header ── */}
@@ -1719,6 +1708,25 @@ export function ResponseAdherenceTableCard({
                     className="flex items-center gap-2 ml-auto mr-3"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {/* Refresh */}
+                    <motion.div
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <button
+                        type="button"
+                        onClick={handleRefresh}
+                        title="Refresh"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40 transition-all duration-200"
+                      >
+                        <RefreshCw
+                          className={`h-3.5 w-3.5 ${
+                            isLoading ? "animate-spin" : ""
+                          }`}
+                        />
+                      </button>
+                    </motion.div>
+
                     {/* Date Picker */}
                     <Popover>
                       <PopoverTrigger asChild>
