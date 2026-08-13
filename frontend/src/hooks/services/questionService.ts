@@ -77,6 +77,58 @@ export type FeedbackQueueDetailsResponse = {
   questionsWithoutActiveModerator: { count: number; items: QueueQuestionItem[] };
 };
 
+/** Source item within an answer's sources array for PAE validation */
+export type PaeValidationSource = {
+  source: string;
+  sourceType?: string;
+  sourceName?: string;
+  page?: string | number | null;
+};
+
+/** Answer data included in PAE validation question response */
+export type PaeValidationAnswerData = {
+  _id: string;
+  answer: string;
+  sources: PaeValidationSource[];
+  authorId: string;
+  isFinalAnswer: boolean;
+};
+
+/** Single question returned in the PAE validation assigned questions list */
+export type PaeValidationQuestionItem = {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  priority: string;
+  totalAnswersCount: number;
+  createdAt: string | Date;
+  updatedAt?: string | Date;
+  state?: string;
+  district?: string;
+  crop?: string;
+  domain?: string | string[];
+  season?: string;
+  normalised_crop?: string;
+  isAutoAllocate?: boolean;
+  answer?: PaeValidationAnswerData;
+  details?: {
+    state: string;
+    district: string;
+    crop: string;
+    season: string;
+    domain: string;
+  };
+};
+
+/** Paginated response for PAE validation assigned questions */
+export type PaeValidationAssignedQuestionsResponse = {
+  questions: PaeValidationQuestionItem[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+};
+
 export type QueueDetailsResponse = {
   received: { count: number; items: QueueQuestionItem[] };
   /** Per-status counts for the received section — accurate DB totals for tab badges. */
@@ -157,13 +209,14 @@ export interface FeedbackData {
     email: string;
   };
   answerId: { $oid: string };
-  type: "thumbs_up" | "thumbs_down";
+  type: "thumbs_up" | "thumbs_down" | "PAE_VALIDATION";
   predefinedOption: string;
   comment: string;
   status: "open" | "rejected" | "accepted";
   reviewNote?: string;
   createdAt: { $date: string };
   updatedAt: { $date: string };
+  link?: { name: string; source: string};
 }
 
 export interface FeedbackResponse {
@@ -184,10 +237,25 @@ export interface FeedbackReviewRound {
   completedCount?: number;
 }
 
+export interface PaeValidationReviewRound {
+  index: number;
+  paeId: string;
+  paeName: string;
+  paeAssignedAt: Date;
+  paeFinishedAt: Date | null;
+  paeStatus: string;
+}
+
 export interface FeedbackTimeline {
   autoAllocateFeedback: boolean;
   hasOpenFeedback: boolean;
   reviews: FeedbackReviewRound[];
+}
+
+export interface PaeValidationTimeline {
+  autoAllocatePaeValidationExpert: boolean;
+  hasOpenRound: boolean;
+  reviews: PaeValidationReviewRound[];
 }
 
 export interface FeedbackReviewerOption {
@@ -1077,13 +1145,20 @@ export class QuestionService {
 
   async toggleRoleAllocation(
     questionId: string,
-    role: "gate_keeper" | "auditor" | "feedback",
+    role: "gate_keeper" | "auditor" | "feedback" | "pae_validator",
     enabled: boolean,
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/role-allocation`, {
       method: "PATCH",
       body: JSON.stringify({ role, enabled }),
     });
+  }
+
+  //get pae validation timeline
+    async getPaeValidationTimeline(
+    questionId: string,
+  ): Promise<{ success: boolean; data: PaeValidationTimeline } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/pae-validation-timeline`);
   }
 
   async getFeedbackTimeline(
@@ -1117,6 +1192,30 @@ export class QuestionService {
     index: number,
   ): Promise<{ success: true } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/feedback-reviewer`, {
+      method: "DELETE",
+      body: JSON.stringify({ index }),
+    });
+  }
+
+  //assign pae reviewer
+   async assignPaeValidationReviewer(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{ success: true } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/pae-val-reviewer`, {
+      method: "POST",
+      body: JSON.stringify(
+        typeof index === "number" ? { userId, index } : { userId },
+      ),
+    });
+  }
+
+  async removePaeValidationReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{ success: true } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/pae-val-reviewer`, {
       method: "DELETE",
       body: JSON.stringify({ index }),
     });
@@ -1230,13 +1329,10 @@ export class QuestionService {
     if (endTime) {
       params.append("endTime", endTime.toISOString());
     }
-    const queryString = params.toString();
-    const res = await apiFetch<{
-      success: boolean;
-      data: QueueDetailsResponse;
-    }>(`${this._baseUrl}/queue-details${queryString ? `?${queryString}` : ""}`, {
-      method: "GET",
-    });
+    const res = await apiFetch<{ success: boolean; data: QueueDetailsResponse }>(
+      `${this._baseUrl}/queue-details${params.toString() ? `?${params.toString()}` : ""}`,
+      { method: "GET" }
+    );
     return res?.data ?? null;
   }
 
@@ -1250,6 +1346,12 @@ export class QuestionService {
     return res?.data ?? null;
   }
 
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * @param payload The validation decision payload
+   * @returns Promise resolving to the response
+   */
+ 
   async getQueueSection(
     section: string,
     page: number,
@@ -1327,15 +1429,67 @@ export class QuestionService {
     feedbackId: string,
     action: 'accept' | 'reject',
     reason: string,
+    source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation',
   ): Promise<{ success: boolean; message: string } | null> {
     return apiFetch<{ success: boolean; message: string } | null>(
       `${this._baseUrl}/${questionId}/${feedbackId}/feedback-action`,
       {
         method: "POST",
-        body: JSON.stringify({ action, reason }),
+        body: JSON.stringify({ action, reason, source }),
         headers: { "Content-Type": "application/json" },
       }
     );
   }
 
+  /**
+   * Fetch paginated questions assigned to the current PAE expert for validation.
+   * Returns questions with their final answers and sources included.
+   */
+  async getPaeValidationAssignedQuestions(
+    page: number,
+    limit: number
+  ): Promise<PaeValidationAssignedQuestionsResponse | null> {
+    const params = new URLSearchParams();
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+
+    const res = await apiFetch<
+      | {
+          success: boolean;
+          data: PaeValidationAssignedQuestionsResponse;
+        }
+      | PaeValidationAssignedQuestionsResponse
+    >(`${this._baseUrl}/pae/validations/assigned?${params.toString()}`, {
+      method: "GET",
+    });
+    if (!res) return null;
+    return "data" in res ? res.data : res;
+  }
+
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * @param payload The validation decision payload
+   * @returns Promise resolving to the response
+   */
+async processPaeValidation(
+    payload: {
+      questionId: string;
+      status: "approve" | "feedback";
+      suggestionComment?: string;
+      suggestionLink?: string;
+      suggestionSourceName?: string;
+      answerId?: string;
+    }
+  ): Promise<{ success: boolean; message: string } | null> {
+    const res = await apiFetch<{ success: boolean; message: string }>(
+      `${this._baseUrl}/pae/validations/process`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+    return res;
+  }
+
 }
+  

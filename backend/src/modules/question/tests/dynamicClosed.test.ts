@@ -45,6 +45,7 @@ function buildService(): QuestionService {
     {} as any, // userService
     {} as any, // callDetailsRepository
     {createAuditTrail: vi.fn()} as any, // auditTrailsService
+    {} as any, // feedbackRepo
   );
 }
 

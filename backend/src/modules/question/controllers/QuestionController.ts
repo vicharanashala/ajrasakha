@@ -54,6 +54,7 @@ import {
   ApproveInitialAnswerBody,
   ReplaceQueueExpertRequest,
   ReallocateExpertsSelectedQuestionsRequest,
+  ProcessPaeValidationRequest,
 } from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
 import {
@@ -1476,14 +1477,14 @@ export class QuestionController {
   @OpenAPI({ summary: 'Toggle gate keeper / auditor / feedback auto-allocation for a question' })
   async toggleRoleAllocation(
     @Params() params: QuestionIdParam,
-    @Body() body: { role: 'gate_keeper' | 'auditor' | 'feedback'; enabled: boolean },
+    @Body() body: { role: 'gate_keeper' | 'auditor' | 'feedback' | 'pae_validator'; enabled: boolean },
     @CurrentUser() user: IUser,
   ) {
     verifyNotTester(user);
     const { questionId } = params;
     const { role, enabled } = body;
-    if (role !== 'gate_keeper' && role !== 'auditor' && role !== 'feedback') {
-      throw new BadRequestError("role must be 'gate_keeper', 'auditor' or 'feedback'");
+    if (role !== 'gate_keeper' && role !== 'auditor' && role !== 'feedback' && role !== 'pae_validator') {
+      throw new BadRequestError("role must be 'gate_keeper', 'auditor', 'feedback' or 'pae_validator'");
     }
     if (user.role === 'expert') {
       throw new ForbiddenError('Experts cannot change auto-allocation');
@@ -1491,7 +1492,7 @@ export class QuestionController {
     // Gate keeper / auditor allocation: admins, moderators, gate keepers and auditors.
     // Feedback allocation: any non-expert (already gated above).
     if (
-      role !== 'feedback' &&
+      role !== 'feedback' && role !== 'pae_validator' &&
       !['admin', 'moderator', 'gate_keeper', 'auditor'].includes(user.role)
     ) {
       throw new ForbiddenError(
@@ -1503,20 +1504,26 @@ export class QuestionController {
         ? 'autoAllocateGateKeeper'
         : role === 'auditor'
           ? 'autoAllocateAuditor'
-          : 'autoAllocateFeedback';
+          : role === 'pae_validator'
+            ? 'autoAllocatePaeValidationExpert'
+            : 'autoAllocateFeedback';
     const label =
       role === 'gate_keeper'
         ? 'Gate keeper'
         : role === 'auditor'
           ? 'Auditor'
-          : 'Feedback';
+          : role === 'pae_validator'
+            ? 'PAE Validator'
+            : 'Feedback';
 
     const toggleAction =
       role === 'gate_keeper'
         ? AuditAction.TOGGLE_GATE_KEEPER_ALLOCATION
         : role === 'auditor'
           ? AuditAction.TOGGLE_AUDITOR_ALLOCATION
-          : AuditAction.TOGGLE_FEEDBACK_ALLOCATION;
+          : role === 'pae_validator'
+            ? AuditAction.TOGGLE_PAE_VALIDATOR_ALLOCATION
+            : AuditAction.TOGGLE_FEEDBACK_ALLOCATION;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: toggleAction,
@@ -3208,10 +3215,10 @@ export class QuestionController {
   async handleFeedbackAction(
     @Param('questionId') questionId: string,
     @Param('feedbackId') feedbackId: string,
-    @Body() body: { action: 'accept' | 'reject'; reason: string },
+    @Body() body: { action: 'accept' | 'reject'; reason: string,source:'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation' },
     @CurrentUser({ required: true }) user: IUser,
   ) {
-    console.log('[QuestionController] handleFeedbackAction:', { questionId, feedbackId, action: body.action, reason: body.reason, userId: user._id });
+    console.log('[QuestionController] handleFeedbackAction:', { questionId, feedbackId, action: body.action, reason: body.reason, userId: user._id, source: body.source });
 
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
@@ -3233,6 +3240,7 @@ export class QuestionController {
         body.action,
         body.reason,
         user._id.toString(),
+        body.source
       );
       this.auditTrailsService.createAuditTrail(auditPayload);
       return result;
@@ -3261,7 +3269,7 @@ export class QuestionController {
   })
   async handleUpdateFeedbackStatus(
     @Param('questionId') questionId: string,
-    @Body() body: { source: "DATASET"| "WEB_APPLICATION" },
+    @Body() body: { source: "DATASET"| "WEB_APPLICATION" | "PAE_Validation" },
   ) {
     
     const result = await this.questionService.handleFeedbackStatusUpdate(
@@ -3270,5 +3278,228 @@ export class QuestionController {
     );
     
     return result;
+  }
+
+  @Get('/:questionId/pae-validation-timeline')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Pae-validation-review timeline (rounds + reviewers) for a question' })
+  async getPaeValidationTimeline(@Params() params: QuestionIdParam) {
+    const data = await this.questionService.getPaeValidationTimeline(params.questionId);
+    return { success: true, data };
+  }
+
+    @Post('/:questionId/pae-val-reviewer')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Manually assign a pae validation reviewer to a question' })
+  async assignPaeValidationReviewer(
+    @Params() params: QuestionIdParam,
+    @Body() body: { userId: string; index?: number },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot assign pae validation reviewers');
+    }
+    if (!body?.userId) {
+      throw new BadRequestError('userId is required');
+    }
+    const { questionId } = params;
+    const { userId, index } = body;
+    // A specific round index means a reassignment; otherwise a fresh assignment.
+    const isReassign = typeof index === 'number' && index >= 0;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.SELECT_PAE_VALIDATION_REVIEWER,
+      actor: this.roleAuditActor(user),
+      context: {
+        questionId,
+        operation: isReassign ? 'reassign' : 'assign',
+        ...(isReassign ? { roundIndex: index } : {}),
+      },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevLabel = 'Unassigned';
+    let newUser: any;
+    try {
+      const [qd, timeline, nu] = await Promise.all([
+        this.questionService.getQuestionDataById(questionId),
+        this.questionService.getFeedbackTimeline(questionId),
+        this.userService.getUserById(userId),
+      ]);
+      questionDetails = qd;
+      newUser = nu;
+      // Round being changed: the one at `index` on reassign, else the currently open
+      // round. `!finishedAt && !closed` finds the open round regardless of which
+      // timeline shape (finishedAt-based or closed-based) is in effect.
+      const prevRound = isReassign
+        ? timeline?.reviews?.find((r: any) => r.index === index)
+        : timeline?.reviews?.find((r: any) => !r.finishedAt && !r.closed);
+      if (prevRound?.reviewerName) prevLabel = prevRound.reviewerName;
+
+      await this.questionService.assignPaeValidationReviewerManually(
+        questionId,
+        userId,
+        index,
+      );
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { 'pae validation reviewer': prevLabel },
+          after: { 'pae validation reviewer': this.userLabel(newUser) ?? userId },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return {
+        success: true,
+        message: `Pae validation reviewer ${isReassign ? 'reassigned' : 'assigned'} successfully`,
+      };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { 'pae validation reviewer': prevLabel } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to assign pae validation reviewer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || 'Failed to assign pae validation reviewer');
+    }
+  }
+
+  @Delete('/:questionId/pae-val-reviewer')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Remove an open pae-validation-review round (by index) from a question' })
+  async removePaeValidationReviewer(
+    @Params() params: QuestionIdParam,
+    @Body() body: { index: number },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot remove pae validation reviewers');
+    }
+    if (typeof body?.index !== 'number') {
+      throw new BadRequestError('index is required');
+    }
+    const { questionId } = params;
+    const { index } = body;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.DELETE_PAE_VALIDATION_REVIEWER,
+      actor: this.roleAuditActor(user),
+      context: { questionId, roundIndex: index },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevLabel = 'Unassigned';
+    try {
+      const [qd, timeline] = await Promise.all([
+        this.questionService.getQuestionDataById(questionId),
+        this.questionService.getPaeValidationTimeline(questionId),
+      ]);
+      questionDetails = qd;
+      const prevRound = timeline?.reviews?.find((r: any) => r.index === index);
+      if (prevRound?.paeName) prevLabel = prevRound.paeName;
+
+      await this.questionService.removePaeValidationReviewer(questionId, index);
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { 'pae validation reviewer': prevLabel },
+          after: { 'pae validation reviewer': 'Removed' },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return { success: true, message: 'Pae validation reviewer removed successfully' };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { 'pae validation reviewer': prevLabel } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to remove pae validation reviewer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || 'Failed to remove pae validation reviewer');
+    }
+  }
+  
+  // ─── PAE Validation Assigned Questions Endpoint ─────────────────────────────────
+
+  @Get('/pae/validations/assigned')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ 
+    summary: 'Get all questions assigned to the current PAE expert for validation',
+    description: 'Returns paginated questions assigned to the authenticated PAE expert, including their final answers and sources.',
+  })
+  async getPaeValidationAssignedQuestions(
+    @QueryParams() query: { page?: number; limit?: number },
+    @CurrentUser() user: IUser,
+  ) {
+    const page = Number(query.page) || 1;
+    const limit = Math.min(Number(query.limit) || 10, 100); // Cap at 100 per page
+    
+    const userId = user._id.toString();
+    return await this.questionService.getPaeValidationAssignedQuestions(userId, page, limit);
+  }
+
+  /**
+   * Process a PAE validation decision for a question.
+   * 
+   * When status is 'approve':
+   * - Updates question.paeValidation to 'completed'
+   * - Removes the question from the PAE expert's paeValidationAssigned array
+   * - Updates the question submission's paeValidation array entry to 'completed'
+   * 
+   * When status is 'feedback':
+   * - Logs the feedback (can be extended to store feedback details)
+   * - The question remains assigned to the PAE expert for further work
+   */
+  @Post('/pae/validations/process')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ 
+    summary: 'Process PAE validation decision (approve/feedback)',
+    description: 'Process a PAE validation decision for an assigned question. When approved, the question is marked as completed and removed from the assignment. When feedback is provided, the question remains assigned for further work.',
+  })
+  async processPaeValidation(
+    @Body() body: ProcessPaeValidationRequest,
+    @CurrentUser() user: IUser,
+  ) {
+    const paeExpertId = user._id.toString();
+    const { questionId, status, suggestionComment, suggestionLink, suggestionSourceName } = body;
+    
+    return await this.questionService.processPaeValidation(
+      paeExpertId,
+      questionId,
+      status,
+      suggestionComment,
+      suggestionLink,
+      undefined,
+      suggestionSourceName,
+    );
   }
 }
