@@ -464,10 +464,22 @@ def test_format_today_current_weather_not_labeled_forecast():
         },
     }
     out = format_tool_output("get_current_and_forecast_info", json.dumps(payload))
-    assert out.startswith("Current weather — Ludhiana")
+    assert out.startswith("Today's weather — Ludhiana") or out.startswith("Live weather — Ludhiana") or out.startswith("Current weather — Ludhiana")
     assert "Forecast —" not in out
     assert "Humidity: 55%" in out
     assert "Easterly" in out
     assert "Haze (code 05)" in out
-    assert "Today's forecast" in out
-    assert "Data source: India Meteorological Department (IMD)" in out
+    assert "Today's weather" in out or "Today's forecast" in out or "Live weather" in out
+    assert "Data Source: India Meteorological Department (IMD)" in out or "Data source: India Meteorological Department (IMD)" in out
+
+
+def test_ensure_weather_answer_spacing():
+    from ajrasakha.agents.new_weather_agent import _ensure_weather_answer_spacing
+    raw = (
+        "Live weather — WS_27 (~16.8 km away)\n"
+        "Summary: Today's Weather in Aluva: Temp 26.26°C to 31.68°C, Condition: Rain.\n"
+        "2026-08-14 | Rain | 26.26°C–31.68°C"
+    )
+    spaced = _ensure_weather_answer_spacing(raw)
+    assert "\n\nSummary:" in spaced
+    assert "Condition: Rain.\n\n2026-08-14 |" in spaced

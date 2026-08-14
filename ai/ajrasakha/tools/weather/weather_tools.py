@@ -357,17 +357,45 @@ async def get_current_and_forecast_info(
         place_label = location or district or resolved_name or "Location"
         if target_date:
             m_target = next((item for item in full_7day_forecast if item.get("date") == target_date), None)
-            if m_target:
-                human_sum = f"Weather forecast for {target_date} in {place_label}: Max Temp: {m_target.get('forecast_max_temp', 'N/A')}°C, Min Temp: {m_target.get('forecast_min_temp', 'N/A')}°C, Forecast: {m_target.get('forecast', 'N/A')}."
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            if target_date < today_str:
+                label_prefix = "Historical weather"
+                cond_prefix = "Condition"
+                obs_max = today_raw.get('observed_max_temp') or today_raw.get('forecast_max_temp', 'N/A')
+                obs_min = today_raw.get('observed_min_temp') or today_raw.get('forecast_min_temp', 'N/A')
+                human_sum = f"Historical weather for {target_date} in {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm."
+            elif target_date == today_str:
+                label_prefix = "Today's weather"
+                cond_prefix = "Condition"
+                if m_target:
+                    human_sum = f"Today's weather for {target_date} in {place_label}: Max Temp: {m_target.get('forecast_max_temp', 'N/A')}°C, Min Temp: {m_target.get('forecast_min_temp', 'N/A')}°C, Condition: {m_target.get('forecast', 'N/A')}."
+                else:
+                    human_sum = f"Today's weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C."
             else:
-                human_sum = f"Weather forecast for {target_date} in {place_label}: Official IMD 7-day forecast trend shows temperatures between {today_raw.get('forecast_min_temp', '23')}°C and {today_raw.get('forecast_max_temp', '29')}°C with {today_raw.get('forecast', 'intermittent rain')}."
+                label_prefix = "Weather forecast"
+                cond_prefix = "Forecast"
+                if m_target:
+                    human_sum = f"Weather forecast for {target_date} in {place_label}: Max Temp: {m_target.get('forecast_max_temp', 'N/A')}°C, Min Temp: {m_target.get('forecast_min_temp', 'N/A')}°C, Forecast: {m_target.get('forecast', 'N/A')}."
+                else:
+                    human_sum = f"Weather forecast for {target_date} in {place_label}: Official IMD 7-day forecast trend shows temperatures between {today_raw.get('forecast_min_temp', '23')}°C and {today_raw.get('forecast_max_temp', '29')}°C with {today_raw.get('forecast', 'intermittent rain')}."
         elif from_date:
-            human_sum = f"Recorded/forecast weather range ({from_date} to {to_date or datetime.now().strftime('%Y-%m-%d')}) for {place_label}: Max Temp: {today_raw.get('forecast_max_temp', 'N/A')}°C, Min Temp: {today_raw.get('forecast_min_temp', 'N/A')}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm."
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            obs_max = today_raw.get('observed_max_temp') or today_raw.get('forecast_max_temp', 'N/A')
+            obs_min = today_raw.get('observed_min_temp') or today_raw.get('forecast_min_temp', 'N/A')
+            if qt == "previous" or from_date < today_str:
+                human_sum = f"Recorded historical weather range ({from_date} to {to_date or today_str}) for {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm."
+            else:
+                human_sum = f"Weather forecast range ({from_date} to {to_date or today_str}) for {place_label}: Max Temp: {today_raw.get('forecast_max_temp', 'N/A')}°C, Min Temp: {today_raw.get('forecast_min_temp', 'N/A')}°C."
+        elif qt == "previous":
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            obs_max = today_raw.get('observed_max_temp') or today_raw.get('forecast_max_temp', 'N/A')
+            obs_min = today_raw.get('observed_min_temp') or today_raw.get('forecast_min_temp', 'N/A')
+            human_sum = f"Historical weather for {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm."
         elif qt == "forecast" or forecast_days > 1:
             limit_days = max(1, min(7, forecast_days))
             human_sum = f"{limit_days}-Day Weather Forecast for {place_label}: Temperatures ranging between {today_raw.get('forecast_min_temp', 'N/A')}°C and {today_raw.get('forecast_max_temp', 'N/A')}°C. Forecast: {today_raw.get('forecast', 'Generally cloudy sky with rain')}."
         else:
-            human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm, Forecast: {today_raw.get('forecast', 'Normal weather')}."
+            human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm, Condition: {today_raw.get('forecast', 'Normal weather')}."
 
         st_context = _build_nearest_station_context(svc, actual_lat, actual_lon, state, geo, location or district or resolved_name)
         res_dict = {

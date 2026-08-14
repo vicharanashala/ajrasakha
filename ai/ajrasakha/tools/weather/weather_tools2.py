@@ -843,8 +843,7 @@ async def get_current_and_forecast_info(
 
         if bundle.get("success"):
             today_raw = bundle.get("today", {}) or {}
-            today_str = today_raw.get("date") or datetime.now().strftime("%Y-%m-%d")
-
+            today_str = datetime.now().strftime("%Y-%m-%d")
             try:
                 base_dt = datetime.strptime(today_str, "%Y-%m-%d")
             except Exception:
@@ -858,8 +857,7 @@ async def get_current_and_forecast_info(
                     "station": today_raw.get("station"),
                     "min_temp": today_raw.get("forecast_min_temp") or today_raw.get("observed_min_temp"),
                     "max_temp": today_raw.get("forecast_max_temp") or today_raw.get("observed_max_temp"),
-                    "forecast": today_raw.get("forecast"),
-                    "observed_past_24hrs_rainfall": today_raw.get("past_24hrs_rainfall"),
+                    "forecast": today_raw.get("forecast") or "Normal weather",
                     "humidity_0830": today_raw.get("humidity_0830"),
                     "humidity_1730": today_raw.get("humidity_1730"),
                     "data_source": today_raw.get("data_source") or _label_data_source(data_source_today),
@@ -934,7 +932,7 @@ async def get_current_and_forecast_info(
                                 "station": today_raw.get("station"),
                                 "min_temp": today_raw.get("observed_min_temp") or today_raw.get("forecast_min_temp", "22.5"),
                                 "max_temp": today_raw.get("observed_max_temp") or today_raw.get("forecast_max_temp", "30.0"),
-                                "forecast": "Normal weather",
+                                "forecast": "Observed weather",
                                 "observed_past_24hrs_rainfall": today_raw.get("past_24hrs_rainfall", "0.0"),
                                 "data_source": DATA_SOURCE_IMD,
                             }
@@ -958,10 +956,19 @@ async def get_current_and_forecast_info(
                 result_payload["from_date"] = eff_from_date
                 result_payload["to_date"] = eff_to_date
 
+                max_fc_dt = base_dt + timedelta(days=6)
+                max_fc_str = max_fc_dt.strftime("%Y-%m-%d")
+
                 ranged_items = []
                 try:
                     s_dt = datetime.strptime(eff_from_date, "%Y-%m-%d")
                     e_dt = datetime.strptime(eff_to_date, "%Y-%m-%d")
+                    if e_dt > max_fc_dt and s_dt <= max_fc_dt:
+                        result_payload["notice"] = (
+                            f"Official IMD daily weather forecasts are available for up to 7 days only "
+                            f"({today_str} to {max_fc_str}). Daily forecasts beyond {max_fc_str} cannot be provided by IMD."
+                        )
+                        e_dt = max_fc_dt
                     if s_dt > e_dt:
                         date_list = [eff_from_date]
                     else:
@@ -991,24 +998,30 @@ async def get_current_and_forecast_info(
                     match = next((item for item in full_7day_forecast if item.get("date") == d_str), None)
                     if match:
                         ranged_items.append(match)
-                    else:
-                        ranged_items.append({
-                            "date": d_str,
-                            "station": today_raw.get("station"),
-                            "observed_min_temp": today_raw.get("observed_min_temp"),
-                            "observed_max_temp": today_raw.get("observed_max_temp"),
-                            "observed_past_24hrs_rainfall": today_raw.get("past_24hrs_rainfall"),
-                            "data_source": DATA_SOURCE_IMD,
-                        })
 
                 result_payload["historical_weather_range"] = ranged_items
 
             # Case C: Multi-day forecast / next N days
             elif qt == "forecast" or (forecast_days > 1 and qt != "today" and not target_date):
-                limit_days = max(1, min(7, forecast_days))
+                max_fc_dt = base_dt + timedelta(days=6)
+                max_fc_str = max_fc_dt.strftime("%Y-%m-%d")
+                if forecast_days > 6:
+                    result_payload["notice"] = (
+                        f"Official IMD daily weather forecasts are available for up to 7 days only "
+                        f"({today_str} to {max_fc_str}). Daily forecasts beyond 7 days cannot be provided by IMD. "
+                        f"Showing available 7-day forecast trend below:"
+                    )
+                if forecast_days in {5, 6}:
+                    limit_days = 6  # Today + 5 future days = 6 days total
+                elif forecast_days >= 7:
+                    limit_days = 7  # Today + 6 future days = 7 days max
+                else:
+                    limit_days = max(1, min(7, forecast_days))
+
                 result_payload["selected_timeframe"] = f"next_{limit_days}_days_forecast"
                 result_payload["forecast_days_count"] = limit_days
-                result_payload["forecast_list"] = full_7day_forecast[:limit_days]
+                fc_clean = [item for item in full_7day_forecast if isinstance(item, dict) and (item.get("date") or "") >= today_str]
+                result_payload["forecast_list"] = fc_clean[:limit_days]
 
             # Case D: Today's weather default
             else:
@@ -1017,13 +1030,14 @@ async def get_current_and_forecast_info(
 
             result_payload["data_source_today"] = data_source_today
             result_payload["data_source"] = _label_data_source(data_source_today)
-            # Only expose IMD as a separate forecast source when multi-day forecast is returned.
-            showing_multiday = bool(
-                result_payload.get("forecast_list")
-                or (isinstance(result_payload.get("selected_timeframe"), str)
-                    and "days_forecast" in result_payload.get("selected_timeframe", ""))
-            )
-            if showing_multiday and data_source_today == "ws" and bundle.get("forecast"):
+            # Only expose IMD as a separate forecast source when multi-day forecast is returned from IMD.
+            has_imd_forecast = False
+            if result_payload.get("forecast_list"):
+                has_imd_forecast = any(item.get("data_source") == DATA_SOURCE_IMD for item in result_payload["forecast_list"] if isinstance(item, dict))
+            elif result_payload.get("historical_weather_range"):
+                has_imd_forecast = any(item.get("data_source") == DATA_SOURCE_IMD for item in result_payload["historical_weather_range"] if isinstance(item, dict))
+
+            if has_imd_forecast and data_source_today == "ws":
                 result_payload["forecast_data_source"] = DATA_SOURCE_IMD
             if bundle.get("annam_unavailable_note"):
                 result_payload["annam_unavailable_note"] = bundle.get("annam_unavailable_note")
@@ -1037,18 +1051,48 @@ async def get_current_and_forecast_info(
 
         if target_date:
             m_target = next((item for item in full_7day_forecast if item.get("date") == target_date), None)
-            if m_target:
-                human_sum = f"Weather forecast for {target_date} in {place_label}: Max Temp: {m_target.get('max_temp', m_target.get('forecast_max_temp', 'N/A'))}°C, Min Temp: {m_target.get('min_temp', m_target.get('forecast_min_temp', 'N/A'))}°C, Forecast: {m_target.get('forecast', 'N/A')}."
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            if target_date < today_str:
+                label_prefix = "Historical weather"
+                cond_prefix = "Condition"
+                obs_max = today_raw.get('observed_max_temp') or today_raw.get('forecast_max_temp', 'N/A')
+                obs_min = today_raw.get('observed_min_temp') or today_raw.get('forecast_min_temp', 'N/A')
+                human_sum = f"Historical weather for {target_date} in {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm."
+            elif target_date == today_str:
+                label_prefix = "Today's weather"
+                cond_prefix = "Condition"
+                if m_target:
+                    human_sum = f"Today's weather for {target_date} in {place_label}: Max Temp: {m_target.get('max_temp', m_target.get('forecast_max_temp', 'N/A'))}°C, Min Temp: {m_target.get('min_temp', m_target.get('forecast_min_temp', 'N/A'))}°C, Condition: {m_target.get('forecast', 'N/A')}."
+                else:
+                    human_sum = f"Today's weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C."
             else:
-                human_sum = f"Weather forecast for {target_date} in {place_label}: Official IMD 7-day forecast trend shows temperatures between {today_raw.get('forecast_min_temp', '23')}°C and {today_raw.get('forecast_max_temp', '29')}°C with {today_raw.get('forecast', 'intermittent rain')}."
+                label_prefix = "Weather forecast"
+                cond_prefix = "Forecast"
+                if m_target:
+                    human_sum = f"Weather forecast for {target_date} in {place_label}: Max Temp: {m_target.get('max_temp', m_target.get('forecast_max_temp', 'N/A'))}°C, Min Temp: {m_target.get('min_temp', m_target.get('forecast_min_temp', 'N/A'))}°C, Forecast: {m_target.get('forecast', 'N/A')}."
+                else:
+                    human_sum = f"Weather forecast for {target_date} in {place_label}: Official IMD 7-day trend shows temperatures between {today_raw.get('forecast_min_temp', '23')}°C and {today_raw.get('forecast_max_temp', '29')}°C with {today_raw.get('forecast', 'intermittent rain')}."
         elif from_date:
-            human_sum = f"Recorded/forecast weather range ({from_date} to {to_date or datetime.now().strftime('%Y-%m-%d')}) for {place_label}: Max Temp: {today_raw.get('forecast_max_temp', 'N/A')}°C, Min Temp: {today_raw.get('forecast_min_temp', 'N/A')}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm."
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            obs_max = today_raw.get('observed_max_temp') or today_raw.get('forecast_max_temp', 'N/A')
+            obs_min = today_raw.get('observed_min_temp') or today_raw.get('forecast_min_temp', 'N/A')
+            if qt == "previous" or from_date < today_str:
+                human_sum = f"Recorded historical weather range ({from_date} to {to_date or today_str}) for {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm."
+            else:
+                human_sum = f"Weather forecast range ({from_date} to {to_date or today_str}) for {place_label}: Max Temp: {today_raw.get('forecast_max_temp', 'N/A')}°C, Min Temp: {today_raw.get('forecast_min_temp', 'N/A')}°C."
+        elif qt == "previous":
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            obs_max = today_raw.get('observed_max_temp') or today_raw.get('forecast_max_temp', 'N/A')
+            obs_min = today_raw.get('observed_min_temp') or today_raw.get('forecast_min_temp', 'N/A')
+            human_sum = f"Historical weather for {place_label}: Observed Max Temp: {obs_max}°C, Observed Min Temp: {obs_min}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm."
         elif qt == "forecast" or forecast_days > 1:
             limit_days = max(1, min(7, forecast_days))
             human_sum = f"{limit_days}-Day Weather Forecast for {place_label}: Temperatures ranging between {today_raw.get('forecast_min_temp', 'N/A')}°C and {today_raw.get('forecast_max_temp', 'N/A')}°C. Forecast: {today_raw.get('forecast', 'Generally cloudy sky with rain')}."
         else:
             cond = today_raw.get("forecast", "Normal weather")
-            if isinstance(imd_current, dict) and imd_current.get("success"):
+            if data_source_today == "ws":
+                human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm, Condition: {cond}."
+            elif isinstance(imd_current, dict) and imd_current.get("success"):
                 cst = imd_current.get("station") or {}
                 cond = cst.get("weather_description") or cst.get("weather_message") or cond
                 wind_desc = cst.get("wind_direction") or describe_wind_direction(
@@ -1063,7 +1107,7 @@ async def get_current_and_forecast_info(
                     f"Condition: {cond}."
                 )
             else:
-                human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm, Forecast: {cond}."
+                human_sum = f"Today's Weather in {place_label}: Observed Temp: {today_raw.get('observed_min_temp', 'N/A')}°C to {today_raw.get('observed_max_temp', 'N/A')}°C, Past 24h Rain: {today_raw.get('past_24hrs_rainfall', '0.0')} mm, Condition: {cond}."
 
         ws_ctx = _build_ws_nearest_station_context(
             actual_lat, actual_lon, location or district or resolved_name, today_raw if data_source_today == "ws" else None
@@ -1088,11 +1132,13 @@ async def get_current_and_forecast_info(
             res_dict["to_date"] = to_date or datetime.now().strftime("%Y-%m-%d")
         if st_context is not None:
             res_dict["nearest_station_info"] = st_context
-        if isinstance(imd_current, dict) and imd_current.get("success"):
+        # Only attach IMD current station when Annam AWS is NOT available
+        if data_source_today != "ws" and isinstance(imd_current, dict) and imd_current.get("success"):
             res_dict["imd_current_weather"] = imd_current
             if isinstance(result_payload, dict) and result_payload.get("selected_timeframe") == "today":
                 result_payload["imd_current_weather"] = imd_current
                 res_dict["weather_data"] = result_payload
+        res_dict["query_type"] = qt  # 'current', 'today', 'forecast', 'previous'
         return res_dict
 
     return await asyncio.to_thread(_run)
@@ -1384,9 +1430,23 @@ async def get_rainfall_and_monsoon_info(
             filtered_payload["timeframe"] = f"date_range ({eff_from_date} to {eff_to_date})"
             filtered_payload["rainfall_range"] = ranged_rf
         elif dt == "forecast" or (forecast_days > 1 and dt != "current" and dt != "today" and not target_date):
-            limit_days = max(1, min(7, forecast_days))
+            max_fc_dt = base_dt + timedelta(days=6)
+            max_fc_str = max_fc_dt.strftime("%Y-%m-%d")
+            if forecast_days > 6:
+                filtered_payload["notice"] = (
+                    f"Official IMD daily rainfall forecasts are available for up to 7 days only "
+                    f"({today_str} to {max_fc_str}). Daily forecasts beyond 7 days cannot be provided by IMD. "
+                    f"Showing available 7-day rainfall forecast trend below:"
+                )
+            if forecast_days in {5, 6}:
+                limit_days = 6  # Today + 5 future days = 6 days total
+            elif forecast_days >= 7:
+                limit_days = 7  # Today + 6 future days = 7 days max
+            else:
+                limit_days = max(1, min(7, forecast_days))
             filtered_payload["timeframe"] = f"next_{limit_days}_days_forecast"
-            filtered_payload["rainfall_forecast_list"] = rainfall_7day_list[:limit_days]
+            rf_clean = [item for item in rainfall_7day_list if isinstance(item, dict) and (item.get("date") or "") >= today_str]
+            filtered_payload["rainfall_forecast_list"] = rf_clean[:limit_days]
             filtered_payload["subdivision_rainfall_forecast"] = subdiv_rainfall
         elif dt == "monsoon_status" or query_type == "monsoon":
             filtered_payload["timeframe"] = "monsoon_status"
@@ -1666,9 +1726,23 @@ async def get_temperature_info(
             timeframe_payload["selected_timeframe"] = f"date_range ({eff_from_date or today_str} to {eff_to_date or today_str})"
             timeframe_payload["temperature_range"] = ranged_temp
         elif qt == "forecast" or (forecast_days > 1 and qt != "today" and not target_date):
-            limit_days = max(1, min(7, forecast_days))
+            max_fc_dt = base_dt + timedelta(days=6)
+            max_fc_str = max_fc_dt.strftime("%Y-%m-%d")
+            if forecast_days > 6:
+                timeframe_payload["notice"] = (
+                    f"Official IMD daily weather forecasts are available for up to 7 days only "
+                    f"({today_str} to {max_fc_str}). Daily forecasts beyond 7 days cannot be provided by IMD. "
+                    f"Showing available 7-day temperature forecast trend below:"
+                )
+            if forecast_days in {5, 6}:
+                limit_days = 6  # Today + 5 future days = 6 days total
+            elif forecast_days >= 7:
+                limit_days = 7  # Today + 6 future days = 7 days max
+            else:
+                limit_days = max(1, min(7, forecast_days))
             timeframe_payload["selected_timeframe"] = f"next_{limit_days}_days_temperature_forecast"
-            timeframe_payload["temperature_forecast_list"] = temp_7day_list[:limit_days]
+            temp_clean = [item for item in temp_7day_list if isinstance(item, dict) and (item.get("date") or "") >= today_str]
+            timeframe_payload["temperature_forecast_list"] = temp_clean[:limit_days]
         else:
             timeframe_payload["selected_timeframe"] = "today"
             timeframe_payload["today_temperature"] = {
@@ -1712,7 +1786,7 @@ async def get_temperature_info(
             aws_out = dict(aws)
             aws_out["station"] = enrich_station_fields(aws.get("station") or {})
             res_dict["nearest_live_aws_station"] = aws_out
-        if isinstance(imd_current, dict) and imd_current.get("success"):
+        if temp_data_source != DATA_SOURCE_ANNAM and isinstance(imd_current, dict) and imd_current.get("success"):
             res_dict["imd_current_weather"] = imd_current
         return res_dict
 
@@ -1866,7 +1940,7 @@ async def get_location_weather(
             res_dict["nearest_station_info"] = st_context
         if nearby_data is not None:
             res_dict["nearby_stations_within_radius"] = nearby_data
-        if isinstance(imd_current, dict) and imd_current.get("success"):
+        if loc_data_source != DATA_SOURCE_ANNAM and isinstance(imd_current, dict) and imd_current.get("success"):
             res_dict["imd_current_weather"] = imd_current
         return res_dict
 

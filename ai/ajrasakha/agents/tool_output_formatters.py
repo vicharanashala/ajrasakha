@@ -76,6 +76,50 @@ def _map_color_code(value: Any) -> str:
     return _COLOR_CODE_MAP.get(key, str(value))
 
 
+_HEX_COLOR_MAP = {
+    "#008000": "🟢 Green (No Warning)",
+    "#00ff00": "🟢 Green (No Warning)",
+    "#7cfc00": "🟢 Green (No Warning)",
+    "#ffff00": "🟡 Yellow alert",
+    "#ffa500": "🟠 Orange alert",
+    "#ff0000": "🔴 Red alert",
+}
+
+
+def _map_hex_color(hex_str: Any) -> str:
+    if not hex_str:
+        return ""
+    key = str(hex_str).strip().lower()
+    return _HEX_COLOR_MAP.get(key, str(hex_str))
+
+
+def _is_annam_source(raw: Any) -> bool:
+    if not raw:
+        return False
+    s = str(raw).lower()
+    return "annam" in s or "ws" in s
+
+
+def _format_subdiv_warning_item(s: dict[str, Any]) -> str:
+    subdiv_name = s.get("subdivision") or s.get("Subdivision") or "Subdivision"
+    warns = s.get("warnings") or s.get("warning") or s.get("message")
+    if isinstance(warns, list):
+        formatted_warns = []
+        for w in warns:
+            if isinstance(w, dict):
+                d = w.get("day", "Day")
+                desc = w.get("warning") or w.get("warning_description") or "No Warning"
+                color_code = _map_hex_color(w.get("color") or w.get("color_code"))
+                color_label = f"{color_code} — " if color_code else ""
+                formatted_warns.append(f"  - {d}: {color_label}{desc}")
+            else:
+                formatted_warns.append(f"  - {w}")
+        return f"- {subdiv_name}:\n" + "\n".join(formatted_warns)
+    elif isinstance(warns, str):
+        return f"- {subdiv_name}: {warns}"
+    return f"- {subdiv_name}: {json.dumps(s, ensure_ascii=False)}"
+
+
 def format_tool_output(tool_name: str, raw_text: str) -> str:
     """Format tool output for farmer-facing assembly; JSON tools get readable prose."""
     text = (raw_text or "").strip()
@@ -88,11 +132,13 @@ def format_tool_output(tool_name: str, raw_text: str) -> str:
         except (json.JSONDecodeError, TypeError):
             return text
         if isinstance(data, dict):
-            # Envelope: {"answer": "...", "tool_data": {...}} — prefer Gemma/server-phrased answer.
-            if "answer" in data and ("tool_data" in data or tool_name == "new_weather"):
-                return str(data.get("answer") or "")
+            # Envelope: {"answer": "...", "tool_data": {...}} — prefer deterministic tool_data formatter
+            if "tool_data" in data and isinstance(data["tool_data"], dict):
+                return format_new_weather_tool_dict(data["tool_data"])
             if "resolved_location" in data or "summary" in data or "district_5day_warnings" in data or "weather_data" in data or "results" in data:
                 return format_new_weather_tool_dict(data)
+            if "answer" in data:
+                return str(data.get("answer") or "")
             return format_weather_envelope(data)
         return text
 
@@ -177,7 +223,7 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
                 elif "Yellow" in sev:
                     lines.append(f"{day_label}: 🟡 Yellow alert — {desc}")
                 else:
-                    lines.append(f"{day_label}: No Warning — {desc}")
+                    lines.append(f"{day_label}: 🟢 Green (No Warning) — {desc}")
                 lines.append(f"  Warning code(s): {w_code}")
                 if sev:
                     lines.append(f"  Severity: {sev}")
@@ -202,7 +248,7 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
                 elif "Yellow" in sev:
                     lines.append(f"- {d_name}: 🟡 Yellow alert — {w_desc} | {sev}")
                 else:
-                    lines.append(f"- {d_name}: No Warning — {w_desc} | {sev or 'Green (No Warning)'}")
+                    lines.append(f"- {d_name}: 🟢 Green (No Warning) — {w_desc} | {sev or 'Green (No Warning)'}")
 
         subdiv = data.get("subdivision_warnings")
         if isinstance(subdiv, list) and subdiv:
@@ -210,19 +256,13 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
             lines.append("Subdivision warnings")
             for s in subdiv[:10]:
                 if isinstance(s, dict):
-                    lines.append(
-                        f"- {s.get('subdivision') or s.get('Subdivision') or 'Subdivision'}: "
-                        f"{s.get('warning') or s.get('Warning') or s.get('message') or json.dumps(s, ensure_ascii=False)}"
-                    )
+                    lines.append(_format_subdiv_warning_item(s))
         elif isinstance(subdiv, dict) and subdiv.get("data"):
             lines.append("")
             lines.append("Subdivision warnings")
             for s in (subdiv.get("data") or [])[:10]:
                 if isinstance(s, dict):
-                    lines.append(
-                        f"- {s.get('subdivision') or s.get('Subdivision') or 'Subdivision'}: "
-                        f"{s.get('warning') or s.get('Warning') or s.get('message') or json.dumps(s, ensure_ascii=False)}"
-                    )
+                    lines.append(_format_subdiv_warning_item(s))
 
     # ------------------------------------------------------------------
     # Tool 2: get_rainfall_and_monsoon_info
@@ -283,11 +323,6 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
                     continue
                 lines.append(f"  {k}: {v}")
 
-        if results.get("observation_data_source"):
-            lines.append(f"Observation source: {results.get('observation_data_source')}")
-        if results.get("district_stats_data_source"):
-            lines.append(f"District stats source: {results.get('district_stats_data_source')}")
-
     # ------------------------------------------------------------------
     # Tool 1: get_current_and_forecast_info
     # ------------------------------------------------------------------
@@ -311,40 +346,60 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
             cur_st = imd_current.get("station") if isinstance(imd_current.get("station"), dict) else {}
 
         fc_list = None
+        fc_list = None
         if is_today_current:
             tw = w_data.get("today_weather", {}) if isinstance(w_data.get("today_weather"), dict) else {}
-            st_name = cur_st.get("name") or tw.get("station") or location
-            dist = None
-            if isinstance(imd_current, dict):
-                dist = imd_current.get("distance_km")
-            if dist is None:
+            has_annam = bool(tw and _is_annam_source(tw.get("data_source") or data.get("data_source")))
+
+            if has_annam:
+                st_name = tw.get("station") or location
                 dist = tw.get("distance_to_station_km")
-            title = f"Current weather — {st_name}"
+            else:
+                st_info = data.get("nearest_station_info") if isinstance(data.get("nearest_station_info"), dict) else {}
+                st_info_dist = st_info.get("distance_from_requested_place_km") if st_info else None
+                if st_info_dist is None and st_info:
+                    st_info_dist = st_info.get("distance_km")
+                imd_dist = imd_current.get("distance_km") if isinstance(imd_current, dict) else None
+
+                if st_info and st_info_dist is not None and (imd_dist is None or float(st_info_dist) <= float(imd_dist)):
+                    st_name = st_info.get("nearest_station_name") or st_info.get("station_name") or cur_st.get("name") or location
+                    dist = st_info_dist
+                    st_det = st_info.get("station_details")
+                    if isinstance(st_det, dict) and st_det:
+                        cur_st = st_det
+                else:
+                    st_name = cur_st.get("name") or tw.get("station") or location
+                    dist = imd_dist if imd_dist is not None else tw.get("distance_to_station_km")
+
+            query_type_val = str(data.get("query_type") or "").lower().strip()
+            if query_type_val == "current":
+                title = f"Live weather — {st_name}"
+            else:
+                title = f"Today's weather — {st_name} ({today_str})"
+
             if dist is not None and str(dist).strip() not in {"", "N/A"}:
                 title += f" (~{dist} km away)"
             lines.append(title)
-            if st_timeframe:
-                lines.append(f"Timeframe: {st_timeframe}")
             lines.append("")
             if isinstance(summary, str) and summary.strip():
                 lines.append(f"Summary: {summary.strip()}")
                 lines.append("")
 
-            if cur_st:
+            if has_annam:
+                lines.extend(_forecast_item_detail_lines(tw, default_date=tw.get("date") or "Today"))
+                shown_live_current = True
+            elif cur_st:
                 lines.extend(_live_station_detail_lines(cur_st, fallback_location=location))
                 shown_live_current = True
             elif tw:
                 lines.extend(_today_weather_fallback_lines(tw, location=location))
-
-            if cur_st and tw and (tw.get("forecast") or tw.get("forecast_min_temp") or tw.get("forecast_max_temp")):
-                lines.append("")
-                lines.append("Today's forecast")
-                lines.extend(_forecast_item_detail_lines(tw, default_date=tw.get("date") or "Today"))
-            elif (not cur_st) and tw and tw.get("forecast"):
-                lines.append("")
-                lines.append("Today's forecast")
-                lines.extend(_forecast_item_detail_lines(tw, default_date=tw.get("date") or "Today"))
+                shown_live_current = True
         else:
+            top_notice = w_data.get("notice") or data.get("notice")
+            if top_notice:
+                lines.append(str(top_notice))
+                lines.append("")
+
             if "target_date_weather" in w_data:
                 tdw = w_data.get("target_date_weather", {})
                 if isinstance(tdw, dict):
@@ -361,13 +416,27 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
             if fc_list is None:
                 fc_list = w_data.get("forecast_list") or w_data.get("historical_weather_range") or []
 
-            title = "Historical weather" if "date_range" in st_timeframe or "previous" in st_timeframe else "Forecast"
+            target_dt = data.get("target_date") or w_data.get("target_date")
+            from_dt = data.get("from_date") or w_data.get("from_date")
+            if "date_range" in st_timeframe or "previous" in st_timeframe or from_dt or (target_dt and target_dt < today_str):
+                title = f"Historical weather ({target_dt})" if target_dt else "Historical weather"
+            elif target_dt == today_str or st_timeframe == "today":
+                title = f"Today's weather ({today_str})"
+            else:
+                title = "Forecast"
             lines.append(f"{title} — {location}")
-            if st_timeframe:
-                lines.append(f"Timeframe: {st_timeframe}")
             lines.append("")
             if isinstance(summary, str) and summary.strip():
-                lines.append(f"Summary: {summary.strip()}")
+                sum_text = summary.strip()
+                if title.startswith("Historical weather") or (target_dt and target_dt < today_str) or from_dt or "previous" in st_timeframe or "date_range" in st_timeframe:
+                    sum_text = (
+                        sum_text.replace("Recorded/forecast weather range", "Recorded historical weather range")
+                        .replace("Weather forecast for", "Historical weather for")
+                        .replace(", Forecast:", ", Condition:")
+                    )
+                elif target_dt and target_dt == today_str:
+                    sum_text = sum_text.replace("Weather forecast for", "Today's weather for").replace(", Forecast:", ", Condition:")
+                lines.append(f"Summary: {sum_text}")
                 lines.append("")
             if isinstance(fc_list, list):
                 for item in fc_list:
@@ -590,41 +659,47 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
         )
     )
 
-    # Explicit data source
+    # Consolidated Data Source Emission (Single deduplicated block)
     st_info = data.get("nearest_station_info")
-    source_label = data.get("data_source")
-    if not source_label and isinstance(st_info, dict):
-        source_label = st_info.get("data_source")
-    if not source_label and isinstance(summary, dict):
-        source_label = summary.get("data_source")
-    if not source_label:
+    obs_src = (
+        data.get("observation_data_source")
+        or data.get("data_source")
+        or (st_info.get("data_source") if isinstance(st_info, dict) else None)
+        or (summary.get("data_source") if isinstance(summary, dict) else None)
+    )
+    if not obs_src:
         w_data = data.get("weather_data") if isinstance(data.get("weather_data"), dict) else {}
         results = data.get("results") if isinstance(data.get("results"), dict) else {}
         temp_data = data.get("temperature_timeframe_data") if isinstance(data.get("temperature_timeframe_data"), dict) else {}
-        source_label = (
+        obs_src = (
             w_data.get("data_source")
             or results.get("data_source")
             or temp_data.get("data_source")
         )
-    if source_label:
+    fc_src = (
+        data.get("forecast_data_source")
+        or (data.get("weather_data", {}).get("forecast_data_source") if isinstance(data.get("weather_data"), dict) else None)
+    )
+
+    if obs_src and fc_src and str(obs_src).strip() != str(fc_src).strip() and "Annam" in str(obs_src):
+        single_source = f"Data Source: {obs_src} (Observations) | {fc_src} (Multi-day Forecast)"
+    elif obs_src:
+        single_source = f"Data Source: {obs_src}"
+    elif fc_src:
+        single_source = f"Data Source: {fc_src}"
+    else:
+        single_source = None
+
+    if single_source:
         lines.append("")
-        lines.append(f"Data source: {source_label}")
-        note = data.get("annam_unavailable_note") or (
-            data.get("weather_data", {}).get("annam_unavailable_note")
-            if isinstance(data.get("weather_data"), dict) else None
-        )
-        if note and "Annam" not in str(source_label):
-            lines.append(str(note))
-        forecast_src = data.get("forecast_data_source") or (
-            data.get("weather_data", {}).get("forecast_data_source")
-            if isinstance(data.get("weather_data"), dict) else None
-        )
-        if forecast_src and forecast_src != source_label and "Annam" in str(source_label):
-            lines.append(f"Multi-day forecast source: {forecast_src}")
-    if data.get("observation_data_source"):
-        lines.append(f"Observation data source: {data.get('observation_data_source')}")
-    if data.get("district_stats_data_source"):
-        lines.append(f"District stats data source: {data.get('district_stats_data_source')}")
+        lines.append(single_source)
+
+    note = data.get("annam_unavailable_note") or (
+        data.get("weather_data", {}).get("annam_unavailable_note")
+        if isinstance(data.get("weather_data"), dict) else None
+    )
+    if note and single_source and "Annam" not in str(single_source):
+        lines.append(str(note))
 
     # Fallback to summary if lines are empty
     if not lines:
@@ -632,13 +707,37 @@ def format_new_weather_tool_dict(data: dict[str, Any]) -> str:
             return json.dumps(summary, indent=2, ensure_ascii=False)
         return str(summary or json.dumps(data, indent=2, ensure_ascii=False))
 
-    # Drop accidental blank-only runs
+    # Drop accidental blank-only runs and deduplicate Data Source lines
     cleaned: list[str] = []
+    data_source_seen = False
     for line in lines:
+        if line.startswith("Data Source:") or line.startswith("Observation source:") or line.startswith("Data source:"):
+            if data_source_seen:
+                continue
+            data_source_seen = True
         if line == "" and cleaned and cleaned[-1] == "":
             continue
         cleaned.append(line)
-    return "\n".join(cleaned)
+    res = "\n".join(cleaned)
+    return _ensure_weather_answer_spacing(res)
+
+
+def _ensure_weather_answer_spacing(text: str) -> str:
+    if not text or not isinstance(text, str):
+        return text
+    # Ensure blank line before Summary: if preceded by a non-empty line
+    text = re.sub(r"([^\n])\n(Summary:)", r"\1\n\n\2", text)
+    # Ensure blank line after Summary: if followed by a date line or non-empty line
+    text = re.sub(r"(Summary:[^\n]+)\n(?=(?:Today \()?\d{4}-\d{2}-\d{2})", r"\1\n\n", text)
+    # General: Ensure blank line before any date breakdown line (e.g., 2026-08-14 | ... or Today (2026-08-14) | ...) if preceded by non-empty line
+    text = re.sub(r"([^\n])\n((?:Today \()?\d{4}-\d{2}-\d{2}[^\n]*\|)", r"\1\n\n\2", text)
+    # Ensure blank line before station context sections (e.g., Annam AWS ground sensor or IMD observation station)
+    text = re.sub(r"([^\n])\n(Annam AWS ground sensor|IMD observation station|Nearest IMD Station|Live observation)", r"\1\n\n\2", text)
+    # Ensure blank line before Data Source: line if preceded by non-empty line
+    text = re.sub(r"([^\n])\n(Data Source:|Observation source:|Data source:)", r"\1\n\n\2", text)
+    # Collapse any accidental 3+ consecutive newlines to double newline
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text
 
 
 def format_weather_envelope(data: dict[str, Any]) -> str:
@@ -1094,6 +1193,8 @@ def _join_date_time(date: Any, time: Any) -> Optional[str]:
     d = None if _is_empty_val(date) else str(date).strip()
     t = None if _is_empty_val(time) else str(time).strip()
     if d and t:
+        if t.isdigit():
+            t = f"{int(t):02d}:00"
         return f"{d} {t}"
     return d or t
 
@@ -1114,7 +1215,10 @@ def _present(value: Any) -> bool:
 def _forecast_item_detail_lines(item: Any, *, default_date: str = "Today") -> list[str]:
     if not isinstance(item, dict):
         return []
-    dt = item.get("date") or default_date
+    dt = str(item.get("date") or default_date).strip()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    if dt.lower() in ("today", "day 1", "day-1") or dt == today_str:
+        dt = f"Today ({today_str})"
     fc_text = (
         item.get("forecast")
         or item.get("forecast_text")
@@ -1139,14 +1243,19 @@ def _forecast_item_detail_lines(item: Any, *, default_date: str = "Today") -> li
         or item.get("max_temp_c")
     )
     lines = [f"{dt} | {fc_text} | {_fmt_temp(min_t, max_t) or 'N/A'}"]
+    is_historical_item = (
+        str(item.get("date") or "").strip() < today_str
+        or "observed" in str(fc_text).lower()
+        or "history" in str(item.get("data_source") or "").lower()
+    )
     rain_24h = (
         item.get("past_24hrs_rainfall")
         or item.get("observed_past_24hrs_rainfall")
         or item.get("observed_past_24hrs_rainfall_mm")
         or item.get("rainfall")
     )
-    if _present(rain_24h):
-        lines.append(f"  Rain 24h: {rain_24h} mm")
+    if is_historical_item and _present(rain_24h):
+        lines.append(f"  Observed Rain 24h: {rain_24h} mm")
     if _present(item.get("humidity_0830")):
         lines.append(f"  Humidity 0830: {item.get('humidity_0830')}%")
     if _present(item.get("humidity_1730")):
@@ -1157,15 +1266,16 @@ def _forecast_item_detail_lines(item: Any, *, default_date: str = "Today") -> li
         lines.append(f"  Sunrise: {item.get('sunrise')}")
     if _present(item.get("sunset")):
         lines.append(f"  Sunset: {item.get('sunset')}")
-    if _present(item.get("data_source") or item.get("source")):
-        lines.append(f"  Source: {item.get('data_source') or item.get('source')}")
     return lines
 
 
 def _temperature_item_detail_lines(item: Any, *, default_date: str = "Today") -> list[str]:
     if not isinstance(item, dict):
         return []
-    dt = item.get("date") or default_date
+    dt = str(item.get("date") or default_date).strip()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    if dt.lower() in ("today", "day 1", "day-1"):
+        dt = f"Today ({today_str})"
     cond = (
         item.get("weather_condition")
         or item.get("forecast_condition")
@@ -1206,8 +1316,6 @@ def _temperature_item_detail_lines(item: Any, *, default_date: str = "Today") ->
         lines.append(f"  Sunrise: {item.get('sunrise')}")
     if _present(item.get("sunset")):
         lines.append(f"  Sunset: {item.get('sunset')}")
-    if _present(item.get("data_source") or item.get("source")):
-        lines.append(f"  Source: {item.get('data_source') or item.get('source')}")
     return lines
 
 
@@ -1249,8 +1357,6 @@ def _rainfall_item_detail_lines(
         lines.append(f"  Category: {cat}" + (f" — {cat_desc}" if _present(cat_desc) else ""))
     if _present(item.get("weekly_cumulative_mm")):
         lines.append(f"  Weekly cumulative: {item.get('weekly_cumulative_mm')} mm")
-    if _present(item.get("data_source")):
-        lines.append(f"  Source: {item.get('data_source')}")
     return lines
 
 
@@ -1330,6 +1436,7 @@ def _common_weather_extra_lines(
     if not skip_summary and isinstance(summary, str) and summary.strip():
         lines.append("")
         lines.append(f"Summary: {summary.strip()}")
+        lines.append("")
 
     if not skip_live_current:
         imd_current = data.get("imd_current_weather")
@@ -1359,17 +1466,23 @@ def _common_weather_extra_lines(
                 lines.extend(_live_station_detail_lines(aws_st, fallback_location=location))
 
     st_info = data.get("nearest_station_info")
-    if isinstance(st_info, dict) and st_info:
+    if isinstance(st_info, dict) and st_info and not skip_live_current:
         lines.append("")
-        lines.append("Nearest station info")
+        # Label by data source role for clarity
+        st_src = str(st_info.get("data_source") or "").lower()
+        if "annam" in st_src:
+            lines.append("Annam AWS ground sensor (observations)")
+        elif "imd" in st_src:
+            lines.append("IMD observation station")
+        else:
+            lines.append("Nearest observation station")
         for key, label in (
             ("nearest_station_name", "Station"),
             ("station_name", "Station"),
-            ("distance_from_requested_place_km", "Distance km"),
-            ("distance_km", "Distance km"),
+            ("distance_from_requested_place_km", "Distance from your location"),
+            ("distance_km", "Distance from your location"),
             ("district", "District"),
             ("state", "State"),
-            ("data_source", "Source"),
             ("nearest_station_note", "Note"),
         ):
             if _present(st_info.get(key)):
@@ -1378,6 +1491,8 @@ def _common_weather_extra_lines(
         if isinstance(details, dict):
             for k, v in details.items():
                 if _present(v) and not isinstance(v, (dict, list)):
+                    if k in {"data_source", "source", "observation_data_source", "forecast_data_source"}:
+                        continue
                     if k in {"wind_direction_code", "wind_direction_deg"} and details.get("wind_direction"):
                         continue
                     if k == "weather_code" and details.get("weather_description"):
