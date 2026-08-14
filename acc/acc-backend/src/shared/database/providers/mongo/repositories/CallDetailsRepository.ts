@@ -67,6 +67,72 @@ export class CallDetailsRepository implements ICallDetailsRepository {
     }
   }
 
+  async getQueriesByIds(
+    queryIds?: (string | ObjectId)[],
+    fallbackCallUuid?: string,
+    session?: ClientSession,
+  ): Promise<CallQuery[]> {
+    try {
+      await this.init();
+      const objectIds: ObjectId[] = [];
+      const stringIds: string[] = [];
+
+      if (queryIds && Array.isArray(queryIds) && queryIds.length > 0) {
+        for (const id of queryIds) {
+          if (!id) continue;
+          const idStr = typeof id === 'object' && (id as any).toString ? (id as any).toString() : String(id);
+          stringIds.push(idStr);
+          if (ObjectId.isValid(idStr)) {
+            try {
+              objectIds.push(new ObjectId(idStr));
+            } catch (e) {
+              // Ignore parse error
+            }
+          }
+        }
+      }
+
+      const matchConditions: any[] = [];
+      if (objectIds.length > 0) {
+        matchConditions.push({ _id: { $in: objectIds } });
+      }
+      if (stringIds.length > 0) {
+        matchConditions.push({ _id: { $in: stringIds } });
+      }
+      if (fallbackCallUuid) {
+        matchConditions.push({ callUuid: fallbackCallUuid });
+      }
+
+      if (matchConditions.length === 0) {
+        return [];
+      }
+
+      const queries = await this.callQueriesCollection
+        .find({ $or: matchConditions }, { session })
+        .sort({ createdAt: 1 })
+        .toArray();
+
+      // Deduplicate by string ID
+      const seen = new Set<string>();
+      const uniqueQueries: CallQuery[] = [];
+      for (const q of queries) {
+        const qId = q._id ? q._id.toString() : `${q.callUuid}-${q.question}`;
+        if (!seen.has(qId)) {
+          seen.add(qId);
+          uniqueQueries.push(q);
+        }
+      }
+
+      return uniqueQueries;
+    } catch (error: any) {
+      console.error(
+        `[CallDetailsRepository] getQueriesByIds error for fallbackCallUuid ${fallbackCallUuid}:`,
+        error.stack || error,
+      );
+      return [];
+    }
+  }
+
   async addQueryToCall(callUuid: string, queryData: Partial<CallQuery>, session?: ClientSession): Promise<string> {
     try {
       await this.init();
@@ -123,7 +189,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         { session },
       );
       if (result) {
-        const queries = await this.getQueriesByCallUuid(callUuid, session);
+        const queries = await this.getQueriesByIds(result.queryIds, callUuid, session);
         result.queries = queries;
       }
       return result;
@@ -178,7 +244,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       }
 
       for (const call of result) {
-        call.queries = await this.getQueriesByCallUuid(call.callUuid, session);
+        call.queries = await this.getQueriesByIds(call.queryIds, call.callUuid, session);
         if (call.from && farmersMap.has(call.from)) {
           (call as any).farmerProfile = farmersMap.get(call.from);
         }
@@ -215,6 +281,8 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         updateDoc.agent = details.agent;
       }
 
+      if (details.recording !== undefined) updateDoc.recording = details.recording;
+
       await this.callDetailsCollection.updateOne(
         { callUuid },
         { $set: updateDoc },
@@ -225,6 +293,90 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       throw new InternalServerError(`Failed to update call details: ${error}`);
     }
   }
+
+  async addRecordingToCall(
+    callUuid: string,
+    recording: import('#shared/database/interfaces/ICallDetailsRepository.js').CallRecording,
+    session?: ClientSession
+  ): Promise<void> {
+    try {
+      await this.init();
+      const now = new Date();
+
+      await this.callDetailsCollection.updateOne(
+        { callUuid },
+        {
+          $set: {
+            recording: recording,
+            updatedAt: now,
+          },
+          $setOnInsert: {
+            callUuid,
+            createdAt: now,
+            status: 'completed',
+            caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
+            agent: { transcript: '', translation: '', detectedLanguage: 'unknown' },
+          }
+        },
+        { upsert: true, session }
+      );
+    } catch (error: any) {
+      console.error(`[CallDetailsRepository] addRecordingToCall error for ${callUuid}:`, error.stack || error);
+      throw new InternalServerError(`Failed to add recording to call: ${error}`);
+    }
+  }
+
+  async findRecordingsForPlivoCleanup(
+    olderThanDate: Date,
+    session?: ClientSession
+  ): Promise<{ callUuid: string; recordingId: string }[]> {
+    try {
+      await this.init();
+      const docs = await this.callDetailsCollection.find(
+        {
+          'recording.plivoDeleted': false,
+          'recording.createdAt': { $lte: olderThanDate }
+        },
+        { projection: { callUuid: 1, recording: 1 }, session }
+      ).toArray();
+
+      const results: { callUuid: string; recordingId: string }[] = [];
+      for (const doc of docs) {
+        if (doc.recording?.recordingId && !doc.recording.plivoDeleted) {
+          results.push({ callUuid: doc.callUuid, recordingId: doc.recording.recordingId });
+        }
+      }
+      return results;
+    } catch (error: any) {
+      console.error(`[CallDetailsRepository] findRecordingsForPlivoCleanup error:`, error.stack || error);
+      return [];
+    }
+  }
+
+  async markPlivoRecordingDeleted(
+    callUuid: string,
+    recordingId: string,
+    session?: ClientSession
+  ): Promise<void> {
+    try {
+      await this.init();
+      await this.callDetailsCollection.updateOne(
+        { callUuid },
+        {
+          $set: {
+            'recording.plivoDeleted': true,
+            'recording.plivoDeletedAt': new Date(),
+            updatedAt: new Date()
+          }
+        },
+        { session }
+      );
+    } catch (error: any) {
+      console.error(`[CallDetailsRepository] markPlivoRecordingDeleted error for ${callUuid} (${recordingId}):`, error.stack || error);
+    }
+  }
+
+
 
   async getAgentAnalytics(
     agentUserId: string,

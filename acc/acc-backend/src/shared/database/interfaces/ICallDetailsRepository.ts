@@ -34,6 +34,25 @@ export interface CallQuery {
   updatedAt?: Date;
 }
 
+export interface CallRecording {
+  recordingId: string;
+  storagePath: string;
+  storageBucket: string;
+  duration: number;
+  durationMs?: number;
+  format: 'mp3' | 'wav';
+  status: 'recording' | 'processing' | 'completed' | 'failed';
+  sizeBytes?: number;
+  plivoRecordUrl?: string;
+  plivoDeleted: boolean;
+  plivoDeletedAt?: Date | null;
+  startMs?: number;
+  endMs?: number;
+  type?: 'normal' | 'conference';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface CallDetails {
   _id?: string | ObjectId;
   callUuid: string;
@@ -44,11 +63,13 @@ export interface CallDetails {
   direction?: string;
   caller: CallParticipant;
   agent: CallParticipant;
+  recording?: CallRecording;
   queryIds?: (string | ObjectId)[];
   queries?: CallQuery[];
   createdAt?: Date;
   updatedAt?: Date;
 }
+
 
 export interface AgentAnalytics {
   totalCalls: number;
@@ -77,7 +98,11 @@ export interface ICallDetailsRepository {
   getAll(session?: ClientSession): Promise<CallDetails[]>;
   addQueryToCall(callUuid: string, queryData: Partial<CallQuery>, session?: ClientSession): Promise<string>;
   getQueriesByCallUuid(callUuid: string, session?: ClientSession): Promise<CallQuery[]>;
+  getQueriesByIds(queryIds?: (string | ObjectId)[], fallbackCallUuid?: string, session?: ClientSession): Promise<CallQuery[]>;
   updateCallDetails(callUuid: string, details: Partial<CallDetails>, session?: ClientSession): Promise<void>;
+  addRecordingToCall(callUuid: string, recording: CallRecording, session?: ClientSession): Promise<void>;
+  findRecordingsForPlivoCleanup(olderThanDate: Date, session?: ClientSession): Promise<{ callUuid: string; recordingId: string }[]>;
+  markPlivoRecordingDeleted(callUuid: string, recordingId: string, session?: ClientSession): Promise<void>;
   getAgentAnalytics(
     agentUserId: string,
     startDate?: Date,
@@ -106,4 +131,5 @@ export interface ICallDetailsRepository {
     session?: ClientSession
   ): Promise<{ queries: any[]; total: number }>;
 }
+
 

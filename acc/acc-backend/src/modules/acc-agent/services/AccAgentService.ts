@@ -99,6 +99,7 @@ export class AccAgentService {
         extracted_block: data.extracted_block || '',
         extracted_primary_crop: data.extracted_primary_crop || '',
       };
+      console.log(`📋 [EXTRACTION_DATA] (AccAgentService) Raw extraction output for thread ${threadId}:`, data);
       console.log(`✅ [AccAgentService] Data extracted for thread ${threadId} (${Date.now() - startTime}ms): query="${result.extracted_query}", crop="${result.extracted_crop}", domain="${JSON.stringify(result.extracted_domain)}"`);
       return result;
     } catch (error) {

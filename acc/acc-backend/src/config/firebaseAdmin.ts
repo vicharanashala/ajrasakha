@@ -18,12 +18,28 @@ export function ensureFirebaseAdminInitialized(): void {
     return;
   }
 
+  // Set STORAGE_EMULATOR_HOST for @google-cloud/storage when running local Firebase emulator
+  const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST || process.env.STORAGE_EMULATOR_HOST;
+  if (emulatorHost) {
+    const cleanHost = emulatorHost.replace(/^http:\/\//, '');
+    process.env.STORAGE_EMULATOR_HOST = `http://${cleanHost}`;
+    process.env.FIREBASE_STORAGE_EMULATOR_HOST = cleanHost;
+  }
+
   admin.initializeApp({
     credential: admin.credential.cert(getServiceAccount()),
+    storageBucket: appConfig.firebase.storageBucket,
   });
 }
+
 
 export function getFirebaseAuth(): admin.auth.Auth {
   ensureFirebaseAdminInitialized();
   return admin.auth();
 }
+
+export function getFirebaseStorage(): admin.storage.Storage {
+  ensureFirebaseAdminInitialized();
+  return admin.storage();
+}
+

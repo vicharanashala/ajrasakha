@@ -68,6 +68,7 @@ export class AccAgentController {
   }> {
     try {
       const result = await this.accAgentService.extractData(body.threadId, body.transcript, body.extractionType);
+      console.log(`📋 [EXTRACTION_DATA] (AccAgentController) Extracted Data [${body.extractionType || 'all'}] for thread ${body.threadId}:`, JSON.stringify(result, null, 2));
       return result;
     } catch (error) {
       console.error('[AccAgentController] extractAccAgentData: Error', error);

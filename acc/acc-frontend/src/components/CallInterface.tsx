@@ -829,7 +829,6 @@ export const CallInterface = () => {
     }
 
     setCurrentExtractionType(extractionType);
-    setQuestions([]);
 
     if (extractionType === 'farmer_details') {
       if (!isHumanVerificationMode) {
@@ -867,6 +866,7 @@ export const CallInterface = () => {
         transcript: allTranscriptText,
         extractionType,
       });
+      console.log("📋 [EXTRACTION_DATA] (CallInterface) Extracted data response:", data);
       setExtractedData(data);
 
       if (extractionType === 'query_details') {
@@ -1028,7 +1028,14 @@ export const CallInterface = () => {
       setQuestions((prev) => [...prev, generatedQuestion]);
       setHasGeneratedQuestions(true);
 
+      // Keep the form card visible with all its populated fields on the UI
+      setIsSummaryOpen(true);
+      setIsSummaryExpanded(true);
+
       toast.success("Final answer generated successfully!");
+
+
+
     } catch (err) {
       console.error("Error in resume", err);
       toast.error("Failed to generate final answer.");

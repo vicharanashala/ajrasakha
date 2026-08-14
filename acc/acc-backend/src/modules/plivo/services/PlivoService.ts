@@ -529,6 +529,26 @@ export class PlivoService {
   }> {
     const inbound = await this.finalizeTrackStream(callId, 'inbound');
     const outbound = await this.finalizeTrackStream(callId, 'outbound');
+    this.markCallEnded(callId);
     return { inbound, outbound };
   }
+
+  private endedCalls: Set<string> = new Set();
+
+  markCallEnded(callId: string): void {
+    this.endedCalls.add(callId);
+    console.log(`📞 [PLIVO-SERVICE] Marked call ${callId} as ended/hung up.`);
+  }
+
+  isCallActive(callId: string): boolean {
+    if (this.endedCalls.has(callId)) {
+      return false;
+    }
+    return this.activeStreams.has(`${callId}_inbound`) || this.activeStreams.has(`${callId}_outbound`);
+  }
+
+  isCallEnded(callId: string): boolean {
+    return this.endedCalls.has(callId) || !this.isCallActive(callId);
+  }
 }
+

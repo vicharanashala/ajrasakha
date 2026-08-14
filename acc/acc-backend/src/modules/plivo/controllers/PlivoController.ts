@@ -26,11 +26,13 @@ import plivo from 'plivo';
 import axios from 'axios';
 import { PLIVO_TYPES } from '../types.js';
 import { GLOBAL_TYPES } from '#root/types.js';
-import type { ICallDetailsRepository, AgentAnalytics, ACCAnalytics } from '#shared/database/interfaces/ICallDetailsRepository.js';
+import type { ICallDetailsRepository, AgentAnalytics, ACCAnalytics, CallRecording } from '#shared/database/interfaces/ICallDetailsRepository.js';
 import type { ICallFarmerRepository } from '#shared/database/interfaces/IFarmerRepository.js';
 import type { IPlivoCredentialsRepository } from '#shared/database/interfaces/IPlivoCredentialsRepository.js';
 import type { IUser } from '#shared/interfaces/models.js';
 import { PlivoService } from '../services/PlivoService.js';
+import { StorageService } from '#root/modules/storage/services/StorageService.js';
+import { STORAGE_TYPES } from '#root/modules/storage/types.js';
 
 @OpenAPI({
   tags: ['plivo'],
@@ -47,7 +49,8 @@ export class PlivoController {
     @inject(PLIVO_TYPES.AgentAssignmentService) private agentAssignmentService: any,
     @inject(PLIVO_TYPES.PlivoService) private plivoService: PlivoService,
     @inject(PLIVO_TYPES.CallFarmerRepository) private callFarmerRepository: ICallFarmerRepository,
-    @inject(GLOBAL_TYPES.PlivoCredentialsRepository) private plivoCredentialsRepository: IPlivoCredentialsRepository
+    @inject(GLOBAL_TYPES.PlivoCredentialsRepository) private plivoCredentialsRepository: IPlivoCredentialsRepository,
+    @inject(STORAGE_TYPES.StorageService) private storageService: StorageService
   ) { }
 
   @Post('/answer')
@@ -58,6 +61,7 @@ export class PlivoController {
     let availableAgent: IUser | null = null;
     try {
       const streamUrl = appConfig.plivo.streamUrl;
+      const recordCallbackUrl = appConfig.plivo.recordCallbackUrl;
       const myPlivoNumber = appConfig.plivo.plivo_number;
       const callUuid = req.body?.CallUUID || req.query?.CallUUID;
       const callerNumber = req.body?.From || req.query?.From || 'unknown';
@@ -91,6 +95,7 @@ export class PlivoController {
           noiseCancellation="true" audioTrack="both" noise_cancellation_level="85"
           >${streamUrl}</Stream>
                               <Speak voice="MAN" language="en-US">${welcomeMessage}</Speak>
+                              <Record action="${recordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
                               <Dial timeout="40" callerId="${myPlivoNumber}">
                                         <User>${endpointUser}</User>
                               </Dial>
@@ -99,6 +104,7 @@ export class PlivoController {
                               <Hangup />
                     </Response>`;
       } else {
+
         xml = `<?xml version="1.0" encoding="UTF-8"?>
                     <Response>
                               <Speak>${fallbackMessage}</Speak>
@@ -122,6 +128,241 @@ export class PlivoController {
     }
   }
 
+  @Post('/webhook/record')
+  @HttpCode(200)
+  @UseBefore(urlencoded({ extended: true }))
+  @OpenAPI({ summary: 'Handle Plivo recording completed webhook callback' })
+  async handleRecordWebhook(@Req() req: Request, @Res() res: Response): Promise<void> {
+    try {
+      const body = req.body || {};
+      const query = req.query || {};
+
+      const recordingId = body.RecordingID || query.RecordingID || body.recording_id;
+      const callUuid = body.CallUUID || query.CallUUID || body.call_uuid;
+      const recordUrl = body.RecordUrl || query.RecordUrl || body.recording_url;
+      const recordingDuration = body.RecordingDuration || query.RecordingDuration || body.recording_duration;
+      const recordingDurationMs = body.RecordingDurationMs || query.RecordingDurationMs || body.recording_duration_ms;
+      const recordingFormat = body.RecordingFormat || query.RecordingFormat || body.recording_format || 'mp3';
+      const recordingType = body.RecordingType || query.RecordingType || body.recording_type || 'normal';
+
+      console.log(`🎙️ [PLIVO-CONTROLLER] Received recording webhook: CallUUID=${callUuid}, RecordingID=${recordingId}, Duration=${recordingDuration}s`);
+
+      if (!callUuid || !recordUrl) {
+        console.warn('⚠️ [PLIVO-CONTROLLER] Missing CallUUID or RecordUrl in record webhook payload:', body);
+        res.status(200).send('Ignored: missing fields');
+        return;
+      }
+
+      // Respond 200 OK immediately to Plivo so webhook does not timeout
+      res.status(200).send('OK');
+
+      // Process streaming upload to GCS / Storage Emulator asynchronously
+      (async () => {
+        try {
+          // 1. Strictly wait for the call to end / hang up first before doing anything
+          if (this.plivoService.isCallActive(callUuid)) {
+            console.log(`⏳ [PLIVO-CONTROLLER] Recording webhook arrived for ${callUuid}, but call is still active. Waiting for call to hangup...`);
+            const maxWaitCallEndMs = 300000; // max 5 mins
+            const startWait = Date.now();
+            while (this.plivoService.isCallActive(callUuid) && (Date.now() - startWait) < maxWaitCallEndMs) {
+              await new Promise((r) => setTimeout(r, 2000));
+            }
+            console.log(`📞 [PLIVO-CONTROLLER] Call ${callUuid} has hung up / ended. Now proceeding to download pipeline.`);
+          }
+
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, '0');
+          const prefix = appConfig.storage?.recordingsPathPrefix || 'call-recordings';
+          const ext = recordingFormat.toLowerCase().includes('wav') ? 'wav' : 'mp3';
+          const destinationPath = `${prefix}/${year}/${month}/${callUuid}_${recordingId || Date.now()}.${ext}`;
+
+          const auth = appConfig.plivo.authId && appConfig.plivo.authToken ? {
+            user: appConfig.plivo.authId,
+            pass: appConfig.plivo.authToken,
+          } : undefined;
+
+
+
+          let finalRecordUrl = recordUrl;
+          try {
+            if (recordingId && this.client?.recordings) {
+              const plivoRec = await this.client.recordings.get(recordingId);
+              if (plivoRec?.recordingUrl) {
+                finalRecordUrl = plivoRec.recordingUrl;
+                console.log(`[PLIVO-CONTROLLER] Obtained canonical recording URL from Plivo API: ${finalRecordUrl}`);
+              }
+            }
+          } catch (recApiErr: any) {
+            console.warn(`[PLIVO-CONTROLLER] Plivo API getRecording warning:`, recApiErr.message || recApiErr);
+          }
+
+          const uploadResult = await this.storageService.uploadStreamFromUrl(
+            finalRecordUrl,
+            destinationPath,
+            auth,
+            ext === 'wav' ? 'audio/wav' : 'audio/mpeg'
+          );
+
+
+          const recordingItem: CallRecording = {
+            recordingId: recordingId || `rec_${Date.now()}`,
+            storagePath: uploadResult.storagePath,
+            storageBucket: appConfig.firebase.storageBucket,
+            duration: Math.round(Number(recordingDuration) || 0),
+            durationMs: Number(recordingDurationMs) || (recordingDuration ? Number(recordingDuration) * 1000 : undefined),
+            format: ext as 'mp3' | 'wav',
+            status: 'completed',
+            sizeBytes: uploadResult.size,
+            plivoRecordUrl: recordUrl,
+            plivoDeleted: false,
+            plivoDeletedAt: null,
+            type: recordingType as 'normal' | 'conference',
+            createdAt: now,
+            updatedAt: now,
+          };
+
+          await this.callDetailsRepository.addRecordingToCall(callUuid, recordingItem);
+          console.log(`✅ [PLIVO-CONTROLLER] Successfully stored recording for call ${callUuid} in MongoDB & Storage.`);
+        } catch (uploadError: any) {
+          console.error(`❌ [PLIVO-CONTROLLER] Failed to stream recording for ${callUuid} to storage:`, uploadError);
+          try {
+            const failedItem: CallRecording = {
+              recordingId: recordingId || `rec_${Date.now()}`,
+              storagePath: '',
+              storageBucket: appConfig.firebase.storageBucket,
+              duration: Math.round(Number(recordingDuration) || 0),
+              format: 'mp3',
+              status: 'failed',
+              plivoRecordUrl: recordUrl,
+              plivoDeleted: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            await this.callDetailsRepository.addRecordingToCall(callUuid, failedItem);
+          } catch (e) {
+            // ignore
+          }
+        }
+      })();
+    } catch (error: any) {
+      console.error('❌ [PLIVO-CONTROLLER] Error in record webhook handler:', error);
+      res.status(500).send('Internal Server Error');
+    }
+  }
+
+  @Get('/recordings/:callUuid/url')
+  @Authorized()
+  @HttpCode(200)
+  @OpenAPI({ summary: 'Get signed playback URL for a call recording' })
+  async getRecordingPlaybackUrl(
+    @Param('callUuid') callUuid: string,
+    @CurrentUser() currentUser: IUser
+  ) {
+    try {
+      const callDetails = await this.callDetailsRepository.getByCallUuid(callUuid);
+      if (!callDetails) {
+        throw new BadRequestError(`Call details not found for UUID: ${callUuid}`);
+      }
+
+      // Authorization check: User must be admin, moderator, or the agent who handled the call
+      if (
+        currentUser.role !== 'admin' &&
+        currentUser.role !== 'moderator' &&
+        callDetails.agent?.userid?.toString() !== currentUser._id?.toString()
+      ) {
+        throw new ForbiddenError('You are not authorized to access this call recording');
+      }
+
+      const recording = callDetails.recording;
+
+      if (!recording || recording.status !== 'completed' || !recording.storagePath) {
+        return {
+          callUuid,
+          hasRecording: false,
+          message: 'No completed recording available for this call',
+          recording: recording || null,
+        };
+      }
+
+      const signedUrl = await this.storageService.getSignedPlaybackUrl(recording.storagePath, 15);
+
+      return {
+        callUuid,
+        hasRecording: true,
+        url: signedUrl,
+        recordingId: recording.recordingId,
+        duration: recording.duration,
+        format: recording.format,
+        status: recording.status,
+        recording,
+      };
+    } catch (error: any) {
+      console.error(`❌ [PLIVO-CONTROLLER] Error generating recording URL for ${callUuid}:`, error);
+      if (error instanceof BadRequestError || error instanceof ForbiddenError) {
+        throw error;
+      }
+      throw new InternalServerError('Failed to generate recording playback URL');
+    }
+  }
+
+  @Get('/recordings/local')
+  @OpenAPI({ summary: 'Stream local audio recording file' })
+  async streamLocalRecording(
+    @QueryParam('path') queryPath: string,
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<void> {
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+
+      const rawPath = queryPath || (req.query?.path as string) || '';
+      const cleanPath = decodeURIComponent(rawPath).replace(/^(\/|\\)+/, '');
+      const localFilePath = path.join(process.cwd(), 'uploads', cleanPath);
+
+      if (!cleanPath || !fs.existsSync(localFilePath)) {
+        res.status(404).send('Audio recording file not found');
+        return;
+      }
+
+      const stat = fs.statSync(localFilePath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = end - start + 1;
+        const fileStream = fs.createReadStream(localFilePath, { start, end });
+        const head = {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': 'audio/mpeg',
+        };
+        res.writeHead(206, head);
+        fileStream.pipe(res);
+      } else {
+        const head = {
+          'Content-Length': fileSize,
+          'Content-Type': 'audio/mpeg',
+          'Accept-Ranges': 'bytes',
+        };
+        res.writeHead(200, head);
+        fs.createReadStream(localFilePath).pipe(res);
+      }
+    } catch (err: any) {
+      console.error('Error streaming local recording:', err);
+      res.status(500).send('Error streaming recording');
+    }
+  }
+
+
+
+
+
   @Post('/webhook/call-answered')
   @HttpCode(200)
   @UseBefore(urlencoded({ extended: true }))
@@ -142,6 +383,10 @@ export class PlivoController {
   async handleCallEnded(@Req() req: Request, @Res() res: Response): Promise<void> {
     try {
       const callUuid = req.body?.CallUUID || req.query?.CallUUID;
+
+      if (callUuid) {
+        this.plivoService.markCallEnded(callUuid);
+      }
 
       const allCallAgents = await this.userRepository.findCallAgents();
       const agentWithCall = allCallAgents.find(agent => agent.currentCallUuid === callUuid);

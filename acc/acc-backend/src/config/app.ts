@@ -29,8 +29,13 @@ export const appConfig = {
     authId: env('PLIVO_AUTH_ID') || 'dummy-plivo-auth-id',
     authToken: env('PLIVO_AUTH_TOKEN') || 'dummy-plivo-auth-token',
     plivo_number: env('PLIVO_NUMBER') || '+15551234567',
+    recordCallbackUrl: env('PLIVO_RECORD_CALLBACK_URL') || `${env('APP_URL') || 'http://localhost:4001'}/api/plivo/webhook/record`,
+  },
+  storage: {
+    recordingsPathPrefix: env('GCP_RECORDINGS_PATH_PREFIX') || 'call-recordings',
   },
   fast2sms: {
     apiKey: env('FAST2SMS_API_KEY'),
   },
 };
+

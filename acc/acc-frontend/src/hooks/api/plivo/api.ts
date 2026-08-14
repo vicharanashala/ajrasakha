@@ -53,6 +53,18 @@ export interface CallQuery {
   createdAt?: string;
 }
 
+export interface CallRecordingItem {
+  recordingId: string;
+  storagePath?: string;
+  storageBucket?: string;
+  duration: number;
+  durationMs?: number;
+  format?: 'mp3' | 'wav';
+  status: 'recording' | 'processing' | 'completed' | 'failed';
+  sizeBytes?: number;
+  createdAt?: string;
+}
+
 export interface CallHistoryItem {
   uuid: string;
   from: string;
@@ -68,15 +80,18 @@ export interface CallHistoryItem {
   callDetails?: {
     caller?: { transcript: string; translation: string; detectedLanguage: string };
     agent?: { transcript: string; translation: string; detectedLanguage: string; userid?: string; username?: string; email?: string };
+    recording?: CallRecordingItem;
     queries?: CallQuery[];
     QA_pairs?: QAPairs;
   };
 }
 
+
 export interface CallHistoryResponse {
   calls: CallHistoryItem[];
   total: number;
 }
+
 
 export interface MakeCallRequest {
   to: string;
@@ -267,6 +282,29 @@ export class PlivoService {
       throw error;
     }
   }
+
+  async getCallRecordingUrl(callUuid: string): Promise<{
+    callUuid: string;
+    hasRecording: boolean;
+    url?: string;
+    recordingId?: string;
+    duration?: number;
+    format?: string;
+    status?: string;
+    message?: string;
+    recording?: CallRecordingItem;
+  }> {
+
+    const url = `${this._baseUrl}/recordings/${encodeURIComponent(callUuid)}/url`;
+    try {
+      const response = await apiFetch<any>(url);
+      return response || { callUuid, hasRecording: false };
+    } catch (error) {
+      console.error(`PlivoService.getCallRecordingUrl: Error fetching recording URL for ${callUuid}:`, error);
+      throw error;
+    }
+  }
+
 
   async getAgentAnalytics(params?: {
     startDate?: string;
