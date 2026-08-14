@@ -12,6 +12,7 @@ interface SendResponseAdherenceReportEmailParams {
   userType?: string;
   startDate?: string;
   endDate?: string;
+  timeWindow?: string;
 }
 
 export function useSendResponseAdherenceReportEmail() {

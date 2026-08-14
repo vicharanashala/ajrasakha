@@ -399,6 +399,7 @@ export interface IChatbotService {
       userType?: string;
       startDate?: string;
       endDate?: string;
+      timeWindow?: string;
     },
     reportHtml?: string,
   ): Promise<{success: boolean; message: string}>;

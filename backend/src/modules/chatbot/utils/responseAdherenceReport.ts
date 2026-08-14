@@ -47,6 +47,25 @@ function htmlEscape(value: string | number): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Colors/typography lifted from the app's own theme (`frontend/src/styles.css`'s `:root`
+ * OKLCH tokens, converted to hex since email clients don't support `oklch()`), so the emailed
+ * report looks like it belongs to the AjraSakha Review System instead of a generic spreadsheet
+ * dump. Keep in sync with the frontend copy of this file if the app's theme colors change.
+ */
+const THEME = {
+  font: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  primary: '#72e3ad', // --primary
+  primarySoft: '#e8faf1', // tinted --primary background for cards/badges
+  primaryBorder: '#bdeed4',
+  heading: '#14532d', // dark green heading/value text (brand accent, matches the annam.ai wordmark)
+  text: '#171717', // --foreground
+  mutedText: '#6b7280', // secondary/caption text
+  border: '#e5e7eb', // --border (email-friendly gray)
+  rowStripe: '#f6f8f7', // faint tinted zebra stripe
+  cardBg: '#ffffff',
+};
+
 function buildRowExportData(
   d: ResponseAdherenceTable,
   fallbackDate?: string,
@@ -55,13 +74,13 @@ function buildRowExportData(
   const manualQueriesAskedDisplay = d.manualQueriesAsked > 0 ? d.manualQueriesAsked : 'NIL';
 
   return [
-    { id: "date", field: "Date", whatsapp: d.date || fallbackDate || "", ajraSakha: "", manual: "", notes: "" },
-    { id: "time", field: "Time", whatsapp: d.timeWindow, ajraSakha: "", manual: "", notes: "" },
-    { id: "header", field: "Source", whatsapp: "Whatsapp", ajraSakha: "AjraSakha", manual: "Manual", notes: "" },
-    { id: "queriesAsked", field: "Queries Asked", whatsapp: whatsappQueriesAskedDisplay, ajraSakha: d.ajrasakhaQueriesAsked, manual: manualQueriesAskedDisplay, notes: "" },
-    { id: "irrevelantQueries", field: "Irrevelant Queries", whatsapp: d.whatsappQueriesAsked > 0 ? d.whatsappQueriesAsked - d.whatsappPushedToReviewer : "NIL", ajraSakha: d.ajrasakhaQueriesAsked > 0 ? d.ajrasakhaQueriesAsked - d.ajrasakhaPushedToReviewer : "NIL", manual: d.manualQueriesAsked > 0 ? d.manualQueriesAsked -  d.manualPushedToReviewer: "NIL", notes: "" },
     { id: "pushedReviewer", field: "Questions pushed into the review system", whatsapp: d.whatsappPushedToReviewer, ajraSakha: d.ajrasakhaPushedToReviewer, manual: d.manualPushedToReviewer, notes: "" },
     { id: "answered120", field: "Questions answered within 120 minutes", whatsapp: d.whatsappAnsweredWithin120Min, ajraSakha: d.ajrasakhaAnsweredWithin120Min, manual: d.manualAnsweredWithin120Min, notes: "" },
+    { id: "averageEndToEndQnaCompletion", field: "Average response time for End to End QNA Completion", whatsapp: formatMinutes(d.whatsappAverageEndToEndQnaCompletionMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndQnaCompletionMinutes), manual: formatMinutes(d.manualAverageEndToEndQnaCompletionMinutes), notes: "" },
+    { id: "summaryDelayReason", field: "Summary of the reason for delay", whatsapp: "", ajraSakha: "", manual: "", notes: "" },
+    { id: "adherencePct", field: "Percentage of questions completed within 120 minutes", whatsapp: `${d.whatsappAdherencePct.toFixed(2)}%`, ajraSakha: `${d.ajrasakhaAdherencePct.toFixed(2)}%`, manual: `${d.manualAdherencePct.toFixed(2)}%`, notes: "" },
+    { id: "queriesAsked", field: "Queries Asked", whatsapp: whatsappQueriesAskedDisplay, ajraSakha: d.ajrasakhaQueriesAsked, manual: manualQueriesAskedDisplay, notes: "" },
+    { id: "irrevelantQueries", field: "Irrevelant Queries", whatsapp: d.whatsappQueriesAsked > 0 ? d.whatsappQueriesAsked - d.whatsappPushedToReviewer : "NIL", ajraSakha: d.ajrasakhaQueriesAsked > 0 ? d.ajrasakhaQueriesAsked - d.ajrasakhaPushedToReviewer : "NIL", manual: d.manualQueriesAsked > 0 ? d.manualQueriesAsked -  d.manualPushedToReviewer: "NIL", notes: "" },
     {id: "answered120Closed",field: "Closed within 120 minutes",whatsapp: `${d.answeredWithin120MinClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,ajraSakha: `${d.answeredWithin120MinClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,manual: `${d.answeredWithin120MinClosedmanual} / ${d.manualAnsweredWithin120Min}`,notes: ""},
     {id: "answered120Pass",field: "Pass within 120 minutes",whatsapp: `${d.answeredWithin120MinPasswhatsapp} / ${d.whatsappAnsweredWithin120Min}`,ajraSakha: `${d.answeredWithin120MinPassajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,manual: `${d.answeredWithin120MinPassmanual} / ${d.manualAnsweredWithin120Min}`,notes: ""},
     {id: "answered120DynamicClosed",field: "Dynamic Closed within 120 minutes",whatsapp: `${d.answeredWithin120MinDynamicClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,ajraSakha: `${d.answeredWithin120MinDynamicClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,manual: `${d.answeredWithin120MinDynamicClosedmanual} / ${d.manualAnsweredWithin120Min}`,notes: ""},
@@ -111,8 +130,6 @@ function buildRowExportData(
     {id: "rerouted", field: "Rerouted Questions", whatsapp: d.whatsappReroutedCount, ajraSakha: d.ajrasakhaReroutedCount, manual: d.manualReroutedCount, notes:""},
     {id: "pass", field: "Pass Questions", whatsapp: d.whatsappPassCount, ajraSakha: d.ajrasakhaPassCount, manual: d.manualPassCount, notes:""},
     // {id: "duplicateClosed", field: "Duplicate Closed Questions", whatsapp: d.whatsappDuplicateClosedCount, ajraSakha: d.ajrasakhaDuplicateClosedCount, manual: d.manualDuplicateClosedCount, notes:""},
-    { id: "summaryDelayReason", field: "Summary of the reason for delay", whatsapp: "", ajraSakha: "", manual: "", notes: "" },
-    { id: "averageEndToEndQnaCompletion", field: "Average response time for End to End QNA Completion", whatsapp: formatMinutes(d.whatsappAverageEndToEndQnaCompletionMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndQnaCompletionMinutes), manual: formatMinutes(d.manualAverageEndToEndQnaCompletionMinutes), notes: "" },
     { id: "averageEndToEndUnique", field: "Average response time for End to End QNA Completion of Unique Questions", whatsapp: formatMinutes(d.whatsappAverageEndToEndUniqueMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndUniqueMinutes), manual: formatMinutes(d.manualAverageEndToEndUniqueMinutes), notes: "" },
     { id: "averageEndToEndDynamic", field: "Average response time for End to End QNA Completion of Dynamic Question", whatsapp: formatMinutes(d.whatsappAverageEndToEndDynamicMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndDynamicMinutes), manual: formatMinutes(d.manualAverageEndToEndDynamicMinutes), notes: "" },
     { id: "averageEndToEndDuplicate", field: "Average response time for End to End QNA Completion of Duplicate Question", whatsapp: formatMinutes(d.whatsappAverageEndToEndDuplicateMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndDuplicateMinutes), manual: formatMinutes(d.manualAverageEndToEndDuplicateMinutes), notes: "" },
@@ -120,7 +137,6 @@ function buildRowExportData(
     // { id: "avgResponseGDB", field: "Average response time GDB", whatsapp: formatMinutes(d.whatsappAverageResponseGBDMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseGBDMinutes), manual: formatMinutes(d.manualAverageResponseGBDMinutes), notes: "" },
     // { id: "avgResponseNonGDB", field: "Average response time Non GDB", whatsapp: formatMinutes(d.whatsappAverageResponseNonGBDMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseNonGBDMinutes), manual: formatMinutes(d.manualAverageResponseNonGBDMinutes), notes: "" },
     { id: "slaBreached", field: "SLA Breached", whatsapp: `${(100 - d.whatsappAdherencePct).toFixed(2)}%`, ajraSakha: `${(100 - d.ajrasakhaAdherencePct).toFixed(2)}%`, manual: `${(100 - d.manualAdherencePct).toFixed(2)}%`, notes: "" },
-    { id: "adherencePct", field: "Percentage of questions completed within 120 minutes", whatsapp: `${d.whatsappAdherencePct.toFixed(2)}%`, ajraSakha: `${d.ajrasakhaAdherencePct.toFixed(2)}%`, manual: `${d.manualAdherencePct.toFixed(2)}%`, notes: "" },
   ];
 }
 
@@ -135,7 +151,7 @@ export function buildResponseAdherenceCsv(
   fallbackDate?: string,
 ): string {
   const rows = buildRowExportData(d, fallbackDate);
-  const header = ['Field', 'Whatsapp', 'AjraSakha', 'Manual', 'Notes'];
+  const header = ['Status', 'Whatsapp', 'AjraSakha', 'Manual', 'Notes'];
 
   const lines = rows.map(row =>
     [row.field, row.whatsapp, row.ajraSakha, row.manual, row.notes]
@@ -146,33 +162,72 @@ export function buildResponseAdherenceCsv(
   return ['\uFEFF' + header.join(','), ...lines].join('\r\n');
 }
 
+// The 4 headline metrics broken out into their own small table at the top of the email,
+// separate from (and no longer duplicated in) the full table below.
+const HIGHLIGHT_ROW_IDS = [
+  'pushedReviewer',
+  'answered120',
+  'averageEndToEndQnaCompletion',
+  'adherencePct',
+];
+
 /**
- * Same row data as {@link buildResponseAdherenceCsv}, rendered as an inline-styled HTML table
- * for the email body.
+ * Renders one set of rows as a styled, rounded HTML table card. Used twice by
+ * {@link buildResponseAdherenceHtmlTable} — once for the highlight rows, once for everything
+ * else — so the two tables look identical apart from which rows they contain.
+ */
+function renderTableCard(rows: ReportRow[]): string {
+  if (!rows.length) return '';
+
+  const thStyle =
+    `padding:10px 12px;text-align:left;background:${THEME.primary};color:${THEME.heading};` +
+    `font-family:${THEME.font};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;`;
+  const tdStyle = (striped: boolean) =>
+    `padding:9px 12px;border-bottom:1px solid ${THEME.border};font-family:${THEME.font};font-size:13px;` +
+    `color:${THEME.text};background:${striped ? THEME.rowStripe : THEME.cardBg};`;
+  const fieldTdStyle = (striped: boolean) =>
+    `${tdStyle(striped)}font-weight:500;`;
+
+  const headerCells = ['Status', 'Whatsapp', 'AjraSakha', 'Manual']
+    .map((label, idx) => `<th style="${thStyle}${idx === 0 ? 'border-top-left-radius:12px;' : ''}${idx === 3 ? 'border-top-right-radius:12px;' : ''}">${htmlEscape(label)}</th>`)
+    .join('');
+
+  const bodyRows = rows
+    .map((row, idx) => {
+      const striped = idx % 2 === 1;
+      const cells = [
+        `<td style="${fieldTdStyle(striped)}">${htmlEscape(row.field)}</td>`,
+        `<td style="${tdStyle(striped)}">${htmlEscape(row.whatsapp)}</td>`,
+        `<td style="${tdStyle(striped)}">${htmlEscape(row.ajraSakha)}</td>`,
+        `<td style="${tdStyle(striped)}">${htmlEscape(row.manual)}</td>`,
+      ].join('');
+      return `<tr>${cells}</tr>`;
+    })
+    .join('');
+
+  const table =
+    `<table style="border-collapse:collapse;width:100%;">` +
+    `<thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+
+  return `<div style="border:1px solid ${THEME.border};border-radius:12px;overflow:hidden;margin-bottom:16px;">${table}</div>`;
+}
+
+/**
+ * Same row data as {@link buildResponseAdherenceCsv} (the CSV attachment keeps every row in
+ * one flat table), rendered here as two inline-styled HTML tables for the email body: a small
+ * highlights table with the 4 headline metrics, followed by the remaining rows.
  */
 export function buildResponseAdherenceHtmlTable(
   d: ResponseAdherenceTable,
   fallbackDate?: string,
 ): string {
   const rows = buildRowExportData(d, fallbackDate);
+  const highlightRows = rows.filter(row => HIGHLIGHT_ROW_IDS.includes(row.id));
+  const mainRows = rows.filter(row => !HIGHLIGHT_ROW_IDS.includes(row.id));
 
-  const thStyle =
-    'padding:8px;border:1px solid #e5e5e5;text-align:left;background:#f5f5f5;font-family:sans-serif;font-size:13px;';
-  const tdStyle =
-    'padding:8px;border:1px solid #e5e5e5;font-family:sans-serif;font-size:13px;';
+  const sectionLabel =
+    `<div style="margin:4px 0 10px 2px;font-family:${THEME.font};font-size:13px;font-weight:700;` +
+    `color:${THEME.heading};text-transform:uppercase;letter-spacing:.04em;">Additional Breakdowns</div>`;
 
-  const headerCells = ['Field', 'Whatsapp', 'AjraSakha', 'Manual', 'Notes']
-    .map(label => `<th style="${thStyle}">${htmlEscape(label)}</th>`)
-    .join('');
-
-  const bodyRows = rows
-    .map(row => {
-      const cells = [row.field, row.whatsapp, row.ajraSakha, row.manual, row.notes]
-        .map(value => `<td style="${tdStyle}">${htmlEscape(value)}</td>`)
-        .join('');
-      return `<tr>${cells}</tr>`;
-    })
-    .join('');
-
-  return `<table style="border-collapse:collapse;width:100%;margin-top:12px;"><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+  return `${renderTableCard(highlightRows)}${mainRows.length ? sectionLabel : ''}${renderTableCard(mainRows)}`;
 }

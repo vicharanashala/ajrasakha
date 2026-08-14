@@ -489,4 +489,9 @@ export class SendResponseAdherenceReportRequest {
   @IsOptional()
   @IsString()
   endDate?: string;
+
+  @JSONSchema({ description: 'Time window used to generate the report, shown alongside the Source/UserType/Date summary in the email body', type: 'string' })
+  @IsOptional()
+  @IsString()
+  timeWindow?: string;
 }

@@ -518,6 +518,39 @@ const ALL_ROW_IDS = [
   "adherencePct",
 ] as const;
 
+// Row IDs included in the emailed report (manual button and automated job) — same as
+// ALL_ROW_IDS but without "date"/"time", since those now surface as a Time line in the
+// email's Source/UserType/Date summary section instead of as table rows. The Download
+// .xlsx button still uses ALL_ROW_IDS/DEFAULT_SELECTED_ROW_IDS unchanged.
+const EMAIL_ROW_IDS = ALL_ROW_IDS.filter((id) => id !== "date" && id !== "time");
+
+// Colors/typography lifted from the app's own theme (styles.css's :root OKLCH tokens,
+// converted to hex since email clients don't support oklch()), so the emailed report looks
+// like it belongs to the AjraSakha Review System instead of a generic spreadsheet dump. Keep
+// this in sync with the backend's copy in responseAdherenceReport.ts if the theme changes.
+const EMAIL_THEME = {
+  font: "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  primary: "#72e3ad", // --primary
+  primarySoft: "#e8faf1",
+  primaryBorder: "#bdeed4",
+  heading: "#14532d",
+  text: "#171717", // --foreground
+  mutedText: "#6b7280",
+  border: "#e5e7eb", // --border
+  rowStripe: "#f6f8f7",
+  cardBg: "#ffffff",
+};
+
+// The 4 headline metrics broken out into their own small table at the top of the email,
+// separate from (and no longer duplicated in) the full table below. Keep in sync with the
+// backend's copy in responseAdherenceReport.ts.
+const HIGHLIGHT_ROW_IDS = [
+  "pushedReviewer",
+  "answered120",
+  "averageEndToEndQnaCompletion",
+  "adherencePct",
+];
+
 const DEFAULT_SELECTED_ROW_IDS = new Set<string>([
   "date",
   "time",
@@ -656,11 +689,13 @@ export function ResponseAdherenceTableCard({
   const rowExportData = [
     { id: "date", field: "Date", whatsapp: d.date || effectiveDate || "", ajraSakha: "", manual: "", notes: "" },
     { id: "time", field: "Time", whatsapp: d.timeWindow, ajraSakha: "", manual: "", notes: "" },
-    { id: "header", field: "Source", whatsapp: "Whatsapp", ajraSakha: "AjraSakha", manual: "Manual", notes: "" },
-    { id: "queriesAsked", field: "Queries Asked", whatsapp: whatsappQueriesAskedDisplay, ajraSakha: d.ajrasakhaQueriesAsked, manual: manualQueriesAskedDisplay, notes: "" },
-    { id: "irrevelantQueries", field: "Irrevelant Queries", whatsapp: d.whatsappQueriesAsked > 0 ? d.whatsappQueriesAsked - d.whatsappPushedToReviewer : "NIL", ajraSakha: d.ajrasakhaQueriesAsked > 0 ? d.ajrasakhaQueriesAsked - d.ajrasakhaPushedToReviewer : "NIL", manual: d.manualQueriesAsked > 0 ? d.manualQueriesAsked -  d.manualPushedToReviewer: "NIL", notes: "" },
     { id: "pushedReviewer", field: "Questions pushed into the review system", whatsapp: d.whatsappPushedToReviewer, ajraSakha: d.ajrasakhaPushedToReviewer, manual: d.manualPushedToReviewer, notes: "" },
     { id: "answered120", field: "Questions answered within 120 minutes", whatsapp: d.whatsappAnsweredWithin120Min, ajraSakha: d.ajrasakhaAnsweredWithin120Min, manual: d.manualAnsweredWithin120Min, notes: "" },
+    { id: "averageEndToEndQnaCompletion", field: "Average response time for End to End QNA Completion", whatsapp: formatMinutes(d.whatsappAverageEndToEndQnaCompletionMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndQnaCompletionMinutes), manual: formatMinutes(d.manualAverageEndToEndQnaCompletionMinutes), notes: "" },
+    { id: "summaryDelayReason", field: "Summary of the reason for delay", whatsapp: "", ajraSakha: "", manual: "", notes: "" },
+    { id: "adherencePct", field: "Percentage of questions completed within 120 minutes", whatsapp: `${d.whatsappAdherencePct.toFixed(2)}%`, ajraSakha: `${d.ajrasakhaAdherencePct.toFixed(2)}%`, manual: `${d.manualAdherencePct.toFixed(2)}%`, notes: "" },
+    { id: "queriesAsked", field: "Queries Asked", whatsapp: whatsappQueriesAskedDisplay, ajraSakha: d.ajrasakhaQueriesAsked, manual: manualQueriesAskedDisplay, notes: "" },
+    { id: "irrevelantQueries", field: "Irrevelant Queries", whatsapp: d.whatsappQueriesAsked > 0 ? d.whatsappQueriesAsked - d.whatsappPushedToReviewer : "NIL", ajraSakha: d.ajrasakhaQueriesAsked > 0 ? d.ajrasakhaQueriesAsked - d.ajrasakhaPushedToReviewer : "NIL", manual: d.manualQueriesAsked > 0 ? d.manualQueriesAsked -  d.manualPushedToReviewer: "NIL", notes: "" },
     {id: "answered120Closed",field: "Closed within 120 minutes",whatsapp: `${d.answeredWithin120MinClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,ajraSakha: `${d.answeredWithin120MinClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,manual: `${d.answeredWithin120MinClosedmanual} / ${d.manualAnsweredWithin120Min}`,notes: ""},
     {id: "answered120Pass",field: "Pass within 120 minutes",whatsapp: `${d.answeredWithin120MinPasswhatsapp} / ${d.whatsappAnsweredWithin120Min}`,ajraSakha: `${d.answeredWithin120MinPassajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,manual: `${d.answeredWithin120MinPassmanual} / ${d.manualAnsweredWithin120Min}`,notes: ""},
     {id: "answered120DynamicClosed",field: "Dynamic Closed within 120 minutes",whatsapp: `${d.answeredWithin120MinDynamicClosedwhatsapp} / ${d.whatsappAnsweredWithin120Min}`,ajraSakha: `${d.answeredWithin120MinDynamicClosedajrasakha} / ${d.ajrasakhaAnsweredWithin120Min}`,manual: `${d.answeredWithin120MinDynamicClosedmanual} / ${d.manualAnsweredWithin120Min}`,notes: ""},
@@ -710,8 +745,6 @@ export function ResponseAdherenceTableCard({
     {id: "rerouted", field: "Rerouted Questions", whatsapp: d.whatsappReroutedCount, ajraSakha: d.ajrasakhaReroutedCount, manual: d.manualReroutedCount, notes:""},
     {id: "pass", field: "Pass Questions", whatsapp: d.whatsappPassCount, ajraSakha: d.ajrasakhaPassCount, manual: d.manualPassCount, notes:""},
     // {id: "duplicateClosed", field: "Duplicate Closed Questions", whatsapp: d.whatsappDuplicateClosedCount, ajraSakha: d.ajrasakhaDuplicateClosedCount, manual: d.manualDuplicateClosedCount, notes:""},
-    { id: "summaryDelayReason", field: "Summary of the reason for delay", whatsapp: "", ajraSakha: "", manual: "", notes: "" },
-    { id: "averageEndToEndQnaCompletion", field: "Average response time for End to End QNA Completion", whatsapp: formatMinutes(d.whatsappAverageEndToEndQnaCompletionMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndQnaCompletionMinutes), manual: formatMinutes(d.manualAverageEndToEndQnaCompletionMinutes), notes: "" },
     { id: "averageEndToEndUnique", field: "Average response time for End to End QNA Completion of Unique Questions", whatsapp: formatMinutes(d.whatsappAverageEndToEndUniqueMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndUniqueMinutes), manual: formatMinutes(d.manualAverageEndToEndUniqueMinutes), notes: "" },
     { id: "averageEndToEndDynamic", field: "Average response time for End to End QNA Completion of Dynamic Question", whatsapp: formatMinutes(d.whatsappAverageEndToEndDynamicMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndDynamicMinutes), manual: formatMinutes(d.manualAverageEndToEndDynamicMinutes), notes: "" },
     { id: "averageEndToEndDuplicate", field: "Average response time for End to End QNA Completion of Duplicate Question", whatsapp: formatMinutes(d.whatsappAverageEndToEndDuplicateMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageEndToEndDuplicateMinutes), manual: formatMinutes(d.manualAverageEndToEndDuplicateMinutes), notes: "" },
@@ -719,7 +752,6 @@ export function ResponseAdherenceTableCard({
     // { id: "avgResponseGDB", field: "Average response time GDB", whatsapp: formatMinutes(d.whatsappAverageResponseGBDMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseGBDMinutes), manual: formatMinutes(d.manualAverageResponseGBDMinutes), notes: "" },
     // { id: "avgResponseNonGDB", field: "Average response time Non GDB", whatsapp: formatMinutes(d.whatsappAverageResponseNonGBDMinutes), ajraSakha: formatMinutes(d.ajrasakhaAverageResponseNonGBDMinutes), manual: formatMinutes(d.manualAverageResponseNonGBDMinutes), notes: "" },
     { id: "slaBreached", field: "SLA Breached", whatsapp: `${(100 - d.whatsappAdherencePct).toFixed(2)}%`, ajraSakha: `${(100 - d.ajrasakhaAdherencePct).toFixed(2)}%`, manual: `${(100 - d.manualAdherencePct).toFixed(2)}%`, notes: "" },
-    { id: "adherencePct", field: "Percentage of questions completed within 120 minutes", whatsapp: `${d.whatsappAdherencePct.toFixed(2)}%`, ajraSakha: `${d.ajrasakhaAdherencePct.toFixed(2)}%`, manual: `${d.manualAdherencePct.toFixed(2)}%`, notes: "" },
   ] as const;
 
   const rows: RowConfig[] = [
@@ -1366,6 +1398,10 @@ export function ResponseAdherenceTableCard({
     options?: {
       rowIds?: readonly string[];
       columns?: { whatsapp: boolean; ajraSakha: boolean; manual: boolean };
+      // Overrides the first column's header label. Defaults to "Field" so the
+      // "Download .xlsx" button's output stays byte-for-byte unchanged; the email
+      // call site passes "Status" to match the email's HTML table header.
+      fieldLabel?: string;
     },
   ): string | null => {
     const rowIds = options?.rowIds;
@@ -1375,7 +1411,7 @@ export function ResponseAdherenceTableCard({
       : rowExportData.filter((row) => checkedRows[row.id]);
     if (!selectedRows.length) return null;
 
-    const header = ["Field"];
+    const header = [options?.fieldLabel ?? "Field"];
     if (columns.whatsapp) {
       header.push("Whatsapp");
     }
@@ -1427,31 +1463,59 @@ export function ResponseAdherenceTableCard({
       .replace(/"/g, "&quot;");
   };
 
-  // Same full-table data as the email's CSV attachment, rendered as an inline-styled
-  // HTML table so it also displays directly in the email body (not just as an attachment).
-  const buildReportHtmlTable = (): string | null => {
-    const selectedRows = rowExportData.filter((row) => ALL_ROW_IDS.includes(row.id));
-    if (!selectedRows.length) return null;
+  // Renders one set of rows as a styled, rounded HTML table card. Used twice by
+  // buildReportHtmlTable below - once for the highlight rows, once for everything
+  // else - so the two tables look identical apart from which rows they contain.
+  const renderTableCard = (rows: typeof rowExportData): string => {
+    if (!rows.length) return "";
 
     const thStyle =
-      "padding:8px;border:1px solid #e5e5e5;text-align:left;background:#f5f5f5;font-family:sans-serif;font-size:13px;";
-    const tdStyle =
-      "padding:8px;border:1px solid #e5e5e5;font-family:sans-serif;font-size:13px;";
+      `padding:10px 12px;text-align:left;background:${EMAIL_THEME.primary};color:${EMAIL_THEME.heading};` +
+      `font-family:${EMAIL_THEME.font};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;`;
+    const tdStyle = (striped: boolean) =>
+      `padding:9px 12px;border-bottom:1px solid ${EMAIL_THEME.border};font-family:${EMAIL_THEME.font};font-size:13px;` +
+      `color:${EMAIL_THEME.text};background:${striped ? EMAIL_THEME.rowStripe : EMAIL_THEME.cardBg};`;
+    const fieldTdStyle = (striped: boolean) => `${tdStyle(striped)}font-weight:500;`;
 
-    const headerCells = ["Field", "Whatsapp", "AjraSakha", "Manual", "Notes"]
-      .map((label) => `<th style="${thStyle}">${htmlEscape(label)}</th>`)
+    const headerCells = ["Status", "Whatsapp", "AjraSakha", "Manual"]
+      .map((label, idx) => `<th style="${thStyle}${idx === 0 ? "border-top-left-radius:12px;" : ""}${idx === 3 ? "border-top-right-radius:12px;" : ""}">${htmlEscape(label)}</th>`)
       .join("");
 
-    const bodyRows = selectedRows
-      .map((row) => {
-        const cells = [row.field, row.whatsapp, row.ajraSakha, row.manual, row.notes]
-          .map((value) => `<td style="${tdStyle}">${htmlEscape(value)}</td>`)
-          .join("");
+    const bodyRows = rows
+      .map((row, idx) => {
+        const striped = idx % 2 === 1;
+        const cells = [
+          `<td style="${fieldTdStyle(striped)}">${htmlEscape(row.field)}</td>`,
+          `<td style="${tdStyle(striped)}">${htmlEscape(row.whatsapp)}</td>`,
+          `<td style="${tdStyle(striped)}">${htmlEscape(row.ajraSakha)}</td>`,
+          `<td style="${tdStyle(striped)}">${htmlEscape(row.manual)}</td>`,
+        ].join("");
         return `<tr>${cells}</tr>`;
       })
       .join("");
 
-    return `<table style="border-collapse:collapse;width:100%;margin-top:12px;"><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+    const table =
+      `<table style="border-collapse:collapse;width:100%;">` +
+      `<thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+
+    return `<div style="border:1px solid ${EMAIL_THEME.border};border-radius:12px;overflow:hidden;margin-bottom:16px;">${table}</div>`;
+  };
+
+  // Same full-table data as the email's CSV attachment, rendered here as two inline-styled
+  // HTML tables for the email body: a small highlights table with the 4 headline metrics,
+  // followed by the remaining rows.
+  const buildReportHtmlTable = (): string | null => {
+    const selectedRows = rowExportData.filter((row) => EMAIL_ROW_IDS.includes(row.id));
+    if (!selectedRows.length) return null;
+
+    const highlightRows = selectedRows.filter((row) => HIGHLIGHT_ROW_IDS.includes(row.id));
+    const mainRows = selectedRows.filter((row) => !HIGHLIGHT_ROW_IDS.includes(row.id));
+
+    const sectionLabel =
+      `<div style="margin:4px 0 10px 2px;font-family:${EMAIL_THEME.font};font-size:13px;font-weight:700;` +
+      `color:${EMAIL_THEME.heading};text-transform:uppercase;letter-spacing:.04em;">Additional Breakdowns</div>`;
+
+    return `${renderTableCard(highlightRows)}${mainRows.length ? sectionLabel : ""}${renderTableCard(mainRows)}`;
   };
 
   const handleDownloadSelectedFields = () => {
@@ -1488,11 +1552,13 @@ export function ResponseAdherenceTableCard({
       setEmailInputError(`Invalid email address: ${invalidEmails.join(", ")}`);
       return;
     }
-    // Email always includes the full table exactly as shown in the UI,
-    // independent of whatever rows/columns are checked in the download panel.
+    // Email always includes the full table exactly as shown in the UI (minus the Date/Time
+    // rows, which are surfaced in the summary section above the table instead), independent
+    // of whatever rows/columns are checked in the download panel.
     const csvContent = buildCsvContent({
-      rowIds: ALL_ROW_IDS,
+      rowIds: EMAIL_ROW_IDS,
       columns: { whatsapp: true, ajraSakha: true, manual: true },
+      fieldLabel: "Status",
     });
     if (!csvContent) {
       setEmailInputError("No report data available to send yet");
@@ -1510,6 +1576,7 @@ export function ResponseAdherenceTableCard({
         userType,
         startDate: effectiveDate,
         endDate: effectiveDate,
+        timeWindow: d.timeWindow,
       },
       {
         onSuccess: () => {
