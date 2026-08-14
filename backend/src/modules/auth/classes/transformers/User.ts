@@ -106,11 +106,10 @@ class User implements IUser {
     this.firstName = data?.firstName;
     this.lastName = data?.lastName;
     this.role = data?.role || 'expert';
-    // Preserve the real persisted values; only fall back to defaults when the
-    // field is genuinely absent (e.g. brand-new user). Hardcoding these caused
-    // /me to always report status='active' and isBlocked=false.
-    this.status = data?.status ?? 'active';
-    this.isBlocked = data?.isBlocked ?? false;
+    // New users are created with isBlocked=true and status='in-active' by default.
+    // They need to be verified/approved by an admin before they can access the platform.
+    this.status = data?.status ?? 'in-active';
+    this.isBlocked = data?.isBlocked ?? true;
     this.lastCheckInAt = data?.lastCheckInAt;
     this.isVerified = data?.isVerified ?? false;
     this.preference = {

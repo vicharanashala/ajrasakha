@@ -471,9 +471,15 @@ export class UserService extends BaseService {
       if (!userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
+        // When verifying a user, also unblock them and set status to active
+        // so they can access the platform after approval
         const updatedUser = await this.userRepo.edit(
           userId,
-          { isVerified },
+          { 
+            isVerified,
+            isBlocked: false,
+            status: 'active' as const,
+          },
           session,
         );
         if (!updatedUser)
