@@ -566,8 +566,11 @@ export const CallInterface = () => {
   const [editableCrop, setEditableCrop] = useState("");
   const [editableState, setEditableState] = useState("");
   const [editableDistrict, setEditableDistrict] = useState("");
+  const [editableBlock, setEditableBlock] = useState("");
+  const [editableVillage, setEditableVillage] = useState("");
   const [editableDomain, setEditableDomain] = useState<string[]>([]);
   const [editableSeason, setEditableSeason] = useState("");
+
 
   const handleToggleDomain = (domain: string) => {
     setEditableDomain((prev) =>
@@ -664,6 +667,8 @@ export const CallInterface = () => {
     setEditableCrop("");
     setEditableState("");
     setEditableDistrict("");
+    setEditableBlock("");
+    setEditableVillage("");
     setEditableDomain([]);
     setEditableSeason("");
   };
@@ -690,6 +695,8 @@ export const CallInterface = () => {
     setEditableCrop("");
     setEditableState("");
     setEditableDistrict("");
+    setEditableBlock("");
+    setEditableVillage("");
     setEditableDomain([]);
     setEditableSeason("");
     setIsSimulatingMode(false);
@@ -697,6 +704,7 @@ export const CallInterface = () => {
     setSimOriginalText("");
     toast.success("Conversation cleared");
   };
+
 
   const handleLoadTestTranscript = () => {
     const now = new Date();
@@ -762,8 +770,11 @@ export const CallInterface = () => {
     setEditableCrop("");
     setEditableState("");
     setEditableDistrict("");
+    setEditableBlock("");
+    setEditableVillage("");
     setEditableDomain([]);
     setEditableSeason("");
+
 
     setIsSimulatingMode(true);
     toast.success(`Loaded test transcript with UUID: ${mockCallUuid}. Click 'Extract & Verify' to test AI response.`);
@@ -870,23 +881,25 @@ export const CallInterface = () => {
       setExtractedData(data);
 
       if (extractionType === 'query_details') {
-        if (data.extracted_query) setEditableQuery(data.extracted_query);
-        if (data.extracted_crop) setEditableCrop(data.extracted_crop);
-        if (data.extracted_state) setEditableState(data.extracted_state);
-        if (data.extracted_district) setEditableDistrict(data.extracted_district);
+        setEditableQuery(data.extracted_query || "");
+        setEditableCrop(data.extracted_crop || "");
+        setEditableState(data.extracted_state || "");
+        setEditableDistrict(data.extracted_district || "");
+        setEditableBlock(data.extracted_block || "");
+        setEditableVillage(data.extracted_village || "");
 
         const normalizedDomain = data.extracted_domain
           ? Array.isArray(data.extracted_domain)
             ? data.extracted_domain
             : [data.extracted_domain]
           : [];
-        if (normalizedDomain.length > 0) setEditableDomain(normalizedDomain);
-        setEditableSeason(getAutoSelectedSeason());
+        setEditableDomain(normalizedDomain);
+        setEditableSeason((data as any).extracted_season || getAutoSelectedSeason());
       }
 
       if (extractionType === 'farmer_details') {
         setExtractedFarmerProfile({
-          farmerName: data.extracted_name,
+          farmerName: data.extracted_name || "",
           phoneNo: data.extracted_phone || callPhoneNumber || lastCallPhoneNumber || "",
           age: data.extracted_age !== undefined && data.extracted_age !== null ? Number(data.extracted_age) : 45,
           gender: data.extracted_gender || "",
@@ -899,17 +912,19 @@ export const CallInterface = () => {
           languagePreference: (data as any).extracted_language || "",
           cropsCultivated: data.extracted_crop ? [data.extracted_crop] : [""],
         });
-        if (data.extracted_state) setEditableState(data.extracted_state);
-        if (data.extracted_district) setEditableDistrict(data.extracted_district);
+        setEditableState(data.extracted_state || "");
+        setEditableDistrict(data.extracted_district || "");
+        setEditableBlock(data.extracted_block || "");
+        setEditableVillage(data.extracted_village || "");
       }
 
       setIsHumanVerificationMode(true);
       setIsSummaryOpen(true);
       setIsSummaryExpanded(true);
 
-      if (data.extracted_query) setEditableSummaryText(data.extracted_query);
-      if (data.extracted_state) setExtractedState(data.extracted_state);
-      if (data.extracted_crop) setExtractedCrop(data.extracted_crop);
+      setEditableSummaryText(data.extracted_query || "");
+      setExtractedState(data.extracted_state || "");
+      setExtractedCrop(data.extracted_crop || "");
 
       toast.success(
         `Data (${extractionType === 'farmer_details' ? 'Farmer Details' : 'Query Details'}) extracted successfully. Please review and edit if needed.`,
@@ -956,6 +971,8 @@ export const CallInterface = () => {
         editableCrop !== extractedData?.extracted_crop ||
         editableState !== extractedData?.extracted_state ||
         editableDistrict !== extractedData?.extracted_district ||
+        editableBlock !== extractedData?.extracted_block ||
+        editableVillage !== extractedData?.extracted_village ||
         JSON.stringify(finalDomain) !== JSON.stringify(extractedDomainArray) ||
         editableSeason !== (extractedData as any)?.extracted_season;
 
@@ -968,6 +985,8 @@ export const CallInterface = () => {
             crop: editableCrop,
             state: editableState,
             district: editableDistrict,
+            block: editableBlock,
+            village: editableVillage,
             domain: finalDomain,
             season: editableSeason,
           },
@@ -981,7 +1000,8 @@ export const CallInterface = () => {
         extracted_crop: editableCrop,
         extracted_state: editableState,
         extracted_district: editableDistrict,
-        extracted_block: extractedData?.extracted_block || "",
+        extracted_block: editableBlock || extractedData?.extracted_block || "",
+        extracted_village: editableVillage || extractedData?.extracted_village || "",
         standardized_domains: finalDomain,
         extracted_domain: finalDomain,
         extracted_season: editableSeason,
@@ -1139,8 +1159,11 @@ export const CallInterface = () => {
             setEditableCrop("");
             setEditableState("");
             setEditableDistrict("");
+            setEditableBlock("");
+            setEditableVillage("");
             setEditableDomain([]);
             setEditableSeason("");
+
             setIsSimulatingMode(false);
           }
         }}
@@ -1644,42 +1667,6 @@ export const CallInterface = () => {
 
                           <div>
                             <Label
-                              htmlFor="districtName"
-                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
-                            >
-                              District
-                            </Label>
-                            <Input
-                              id="districtName"
-                              value={editableDistrict}
-                              onChange={(e) =>
-                                setEditableDistrict(e.target.value)
-                              }
-                              className="text-sm"
-                              placeholder="District..."
-                            />
-                          </div>
-
-                          <div>
-                            <Label
-                              htmlFor="stateName"
-                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
-                            >
-                              State
-                            </Label>
-                            <Input
-                              id="stateName"
-                              value={editableState}
-                              onChange={(e) =>
-                                setEditableState(e.target.value)
-                              }
-                              className="text-sm"
-                              placeholder="State..."
-                            />
-                          </div>
-
-                          <div>
-                            <Label
                               htmlFor="season"
                               className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
                             >
@@ -1702,7 +1689,80 @@ export const CallInterface = () => {
                               </SelectContent>
                             </Select>
                           </div>
+
+                          <div>
+                            <Label
+                              htmlFor="stateName"
+                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                            >
+                              State
+                            </Label>
+                            <Input
+                              id="stateName"
+                              value={editableState}
+                              onChange={(e) =>
+                                setEditableState(e.target.value)
+                              }
+                              className="text-sm"
+                              placeholder="State..."
+                            />
+                          </div>
+
+                          <div>
+                            <Label
+                              htmlFor="districtName"
+                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                            >
+                              District
+                            </Label>
+                            <Input
+                              id="districtName"
+                              value={editableDistrict}
+                              onChange={(e) =>
+                                setEditableDistrict(e.target.value)
+                              }
+                              className="text-sm"
+                              placeholder="District..."
+                            />
+                          </div>
+
+                          <div>
+                            <Label
+                              htmlFor="blockName"
+                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                            >
+                              Block
+                            </Label>
+                            <Input
+                              id="blockName"
+                              value={editableBlock}
+                              onChange={(e) =>
+                                setEditableBlock(e.target.value)
+                              }
+                              className="text-sm"
+                              placeholder="Block..."
+                            />
+                          </div>
+
+                          <div>
+                            <Label
+                              htmlFor="villageName"
+                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                            >
+                              Village
+                            </Label>
+                            <Input
+                              id="villageName"
+                              value={editableVillage}
+                              onChange={(e) =>
+                                setEditableVillage(e.target.value)
+                              }
+                              className="text-sm"
+                              placeholder="Village..."
+                            />
+                          </div>
                         </div>
+
 
                         {/* Domain selection list with check icons */}
                         <div>

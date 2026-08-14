@@ -118,6 +118,8 @@ export class AccAgentService {
       crop: string;
       state: string;
       district: string;
+      block?: string;
+      village?: string;
       domain: string | string[];
       season: string;
       farmerName?: string;
@@ -129,6 +131,7 @@ export class AccAgentService {
       farmerPrimaryCrop?: string;
     }
   ): Promise<void> {
+
     const startTime = Date.now();
     try {
       console.log(`🔄 [AccAgentService] Updating state for thread ${threadId}: query="${correctedData.query}", crop="${correctedData.crop}", domain="${JSON.stringify(correctedData.domain)}"`);

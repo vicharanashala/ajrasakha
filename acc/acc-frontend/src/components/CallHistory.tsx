@@ -54,13 +54,15 @@ const getQueryMetadata = (qItem: any, callDetails?: any, farmerProfile?: any) =>
   const state = meta.extracted_state || meta.state || qItem?.state || fallbackMeta.extracted_state || fallbackMeta.state || farmerProfile?.state || farmerProfile?.stateName;
   const district = meta.extracted_district || meta.district || qItem?.district || fallbackMeta.extracted_district || fallbackMeta.district || farmerProfile?.district || farmerProfile?.districtName;
   const block = meta.extracted_block || meta.block || qItem?.block || fallbackMeta.extracted_block || fallbackMeta.block || farmerProfile?.block || farmerProfile?.blockName;
+  const village = meta.extracted_village || meta.village || qItem?.village || fallbackMeta.extracted_village || fallbackMeta.village || farmerProfile?.village || farmerProfile?.villageName;
   const domain = meta.extracted_domain || meta.domain || meta.standardized_domains || qItem?.domain || fallbackMeta.extracted_domain || fallbackMeta.domain;
   const specialist = qItem?.agri_specialist || meta.agri_specialist || "ACC_AGENT";
   const reference = qItem?.referenceSource || meta.referenceSource;
   const weather = qItem?.weather || meta.weather;
 
-  return { crop, season, state, district, block, domain, specialist, reference, weather };
+  return { crop, season, state, district, block, village, domain, specialist, reference, weather };
 };
+
 
 const renderMarkdown = (text: string) => {
   if (!text) return null;
@@ -1226,7 +1228,13 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                               🏛️ Block: {qMeta.block}
                                                             </Badge>
                                                           )}
+                                                          {qMeta.village && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-teal-200/50 text-teal-600 dark:text-teal-400 bg-teal-50/20 font-medium">
+                                                              Village: {qMeta.village}
+                                                            </Badge>
+                                                          )}
                                                           {qMeta.domain && (
+
                                                             <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-purple-200/50 text-purple-600 dark:text-purple-400 bg-purple-50/20 font-medium">
                                                               🏷️ {formatDomainField(qMeta.domain)}
                                                             </Badge>

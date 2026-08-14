@@ -144,6 +144,8 @@ export class CallDetailsRepository implements ICallDetailsRepository {
           extracted_crop: '',
           extracted_state: '',
           extracted_district: '',
+          extracted_block: '',
+          extracted_village: '',
           extracted_domain: '',
           extracted_season: '',
         },
@@ -219,7 +221,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
             { phoneNo: { $in: phoneNumbers } },
             { session }
           ).toArray();
-          
+
           for (const doc of farmerDocs) {
             if (doc.phoneNo) farmersMap.set(doc.phoneNo, doc.profile || doc);
           }
@@ -386,7 +388,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
   ): Promise<AgentAnalytics> {
     try {
       await this.init();
-      
+
       const agentObjectId = new ObjectId(agentUserId);
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -528,7 +530,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
   ): Promise<ACCAnalytics> {
     try {
       await this.init();
-      
+
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const weekAgo = new Date(today);
@@ -597,8 +599,8 @@ export class CallDetailsRepository implements ICallDetailsRepository {
 
       const domains = domainsResult
         .filter(d => d._id && d._id !== '')
-        .map(d => ({ 
-          domain: Array.isArray(d._id) ? d._id.join('; ') : d._id, 
+        .map(d => ({
+          domain: Array.isArray(d._id) ? d._id.join('; ') : d._id,
           count: d.count,
           today: d.today,
           thisWeek: d.thisWeek,

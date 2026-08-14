@@ -18,6 +18,7 @@ export interface CallQuery {
     extracted_state?: string;
     extracted_district?: string;
     extracted_block?: string;
+    extracted_village?: string;
     extracted_domain?: string | string[];
     extracted_season?: string;
     standardized_domains?: string[];

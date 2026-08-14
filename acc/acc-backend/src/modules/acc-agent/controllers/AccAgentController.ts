@@ -88,6 +88,8 @@ export class AccAgentController {
         crop: string;
         state: string;
         district: string;
+        block?: string;
+        village?: string;
         domain: string | string[];
         season: string;
         farmerName?: string;
@@ -157,6 +159,7 @@ export class AccAgentController {
             extracted_state: body.metadata.extracted_state || '',
             extracted_district: body.metadata.extracted_district || '',
             extracted_block: body.metadata.extracted_block || '',
+            extracted_village: body.metadata.extracted_village || '',
             extracted_domain: body.metadata.extracted_domain || '',
             extracted_season: body.metadata.extracted_season || '',
             standardized_domains: body.metadata.standardized_domains || []

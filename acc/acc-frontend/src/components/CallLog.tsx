@@ -47,12 +47,13 @@ const getQueryMetadata = (qItem: any, callDetails?: any, farmerProfile?: any) =>
   const state = meta.extracted_state || meta.state || qItem?.state || fallbackMeta.extracted_state || fallbackMeta.state || farmerProfile?.state || farmerProfile?.stateName;
   const district = meta.extracted_district || meta.district || qItem?.district || fallbackMeta.extracted_district || fallbackMeta.district || farmerProfile?.district || farmerProfile?.districtName;
   const block = meta.extracted_block || meta.block || qItem?.block || fallbackMeta.extracted_block || fallbackMeta.block || farmerProfile?.block || farmerProfile?.blockName;
+  const village = meta.extracted_village || meta.village || qItem?.village || fallbackMeta.extracted_village || fallbackMeta.village || farmerProfile?.village || farmerProfile?.villageName;
   const domain = meta.extracted_domain || meta.domain || meta.standardized_domains || qItem?.domain || fallbackMeta.extracted_domain || fallbackMeta.domain;
   const specialist = qItem?.agri_specialist || meta.agri_specialist || "ACC_AGENT";
   const reference = qItem?.referenceSource || meta.referenceSource;
   const weather = qItem?.weather || meta.weather;
 
-  return { crop, season, state, district, block, domain, specialist, reference, weather };
+  return { crop, season, state, district, block, village, domain, specialist, reference, weather };
 };
 
 const renderMarkdown = (text: string) => {
@@ -404,7 +405,7 @@ export const CallLog = () => {
     return phoneNumber;
   };
 
- const getAgentDisplay = (call: CallHistoryItem): { name: string; email: string | null } => {
+  const getAgentDisplay = (call: CallHistoryItem): { name: string; email: string | null } => {
     // Backend resolves these directly onto each call record now
     // (agentUsername is already "First Last", agentEmail is the login email).
     const username = call.agentUsername || call.callDetails?.agent?.username;
@@ -712,7 +713,7 @@ export const CallLog = () => {
                                                       </p>
                                                       {call.callDetails.caller.transcript &&
                                                         call.callDetails.caller.transcript !==
-                                                          call.callDetails.caller.translation && (
+                                                        call.callDetails.caller.translation && (
                                                           <div className="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
                                                             <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-zinc-400">
                                                               <Globe className="h-3 w-3" />
@@ -745,7 +746,7 @@ export const CallLog = () => {
                                                       </p>
                                                       {call.callDetails.agent.transcript &&
                                                         call.callDetails.agent.transcript !==
-                                                          call.callDetails.agent.translation && (
+                                                        call.callDetails.agent.translation && (
                                                           <div className="mt-2 pt-2 border-t border-white/20 text-xs text-white/80">
                                                             <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-white/75">
                                                               <Globe className="h-3 w-3" />
@@ -770,10 +771,10 @@ export const CallLog = () => {
                                                 call.callDetails.agent?.transcript ||
                                                 call.callDetails.agent?.translation
                                               ) && (
-                                                <div className="text-xs text-muted-foreground text-center py-6">
-                                                  No transcript data available for this call
-                                                </div>
-                                              )}
+                                                  <div className="text-xs text-muted-foreground text-center py-6">
+                                                    No transcript data available for this call
+                                                  </div>
+                                                )}
                                             </div>
                                           ) : (
                                             <div className="text-xs text-muted-foreground text-center py-8">
@@ -801,181 +802,187 @@ export const CallLog = () => {
                                         >
                                           {call.callDetails?.queries && call.callDetails.queries.length > 0
                                             ? call.callDetails.queries.map((qItem, index) => {
-                                                const qMeta = getQueryMetadata(qItem, call.callDetails, call.farmerProfile);
-                                                return (
-                                                  <AccordionItem
-                                                    key={qItem._id || `query-${index}`}
-                                                    value={`query-${index}`}
-                                                    className="border-b border-zinc-100 dark:border-zinc-800/80 last:border-b-0"
-                                                  >
-                                                    <AccordionTrigger className="text-left hover:no-underline py-3.5 w-full flex items-center justify-between group gap-2">
-                                                      <div className="flex items-start gap-3 flex-1 min-w-0 pr-4">
-                                                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-farmer-tint text-farmer-text border border-farmer-border/40 flex items-center justify-center text-xs font-bold mt-0.5">
-                                                          {index + 1}
-                                                        </span>
-                                                        <div className="flex-1 min-w-0 space-y-1.5">
-                                                          <div className="font-semibold text-[13.5px] text-foreground leading-normal">
-                                                            {renderMarkdown(qItem.question)}
-                                                          </div>
-                                                          {/* All Metadata Badges visible directly under question */}
-                                                          <div className="flex flex-wrap items-center gap-2 pt-1">
-                                                            {qMeta.specialist && (
-                                                              <Badge
-                                                                variant="outline"
-                                                                className="text-xs px-2.5 py-0.5 border-farmer-border/50 text-farmer-text font-bold bg-farmer-tint"
-                                                              >
-                                                                {qMeta.specialist}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.crop && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-farmer-border/40 text-farmer-text bg-farmer-tint font-medium">
-                                                                🌾 {qMeta.crop}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.season && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-secondary-accent/40 text-secondary-accent bg-secondary-accent/15 font-medium">
-                                                                ☀️ {qMeta.season}
-                                                              </Badge>
-                                                            )}
-                                                            {(qMeta.state || qMeta.district) && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-agent-border/40 text-agent-text bg-agent-tint font-medium">
-                                                                📍 {[qMeta.state, qMeta.district].filter(Boolean).join(', ')}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.block && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-teal-200/50 text-teal-600 dark:text-teal-400 bg-teal-50/20 font-medium">
-                                                                🏛️ Block: {qMeta.block}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.domain && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-pipeline-border/40 text-pipeline-text bg-pipeline-tint font-medium">
-                                                                🏷️ {formatDomainField(qMeta.domain)}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.weather && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-sky-200/50 text-sky-600 dark:text-sky-400 bg-sky-50/20 font-medium">
-                                                                🌤️ {qMeta.weather.temperature ? `${qMeta.weather.temperature}°C` : ''} {qMeta.weather.condition || qMeta.weather.description || ''}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.reference && (
-                                                              <span className="text-zinc-500 dark:text-zinc-400 text-xs font-semibold">
-                                                                • {qMeta.reference}
-                                                              </span>
-                                                            )}
-                                                          </div>
+                                              const qMeta = getQueryMetadata(qItem, call.callDetails, call.farmerProfile);
+                                              return (
+                                                <AccordionItem
+                                                  key={qItem._id || `query-${index}`}
+                                                  value={`query-${index}`}
+                                                  className="border-b border-zinc-100 dark:border-zinc-800/80 last:border-b-0"
+                                                >
+                                                  <AccordionTrigger className="text-left hover:no-underline py-3.5 w-full flex items-center justify-between group gap-2">
+                                                    <div className="flex items-start gap-3 flex-1 min-w-0 pr-4">
+                                                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-farmer-tint text-farmer-text border border-farmer-border/40 flex items-center justify-center text-xs font-bold mt-0.5">
+                                                        {index + 1}
+                                                      </span>
+                                                      <div className="flex-1 min-w-0 space-y-1.5">
+                                                        <div className="font-semibold text-[13.5px] text-foreground leading-normal">
+                                                          {renderMarkdown(qItem.question)}
+                                                        </div>
+                                                        {/* All Metadata Badges visible directly under question */}
+                                                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                                                          {qMeta.specialist && (
+                                                            <Badge
+                                                              variant="outline"
+                                                              className="text-xs px-2.5 py-0.5 border-farmer-border/50 text-farmer-text font-bold bg-farmer-tint"
+                                                            >
+                                                              {qMeta.specialist}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.crop && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-farmer-border/40 text-farmer-text bg-farmer-tint font-medium">
+                                                              Crop: {qMeta.crop}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.season && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-secondary-accent/40 text-secondary-accent bg-secondary-accent/15 font-medium">
+                                                              Season: {qMeta.season}
+                                                            </Badge>
+                                                          )}
+                                                          {(qMeta.state || qMeta.district) && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-agent-border/40 text-agent-text bg-agent-tint font-medium">
+                                                              Location: {[qMeta.state, qMeta.district].filter(Boolean).join(', ')}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.block && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-teal-200/50 text-teal-600 dark:text-teal-400 bg-teal-50/20 font-medium">
+                                                              Block: {qMeta.block}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.domain && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-pipeline-border/40 text-pipeline-text bg-pipeline-tint font-medium">
+                                                              Domain: {formatDomainField(qMeta.domain)}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.weather && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-sky-200/50 text-sky-600 dark:text-sky-400 bg-sky-50/20 font-medium">
+                                                              Weather: {qMeta.weather.temperature ? `${qMeta.weather.temperature}°C` : ''} {qMeta.weather.condition || qMeta.weather.description || ''}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.reference && (
+                                                            <span className="text-zinc-500 dark:text-zinc-400 text-xs font-semibold">
+                                                              • {qMeta.reference}
+                                                            </span>
+                                                          )}
                                                         </div>
                                                       </div>
-                                                      <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0 group-hover:text-foreground" />
-                                                    </AccordionTrigger>
-                                                    <AccordionContent className="pt-1 pb-4">
-                                                      <div className="pl-9 space-y-2.5">
-                                                        <div className="chat-bubble-farmer rounded-xl p-4 shadow-inner">
-                                                          <div className="space-y-1 font-medium">
-                                                            {renderMarkdown(qItem.answer)}
-                                                          </div>
+                                                    </div>
+                                                    <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0 group-hover:text-foreground" />
+                                                  </AccordionTrigger>
+                                                  <AccordionContent className="pt-1 pb-4">
+                                                    <div className="pl-9 space-y-2.5">
+                                                      <div className="chat-bubble-farmer rounded-xl p-4 shadow-inner">
+                                                        <div className="space-y-1 font-medium">
+                                                          {renderMarkdown(qItem.answer)}
                                                         </div>
-                                                        {(qItem.sourceName || qItem.sourceLink) && (
-                                                          <div className="flex items-center gap-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider pl-1 mt-1">
-                                                            <span>Source:</span>
-                                                            {qItem.sourceLink ? (
-                                                              <a
-                                                                href={qItem.sourceLink}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-                                                              >
-                                                                {qItem.sourceName || "Reference Link"}
-                                                                <ExternalLink className="h-2.5 w-2.5" />
-                                                              </a>
-                                                            ) : (
-                                                              <span>{qItem.sourceName}</span>
-                                                            )}
-                                                          </div>
-                                                        )}
                                                       </div>
-                                                    </AccordionContent>
-                                                  </AccordionItem>
-                                                );
-                                              })
+                                                      {(qItem.sourceName || qItem.sourceLink) && (
+                                                        <div className="flex items-center gap-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider pl-1 mt-1">
+                                                          <span>Source:</span>
+                                                          {qItem.sourceLink ? (
+                                                            <a
+                                                              href={qItem.sourceLink}
+                                                              target="_blank"
+                                                              rel="noreferrer"
+                                                              className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                                                            >
+                                                              {qItem.sourceName || "Reference Link"}
+                                                              <ExternalLink className="h-2.5 w-2.5" />
+                                                            </a>
+                                                          ) : (
+                                                            <span>{qItem.sourceName}</span>
+                                                          )}
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  </AccordionContent>
+                                                </AccordionItem>
+                                              );
+                                            })
                                             : call.callDetails?.QA_pairs?.QnA.map((qa, index) => {
-                                                const qMeta = getQueryMetadata(qa, call.callDetails, call.farmerProfile);
-                                                return (
-                                                  <AccordionItem
-                                                    key={qa.id}
-                                                    value={`qa-${index}`}
-                                                    className="border-b border-zinc-100 dark:border-zinc-800/80 last:border-b-0"
-                                                  >
-                                                    <AccordionTrigger className="text-left hover:no-underline py-3.5 w-full flex items-center justify-between group gap-2">
-                                                      <div className="flex items-start gap-3 flex-1 min-w-0 pr-4">
-                                                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-farmer-tint text-farmer-text border border-farmer-border/40 flex items-center justify-center text-xs font-bold mt-0.5">
-                                                          {index + 1}
-                                                        </span>
-                                                        <div className="flex-1 min-w-0 space-y-1.5">
-                                                          <div className="font-semibold text-[13.5px] text-foreground leading-normal">
-                                                            {renderMarkdown(qa.question)}
-                                                          </div>
-                                                          {/* All Metadata Badges visible directly under question */}
-                                                          <div className="flex flex-wrap items-center gap-2 pt-1">
-                                                            {qMeta.specialist && (
-                                                              <Badge
-                                                                variant="outline"
-                                                                className="text-xs px-2.5 py-0.5 border-farmer-border/50 text-farmer-text font-bold bg-farmer-tint"
-                                                              >
-                                                                {qMeta.specialist}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.crop && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-farmer-border/40 text-farmer-text bg-farmer-tint font-medium">
-                                                                🌾 {qMeta.crop}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.season && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-secondary-accent/40 text-secondary-accent bg-secondary-accent/15 font-medium">
-                                                                ☀️ {qMeta.season}
-                                                              </Badge>
-                                                            )}
-                                                            {(qMeta.state || qMeta.district) && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-agent-border/40 text-agent-text bg-agent-tint font-medium">
-                                                                📍 {[qMeta.state, qMeta.district].filter(Boolean).join(', ')}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.block && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-teal-200/50 text-teal-600 dark:text-teal-400 bg-teal-50/20 font-medium">
-                                                                🏛️ Block: {qMeta.block}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.domain && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-pipeline-border/40 text-pipeline-text bg-pipeline-tint font-medium">
-                                                                🏷️ {formatDomainField(qMeta.domain)}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.weather && (
-                                                              <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-sky-200/50 text-sky-600 dark:text-sky-400 bg-sky-50/20 font-medium">
-                                                                🌤️ {qMeta.weather.temperature ? `${qMeta.weather.temperature}°C` : ''} {qMeta.weather.condition || qMeta.weather.description || ''}
-                                                              </Badge>
-                                                            )}
-                                                            {qMeta.reference && (
-                                                              <span className="text-zinc-500 dark:text-zinc-400 text-xs font-semibold">
-                                                                • {qMeta.reference}
-                                                             </span>
-                                                            )}
-                                                          </div>
+                                              const qMeta = getQueryMetadata(qa, call.callDetails, call.farmerProfile);
+                                              return (
+                                                <AccordionItem
+                                                  key={qa.id}
+                                                  value={`qa-${index}`}
+                                                  className="border-b border-zinc-100 dark:border-zinc-800/80 last:border-b-0"
+                                                >
+                                                  <AccordionTrigger className="text-left hover:no-underline py-3.5 w-full flex items-center justify-between group gap-2">
+                                                    <div className="flex items-start gap-3 flex-1 min-w-0 pr-4">
+                                                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-farmer-tint text-farmer-text border border-farmer-border/40 flex items-center justify-center text-xs font-bold mt-0.5">
+                                                        {index + 1}
+                                                      </span>
+                                                      <div className="flex-1 min-w-0 space-y-1.5">
+                                                        <div className="font-semibold text-[13.5px] text-foreground leading-normal">
+                                                          {renderMarkdown(qa.question)}
+                                                        </div>
+                                                        {/* All Metadata Badges visible directly under question */}
+                                                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                                                          {qMeta.specialist && (
+                                                            <Badge
+                                                              variant="outline"
+                                                              className="text-xs px-2.5 py-0.5 border-farmer-border/50 text-farmer-text font-bold bg-farmer-tint"
+                                                            >
+                                                              {qMeta.specialist}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.crop && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-farmer-border/40 text-farmer-text bg-farmer-tint font-medium">
+                                                              Crop: {qMeta.crop}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.season && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-secondary-accent/40 text-secondary-accent bg-secondary-accent/15 font-medium">
+                                                              Season: {qMeta.season}
+                                                            </Badge>
+                                                          )}
+                                                          {(qMeta.state || qMeta.district) && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-agent-border/40 text-agent-text bg-agent-tint font-medium">
+                                                              Location: {[qMeta.state, qMeta.district].filter(Boolean).join(', ')}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.block && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-teal-200/50 text-teal-600 dark:text-teal-400 bg-teal-50/20 font-medium">
+                                                              Block: {qMeta.block}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.village && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-teal-200/50 text-teal-600 dark:text-teal-400 bg-teal-50/20 font-medium">
+                                                              Village: {qMeta.village}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.domain && (
+
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-pipeline-border/40 text-pipeline-text bg-pipeline-tint font-medium">
+                                                              Category: {formatDomainField(qMeta.domain)}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.weather && (
+                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-sky-200/50 text-sky-600 dark:text-sky-400 bg-sky-50/20 font-medium">
+                                                              Weather: {qMeta.weather.temperature ? `${qMeta.weather.temperature}°C` : ''} {qMeta.weather.condition || qMeta.weather.description || ''}
+                                                            </Badge>
+                                                          )}
+                                                          {qMeta.reference && (
+                                                            <span className="text-zinc-500 dark:text-zinc-400 text-xs font-semibold">
+                                                              • {qMeta.reference}
+                                                            </span>
+                                                          )}
                                                         </div>
                                                       </div>
-                                                      <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0 group-hover:text-foreground" />
-                                                    </AccordionTrigger>
-                                                    <AccordionContent className="pt-1 pb-4">
-                                                      <div className="pl-9 space-y-2.5">
-                                                        <div className="chat-bubble-farmer rounded-xl p-4 shadow-inner">
-                                                          <div className="space-y-1 font-medium">
-                                                            {renderMarkdown(qa.answer)}
-                                                          </div>
+                                                    </div>
+                                                    <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0 group-hover:text-foreground" />
+                                                  </AccordionTrigger>
+                                                  <AccordionContent className="pt-1 pb-4">
+                                                    <div className="pl-9 space-y-2.5">
+                                                      <div className="chat-bubble-farmer rounded-xl p-4 shadow-inner">
+                                                        <div className="space-y-1 font-medium">
+                                                          {renderMarkdown(qa.answer)}
                                                         </div>
                                                       </div>
-                                                    </AccordionContent>
-                                                  </AccordionItem>
-                                                );
-                                              })}
+                                                    </div>
+                                                  </AccordionContent>
+                                                </AccordionItem>
+                                              );
+                                            })}
                                         </Accordion>
                                       </div>
                                     </div>

@@ -21,6 +21,8 @@ export interface CorrectedData {
   crop: string;
   state: string;
   district: string;
+  block?: string;
+  village?: string;
   domain: string | string[];
   season: string;
   farmerName?: string;
@@ -38,10 +40,12 @@ export interface QAMetadata {
   extracted_state: string;
   extracted_district: string;
   extracted_block?: string;
+  extracted_village?: string;
   extracted_domain?: string | string[];
   standardized_domains?: string | string[];
   extracted_season: string;
 }
+
 
 export interface GeneratedQuestion {
   id: string;
