@@ -84,11 +84,12 @@ import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
 import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
-import { UserCheck } from "lucide-react";
+import { UserCheck, LayoutDashboard } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
 
 import { TopRightBadge } from "@/components/NewBadge";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
+import { EditPublicDashboardModal } from "./EditPublicDashboardModal";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -203,6 +204,11 @@ export const QuestionsFilters = ({
   );
   const prevAnswerModeRef = useRef<AnswerMode>(filterToAnswerMode(appliedFilters));
   const isTrainingUser = currentUser?.isTrainingUser === true;
+
+  // ── Public dashboard editor (admin-only) ──
+  const isAdmin = userRole === "admin";
+  const [isEditPublicDashboardOpen, setIsEditPublicDashboardOpen] =
+    useState(false);
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -1027,6 +1033,25 @@ export const QuestionsFilters = ({
               </button>
             </div>
           </section>
+
+          {/* Section: Public Dashboard (admin-only) */}
+          {isAdmin && (
+            <section>
+              <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+                Public Dashboard
+              </h3>
+              <button
+                onClick={() => {
+                  setIsSidebarOpen(false);
+                  setIsEditPublicDashboardOpen(true);
+                }}
+                className="w-full py-2.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all bg-gray-100 dark:bg-[#0d0d0d] border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
+              >
+                <LayoutDashboard size={14} /> Edit Public Dashboard
+              </button>
+            </section>
+          )}
+
           <section className="hidden md:block">
             <h3 className=" relative text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
               Hide Columns
@@ -1601,6 +1626,12 @@ export const QuestionsFilters = ({
         open={isCropModalOpen}
         onOpenChange={setIsCropModalOpen}
       />
+      {isAdmin && (
+        <EditPublicDashboardModal
+          open={isEditPublicDashboardOpen}
+          onOpenChange={setIsEditPublicDashboardOpen}
+        />
+      )}
       <ChemicalManagementModal
         open={isChemicalModalOpen}
         onOpenChange={setIsChemicalModalOpen}
