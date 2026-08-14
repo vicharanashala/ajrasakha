@@ -5073,4 +5073,40 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
     return result.modifiedCount > 0;
   }
+
+   async findOpenPaeValidationReviews(): Promise<
+    {questionId: string; reviewerId: string; assignedAt: Date}[]
+  > {
+    await this.init();
+    const rows = await this.QuestionSubmissionCollection.aggregate([
+      {$match: {paeValidation: {$elemMatch: {paeFinishedAt: null}}}},
+      {
+        $project: {
+          questionId: 1,
+          open: {
+            $filter: {
+              input: {$ifNull: ['$paeValidation', []]},
+              as: 'r',
+              cond: {$eq: ['$$r.paeFinishedAt', null]},
+            },
+          },
+        },
+      },
+      {$unwind: '$open'},
+      {
+        $project: {
+          _id: 0,
+          questionId: 1,
+          reviewerId: '$open.paeId',
+          assignedAt: '$open.paeAssignedAt',
+        },
+      },
+      {$sort: {assignedAt: 1}},
+    ]).toArray();
+    return rows.map((r: any) => ({
+      questionId: r.questionId?.toString(),
+      reviewerId: r.reviewerId?.toString(),
+      assignedAt: r.assignedAt,
+    }));
+  }
 }

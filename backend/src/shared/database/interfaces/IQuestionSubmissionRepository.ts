@@ -362,4 +362,9 @@ export interface IQuestionSubmissionRepository {
     paeFinishedAt: Date | null,
     session?: ClientSession,
   ): Promise<{ modifiedCount: number }>;
+
+  findOpenPaeValidationReviews(): Promise<
+    {questionId: string; reviewerId: string; assignedAt: Date}[]
+  >;
+
 }

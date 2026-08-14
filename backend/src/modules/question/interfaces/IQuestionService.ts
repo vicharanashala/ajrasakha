@@ -78,6 +78,19 @@ export interface FeedbackQueueDetails {
   questionsWithoutActiveModerator: { count: number; items: QueueQuestionItem[] };
 }
 
+/** Data for the dedicated Pae Validation tab. Every section is {count, items} so the UI
+ *  can render counts and lists consistently (mirrors QueueDetailsResponse). */
+export interface PaeValidationQueueDetails {
+  /** Open-pae-validation questions, auto-allocation ON, no reviewer assigned yet. */
+  waitingAuto: { count: number; items: QueueQuestionItem[] };
+  /** Open-pae-validation questions, auto-allocation OFF (handled manually), unassigned. */
+  waitingManual: { count: number; items: QueueQuestionItem[] };
+  /** Open-pae-validation questions already assigned to a reviewer. */
+  assigned: { count: number; items: QueueQuestionItem[] };
+  /** pae experts free to take a feedback review. */
+  availablePaeExperts: { count: number; items: QueueExpertItem[] };
+}
+
 /** Lean question shape used in the moderator/admin "Queue Details" modal. */
 export interface QueueQuestionItem {
   _id: string;
@@ -861,4 +874,6 @@ export interface IQuestionService {
     answerId?: string,
     suggestionSourceName?: string,
   ): Promise<{ success: boolean; message: string }>;
+
+  getPaeValidationQueueDetails(): Promise<PaeValidationQueueDetails>;
 }
