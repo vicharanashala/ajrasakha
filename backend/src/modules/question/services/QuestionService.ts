@@ -7198,6 +7198,46 @@ export class QuestionService extends BaseService implements IQuestionService {
             `[${cfg.label}] Assigned question ${questionId} → ${cfg.role} ${userId}`,
           );
           assigned++;
+
+          // Audit the system (cron) allocation so it shows in the question's audit
+          // trail — mirrors the moderator / time-bound crons' SYSTEM_ALLOCATED entries.
+          const assigneeName =
+            `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() ||
+            user.email ||
+            userId;
+          const roleLabel =
+            cfg.role === 'gate_keeper'
+              ? 'gate keeper'
+              : cfg.role === 'auditor'
+                ? 'auditor'
+                : cfg.role;
+          this.auditTrailsService
+            .createAuditTrail({
+              category: AuditCategory.EXPERTS_CATEGORY,
+              action: AuditAction.SYSTEM_ALLOCATED,
+              actor: {
+                id: 'system',
+                name: 'System',
+                email: '',
+                role: 'system',
+                avatar: '',
+              },
+              context: {
+                questionId,
+                question: (next as any)?.question,
+                expertId: userId,
+                role: cfg.role,
+              },
+              changes: { after: { [roleLabel]: assigneeName } },
+              outcome: { status: OutComeStatus.SUCCESS },
+              createdAt: new Date(),
+            } as ModeratorAuditTrail)
+            .catch((auditErr: any) =>
+              console.error(
+                `[${cfg.label}] Failed to write SYSTEM_ALLOCATED audit:`,
+                auditErr?.message,
+              ),
+            );
         } catch (err: any) {
           claimed.delete(questionId);
           console.error(
