@@ -1824,7 +1824,7 @@ export class AnswerService extends BaseService implements IAnswerService {
         );
       }
 
-      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+      // const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
 
       const text = `Question: ${question.question}
 
@@ -2068,6 +2068,7 @@ answer: ${updates.answer}`;
           status: closeStatus,
           paeValidation: 'pending',
           autoAllocateFeedback: true,
+          autoAllocatePaeValidationExpert: true,
           closedAt: new Date(),
         },
         session,
