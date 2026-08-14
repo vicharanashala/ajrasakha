@@ -1004,7 +1004,11 @@ export class UserController {
         email: targetUser?.email,
       },
       changes: {
-        before: { isVerified: targetUser?.isVerified },
+        before: { 
+          isVerified: targetUser?.isVerified,
+          isBlocked: targetUser?.isBlocked,
+          status: targetUser?.status,
+        },
       },
       createdAt: new Date(),
     };
@@ -1014,7 +1018,11 @@ export class UserController {
         ...auditPayload,
         changes: {
           ...auditPayload.changes,
-          after: { isVerified },
+          after: { 
+            isVerified,
+            isBlocked: false,
+            status: 'active',
+          },
         },
         outcome: { status: OutComeStatus.SUCCESS },
       });
