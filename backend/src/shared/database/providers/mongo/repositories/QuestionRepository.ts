@@ -2802,6 +2802,48 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Bulk-replace `details.domain` on questions from a { questionId, normalizedDomain }
+   *  list (one DB round trip) — the existing domain values are removed and replaced
+   *  with the single standardized domain. Reports how many questions were modified and
+   *  how many ids didn't match any document (or were invalid). */
+  async bulkSetNormalizedDomain(
+    pairs: { questionId: string; normalizedDomain: string }[],
+  ): Promise<{
+    total: number;
+    matched: number;
+    modified: number;
+    notMatched: number;
+    invalid: number;
+  }> {
+    await this.init();
+    const total = pairs.length;
+    const valid = pairs.filter(
+      p => p.questionId && isValidObjectId(p.questionId),
+    );
+    const invalid = total - valid.length;
+    if (!valid.length) {
+      return { total, matched: 0, modified: 0, notMatched: invalid, invalid };
+    }
+    const ops = valid.map(p => ({
+      updateOne: {
+        filter: { _id: new ObjectId(p.questionId) },
+        update: {
+          $set: {
+            // Remove existing domain values and replace with the standardized one.
+            'details.domain': [p.normalizedDomain ?? ''],
+            updatedAt: new Date(),
+          },
+        },
+      },
+    }));
+    const res = await this.QuestionCollection.bulkWrite(ops as any);
+    const matched = res.matchedCount ?? 0;
+    const modified = res.modifiedCount ?? 0;
+    // notMatched = valid ids that hit no document + the invalid ones.
+    const notMatched = valid.length - matched + invalid;
+    return { total, matched, modified, notMatched, invalid };
+  }
+
   /** Closed questions that have no moderator recorded (moderatorId is null or missing).
    *  Used by the backfill that restores moderatorId from the final answer's approver —
    *  moderatorId is cleared when a question closes. Returns up to `limit` question ids. */
@@ -3846,16 +3888,118 @@ export class QuestionRepository implements IQuestionRepository {
       gateKeeperHours: number;
     }[];
     // todayApproved counts ONLY questions closed as plain 'closed' (Push to GDB) —
-    // not the Notify-User closes (dynamic_closed / duplicate_closed). The per-status
-    // breakdown still carries all three.
-    const totalApproved = moderatorBreakdown.reduce(
-      (sum, item) => sum + (item.closedCount ?? 0),
-      0,
-    );
+    // not the Notify-User closes (dynamic_closed / duplicate_closed). Compute it as a
+    // DIRECT count of closed questions in the window (not the by-approver breakdown
+    // sum) so it isn't undercounted when a closed question has no attributable final
+    // answer / approver — those are dropped from the per-approver breakdown but must
+    // still be counted in the total.
+    const totalApproved = await this.QuestionCollection.countDocuments({
+      status: 'closed',
+      closedAt: { $gte: start, $lt: end },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
+    } as any);
 
     return {
       todayApproved: totalApproved,
       moderatorBreakdown: moderatorBreakdown,
+    };
+  }
+
+  /** Diagnostic: closed questions in a window vs their answers. Surfaces the
+   *  "count mismatch" — closed questions that DON'T have a final answer with a valid
+   *  ObjectId `approvedBy` (the ones dropped from the moderator breakdown), with the
+   *  reason (no answers / no final answer / final answer missing approver / approvedBy
+   *  stored as a non-ObjectId). */
+  async getClosedAnswerMismatch(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
+    window: { start: Date; end: Date };
+    totalClosed: number;
+    matched: number;
+    mismatched: number;
+    items: any[];
+  }> {
+    await this.init();
+    const rows = (await this.QuestionCollection.aggregate([
+      { $match: { status: 'closed', closedAt: { $gte: startDate, $lt: endDate } } },
+      {
+        $lookup: {
+          from: 'answers',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'answers',
+        },
+      },
+      {
+        $addFields: {
+          totalAnswers: { $size: '$answers' },
+          finalAnswers: {
+            $filter: {
+              input: '$answers',
+              as: 'a',
+              cond: { $eq: ['$$a.isFinalAnswer', true] },
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          // Final answers that have a proper ObjectId approvedBy — what the breakdown counts.
+          finalWithObjectIdApprover: {
+            $filter: {
+              input: '$finalAnswers',
+              as: 'a',
+              cond: {
+                $and: [
+                  { $ne: [{ $ifNull: ['$$a.approvedBy', null] }, null] },
+                  { $eq: [{ $type: '$$a.approvedBy' }, 'objectId'] },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          question: 1,
+          source: 1,
+          status: 1,
+          closedBy: 1,
+          closedAt: 1,
+          moderatorId: 1,
+          totalAnswers: 1,
+          finalAnswerCount: { $size: '$finalAnswers' },
+          finalWithApproverCount: { $size: '$finalWithObjectIdApprover' },
+          // approvedBy value + BSON type on each final answer, to spot string ids.
+          finalAnswerApprovers: {
+            $map: {
+              input: '$finalAnswers',
+              as: 'a',
+              in: {
+                approvedBy: '$$a.approvedBy',
+                approvedByType: { $type: '$$a.approvedBy' },
+                status: '$$a.status',
+              },
+            },
+          },
+          isMatched: { $gt: [{ $size: '$finalWithObjectIdApprover' }, 0] },
+        },
+      },
+      { $sort: { closedAt: 1 } },
+    ]).toArray()) as any[];
+
+    const mismatchedItems = rows.filter(r => !r.isMatched);
+    return {
+      window: { start: startDate, end: endDate },
+      totalClosed: rows.length,
+      matched: rows.length - mismatchedItems.length,
+      mismatched: mismatchedItems.length,
+      items: mismatchedItems,
     };
   }
 

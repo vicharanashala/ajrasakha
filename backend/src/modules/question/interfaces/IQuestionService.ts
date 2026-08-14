@@ -779,6 +779,18 @@ export interface IQuestionService {
     skippedNoApprover: number;
   }>;
 
+  getClosedAnswerMismatch(startTime?: Date, endTime?: Date): Promise<{
+    window: { start: Date; end: Date };
+    totalClosed: number;
+    matched: number;
+    mismatched: number;
+    items: any[];
+  }>;
+
+  setNormalizedDomains(
+    entries: { 'Question ID'?: string; 'Standardized Domain'?: string }[],
+  ): Promise<{ total: number; matched: number; modified: number; notMatched: number; invalid: number }>;
+
   getFeedbackQueueDetails(): Promise<FeedbackQueueDetails>;
 
   handleFeedbackStatusUpdate(

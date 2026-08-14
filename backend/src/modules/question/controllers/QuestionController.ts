@@ -2355,6 +2355,41 @@ export class QuestionController {
   }
 
   // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Get('/admin/closed-answer-mismatch')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Diagnostic: closed questions in a window with no final answer / no ObjectId approvedBy (breakdown mismatch)',
+  })
+  async getClosedAnswerMismatch(
+    @QueryParam('startTime') startTime?: string,
+    @QueryParam('endTime') endTime?: string,
+  ) {
+    const start = startTime ? new Date(startTime) : undefined;
+    const end = endTime ? new Date(endTime) : undefined;
+    const data = await this.questionService.getClosedAnswerMismatch(start, end);
+    return { success: true, data };
+  }
+
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Post('/admin/normalized-domain')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Bulk-set normalizedDomain on questions from [{ "Question ID", "Standardized Domain" }]; returns modified / not-matched counts',
+  })
+  async setNormalizedDomains(
+    @Body() body: { 'Question ID'?: string; 'Standardized Domain'?: string }[] | { data?: any[] },
+  ) {
+    // Accept either a raw JSON array or { data: [...] }.
+    const entries = Array.isArray(body) ? body : (body?.data ?? []);
+    const result = await this.questionService.setNormalizedDomains(entries as any);
+    return { success: true, data: result };
+  }
+
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
   @Post('/admin/backfill-closed-moderator')
   @HttpCode(200)
   @UseBefore(InternalApiAuth)
