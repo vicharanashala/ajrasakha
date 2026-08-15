@@ -416,6 +416,9 @@ class AddQuestionBodyDto {
   @Type(() => QuestionDetailsDto)
   details?: QuestionDetailsDto;
 
+  @IsOptional()
+  gapSignal?: any;
+
   @IsString()
   @IsOptional()
   context?: string;

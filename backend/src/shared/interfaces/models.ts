@@ -131,6 +131,14 @@ export type QuestionSource =
 export const TIME_BOUND_SOURCES: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'];
 
 /** Manual / non-time-bound questions (added by moderators or via outreach). */
+export interface IGapSignal {
+  disclaimerIssued: boolean;
+  trigger?: 'empty_gdb' | 'insufficient_answer' | 'low_relevance' | 'none';
+  gdbTopScore?: number;
+  gdbCandidateIds?: string[];
+  detectedAt?: Date | string;
+}
+
 export const MANUAL_SOURCES: QuestionSource[] = ['AGRI_EXPERT', 'OUTREACH'];
 export interface IQuestion {
   _id?: string | ObjectId;
@@ -141,6 +149,7 @@ export interface IQuestion {
   tag?: Tags;
   totalAnswersCount: number;
   priority: IQuestionPriority;
+  gapSignal?: IGapSignal;
   details: {
     state: string;
     district: string;
@@ -149,6 +158,7 @@ export interface IQuestion {
     domain: string[];
     normalised_crop?: string;
     tools_used?: string[];
+    gapSignal?: IGapSignal;
   };
   isAutoAllocate: boolean;
   source: QuestionSource;

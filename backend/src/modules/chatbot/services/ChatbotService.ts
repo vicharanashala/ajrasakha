@@ -4181,11 +4181,33 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getGdbCoverageDebt(filters: { crop?: string; state?: string } = {}): Promise<any> {
+    try {
+      return this.chatbotRepository.getGdbCoverageDebt(filters);
+    } catch (error) {
+      throw new InternalServerError(`Failed to get GDB coverage debt: ${error}`);
+    }
+  }
+
+  async pushClusterToReviewerQueue(data: {
+    clusterId: string;
+    crop: string;
+    state: string;
+    domain: string;
+    representativeQuestion: string;
+  }): Promise<any> {
+    try {
+      return this.chatbotRepository.pushClusterToReviewerQueue(data);
+    } catch (error) {
+      throw new InternalServerError(`Failed to push cluster to reviewer queue: ${error}`);
+    }
+  }
+
   async getReviewerLifecycle( userId: string, startDate?: Date, endDate?: Date ): Promise<any> {
     try{
       return this.chatbotRepository.getReviewerLifecycle( userId, startDate, endDate );
     }catch(error){
-      throw new InternalServerError(`Something went wrong ${error}`)
+      throw new InternalServerError(`Something went wrong ${error}`);
     }
   }
 }

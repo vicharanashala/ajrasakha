@@ -2364,4 +2364,44 @@ export class ChatbotController {
     )
   }
 
+  @OpenAPI({
+    summary: 'Get GDB coverage debt radar data',
+    description:
+      'Returns the latest weekly GDB coverage gap clusters, disclaimer counts, and coverage debt scores for the dashboard.',
+  })
+  @Get('/gdb-coverage-debt')
+  @HttpCode(200)
+  @Authorized()
+  async getGdbCoverageDebt(
+    @QueryParam('crop') crop?: string,
+    @QueryParam('state') state?: string,
+  ) {
+    return this.chatbotService.getGdbCoverageDebt({ crop, state });
+  }
+
+  @OpenAPI({
+    summary: 'Push GDB coverage gap cluster to Agri Reviewer Queue',
+    description:
+      'Creates a high-priority pending task in the reviewer questions collection for Agri domain experts.',
+  })
+  @Post('/gdb-coverage-debt/push-to-reviewer')
+  @HttpCode(200)
+  @Authorized()
+  async pushClusterToReviewerQueue(
+    @Body()
+    body: {
+      clusterId: string;
+      crop: string;
+      state: string;
+      domain: string;
+      representativeQuestion: string;
+    },
+  ) {
+    if (!body || !body.clusterId || !body.crop) {
+      throw new BadRequestError('clusterId and crop are required');
+    }
+    return this.chatbotService.pushClusterToReviewerQueue(body);
+  }
+
 }
+

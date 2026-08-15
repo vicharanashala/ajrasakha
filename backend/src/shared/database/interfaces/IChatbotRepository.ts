@@ -1428,11 +1428,19 @@ export interface IChatbotRepository {
     search: string
   ): Promise<any>
 
+  getGdbCoverageDebt(filters?: any): Promise<any>;
+  pushClusterToReviewerQueue(data: {
+    clusterId: string;
+    crop: string;
+    state: string;
+    domain: string;
+    representativeQuestion: string;
+  }): Promise<any>;
   getReviewerLifecycle(
     userId: string,
     startDate?: Date,
     endDate?: Date,
-  ): Promise<any>
+  ): Promise<any>;
 }
 
 export interface ChatbotConversationData {
