@@ -47,8 +47,12 @@ export const TTS_SUPPORTED_CODECS = [
 
 export const TTS_SUPPORTED_MODELS = ['bulbul:v1', 'bulbul:v2'] as const;
 
-/** Sarvam bulbul v2 default speaker for `en-IN`. */
-export const TTS_DEFAULT_SPEAKER_EN = 'amelia';
+/** Sarvam bulbul v2 default speaker for `en-IN`.
+ *  Must be a voice Sarvam's API actually accepts — it rejects unknown names
+ *  with HTTP 400. `anushka` is in the current allowed list (`anushka, abhilash,
+ *  manisha, vidya, arya, karun, hitesh, aditya, ritu, priya, neha, rahul,
+ *  pooja, rohan, simran, kavya, amit, dev, …`) and renders English well. */
+export const TTS_DEFAULT_SPEAKER_EN = 'anushka';
 /** Sarvam bulbul v2 default speaker for Indic languages. */
 export const TTS_DEFAULT_SPEAKER_INDIC = 'anushka';
 

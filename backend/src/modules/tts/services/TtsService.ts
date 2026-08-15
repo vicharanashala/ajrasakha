@@ -36,6 +36,18 @@ const DEFAULT_CODEC = 'wav';
 const DEFAULT_SAMPLE_RATE = 22050;
 const MAX_TEXT_PREVIEW_CHARS = 200;
 
+/** Map Sarvam `output_audio_codec` values to MIME types for the client.
+ *  mu-law and A-law both surface as `audio/basic` (8 kHz, 1 channel). */
+const CODEC_TO_MIME: Record<string, string> = {
+  wav: 'audio/wav',
+  mp3: 'audio/mpeg',
+  pcm: 'audio/L16',
+  mulaw: 'audio/basic',
+  alaw: 'audio/basic',
+  opus: 'audio/opus',
+  flac: 'audio/flac',
+};
+
 /** Normalized view of a TTS request — used for both cache-keying and the upstream call. */
 export interface NormalizedTtsInput {
   text: string;
@@ -65,7 +77,14 @@ export class TtsService extends BaseService implements ITtsService {
     const hash = computeHash(normalized);
 
     // 1. Cache hit? Return immediately.
-    const cached = await this.cache.findByHash(hash);
+    // Best-effort cache lookup: if Mongo is unreachable we still want the request
+    // to succeed, so fall through to the upstream Sarvam call.
+    let cached: Awaited<ReturnType<typeof this.cache.findByHash>> = null;
+    try {
+      cached = await this.cache.findByHash(hash);
+    } catch (cacheErr) {
+      console.warn('[TTS] cache lookup failed, proceeding without cache:', cacheErr);
+    }
     if (cached) {
       // Bump hit counter async — never block the user response on it.
       void this.cache.bumpHit(hash).catch(err => {
@@ -158,7 +177,12 @@ export class TtsService extends BaseService implements ITtsService {
     };
   }
 
-  /** HTTPS call to Sarvam; assumes upstream returns raw audio bytes. */
+  /** HTTPS call to Sarvam.
+   *  Sarvam's bulbul:v2 REST endpoint always returns a JSON envelope of the
+   *  shape `{"request_id":"…","audios":["<base64-wav|mp3|…>"]}` — one
+   *  base64-encoded audio chunk per synthesised sentence. We unwrap it.
+   *  Raw-bytes fallback is kept for any future endpoint that streams audio
+   *  directly (e.g. v3 or a future `Accept: audio/wav` mode). */
   private async callSarvam(
     apiKey: string,
     input: NormalizedTtsInput,
@@ -180,7 +204,7 @@ export class TtsService extends BaseService implements ITtsService {
       headers: {
         'api-subscription-key': apiKey,
         'Content-Type': 'application/json',
-        Accept: 'audio/*',
+        Accept: 'application/json',
       },
       body: JSON.stringify(body),
     });
@@ -195,16 +219,42 @@ export class TtsService extends BaseService implements ITtsService {
       );
     }
 
-    const rawContentType =
-      response.headers.get('content-type') ?? 'audio/wav';
-    const contentType = rawContentType.split(';')[0].trim() || 'audio/wav';
+    const rawContentType = response.headers.get('content-type') ?? '';
+    const declaredType = rawContentType.split(';')[0].trim().toLowerCase();
+    const codec = (input.outputAudioCodec || DEFAULT_CODEC).toLowerCase();
+    const mimeFromCodec = CODEC_TO_MIME[codec] ?? `audio/${codec}`;
+
+    // Primary path — Sarvam JSON envelope.
+    if (
+      declaredType.startsWith('application/json') ||
+      declaredType.endsWith('+json')
+    ) {
+      const envelope = (await response.json()) as {
+        audios?: string[];
+        request_id?: string;
+      };
+      const firstAudio = envelope?.audios?.[0];
+      if (!firstAudio) {
+        throw new InternalServerError(
+          `Sarvam returned JSON without an 'audios' array: ${JSON.stringify(
+            envelope,
+          ).slice(0, 200)}`,
+        );
+      }
+      return {
+        audioBase64: firstAudio,
+        contentType: mimeFromCodec,
+      };
+    }
+
+    // Fallback — raw audio bytes (defensive; not currently exercised by v2).
     const buffer = Buffer.from(await response.arrayBuffer());
     if (buffer.length === 0) {
       throw new InternalServerError('Sarvam returned an empty audio body.');
     }
     return {
       audioBase64: buffer.toString('base64'),
-      contentType,
+      contentType: declaredType || mimeFromCodec,
     };
   }
 }
