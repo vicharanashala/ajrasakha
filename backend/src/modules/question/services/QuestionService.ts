@@ -1299,6 +1299,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         };
       }
 
+      // Persist gapSignal from reviewer upload payload into details
+      if (body.gapSignal || (body as any)?.gapsignal) {
+        (details as any).gapSignal = body.gapSignal || (body as any)?.gapsignal;
+      }
+
+
       const validPriorities = ['low', 'medium', 'high', 'critical'];
       priority = priority?.toLowerCase() as IQuestion['priority'];
       if (!validPriorities.includes(priority)) {
