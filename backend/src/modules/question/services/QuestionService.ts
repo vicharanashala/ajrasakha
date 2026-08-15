@@ -1939,6 +1939,21 @@ export class QuestionService extends BaseService implements IQuestionService {
           aiApprovedSources = answers[0].sources;
         }
 
+        // ── Final-answer state for closed questions ──────────────────────────
+        // A question is finalized when the moderator selected a final answer:
+        // the question is closed and the answer doc carries isFinalAnswer.
+        // Prefer the value stored on the question doc (kept by the moderator
+        // close flow), fall back to the answers collection for legacy data.
+        const finalAnswerDoc = (currentQuestion as any).finalAnswer;
+        const finalAnswerFromAnswers =
+          answers?.find((a: any) => a.isFinalAnswer)?.answer ?? null;
+        const finalAnswer = finalAnswerDoc ?? finalAnswerFromAnswers;
+        const isFinalAnswer = Boolean(
+          (currentQuestion as any).isFinalAnswer ??
+            finalAnswerFromAnswers ??
+            (currentQuestion.status === 'closed' && !!finalAnswer),
+        );
+
         return {
           id: currentQuestion._id.toString(),
           text: currentQuestion.question,
@@ -1953,6 +1968,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           updatedAt: new Date(currentQuestion.updatedAt).toLocaleString(),
           totalAnswersCount: currentQuestion.totalAnswersCount,
           history: submissionHistory,
+          finalAnswer,
+          isFinalAnswer,
         };
       });
     } catch (error) {

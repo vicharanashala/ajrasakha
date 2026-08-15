@@ -31,6 +31,7 @@ import {
 } from "@/components/atoms/tooltip";
 import { ReviewTimeline } from "./ReviewTimeline";
 import AvatarComponent from "@/components/avatar-component";
+import { SourceItemDisplay } from "@/components/source-item-display";
 
 interface ViewMoreContentProps {
   answer: IAnswer;
@@ -214,14 +215,13 @@ export const ViewMoreContent = ({
                 {/* Column 2: Link */}
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span
-                      className="text-sm truncate text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                      onClick={() => window.open(source.source, "_blank")}
-                    >
-                      {source.source}
-                    </span>
+                    <SourceItemDisplay source={source} className="cursor-pointer text-sm" />
                   </TooltipTrigger>
-                  <TooltipContent>{source.source}</TooltipContent>
+                  <TooltipContent>
+                    {source.uploadedDocument
+                      ? source.uploadedDocument.filename
+                      : source.source}
+                  </TooltipContent>
                 </Tooltip>
 
                 {/* Column 3: Page Number */}

@@ -1970,6 +1970,26 @@ export class QuestionRepository implements IQuestionRepository {
         ).values(),
       );
 
+      // Questions where THIS expert authored the final answer are kept visible
+      // in the queue (sorted last) so the expert can revisit the question they
+      // answered and see the final-answer confirmation state. Excludes closed
+      // questions unless the expert owns the final answer.
+      const finalAnswerRows = await this.AnswersCollection.find(
+        { authorId: userObjectId, isFinalAnswer: true },
+        { projection: { questionId: 1 } },
+      ).toArray();
+      const finalAnswerObjectIds = Array.from(
+        new Map(
+          finalAnswerRows
+            .filter(row => row?.questionId)
+            .map(row => [row.questionId.toString(), new ObjectId(row.questionId)]),
+        ).values(),
+      );
+
+      if (finalAnswerObjectIds.length > 0) {
+        questionIdsToAttempt.push(...finalAnswerObjectIds);
+      }
+
       const escapeRegex = (str: string) =>
         str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -1977,12 +1997,14 @@ export class QuestionRepository implements IQuestionRepository {
         _id: { $in: questionIdsToAttempt },
       };
 
-      // Normal allocations must be in an open state. Rerouted questions are
-      // typically already in-review/closed, so let them bypass that restriction
-      // while preserving the original status filter for everything else.
-      if (reroutedQuestionIdSet.size > 0) {
+      // Normal allocations must be in an open state. Rerouted questions and
+      // questions where this expert authored the final answer are typically
+      // already in-review/closed, so let them bypass that restriction while
+      // preserving the original status filter for everything else.
+      const bypassIds = [...reroutedQuestionIds, ...finalAnswerObjectIds];
+      if (bypassIds.length > 0) {
         filter.$or = [
-          { _id: { $in: reroutedQuestionIds } },
+          { _id: { $in: bypassIds } },
           { status: { $nin: ['closed', 'in-review'] } },
         ];
       } else {
@@ -2067,10 +2089,20 @@ export class QuestionRepository implements IQuestionRepository {
               default: 9,
             },
           },
+          // Expert-owned finalized (closed) questions sink to the bottom of the
+          // queue so open work is always handled first.
+          isFinalAnswerOwned: { $in: ['$_id', finalAnswerObjectIds] },
         },
       });
 
-      pipeline.push({ $sort: { priorityOrder: 1, createdAt: 1, _id: 1 } });
+      pipeline.push({
+        $sort: {
+          isFinalAnswerOwned: 1,
+          priorityOrder: 1,
+          createdAt: 1,
+          _id: 1,
+        },
+      });
 
       pipeline.push({ $skip: skip });
       pipeline.push({ $limit: limit });

@@ -3,8 +3,10 @@ import type {
   SubmitAnswerResponse,
   FinalizedAnswersResponse,
   SourceItem,
+  UploadedDocumentInfo,
 } from "@/types";
-import { apiFetch } from "../api/api-fetch";
+import { apiFetch, getCurrentUser } from "../api/api-fetch";
+import { getIdToken } from "firebase/auth";
 import type { IReviewAnswerPayload } from "../api/answer/useReviewAnswer";
 import { env } from "@/config/env";
 export interface IFetchAnswerPayload {
@@ -31,6 +33,40 @@ export class AnswerService {
       console.error(`Error in submitAnswer(${questionId}):`, error);
       throw error;
     }
+  }
+
+  async uploadDocument(
+    file: File,
+  ): Promise<{ document: UploadedDocumentInfo } | null> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiFetch<{ document: UploadedDocumentInfo }>(
+      `${this._baseUrl}/documents/upload`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+  }
+
+  /** Downloads an uploaded document as a Blob (auth token attached). */
+  async downloadDocument(id: string): Promise<Blob | null> {
+    const firebaseUser = await getCurrentUser();
+    let token: string | null = null;
+    if (firebaseUser) {
+      try {
+        token = await getIdToken(firebaseUser);
+      } catch (err) {
+        console.error("Failed to get token:", err);
+      }
+    }
+    const res = await fetch(`${this._baseUrl}/documents/${id}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      throw new Error(`Document download failed with status ${res.status}`);
+    }
+    return res.blob();
   }
   async confirmDuplicate(
     questionId: string,

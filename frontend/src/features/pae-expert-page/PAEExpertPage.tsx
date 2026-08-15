@@ -156,14 +156,20 @@ export const PAEExpertPage = () => {
     localStorage.setItem("pae_questionDrafts", JSON.stringify(drafts));
   }, [drafts, isLoaded]);
 
-  // Pre-fill AI answer
+  // Pre-fill AI answer (AJRASAKHA only — the moderator-approved answer is the
+  // intended response). For every other source the editor starts empty so the
+  // AI answer stays an explicit suggestion via "Apply Suggested AI Answer".
   useEffect(() => {
     if (!selectedQuestion || !selectedQuestionData) return;
     const hasPrefilledAnswer =
       selectedQuestionData.aiInitialAnswer || selectedQuestionData.aiApprovedAnswer;
     if (!hasPrefilledAnswer) return;
     const draft = drafts[selectedQuestion];
-    if (!newAnswer && !draft?.answer) {
+    if (
+      selectedQuestionData.source === "AJRASAKHA" &&
+      !newAnswer &&
+      !draft?.answer
+    ) {
       const prefill =
         selectedQuestionData.aiInitialAnswer ||
         selectedQuestionData.aiApprovedAnswer ||
@@ -191,6 +197,24 @@ export const PAEExpertPage = () => {
     }, 200);
     return () => clearTimeout(timer);
   }, [selectedQuestion]);
+
+  // A question is "final" once the moderator selected a final answer (stored on
+  // the question doc or in the answers collection). Derive it from the real
+  // loaded data so the congratulation banner is reachable after a genuine
+  // final-answer action — never hardcoded.
+  useEffect(() => {
+    if (!selectedQuestionData) return;
+
+    const questionFinalized =
+      Boolean(selectedQuestionData.isFinalAnswer) ||
+      Boolean(selectedQuestionData.finalAnswer) ||
+      Boolean(
+        selectedQuestionData.status === "closed" &&
+          selectedQuestionData.finalAnswer
+      );
+
+    setIsFinalAnswer(questionFinalized);
+  }, [selectedQuestionData]);
 
   // Pagination
   useEffect(() => {

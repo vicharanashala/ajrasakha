@@ -209,6 +209,8 @@ export interface IQuestion {
   aiInitialAnswer?: string;
   aiApprovedSources?: SourceItem[];
   aiApprovedAnswer?: string;
+  finalAnswer?: string;
+  isFinalAnswer?: boolean;
   currentAnswers?: {
     answer: string;
     id: string;
@@ -391,11 +393,19 @@ export interface FinalizedAnswersResponse {
 
 export type SourceType = "hyper_local" | "state" | "central" | "MODERATOR_REVIEW" | "other";
 
+export interface UploadedDocumentInfo {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
 export interface SourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   source: string;
   page?: string | number;
+  uploadedDocument?: UploadedDocumentInfo;
 }
 export interface PreviousAnswersItem {
   modifiedBy: string

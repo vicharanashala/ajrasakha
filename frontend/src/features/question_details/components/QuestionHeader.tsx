@@ -22,6 +22,7 @@ import { AuditTrailModal } from "./AuditTrailModal";
 import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 import { QuestionLifecycleTable } from "@/features/chatbotDashboard/QuestionLifeCycle";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
+import { SourceItemDisplay } from "@/components/source-item-display";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -760,7 +761,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                       {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
                                     </span>
                                     {s.source && (
-                                      /^https?:\/\//i.test(s.source) ? (
+                                      /^https?:\/\//i.test(s.source) && !s.uploadedDocument ? (
                                         <a
                                           href={s.source}
                                           target="_blank"
@@ -770,7 +771,9 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                           {s.source}
                                         </a>
                                       ) : (
-                                        <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                        <span className="break-all pl-3 text-muted-foreground">
+                                          <SourceItemDisplay source={s} className="text-xs" />
+                                        </span>
                                       )
                                     )}
                                   </li>
@@ -820,7 +823,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                       {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
                                     </span>
                                     {s.source && (
-                                      /^https?:\/\//i.test(s.source) ? (
+                                      /^https?:\/\//i.test(s.source) && !s.uploadedDocument ? (
                                         <a
                                           href={s.source}
                                           target="_blank"
@@ -830,7 +833,9 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                                           {s.source}
                                         </a>
                                       ) : (
-                                        <span className="break-all pl-3 text-muted-foreground">{s.source}</span>
+                                        <span className="break-all pl-3 text-muted-foreground">
+                                          <SourceItemDisplay source={s} className="text-xs" />
+                                        </span>
                                       )
                                     )}
                                   </li>
@@ -876,18 +881,18 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                               {i + 1}. {s.sourceName ? `${s.sourceName}${s.page != null ? ` (p. ${s.page})` : ""}` : "Source"}
                             </span>
                             {s.source && (
-                              /^https?:\/\//i.test(s.source) ? (
+                              /^https?:\/\//i.test(s.source) && !s.uploadedDocument ? (
                                 <a
                                   href={s.source}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="break-all pl-4 text-xs text-primary hover:text-primary/80 hover:underline"
+                                  className="break-all pl-3 text-primary hover:text-primary/80 hover:underline"
                                 >
                                   {s.source}
                                 </a>
                               ) : (
-                                <span className="break-all pl-4 text-xs text-muted-foreground">
-                                  {s.source}
+                                <span className="break-all pl-3 text-muted-foreground">
+                                  <SourceItemDisplay source={s} className="text-xs" />
                                 </span>
                               )
                             )}

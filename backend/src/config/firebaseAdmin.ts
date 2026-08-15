@@ -14,13 +14,35 @@ function getServiceAccount(): admin.ServiceAccount {
 }
 
 export function ensureFirebaseAdminInitialized(): void {
+  const emulatorHost = process.env.FIREBASE_AUTH_EMULATOR_HOST || appConfig.firebase.authEmulatorHost;
+
+  if (emulatorHost) {
+    process.env.FIREBASE_AUTH_EMULATOR_HOST = emulatorHost;
+    process.env.FIREBASE_EMULATOR_HOST = emulatorHost;
+  }
+
   if (admin.apps.length) {
+    const auth = admin.auth();
+    if (emulatorHost && typeof (auth as any).useEmulator === 'function') {
+      (auth as any).useEmulator(`http://${emulatorHost}`);
+    }
     return;
   }
 
-  admin.initializeApp({
-    credential: admin.credential.cert(getServiceAccount()),
-  });
+  if (emulatorHost) {
+    admin.initializeApp({
+      projectId: appConfig.firebase.projectId || 'local-emulator',
+    });
+  } else {
+    admin.initializeApp({
+      credential: admin.credential.cert(getServiceAccount()),
+    });
+  }
+
+  const auth = admin.auth();
+  if (emulatorHost && typeof (auth as any).useEmulator === 'function') {
+    (auth as any).useEmulator(`http://${emulatorHost}`);
+  }
 }
 
 export function getFirebaseAuth(): admin.auth.Auth {
