@@ -38,7 +38,10 @@ type EnvKey =
   | `VITE_PLIVO_${string}_PASSWORD`
   // FAQ / POP processing servers
   | "VITE_FAQ_API_URL"
-  | "VITE_POP_API_URL";
+  | "VITE_POP_API_URL"
+
+  // ACC API (gap-report + analytics)
+  | "VITE_ACC_API_BASE_URL";
 
 /**
  * Internal getter (single source of truth)
@@ -101,6 +104,11 @@ export const env = {
   // instead of JSON. Only an explicit VITE_FAQ_API_URL / VITE_POP_API_URL overrides this.
   faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false, "") || `${apiBase()}/faq`,
   popApiUrl: () => getEnv("VITE_POP_API_URL", false, "") || `${apiBase()}/pop`,
+
+  // ACC (Agri-Call-Centre) API — provides the GDB coverage gap-report endpoint.
+  // Falls back to same-origin /api/acc so dev can proxy through Vite.
+  accApiBaseUrl: () =>
+    getEnv("VITE_ACC_API_BASE_URL", false, "/api/acc").replace(/\/$/, ""),
 };
 
 /** API base URL without a trailing slash, e.g. "https://…run.app/api". */
