@@ -175,3 +175,8 @@ jobs:
           #   DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
 
           flags: --allow-unauthenticated
+
+  run_eval_suite:
+    needs: deploy_staging
+    uses: ./.github/workflows/eval-suite.yml
+    secrets: inherit
