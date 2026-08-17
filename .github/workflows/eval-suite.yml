@@ -2,9 +2,7 @@ name: AjraSakha Stable Evaluation Suite
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - qa/whatsapp-test-suite
+  workflow_call:
 
 permissions:
   contents: read
