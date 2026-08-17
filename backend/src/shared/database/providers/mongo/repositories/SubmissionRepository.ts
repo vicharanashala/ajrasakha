@@ -63,6 +63,29 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }
   }
 
+  /** Bulk-fetch submissions for many questions in one query — used by reports that
+   *  read the work log (history/queue) across a batch of questions. */
+  async getByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]> {
+    try {
+      await this.init();
+      const ids = questionIds
+        .filter(id => ObjectId.isValid(id))
+        .map(id => new ObjectId(id));
+      if (!ids.length) return [];
+      return this.QuestionSubmissionCollection.find(
+        {questionId: {$in: ids}},
+        {session},
+      ).toArray();
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get submissions by questionIds: ${error}`,
+      );
+    }
+  }
+
   async findByQueuedExpertId(
     expertId: string,
     session?: ClientSession,

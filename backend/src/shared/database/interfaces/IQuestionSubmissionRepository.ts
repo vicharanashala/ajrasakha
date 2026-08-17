@@ -134,6 +134,16 @@ export interface IQuestionSubmissionRepository {
   ): Promise<IQuestionSubmission | null>;
 
   /**
+   * Bulk-fetch submissions for many questions in one query.
+   * @param questionIds - Question ids to fetch submissions for
+   * @param session - Optional MongoDB session for transaction
+   */
+  getByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
+
+  /**
    * Find all submissions where the given expert appears in the queue.
    * @param expertId - Expert user id
    * @param session - Optional MongoDB session for transaction
