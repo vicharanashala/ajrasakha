@@ -613,7 +613,11 @@ export interface IQuestionService {
   generateTatReport(
     startDate: Date,
     endDate: Date,
-    opts?: { allSources?: boolean; closedOnly?: boolean; maxReviewers?: number }
+    opts?: {
+      sources?: string[];
+      statuses?: string[];
+      maxReviewers?: number;
+    }
   ): Promise<ArrayBuffer | null>;
   generateStateCropQuestionReport(filters: {
     state?: string;

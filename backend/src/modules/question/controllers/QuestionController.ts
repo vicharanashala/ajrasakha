@@ -745,8 +745,8 @@ export class QuestionController {
     query: {
       startDate?: string;
       endDate?: string;
-      allSources?: string;
-      closedOnly?: string;
+      sources?: string;
+      statuses?: string;
     },
     @CurrentUser() user: IUser,
     @Res() response: any,
@@ -754,6 +754,16 @@ export class QuestionController {
     if (!query.startDate || !query.endDate) {
       throw new BadRequestError('startDate and endDate are required');
     }
+    // Comma-separated values; empty ⇒ no filter for that field (all).
+    const csv = (v?: string) =>
+      v
+        ? v
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean)
+        : undefined;
+    const sources = csv(query.sources);
+    const statuses = csv(query.statuses);
     // Interpret the picker dates as full IST calendar days (mirrors the script).
     const startDate = new Date(`${query.startDate}T00:00:00.000+05:30`);
     const endDate = new Date(`${query.endDate}T23:59:59.999+05:30`);
@@ -783,8 +793,8 @@ export class QuestionController {
     };
     try {
       data = await this.questionService.generateTatReport(startDate, endDate, {
-        allSources: query.allSources === 'true',
-        closedOnly: query.closedOnly === 'true',
+        sources,
+        statuses,
       });
     } catch (err: any) {
       auditPayload = {

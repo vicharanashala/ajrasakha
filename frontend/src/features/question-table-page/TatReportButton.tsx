@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "../../components/atoms/button";
-import { Download, Loader2, CalendarIcon, Timer } from "lucide-react";
+import { Download, Loader2, CalendarIcon, Timer, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
@@ -13,7 +13,8 @@ import {
   DialogClose,
 } from "@/components/atoms/dialog";
 import { Calendar } from "@/components/atoms/calendar";
-import { Checkbox } from "@/components/atoms/checkbox";
+import { MultiSelect } from "@/components/atoms/MultiSelect";
+import { SOURCES, STATUS } from "@/components/MetaData";
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -27,9 +28,20 @@ export const TatReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void })
   const questionService = new QuestionService();
   const [isDownloading, setIsDownloading] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-  const [allSources, setAllSources] = useState(false);
-  const [closedOnly, setClosedOnly] = useState(false);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDatePopoverOpen, setIsDatePopoverOpen] = useState(false);
+
+  // Source / status options come straight from the shared frontend metadata.
+  const sourceOptions = useMemo(
+    () => SOURCES.map((s) => ({ value: s, label: s })),
+    [],
+  );
+  const statusOptions = useMemo(
+    () => STATUS.map((s) => ({ value: s, label: s })),
+    [],
+  );
 
   const handleDownload = async () => {
     if (!dateRange?.from || !dateRange?.to) {
@@ -52,8 +64,8 @@ export const TatReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void })
       const endDate = formatDateLocal(dateRange.to);
 
       const blob = await questionService.downloadTatReport(startDate, endDate, {
-        allSources,
-        closedOnly,
+        sources: selectedSources,
+        statuses: selectedStatuses,
       });
 
       const url = window.URL.createObjectURL(blob);
@@ -116,45 +128,82 @@ export const TatReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void })
           </div>
         </DialogHeader>
         <div className="space-y-3 overflow-y-auto flex-1 py-2">
-          <div className="flex items-center gap-2 text-xs bg-primary/5 p-2 rounded-md border border-primary/20">
-            <CalendarIcon className="h-4 w-4 text-primary flex-shrink-0" />
-            <span className="font-medium text-sm">
-              {dateRange?.from && dateRange?.to
-                ? `${format(dateRange.from, "MMM dd, yyyy")} - ${format(dateRange.to, "MMM dd, yyyy")}`
-                : "No date range selected"}
-            </span>
-          </div>
-          <div className="flex justify-center overflow-x-auto pb-2">
-            <Calendar
-              mode="range"
-              selected={dateRange}
-              onSelect={setDateRange}
-              numberOfMonths={2}
-              disabled={(date) => date > new Date()}
-              className="rounded-md border shadow-sm scale-95"
-            />
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6 px-1">
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <Checkbox
-                checked={allSources}
-                onCheckedChange={(v) => setAllSources(v === true)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-1">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Sources</label>
+              <MultiSelect
+                items={sourceOptions}
+                selected={selectedSources}
+                onChange={setSelectedSources}
+                placeholder="All sources"
+                direction="down"
+                getDisplayLabel={(sel) =>
+                  sel.length === 0 || sel.length === sourceOptions.length
+                    ? "All sources"
+                    : `${sel.length} source${sel.length > 1 ? "s" : ""} selected`
+                }
               />
-              <span>
-                All sources
-                <span className="text-muted-foreground">
-                  {" "}
-                  (default: time-bound only)
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Status</label>
+              <MultiSelect
+                items={statusOptions}
+                selected={selectedStatuses}
+                onChange={setSelectedStatuses}
+                placeholder="All statuses"
+                direction="down"
+                searchable
+                getDisplayLabel={(sel) =>
+                  sel.length === 0 || sel.length === statusOptions.length
+                    ? "All statuses"
+                    : `${sel.length} status${sel.length > 1 ? "es" : ""} selected`
+                }
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5 px-1">
+            <label className="text-sm font-medium">Date range</label>
+            <button
+              type="button"
+              onClick={() => setIsDatePopoverOpen((o) => !o)}
+              className="w-full flex items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-muted/40 transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                <span
+                  className={
+                    dateRange?.from && dateRange?.to
+                      ? "font-medium"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {dateRange?.from && dateRange?.to
+                    ? `${format(dateRange.from, "MMM dd, yyyy")} - ${format(dateRange.to, "MMM dd, yyyy")}`
+                    : "Select a date range"}
                 </span>
               </span>
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <Checkbox
-                checked={closedOnly}
-                onCheckedChange={(v) => setClosedOnly(v === true)}
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${
+                  isDatePopoverOpen ? "rotate-180" : ""
+                }`}
               />
-              <span>Closed questions only</span>
-            </label>
+            </button>
+            {isDatePopoverOpen && (
+              <div className="rounded-md border shadow-sm p-2 overflow-x-auto animate-in fade-in slide-in-from-top-1 duration-150">
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={(range) => {
+                    setDateRange(range);
+                    // Collapse once a full range is picked.
+                    if (range?.from && range?.to) setIsDatePopoverOpen(false);
+                  }}
+                  numberOfMonths={2}
+                  disabled={(date) => date > new Date()}
+                  className="rounded-md"
+                />
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter className="gap-2 pt-3 flex-shrink-0">

@@ -5485,10 +5485,13 @@ export class QuestionService extends BaseService implements IQuestionService {
   async generateTatReport(
     startDate: Date,
     endDate: Date,
-    opts: { allSources?: boolean; closedOnly?: boolean; maxReviewers?: number } = {},
+    opts: {
+      sources?: string[];
+      statuses?: string[];
+      maxReviewers?: number;
+    } = {},
   ): Promise<ArrayBuffer | null> {
-    const {allSources = false, closedOnly = false, maxReviewers: maxReviewersArg = 0} =
-      opts;
+    const {sources, statuses, maxReviewers: maxReviewersArg = 0} = opts;
 
     const CLOSED_STATUSES = ['closed', 'dynamic_closed', 'duplicate_closed'];
     const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
@@ -5538,8 +5541,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     const docs = await this.questionRepo.findQuestionsForTatReport(
       startDate,
       endDate,
-      allSources,
-      closedOnly,
+      sources,
+      statuses,
     );
     if (!docs.length) return null;
 
@@ -5643,6 +5646,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       return {
         'Question ID': idStr(q._id),
         Question: q.question ?? '',
+        Source: q.source ?? '',
         'Initial Status': initialStatus(q),
         Status: q.status ?? '',
 

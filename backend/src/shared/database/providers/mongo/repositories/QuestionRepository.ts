@@ -8466,24 +8466,29 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   /** Questions created in a window, for the TAT (turnaround-time) lifecycle report.
-   *  Mirrors scripts/timebound-question-cycle-report.js: default scope is time-bound
-   *  (AJRASAKHA/WHATSAPP + isAutoAllocate), test questions excluded. `allSources` drops
-   *  the time-bound filter; `closedOnly` restricts to closed statuses. Oldest-first. */
+   *  Test questions are always excluded. `sources`/`statuses` restrict to the given
+   *  source types / statuses (empty/omitted ⇒ no filter for that field). The special
+   *  status `all-closed` expands to closed/dynamic_closed/duplicate_closed. Oldest-first. */
   async findQuestionsForTatReport(
     from: Date,
     to: Date,
-    allSources = false,
-    closedOnly = false,
+    sources?: string[],
+    statuses?: string[],
   ): Promise<IQuestion[]> {
     await this.init();
     const CLOSED_STATUSES = ['closed', 'dynamic_closed', 'duplicate_closed'];
+    const expandedStatuses = statuses?.length
+      ? [
+          ...new Set(
+            statuses.flatMap(s => (s === 'all-closed' ? CLOSED_STATUSES : [s])),
+          ),
+        ]
+      : undefined;
     const match: Record<string, unknown> = {
       createdAt: { $gte: from, $lte: to },
       isTesting: { $ne: true },
-      ...(allSources
-        ? {}
-        : { source: { $in: ['AJRASAKHA', 'WHATSAPP'] }}),
-      ...(closedOnly ? { status: { $in: CLOSED_STATUSES } } : {}),
+      ...(sources && sources.length ? { source: { $in: sources } } : {}),
+      ...(expandedStatuses ? { status: { $in: expandedStatuses } } : {}),
     };
     return this.QuestionCollection.find(match as any)
       .sort({ createdAt: 1 })
