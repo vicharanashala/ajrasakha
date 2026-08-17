@@ -65,6 +65,7 @@ import {
 } from "./AddOrEditQuestionDialog";
 import { useReAllocateLessWorkload, useReAllocateExpertsSelectedQuestions } from "@/hooks/api/question/useReAllocateLessWorkload";
 import { DownloadReportButton } from "./DownloadReportButton";
+import { TatReportButton } from "./TatReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
 import { DownloadDuplicateReportButton } from "./DownloadDuplicateReportButton";
@@ -1378,6 +1379,12 @@ export const QuestionsFilters = ({
                     closeSideBar={() => setIsSidebarOpen(false)}
                     userRole={userRole}
                     isTrainingUser={isTrainingUser}
+                  />
+                </div>
+
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-rose-50 dark:hover:bg-rose-500/5 border border-gray-200 dark:border-gray-800 hover:border-rose-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                  <TatReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
                   />
                 </div>
 

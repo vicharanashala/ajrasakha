@@ -610,6 +610,11 @@ export interface IQuestionService {
     isTrainingUser?: boolean,
     isAdmin?: boolean
   ): Promise<ArrayBuffer | null>;
+  generateTatReport(
+    startDate: Date,
+    endDate: Date,
+    opts?: { allSources?: boolean; closedOnly?: boolean; maxReviewers?: number }
+  ): Promise<ArrayBuffer | null>;
   generateStateCropQuestionReport(filters: {
     state?: string;
     crop?: string;

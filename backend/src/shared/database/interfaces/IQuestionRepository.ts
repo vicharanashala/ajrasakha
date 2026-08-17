@@ -661,6 +661,12 @@ export interface IQuestionRepository {
     assigneeField: 'gateKeeperId' | 'auditorId',
     autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
   ): Promise<IQuestion[]>;
+  findQuestionsForTatReport(
+    from: Date,
+    to: Date,
+    allSources?: boolean,
+    closedOnly?: boolean,
+  ): Promise<IQuestion[]>;
   findQuestionsAssignedToRole(
     assigneeField: 'gateKeeperId' | 'auditorId',
     statuses: QuestionStatus[],

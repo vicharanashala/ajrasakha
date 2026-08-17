@@ -5474,6 +5474,273 @@ export class QuestionService extends BaseService implements IQuestionService {
     return data;
   }
 
+  /**
+   * TAT (turnaround-time) lifecycle report → Excel buffer.
+   *
+   * One row per question created in [startDate, endDate]: the author, each reviewer and
+   * the moderator, with the time each took, plus the question's total lifecycle time.
+   * Ports scripts/timebound-question-cycle-report.js. Timings come from the submission
+   * history work-log; timestamps are written in IST. Returns null when nothing matched.
+   */
+  async generateTatReport(
+    startDate: Date,
+    endDate: Date,
+    opts: { allSources?: boolean; closedOnly?: boolean; maxReviewers?: number } = {},
+  ): Promise<ArrayBuffer | null> {
+    const {allSources = false, closedOnly = false, maxReviewers: maxReviewersArg = 0} =
+      opts;
+
+    const CLOSED_STATUSES = ['closed', 'dynamic_closed', 'duplicate_closed'];
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+    const asDate = (v: any): Date | null => (v ? new Date(v) : null);
+    // Excel cells carry no timezone, so shift the instant by +5:30 and the cell reads IST.
+    const asIST = (v: any): Date | null => {
+      const d = asDate(v);
+      return d && !Number.isNaN(d.getTime())
+        ? new Date(d.getTime() + IST_OFFSET_MS)
+        : null;
+    };
+    const istLabel = (d: Date): string =>
+      `${new Date(d.getTime() + IST_OFFSET_MS)
+        .toISOString()
+        .slice(0, 19)
+        .replace('T', ' ')} IST`;
+    const hoursBetween = (start: any, end: any): number | null => {
+      const a = asDate(start);
+      const b = asDate(end);
+      if (!a || !b || Number.isNaN(a.getTime()) || Number.isNaN(b.getTime()))
+        return null;
+      return (b.getTime() - a.getTime()) / 36e5;
+    };
+    const humanDuration = (hours: number | null): string => {
+      if (hours === null) return '';
+      const totalMin = Math.round(hours * 60);
+      const d = Math.floor(totalMin / 1440);
+      const h = Math.floor((totalMin % 1440) / 60);
+      const m = totalMin % 60;
+      return [d && `${d}d`, h && `${h}h`, `${m}m`].filter(Boolean).join(' ');
+    };
+    const initialStatus = (q: any): string => {
+      if (q.referenceQuestionId) return 'Duplicate';
+      if (q.tag === 'static_dynamic') return 'Static Dynamic';
+      if (q.tag === 'dynamic') return 'Dynamic';
+      return 'Unique';
+    };
+    const idStr = (v: any): string => (v ? v.toString() : '');
+    const reviewAction = (entry: any): string => {
+      if (entry.approvedAnswer) return 'approved';
+      if (entry.modifiedAnswer) return 'modified';
+      if (entry.rejectedAnswer) return 'rejected';
+      return entry.status ?? '';
+    };
+
+    const docs = await this.questionRepo.findQuestionsForTatReport(
+      startDate,
+      endDate,
+      allSources,
+      closedOnly,
+    );
+    if (!docs.length) return null;
+
+    const qIds = docs
+      .map(q => idStr(q._id))
+      .filter((id): id is string => Boolean(id));
+    const subs = await this.questionSubmissionRepo.getByQuestionIds(qIds);
+    const subByQ = new Map(subs.map(s => [idStr(s.questionId), s]));
+
+    // Resolve every referenced user (author/reviewers from history, plus moderatorId).
+    const userIds = new Set<string>();
+    const collect = (v: any) => {
+      const s = idStr(v);
+      if (s) userIds.add(s);
+    };
+    for (const q of docs) {
+      collect(q.userId);
+      collect((q as any).moderatorId);
+      collect((q as any).gateKeeperId);
+      collect((q as any).auditorId);
+      const s = subByQ.get(idStr(q._id)) as any;
+      if (s) {
+        collect(s.lastRespondedBy);
+        (s.queue ?? []).forEach(collect);
+        (s.history ?? []).forEach((h: any) => collect(h.updatedBy));
+      }
+    }
+    const users = userIds.size
+      ? await this.userRepo.getUsersByIds([...userIds])
+      : [];
+    const userById = new Map(users.map(u => [idStr(u._id), u]));
+    const nameOf = (v: any): string => {
+      const u = userById.get(idStr(v)) as any;
+      if (!u) return '';
+      return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || '';
+    };
+
+    // The submission history IS the work log: entry [0] is the author, [1..] the reviewers.
+    const perQuestion = docs.map(q => {
+      const history = ((subByQ.get(idStr(q._id)) as any)?.history ?? []) as any[];
+      return {authorEntry: history[0] ?? null, chain: history.slice(1)};
+    });
+
+    const observedMax = Math.max(3, ...perQuestion.map(p => p.chain.length));
+    const maxReviewers =
+      maxReviewersArg > 0 ? Math.min(maxReviewersArg, observedMax) : observedMax;
+
+    const totals: number[] = [];
+    const authorTimes: number[] = [];
+    const reviewerTimes: number[] = [];
+    const moderatorTimes: number[] = [];
+    const handlingTimes: number[] = [];
+
+    const rows = perQuestion.map(({authorEntry, chain}, i) => {
+      const q = docs[i] as any;
+
+      // Author: firstAllocationAt → author's history entry createdAt (submit time).
+      const authorStart = q.firstAllocationAt ?? null;
+      const authorEnd = authorEntry?.createdAt ?? null;
+      const authorHours = hoursBetween(authorStart, authorEnd);
+
+      // Reviewers: each reviewer's own history entry createdAt → updatedAt.
+      const reviewerBlock: Record<string, any> = {};
+      for (let n = 0; n < maxReviewers; n++) {
+        const r = chain[n];
+        const h = r ? hoursBetween(r.createdAt, r.updatedAt) : null;
+        const label = `Reviewer ${n + 1}`;
+        reviewerBlock[label] = r ? nameOf(r.updatedBy) : '';
+        reviewerBlock[`${label} Action`] = r ? reviewAction(r) : '';
+        reviewerBlock[`${label} Assigned At (IST)`] = asIST(r?.createdAt);
+        reviewerBlock[`${label} Completed At (IST)`] = asIST(r?.updatedAt);
+        reviewerBlock[`${label} Time`] = humanDuration(h);
+      }
+
+      // Moderator: assigned → question closed.
+      const modStart = q.moderatorAssignedAt ?? null;
+      const closedAt = q.closedAt ?? null;
+      const modHours = hoursBetween(modStart, closedAt);
+
+      const totalHours = hoursBetween(q.createdAt, closedAt);
+      totals.push(totalHours as any);
+
+      // Hands-on time: author + every reviewer + moderator (minus idle gaps).
+      const handledParts = [
+        authorHours,
+        ...chain.map(r => hoursBetween(r.createdAt, r.updatedAt)),
+        modHours,
+      ].filter((h): h is number => h !== null);
+      const handledHours = handledParts.length
+        ? handledParts.reduce((a, b) => a + b, 0)
+        : null;
+
+      if (authorHours !== null) authorTimes.push(authorHours);
+      if (modHours !== null) moderatorTimes.push(modHours);
+      if (handledHours !== null) handlingTimes.push(handledHours);
+      chain.forEach(r => {
+        const h = hoursBetween(r.createdAt, r.updatedAt);
+        if (h !== null) reviewerTimes.push(h);
+      });
+
+      return {
+        'Question ID': idStr(q._id),
+        Question: q.question ?? '',
+        'Initial Status': initialStatus(q),
+        Status: q.status ?? '',
+
+        'Answer Author': nameOf(authorEntry?.updatedBy),
+        'Author Assigned At (IST)': asIST(authorStart),
+        'Author Completed At (IST)': asIST(authorEnd),
+        'Author Time': humanDuration(authorHours),
+
+        ...reviewerBlock,
+
+        Moderator: nameOf(q.moderatorId),
+        'Moderator Assigned At (IST)': asIST(modStart),
+        'Moderator Completed At (IST)': asIST(closedAt),
+        'Moderator Time': humanDuration(modHours),
+
+        'Total Time Taken': humanDuration(totalHours),
+        'Author + Reviewers + Moderator Time': humanDuration(handledHours),
+      } as Record<string, any>;
+    });
+
+    /* ─── workbook ─── */
+    const workbook = new ExcelJS.Workbook();
+    workbook.created = new Date();
+    const ws = workbook.addWorksheet('Question Lifecycle');
+
+    const headers = Object.keys(rows[0]);
+    ws.columns = headers.map(h => ({
+      key: h,
+      width: /Question$/.test(h)
+        ? 60
+        : /At \(IST\)$/.test(h)
+          ? 22
+          : Math.min(Math.max(h.length + 4, 12), 28),
+    }));
+
+    const mean = (xs: number[]): number | null =>
+      xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+
+    // Averages block above the table.
+    const titleRow = ws.addRow([
+      `AVERAGE TIME TAKEN — ${rows.length} question(s), ${istLabel(startDate).slice(
+        0,
+        10,
+      )} → ${istLabel(endDate).slice(0, 10)} IST`,
+    ]);
+    titleRow.font = {bold: true, size: 12};
+
+    const avgLabelRow = ws.addRow([
+      'Author',
+      'Reviewer (per review)',
+      'Moderator',
+      'Author + Reviewers + Moderator',
+      'Total Time Taken (created→closed)',
+    ]);
+    avgLabelRow.font = {bold: true};
+    avgLabelRow.eachCell(c => {
+      c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF3E7D3'}};
+    });
+    const avgValueRow = ws.addRow([
+      humanDuration(mean(authorTimes)),
+      humanDuration(mean(reviewerTimes)),
+      humanDuration(mean(moderatorTimes)),
+      humanDuration(mean(handlingTimes)),
+      humanDuration(mean(totals.filter(t => t !== null))),
+    ]);
+    avgValueRow.eachCell(c => {
+      c.alignment = {horizontal: 'left'};
+      c.numFmt = '@';
+    });
+
+    ws.addRow([]); // spacer
+
+    const headerRow = ws.addRow(headers);
+    headerRow.font = {bold: true};
+    headerRow.eachCell(c => {
+      c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFE4F6EA'}};
+    });
+    const HEADER_ROW = headerRow.number;
+
+    rows.forEach(r => ws.addRow(r));
+
+    ws.views = [{state: 'frozen', ySplit: HEADER_ROW}];
+    ws.autoFilter = {
+      from: {row: HEADER_ROW, column: 1},
+      to: {row: HEADER_ROW, column: headers.length},
+    };
+
+    // Scope date formats to the data rows only (not the averages text block above).
+    headers.forEach((h, i) => {
+      if (!/At \(IST\)$/.test(h)) return;
+      for (let r = HEADER_ROW + 1; r <= ws.rowCount; r++) {
+        ws.getRow(r).getCell(i + 1).numFmt = 'yyyy-mm-dd hh:mm';
+      }
+    });
+
+    return workbook.xlsx.writeBuffer();
+  }
+
   async generateOverallQuestionReport(
     startDate?: Date,
     endDate?: Date,

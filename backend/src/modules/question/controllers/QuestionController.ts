@@ -736,6 +736,86 @@ export class QuestionController {
     return Buffer.from(data as ArrayBuffer);
   }
 
+  @Get("/download-tat-report")
+  @Authorized()
+  @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @OpenAPI({ summary: 'Download TAT (turnaround-time) lifecycle report as Excel' })
+  async downloadTatReport(
+    @QueryParams()
+    query: {
+      startDate?: string;
+      endDate?: string;
+      allSources?: string;
+      closedOnly?: string;
+    },
+    @CurrentUser() user: IUser,
+    @Res() response: any,
+  ) {
+    if (!query.startDate || !query.endDate) {
+      throw new BadRequestError('startDate and endDate are required');
+    }
+    // Interpret the picker dates as full IST calendar days (mirrors the script).
+    const startDate = new Date(`${query.startDate}T00:00:00.000+05:30`);
+    const endDate = new Date(`${query.endDate}T23:59:59.999+05:30`);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new BadRequestError('Invalid startDate/endDate. Use YYYY-MM-DD.');
+    }
+
+    let data;
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.DOWNLOAD_REPORTS,
+      action: AuditAction.DOWNLOAD,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        startDate,
+        endDate,
+        endPoint: 'downloadTatReport',
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+    try {
+      data = await this.questionService.generateTatReport(startDate, endDate, {
+        allSources: query.allSources === 'true',
+        closedOnly: query.closedOnly === 'true',
+      });
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to generate TAT report',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to generate TAT report');
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
+
+    if (!data) {
+      response.status(200).json({
+        success: false,
+        message: 'No questions found for the selected date range',
+      });
+      return;
+    }
+
+    return Buffer.from(data as ArrayBuffer);
+  }
+
   @Get("/download-overall-report")
   @Authorized()
   @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

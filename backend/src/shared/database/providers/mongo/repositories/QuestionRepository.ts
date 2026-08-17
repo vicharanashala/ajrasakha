@@ -8465,6 +8465,31 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** Questions created in a window, for the TAT (turnaround-time) lifecycle report.
+   *  Mirrors scripts/timebound-question-cycle-report.js: default scope is time-bound
+   *  (AJRASAKHA/WHATSAPP + isAutoAllocate), test questions excluded. `allSources` drops
+   *  the time-bound filter; `closedOnly` restricts to closed statuses. Oldest-first. */
+  async findQuestionsForTatReport(
+    from: Date,
+    to: Date,
+    allSources = false,
+    closedOnly = false,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    const CLOSED_STATUSES = ['closed', 'dynamic_closed', 'duplicate_closed'];
+    const match: Record<string, unknown> = {
+      createdAt: { $gte: from, $lte: to },
+      isTesting: { $ne: true },
+      ...(allSources
+        ? {}
+        : { source: { $in: ['AJRASAKHA', 'WHATSAPP'] }}),
+      ...(closedOnly ? { status: { $in: CLOSED_STATUSES } } : {}),
+    };
+    return this.QuestionCollection.find(match as any)
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
   /** Questions currently assigned to a given role assignee (gateKeeperId / auditorId),
    *  restricted to the statuses that role handles. Used to compute per-user busy state. */
   async findQuestionsAssignedToRole(

@@ -861,6 +861,53 @@ export class QuestionService {
   }
 
 
+  /** Download the TAT (turnaround-time) lifecycle report as an .xlsx blob for the
+   *  given date range. `allSources`/`closedOnly` mirror the report script's flags. */
+  async downloadTatReport(
+    startDate: string,
+    endDate: string,
+    options?: { allSources?: boolean; closedOnly?: boolean },
+  ): Promise<Blob> {
+    const params = new URLSearchParams();
+    params.append("startDate", startDate);
+    params.append("endDate", endDate);
+    if (options?.allSources) params.append("allSources", "true");
+    if (options?.closedOnly) params.append("closedOnly", "true");
+
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      throw new Error("User not authenticated");
+    }
+    const token = await getIdToken(firebaseUser);
+
+    const response = await fetch(
+      `${this._baseUrl}/download-tat-report?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to download TAT report");
+    }
+
+    // A JSON body means the "no data" case rather than a spreadsheet.
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const jsonResponse = await response.json();
+      if (!jsonResponse.success) {
+        throw new Error(
+          jsonResponse.message || "No questions found for the selected date range",
+        );
+      }
+    }
+
+    return await response.blob();
+  }
+
   async checkSubmissionExists(questionId: string): Promise<{ exists: boolean } | null> {
     return apiFetch<{ exists: boolean }>(`${this._baseUrl}/${questionId}/submission-exists`);
   }
