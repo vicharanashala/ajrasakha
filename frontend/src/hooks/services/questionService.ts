@@ -866,13 +866,17 @@ export class QuestionService {
   async downloadTatReport(
     startDate: string,
     endDate: string,
-    options?: { allSources?: boolean; closedOnly?: boolean },
+    options?: { sources?: string[]; statuses?: string[] },
   ): Promise<Blob> {
     const params = new URLSearchParams();
     params.append("startDate", startDate);
     params.append("endDate", endDate);
-    if (options?.allSources) params.append("allSources", "true");
-    if (options?.closedOnly) params.append("closedOnly", "true");
+    if (options?.sources && options.sources.length) {
+      params.append("sources", options.sources.join(","));
+    }
+    if (options?.statuses && options.statuses.length) {
+      params.append("statuses", options.statuses.join(","));
+    }
 
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) {

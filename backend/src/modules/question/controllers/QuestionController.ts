@@ -745,8 +745,8 @@ export class QuestionController {
     query: {
       startDate?: string;
       endDate?: string;
-      allSources?: string;
-      closedOnly?: string;
+      sources?: string;
+      statuses?: string;
     },
     @CurrentUser() user: IUser,
     @Res() response: any,
@@ -760,6 +760,16 @@ export class QuestionController {
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
       throw new BadRequestError('Invalid startDate/endDate. Use YYYY-MM-DD.');
     }
+    // Comma-separated values; empty ⇒ no filter for that field (all).
+    const csv = (v?: string) =>
+      v
+        ? v
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean)
+        : undefined;
+    const sources = csv(query.sources);
+    const statuses = csv(query.statuses);
 
     let data;
     let auditPayload: ModeratorAuditTrail = {
@@ -783,8 +793,8 @@ export class QuestionController {
     };
     try {
       data = await this.questionService.generateTatReport(startDate, endDate, {
-        allSources: query.allSources === 'true',
-        closedOnly: query.closedOnly === 'true',
+        sources,
+        statuses,
       });
     } catch (err: any) {
       auditPayload = {

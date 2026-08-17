@@ -8472,18 +8472,24 @@ export class QuestionRepository implements IQuestionRepository {
   async findQuestionsForTatReport(
     from: Date,
     to: Date,
-    allSources = false,
-    closedOnly = false,
+    sources?: string[],
+    statuses?: string[],
   ): Promise<IQuestion[]> {
     await this.init();
     const CLOSED_STATUSES = ['closed', 'dynamic_closed', 'duplicate_closed'];
+    // The special status `all-closed` expands to the three closed statuses.
+    const expandedStatuses = statuses?.length
+      ? [
+          ...new Set(
+            statuses.flatMap(s => (s === 'all-closed' ? CLOSED_STATUSES : [s])),
+          ),
+        ]
+      : undefined;
     const match: Record<string, unknown> = {
       createdAt: { $gte: from, $lte: to },
       isTesting: { $ne: true },
-      ...(allSources
-        ? {}
-        : { source: { $in: ['AJRASAKHA', 'WHATSAPP'] }}),
-      ...(closedOnly ? { status: { $in: CLOSED_STATUSES } } : {}),
+      ...(sources && sources.length ? { source: { $in: sources } } : {}),
+      ...(expandedStatuses ? { status: { $in: expandedStatuses } } : {}),
     };
     return this.QuestionCollection.find(match as any)
       .sort({ createdAt: 1 })
