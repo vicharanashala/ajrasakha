@@ -664,8 +664,8 @@ export interface IQuestionRepository {
   findQuestionsForTatReport(
     from: Date,
     to: Date,
-    allSources?: boolean,
-    closedOnly?: boolean,
+    sources?: string[],
+    statuses?: string[],
   ): Promise<IQuestion[]>;
   findQuestionsAssignedToRole(
     assigneeField: 'gateKeeperId' | 'auditorId',
