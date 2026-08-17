@@ -144,6 +144,8 @@ jobs:
             TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
             TAILSCALE_HOSTNAME=gcp-staging
             GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
+            DATA_RELEASE_URL=${{ secrets.DATA_RELEASE_URL }}
+            REVIEW_SYSTEM_AUTH_KEY=${{ secrets.REVIEW_SYSTEM_AUTH_KEY }}
           env_vars_update_strategy: merge
 
           # ── The remaining app env vars are NOT set from here ───────────────────

@@ -16,6 +16,80 @@ import {
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { ClientSession, ObjectId } from 'mongodb';
 import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+import type {
+  PaeValidationAnswer,
+  PaeValidationQuestion,
+  PaeValidationSource,
+  PaeValidationAssignedQuestionsResponse,
+} from './QuestionValidationTypes.js';
+
+/** Feedback data structure */
+export interface FeedbackData {
+  _id: { $oid: string };
+  questionId: { $oid: string };
+  userId: { name: string; email: string };
+  answerId: { $oid: string };
+  type: 'thumbs_up' | 'thumbs_down' | 'PAE_VALIDATION';
+  predefinedOption: string;
+  comment: string;
+  status: 'open' | 'rejected' | 'accepted';
+  reviewNote?: string;
+  link?:{name: string; source: string};
+  createdAt: { $date: string };
+  updatedAt: { $date: string };
+}
+
+/** Paginated feedback response */
+export interface FeedbackResponse {
+  data: FeedbackData[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/** A waiting feedback question paired with its eligible (active, free) approver
+ *  moderator — "available moderators to get respective feedback". */
+export type RespectiveFeedbackItem = QueueQuestionItem & {
+  approverId: string;
+  approverName: string;
+};
+
+/** Data for the dedicated Feedback tab. Every section is {count, items} so the UI
+ *  can render counts and lists consistently (mirrors QueueDetailsResponse). */
+export interface FeedbackQueueDetails {
+  /** Open-feedback questions, auto-allocation ON, no reviewer assigned yet. */
+  waitingAuto: { count: number; items: QueueQuestionItem[] };
+  /** Open-feedback questions, auto-allocation OFF (handled manually), unassigned. */
+  waitingManual: { count: number; items: QueueQuestionItem[] };
+  /** Open-feedback questions already assigned to a reviewer. */
+  assigned: { count: number; items: QueueQuestionItem[] };
+  /** Moderators free to take a feedback review. */
+  availableModerators: { count: number; items: QueueExpertItem[] };
+  /** Waiting feedback questions whose approver moderator is active AND free. */
+  respectiveModerators: { count: number; items: RespectiveFeedbackItem[] };
+  /** Auditors free to take a feedback review. */
+  availableAuditors: { count: number; items: QueueExpertItem[] };
+  /** Open-feedback questions whose final-answer approver is an active moderator
+   *  (would be assigned to that moderator). */
+  questionsWithActiveModerator: { count: number; items: QueueQuestionItem[] };
+  /** Open-feedback questions whose approver is NOT an active moderator
+   *  (inactive/blocked/non-moderator → would go to an auditor). */
+  questionsWithoutActiveModerator: { count: number; items: QueueQuestionItem[] };
+}
+
+/** Data for the dedicated Pae Validation tab. Every section is {count, items} so the UI
+ *  can render counts and lists consistently (mirrors QueueDetailsResponse). */
+export interface PaeValidationQueueDetails {
+  /** Open-pae-validation questions, auto-allocation ON, no reviewer assigned yet. */
+  waitingAuto: { count: number; items: QueueQuestionItem[] };
+  /** Open-pae-validation questions, auto-allocation OFF (handled manually), unassigned. */
+  waitingManual: { count: number; items: QueueQuestionItem[] };
+  /** Open-pae-validation questions already assigned to a reviewer. */
+  assigned: { count: number; items: QueueQuestionItem[] };
+  /** pae experts free to take a feedback review. */
+  availablePaeExperts: { count: number; items: QueueExpertItem[] };
+}
 
 /** Lean question shape used in the moderator/admin "Queue Details" modal. */
 export interface QueueQuestionItem {
@@ -133,6 +207,13 @@ export interface QueueDetailsResponse {
   auditorAllocated: {count: number; items: QueueQuestionItem[]};
   /** Auditors free to take a question. */
   availableAuditors: {count: number; items: QueueExpertItem[]};
+  // ── Feedback-review queue (mirrors the gate-keeper / auditor role queue) ──
+  /** Questions with an open feedback that has not been assigned to a reviewer yet. */
+  feedbackWaiting: {count: number; items: QueueQuestionItem[]};
+  /** Questions with an open feedback-review round assigned to a reviewer. */
+  feedbackAllocated: {count: number; items: QueueQuestionItem[]};
+  /** Moderators/auditors free to take a feedback review. */
+  availableFeedbackReviewers: {count: number; items: QueueExpertItem[]};
   // ── Manual (AGRI_EXPERT/OUTREACH) expert-queue sections — mirror the time-bound
   //    expert sections above, scoped to the manual single-allocation queue. ──
   receivedManual: {count: number; items: QueueQuestionItem[]};
@@ -204,6 +285,10 @@ export type QueueSectionName =
   | 'auditorWaiting'
   | 'auditorAllocated'
   | 'availableAuditors'
+  // Feedback-review queue (mirror the gate-keeper / auditor role queue)
+  | 'feedbackWaiting'
+  | 'feedbackAllocated'
+  | 'availableFeedbackReviewers'
   // Manual (AGRI_EXPERT/OUTREACH) expert-queue variants — same shape as the
   // time-bound expert sections above, scoped to the manual single-allocation queue.
   | 'receivedManual'
@@ -283,6 +368,7 @@ export interface IQuestionService {
   ): Promise<{
     questions: IQuestion[];
     totalPages: number;
+    feedbackQuestions?: IQuestion[];
   }>;
 
   /** Generate questions from raw context (AI) */
@@ -524,6 +610,11 @@ export interface IQuestionService {
     isTrainingUser?: boolean,
     isAdmin?: boolean
   ): Promise<ArrayBuffer | null>;
+  generateTatReport(
+    startDate: Date,
+    endDate: Date,
+    opts?: { sources?: string[]; statuses?: string[]; maxReviewers?: number }
+  ): Promise<ArrayBuffer | null>;
   generateStateCropQuestionReport(filters: {
     state?: string;
     crop?: string;
@@ -537,7 +628,7 @@ export interface IQuestionService {
     isOnHold?: string;
     startDate?: string;
     endDate?: string;
-    moderator?: string;
+    allUsers?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,
@@ -590,6 +681,7 @@ export interface IQuestionService {
    *  to experts with fewer than 3 active time-bound questions. */
   reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
   reallocateManualQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
+  allocateFeedbackQuestions(): Promise<{ message: string; allocated: number; skipped: number }>;
 
   /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
    *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */
@@ -632,4 +724,161 @@ export interface IQuestionService {
     questionId: string,
     rawEntry: Record<string, any>,
   ): Promise<{ success: boolean; historyLength: number }>;
+
+  /** Handle feedback action (accept/reject) and notify data release service */
+  getFeedbackTimeline(questionId: string): Promise<{
+    autoAllocateFeedback: boolean;
+    hasOpenFeedback: boolean;
+    reviews: {
+      index: number;
+      reviewerId: string;
+      reviewerName: string;
+      assignedAt: Date;
+      finishedAt: Date | null;
+      completedCount: number;
+    }[];
+  }>;
+  getAssignableFeedbackReviewers(): Promise<
+    {_id: string; name: string; email: string; role: string}[]
+  >;
+  assignFeedbackReviewerManually(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{success: true}>;
+  removeFeedbackReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{success: true}>;
+  handleFeedbackAction(
+    questionId: string,
+    feedbackId: string,
+    action: 'accept' | 'reject',
+    reason: string,
+    processedBy: string,
+    source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation', 
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      feedbackId: string;
+      action: string;
+      reason: string;
+      processedBy: string;
+      processedAt: string;
+    };
+  }>;
+  
+
+  /** Get feedbacks for a question (paginated) */
+  getFeedbacks(
+    questionId: string,
+    page?: number,
+    pageSize?: number,
+  ): Promise<FeedbackResponse>;
+
+  backfillClosedModeratorIds(limit?: number): Promise<{
+    matched: number;
+    updated: number;
+    skippedNoFinalAnswer: number;
+    skippedNoApprover: number;
+  }>;
+
+  getClosedAnswerMismatch(startTime?: Date, endTime?: Date): Promise<{
+    window: { start: Date; end: Date };
+    totalClosed: number;
+    matched: number;
+    mismatched: number;
+    items: any[];
+  }>;
+
+  setNormalizedDomains(
+    entries: { 'Question ID'?: string; 'Standardized Domain'?: string }[],
+  ): Promise<{ total: number; matched: number; modified: number; notMatched: number; invalid: number }>;
+
+  getFeedbackQueueDetails(): Promise<FeedbackQueueDetails>;
+
+  handleFeedbackStatusUpdate(
+    questionId: string,
+    source: "DATASET" | "WEB_APPLICATION" | "PAE_Validation",
+  ): Promise<{
+    success: boolean;
+  }>;
+
+  /** PAE Validation Queue Cron - runs every minute to assign questions pending PAE validation
+   *  to available PAE experts based on domain and state preferences.
+   *  @returns Promise resolving to object with assigned count and available waiting count */
+  runPaeValidationQueueCron(): Promise<{
+    assigned: number;
+    availableWaiting: number;
+    failedAssignments: number;
+  }>;
+
+  getPaeValidationTimeline(questionId: string): Promise<{
+    autoAllocatePaeValidationExpert: boolean;
+    hasOpenRound: boolean;
+    reviews: {
+      index: number;
+      paeId: string;
+      paeName: string;
+      paeAssignedAt: Date;
+      paeFinishedAt: Date | null;
+      paeStatus: string;
+    }[];
+  }>;
+
+  assignPaeValidationReviewerManually(
+    questionId: string,
+    userId: string,
+    index?: number,
+  ): Promise<{success: true}>;
+  
+  removePaeValidationReviewer(
+    questionId: string,
+    index: number,
+  ): Promise<{success: true}>;
+  /** Get all questions assigned to a PAE expert for validation, with pagination.
+   *  Includes answer data and sources from the answer collection.
+   *  @param paeExpertId The PAE expert's user ID
+   *  @param page Page number (1-indexed)
+   *  @param limit Number of items per page
+   *  @returns Promise resolving to paginated questions with answers and sources */
+  getPaeValidationAssignedQuestions(
+    paeExpertId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaeValidationAssignedQuestionsResponse>;
+
+  /**
+   * Process a PAE validation decision (approve or provide feedback).
+   * 
+   * When status is 'approve':
+   * - Updates question.paeValidation to 'completed'
+   * - Removes the question from the user's paeValidationAssigned array
+   * - Updates the question submission's paeValidation array entry to 'completed' with paeFinishedAt
+   * 
+   * When status is 'feedback':
+   * - Creates a new feedback entry in the feedbacks collection
+   * - Updates the question's feedbacks array with source 'PAE_Validation' and status 'open'
+   * - The question remains in the user's paeValidationAssigned for further work
+   * 
+   * @param paeExpertId The PAE expert's user ID (from current user)
+   * @param questionId The question ID to process
+   * @param status The validation decision ('approve' or 'feedback')
+   * @param suggestionComment Optional comment explaining feedback
+   * @param suggestionLink Optional reference link URL
+   * @param answerId Optional answer ID associated with the feedback
+   * @param suggestionSourceName Optional name of the source for the suggestion link
+   */
+  processPaeValidation(
+    paeExpertId: string,
+    questionId: string,
+    status: 'approve' | 'feedback',
+    suggestionComment?: string,
+    suggestionLink?: string,
+    answerId?: string,
+    suggestionSourceName?: string,
+  ): Promise<{ success: boolean; message: string }>;
+
+  getPaeValidationQueueDetails(): Promise<PaeValidationQueueDetails>;
 }

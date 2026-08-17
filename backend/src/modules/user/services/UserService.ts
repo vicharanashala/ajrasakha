@@ -66,6 +66,17 @@ export class UserService extends BaseService {
       .filter(m => m._id);
   }
 
+  async getPaeValidationExperts(): Promise<
+    { _id: string; name: string; email: string }[]
+  > {
+    const experts = await this.userRepo.findAvailablePaeExperts();
+    return experts.map((expert) => ({
+      _id: expert._id?.toString() ?? '',
+      name: `${expert.firstName ?? ''} ${expert.lastName ?? ''}`.trim() || expert.email || 'Unknown',
+      email: expert.email ?? '',
+    }));
+  }
+
   async getUserById(userId: string): Promise<IUser> {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
@@ -460,9 +471,15 @@ export class UserService extends BaseService {
       if (!userId) throw new NotFoundError('User ID is required');
 
       return this._withTransaction(async (session: ClientSession) => {
+        // When verifying a user, also unblock them and set status to active
+        // so they can access the platform after approval
         const updatedUser = await this.userRepo.edit(
           userId,
-          { isVerified },
+          { 
+            isVerified,
+            isBlocked: false,
+            status: 'active' as const,
+          },
           session,
         );
         if (!updatedUser)
@@ -1169,5 +1186,26 @@ export class UserService extends BaseService {
     );
   }
 }
+
+  async getUsersByRole(
+    roles: UserRole[],
+  ): Promise<{ _id: string; name: string; email: string }[]> {
+    if (!roles?.length) {
+      throw new BadRequestError('At least one role must be provided');
+    }
+
+    const users = await this.userRepo.getUsersByRole(roles);
+
+    return users
+      .map((user) => ({
+        _id: user._id?.toString() ?? '',
+        name:
+          `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() ||
+          user.email ||
+          'Unknown',
+        email: user.email ?? '',
+      }))
+      .filter((user) => user._id);
+  }
 
 }

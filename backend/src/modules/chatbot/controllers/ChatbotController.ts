@@ -41,6 +41,7 @@ import {
   WeatherConcernAnalyticsQueryDto,
   WeatherConcernQueriesQueryDto,
   FeedbackUsersQueryDto,
+  SendResponseAdherenceReportRequest,
 } from '../classes/validators/ChatbotQueryValidators.js';
 import {
   ChatbotErrorResponse,
@@ -2076,6 +2077,72 @@ export class ChatbotController {
       startDate,
       endDate,
     );
+  }
+
+  @OpenAPI({
+    summary: 'Email the Response Adherence Summary report',
+    description:
+      'Sends the Response Adherence Summary report (as built by the dashboard download button) as a CSV attachment to the given list of recipient emails.',
+  })
+  @Post('/response-adherence-table/email')
+  @HttpCode(200)
+  @Authorized()
+  async sendResponseAdherenceReportEmail(
+    @Body() body: SendResponseAdherenceReportRequest,
+    @CurrentUser() user: IUser,
+  ) {
+    const {emails, reportContent, reportHtml, fileName, source, userType, startDate, endDate, timeWindow} = body;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ADMIN_REPORT,
+      action: AuditAction.SEND_DASHBOARD_REPORT,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        recipients: emails,
+        source,
+        userType,
+        startDate,
+        endDate,
+        endPoint: 'sendResponseAdherenceReportEmail',
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      const result = await this.chatbotService.sendResponseAdherenceReportEmail(
+        emails,
+        reportContent,
+        fileName || `response-adherence-report-${startDate || ''}.csv`,
+        {source, userType, startDate, endDate, timeWindow},
+        reportHtml,
+      );
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return result;
+    } catch (error: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: error?.message || 'Failed to send response adherence report email',
+          errorName: error?.name || 'Error',
+          errorStack:
+            error?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      console.error('Error in sendResponseAdherenceReportEmail controller:', error);
+      throw error;
+    }
   }
 
   @Get('/state-user-data')

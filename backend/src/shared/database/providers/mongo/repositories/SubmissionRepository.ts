@@ -63,6 +63,29 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }
   }
 
+  /** Bulk-fetch submissions for many questions in one query — used by reports that
+   *  read the work log (history/queue) across a batch of questions. */
+  async getByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]> {
+    try {
+      await this.init();
+      const ids = questionIds
+        .filter(id => ObjectId.isValid(id))
+        .map(id => new ObjectId(id));
+      if (!ids.length) return [];
+      return this.QuestionSubmissionCollection.find(
+        {questionId: {$in: ids}},
+        {session},
+      ).toArray();
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get submissions by questionIds: ${error}`,
+      );
+    }
+  }
+
   async findByQueuedExpertId(
     expertId: string,
     session?: ClientSession,
@@ -3551,6 +3574,224 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     return result; // contains the updated document
   }
 
+  async assignFeedbackReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    // Push a new feedback-review round, but only if there is no OPEN round
+    // (an entry whose finishedAt is null/absent). `finishedAt: null` matches both
+    // null and missing, so $elemMatch finds any open round; $not blocks the push
+    // when one exists. A missing/empty feedbackReviews array passes the guard.
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        feedbackReviews: {$not: {$elemMatch: {finishedAt: null}}},
+      } as any,
+      {
+        $push: {
+          feedbackReviews: {
+            reviewerId: new ObjectId(reviewerId),
+            assignedAt,
+            finishedAt: null,
+          },
+        } as any,
+        $set: {updatedAt: new Date()},
+      },
+      {session},
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /**
+   * Close the open feedback-review round(s) for a question by stamping finishedAt.
+   * Uses an arrayFilter so only the round(s) still open (finishedAt null/absent)
+   * are updated. Returns the number of submissions modified.
+   */
+  async finishOpenFeedbackReviews(
+    questionId: string,
+    finishedAt: Date,
+    session?: ClientSession,
+  ): Promise<number> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {
+        $set: {
+          'feedbackReviews.$[e].finishedAt': finishedAt,
+          updatedAt: new Date(),
+        },
+      } as any,
+      {
+        arrayFilters: [{'e.finishedAt': null}],
+        session,
+      },
+    );
+    return result.modifiedCount;
+  }
+
+  /**
+   * Repoint the OPEN feedback-review round to a new reviewer (manual reassignment).
+   * Updates the round whose finishedAt is null via an arrayFilter. Returns true if a
+   * round was updated.
+   */
+  async reassignOpenFeedbackReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {
+        $set: {
+          'feedbackReviews.$[e].reviewerId': new ObjectId(reviewerId),
+          'feedbackReviews.$[e].assignedAt': assignedAt,
+          updatedAt: new Date(),
+        },
+      } as any,
+      {
+        arrayFilters: [{'e.finishedAt': null}],
+        session,
+      },
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /**
+   * Repoint a SPECIFIC feedback-review round (by array index) to a new reviewer —
+   * only if that round is still open. A question can hold several rounds, so this
+   * updates just the one at `index`. Returns true if it was updated.
+   */
+  async reassignFeedbackReviewerByIndex(
+    questionId: string,
+    index: number,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        [`feedbackReviews.${index}.finishedAt`]: null,
+      } as any,
+      {
+        $set: {
+          [`feedbackReviews.${index}.reviewerId`]: new ObjectId(reviewerId),
+          [`feedbackReviews.${index}.assignedAt`]: assignedAt,
+          updatedAt: new Date(),
+        },
+      } as any,
+      {session},
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /**
+   * Remove a SPECIFIC feedback-review round (by array index) — only if it is still
+   * open (not completed). Unsets the element then compacts the array so other rounds
+   * keep their reviewers. Returns true if a round was removed.
+   */
+  async removeFeedbackReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const unset = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        [`feedbackReviews.${index}.finishedAt`]: null,
+      } as any,
+      {$unset: {[`feedbackReviews.${index}`]: 1}} as any,
+      {session},
+    );
+    if (unset.modifiedCount === 0) return false;
+    // Compact: drop the null hole left by $unset.
+    await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {$pull: {feedbackReviews: null}, $set: {updatedAt: new Date()}} as any,
+      {session},
+    );
+    return true;
+  }
+
+  /**
+   * Record that a single feedback (by feedbackId) was accepted/rejected — pushes
+   * { feedbackId, closedAt } into the OPEN feedback-review round's closedFeedbacks
+   * array. Returns true if a round was updated.
+   */
+  async addClosedFeedbackToOpenRound(
+    questionId: string,
+    feedbackId: string,
+    closedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        feedbackReviews: {$elemMatch: {finishedAt: null}},
+      } as any,
+      {
+        $push: {
+          'feedbackReviews.$[e].closedFeedbacks': {feedbackId, closedAt},
+        },
+        $set: {updatedAt: new Date()},
+      } as any,
+      {
+        arrayFilters: [{'e.finishedAt': null}],
+        session,
+      },
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /**
+   * All submissions with an OPEN feedback-review round (an entry whose finishedAt
+   * is null), flattened to one row per open round: { questionId, reviewerId,
+   * assignedAt }. Used by the feedback queue's "allocated" section.
+   */
+  async findOpenFeedbackReviews(): Promise<
+    {questionId: string; reviewerId: string; assignedAt: Date}[]
+  > {
+    await this.init();
+    const rows = await this.QuestionSubmissionCollection.aggregate([
+      {$match: {feedbackReviews: {$elemMatch: {finishedAt: null}}}},
+      {
+        $project: {
+          questionId: 1,
+          open: {
+            $filter: {
+              input: {$ifNull: ['$feedbackReviews', []]},
+              as: 'r',
+              cond: {$eq: ['$$r.finishedAt', null]},
+            },
+          },
+        },
+      },
+      {$unwind: '$open'},
+      {
+        $project: {
+          _id: 0,
+          questionId: 1,
+          reviewerId: '$open.reviewerId',
+          assignedAt: '$open.assignedAt',
+        },
+      },
+      {$sort: {assignedAt: 1}},
+    ]).toArray();
+    return rows.map((r: any) => ({
+      questionId: r.questionId?.toString(),
+      reviewerId: r.reviewerId?.toString(),
+      assignedAt: r.assignedAt,
+    }));
+  }
+
   // ─── Time-bound allocation tracking ───────────────────────────────────────
 
   async markQuestionOpenedByExpert(
@@ -3993,6 +4234,52 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     }
     // console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
     return map;
+  }
+
+  /**
+   * Update the PAE validation status in the question submission's paeValidation array.
+   * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.
+   */
+  async updatePaeValidationStatus(
+    questionId: string,
+    paeId: string,
+    paeStatus: 'in-progress' | 'completed',
+    paeFinishedAt: Date | null,
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    
+    // Convert paeId to ObjectId for matching (the paeId stored may be string or ObjectId)
+    let paeIdValue: string | ObjectId = paeId;
+    if (ObjectId.isValid(paeId)) {
+      paeIdValue = new ObjectId(paeId);
+    }
+    
+    // Use positional operator to update the matching array element
+    const updateFields: any = {
+      'paeValidation.$.paeStatus': paeStatus,
+    };
+    
+    // Only set paeFinishedAt when completing
+    if (paeFinishedAt !== null) {
+      updateFields['paeValidation.$.paeFinishedAt'] = paeFinishedAt;
+    }
+    
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        'paeValidation.paeId': paeIdValue,
+      },
+      {
+        $set: {
+          ...updateFields,
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+    
+    return { modifiedCount: result.modifiedCount };
   }
 
   //get level wise answer submission percentage report
@@ -4745,5 +5032,104 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         'Failed to remove second history and queue entry',
       );
     }
+  }
+
+    /**
+   * Remove a SPECIFIC pae-validation round (by array index) — only if it is still
+   * open (not completed). Unsets the element then compacts the array so other rounds
+   * keep their reviewers. Returns true if a round was removed.
+   */
+  async removePaeValidationReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const unset = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+        [`paeValidation.${index}.paeFinishedAt`]: null,
+      } as any,
+      {$unset: {[`paeValidation.${index}`]: 1}} as any,
+      {session},
+    );
+    if (unset.modifiedCount === 0) return false;
+    // Compact: drop the null hole left by $unset.
+    await this.QuestionSubmissionCollection.updateOne(
+      {questionId: new ObjectId(questionId)},
+      {$pull: {paeValidation: null}, $set: {updatedAt: new Date()}} as any,
+      {session},
+    );
+    return true;
+  }
+
+  // Assign or replace the current PAE validation review round. If the
+  // submission has no paeValidation entries, this creates one. If the array
+  // already contains an item, it is replaced with the new active round.
+  async assignPaeValidationReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+  
+    const result = await this.QuestionSubmissionCollection.updateOne(
+      {
+        questionId: new ObjectId(questionId),
+      },
+      {
+        $set: {
+          paeValidation: [
+            {
+              paeId: new ObjectId(reviewerId),
+              paeAssignedAt: assignedAt,
+              paeStatus: 'in-progress',
+              paeFinishedAt: null,
+            },
+          ],
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+
+    return result.modifiedCount > 0;
+  }
+
+   async findOpenPaeValidationReviews(): Promise<
+    {questionId: string; reviewerId: string; assignedAt: Date}[]
+  > {
+    await this.init();
+    const rows = await this.QuestionSubmissionCollection.aggregate([
+      {$match: {paeValidation: {$elemMatch: {paeFinishedAt: null}}}},
+      {
+        $project: {
+          questionId: 1,
+          open: {
+            $filter: {
+              input: {$ifNull: ['$paeValidation', []]},
+              as: 'r',
+              cond: {$eq: ['$$r.paeFinishedAt', null]},
+            },
+          },
+        },
+      },
+      {$unwind: '$open'},
+      {
+        $project: {
+          _id: 0,
+          questionId: 1,
+          reviewerId: '$open.paeId',
+          assignedAt: '$open.paeAssignedAt',
+        },
+      },
+      {$sort: {assignedAt: 1}},
+    ]).toArray();
+    return rows.map((r: any) => ({
+      questionId: r.questionId?.toString(),
+      reviewerId: r.reviewerId?.toString(),
+      assignedAt: r.assignedAt,
+    }));
   }
 }

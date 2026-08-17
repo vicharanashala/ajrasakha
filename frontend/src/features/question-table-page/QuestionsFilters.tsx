@@ -36,6 +36,8 @@ import {
   MessageCircle,
   AlertTriangle,
   Download,
+  FileText,
+  MessageSquareDiff,
   MapPin,
 } from "lucide-react";
 import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
@@ -63,6 +65,7 @@ import {
 } from "./AddOrEditQuestionDialog";
 import { useReAllocateLessWorkload, useReAllocateExpertsSelectedQuestions } from "@/hooks/api/question/useReAllocateLessWorkload";
 import { DownloadReportButton } from "./DownloadReportButton";
+import { TatReportButton } from "./TatReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
 import { DownloadDuplicateReportButton } from "./DownloadDuplicateReportButton";
@@ -76,17 +79,18 @@ import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
 import { StateDistrictAliasModal } from "./StateDistrictAliasModal";
-import { QueueDetailsModal, GateKeeperAuditorQueueModal } from "./QueueDetailsModal";
+import { QueueDetailsModal, GateKeeperAuditorQueueModal, FeedbackQueueModal, PaeValidationQueueModal } from "./QueueDetailsModal";
 import { canViewQueueDetails } from "@/lib/roles";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
-import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
+import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
-import { UserCheck } from "lucide-react";
+import { UserCheck, LayoutDashboard } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
 
 import { TopRightBadge } from "@/components/NewBadge";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
+import { EditPublicDashboardModal } from "./EditPublicDashboardModal";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -118,6 +122,8 @@ type QuestionsFiltersProps = {
   handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
   isBulkAllocatingPae: boolean;
   onAnswerModeChange?: (mode: string) => void;
+  dedicatedSubTab?: DedicatedSubTab;
+  onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
 };
 
 type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
@@ -174,6 +180,8 @@ export const QuestionsFilters = ({
   handleBulkAllocateToPae,
   isBulkAllocatingPae,
   onAnswerModeChange,
+  dedicatedSubTab,
+  onDedicatedSubTabChange,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -197,6 +205,11 @@ export const QuestionsFilters = ({
   );
   const prevAnswerModeRef = useRef<AnswerMode>(filterToAnswerMode(appliedFilters));
   const isTrainingUser = currentUser?.isTrainingUser === true;
+
+  // ── Public dashboard editor (admin-only) ──
+  const isAdmin = userRole === "admin";
+  const [isEditPublicDashboardOpen, setIsEditPublicDashboardOpen] =
+    useState(false);
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -581,6 +594,7 @@ export const QuestionsFilters = ({
       consecutiveApprovals: advanceFilter?.consecutiveApprovals,
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
       autoAllocateModeratorFilter: advanceFilter?.autoAllocateModeratorFilter,
+      feedbackFilter: advanceFilter?.feedbackFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,
@@ -760,6 +774,8 @@ export const QuestionsFilters = ({
         }
         isDedicatedView={viewMode === "dedicated"}
         onDedicatedClick={() => setViewMode(viewMode === "dedicated" ? "all" : "dedicated")}
+        dedicatedSubTab={dedicatedSubTab}
+        onDedicatedSubTabChange={onDedicatedSubTabChange}
       />
 
       {/* ── ROW 2: Search + View + Filter + Add ── */}
@@ -787,6 +803,34 @@ export const QuestionsFilters = ({
             )}
           </div>
         </div>
+
+        {/* Sub-tabs for dedicated view: Questions and Feedbacks - shown right of search */}
+        {viewMode === "dedicated" && (
+          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border">
+            <button
+              onClick={() => onDedicatedSubTabChange?.("questions")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                dedicatedSubTab === "questions"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              }`}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Questions
+            </button>
+            <button
+              onClick={() => onDedicatedSubTabChange?.("feedbacks")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                dedicatedSubTab === "feedbacks"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              }`}
+            >
+              <MessageSquareDiff className="h-3.5 w-3.5" />
+              Feedbacks
+            </button>
+          </div>
+        )}
 
         {/* Spacer pushes controls to the right */}
         <div className="flex-1" />
@@ -990,6 +1034,25 @@ export const QuestionsFilters = ({
               </button>
             </div>
           </section>
+
+          {/* Section: Public Dashboard (admin-only) */}
+          {isAdmin && (
+            <section>
+              <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+                Public Dashboard
+              </h3>
+              <button
+                onClick={() => {
+                  setIsSidebarOpen(false);
+                  setIsEditPublicDashboardOpen(true);
+                }}
+                className="w-full py-2.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all bg-gray-100 dark:bg-[#0d0d0d] border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
+              >
+                <LayoutDashboard size={14} /> Edit Public Dashboard
+              </button>
+            </section>
+          )}
+
           <section className="hidden md:block">
             <h3 className=" relative text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
               Hide Columns
@@ -1256,6 +1319,16 @@ export const QuestionsFilters = ({
               {canViewQueueDetails(userRole) && !isTrainingUser && (
                 <GateKeeperAuditorQueueModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
+
+              {/* feedback queue — admins, moderators, gate keepers & auditors */}
+              {canViewQueueDetails(userRole) && !isTrainingUser && (
+                <FeedbackQueueModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
+
+              {/* pae queue — admins, moderators */}
+              {canViewQueueDetails(userRole) && !isTrainingUser && (
+                <PaeValidationQueueModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
             </div>
           </section>
 
@@ -1306,6 +1379,12 @@ export const QuestionsFilters = ({
                     closeSideBar={() => setIsSidebarOpen(false)}
                     userRole={userRole}
                     isTrainingUser={isTrainingUser}
+                  />
+                </div>
+
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-rose-50 dark:hover:bg-rose-500/5 border border-gray-200 dark:border-gray-800 hover:border-rose-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                  <TatReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
                   />
                 </div>
 
@@ -1554,6 +1633,12 @@ export const QuestionsFilters = ({
         open={isCropModalOpen}
         onOpenChange={setIsCropModalOpen}
       />
+      {isAdmin && (
+        <EditPublicDashboardModal
+          open={isEditPublicDashboardOpen}
+          onOpenChange={setIsEditPublicDashboardOpen}
+        />
+      )}
       <ChemicalManagementModal
         open={isChemicalModalOpen}
         onOpenChange={setIsChemicalModalOpen}
