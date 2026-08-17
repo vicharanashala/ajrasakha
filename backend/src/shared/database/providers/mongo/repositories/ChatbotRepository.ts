@@ -1767,7 +1767,7 @@ export class ChatbotRepository implements IChatbotRepository {
       return {
         date,
         time: `${hh}:${mm}`,
-        timeWindow: `[00:00-${hh}:${mm}]`,
+        timeWindow: `00:00 - ${hh}:${mm}`,
         whatsappQueriesAsked,
         ajrasakhaQueriesAsked,
         manualQueriesAsked: 0,
