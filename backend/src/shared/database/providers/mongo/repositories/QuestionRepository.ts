@@ -8401,6 +8401,30 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** Mark ONE feedback source's entry (DATASET / WEB_APPLICATION / PAE_Validation) as
+   *  closed on the question, then report whether EVERY feedback entry is now closed.
+   *  Used so a reviewer's feedbacksAssigned id is removed and the review round is
+   *  finished only once ALL feedback statuses are closed — not just the one acted on. */
+  async closeFeedbackSourceAndCheckAll(
+    questionId: string,
+    source: string,
+  ): Promise<boolean> {
+    await this.init();
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      {
+        $set: { 'feedbacks.$[f].status': 'closed', updatedAt: new Date() },
+      } as any,
+      { arrayFilters: [{ 'f.source': source }] },
+    );
+    const q = await this.QuestionCollection.findOne(
+      { _id: new ObjectId(questionId) },
+      { projection: { feedbacks: 1 } },
+    );
+    const fb = ((q as any)?.feedbacks ?? []) as { status?: string }[];
+    return fb.length > 0 && fb.every(f => f.status === 'closed');
+  }
+
   async findQuestionsWithOpenFeedbacks(
     requireAutoAllocate = false,
   ): Promise<IQuestion[]> {
