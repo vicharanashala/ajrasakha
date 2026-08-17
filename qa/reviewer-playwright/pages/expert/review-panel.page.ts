@@ -393,6 +393,9 @@ export class ReviewPanelPage {
     await this.confirmAcceptButton.click();
 
     await expect(this.confirmAcceptanceDialog).toBeHidden();
+    await expect(this.acceptSuccessToast).toBeVisible({
+      timeout: 10_000,
+    });
   }
 
   async expectAcceptSuccess(): Promise<void> {

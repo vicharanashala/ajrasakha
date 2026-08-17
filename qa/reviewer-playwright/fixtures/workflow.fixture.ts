@@ -36,6 +36,21 @@ type WorkflowFixtures = {
   expert2Dashboard: ExpertDashboardPage;
   expert2ResponsePage: ResponsePage;
   expert2ReviewPanel: ReviewPanelPage;
+
+  // -----------------------------
+  // Third / fourth experts (additional reviewers used by the
+  // triple-acceptance workflow — three distinct reviewers accepting the
+  // same answer in sequence, on top of the first expert who authored it).
+  // -----------------------------
+  expert3LoggedInPage: Page;
+  expert3Dashboard: ExpertDashboardPage;
+  expert3ResponsePage: ResponsePage;
+  expert3ReviewPanel: ReviewPanelPage;
+
+  expert4LoggedInPage: Page;
+  expert4Dashboard: ExpertDashboardPage;
+  expert4ResponsePage: ResponsePage;
+  expert4ReviewPanel: ReviewPanelPage;
 };
 
 export const test = base.extend<WorkflowFixtures>({
@@ -155,6 +170,54 @@ export const test = base.extend<WorkflowFixtures>({
 
   expert2ReviewPanel: async ({ expert2LoggedInPage }, use) => {
     await use(new ReviewPanelPage(expert2LoggedInPage));
+  },
+
+  // -----------------------------
+  // Third expert (second reviewer of the first expert's answer)
+  // -----------------------------
+  expert3LoggedInPage: async ({ loginAsExpert }, use) => {
+    console.log("Logging in as expert 3...");
+    const page = await loginAsExpert(process.env.EXPERT_EMAIL_3!);
+    console.log("Logged in:", page.url());
+    await use(page);
+    console.log("Closing expert 3 page");
+    await page.close();
+  },
+
+  expert3Dashboard: async ({ expert3LoggedInPage }, use) => {
+    await use(new ExpertDashboardPage(expert3LoggedInPage));
+  },
+
+  expert3ResponsePage: async ({ expert3LoggedInPage }, use) => {
+    await use(new ResponsePage(expert3LoggedInPage));
+  },
+
+  expert3ReviewPanel: async ({ expert3LoggedInPage }, use) => {
+    await use(new ReviewPanelPage(expert3LoggedInPage));
+  },
+
+  // -----------------------------
+  // Fourth expert (third reviewer of the first expert's answer)
+  // -----------------------------
+  expert4LoggedInPage: async ({ loginAsExpert }, use) => {
+    console.log("Logging in as expert 4...");
+    const page = await loginAsExpert(process.env.EXPERT_EMAIL_4!);
+    console.log("Logged in:", page.url());
+    await use(page);
+    console.log("Closing expert 4 page");
+    await page.close();
+  },
+
+  expert4Dashboard: async ({ expert4LoggedInPage }, use) => {
+    await use(new ExpertDashboardPage(expert4LoggedInPage));
+  },
+
+  expert4ResponsePage: async ({ expert4LoggedInPage }, use) => {
+    await use(new ResponsePage(expert4LoggedInPage));
+  },
+
+  expert4ReviewPanel: async ({ expert4LoggedInPage }, use) => {
+    await use(new ReviewPanelPage(expert4LoggedInPage));
   },
 });
 

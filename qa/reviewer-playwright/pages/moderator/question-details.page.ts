@@ -21,6 +21,12 @@ export class ModeratorQuestionDetailsPage {
   readonly lifecycleDuration: Locator;
   readonly closeLifeCycleButton: Locator;
 
+  // Status pill shown next to the title (e.g. "in-review", "open",
+  // "delayed"). No stable test id / aria-label is exposed, so the badge
+  // is targeted by its known text values, scoped to the header row.
+  readonly statusBadge: Locator;
+  readonly totalAnswersLabel: Locator;
+
   constructor(private readonly page: Page) {
     this.title = page.getByRole("heading", { level: 1 });
 
@@ -80,6 +86,12 @@ export class ModeratorQuestionDetailsPage {
     this.closeLifeCycleButton = this.lifecycleDialog.getByRole("button", {
       name: "Close",
     });
+
+    this.statusBadge = this.header.locator("span, div").filter({
+      hasText: /^(open|in-review|delayed|closed|pending|rejected|resolved)$/i,
+    });
+
+    this.totalAnswersLabel = this.header.getByText(/Total answers:\s*\d+/i);
   }
 
   async expectOpened(): Promise<void> {
@@ -178,5 +190,15 @@ export class ModeratorQuestionDetailsPage {
 
   async expectLifeCycleClosed() {
     await expect(this.lifecycleDialog).toBeHidden();
+  }
+
+  async expectQuestionStatus(status: string): Promise<void> {
+    await expect(this.header.getByText(status, { exact: true })).toBeVisible();
+  }
+
+  async getQuestionStatus(): Promise<string> {
+    await expect(this.statusBadge.first()).toBeVisible();
+
+    return (await this.statusBadge.first().innerText()).trim();
   }
 }
