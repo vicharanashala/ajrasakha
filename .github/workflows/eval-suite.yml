@@ -1,0 +1,60 @@
+name: AjraSakha Stable Evaluation Suite
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - qa/whatsapp-test-suite
+
+permissions:
+  contents: read
+
+jobs:
+  stable-evaluation:
+    name: Run Stable Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      LIVE_API_URL: http://100.100.108.44:2026/runs/stream
+      AI_API_BASE_URL: http://100.100.108.44:2026
+      BACKEND_BASE_URL: https://reviewer-backend-239934307367.asia-south2.run.app
+      ASSISTANT_ID: ajrasakha_agent
+      REMOTE_IP: 100.100.108.44
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        working-directory: ai
+        run: |
+          uv sync
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_CLIENT_SECRET }}
+          tags: tag:ci-cd
+
+      - name: Run stable suite
+        working-directory: ai
+        run: python -m tests.run_stable_suite
+
+      - name: Upload stable suite report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ajrasakha-stable-suite-report
+          path: ai/tests/reports/stable_suite_report.html
+          if-no-files-found: warn
