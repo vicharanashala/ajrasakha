@@ -862,7 +862,8 @@ export class QuestionService {
 
 
   /** Download the TAT (turnaround-time) lifecycle report as an .xlsx blob for the
-   *  given date range. `allSources`/`closedOnly` mirror the report script's flags. */
+   *  given date range. `sources`/`statuses` restrict to those values (empty ⇒ all);
+   *  the range matches questions CREATED or CLOSED within it. */
   async downloadTatReport(
     startDate: string,
     endDate: string,
