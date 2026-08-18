@@ -41,7 +41,7 @@ export function ReusableDataTable<T>({
 
   return (
     <div
-      className={`overflow-auto rounded-xl border border-border ${className}`}
+      className={`rounded-xl border border-border ${className}`}
     >
       <table className="w-full border-collapse text-sm">
         <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm">

@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { ChevronLeft, ChevronRight, Database, X } from "lucide-react";
 import { Skeleton } from "@/components/atoms/skeleton";
+import { ScrollArea } from "@/components/atoms/scroll-area";
 import {
   ReusableDataTable,
   type ReusableTableColumn,
@@ -73,22 +74,24 @@ export function DatasetListModal<T>({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-auto px-6 py-4">
-          {isLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-9 w-full rounded-lg" />
-              ))}
-            </div>
-          ) : (
-            <ReusableDataTable
-              columns={columns}
-              data={rows}
-              getRowKey={getRowKey}
-              emptyMessage="No records found."
-            />
-          )}
-        </div>
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="px-6 py-4">
+            {isLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-9 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <ReusableDataTable
+                columns={columns}
+                data={rows}
+                getRowKey={getRowKey}
+                emptyMessage="No records found."
+              />
+            )}
+          </div>
+        </ScrollArea>
 
         {/* Footer */}
         {totalPages > 1 && (
