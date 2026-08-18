@@ -21,11 +21,14 @@ import {
   useRemoveRoleAssignee,
   useToggleRoleAllocation,
 } from "@/hooks/api/question/useRoleAssignee";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 import {
   UserCheck,
   UserX,
   CalendarClock,
   CheckCheck,
+  ChevronDown,
   Loader2,
   Trash2,
   User,
@@ -84,6 +87,7 @@ export const RoleAssigneeQueue = ({
     : ["auditor_review"];
   const isRoleStatus = roleStatuses.includes(question.status);
 
+  const [isOpen, setIsOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -155,56 +159,102 @@ export const RoleAssigneeQueue = ({
       {/* Header */}
       <div className="flex flex-col gap-4 pb-6 border-b border-border">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10">
+          <div
+            onClick={() => setIsOpen((prev) => !prev)}
+            className="flex items-center gap-3 cursor-pointer select-none group"
+          >
+            <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
               <UserCheck className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-semibold text-foreground">{title}</h2>
+              <h2 className="text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
+                {title}
+              </h2>
               <p className="text-sm text-muted-foreground mt-1">
                 {assigned ? `1 ${noun} assigned` : `No ${noun} assigned`}
               </p>
             </div>
           </div>
 
-          {canManage && (
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
-                <Switch
-                  id={`auto-allocate-${role}`}
-                  checked={autoAllocate}
-                  disabled={isToggling}
-                  onCheckedChange={handleToggle}
-                />
-                <Label
-                  htmlFor={`auto-allocate-${role}`}
-                  className="cursor-pointer font-medium text-sm flex items-center gap-2"
-                >
-                  {isToggling && (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
-                  Auto-allocate {title.replace(" Queue", "")}
-                </Label>
-              </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {canManage && (
+              <>
+                <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+                  <Switch
+                    id={`auto-allocate-${role}`}
+                    checked={autoAllocate}
+                    disabled={isToggling}
+                    onCheckedChange={handleToggle}
+                  />
+                  <Label
+                    htmlFor={`auto-allocate-${role}`}
+                    className="cursor-pointer font-medium text-sm flex items-center gap-2"
+                  >
+                    {isToggling && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                    Auto-allocate {title.replace(" Queue", "")}
+                  </Label>
+                </div>
 
-              {/* Manual select only when auto-allocation is OFF, the question is in this
-                  role's handling status, and they have not already submitted (otherwise
-                  the queue assigns automatically, it's not this role's turn, or their
-                  work is already recorded — just the toggle shows). */}
-              {!autoAllocate && isRoleStatus && !finishedAt && (
-                <Button
-                  variant="default"
-                  className="gap-2 w-full sm:w-auto"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  <UserPlus className="w-4 h-4" />
-                  Select {title.replace(" Queue", "")}
-                </Button>
-              )}
-            </div>
-          )}
+                {/* Manual select only when auto-allocation is OFF, the question is in this
+                    role's handling status, and they have not already submitted (otherwise
+                    the queue assigns automatically, it's not this role's turn, or their
+                    work is already recorded — just the toggle shows). */}
+                {!autoAllocate && isRoleStatus && !finishedAt && (
+                  <Button
+                    variant="default"
+                    className="gap-2 w-full sm:w-auto"
+                    onClick={() => setIsModalOpen(true)}
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Select {title.replace(" Queue", "")}
+                  </Button>
+                )}
+              </>
+            )}
+
+            <Button
+              variant="default"
+              size="sm"
+              className="h-9 mr-2 w-9 p-0 rounded-lg hover:bg-muted"
+              title={isOpen ? "Collapse" : "Expand"}
+              onClick={() => setIsOpen((prev) => !prev)}
+            >
+              <ChevronDown
+                className={cn(
+                  "h-5 w-5 transition-transform duration-300 ease-in-out",
+                  isOpen ? "rotate-180" : ""
+                )}
+              />
+            </Button>
+          </div>
         </div>
       </div>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key={`queue-content-${role}`}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{
+              height: "auto",
+              opacity: 1,
+              transition: {
+                height: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1.0] },
+                opacity: { duration: 0.25, delay: 0.05 },
+              },
+            }}
+            exit={{
+              height: 0,
+              opacity: 0,
+              transition: {
+                height: { duration: 0.28, ease: [0.25, 0.1, 0.25, 1.0] },
+                opacity: { duration: 0.18 },
+              },
+            }}
+            className="overflow-hidden"
+          >
 
       {assigned ? (
         <div className="flex flex-wrap gap-6">
@@ -320,6 +370,10 @@ export const RoleAssigneeQueue = ({
           </div>
         </div>
       )}
+
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Select / reassign modal */}
       <Dialog open={isModalOpen} onOpenChange={(o) => (o ? setIsModalOpen(true) : closeModal())}>
