@@ -37,7 +37,7 @@ import IndiaCoverageMap from "./components/IndiaCoverageMap";
 import ReviewWorkflowCanvas from "./components/ReviewWorkflowCanvas";
 
 // Lazy-load heavy components — deferred until they near the viewport
-const KnowledgeRiverThree = lazy(() => import("./components/KnowledgeRiverThree"));
+const KnowledgeRootsCanvas = lazy(() => import("./components/KnowledgeRootsCanvas").then((m) => ({ default: m.KnowledgeRootsCanvas })));
 const ExpertNetworkMap = lazy(() =>
   import("./components/ExpertNetworkMap").then((m) => ({ default: m.ExpertNetworkMap }))
 );
@@ -683,9 +683,9 @@ export const HomeDashboard: React.FC = () => {
         onWatchStory={() => setIsStoryModalOpen(true)}
       />
 
-      {/* 3. Knowledge Engine & Data Sources — Three.js Scroll River */}
+      {/* 3. Knowledge Engine & Data Sources — Sapta Nadi Knowledge River */}
       <Suspense fallback={<div style={{ height: "100vh", background: "#06140b" }} />}>
-        <KnowledgeRiverThree />
+        <KnowledgeRootsCanvas />
       </Suspense>
 
       {/* 4. Review & Validation Workflow — The Evolution of Knowledge */}
