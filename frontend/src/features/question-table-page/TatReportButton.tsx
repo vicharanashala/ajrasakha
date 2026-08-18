@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Button } from "../../components/atoms/button";
-import { Download, Loader2, CalendarIcon, Timer, ChevronDown } from "lucide-react";
+import { Download, Loader2, CalendarIcon, Timer, ChevronDown, Info } from "lucide-react";
 import { toast } from "sonner";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
@@ -122,8 +122,9 @@ export const TatReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void })
             TAT Report — Select Date Range (Max 1 Month)
           </DialogTitle>
           <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md border">
-            One row per question created in the range, with the time the author, each
-            reviewer and the moderator took, plus the total lifecycle time.
+            One row per question <span className="font-semibold text-foreground">created or closed</span>{" "}
+            within the selected date range, with the time the author, each reviewer and
+            the moderator took, plus the total lifecycle time.
             <span className="font-semibold text-foreground"> Maximum range: 1 month.</span>
           </div>
         </DialogHeader>
@@ -162,7 +163,12 @@ export const TatReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void })
             </div>
           </div>
           <div className="space-y-1.5 px-1">
-            <label className="text-sm font-medium">Date range</label>
+            <label className="text-sm font-medium">
+              Date range{" "}
+              <span className="font-normal text-muted-foreground">
+                (by created or closed date)
+              </span>
+            </label>
             <button
               type="button"
               onClick={() => setIsDateOpen((o) => !o)}
@@ -204,6 +210,23 @@ export const TatReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void })
                 />
               </div>
             )}
+            <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+              <Info className="h-3.5 w-3.5 mt-px flex-shrink-0 text-primary" />
+              <span>
+                {dateRange?.from && dateRange?.to ? (
+                  <>
+                    The report will include every question{" "}
+                    <span className="font-medium text-foreground">
+                      created or closed between {format(dateRange.from, "MMM dd")} and{" "}
+                      {format(dateRange.to, "MMM dd, yyyy")}
+                    </span>{" "}
+                    (matching the selected status).
+                  </>
+                ) : (
+                  "Pick a range to include questions created OR closed within those dates (matching the selected status)."
+                )}
+              </span>
+            </p>
           </div>
         </div>
         <DialogFooter className="gap-2 pt-3 flex-shrink-0">
