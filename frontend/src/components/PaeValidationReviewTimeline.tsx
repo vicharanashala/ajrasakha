@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-    MessageSquareDiff,
     CheckCircle2,
     ChevronDown,
     Clock,
@@ -13,6 +12,7 @@ import {
     CalendarClock,
     CheckCheck,
     Trash2,
+    ClipboardCheck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -158,7 +158,7 @@ export const PaeValidationReviewTimeline = ({
                         className="flex items-center gap-3 cursor-pointer select-none group"
                     >
                         <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                            <MessageSquareDiff className="w-6 h-6 text-primary" />
+                            <ClipboardCheck className="w-6 h-6 text-primary" />
                         </div>
                         <div>
                             <h2 className="text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
