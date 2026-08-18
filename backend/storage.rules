@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// Rules for the LOCAL Firebase Storage emulator (development only). Public-dashboard
+// media is world-readable in production, and the emulator holds only throwaway local
+// test data, so reads/writes are open here. These rules are NOT deployed to the real
+// Google Cloud Storage bucket — production access is governed by bucket IAM.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
