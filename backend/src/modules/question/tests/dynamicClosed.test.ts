@@ -48,6 +48,7 @@ function buildService(): QuestionService {
     {} as any, // paeValidationService
     {} as any, // feedbackService
     {} as any, // questionAiService
+    {} as any, // duplicateService
   );
 }
 

@@ -17,6 +17,7 @@ const TYPES = {
   PaeValidationService: Symbol.for('PaeValidationService'),
   FeedbackService: Symbol.for('FeedbackService'),
   QuestionAiService: Symbol.for('QuestionAiService'),
+  DuplicateService: Symbol.for('DuplicateService'),
   AnswerService: Symbol.for('AnswerService'),
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),

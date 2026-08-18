@@ -3,6 +3,7 @@ import { IQuestionReportService } from '../interfaces/IQuestionReportService.js'
 import { IPaeValidationService } from '../interfaces/IPaeValidationService.js';
 import { IFeedbackService } from '../interfaces/IFeedbackService.js';
 import { IQuestionAiService } from '../interfaces/IQuestionAiService.js';
+import { IDuplicateService } from '../interfaces/IDuplicateService.js';
 import { resolveExpertMeta } from './helpers/reportHelpers.js';
 import { queueCropName, submissionToQueueItem } from './helpers/queueItem.js';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
@@ -79,7 +80,6 @@ import { cosineSimilarity } from '../../../utils/cosine-similarity.js';
 import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import { IFeedbackRepository } from '#root/shared/database/interfaces/IFeedbackRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
-import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js';
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
 import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -92,7 +92,7 @@ import {
 } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
-import { checkDuplicateQuestionHelper, isQuestionMatchForPaeExpert } from '../helpers/duplicateQuestionHelper.js';
+import { runDuplicateCheckPipeline } from './helpers/duplicatePipeline.js';
 import {
   DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
   TOTAL_EXPERTS_LIMIT,
@@ -176,6 +176,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     @inject(GLOBAL_TYPES.QuestionAiService)
     private readonly questionAiService: IQuestionAiService,
+
+    @inject(GLOBAL_TYPES.DuplicateService)
+    private readonly duplicateService: IDuplicateService,
   ) {
     super(mongoDatabase);
   }
@@ -595,258 +598,23 @@ export class QuestionService extends BaseService implements IQuestionService {
     return this.questionAiService.getAccAgentState(threadId, callUuid, metadata);
   }
 
-  // Reusable duplicate detection helper.
-
+  // ── Duplicate detection delegates to DuplicateService ──
   async checkDuplicateQuestion(
     baseQuestion: IQuestion,
     details: IQuestion['details'],
     logData: Record<string, any>,
     session?: ClientSession,
-  ): Promise<{
-    isDuplicate: boolean;
-    duplicateData?: any;
-    isNonAgri?: boolean;
-    nonAgriData?: any;
-  }> {
-    return checkDuplicateQuestionHelper(
+  ) {
+    return this.duplicateService.checkDuplicateQuestion(
       baseQuestion,
       details,
       logData,
-      this.aiService,
-      this.duplicateQuestionRepository,
       session,
     );
   }
 
-  async manualCheckDuplicate(questionId: string): Promise<{
-    message: string;
-    isDuplicate: boolean;
-    referenceQuestionId?: string;
-  }> {
-    const question = await this.questionRepo.getById(questionId);
-
-    if (question.referenceQuestionId) {
-      return {
-        message: 'Question already has a reference question assigned.',
-        isDuplicate: true,
-      };
-    }
-
-    const logData: Record<string, any> = {questionId, manual: true};
-    const result = await this.runDuplicateCheckPipeline(
-      question,
-      question.details,
-      logData,
-    );
-
-    if (result.isDuplicate) {
-      const refId =
-        result.referenceQuestionId instanceof ObjectId
-          ? result.referenceQuestionId
-          : result.referenceQuestionId
-            ? new ObjectId(String(result.referenceQuestionId))
-            : null;
-
-      // Get submission to check queue length
-      const questionSubmission =
-        await this.questionSubmissionRepo.getByQuestionId(questionId);
-      const queueLength = questionSubmission?.queue?.length || 0;
-
-      // Only flip the status to 'duplicate' when the question is still open/delayed.
-      // For any other status (in-review, closed, etc.) the workflow is already past
-      // that point, so the status must not change — we just record the reference.
-      const canMarkDuplicate =
-        (question.status === 'open' || question.status === 'delayed') &&
-        queueLength === 0;
-      await this.questionRepo.updateQuestion(questionId, {
-        ...(canMarkDuplicate ? {status: 'duplicate'} : {}),
-        similarityScore: result.similarityScore,
-        referenceQuestionId: refId,
-        referenceQuestion: result.referenceQuestion,
-        referenceSource: result.referenceSource,
-        isDuplicateChecked: true,
-        ...(result.isExact !== undefined ? {isExact: result.isExact} : {}),
-      });
-      return {
-        message: canMarkDuplicate
-          ? 'Duplicate detected and question updated.'
-          : `Duplicate detected; status left unchanged (question is '${question.status}').`,
-        isDuplicate: true,
-        referenceQuestionId: refId?.toString(),
-      };
-    }
-
-    if (result.isQueueDuplicate) {
-      const refId =
-        result.referenceQuestionId instanceof ObjectId
-          ? result.referenceQuestionId
-          : result.referenceQuestionId
-            ? new ObjectId(String(result.referenceQuestionId))
-            : null;
-      const canMarkQueue =
-        question.status === 'open' || question.status === 'delayed';
-      await this.questionRepo.updateQuestion(questionId, {
-        ...(canMarkQueue
-          ? {status: 'queue_duplicate', isAutoAllocate: false}
-          : {}),
-        similarityScore: result.similarityScore,
-        referenceQuestionId: refId,
-        referenceQuestion: result.referenceQuestion,
-        referenceSource: result.referenceSource,
-        isDuplicateChecked: true,
-      });
-      return {
-        message: canMarkQueue
-          ? 'Found in the GDB pending-duplicate queue.'
-          : `In GDB queue; status left unchanged (question is '${question.status}').`,
-        isDuplicate: false,
-        referenceQuestionId: refId?.toString(),
-      };
-    }
-
-    if (result.isNonAgri) {
-      await this.questionRepo.updateQuestion(questionId, {
-        status: 'non_agri',
-        isDuplicateChecked: true,
-      });
-      return {message: 'Question marked as non-agri.', isDuplicate: false};
-    }
-
-    await this.questionRepo.updateQuestion(questionId, {
-      isDuplicateChecked: true,
-    });
-    return {message: 'No duplicate found.', isDuplicate: false};
-  }
-
-  private async runDuplicateCheckPipeline(
-    baseQuestion: IQuestion,
-    details: IQuestion['details'],
-    logData: Record<string, any>,
-  ): Promise<{
-    isDuplicate: boolean;
-    isQueueDuplicate?: boolean;
-    isNonAgri?: boolean;
-    referenceQuestionId?: ObjectId | string | null;
-    referenceQuestion?: string;
-    referenceSource?: string;
-    similarityScore?: number;
-    isExact?: boolean;
-  }> {
-    const cropName =
-      typeof details.crop === 'string'
-        ? details.crop
-        : (details.crop as any)?.name || '';
-
-    const gdbResult = await this.aiService.searchGdb({
-      crop: cropName,
-      state: details.state,
-      rephrased_query: baseQuestion.question,
-    });
-
-    const extractObjectId = (id: any): ObjectId | null => {
-      const raw = id?.$oid ?? id;
-      const hex = String(raw ?? '');
-      if (/^[a-f\d]{24}$/i.test(hex)) return new ObjectId(hex);
-      return null;
-    };
-
-    const exactMatch = gdbResult?.exact_match;
-    if (exactMatch?.question_id) {
-      const refId = extractObjectId(exactMatch.question_id);
-      if (refId) {
-        return {
-          isDuplicate: true,
-          referenceQuestionId: refId,
-          referenceQuestion: exactMatch.question,
-          referenceSource: 'reviewer',
-          similarityScore: Number(
-            (exactMatch.similarity_score * 100).toFixed(2),
-          ),
-          isExact: true,
-        };
-      }
-      console.warn(
-        `[runDuplicateCheckPipeline] GDB exact_match invalid question_id: ${exactMatch.question_id}, skipping`,
-      );
-    }
-
-    const selectedMatch = gdbResult?.selected_match;
-    if (selectedMatch?.question_id) {
-      const refId = extractObjectId(selectedMatch.question_id);
-      if (refId) {
-        return {
-          isDuplicate: true,
-          referenceQuestionId: refId,
-          referenceQuestion: selectedMatch.question,
-          referenceSource: 'reviewer',
-          similarityScore: Number(
-            (selectedMatch.similarity_score * 100).toFixed(2),
-          ),
-          isExact: false,
-        };
-      }
-      console.warn(
-        `[runDuplicateCheckPipeline] GDB selected_match invalid question_id: ${selectedMatch.question_id}, skipping`,
-      );
-    }
-
-    // No GDB duplicate match — check the GDB pending-duplicate queue before falling
-    // through to the LLM, so the LLM classification only runs when the question is
-    // neither a duplicate nor already in the queue (single LLM call site).
-    try {
-      const pendingResult = await this.aiService.checkPendingDuplicate({
-        rephrased_query: baseQuestion.question,
-        crop: cropName,
-        state: details.state,
-        createdAt: baseQuestion.createdAt,
-      });
-      // A `detail` field means the GDB server didn't find a queued match.
-      // Reference details come from the top-level response (duplicate_question_id /
-      // query / similarity_score), not the candidates_checked array.
-      const dupId =
-        pendingResult?.duplicate_question_id ??
-        pendingResult?.matched_question_id;
-      // Only treat as a queue-duplicate when the GDB returned a usable reference id —
-      // a null/undefined duplicate_question_id means no queued match.
-      const foundInGdbQueue =
-        !!pendingResult &&
-        !pendingResult.detail &&
-        typeof dupId === 'string' &&
-        dupId.trim().length > 0;
-      if (foundInGdbQueue) {
-        const refId = /^[a-f\d]{24}$/i.test(dupId) ? new ObjectId(dupId) : null;
-        return {
-          isDuplicate: false,
-          isQueueDuplicate: true,
-          referenceQuestionId: refId,
-          referenceQuestion: pendingResult!.query,
-          referenceSource: 'reviewer',
-          similarityScore: Number(
-            ((pendingResult!.similarity_score ?? 0) * 100).toFixed(2),
-          ),
-        };
-      }
-    } catch (queueError: any) {
-      console.warn(
-        `[runDuplicateCheckPipeline] check-pending-duplicate failed: ${queueError?.message}`,
-      );
-    }
-
-    // No GDB match and not in the queue — call LLM to classify non-agri vs agri.
-    try {
-      const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
-      if (llmResult.isNonAgri) {
-        logData.outcome = 'NON_AGRI_DETECTED';
-        chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
-        return {isDuplicate: false, isNonAgri: true};
-      }
-    } catch (llmError: any) {
-      console.warn(
-        `[runDuplicateCheckPipeline] LLM non-agri check failed, treating as agri: ${llmError?.message}`,
-      );
-    }
-
-    return {isDuplicate: false};
+  async manualCheckDuplicate(questionId: string) {
+    return this.duplicateService.manualCheckDuplicate(questionId);
   }
 
   async addQuestion(
@@ -1241,7 +1009,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
           // AJRASAKHA / WHATSAPP — GDB → embedding → LLM duplicate/non-agri pipeline
           try {
-            const result = await this.runDuplicateCheckPipeline(
+            const result = await runDuplicateCheckPipeline(
+              this.aiService,
               baseQuestion,
               details,
               logData,
