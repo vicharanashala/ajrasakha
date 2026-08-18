@@ -37,6 +37,7 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
     <div ref={dropdownRef} className="relative hidden md:inline-block">
       {/* Trigger Button */}
       <Button
+        variant="outline"
         onClick={() => setOpen((prev) => !prev)}
         className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium 
                    rounded-md border border-gray-200
@@ -44,10 +45,12 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
                    hover:bg-gray-50 
                    transition-colors
                    dark:bg-[#1a1a1a] dark:border-gray-800 dark:hover:border-gray-600 dark:shadow-none 
+                   dark:hover:bg-gray-800
+                   text-gray-700 dark:text-gray-200
                    "
       >
         {view === "grid" ? <LayoutGrid size={16} /> : <List size={14} />}
-        <ChevronDown size={14} className="text-gray-400" />
+        <ChevronDown size={14} className="text-gray-400 dark:text-gray-500" />
       </Button>
 
       {/* Dropdown Menu */}
@@ -58,15 +61,18 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
                      border border-gray-200 
                      overflow-hidden z-50
                      dark:bg-[#1a1a1a] dark:border-gray-800 dark:shadow-none 
+                     text-gray-700 dark:text-gray-300
                      "
         >
           <Button
+            variant="ghost"
             onClick={() => handleSelect("table")}
             className={`w-full flex items-center gap-2 px-3 py-2 text-sm 
-              hover:bg-gray-100  transition-colors dark:bg-[#1a1a1a] dark:border-gray-800 dark:hover:bg-gray-600 dark:shadow-none 
+              hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors 
+              dark:bg-transparent dark:border-0 dark:shadow-none 
               ${view === "table"
-                ? "bg-gray-100 dark:bg-gray-800 font-medium"
-                : ""
+                ? "bg-gray-100 dark:bg-gray-700 font-medium text-foreground dark:text-white"
+                : "bg-transparent dark:bg-transparent text-gray-700 dark:text-gray-300"
               }`}
           >
             <List size={14} />
@@ -74,13 +80,14 @@ const ViewDropdown: React.FC<ViewDropdownProps> = ({ view, setView }) => {
           </Button>
 
           <Button
+            variant="ghost"
             onClick={() => handleSelect("grid")}
             className={`w-full flex items-center gap-2 px-3 py-2 text-sm 
-              hover:bg-gray-100 transition-colors
-              dark:bg-[#1a1a1a] dark:border-gray-800 dark:hover:bg-gray-700 dark:shadow-none
+              hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors
+              dark:bg-transparent dark:border-0 dark:shadow-none
               ${view === "grid"
-                ? "bg-gray-100 dark:bg-gray-800 font-medium"
-                : ""
+                ? "bg-gray-100 dark:bg-gray-700 font-medium text-foreground dark:text-white"
+                : "bg-transparent dark:bg-transparent text-gray-700 dark:text-gray-300"
               }`}
           >
             <LayoutGrid size={14} />
