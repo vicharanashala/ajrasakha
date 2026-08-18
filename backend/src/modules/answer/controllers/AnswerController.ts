@@ -16,14 +16,20 @@ import {
   BadRequestError,
   InternalServerError,
   ForbiddenError,
+  UploadedFile,
+  Res,
+  ContentType,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
+import {CORE_TYPES} from '#root/modules/core/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { AnswerService } from '../services/AnswerService.js';
+import { IAnswerDocumentService } from '../interfaces/IAnswerDocumentService.js';
+import { AnswerDocumentUploadFileOptions } from '../classes/validators/fileUploadOptions.js';
 import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -46,7 +52,57 @@ export class AnswerController {
 
     @inject(GLOBAL_TYPES.QuestionService)
     private readonly questionService: IQuestionService,
+
+    @inject(CORE_TYPES.AnswerDocumentService)
+    private readonly answerDocumentService: IAnswerDocumentService,
   ) {}
+
+  @OpenAPI({
+    summary: 'Upload a PDF/DOC/DOCX source document for an answer',
+  })
+  @Post('/documents/upload')
+  @HttpCode(201)
+  @Authorized()
+  async uploadDocument(
+    @UploadedFile('file', {
+      options: AnswerDocumentUploadFileOptions,
+      required: true,
+    })
+    file: Express.Multer.File,
+    @CurrentUser() user: IUser,
+  ): Promise<{document: {id: string; filename: string; mimeType: string; size: number}}> {
+    verifyNotTester(user);
+    return this.answerDocumentService.uploadDocument(
+      file,
+      user._id.toString(),
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Download an uploaded answer source document (auth required)',
+  })
+  @Get('/documents/:id')
+  @HttpCode(200)
+  @Authorized()
+  @ContentType('application/octet-stream')
+  async downloadDocument(
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+    @Res() response: any,
+  ): Promise<Buffer> {
+    verifyNotTester(user);
+    const {filename, mimeType, content} =
+      await this.answerDocumentService.getDocument(id, user._id.toString());
+    const safeFilename = filename.replace(/["\r\n]/g, '');
+    response.setHeader('Content-Type', mimeType);
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${safeFilename}"`,
+    );
+    response.setHeader('Content-Length', content.length);
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    return content;
+  }
 
   @OpenAPI({summary: 'Add a new answer to a question'})
   @Post('/')

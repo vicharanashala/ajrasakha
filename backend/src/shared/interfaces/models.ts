@@ -258,11 +258,40 @@ export interface IQuestion {
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
 
+export interface UploadedDocumentInfo {
+  /** answerdocuments collection ObjectId */
+  id: string;
+  /** Sanitized original filename (extension preserved) */
+  filename: string;
+  mimeType: string;
+  /** File size in bytes */
+  size: number;
+}
+
 export interface SourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   source: string;
   page?: string | number;
+  /** Present when this source is an uploaded PDF/DOC/DOCX rather than a URL */
+  uploadedDocument?: UploadedDocumentInfo;
+}
+
+export interface IAnswerDocument {
+  _id?: string | ObjectId;
+  /** Sanitized original filename */
+  filename: string;
+  /** Unique stored name on disk / in the bucket */
+  storedName: string;
+  /** Storage path/ref used to locate the bytes */
+  storagePath: string;
+  mimeType: string;
+  size: number;
+  uploadedBy: string | ObjectId;
+  uploadedAt: Date;
+  /** Set when an answer referencing this document is persisted */
+  linkedAnswerId?: string | ObjectId;
+  linkedAt?: Date;
 }
 export interface PreviousAnswersItem {
   modifiedBy: string | ObjectId;

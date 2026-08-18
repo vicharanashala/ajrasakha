@@ -28,7 +28,8 @@ export const appConfig = {
     clientEmail: env('FIREBASE_CLIENT_EMAIL') || undefined,
     privateKey: env('FIREBASE_PRIVATE_KEY')?.replace(/\\n/g, '\n') || undefined,
     projectId: env('FIREBASE_PROJECT_ID') || undefined,
-    apiKey: env('FIREBASE_API_KEY') || undefined,
+    apiKey: env('FIREBASE_API_KEY') || 'dummy-local-key',
+    authEmulatorHost: env('FIREBASE_AUTH_EMULATOR_HOST') || undefined,
     storageBucket: env('FIREBASE_STORAGE_BUCKET') || 'vibe-aiserver-data',
   },
   sentry: {

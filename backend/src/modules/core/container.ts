@@ -11,6 +11,7 @@ import { NotificationRepository } from '#root/shared/database/providers/mongo/re
 import { RequestRepository } from '#root/shared/database/providers/mongo/repositories/RequestRepository.js';
 import { ReviewRepository } from '#root/shared/database/providers/mongo/repositories/ReviewRepository.js';
 import { AnswerService } from '../answer/services/AnswerService.js';
+import { AnswerDocumentService } from '../answer/services/AnswerDocumentService.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
 import { QuestionController } from '../question/controllers/QuestionController.js';
 import { QuestionService } from '../question/services/QuestionService.js';
@@ -23,6 +24,7 @@ import { PerformanceService } from '../performance/services/PerformanceService.j
 import { RequestController } from '../request/controllers/RequestController.js';
 import { RequestService } from '../request/services/RequestService.js';
 import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
+import { AnswerDocumentRepository } from '#root/shared/database/providers/mongo/repositories/AnswerDocumentRepository.js';
 import { DuplicateQuestionRepository } from '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js';
 import { FeedbackRepository } from '#root/shared/database/providers/mongo/repositories/FeedbackRepository.js';
 import { AccAgentService } from '../acc-agent/services/AccAgentService.js';
@@ -42,6 +44,7 @@ export const coreContainerModule = new ContainerModule(options => {
     .to(QuestionService)
     .inSingletonScope();
   options.bind(CORE_TYPES.AnswerService).to(AnswerService).inSingletonScope();
+  options.bind(CORE_TYPES.AnswerDocumentService).to(AnswerDocumentService).inSingletonScope();
   options.bind(CORE_TYPES.ContextService).to(ContextService).inSingletonScope();
   options.bind(CORE_TYPES.CommentService).to(CommentService).inSingletonScope();
   options.bind(CORE_TYPES.RequestService).to(RequestService).inSingletonScope();
@@ -61,6 +64,10 @@ export const coreContainerModule = new ContainerModule(options => {
   options
     .bind(CORE_TYPES.AnswerRepository)
     .to(AnswerRepository)
+    .inSingletonScope();
+  options
+    .bind(CORE_TYPES.AnswerDocumentRepository)
+    .to(AnswerDocumentRepository)
     .inSingletonScope();
   options
     .bind(CORE_TYPES.ContextRepository)

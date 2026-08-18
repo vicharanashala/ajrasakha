@@ -380,6 +380,24 @@ export const QAInterface = ({
     return () => clearTimeout(scrollTimer);
   }, [selectedQuestion]);
 
+  // A question is "final" once the moderator selected a final answer (stored on
+  // the question doc or in the answers collection). Derive it from the real
+  // loaded data so the congratulation banner is reachable after a genuine
+  // final-answer action — never hardcoded.
+  useEffect(() => {
+    if (!selectedQuestionData) return;
+
+    const questionFinalized =
+      Boolean(selectedQuestionData.isFinalAnswer) ||
+      Boolean(selectedQuestionData.finalAnswer) ||
+      Boolean(
+        selectedQuestionData.status === "closed" &&
+          selectedQuestionData.finalAnswer
+      );
+
+    setIsFinalAnswer(questionFinalized);
+  }, [selectedQuestionData]);
+
   //To auto select from notifications
   useEffect(() => {
     if (!autoSelectQuestionId || !exactQuestionPage || isQuestionsLoading)
@@ -478,21 +496,21 @@ export const QAInterface = ({
 
     const draft = drafts[selectedQuestion]; // previous answer that were stored in localstorage
 
-    // Set AI initial answer only if user hasn't typed anything AND it's not a review flow (no history)
-    if (!newAnswer && !draft?.answer && selectedQuestionData.history?.length === 0) {
-      let prefillAnswer = '';
-
-      if (selectedQuestionData.source === 'AJRASAKHA') {
-        // Prefer the clean answer from answers collection (set by moderator approval)
-        if (selectedQuestionData.aiInitialAnswer) {
-          prefillAnswer = selectedQuestionData.aiInitialAnswer;
-        } else if (selectedQuestionData.aiApprovedAnswer) {
-          prefillAnswer = selectedQuestionData.aiApprovedAnswer;
-        }
-      } else {
-        prefillAnswer = selectedQuestionData.aiInitialAnswer || '';
-      }
-
+    // Set the AI answer only for AJRASAKHA questions (the moderator-approved
+    // answer is the intended response). For every other source the editor
+    // starts empty — the AI answer stays a suggestion the expert applies
+    // explicitly via "Apply Suggested AI Answer", which only renders while the
+    // editor is empty.
+    if (
+      selectedQuestionData.source === 'AJRASAKHA' &&
+      !newAnswer &&
+      !draft?.answer &&
+      selectedQuestionData.history?.length === 0
+    ) {
+      const prefillAnswer =
+        selectedQuestionData.aiInitialAnswer ||
+        selectedQuestionData.aiApprovedAnswer ||
+        '';
       if (prefillAnswer) {
         setNewAnswer(prefillAnswer);
       }
