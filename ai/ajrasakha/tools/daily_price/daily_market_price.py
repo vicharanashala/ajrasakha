@@ -1204,6 +1204,113 @@ def mandi_price_tool(
         return result
 
     # ======================================================================
+    # ACTION 9: get_price_with_nearby
+    # ======================================================================
+    NEARBY_RADIUS_KM = 100
+
+    def _get_price_with_nearby() -> dict:
+        """Composite: named mandi latest price + nearby markets' today/date prices."""
+        if not commodity_name:
+            return {"error": "commodity_name is required for action='get_price_with_nearby'."}
+        if not market_name:
+            # No named mandi → fall back to regular get_today_price
+            return _get_today_price()
+
+        c_list = [commodity_name] if isinstance(commodity_name, str) else commodity_name
+
+        # ── Part 1: Named mandi's latest price ─────────────────────────
+        named_result = _fetch_price_data(
+            commodity_list=c_list,
+            market_name=market_name, state=state,
+            lat=lat, long=long,
+            nearest_market=False, radius_km=radius_km,
+            lookback_days=1,
+            latest_price_fallback=True,
+        )
+        if not named_result.get("error"):
+            named_result["action"] = "get_today_price"
+            named_result.pop("stats", None)
+
+        # ── Part 2: Nearby markets' prices on today / requested date ───
+        nearby_result: dict = {}
+
+        # Resolve the named mandi to get its coordinates
+        named_market_search = _do_search_markets(
+            market_name=market_name,
+            state=state,
+            nearest_market=False,
+        )
+        named_docs = named_market_search.get("_raw_docs") or []
+        named_mandi_names: set = set()
+        named_mandi_coords: tuple | None = None
+
+        if named_docs:
+            named_mandi_names = {
+                (d.get("name") or "").strip().lower() for d in named_docs
+            }
+            # Use the first matched mandi's coordinates
+            for doc in named_docs:
+                coords = _market_lat_lon(doc)
+                if coords:
+                    named_mandi_coords = coords
+                    break
+
+        if named_mandi_coords:
+            nearby_lat, nearby_lon = named_mandi_coords
+            logger.info(
+                "get_price_with_nearby: using named mandi coords (%s, %s) for nearby search",
+                nearby_lat, nearby_lon,
+            )
+            # Fetch today's prices for nearby markets using mandi's coordinates
+            nearby_raw = _fetch_price_data(
+                commodity_list=c_list,
+                market_name=None,  # no market_name — search by geo
+                state=state,
+                lat=nearby_lat,
+                long=nearby_lon,
+                nearest_market=True,
+                radius_km=NEARBY_RADIUS_KM,
+                lookback_days=1,
+                latest_price_fallback=False,  # only today's prices for nearby
+            )
+
+            if (
+                not nearby_raw.get("error")
+                and int(nearby_raw.get("total_records_returned") or 0) > 0
+            ):
+                # Filter out the named mandi's records from nearby results
+                all_records = nearby_raw.get("price_records") or []
+                filtered_records = [
+                    r for r in all_records
+                    if (r.get("market_name") or "").strip().lower() not in named_mandi_names
+                ]
+                if filtered_records:
+                    nearby_result = {
+                        "action": "nearby_markets_price",
+                        "price_records": filtered_records,
+                        "total_records_returned": len(filtered_records),
+                        "resolution": nearby_raw.get("resolution"),
+                    }
+                    logger.info(
+                        "get_price_with_nearby: %d nearby price records (after excluding named mandi)",
+                        len(filtered_records),
+                    )
+                else:
+                    logger.info(
+                        "get_price_with_nearby: all nearby records were from the named mandi itself"
+                    )
+            else:
+                logger.info(
+                    "get_price_with_nearby: no today's prices at nearby markets"
+                )
+
+        return {
+            "action": "get_price_with_nearby",
+            "named_market": named_result,
+            "nearby_markets": nearby_result if nearby_result else None,
+        }
+
+    # ======================================================================
     # ACTION DISPATCHER
     # ======================================================================
     dispatch = {
@@ -1215,6 +1322,7 @@ def mandi_price_tool(
         "get_arrival_history": _get_arrival_history,
         "get_extreme_arrival": _get_extreme_arrival,
         "search_markets":     _action_search_markets,
+        "get_price_with_nearby": _get_price_with_nearby,
     }
 
     def _normalize_action_list(raw: Union[str, list[str], None]) -> list[str]:

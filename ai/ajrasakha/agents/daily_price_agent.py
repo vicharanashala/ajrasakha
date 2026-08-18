@@ -36,6 +36,7 @@ _FARMER_ACTIONS = frozenset({
     "get_arrival_history",
     "get_extreme_arrival",
     "search_markets",
+    "get_price_with_nearby",
 })
 
 _COMMODITY_ACTIONS = frozenset({
@@ -46,6 +47,7 @@ _COMMODITY_ACTIONS = frozenset({
     "get_today_arrival",
     "get_arrival_history",
     "get_extreme_arrival",
+    "get_price_with_nearby",
 })
 
 _GEO_ACTIONS = frozenset({
@@ -57,6 +59,7 @@ _GEO_ACTIONS = frozenset({
     "get_arrival_history",
     "get_extreme_arrival",
     "search_markets",
+    "get_price_with_nearby",
 })
 
 _HISTORY_ACTIONS = frozenset({
@@ -370,6 +373,13 @@ def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
         extracted_market = _extract_market_name_from_query(query)
         if extracted_market:
             out["market_name"] = extracted_market
+
+    # Auto-upgrade: when a specific mandi is named and action is today's price,
+    # enrich the response with nearby markets' prices.
+    if out.get("market_name") and out["action"] == "get_today_price":
+        out["action"] = "get_price_with_nearby"
+        out["actions"] = ["get_price_with_nearby"]
+
     return out
 
 

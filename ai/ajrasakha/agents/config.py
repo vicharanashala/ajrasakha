@@ -42,7 +42,7 @@ def get_minimax_chat_model(**overrides):
         **overrides,
     )
 
-REMOTE_IP = os.getenv("REMOTE_IP", "100.100.108.44")
+REMOTE_IP =   os.getenv("REMOTE_IP", "100.100.108.44")
 
 # Reviewer upload channel when LangGraph configurable.question_source is unset
 QUESTION_SOURCE = os.getenv("QUESTION_SOURCE", "AJRASAKHA").strip()
@@ -137,5 +137,5 @@ MCP_URLS = {
     "schemes":    f"http://{REMOTE_IP}:9009/mcp",
     "faq_video":  f"http://{REMOTE_IP}:9007/mcp",
     "chemical_checker": f"http://{REMOTE_IP}:9101/mcp",
-    "daily_price": "http://100.100.108.44:8111/mcp",
+    "daily_price": f"http://{REMOTE_IP}:8111/mcp",
 }

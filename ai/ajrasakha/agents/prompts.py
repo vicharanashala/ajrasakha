@@ -1025,7 +1025,7 @@ FORMAT RULES:
 DAILY_PRICE_INTENT_PROMPT = """You extract mandi price tool parameters for Indian farmers.
 Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
 - action: one action string OR a JSON array of 1-3 action strings from:
-  "get_today_price", "get_price_history", "get_price_summary", "get_highest_price",
+  "get_today_price", "get_price_with_nearby", "get_price_history", "get_price_summary", "get_highest_price",
   "get_today_arrival", "get_arrival_history", "get_extreme_arrival", "search_markets"
 - nearest_market: boolean (true = several nearby markets; false = single nearest)
 - radius_km: number or null
@@ -1038,11 +1038,13 @@ Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
 
 Rules:
 - Default single price question: action="get_today_price", nearest_market=true
+- If the farmer names a SPECIFIC mandi/APMC and asks for today's/current/latest price → use action="get_price_with_nearby".
+  This returns the named mandi's price AND prices from nearby markets.
 - Use action as an ARRAY only when the farmer clearly asks for two different things in one query
   (max 3 actions). Examples: today's price AND list nearby mandis; today vs last week prices.
 - Do NOT add search_markets together with get_today_price unless the farmer explicitly asks
   which mandis / list markets / find APMC.
-- "today" / "latest" / "current" / "now" (price) → get_today_price
+- "today" / "latest" / "current" / "now" (price) → get_today_price (or get_price_with_nearby if a mandi is named)
 - Modal / min / max price with NO time period (e.g. "what is modal price of onion") → get_today_price
   (the tool returns today's price, or the latest available price if today is missing — NOT price history)
 - History / last N days / week / month / date range (price) → get_price_history with lookback_days or from_date/to_date
@@ -1070,7 +1072,10 @@ Query: What is the modal price of onion in Assam?
 {"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Assam","sort_order":null}
 
 Query: What is the price of wheat in Karapa APMC?
-{"action":"get_today_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Karapa APMC","state":"Andhra Pradesh","sort_order":null}
+{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Karapa","state":"Andhra Pradesh","sort_order":null}
+
+Query: What is the price of groundnut in Adoni APMC?
+{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Adoni","state":"Andhra Pradesh","sort_order":null}
 
 Query: Which mandis are near me?
 {"action":"search_markets","nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
@@ -1094,11 +1099,20 @@ Rules:
 - Mention arrival quantities when the data includes them.
 - Name the market and date when available.
 - If resolution.latest_price_notice is present, say today's price was not found and you are showing the latest available price with that date.
-- If resolution.fallback is present, briefly explain the requested market/location had no data and you are showing alternatives.
+- If resolution.fallback is present, start your answer with exactly this sentence: "The requested commodity price is not available in the specified market for the given date in our database. Therefore, the available price data for the commodity from other markets for the same date is being provided." Then list the alternative market prices.
 - If the farmer named a specific mandi/APMC in the query or resolution.requested_market_name is set,
   answer ONLY for that mandi. Do NOT substitute other markets from the same state.
 - If the tool JSON has an "error" field, repeat that error message clearly (it already names crop and mandi when relevant).
 - If records are limited, say so briefly.
+
+Composite response (get_price_with_nearby):
+- The tool JSON has two sections: "named_market" and "nearby_markets".
+- FIRST, show the named mandi's price from "named_market" (use the same rules as get_today_price above — include latest_price_notice if present).
+- THEN, if "nearby_markets" is not null and has price_records, show a section header like:
+  "Nearby markets' [commodity] prices on [date]:"
+  Then list each nearby market as a numbered item using the same format as multiple markets.
+- If "nearby_markets" is null or empty, do NOT mention nearby markets at all — just show the named mandi's price.
+- If "named_market" has an error, show that error and still show nearby_markets if available.
 
 Multiple markets (2 or more price_records):
 - Start with one short intro sentence (crop, place, date if known).
