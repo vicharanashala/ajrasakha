@@ -5973,7 +5973,12 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Extract all unique expert IDs from history
       const allExpertIds = new Set<string>();
+      let maxHistoryLength = 0;
       for (const sub of submissions) {
+        const historyLength = sub.history?.length || 0;
+        if (historyLength > maxHistoryLength) {
+          maxHistoryLength = historyLength;
+        }
         for (const historyEntry of sub.history || []) {
           const expertId = historyEntry.updatedBy?.toString();
           if (expertId) {
@@ -5985,21 +5990,22 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Fetch user details for all experts
       const expertMeta = await this.resolveExpertMeta([...allExpertIds]);
 
-      // Build experts string for each question: "Name (level 0), Name (level 1), ..."
-      const questionExperts = new Map<string, string>();
+      // Build experts map for each question: questionId -> array of expert names by level
+      const questionExpertsByLevel = new Map<string, (string | null)[]>();
       for (const sub of submissions) {
         const qId = sub.questionId.toString();
-        const expertsList: string[] = [];
-        for (let level = 0; level < (sub.history || []).length; level++) {
-          const historyEntry = sub.history[level];
-          const expertId = historyEntry.updatedBy?.toString();
+        const expertsByLevel: (string | null)[] = [];
+        for (let level = 0; level < maxHistoryLength; level++) {
+          const historyEntry = sub.history?.[level];
+          const expertId = historyEntry?.updatedBy?.toString();
           if (expertId) {
             const meta = expertMeta.get(expertId);
-            const displayName = meta?.name || expertId;
-            expertsList.push(`${displayName} (level ${level})`);
+            expertsByLevel.push(meta?.name || expertId);
+          } else {
+            expertsByLevel.push(null);
           }
         }
-        questionExperts.set(qId, expertsList.join(', '));
+        questionExpertsByLevel.set(qId, expertsByLevel);
       }
 
       // For closed questions, fetch the final answer (text + sources + approving moderator).
@@ -6038,7 +6044,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const sheet = workbook.addWorksheet('Questions');
 
       // Define columns - add Answer column for closed status
-      const columns = [
+      const columns: {header: string; key: string; width: number}[] = [
         {header: 'Created At', key: 'createdAt', width: 22},
         {header: 'Question', key: 'question', width: 60},
         {header: 'State', key: 'state', width: 20},
@@ -6049,8 +6055,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         {header: 'Status', key: 'status', width: 15},
         {header: 'Priority', key: 'priority', width: 15},
         {header: 'Source', key: 'source', width: 15},
-        {header: 'Experts', key: 'experts', width: 60},
       ];
+
+      // Add Author and Level columns based on max history length
+      for (let level = 0; level < maxHistoryLength; level++) {
+        const header = level === 0 ? 'Author' : `Level ${level}`;
+        columns.push({header, key: `expert_${level}`, width: 25});
+      }
+
       if (isClosedStatus) {
         columns.push({
           header: 'Closed At',
@@ -6073,10 +6085,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           vertical: 'top',
         };
       }
-      sheet.getColumn('experts').alignment = {
-        wrapText: true,
-        vertical: 'top',
-      };
 
       // Add data rows
       questions.forEach(q => {
@@ -6092,8 +6100,13 @@ export class QuestionService extends BaseService implements IQuestionService {
           status: q.status,
           priority: q.priority,
           source: q.source,
-          experts: questionExperts.get(qId) || '',
         };
+
+        // Add expert columns for each level
+        const expertsByLevel = questionExpertsByLevel.get(qId) || [];
+        for (let level = 0; level < maxHistoryLength; level++) {
+          rowData[`expert_${level}`] = expertsByLevel[level] || '';
+        }
 
         if (isClosedStatus) {
           rowData.closedAt = q.closedAt;
