@@ -6497,8 +6497,16 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     const message = annamMessages?.[0];
 
+    // Convert feedback _id to string if it exists
+    const feedback = message?.feedback;
+    const processedFeedback = feedback ? {
+      ...feedback,
+      id: feedback._id?.toString() || feedback.id,
+      _id: feedback._id?.toString(),
+    } : null;
+
     return {
-      feedback: message?.feedback || null,
+      feedback: processedFeedback,
       user: {
         username: message?.userDetails?.username || 'N/A',
         email: message?.userDetails?.email || '',
