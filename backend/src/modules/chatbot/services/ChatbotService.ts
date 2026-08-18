@@ -4386,11 +4386,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   private async fetchDataReleaseTotalCount(resourcePath: string): Promise<number> {
-    // TODO: DATA_RELEASE_URL / REVIEW_SYSTEM_AUTH_KEY are not configured for
-    // this application yet. Real fetch logic is commented out below —
-    // uncomment it (and delete the dummy block underneath) once the dataset
-    // app's data release service is reachable and the env vars are set.
-    /*
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
 
@@ -4404,21 +4399,21 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
     try {
       const response = await fetch(
-        `${dataReleaseUrl}/${resourcePath}?page=1&pageSize=1`,
+        `${dataReleaseUrl}/${resourcePath}/total?page=1&pageSize=1`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authKey}`,
+            Authorization: `Bearer ${authKey}`,
           },
-        }
+        },
       );
 
       if (!response.ok) {
         throw new Error(`Data release service returned status ${response.status}`);
       }
 
-      const res = await response.json() as {
+      const res = (await response.json()) as {
         total?: number;
         totalCount?: number;
       };
@@ -4439,15 +4434,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
         `Failed to get total count for ${resourcePath}: ` + error.message,
       );
     }
-    */
-
-    // Dummy response — external data release API is not configured yet.
-    const DUMMY_TOTALS: Record<string, number> = {
-      questions: 1240,
-      feedbacks: 356,
-      users: 812,
-    };
-    return DUMMY_TOTALS[resourcePath] ?? 0;
   }
 
   /**
@@ -4481,21 +4467,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
    * by QuestionService.getFeedbacks() and fetchDataReleaseTotalCount()
    * above. `mapItem` normalizes each raw item from the external service
    * into the shape this app displays.
-   *
-   * TODO: DATA_RELEASE_URL / REVIEW_SYSTEM_AUTH_KEY are not configured for
-   * this application yet. Real fetch logic is commented out below —
-   * uncomment it (and delete the dummy-data fallback underneath) once the
-   * dataset app's data release service is reachable and the env vars are
-   * set.
    */
   private async fetchDataReleaseList<T>(
     resourcePath: string,
     page: number,
     pageSize: number,
     mapItem: (raw: any) => T,
-    dummyItems: T[],
   ): Promise<DatasetListResponse<T>> {
-    /*
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
 
@@ -4509,21 +4487,21 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
     try {
       const response = await fetch(
-        `${dataReleaseUrl}/${resourcePath}?page=${page}&pageSize=${pageSize}`,
+        `${dataReleaseUrl}/${resourcePath}/list?page=${page}&pageSize=${pageSize}`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authKey}`,
+            Authorization: `Bearer ${authKey}`,
           },
-        }
+        },
       );
 
       if (!response.ok) {
         throw new Error(`Data release service returned status ${response.status}`);
       }
 
-      const res = await response.json() as {
+      const res = (await response.json()) as {
         data?: any[];
         total?: number;
         totalCount?: number;
@@ -4559,16 +4537,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
         `Failed to list ${resourcePath}: ` + error.message,
       );
     }
-    */
-
-    // Dummy response — external data release API is not configured yet.
-    return {
-      data: dummyItems,
-      total: dummyItems.length,
-      page,
-      pageSize,
-      totalPages: 1,
-    };
   }
 
   /** Normalizes a raw dataset-app question record into the display shape. */
@@ -4613,75 +4581,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
     };
   }
 
-  // Dummy placeholder pages — external data release API is not configured
-  // yet. Delete these once fetchDataReleaseList's real fetch logic is
-  // uncommented.
-  private readonly DUMMY_DATASET_QUESTIONS: DatasetQuestionListItem[] = [
-    {
-      questionId: 'q_1001',
-      question: 'What is the best fertilizer for wheat crop in Rabi season?',
-      createdAt: '2026-07-20T09:15:00.000Z',
-    },
-    {
-      questionId: 'q_1002',
-      question: 'How to control aphid infestation in mustard?',
-      createdAt: '2026-07-22T11:40:00.000Z',
-    },
-    {
-      questionId: 'q_1003',
-      question: 'What is the ideal spacing for tomato plantation?',
-      createdAt: '2026-07-25T06:05:00.000Z',
-    },
-  ];
-
-  private readonly DUMMY_DATASET_FEEDBACKS: DatasetFeedbackListItem[] = [
-    {
-      email: 'rajesh@example.com',
-      questionId: 'q_1001',
-      rating: '5',
-      tag: 'accurate',
-      createdAt: '2026-07-21T10:00:00.000Z',
-    },
-    {
-      email: 'priya@example.com',
-      questionId: 'q_1002',
-      rating: '3',
-      tag: 'incomplete',
-      createdAt: '2026-07-23T14:30:00.000Z',
-    },
-    {
-      email: 'amit@example.com',
-      questionId: 'q_1003',
-      rating: '4',
-      tag: 'helpful',
-      createdAt: '2026-07-26T08:20:00.000Z',
-    },
-  ];
-
-  private readonly DUMMY_DATASET_USERS: DatasetUserListItem[] = [
-    {
-      name: 'Rajesh Kumar',
-      email: 'rajesh@example.com',
-      phone: '+919812345670',
-      age: 34,
-      createdAt: '2026-06-10T05:45:00.000Z',
-    },
-    {
-      name: 'Priya Sharma',
-      email: 'priya@example.com',
-      phone: '+919812345671',
-      age: 29,
-      createdAt: '2026-06-15T07:10:00.000Z',
-    },
-    {
-      name: 'Amit Patel',
-      email: 'amit@example.com',
-      phone: '+919812345672',
-      age: 41,
-      createdAt: '2026-06-18T12:00:00.000Z',
-    },
-  ];
-
   /**
    * Paginated list of questions in the dataset application (external data
    * release service).
@@ -4695,7 +4594,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
       page,
       pageSize,
       this.mapDatasetQuestionItem,
-      this.DUMMY_DATASET_QUESTIONS,
     );
   }
 
@@ -4712,7 +4610,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
       page,
       pageSize,
       this.mapDatasetFeedbackItem,
-      this.DUMMY_DATASET_FEEDBACKS,
     );
   }
 
@@ -4729,7 +4626,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
       page,
       pageSize,
       this.mapDatasetUserItem,
-      this.DUMMY_DATASET_USERS,
     );
   }
 }
