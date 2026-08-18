@@ -6,7 +6,7 @@ import { appConfig } from '#root/config/app.js';
 
 // Run every 1 minute - assigns questions pending PAE validation to available PAE experts
 const ENABLE_INPROCESS_CRON = true;
-if (ENABLE_INPROCESS_CRON) {
+if (!appConfig.isDevelopment) {
   cron.schedule(
     '0 */1 * * * *',
     async () => {
