@@ -1,15 +1,17 @@
-import { X } from "lucide-react";
+import type { ComponentType } from "react";
+import { ChevronLeft, ChevronRight, Database, X } from "lucide-react";
+import { Skeleton } from "@/components/atoms/skeleton";
 import {
   ReusableDataTable,
   type ReusableTableColumn,
 } from "./ReusableDataTable";
-
 
 type DatasetListModalProps<T> = {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   description?: string;
+  icon?: ComponentType<{ className?: string }>;
   columns: ReusableTableColumn<T>[];
   rows: T[];
   isLoading?: boolean;
@@ -25,6 +27,7 @@ export function DatasetListModal<T>({
   onClose,
   title,
   description,
+  icon: Icon = Database,
   columns,
   rows,
   isLoading,
@@ -38,34 +41,44 @@ export function DatasetListModal<T>({
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in-0 duration-150"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-4xl w-full p-6 relative flex flex-col max-h-[90vh]"
+        className="flex w-full max-w-4xl max-h-[88vh] flex-col overflow-hidden rounded-2xl bg-card text-card-foreground shadow-2xl ring-1 ring-border/60 animate-in fade-in-0 zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          title="Close"
-        >
-          <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-        </button>
-
-        <div className="mb-4 pr-12">
-          <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-            {title}
-          </h3>
-          <p className="text-sm text-gray-500 mt-1">
-            {description ?? `Total: ${totalCount.toLocaleString()}`}
-          </p>
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border/60 px-6 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
+              <Icon className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-semibold text-foreground">
+                {title}
+              </h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {description ?? `Total: ${totalCount.toLocaleString()}`}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="flex-1 overflow-auto">
+        {/* Body */}
+        <div className="flex-1 overflow-auto px-6 py-4">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12 text-sm text-gray-400 dark:text-gray-500">
-              Loading…
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-9 w-full rounded-lg" />
+              ))}
             </div>
           ) : (
             <ReusableDataTable
@@ -77,25 +90,28 @@ export function DatasetListModal<T>({
           )}
         </div>
 
+        {/* Footer */}
         {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-between">
-            <span className="text-sm text-gray-500">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border/60 px-6 py-3">
+            <span className="text-xs text-muted-foreground">
               Page {page} of {totalPages}
             </span>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <button
                 disabled={page === 1}
                 onClick={() => onPageChange(page - 1)}
-                className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
               >
+                <ChevronLeft className="h-3.5 w-3.5" />
                 Previous
               </button>
               <button
                 disabled={page === totalPages}
                 onClick={() => onPageChange(page + 1)}
-                className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
               >
                 Next
+                <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>

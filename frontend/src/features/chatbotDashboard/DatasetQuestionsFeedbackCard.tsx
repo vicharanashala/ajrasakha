@@ -6,9 +6,16 @@ import {
 } from "@/components/atoms/tooltip";
 import { motion } from "framer-motion";
 import CountUp from "react-countup";
-import { Database, InfoIcon, Percent, RefreshCw } from "lucide-react";
+import {
+  Database,
+  InfoIcon,
+  MessageSquareText,
+  Percent,
+  RefreshCw,
+  Users,
+} from "lucide-react";
 import { Skeleton } from "@/components/atoms/skeleton";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -29,6 +36,52 @@ function formatDatasetDate(value?: string) {
   if (!value) return "-";
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? "-" : d.toLocaleString();
+}
+
+const CHIP_COLORS = {
+  slate: "bg-muted text-muted-foreground",
+  emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+  blue: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+} as const;
+
+function Chip({
+  children,
+  color = "slate",
+}: {
+  children: ReactNode;
+  color?: keyof typeof CHIP_COLORS;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium capitalize whitespace-nowrap",
+        CHIP_COLORS[color],
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function statusChipColor(status?: string): keyof typeof CHIP_COLORS {
+  const s = (status || "").toLowerCase();
+  if (s === "accepted") return "emerald";
+  if (s === "rejected") return "rose";
+  return "slate";
+}
+
+/** Question ID rendered as a small monospace pill that links to the question details page. */
+function QuestionIdChip({ questionId }: { questionId?: string | null }) {
+  if (!questionId) return <span className="text-muted-foreground">-</span>;
+  return (
+    <span className="inline-flex items-center rounded-md bg-muted px-2 py-1">
+      <QuestionIdLink questionId={questionId} className="font-mono text-[11px]">
+        {questionId.slice(-8)}
+      </QuestionIdLink>
+    </span>
+  );
 }
 
 type ActiveDatasetList = "questions" | "feedbacks" | "users" | null;
@@ -103,13 +156,14 @@ export function DatasetQuestionsFeedbackCard({
       {
         key: "questionId",
         header: "Question ID",
-        render: (r) => (
-          <QuestionIdLink questionId={r.questionId}>
-            {r.questionId || "-"}
-          </QuestionIdLink>
-        ),
+        render: (r) => <QuestionIdChip questionId={r.questionId} />,
       },
-      { key: "question", header: "Question", render: (r) => r.question || "-" },
+      {
+        key: "question",
+        header: "Question",
+        className: "max-w-[320px] truncate",
+        render: (r) => r.question || "-",
+      },
       {
         key: "createdAt",
         header: "Created At",
@@ -125,17 +179,22 @@ export function DatasetQuestionsFeedbackCard({
       {
         key: "questionId",
         header: "Question ID",
-        render: (r) => (
-          <QuestionIdLink questionId={r.questionId}>
-            {r.questionId || "-"}
-          </QuestionIdLink>
-        ),
+        render: (r) => <QuestionIdChip questionId={r.questionId} />,
       },
-      { key: "tag", header: "Tag", render: (r) => r.tag || "-" },
-      { key: "type", header: "Type", render: (r) => r.type || "-" },
+      {
+        key: "tag",
+        header: "Tag",
+        render: (r) => (r.tag ? <Chip>{r.tag}</Chip> : "-"),
+      },
+      {
+        key: "type",
+        header: "Type",
+        render: (r) => (r.type ? <Chip>{r.type}</Chip> : "-"),
+      },
       {
         key: "predefinedOption",
         header: "Predefined Option",
+        className: "max-w-[180px] truncate",
         render: (r) => r.predefinedOption || "-",
       },
       {
@@ -150,7 +209,16 @@ export function DatasetQuestionsFeedbackCard({
         className: "max-w-[220px] truncate",
         render: (r) => r.reviewNote || "-",
       },
-      { key: "status", header: "Status", render: (r) => r.status || "-" },
+      {
+        key: "status",
+        header: "Status",
+        render: (r) =>
+          r.status ? (
+            <Chip color={statusChipColor(r.status)}>{r.status}</Chip>
+          ) : (
+            "-"
+          ),
+      },
       {
         key: "createdAt",
         header: "Created At",
@@ -343,6 +411,7 @@ export function DatasetQuestionsFeedbackCard({
         isOpen={activeList === "questions"}
         onClose={closeList}
         title="All Questions"
+        icon={Database}
         description={`Total: ${(questionsListQuery.data?.total ?? safeQuestions).toLocaleString()}`}
         columns={questionColumns}
         rows={questionsListQuery.data?.data ?? []}
@@ -358,6 +427,7 @@ export function DatasetQuestionsFeedbackCard({
         isOpen={activeList === "feedbacks"}
         onClose={closeList}
         title="All Feedbacks"
+        icon={MessageSquareText}
         description={`Total: ${(feedbacksListQuery.data?.total ?? safeFeedbacks).toLocaleString()}`}
         columns={feedbackColumns}
         rows={feedbacksListQuery.data?.data ?? []}
@@ -373,6 +443,7 @@ export function DatasetQuestionsFeedbackCard({
         isOpen={activeList === "users"}
         onClose={closeList}
         title="All Users"
+        icon={Users}
         description={`Total: ${(usersListQuery.data?.total ?? safeUsers).toLocaleString()}`}
         columns={userColumns}
         rows={usersListQuery.data?.data ?? []}
