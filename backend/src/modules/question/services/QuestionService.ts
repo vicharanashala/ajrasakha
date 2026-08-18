@@ -9887,7 +9887,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         },
       };
     }
-    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    // const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const WEB_APP_Url = process.env.WEB_APP_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
 
     if (!dataReleaseUrl) {
@@ -9911,7 +9912,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     let dataReleaseResponse: {status: string; pendingFeedbackCount: number};
 
     try {
-      const response = await fetch(
+      let response;
+      if(source === 'DATASET') {
+      response = await fetch(
         `${dataReleaseUrl}/feedbacks/${feedbackId}/status`,
         {
           method: 'PATCH',
@@ -9922,6 +9925,19 @@ export class QuestionService extends BaseService implements IQuestionService {
           body: JSON.stringify(payload),
         },
       );
+    }else if(source === 'WEB_APPLICATION'){
+      response = await fetch(
+        `${dataReleaseUrl}/feedbacks/${feedbackId}/status`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authKey}`,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+    }
 
       if (!response.ok) {
         throw new Error(
