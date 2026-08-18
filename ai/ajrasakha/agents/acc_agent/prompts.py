@@ -42,12 +42,14 @@ Your job is to extract the following information:
 10. "village": Village name if stated. Use null if not mentioned.
 11. "block": Block / tehsil name if stated. Use null if not mentioned.
 12. "primary_crop": Farmer's main/primary crop if stated as their usual crop (may differ from query crop). Use null if not mentioned; if only one crop is discussed, you may use that crop.
+13. "secondary_crops": An array of the farmer's other cultivated crops, excluding the primary crop. Use [] if none are stated. A farmer may have more than one secondary crop.
 
 """ + DOMAIN_TAXONOMY + """
 
 CRITICAL INSTRUCTIONS:
-- You MUST output ONLY a valid JSON object with the keys "query", "state", "district", "crop", "standardized_domains", "name", "phone", "age", "gender", "village", "block", and "primary_crop".
+- You MUST output ONLY a valid JSON object with the keys "query", "state", "district", "crop", "standardized_domains", "name", "phone", "age", "gender", "village", "block", "primary_crop", and "secondary_crops".
 - The "standardized_domains" field MUST be an array of strings, even if only one domain applies.
+- The "secondary_crops" field MUST be an array of strings, even if it is empty.
 - For profile fields (name, phone, age, gender, village, block, primary_crop): use null when not clearly present — do NOT invent values.
 - DO NOT output any markdown formatting, preamble, conversational text, or reasoning.
 - START your response immediately with the `{` character.
@@ -67,7 +69,7 @@ Extract only the details needed to understand and answer the farmer's current qu
 CRITICAL INSTRUCTIONS:
 - Output ONLY a valid JSON object with the keys "query", "state", "district", "crop", and "standardized_domains".
 - "standardized_domains" MUST be an array of strings.
-- Do not include farmer profile fields such as name, phone, age, gender, village, block, or primary crop.
+- Do not include farmer profile fields such as name, phone, age, gender, village, block, primary crop, or secondary crops.
 - Do not output markdown, a preamble, reasoning, or conversational text.
 - Start the response immediately with the `{` character.
 """
@@ -84,9 +86,11 @@ Extract only the farmer's profile details that are explicitly stated in the tran
 7. "state": Farmer's Indian state. Use "All" if unclear.
 8. "district": Farmer's district. Use "All" if unclear.
 9. "primary_crop": Farmer's main or primary crop. Use null if not mentioned; if only one crop is discussed, you may use that crop.
+10. "secondary_crops": An array of the farmer's other cultivated crops, excluding the primary crop. Use [] if none are stated. A farmer may have more than one secondary crop.
 
 CRITICAL INSTRUCTIONS:
-- Output ONLY a valid JSON object with the keys "name", "phone", "age", "gender", "village", "block", "state", "district", and "primary_crop".
+- Output ONLY a valid JSON object with the keys "name", "phone", "age", "gender", "village", "block", "state", "district", "primary_crop", and "secondary_crops".
+- "secondary_crops" MUST be an array of strings, even if it is empty.
 - Use null for profile fields that are not clearly present. Do not invent values.
 - Do not include query, crop, or standardized_domains.
 - Do not output markdown, a preamble, reasoning, or conversational text.
