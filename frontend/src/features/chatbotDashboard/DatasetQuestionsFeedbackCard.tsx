@@ -61,6 +61,14 @@ export function DatasetQuestionsFeedbackCard({
   const feedbackPct =
     safeQuestions > 0 ? (safeFeedbacks / safeQuestions) * 100 : 0;
 
+  const datasetTotal = safeQuestions + safeFeedbacks + safeUsers;
+  const questionsSharePct =
+    datasetTotal > 0 ? (safeQuestions / datasetTotal) * 100 : 0;
+  const feedbacksSharePct =
+    datasetTotal > 0 ? (safeFeedbacks / datasetTotal) * 100 : 0;
+  const usersSharePct =
+    datasetTotal > 0 ? (safeUsers / datasetTotal) * 100 : 0;
+
   
   const [activeList, setActiveList] = useState<ActiveDatasetList>(null);
   const [listPage, setListPage] = useState(1);
@@ -229,6 +237,44 @@ export function DatasetQuestionsFeedbackCard({
                     }`}
                   />
                 </button>
+              </div>
+
+              {/* Segmented progress bar — proportions at a glance */}
+              <div className="space-y-1.5">
+                <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/40">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${questionsSharePct}%` }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className="bg-emerald-500"
+                  />
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${feedbacksSharePct}%` }}
+                    transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+                    className="bg-amber-500"
+                  />
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${usersSharePct}%` }}
+                    transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+                    className="bg-blue-500"
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    {questionsSharePct.toFixed(1)}% questions
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                    {feedbacksSharePct.toFixed(1)}% feedbacks
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                    {usersSharePct.toFixed(1)}% users
+                  </span>
+                </div>
               </div>
 
               {/* Stats */}
