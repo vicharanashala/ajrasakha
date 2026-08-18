@@ -23,6 +23,7 @@ class AccAgentState(TypedDict):
     extracted_village: Optional[str]
     extracted_block: Optional[str]
     extracted_primary_crop: Optional[str]
+    extracted_secondary_crops: list[str]
     
     # Verified and merged location structure
     location: Optional[Location]

@@ -8485,8 +8485,12 @@ export class QuestionRepository implements IQuestionRepository {
           ),
         ]
       : undefined;
+    const window = { $gte: from, $lte: to };
     const match: Record<string, unknown> = {
-      createdAt: { $gte: from, $lte: to },
+      // A question counts if it was CREATED or CLOSED within the range — so picking
+      // e.g. 14→18 returns everything created OR closed in that window (matching the
+      // chosen status), not just one of the two.
+      $or: [{ createdAt: window }, { closedAt: window }],
       isTesting: { $ne: true },
       ...(sources && sources.length ? { source: { $in: sources } } : {}),
       ...(expandedStatuses ? { status: { $in: expandedStatuses } } : {}),
