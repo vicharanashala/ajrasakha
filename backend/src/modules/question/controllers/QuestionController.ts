@@ -54,6 +54,7 @@ import {
   ApproveInitialAnswerBody,
   ReplaceQueueExpertRequest,
   ReallocateExpertsSelectedQuestionsRequest,
+  ProcessPaeValidationRequest,
 } from '../classes/validators/QuestionVaidators.js';
 import * as XLSX from 'xlsx';
 import {
@@ -74,6 +75,8 @@ import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAudit
 import { UserService } from '#root/modules/user/index.js';
 import { IContextService } from '#root/modules/context/interfaces/index.js';
 import { restoreBackupBson } from '#root/utils/DBMigration.js';
+import { CORE_TYPES } from '#root/modules/core/types.js';
+import { CheckOverlapsService } from '../services/CheckOverlapsService.js';
 
 @OpenAPI({
   tags: ['questions'],
@@ -95,6 +98,9 @@ export class QuestionController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
+
+    @inject(CORE_TYPES.CheckOverlapsService)
+    private readonly checkOverlapsService: CheckOverlapsService,
   ) { }
 
   @Post('/status-summary')
@@ -119,6 +125,7 @@ export class QuestionController {
       'Queue details for moderators/admins/gate keepers/auditors. No params → all sections (counts + page 1). With ?section=&page= → one paginated section (exact count + that page of items).',
   })
   async getQueueDetails(
+    @CurrentUser() user: IUser,
     @QueryParams()
     query: {
       section?: QueueSectionName;
@@ -128,6 +135,8 @@ export class QuestionController {
       endTime?: string;
     },
   ) {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser === true;
     const startTime = query.startTime ? new Date(query.startTime) : undefined;
     const endTime = query.endTime ? new Date(query.endTime) : undefined;
 
@@ -146,7 +155,7 @@ export class QuestionController {
     }
 
     // Full snapshot: all sections, page 1.
-    const data = await this.questionService.getQueueDetails(startTime, endTime);
+    const data = await this.questionService.getQueueDetails(startTime, endTime, isTrainingUser, isAdmin);
     return { success: true, data };
   }
 
@@ -237,6 +246,18 @@ export class QuestionController {
     @Body() body: GenerateQuestionsBody,
   ): Promise<any> {
     return this.questionService.getCallSummary(body.query);
+  }
+
+  @Get('/feedbacks')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get feedbacks for a question' })
+  async getFeedbacks(
+    @QueryParam('questionId') questionId: string,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('pageSize') pageSize: number = 5,
+  ) {
+    return this.questionService.getFeedbacks(questionId, page, pageSize);
   }
 
   // HITL Flow Endpoints
@@ -375,6 +396,8 @@ export class QuestionController {
 
       // Read directly from req.body (multer-parsed) to avoid class-transformer dropping fields
       const rawBody = req.body || {};
+      const isTrainingQuestion =
+        rawBody.isTrainingQuestion === 'true' || body.isTrainingQuestion === true;
       const allocationMode = rawBody.allocationMode || body.allocationMode || 'expert';
       const paeExpertId: string | undefined = rawBody.paeExpertId || body.paeExpertId;
       console.log('[BulkUpload] rawBody:', rawBody);
@@ -427,6 +450,7 @@ export class QuestionController {
           this.auditTrailsService,
           isRequiredAiInitialAnswer,
           isOutreachQuestion,
+          isTrainingQuestion,
           payload,
           allocationMode,
           paeExpertId
@@ -678,7 +702,8 @@ export class QuestionController {
       },
     };
     try {
-      data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate);
+      const isAdmin = user.role === 'admin'
+      data = await this.questionService.generateQuestionReport(consecutiveApprovals, startDate, endDate, user.isTrainingUser??false,isAdmin??false);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
@@ -711,6 +736,96 @@ export class QuestionController {
     return Buffer.from(data as ArrayBuffer);
   }
 
+  @Get("/download-tat-report")
+  @Authorized()
+  @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @OpenAPI({ summary: 'Download TAT (turnaround-time) lifecycle report as Excel' })
+  async downloadTatReport(
+    @QueryParams()
+    query: {
+      startDate?: string;
+      endDate?: string;
+      sources?: string;
+      statuses?: string;
+    },
+    @CurrentUser() user: IUser,
+    @Res() response: any,
+  ) {
+    if (!query.startDate || !query.endDate) {
+      throw new BadRequestError('startDate and endDate are required');
+    }
+    // Interpret the picker dates as full IST calendar days (mirrors the script).
+    const startDate = new Date(`${query.startDate}T00:00:00.000+05:30`);
+    const endDate = new Date(`${query.endDate}T23:59:59.999+05:30`);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new BadRequestError('Invalid startDate/endDate. Use YYYY-MM-DD.');
+    }
+    // Comma-separated values; empty ⇒ no filter for that field (all).
+    const csv = (v?: string) =>
+      v
+        ? v
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean)
+        : undefined;
+    const sources = csv(query.sources);
+    const statuses = csv(query.statuses);
+
+    let data;
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.DOWNLOAD_REPORTS,
+      action: AuditAction.DOWNLOAD,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        startDate,
+        endDate,
+        endPoint: 'downloadTatReport',
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+    try {
+      data = await this.questionService.generateTatReport(startDate, endDate, {
+        sources,
+        statuses,
+      });
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to generate TAT report',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to generate TAT report');
+    }
+    this.auditTrailsService.createAuditTrail(auditPayload);
+
+    if (!data) {
+      response.status(200).json({
+        success: false,
+        message: 'No questions found for the selected date range',
+      });
+      return;
+    }
+
+    return Buffer.from(data as ArrayBuffer);
+  }
+
   @Get("/download-overall-report")
   @Authorized()
   @ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -720,6 +835,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin'
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
 
@@ -745,7 +861,7 @@ export class QuestionController {
       },
     };
     try {
-      data = await this.questionService.generateOverallQuestionReport(startDate, endDate);
+      data = await this.questionService.generateOverallQuestionReport(startDate, endDate,user.isTrainingUser??false,isAdmin??false);
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
@@ -795,7 +911,7 @@ export class QuestionController {
       duplicateQuestions?: string;
       startDate?: string;
       endDate?: string;
-      moderator?: string;
+      allUsers?: string;
     },
     @CurrentUser() user: IUser,
     @Res() response: any,
@@ -832,7 +948,7 @@ export class QuestionController {
         duplicateQuestions: query.duplicateQuestions,
         startDate: query.startDate,
         endDate: query.endDate,
-        moderator: query.moderator,
+        allUsers: query.allUsers,
       });
     } catch (err: any) {
       auditPayload = {
@@ -875,6 +991,7 @@ export class QuestionController {
     @CurrentUser() user: IUser,
     @Res() response: any,
   ) {
+    const isAdmin = user.role === 'admin';
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
     const auditPayload: ModeratorAuditTrail = {
@@ -891,7 +1008,7 @@ export class QuestionController {
       createdAt: new Date(),
     };
     try {
-      const data = await this.questionService.generateDuplicateQuestionReport(startDate, endDate);
+      const data = await this.questionService.generateDuplicateQuestionReport(startDate, endDate, user.isTrainingUser ?? false, isAdmin ?? false);
       if (!data) {
         this.auditTrailsService.createAuditTrail({
           ...auditPayload,
@@ -1306,7 +1423,7 @@ export class QuestionController {
 
   @Patch('/:questionId/role-assignee')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({ summary: 'Assign a gate keeper / auditor to a question' })
   async changeRoleAssignee(
     @Params() params: QuestionIdParam,
@@ -1378,7 +1495,7 @@ export class QuestionController {
 
   @Delete('/:questionId/role-assignee')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
+  @Authorized(['admin', 'moderator', 'gate_keeper', 'auditor'])
   @OpenAPI({ summary: 'Remove the gate keeper / auditor assigned to a question' })
   async removeRoleAssignee(
     @Params() params: QuestionIdParam,
@@ -1444,25 +1561,62 @@ export class QuestionController {
 
   @Patch('/:questionId/role-allocation')
   @HttpCode(200)
-  @Authorized(['admin', 'moderator'])
-  @OpenAPI({ summary: 'Toggle gate keeper / auditor auto-allocation for a question' })
+  // Gate keeper / auditor toggles stay admin/moderator-only (checked in-method);
+  // the feedback toggle is allowed for any non-expert user.
+  @Authorized()
+  @OpenAPI({ summary: 'Toggle gate keeper / auditor / feedback auto-allocation for a question' })
   async toggleRoleAllocation(
     @Params() params: QuestionIdParam,
-    @Body() body: { role: 'gate_keeper' | 'auditor'; enabled: boolean },
+    @Body() body: { role: 'gate_keeper' | 'auditor' | 'feedback' | 'pae_validator'; enabled: boolean },
     @CurrentUser() user: IUser,
   ) {
     verifyNotTester(user);
     const { questionId } = params;
     const { role, enabled } = body;
-    if (role !== 'gate_keeper' && role !== 'auditor') {
-      throw new BadRequestError("role must be 'gate_keeper' or 'auditor'");
+    if (role !== 'gate_keeper' && role !== 'auditor' && role !== 'feedback' && role !== 'pae_validator') {
+      throw new BadRequestError("role must be 'gate_keeper', 'auditor', 'feedback' or 'pae_validator'");
     }
-    const field = role === 'gate_keeper' ? 'autoAllocateGateKeeper' : 'autoAllocateAuditor';
-    const label = role === 'gate_keeper' ? 'Gate keeper' : 'Auditor';
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot change auto-allocation');
+    }
+    // Gate keeper / auditor allocation: admins, moderators, gate keepers and auditors.
+    // Feedback allocation: any non-expert (already gated above).
+    if (
+      role !== 'feedback' && role !== 'pae_validator' &&
+      !['admin', 'moderator', 'gate_keeper', 'auditor'].includes(user.role)
+    ) {
+      throw new ForbiddenError(
+        'Only admins, moderators, gate keepers or auditors can change gate keeper / auditor allocation',
+      );
+    }
+    const field =
+      role === 'gate_keeper'
+        ? 'autoAllocateGateKeeper'
+        : role === 'auditor'
+          ? 'autoAllocateAuditor'
+          : role === 'pae_validator'
+            ? 'autoAllocatePaeValidationExpert'
+            : 'autoAllocateFeedback';
+    const label =
+      role === 'gate_keeper'
+        ? 'Gate keeper'
+        : role === 'auditor'
+          ? 'Auditor'
+          : role === 'pae_validator'
+            ? 'PAE Validator'
+            : 'Feedback';
 
+    const toggleAction =
+      role === 'gate_keeper'
+        ? AuditAction.TOGGLE_GATE_KEEPER_ALLOCATION
+        : role === 'auditor'
+          ? AuditAction.TOGGLE_AUDITOR_ALLOCATION
+          : role === 'pae_validator'
+            ? AuditAction.TOGGLE_PAE_VALIDATOR_ALLOCATION
+            : AuditAction.TOGGLE_FEEDBACK_ALLOCATION;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
-      action: role === 'gate_keeper' ? AuditAction.TOGGLE_GATE_KEEPER_ALLOCATION : AuditAction.TOGGLE_AUDITOR_ALLOCATION,
+      action: toggleAction,
       actor: this.roleAuditActor(user),
       context: { questionId },
       changes: {},
@@ -2290,6 +2444,250 @@ export class QuestionController {
     };
   }
 
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Get('/admin/closed-answer-mismatch')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Diagnostic: closed questions in a window with no final answer / no ObjectId approvedBy (breakdown mismatch)',
+  })
+  async getClosedAnswerMismatch(
+    @QueryParam('startTime') startTime?: string,
+    @QueryParam('endTime') endTime?: string,
+  ) {
+    const start = startTime ? new Date(startTime) : undefined;
+    const end = endTime ? new Date(endTime) : undefined;
+    const data = await this.questionService.getClosedAnswerMismatch(start, end);
+    return { success: true, data };
+  }
+
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Post('/admin/normalized-domain')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Bulk-set normalizedDomain on questions from [{ "Question ID", "Standardized Domain" }]; returns modified / not-matched counts',
+  })
+  async setNormalizedDomains(
+    @Body() body: { 'Question ID'?: string; 'Standardized Domain'?: string }[] | { data?: any[] },
+  ) {
+    // Accept either a raw JSON array or { data: [...] }.
+    const entries = Array.isArray(body) ? body : (body?.data ?? []);
+    const result = await this.questionService.setNormalizedDomains(entries as any);
+    return { success: true, data: result };
+  }
+
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Post('/admin/backfill-closed-moderator')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Backfill moderatorId on closed questions (moderatorId null/missing) from the final answer approver',
+  })
+  async backfillClosedModeratorIds(
+    @Body() body: { limit?: number },
+  ) {
+    const safeLimit = Math.max(1, Math.min(Number(body?.limit) || 500, 2000));
+    const result =
+      await this.questionService.backfillClosedModeratorIds(safeLimit);
+    return { success: true, data: result };
+  }
+
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Get('/feedback/queue-details')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Feedback tab data — waiting/assigned questions + available reviewers' })
+  async getFeedbackQueueDetails(@CurrentUser() user: IUser) {
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot view the feedback queue');
+    }
+    const data = await this.questionService.getFeedbackQueueDetails();
+    return { success: true, data };
+  }
+
+  @Get('/:questionId/feedback-timeline')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Feedback-review timeline (rounds + reviewers) for a question' })
+  async getFeedbackTimeline(@Params() params: QuestionIdParam) {
+    const data = await this.questionService.getFeedbackTimeline(params.questionId);
+    return { success: true, data };
+  }
+
+  // Two-segment static path so it isn't captured by the single-segment `/:questionId` route.
+  @Get('/feedback/reviewers')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'List moderators/auditors assignable as a feedback reviewer' })
+  async getAssignableFeedbackReviewers(@CurrentUser() user: IUser) {
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot manage feedback reviewers');
+    }
+    const data = await this.questionService.getAssignableFeedbackReviewers();
+    return { success: true, data };
+  }
+
+  @Post('/:questionId/feedback-reviewer')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Manually assign a feedback reviewer to a question' })
+  async assignFeedbackReviewerManually(
+    @Params() params: QuestionIdParam,
+    @Body() body: { userId: string; index?: number },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot assign feedback reviewers');
+    }
+    if (!body?.userId) {
+      throw new BadRequestError('userId is required');
+    }
+    const { questionId } = params;
+    const { userId, index } = body;
+    // A specific round index means a reassignment; otherwise a fresh assignment.
+    const isReassign = typeof index === 'number' && index >= 0;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.SELECT_FEEDBACK_REVIEWER,
+      actor: this.roleAuditActor(user),
+      context: {
+        questionId,
+        operation: isReassign ? 'reassign' : 'assign',
+        ...(isReassign ? { roundIndex: index } : {}),
+      },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevLabel = 'Unassigned';
+    let newUser: any;
+    try {
+      const [qd, timeline, nu] = await Promise.all([
+        this.questionService.getQuestionDataById(questionId),
+        this.questionService.getFeedbackTimeline(questionId),
+        this.userService.getUserById(userId),
+      ]);
+      questionDetails = qd;
+      newUser = nu;
+      // Round being changed: the one at `index` on reassign, else the currently open
+      // round. `!finishedAt && !closed` finds the open round regardless of which
+      // timeline shape (finishedAt-based or closed-based) is in effect.
+      const prevRound = isReassign
+        ? timeline?.reviews?.find((r: any) => r.index === index)
+        : timeline?.reviews?.find((r: any) => !r.finishedAt && !r.closed);
+      if (prevRound?.reviewerName) prevLabel = prevRound.reviewerName;
+
+      await this.questionService.assignFeedbackReviewerManually(
+        questionId,
+        userId,
+        index,
+      );
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { 'feedback reviewer': prevLabel },
+          after: { 'feedback reviewer': this.userLabel(newUser) ?? userId },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return {
+        success: true,
+        message: `Feedback reviewer ${isReassign ? 'reassigned' : 'assigned'} successfully`,
+      };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { 'feedback reviewer': prevLabel } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to assign feedback reviewer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || 'Failed to assign feedback reviewer');
+    }
+  }
+
+  @Delete('/:questionId/feedback-reviewer')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Remove an open feedback-review round (by index) from a question' })
+  async removeFeedbackReviewer(
+    @Params() params: QuestionIdParam,
+    @Body() body: { index: number },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot remove feedback reviewers');
+    }
+    if (typeof body?.index !== 'number') {
+      throw new BadRequestError('index is required');
+    }
+    const { questionId } = params;
+    const { index } = body;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.DELETE_FEEDBACK_REVIEWER,
+      actor: this.roleAuditActor(user),
+      context: { questionId, roundIndex: index },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevLabel = 'Unassigned';
+    try {
+      const [qd, timeline] = await Promise.all([
+        this.questionService.getQuestionDataById(questionId),
+        this.questionService.getFeedbackTimeline(questionId),
+      ]);
+      questionDetails = qd;
+      const prevRound = timeline?.reviews?.find((r: any) => r.index === index);
+      if (prevRound?.reviewerName) prevLabel = prevRound.reviewerName;
+
+      await this.questionService.removeFeedbackReviewer(questionId, index);
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { 'feedback reviewer': prevLabel },
+          after: { 'feedback reviewer': 'Removed' },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return { success: true, message: 'Feedback reviewer removed successfully' };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { 'feedback reviewer': prevLabel } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to remove feedback reviewer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || 'Failed to remove feedback reviewer');
+    }
+  }
+
   @Get('/:questionId/chatbot')
   @HttpCode(200)
   @Authorized()
@@ -2704,6 +3102,29 @@ export class QuestionController {
     return result;
   }
 
+  @Post('/reallocate-manual-queue')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Reallocate manual-queue (AGRI_EXPERT/OUTREACH) questions — assigns authors/reviewers for the single-allocation manual flow' })
+  async reallocateManualQueue(@CurrentUser() user: IUser) {
+    const result = await this.questionService.reallocateManualQuestions();
+    this.auditTrailsService.createAuditTrail({
+      category: AuditCategory.QUESTION,
+      action: AuditAction.REALLOCATE_QUESTIONS,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      changes: { after: { type: 'manual', ...result } },
+      outcome: { status: OutComeStatus.SUCCESS },
+      createdAt: new Date(),
+    });
+    return result;
+  }
+
   @Post('/:questionId/mark-opened')
   @HttpCode(200)
   @Authorized()
@@ -2731,5 +3152,491 @@ export class QuestionController {
     }
     const result = await this.questionService.backgroundProcessAction(userId);
     return result;
+  }
+
+  @Post('/background/remove-history-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Remove a submission history entry by index (internal data fix)',
+  })
+  async removeSubmissionHistoryEntry(
+    @Body() body: { questionId: string; index: number },
+  ) {
+    const { questionId, index } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (index === undefined || index === null) {
+      throw new BadRequestError('index is required');
+    }
+    return await this.questionService.removeSubmissionHistoryEntry(
+      questionId,
+      Number(index),
+    );
+  }
+
+  @Post('/background/remove-queue-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Remove an expert from a submission queue by index (internal data fix)',
+  })
+  async removeSubmissionQueueEntry(
+    @Body() body: { questionId: string; index: number },
+  ) {
+    const { questionId, index } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (index === undefined || index === null) {
+      throw new BadRequestError('index is required');
+    }
+    return await this.questionService.removeSubmissionQueueEntry(
+      questionId,
+      Number(index),
+    );
+  }
+
+  @Post('/background/add-queue-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Add an expert to a submission queue (internal data fix)',
+  })
+  async addSubmissionQueueEntry(
+    @Body() body: { questionId: string; expertId: string },
+  ) {
+    const { questionId, expertId } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (!expertId) {
+      throw new BadRequestError('expertId is required');
+    }
+    return await this.questionService.addSubmissionQueueEntry(
+      questionId,
+      expertId,
+    );
+  }
+
+  @Post('/background/add-history-entry')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary: 'Add a submission history entry (internal data fix)',
+  })
+  async addSubmissionHistoryEntry(
+    @Body() body: { questionId: string; entry: Record<string, any> },
+  ) {
+    const { questionId, entry } = body;
+    if (!questionId) {
+      throw new BadRequestError('questionId is required');
+    }
+    if (!entry || typeof entry !== 'object') {
+      throw new BadRequestError('entry object is required');
+    }
+    return await this.questionService.addSubmissionHistoryEntry(
+      questionId,
+      entry,
+    );
+  }
+
+  @Post('/background/normalize-state')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Standardise a state name across all questions (internal data fix). Sets details.state to `standardizedTo` for every question whose details.state is one of `current`.',
+  })
+  async normalizeQuestionState(
+    @Body() body: { current: string[]; standardizedTo: string },
+  ) {
+    const { current, standardizedTo } = body;
+    if (!Array.isArray(current) || current.length === 0) {
+      throw new BadRequestError('current must be a non-empty array of state values');
+    }
+    if (!standardizedTo || typeof standardizedTo !== 'string') {
+      throw new BadRequestError('standardizedTo is required');
+    }
+    return await this.questionService.normalizeQuestionState(
+      current,
+      standardizedTo,
+    );
+  }
+
+  @Post('/background/normalize-district')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Standardise question district names against the districts collection (internal data fix). Body: [{ existingName, standardiseTo }]. When `standardiseTo` is a known districtNameEnglish, questions with details.district === existingName are updated to it; names not found in the districts collection are returned in `notMatching`.',
+  })
+  async normalizeQuestionDistricts(
+    @Body() body: { existingName: string; standardiseTo: string }[],
+  ) {
+    if (!Array.isArray(body) || body.length === 0) {
+      throw new BadRequestError(
+        'body must be a non-empty array of { existingName, standardiseTo }',
+      );
+    }
+    return await this.questionService.normalizeQuestionDistricts(body);
+  }
+
+  @Get('/background/unknown-geo')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({
+    summary:
+      'Audit question geo (internal). Scans every question\'s details.state / details.district and returns the distinct values that do NOT exist in the states (stateNameEnglish) / districts (districtNameEnglish) collections.',
+  })
+  async findUnknownQuestionGeo() {
+    return await this.questionService.findUnknownQuestionGeo();
+  }
+  // ─── Check overlaps endpoint (internal API key auth) ──────────────────────
+
+  @Post('/check-overlaps')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Check for overlapping documents between staging and production databases' })
+  async checkOverlaps() {
+    console.log('[QuestionController] checkOverlaps: Starting overlap check...');
+    const result = await this.checkOverlapsService.checkOverlaps();
+    return result;
+  }
+
+  // ─── Run migration endpoint (internal API key auth) ──────────────────────
+
+  @Post('/run-migration')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Run migration from staging to production database' })
+  async runMigration() {
+    console.log('[QuestionController] runMigration: Starting migration...');
+    const result = await this.checkOverlapsService.runMigration();
+    return result;
+  }
+
+  // ─── Migrate Firebase users endpoint (internal API key auth) ─────────────────────
+
+  @Post('/migrate-firebase-users')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ summary: 'Migrate Firebase users for staging users - creates new Firebase users and updates their UIDs' })
+  async migrateFirebaseUsers() {
+    console.log('[QuestionController] migrateFirebaseUsers: Starting Firebase user migration...');
+    const result = await this.checkOverlapsService.migrateFirebaseUsers();
+    return result;
+  }
+
+  // ─── Open Feedback Accept/Reject endpoint ─────────────────────────────────
+
+  @Post('/:questionId/:feedbackId/feedback-action')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ 
+    summary: 'Accept or reject an open feedback',
+  })
+  async handleFeedbackAction(
+    @Param('questionId') questionId: string,
+    @Param('feedbackId') feedbackId: string,
+    @Body() body: { action: 'accept' | 'reject'; reason: string,source:'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation' },
+    @CurrentUser({ required: true }) user: IUser,
+  ) {
+    console.log('[QuestionController] handleFeedbackAction:', { questionId, feedbackId, action: body.action, reason: body.reason, userId: user._id, source: body.source });
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.QUESTION,
+      action: AuditAction.FEEDBACK_ACTION,
+      actor: this.roleAuditActor(user),
+      context: { questionId, feedbackId, action: body.action },
+      changes: {
+        after: {
+          feedback: body.action === 'accept' ? 'Accepted' : 'Rejected',
+          ...(body.reason ? { reason: body.reason } : {}),
+        },
+      },
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    try {
+      const result = await this.questionService.handleFeedbackAction(
+        questionId,
+        feedbackId,
+        body.action,
+        body.reason,
+        user._id.toString(),
+        body.source
+      );
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return result;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to process feedback action',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      throw err;
+    }
+  }
+
+  // ─── end point of add or update feedbacks status of the question ─────────────────────────────────
+
+  @Patch('/feedbacks/question/:questionId')
+  @HttpCode(200)
+  @UseBefore(InternalApiAuth)
+  @OpenAPI({ 
+    summary: 'Update the status of feedbacks of a question',
+  })
+  async handleUpdateFeedbackStatus(
+    @Param('questionId') questionId: string,
+    @Body() body: { source: "DATASET"| "WEB_APPLICATION" | "PAE_Validation" },
+  ) {
+    
+    const result = await this.questionService.handleFeedbackStatusUpdate(
+      questionId,
+      body.source,
+    );
+    
+    return result;
+  }
+
+  @Get('/:questionId/pae-validation-timeline')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Pae-validation-review timeline (rounds + reviewers) for a question' })
+  async getPaeValidationTimeline(@Params() params: QuestionIdParam) {
+    const data = await this.questionService.getPaeValidationTimeline(params.questionId);
+    return { success: true, data };
+  }
+
+    @Post('/:questionId/pae-val-reviewer')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Manually assign a pae validation reviewer to a question' })
+  async assignPaeValidationReviewer(
+    @Params() params: QuestionIdParam,
+    @Body() body: { userId: string; index?: number },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot assign pae validation reviewers');
+    }
+    if (!body?.userId) {
+      throw new BadRequestError('userId is required');
+    }
+    const { questionId } = params;
+    const { userId, index } = body;
+    // A specific round index means a reassignment; otherwise a fresh assignment.
+    const isReassign = typeof index === 'number' && index >= 0;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.SELECT_PAE_VALIDATION_REVIEWER,
+      actor: this.roleAuditActor(user),
+      context: {
+        questionId,
+        operation: isReassign ? 'reassign' : 'assign',
+        ...(isReassign ? { roundIndex: index } : {}),
+      },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevLabel = 'Unassigned';
+    let newUser: any;
+    try {
+      const [qd, timeline, nu] = await Promise.all([
+        this.questionService.getQuestionDataById(questionId),
+        this.questionService.getFeedbackTimeline(questionId),
+        this.userService.getUserById(userId),
+      ]);
+      questionDetails = qd;
+      newUser = nu;
+      // Round being changed: the one at `index` on reassign, else the currently open
+      // round. `!finishedAt && !closed` finds the open round regardless of which
+      // timeline shape (finishedAt-based or closed-based) is in effect.
+      const prevRound = isReassign
+        ? timeline?.reviews?.find((r: any) => r.index === index)
+        : timeline?.reviews?.find((r: any) => !r.finishedAt && !r.closed);
+      if (prevRound?.reviewerName) prevLabel = prevRound.reviewerName;
+
+      await this.questionService.assignPaeValidationReviewerManually(
+        questionId,
+        userId,
+        index,
+      );
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { 'pae validation reviewer': prevLabel },
+          after: { 'pae validation reviewer': this.userLabel(newUser) ?? userId },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return {
+        success: true,
+        message: `Pae validation reviewer ${isReassign ? 'reassigned' : 'assigned'} successfully`,
+      };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { 'pae validation reviewer': prevLabel } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to assign pae validation reviewer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || 'Failed to assign pae validation reviewer');
+    }
+  }
+
+  @Delete('/:questionId/pae-val-reviewer')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Remove an open pae-validation-review round (by index) from a question' })
+  async removePaeValidationReviewer(
+    @Params() params: QuestionIdParam,
+    @Body() body: { index: number },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot remove pae validation reviewers');
+    }
+    if (typeof body?.index !== 'number') {
+      throw new BadRequestError('index is required');
+    }
+    const { questionId } = params;
+    const { index } = body;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.DELETE_PAE_VALIDATION_REVIEWER,
+      actor: this.roleAuditActor(user),
+      context: { questionId, roundIndex: index },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+    let questionDetails: any;
+    let prevLabel = 'Unassigned';
+    try {
+      const [qd, timeline] = await Promise.all([
+        this.questionService.getQuestionDataById(questionId),
+        this.questionService.getPaeValidationTimeline(questionId),
+      ]);
+      questionDetails = qd;
+      const prevRound = timeline?.reviews?.find((r: any) => r.index === index);
+      if (prevRound?.paeName) prevLabel = prevRound.paeName;
+
+      await this.questionService.removePaeValidationReviewer(questionId, index);
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { 'pae validation reviewer': prevLabel },
+          after: { 'pae validation reviewer': 'Removed' },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return { success: true, message: 'Pae validation reviewer removed successfully' };
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: { before: { 'pae validation reviewer': prevLabel } },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to remove pae validation reviewer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) throw new InternalServerError(err.message);
+      throw new BadRequestError(err?.message || 'Failed to remove pae validation reviewer');
+    }
+  }
+  
+  // ─── PAE Validation Assigned Questions Endpoint ─────────────────────────────────
+
+  @Get('/pae/validations/assigned')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ 
+    summary: 'Get all questions assigned to the current PAE expert for validation',
+    description: 'Returns paginated questions assigned to the authenticated PAE expert, including their final answers and sources.',
+  })
+  async getPaeValidationAssignedQuestions(
+    @QueryParams() query: { page?: number; limit?: number },
+    @CurrentUser() user: IUser,
+  ) {
+    const page = Number(query.page) || 1;
+    const limit = Math.min(Number(query.limit) || 10, 100); // Cap at 100 per page
+    
+    const userId = user._id.toString();
+    return await this.questionService.getPaeValidationAssignedQuestions(userId, page, limit);
+  }
+
+  /**
+   * Process a PAE validation decision for a question.
+   * 
+   * When status is 'approve':
+   * - Updates question.paeValidation to 'completed'
+   * - Removes the question from the PAE expert's paeValidationAssigned array
+   * - Updates the question submission's paeValidation array entry to 'completed'
+   * 
+   * When status is 'feedback':
+   * - Logs the feedback (can be extended to store feedback details)
+   * - The question remains assigned to the PAE expert for further work
+   */
+  @Post('/pae/validations/process')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ 
+    summary: 'Process PAE validation decision (approve/feedback)',
+    description: 'Process a PAE validation decision for an assigned question. When approved, the question is marked as completed and removed from the assignment. When feedback is provided, the question remains assigned for further work.',
+  })
+  async processPaeValidation(
+    @Body() body: ProcessPaeValidationRequest,
+    @CurrentUser() user: IUser,
+  ) {
+    const paeExpertId = user._id.toString();
+    const { questionId, status, suggestionComment, suggestionLink, suggestionSourceName } = body;
+    
+    return await this.questionService.processPaeValidation(
+      paeExpertId,
+      questionId,
+      status,
+      suggestionComment,
+      suggestionLink,
+      undefined,
+      suggestionSourceName,
+    );
+  }
+
+  @Get('/pae-val/queue-details')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'PAE Validation queue details — waiting/assigned questions + available reviewers' })
+  async getPaeValidationQueueDetails(@CurrentUser() user: IUser) {
+    if (user.role === 'expert') {
+      throw new ForbiddenError('Experts cannot view the PAE Validation queue');
+    }
+    const data = await this.questionService.getPaeValidationQueueDetails();
+    return { success: true, data };
   }
 }

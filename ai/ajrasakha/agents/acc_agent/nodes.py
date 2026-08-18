@@ -1,13 +1,22 @@
 import json
 import re
-from typing import Optional
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from ajrasakha.agents.config import CLAUDE_MODEL, SANITIZER_MODEL
+from ajrasakha.agents.config import get_minimax_chat_model
 from ajrasakha.agents.acc_agent.state import AccAgentState
-from ajrasakha.agents.acc_agent.prompts import ACC_EXTRACT_PROMPT, ACC_PLANNER_PROMPT, ACC_ASSEMBLER_PROMPT
+from ajrasakha.agents.acc_agent.extraction import (
+    build_extraction_update,
+    normalize_extraction_type,
+)
+from ajrasakha.agents.acc_agent.lgd_location import normalize_location_from_lgd
+from ajrasakha.agents.acc_agent.prompts import (
+    ACC_ASSEMBLER_PROMPT,
+    ACC_EXTRACT_PROMPT,
+    ACC_FARMER_DETAILS_PROMPT,
+    ACC_PLANNER_PROMPT,
+    ACC_QUERY_DETAILS_PROMPT,
+)
 
 from ajrasakha.agents.gdb_agent import gdb
 from ajrasakha.agents.weather_agent import weather
@@ -15,32 +24,21 @@ from ajrasakha.agents.daily_price_agent import daily_price
 from ajrasakha.agents.schemes_agent import schemes
 from ajrasakha.agents.location_context import forward_geocode
 
-def _optional_str(value) -> Optional[str]:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text or text.lower() in {"null", "none", "n/a", "na", "all", "not specified", "unknown"}:
-        return None
-    return text
-
-
-def _optional_int(value) -> Optional[int]:
-    if value is None or value == "":
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
 async def extract_node(state: AccAgentState):
-    """Extract query, location, crop, domains, and farmer profile fields from transcript."""
+    """Extract all details, farmer details, or query details from a transcript."""
     if not state.get("transcript"):
         return {}
-        
-    llm = ChatAnthropic(model=SANITIZER_MODEL)
+
+    extraction_type = normalize_extraction_type(state.get("extraction_type"))
+    prompt_by_type = {
+        "all": ACC_EXTRACT_PROMPT,
+        "farmer_details": ACC_FARMER_DETAILS_PROMPT,
+        "query_details": ACC_QUERY_DETAILS_PROMPT,
+    }
+
+    llm = get_minimax_chat_model()
     messages = [
-        SystemMessage(content=ACC_EXTRACT_PROMPT),
+        SystemMessage(content=prompt_by_type[extraction_type]),
         HumanMessage(content=state["transcript"])
     ]
     response = await llm.ainvoke(messages)
@@ -52,40 +50,31 @@ async def extract_node(state: AccAgentState):
             data = json.loads(json_match.group(1))
         else:
             data = json.loads(content)
-            
-        # Extract standardized_domains (can be one or more)
-        domains = data.get("standardized_domains", [])
-        if isinstance(domains, str):
-            domains = [domains]
-        if not domains:
-            domains = ["Others"]  # Default fallback
-
-        primary_crop = _optional_str(data.get("primary_crop"))
-        query_crop = data.get("crop", "All")
-        if not primary_crop and query_crop and str(query_crop).strip().lower() not in {"all", "not specified", ""}:
-            primary_crop = str(query_crop).strip()
-            
-        return {
-            "extracted_query": data.get("query", ""),
-            "extracted_state": data.get("state", "All"),
-            "extracted_district": data.get("district", "All"),
-            "extracted_crop": query_crop,
-            "standardized_domains": domains,
-            "extracted_name": _optional_str(data.get("name")),
-            "extracted_phone": _optional_str(data.get("phone")),
-            "extracted_age": _optional_int(data.get("age")),
-            "extracted_gender": _optional_str(data.get("gender")),
-            "extracted_village": _optional_str(data.get("village")),
-            "extracted_block": _optional_str(data.get("block")),
-            "extracted_primary_crop": primary_crop,
-            "verified_by_human": False
-        }
+        extraction_update = build_extraction_update(data, extraction_type)
+        normalized_state, normalized_district = await normalize_location_from_lgd(
+            extraction_update.get("extracted_state"),
+            extraction_update.get("extracted_district"),
+        )
+        extraction_update["extracted_state"] = normalized_state
+        extraction_update["extracted_district"] = normalized_district
+        return extraction_update
     except Exception as e:
-        return {"extracted_query": f"Failed to parse: {str(e)}", "verified_by_human": False}
+        if extraction_type == "farmer_details":
+            return {
+                "extraction_type": extraction_type,
+                "extracted_state": "All",
+                "extracted_district": "All",
+                "verified_by_human": False,
+            }
+        return {
+            "extraction_type": extraction_type,
+            "extracted_query": f"Failed to parse: {str(e)}",
+            "verified_by_human": False,
+        }
 
 async def planner_node(state: AccAgentState):
     """Determine which sub-agent tool(s) to use based on verified inputs."""
-    llm = ChatAnthropic(model=SANITIZER_MODEL)
+    llm = get_minimax_chat_model()
     
     context = (
         f"Query: {state.get('extracted_query')}\n"
@@ -287,7 +276,7 @@ async def assembler_node(state: AccAgentState):
             schemes_data = schemes_response
     
     # Generate final_answer using LLM
-    llm = ChatAnthropic(model=CLAUDE_MODEL)
+    llm = get_minimax_chat_model()
     context = (
         f"Original Query: {state.get('extracted_query')}\n\n"
         f"GDB Data:\n{json.dumps(gdb_data, indent=2, ensure_ascii=False) if gdb_data else 'Not requested'}\n\n"

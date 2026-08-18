@@ -750,11 +750,24 @@ export class AnswerService extends BaseService implements IAnswerService {
           const isNotLast =
             currentUserIndexInQueue < currentSumbmissionQueue.length - 1;
           const isQueueNotFull = currentSumbmissionQueue.length < 10;
+          // Single-allocation questions (all sources: AJRASAKHA / WHATSAPP /
+          // AGRI_EXPERT / OUTREACH) have their next reviewer assigned by the
+          // reallocate cron one at a time — reviewAnswer must NOT assign reviewers
+          // inline for them (neither the next queue member nor an auto-expand).
+          const isSingleAllocation =
+            question.source === 'AJRASAKHA' ||
+            question.source === 'WHATSAPP' ||
+            question.source === 'AGRI_EXPERT' ||
+            question.source === 'OUTREACH';
           // Case 1: Current user is not the last in the queue and total history (including next) is less than 10
           //currentSubmissionHistory.length <10
 
           // if (isNotLast &&isQueueNotFull  ) {
-          if (isNotLast && currentSubmissionHistory.length < 10) {
+          if (
+            !isSingleAllocation &&
+            isNotLast &&
+            currentSubmissionHistory.length < 10
+          ) {
             const nextExpertId =
               currentSumbmissionQueue[currentUserIndexInQueue + 1];
 
@@ -796,12 +809,11 @@ export class AnswerService extends BaseService implements IAnswerService {
             );
           }
 
-          // Case 2: Current user is the last in the queue but the queue isn't full
-          // Time-bound questions (AJRASAKHA/WHATSAPP) are managed by their own
-          // cron — do NOT auto-expand the queue when an expert submits.
-          const isTimeBound = question.source === 'AJRASAKHA' || question.source === 'WHATSAPP';
+          // Case 2: Current user is the last in the queue but the queue isn't full.
+          // Single-allocation questions are managed by their own cron — do NOT
+          // auto-expand the queue when an expert submits (see isSingleAllocation above).
           if (
-            !isTimeBound &&
+            !isSingleAllocation &&
             currentUserIndexInQueue === currentSumbmissionQueue.length - 1 &&
             currentSumbmissionQueue.length < 10 &&
             question.isAutoAllocate
@@ -1792,6 +1804,13 @@ export class AnswerService extends BaseService implements IAnswerService {
         );
       }
 
+      // ── Validate & normalise state / district against LGD collections ──
+      // Mirrors the normalised_crop guard: if the question's state or district
+      // isn't registered in the states / districts collections, block approval
+      // and tell the moderator to fix it via LGD Management. Also resolves
+      // aliases to the canonical stateNameEnglish / districtNameEnglish.
+      await this.questionService.ensureNormalisedLocation(questionId, session);
+
       const submission = await this.questionSubmissionRepo.getByQuestionId(
         questionId,
         session,
@@ -1805,7 +1824,7 @@ export class AnswerService extends BaseService implements IAnswerService {
         );
       }
 
-      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+      // const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
 
       const text = `Question: ${question.question}
 
@@ -1918,22 +1937,36 @@ answer: ${updates.answer}`;
       // through "Notify User") close as `dynamic_closed` rather than `closed`, so they
       // stay distinguishable downstream. The customer webhook carries the same status.
       // `tag === 'static_dynamic'` questions are also closed this way.
+      // A duplicate question carries a referenceQuestionId — used as the fallback to
+      // tell duplicate from dynamic when `auditorReviewType` wasn't stamped at push
+      // time (mirrors the frontend's isDuplicateQuestion / isDynamicQuestion logic).
+      const hasDuplicateRef = !!(question as any).referenceQuestionId;
       const isDynamicClose =
         question.status === 'dynamic' ||
         question.tag === 'static_dynamic' ||
         (question.status === 'auditor_review' &&
-          question.auditorReviewType === 'dynamic');
+          (question.auditorReviewType === 'dynamic' ||
+            (!question.auditorReviewType && !hasDuplicateRef)));
       // Duplicate questions finalised via the Auditor "Notify User" flow close as
       // `duplicate_closed` (same handling as dynamic's `dynamic_closed`). The customer
       // webhook carries this status too (via notifyCustomerOnClose(..., closeStatus)).
       const isDuplicateClose =
         question.status === 'duplicate' ||
         (question.status === 'auditor_review' &&
-          question.auditorReviewType === 'duplicate');
-      const closeStatus: QuestionStatus = isDuplicateClose
-        ? 'duplicate_closed'
-        : isDynamicClose
-          ? 'dynamic_closed'
+          (question.auditorReviewType === 'duplicate' ||
+            (!question.auditorReviewType && hasDuplicateRef)));
+      // Auditor finalise:
+      //  - "Push to GDB" (closeIntent 'gdb')  → close as plain `closed`.
+      //  - "Notify User" (closeIntent 'notify') → keep it distinguishable:
+      //       dynamic  → `dynamic_closed`, duplicate → `duplicate_closed`.
+      // Anything else (normal close) stays `closed`.
+      const closeStatus: QuestionStatus =
+        updates.closeIntent === 'notify'
+          ? isDuplicateClose
+            ? 'duplicate_closed'
+            : isDynamicClose
+              ? 'dynamic_closed'
+              : 'closed'
           : 'closed';
 
       // DUPLICATE / DYNAMIC QUESTION FLOW
@@ -1973,7 +2006,10 @@ answer: ${updates.answer}`;
             text,
             embedding: questionEmbedding,
             status: closeStatus,
+            paeValidation: 'pending',
+            autoAllocatePaeValidationExpert: true,
             closedAt: new Date(),
+
           },
           session,
           true,
@@ -2030,6 +2066,9 @@ answer: ${updates.answer}`;
           text,
           embedding: questionEmbedding,
           status: closeStatus,
+          paeValidation: 'pending',
+          autoAllocateFeedback: true,
+          autoAllocatePaeValidationExpert: true,
           closedAt: new Date(),
         },
         session,
@@ -2110,7 +2149,7 @@ answer: ${updates.answer}`;
           // Close the child question, marking it system-closed.
           await this.questionRepo.updateQuestion(
             childId,
-            { status: 'closed', closedAt: new Date(), closedBy: 'System' },
+            { status: 'closed', closedAt: new Date(), closedBy: 'System', paeValidation: 'pending', autoAllocatePaeValidationExpert: true },
             session,
           );
           // Free any moderator holding the child.
@@ -2243,7 +2282,7 @@ answer: ${updates.answer}`;
 
           await this.questionRepo.updateQuestion(
             questionId,
-            { status: 'closed', closedAt: new Date(), closedBy: 'System' },
+            { status: 'closed', closedAt: new Date(), closedBy: 'System' , paeValidation: 'pending', autoAllocatePaeValidationExpert: true},
             session,
           );
 
@@ -2574,6 +2613,7 @@ answer: ${updates.answer}`;
         {
           totalAnswersCount: updatedAnswerCount,
           status: isFinalAnswer ? 'open' : 'closed',
+          ...(!isFinalAnswer && { paeValidation: 'pending', autoAllocatePaeValidationExpert: true }),
         },
         session,
       );

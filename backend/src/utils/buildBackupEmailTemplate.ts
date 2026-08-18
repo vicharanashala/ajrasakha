@@ -1015,6 +1015,103 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
               : ''
           }
 
+          <!-- ========================================= -->
+          <!-- TOTAL QUESTIONS ENTERED IN SYSTEM TODAY -->
+          <!-- ========================================= -->
+
+          <tr style="
+            background-color: #ecfdf5;
+            border-bottom: 1px solid #d1fae5;
+          ">
+            <td style="padding: 20px;">
+              <div style="
+                font-size: 14px;
+                font-weight: 700;
+                color: #065f46;
+              ">
+                Total Questions Entered in System Today
+              </div>
+
+              <div style="
+                margin-top: 5px;
+                font-size: 12px;
+                color: #047857;
+              ">
+                New questions created in the system today
+              </div>
+            </td>
+
+            <td style="
+              padding: 20px;
+              text-align: right;
+              vertical-align: middle;
+            ">
+              <span style="
+                display: inline-block;
+                background-color: #047857;
+                color: #ffffff;
+                padding: 8px 14px;
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: 700;
+              ">
+                +${stats.todayAdded.toLocaleString()}
+              </span>
+            </td>
+          </tr>
+
+          <tr>
+            <td
+              colspan="2"
+              style="
+                padding: 14px 20px 8px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #9ca3af;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              "
+            >
+              Today's Entries by Source
+            </td>
+          </tr>
+
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 11px 20px 11px 32px; font-size: 13px; color: #4b5563;">
+              WebApp Generated
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+              ${(stats.todayAddedWebAppCount ?? 0).toLocaleString()}
+            </td>
+          </tr>
+
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 11px 20px 11px 32px; font-size: 13px; color: #4b5563;">
+              WhatsApp Generated
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+              ${(stats.todayAddedWhatSappCount ?? 0).toLocaleString()}
+            </td>
+          </tr>
+
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 11px 20px 11px 32px; font-size: 13px; color: #4b5563;">
+              Outreach
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+              ${(stats.todayAddedOutReachCount ?? 0).toLocaleString()}
+            </td>
+          </tr>
+
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 11px 20px 11px 32px; font-size: 13px; color: #4b5563;">
+              Agri Expert
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+              ${(stats.todayAddedAgriExpertCount ?? 0).toLocaleString()}
+            </td>
+          </tr>
+
                   <!-- Approval Rate -->
         <tr style="border-bottom: 1px solid #e5e7eb;">
           <td style="

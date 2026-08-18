@@ -3,6 +3,7 @@ from __future__ import annotations
 from ajrasakha.tools.answer_shortener.validation import (
     ProtectedContent,
     validate_candidate,
+    validate_compressed_candidate,
 )
 
 
@@ -127,3 +128,19 @@ def test_validation_rejects_a_different_writing_script():
     )
 
     assert any(item.startswith("WRONG_WRITING_SCRIPT") for item in failures)
+
+
+def test_compression_validation_allows_paraphrase_but_rejects_new_measurements():
+    protected = ProtectedContent.from_text(
+        "Wear gloves while applying 2 ml/L. Details: https://example.org/advice"
+    )
+
+    failures = validate_compressed_candidate(
+        "Wear protective gloves and apply 5 ml/L.",
+        lower_bound=1,
+        upper_bound=500,
+        protected=protected,
+    )
+
+    assert not any(item.startswith("MISSING_SAFETY_SPAN") for item in failures)
+    assert any(item.startswith("NEW_MEASUREMENT_NOT_IN_SOURCE") for item in failures)

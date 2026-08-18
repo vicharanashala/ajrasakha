@@ -29,6 +29,7 @@ import type {
   PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
+import {sendEmailWithAttachment} from '#root/utils/mailer.js';
 import {GrowthResponse} from '../types/chatbot.type.js';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -43,6 +44,12 @@ import {WhatsappUsers} from '#root/utils/dummyWhatsAppUsers.js';
 import {access} from 'node:fs';
 import {aiConfig} from '#root/config/ai.js';
 import {appConfig} from '#root/config/app.js';
+import {emailConfig} from '#root/config/mail.js';
+import {getISTStartOfToday} from '#root/utils/date.utils.js';
+import {
+  buildResponseAdherenceCsv,
+  buildResponseAdherenceHtmlTable,
+} from '../utils/responseAdherenceReport.js';
 import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
@@ -807,11 +814,67 @@ export class ChatbotService extends BaseService implements IChatbotService {
     startTime?: string,
     endTime?: string,
     month?: string,
+    coordinatorId?: string,
   ): Promise<DashboardResponse> {
     const currentMonth =
       month ||
       `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     try {
+      if (coordinatorId) {
+        const stats = await this.chatbotRepository.getCoordinatorKpiSummary(coordinatorId);
+        const response: any = {
+          kpi: {
+            dau: stats.totalUsers,
+            dauLastMonthPct: 0,
+            dailyQueries: stats.todayQueries,
+            avgSessionDurationMin: stats.avgSessionDurationMin,
+            csatRating: 0,
+            repeatQueryRatePct: 0,
+            voiceUsageSharePct: 0,
+            totalAppInstalls: stats.totalAppInstalls,
+            inactiveUsersLast3Days: stats.inactiveUsersLast3Days,
+            duplicateQuestionsCount: stats.duplicateQuestionsCount,
+            lowFeedbackUsersCount: stats.lowFeedbackUsersCount,
+            dauValue: `${stats.dauActiveCount} / ${stats.dauTotalCount}`,
+            queriesValue: String(stats.todayQueries),
+            sessionValue: `${stats.avgSessionDurationMin.toFixed(1)} min`
+          },
+          dau: stats.dauTrend.map((t: any) => ({ day: t.date, count: t.count })),
+          weeklySessionDuration: [],
+          monthlySessionDuration: [],
+          dailyQueries: stats.queriesTrend.map((t: any) => ({ period: t.date, queryCount: t.count })),
+          weeklyQueries: [],
+          monthlyQueries: [],
+          channelSplit: [],
+          voiceAccuracy: [],
+          geo: [],
+          queryCategories: [],
+          ageGroups: [],
+          genderSplit: [],
+          farmingExperience: [],
+          kccAwareness: [],
+          agriAppUsage: [],
+          landHolding: [],
+          platformInstalls: [],
+          feedbackData: {
+            positiveFeedbacks: [],
+            negativeFeedbacks: [],
+            stats: {
+              _id: null,
+              positiveCount: 0,
+              negativeCount: 0,
+              averageRating: 0,
+              totalFeedbacks: 0
+            }
+          },
+          querySummaries: {
+            daily: { label: "Daily", totalQueries: stats.todayQueries },
+            weekly: { label: "Weekly", totalQueries: stats.todayQueries },
+            monthly: { label: "Monthly", totalQueries: stats.todayQueries }
+          }
+        };
+        return response;
+      }
       const [
         kpi,
         dau,
@@ -1075,12 +1138,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getQueryCategories(source = 'annam', userType = 'all') {
+  async getQueryCategories(source = 'annam', userType = 'all', coordinatorId?: string) {
     try {
       return await this.chatbotRepository.getQueryCategories(
         source,
         undefined,
         userType,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1097,6 +1161,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source = 'annam',
     userType = 'all',
     search?: string,
+    coordinatorId?: string,
   ) {
     try {
       return await this.chatbotRepository.getQueryCategoryQuestions(
@@ -1108,6 +1173,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         undefined,
         userType,
         search,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1212,6 +1278,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ) {
     try {
       let stateCode: number;
@@ -1235,6 +1302,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startDate,
         endDate,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1299,9 +1367,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTopCrops(source?: string, userType?: string) {
+  async getTopCrops(source?: string, userType?: string, coordinatorId?: string) {
     try {
-      return await this.chatbotRepository.getTopCrops(source, userType);
+      return await this.chatbotRepository.getTopCrops(source, userType, undefined, coordinatorId);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top crops: ${error}`);
     }
@@ -2932,6 +3000,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     range: number,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<GrowthResponse> {
     return await this._withTransaction(async session => {
       const resolvedEndDate = endDate ? new Date(endDate) : new Date();
@@ -2954,18 +3023,21 @@ export class ChatbotService extends BaseService implements IChatbotService {
           resolvedStartDate,
           resolvedEndDate,
           session,
+          coordinatorId,
         ),
         this.chatbotRepository.getInstalls(
           userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
+          coordinatorId,
         ),
         this.chatbotRepository.getActiveUsers(
           userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
+          coordinatorId,
         ),
       ]);
       return {
@@ -2979,9 +3051,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     });
   }
 
-  async getDuplicateQuestions(source = 'annam') {
+  async getDuplicateQuestions(source = 'annam', coordinatorId?: string) {
     try {
-      return await this.chatbotRepository.getDuplicateQuestions(source);
+      return await this.chatbotRepository.getDuplicateQuestions(source, coordinatorId);
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch duplicate questions: ${error}`,
@@ -2989,9 +3061,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDomainSpikes(days = 60) {
+  async getDomainSpikes(days = 60, coordinatorId?: string) {
     try {
-      return await this.chatbotRepository.getDomainSpikes(days);
+      return await this.chatbotRepository.getDomainSpikes(days, coordinatorId);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch domain spikes: ${error}`);
     }
@@ -3025,6 +3097,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ) {
     try {
       return await this.chatbotRepository.getTopFaqs(
@@ -3033,6 +3106,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startTime,
         endTime,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
@@ -3362,6 +3436,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       return await this.chatbotRepository.getTopQuestionsFromCollection(
@@ -3370,6 +3445,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startTime,
         endTime,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
@@ -3384,6 +3460,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     endTime?: string,
     page: number = 1,
     limit: number = 10,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       return await this.chatbotRepository.getTopQuestionInstances(
@@ -3394,6 +3471,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         endTime,
         page,
         limit,
+        undefined,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top question instances: ${error}`);
@@ -3405,6 +3484,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       return await this.chatbotRepository.getRepeatQueryCount(
@@ -3412,6 +3492,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startTime,
         endTime,
+        undefined,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -3641,6 +3723,50 @@ export class ChatbotService extends BaseService implements IChatbotService {
         ajrasakhaOpen: 0,
         whatsappDelayed: 0,
         ajrasakhaDelayed: 0,
+
+                  whatsappClosedCount: 0,
+        whatsappPendingCount: 0,
+        whatsappNonAgriCount: 0,
+        whatsappDynamicCount: 0,
+        whatsappDuplicateCount: 0,
+        whatsappHoldCount: 0,
+        whatsappPaeSubmitedCount: 0,
+        whatsappDynamicCLosedCount: 0,
+        whatsappReroutedCount: 0,
+        whatsappPassCount: 0,
+        whatsappDuplicateClosedCount: 0,
+
+      ajrasakhaClosedCount: 0,
+    ajrasakhaPendingCount: 0,
+    ajrasakhaNonAgriCount: 0,
+    ajrasakhaDynamicCount: 0,
+    ajrasakhaDuplicateCount: 0,
+    ajrasakhaHoldCount: 0,
+    ajrasakhaPaeSubmitedCount:0,
+    ajrasakhaDynamicCLosedCount: 0,
+    ajrasakhaReroutedCount: 0,
+    ajrasakhaPassCount: 0,
+    ajrasakhaDuplicateClosedCount:0,
+    
+      manualClosedCount: 0,
+    manualPendingCount: 0,
+    manualNonAgriCount:0,
+    manualDynamicCount: 0,
+    manualDuplicateCount: 0,
+    manualHoldCount: 0,
+    manualPaeSubmitedCount:0,
+    manualDynamicCLosedCount: 0,
+    manualReroutedCount: 0,
+    manualPassCount: 0,
+    manualDuplicateClosedCount:0,
+
+              manualAverageResponseGBDMinutes: 0,
+    manualAverageResponseNonGBDMinutes: 0,
+    whatsappAverageResponseGBDMinutes:0,
+        whatsappAverageResponseNonGBDMinutes: 0,
+            ajrasakhaAverageResponseGBDMinutes: 0,
+    ajrasakhaAverageResponseNonGBDMinutes: 0,
+
         whatsappAverageResponseMinutes: 0,
         ajrasakhaAverageResponseMinutes: 0,
         whatsappAdherencePct: 0,
@@ -3659,7 +3785,317 @@ export class ChatbotService extends BaseService implements IChatbotService {
         manualDelayed: 0,
         manualAverageResponseMinutes: 0,
         manualAdherencePct: 0,
+        answeredWithin120MinClosedwhatsapp: 0,
+        answeredWithin120MinPasswhatsapp: 0,
+        answeredWithin120MinDynamicClosedwhatsapp: 0,
+        answeredWithin120MinDuplicateClosedwhatsapp: 0,
+        answeredWithin120MinClosedajrasakha: 0,
+        answeredWithin120MinPassajrasakha: 0,
+        answeredWithin120MinDynamicClosedajrasakha: 0,
+        answeredWithin120MinDuplicateClosedajrasakha: 0,
+        answeredWithin120MinClosedmanual: 0,
+        answeredWithin120MinPassmanual: 0,
+        answeredWithin120MinDynamicClosedmanual: 0,
+        answeredWithin120MinDuplicateClosedmanual: 0,
+
+        whatsappdynamicWeatherDynamicCount: 0,
+        whatsappdynamicWeatherStaticDynamicCount: 0,
+        ajrasakhadynamicWeatherDynamicCount: 0,
+        ajrasakhadynamicWeatherStaticDynamicCount: 0,
+        manualdynamicWeatherDynamicCount: 0,
+        manualdynamicWeatherStaticDynamicCount: 0,
+
+        whatsappdynamicMarketDynamicCount: 0,
+        whatsappdynamicMarketStaticDynamicCount: 0,
+        ajrasakhadynamicMarketDynamicCount: 0,
+        ajrasakhadynamicMarketStaticDynamicCount: 0,
+        manualdynamicMarketDynamicCount: 0,
+        manualdynamicMarketStaticDynamicCount: 0,
+
+        whatsappdynamicSchemesDynamicCount: 0,
+        whatsappdynamicSchemesStaticDynamicCount: 0,
+        ajrasakhadynamicSchemesDynamicCount: 0,
+        ajrasakhadynamicSchemesStaticDynamicCount: 0,
+        manualdynamicSchemesDynamicCount: 0,
+        manualdynamicSchemesStaticDynamicCount: 0,
+
+        totalDynamicWhatsappCount: 0,
+        totalDynamicAjrasakhaCount: 0,
+        totalDynamicManualCount: 0,
+
+        totalStaticDynamicWhatsappCount: 0,
+        totalStaticDynamicAjrasakhaCount: 0,
+        totalStaticDynamicManualCount: 0,
+
+        whatsAppAnsweredAfter120Min: 0,
+        ajrasakhaAnsweredAfter120Min: 0,
+        manualAnsweredAfter120Min: 0,
+
+        whatsAppAnsweredAfter120MinClosed: 0,
+        whatsAppAnsweredAfter120MinPass: 0,
+        whatsAppAnsweredAfter120MinDynamicClosed: 0,
+        whatsAppAnsweredAfter120MinDuplicateClosed: 0,
+
+        ajrasakhaAnsweredAfter120MinClosed: 0,
+        ajrasakhaAnsweredAfter120MinPass: 0,
+        ajrasakhaAnsweredAfter120MinDynamicClosed: 0,
+        ajrasakhaAnsweredAfter120MinDuplicateClosed: 0,
+
+        manualAnsweredAfter120MinClosed: 0,
+        manualAnsweredAfter120MinPass: 0,
+        manualAnsweredAfter120MinDynamicClosed: 0,
+        manualAnsweredAfter120MinDuplicateClosed: 0,
+
+        whatsappSlaBreachedCount: 0,
+        ajrasakhaSlaBreachedCount: 0,
+        manualSlaBreachedCount: 0,
+
+        // WhatsApp
+        whatsappTatMinutes: 0,
+        whatsappAverageTimeToAuthorMinutes: 0,
+        whatsappAverageReviewAcceptMinutes: 0,
+        whatsappAverageReviewModifyMinutes: 0,
+        whatsappAverageReviewRejectReauthorMinutes: 0,
+        whatsappAverageModeratingMinutes: 0,
+        whatsappAverageGatekeepingMinutes: 0,
+        whatsappAverageAuditingMinutes: 0,
+        whatsappAverageReroutedCompletionMinutes: 0,
+
+        // Ajrasakha
+        ajrasakhaTatMinutes: 0,
+        ajrasakhaAverageTimeToAuthorMinutes: 0,
+        ajrasakhaAverageReviewAcceptMinutes: 0,
+        ajrasakhaAverageReviewModifyMinutes: 0,
+        ajrasakhaAverageReviewRejectReauthorMinutes: 0,
+        ajrasakhaAverageModeratingMinutes: 0,
+        ajrasakhaAverageGatekeepingMinutes: 0,
+        ajrasakhaAverageAuditingMinutes: 0,
+        ajrasakhaAverageReroutedCompletionMinutes: 0,
+
+        // Manual
+        manualTatMinutes: 0,
+        manualAverageTimeToAuthorMinutes: 0,
+        manualAverageReviewAcceptMinutes: 0,
+        manualAverageReviewModifyMinutes: 0,
+        manualAverageReviewRejectReauthorMinutes: 0,
+        manualAverageModeratingMinutes: 0,
+        manualAverageGatekeepingMinutes: 0,
+        manualAverageAuditingMinutes: 0,
+        manualAverageReroutedCompletionMinutes: 0,
+
+          whatsappAverageEndToEndQnaCompletionMinutes: 0,
+          ajrasakhaAverageEndToEndQnaCompletionMinutes: 0,
+          manualAverageEndToEndQnaCompletionMinutes: 0,
+
+          whatsappAverageEndToEndUniqueMinutes: 0,
+          ajrasakhaAverageEndToEndUniqueMinutes: 0,
+          manualAverageEndToEndUniqueMinutes: 0,
+
+          whatsappAverageEndToEndDynamicMinutes: 0,
+          ajrasakhaAverageEndToEndDynamicMinutes: 0,
+          manualAverageEndToEndDynamicMinutes: 0,
+
+          whatsappAverageEndToEndDuplicateMinutes: 0,
+          ajrasakhaAverageEndToEndDuplicateMinutes: 0,
+          manualAverageEndToEndDuplicateMinutes: 0,
+
+                whatsappPaeAssignedQuestions: 0,
+    ajrasakhaPaeAssignedQuestions: 0,
+    manualPaeAssignedQuestions: 0,
+    // PAE Contribution to GDB
+    whatsappPaeContributionToGDB: 0,
+    ajrasakhaPaeContributionToGDB: 0,
+    manualPaeContributionToGDB: 0,
+    // PAE Contribution to GDB %
+    whatsappPaeContributionToGDBPct: 0,
+    ajrasakhaPaeContributionToGDBPct: 0,
+    manualPaeContributionToGDBPct: 0,
       }));
+  }
+
+  async sendResponseAdherenceReportEmail(
+    emails: string[],
+    reportContent: string,
+    fileName: string,
+    context?: {
+      source?: string;
+      userType?: string;
+      startDate?: string;
+      endDate?: string;
+      timeWindow?: string;
+    },
+    reportHtml?: string,
+  ): Promise<{success: boolean; message: string}> {
+    try {
+      const formatDateStr = (d?: string) => {
+        if (!d) return '';
+        const parts = d.split(/[-/]/);
+        if (parts.length === 3 && parts[0].length === 4) {
+          return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return d;
+      };
+      
+      const formattedStartDate = formatDateStr(context?.startDate);
+      const formattedEndDate = formatDateStr(context?.endDate);
+
+      const dateRangeLabel =
+        formattedStartDate || formattedEndDate
+          ? ` (${formattedStartDate || ''}${
+              formattedEndDate && formattedEndDate !== formattedStartDate
+                ? ` to ${formattedEndDate}`
+                : ''
+            })`
+          : '';
+      const title = `AjraSakha Response Adherence Report${dateRangeLabel}`;
+      const platformUrl = appConfig.frontendUrl;
+
+      // Colors/typography lifted from the app's own theme (frontend/src/styles.css's :root
+      // OKLCH tokens, converted to hex since email clients don't support oklch()), so the
+      // report reads as part of the AjraSakha Review System rather than a generic spreadsheet
+      // dump. Keep in sync with the frontend/backend copies of this palette in
+      // responseAdherenceReport.ts if the app's theme colors change.
+      const FONT = "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+      const PAGE_BG = '#f3f6f4';
+      const CARD_BG = '#ffffff';
+      const BORDER = '#e5e7eb';
+      const PRIMARY = '#72e3ad';
+      const PRIMARY_SOFT = '#e8faf1';
+      const PRIMARY_BORDER = '#bdeed4';
+      const HEADING = '#14532d';
+      const TEXT = '#171717';
+      const MUTED = '#6b7280';
+
+      const chipEntries: {label: string; value: string}[] = [];
+      if (context?.source) chipEntries.push({label: 'Source', value: context.source});
+      if (context?.userType) {
+        chipEntries.push({
+          label: 'User Type',
+          value: context.userType.toLowerCase() === 'all' ? 'External & Internal' : context.userType,
+        });
+      }
+      if (formattedStartDate || formattedEndDate) {
+        chipEntries.push({
+          label: 'Date',
+          value: `${formattedStartDate || ''}${formattedEndDate && formattedEndDate !== formattedStartDate ? ` to ${formattedEndDate}` : ''}`,
+        });
+      }
+      if (context?.timeWindow) chipEntries.push({label: 'Time', value: context.timeWindow});
+
+      const chipsHtml = chipEntries.length
+        ? `
+            <div style="margin: 22px 0;">
+              ${chipEntries
+                .map(
+                  chip => `
+                <span style="display:inline-block; background:${PRIMARY_SOFT}; border:1px solid ${PRIMARY_BORDER}; border-radius:999px; padding:7px 16px; margin:0 8px 8px 0; font-family:${FONT}; font-size:12px; color:${HEADING};">
+                  <span style="font-weight:700; text-transform:uppercase; letter-spacing:.04em; font-size:10px;">${chip.label}</span>
+                  &nbsp;·&nbsp;<span style="font-weight:600;">${chip.value}</span>
+                </span>`,
+                )
+                .join('')}
+            </div>`
+        : '';
+
+      const html = `
+        <div style="background:${PAGE_BG}; padding: 32px 16px; font-family: ${FONT};">
+          <div style="max-width: 800px; margin: 0 auto; background: ${CARD_BG}; color: ${TEXT}; border: 1px solid ${BORDER}; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+            <div style="text-align: center; padding: 28px 20px 22px; background-color: ${CARD_BG}; border-bottom: 3px solid ${PRIMARY};">
+              <img src="${platformUrl}/annam-logo.png" alt="Annam.ai Logo" style="height: 56px;" />
+            </div>
+            <div style="padding: 30px 28px;">
+              <h2 style="color: ${HEADING}; margin-top: 0; margin-bottom: 16px; text-align: center; font-family: ${FONT}; font-size: 21px;">Response Adherence Report</h2>
+              <p style="font-size: 15px; line-height: 1.6; color: ${TEXT};">Hello,</p>
+              <p style="font-size: 15px; line-height: 1.6; color: ${TEXT};">Please find attached the <b>AjraSakha Response Adherence</b> report. A summary is also provided below for quick reference.</p>
+
+              ${chipsHtml}
+
+              ${reportHtml ? `<div style="overflow-x:auto; margin-top: 8px;">${reportHtml}</div>` : ''}
+
+              <div style="margin-top: 32px; text-align: center;">
+                <a href="${platformUrl}" style="display:inline-block; padding: 13px 28px; background-color: ${HEADING}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 14px; font-family: ${FONT};">
+                  Go to AjraSakha Platform
+                </a>
+              </div>
+
+              <p style="margin-top: 28px; font-size: 13px; color: ${MUTED}; line-height: 1.6; text-align: center;">
+                If you encounter any issues with the report or have any questions regarding the data, please contact the Developer Team for assistance.
+              </p>
+            </div>
+            <div style="background-color: ${PRIMARY_SOFT}; padding: 20px; text-align: center; font-size: 13px; color: ${MUTED}; border-top: 1px solid ${PRIMARY_BORDER};">
+              <p style="margin: 0; color: ${TEXT};">Regards,</p>
+              <p style="margin: 4px 0 0 0; color: ${HEADING}; font-weight: 700;">AjraSakha System</p>
+              <p style="margin: 14px 0 0 0; font-size: 11px; color: ${MUTED};">&copy; ${new Date().getFullYear()} Annam.ai. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      await sendEmailWithAttachment(
+        emails,
+        title,
+        html,
+        reportContent,
+        fileName || 'response-adherence-report.csv',
+        'text/csv',
+      );
+
+      return {
+        success: true,
+        message: 'Response adherence report sent via email',
+      };
+    } catch (error) {
+      console.error('Error in sendResponseAdherenceReportEmail:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cloud Run Job entrypoint for the daily 7 PM (Asia/Kolkata) Response Adherence Summary
+   * report — see backend/src/jobs/response-adherence-report/run.ts. 
+   */
+  async sendDailyResponseAdherenceReportEmail(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    const recipients = (emailConfig.RESPONSE_ADHERENCE_REPORT_EMAILS || '')
+      .split(',')
+      .map(email => email.trim())
+      .filter(Boolean);
+
+    if (!recipients.length) {
+      console.warn(
+        '[sendDailyResponseAdherenceReportEmail] RESPONSE_ADHERENCE_REPORT_EMAILS is not configured; skipping send.',
+      );
+      return {
+        success: false,
+        message: 'RESPONSE_ADHERENCE_REPORT_EMAILS is not configured; report was not sent',
+      };
+    }
+
+    const now = new Date();
+    const startOfDayIST = getISTStartOfToday(now);
+    const dateLabel = now.toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
+
+    // source is intentionally left undefined (all sources combined) — the report's three
+    // columns (Whatsapp / AjraSakha / Manual) are the breakdown, not the `source` filter.
+    const table = await this.getResponseAdherenceTable(
+      undefined,
+      'all',
+      startOfDayIST.toISOString(),
+      now.toISOString(),
+    );
+
+    const reportContent = buildResponseAdherenceCsv(table, dateLabel);
+    const reportHtml = buildResponseAdherenceHtmlTable(table, dateLabel);
+
+    return this.sendResponseAdherenceReportEmail(
+      recipients,
+      reportContent,
+      `response-adherence-report-${dateLabel}.csv`,
+      {userType: 'all', startDate: dateLabel, endDate: dateLabel, timeWindow: table.timeWindow},
+      reportHtml,
+    );
   }
 
   async getQuestionsByCrop(
@@ -3671,6 +4107,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source?: string,
     userType?: string,
     search?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionsByCrop(
@@ -3683,6 +4120,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         undefined,
         userType,
         search,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(`Internal server error ${error}`);
@@ -3789,6 +4227,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Internal Server Error ${error}`)
     }
   }
+
 
   // async getStateQuestionsAndUsersData(state: string, source: string, userType: string): Promise<any> {
   //   try {
@@ -3929,6 +4368,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async getQuestionByManualSource( manualSource: string, effectiveDate: string, userType: string, page: number, limit: number, search: string ) : Promise<any> {
       try{
       return this.chatbotRepository.getQuestionByManualSource( manualSource, effectiveDate, userType, page, limit, search );
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
+
+  async getReviewerLifecycle( userId: string, startDate?: Date, endDate?: Date ): Promise<any> {
+    try{
+      return this.chatbotRepository.getReviewerLifecycle( userId, startDate, endDate );
     }catch(error){
       throw new InternalServerError(`Something went wrong ${error}`)
     }

@@ -1,5 +1,7 @@
 import { apiFetch } from "../api/api-fetch";
 import { env } from "@/config/env";
+import { auth } from "@/config/firebase";
+import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
 type LocationMetadata = typeof import("@/features/chatbotDashboard/utils/metaData");
@@ -51,12 +53,15 @@ const LGD_STATE_CODES: Record<string, number> = {
 export interface ILocationState {
   stateCode: number;
   stateNameEnglish: string;
+  aliases?: string[];
 }
 
 export interface ILocationDistrict {
   districtCode: number;
   districtNameEnglish: string;
   stateCode: number;
+  stateName?: string;
+  aliases?: string[];
 }
 
 export interface ILocationBlock {
@@ -72,6 +77,30 @@ export interface ILocationVillage {
   pincode: string;
 }
 
+export interface IKvk {
+  kvkId: string;
+  kvkName: string;
+  kvkAddress?: string;
+  districtCode?: number;
+  stateCode?: number;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface ILocationAudit {
+  _id?: string;
+  action: "add" | "delete";
+  entity: "state" | "district";
+  code: number;
+  name: string;
+  stateCode?: number;
+  reason: string;
+  performedByUserId?: string;
+  performedByEmail?: string;
+  performedByName?: string;
+  createdAt: string;
+}
+
 export class LocationService {
   private _baseUrl = `${API_BASE_URL}/location`;
 
@@ -83,12 +112,132 @@ export class LocationService {
     }
   }
 
+  /** Admin/moderator: replace a state's aliases and optionally rename it. */
+  async updateStateAliases(
+    stateCode: number,
+    aliases: string[],
+    name?: string,
+  ): Promise<ILocationState | null> {
+    return apiFetch<ILocationState>(
+      `${this._baseUrl}/states/${stateCode}/aliases`,
+      {
+        method: "PUT",
+        body: JSON.stringify(name !== undefined ? { aliases, name } : { aliases }),
+      },
+    );
+  }
+
+  /** Admin/moderator: replace a district's aliases and optionally rename it. */
+  async updateDistrictAliases(
+    districtCode: number,
+    aliases: string[],
+    name?: string,
+  ): Promise<ILocationDistrict | null> {
+    return apiFetch<ILocationDistrict>(
+      `${this._baseUrl}/districts/${districtCode}/aliases`,
+      {
+        method: "PUT",
+        body: JSON.stringify(name !== undefined ? { aliases, name } : { aliases }),
+      },
+    );
+  }
+
+  /** Admin/moderator: add a new state. Reason is recorded in the audit trail. */
+  async addState(name: string, reason: string): Promise<ILocationState | null> {
+    return apiFetch<ILocationState>(`${this._baseUrl}/states`, {
+      method: "POST",
+      body: JSON.stringify({ name, reason }),
+    });
+  }
+
+  /** Admin/moderator: delete a state (districts left intact). Reason is audited. */
+  async deleteState(
+    stateCode: number,
+    reason: string,
+  ): Promise<{ success: true } | null> {
+    return apiFetch<{ success: true }>(`${this._baseUrl}/states/${stateCode}`, {
+      method: "DELETE",
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  /** Admin/moderator: add a new district under a state. Reason is audited. */
+  async addDistrict(
+    stateCode: number,
+    name: string,
+    reason: string,
+    aliases?: string[],
+  ): Promise<ILocationDistrict | null> {
+    return apiFetch<ILocationDistrict>(`${this._baseUrl}/districts`, {
+      method: "POST",
+      body: JSON.stringify({ stateCode, name, reason, aliases }),
+    });
+  }
+
+  /** Admin/moderator: add the single common "All" district. Reason is audited. */
+  async addAllDistrict(reason: string): Promise<ILocationDistrict | null> {
+    return apiFetch<ILocationDistrict>(`${this._baseUrl}/districts/all`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  /** Admin/moderator: delete a district. Reason is audited. */
+  async deleteDistrict(
+    districtCode: number,
+    reason: string,
+  ): Promise<{ success: true } | null> {
+    return apiFetch<{ success: true }>(
+      `${this._baseUrl}/districts/${districtCode}`,
+      {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      },
+    );
+  }
+
+  /** Admin/moderator: fetch the state/district add-delete audit trail. */
+  async getLocationAudits(limit = 200): Promise<ILocationAudit[] | null> {
+    return apiFetch<ILocationAudit[]>(
+      `${this._baseUrl}/audits?limit=${limit}`,
+    );
+  }
+
+  async downloadStateOrDistrictReport(
+    type: "state" | "district",
+  ): Promise<Blob> {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      throw new Error("User not authenticated");
+    }
+
+    const token = await getIdToken(firebaseUser);
+    const params = new URLSearchParams({ type });
+    const response = await fetch(`${this._baseUrl}/download?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download ${type} report`);
+    }
+
+    return await response.blob();
+  }
+
   async getDistricts(stateCode: number): Promise<ILocationDistrict[] | null> {
     try {
       return await apiFetch<ILocationDistrict[]>(`${this._baseUrl}/districts?stateCode=${stateCode}`);
     } catch {
       return fallbackDistricts(stateCode);
     }
+  }
+
+  /** All districts across every state (each carrying its stateName). */
+  async getAllDistricts(): Promise<ILocationDistrict[] | null> {
+    return apiFetch<ILocationDistrict[]>(`${this._baseUrl}/districts/all`);
   }
 
   async getBlocks(districtCode: number): Promise<ILocationBlock[] | null> {
@@ -104,6 +253,14 @@ export class LocationService {
       return await apiFetch<ILocationVillage[]>(`${this._baseUrl}/villages?blockCode=${blockCode}`);
     } catch {
       return fallbackVillages(blockCode);
+    }
+  }
+
+  async getKvks(districtCode: number): Promise<IKvk[] | null> {
+    try {
+      return await apiFetch<IKvk[]>(`${this._baseUrl}/kvks?districtCode=${districtCode}`);
+    } catch {
+      return fallbackKvks(districtCode);
     }
   }
 }
@@ -173,5 +330,20 @@ async function fallbackVillages(blockCode: number): Promise<ILocationVillage[]> 
     villageNameEnglish,
     blockCode,
     pincode: "",
+  }));
+}
+
+async function fallbackKvks(districtCode: number): Promise<IKvk[]> {
+  const { KVK } = await import("@/features/chatbotDashboard/utils/KVKS");
+  const districtName = districtNameByCode.get(districtCode);
+  
+  if (!districtName || !KVK[districtName]) {
+    return [];
+  }
+
+  return KVK[districtName].map((kvkName, index) => ({
+    kvkId: `${districtCode}-${index}`,
+    kvkName,
+    districtCode,
   }));
 }

@@ -1,4 +1,4 @@
-import { IsOptional, IsIn, IsInt, IsString, Min, IsNotEmpty } from 'class-validator';
+import { IsOptional, IsIn, IsInt, IsString, Min, IsNotEmpty, IsArray, ArrayNotEmpty, IsEmail } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JSONSchema } from 'class-validator-jsonschema';
 
@@ -29,6 +29,11 @@ export class DashboardQueryDto {
   @IsOptional()
   @IsString()
   endTime?: string;
+
+  @JSONSchema({ example: '6a3385e5d7128c0afd3f2283', description: 'Filter by coordinator ID to scope metrics to their hierarchy' })
+  @IsOptional()
+  @IsString()
+  coordinatorId?: string;
 }
 
 export class SourceQueryDto {
@@ -430,4 +435,63 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsIn(['all', 'loggedIn', 'loggedOut'])
   loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all';
+}
+
+export class SendResponseAdherenceReportRequest {
+  @JSONSchema({
+    description: 'Array of recipient email addresses',
+    example: ['admin@example.com', 'manager@example.com'],
+    type: 'array',
+    items: { type: 'string', format: 'email' },
+  })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsEmail({}, { each: true })
+  emails!: string[];
+
+  @JSONSchema({
+    description: 'The report content (CSV) to email as an attachment, exactly as built by the download button',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  reportContent!: string;
+
+  @JSONSchema({
+    description: 'The report rendered as an HTML table, embedded directly in the email body in addition to the CSV attachment',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  reportHtml?: string;
+
+  @JSONSchema({ description: 'Attachment file name', example: 'response-adherence-report-2026-08-12.csv', type: 'string' })
+  @IsOptional()
+  @IsString()
+  fileName?: string;
+
+  @JSONSchema({ description: 'Source filter used to generate the report (for the audit trail / email subject only)', type: 'string' })
+  @IsOptional()
+  @IsString()
+  source?: string;
+
+  @JSONSchema({ description: 'User type filter used to generate the report (for the audit trail / email subject only)', type: 'string' })
+  @IsOptional()
+  @IsString()
+  userType?: string;
+
+  @JSONSchema({ description: 'Start date used to generate the report (for the audit trail / email subject only)', type: 'string' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @JSONSchema({ description: 'End date used to generate the report (for the audit trail / email subject only)', type: 'string' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @JSONSchema({ description: 'Time window used to generate the report, shown alongside the Source/UserType/Date summary in the email body', type: 'string' })
+  @IsOptional()
+  @IsString()
+  timeWindow?: string;
 }

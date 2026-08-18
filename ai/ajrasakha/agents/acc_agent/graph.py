@@ -3,6 +3,13 @@ from langgraph.graph import StateGraph, START, END
 from ajrasakha.agents.acc_agent.state import AccAgentState
 from ajrasakha.agents.acc_agent.nodes import extract_node, planner_node, tool_execution_node, assembler_node
 
+def route_after_extraction(state: AccAgentState):
+    """Farmer-only runs must never continue into answer-generation tools."""
+    if state.get("extraction_type") == "farmer_details":
+        return "end"
+    return "planner"
+
+
 def build_graph():
     builder = StateGraph(AccAgentState)
     
@@ -14,7 +21,14 @@ def build_graph():
     
     # Add edges
     builder.add_edge(START, "extract")
-    builder.add_edge("extract", "planner")
+    builder.add_conditional_edges(
+        "extract",
+        route_after_extraction,
+        {
+            "planner": "planner",
+            "end": END,
+        },
+    )
     builder.add_edge("planner", "tool_execution")
     builder.add_edge("tool_execution", "assembler")
     builder.add_edge("assembler", END)

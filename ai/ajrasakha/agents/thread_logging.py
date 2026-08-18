@@ -253,10 +253,16 @@ def _append_to_turn_buffer(text: str, *, thread_id: str | None = None) -> None:
     active["buffer"].append(block)
 
 
-def _append_to_file(thread_id: str, text: str) -> None:
+def _append_to_file(
+    thread_id: str,
+    text: str,
+    *,
+    log_dir: Path | None = None,
+) -> None:
     """Append text to the local thread log file only (fast path during request)."""
     block = text if text.endswith("\n") else f"{text}\n"
-    path = _thread_log_path(thread_id)
+    safe = sanitize_thread_id_for_filename(thread_id)
+    path = (log_dir or thread_log_dir()) / f"{safe}.txt"
     path.parent.mkdir(parents=True, exist_ok=True)
     with _turn_counts_lock:
         with path.open("a", encoding="utf-8") as fh:
@@ -403,31 +409,12 @@ class ThreadFileLogHandler(logging.Handler):
         super().__init__()
         self.log_dir = log_dir or thread_log_dir()
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        self._file_handlers: dict[str, logging.FileHandler] = {}
-        self._fh_lock = threading.Lock()
-
-    def _get_file_handler(self, thread_id: str) -> logging.FileHandler:
-        safe = sanitize_thread_id_for_filename(thread_id)
-        with self._fh_lock:
-            fh = self._file_handlers.get(safe)
-            if fh is None:
-                path = self.log_dir / f"{safe}.txt"
-                fh = logging.FileHandler(path, encoding="utf-8")
-                fh.setFormatter(
-                    logging.Formatter(
-                        "%(asctime)s [%(levelname)s] %(name)s "
-                        "(%(filename)s:%(lineno)d): %(message)s"
-                    )
-                )
-                self._file_handlers[safe] = fh
-            return fh
 
     def emit(self, record: logging.LogRecord) -> None:
         thread_id = _thread_id_ctx.get()
         if not thread_id:
             return
         try:
-            fh = self._get_file_handler(thread_id)
             if not self.formatter:
                 msg = record.getMessage()
             else:
@@ -436,10 +423,10 @@ class ThreadFileLogHandler(logging.Handler):
                 _THREAD_LOG_LOGGER_PREFIX
             ):
                 msg = "\n".join(f"  │ {line}" for line in msg.splitlines())
-            line = msg + fh.terminator
-            fh.stream.write(line)
-            fh.flush()
-            _append_to_turn_buffer(line, thread_id=thread_id)
+            # Do not retain a FileHandler for every conversation.  A long-lived
+            # process can see unbounded thread IDs, so each append must close its
+            # stream before returning.
+            _append_to_file(thread_id, msg, log_dir=self.log_dir)
         except Exception:
             self.handleError(record)
 

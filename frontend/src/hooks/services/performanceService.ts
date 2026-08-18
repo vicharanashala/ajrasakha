@@ -84,6 +84,7 @@ export class PerformaneService {
     selectedDate: string;
     startTime?: string;
     endTime?: string;
+    userType?: "all" | "tmu" | "normal";
   }): Promise<(OverviewResponse & {
     moderatorApprovalRate: ModeratorApprovalRate;
   }) | null> {
@@ -92,6 +93,9 @@ export class PerformaneService {
     const params = new URLSearchParams();
     params.append("startDateTime", startDate.toISOString());
     params.append("endDateTime", endDate.toISOString());
+    if (query.userType) {
+      params.append("userType", query.userType);
+    }
 
     return apiFetch<OverviewResponse & {
       moderatorApprovalRate: ModeratorApprovalRate;
@@ -174,9 +178,13 @@ export class PerformaneService {
     );
   }
 
-  async sendCronSnapshotReport(): Promise<void> {
+  async sendCronSnapshotReport(range?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<void> {
    await apiFetch(`${this._baseUrl}/cron-snapshot/send-report`, {
     method: "POST",
+    body: JSON.stringify(range?.startDate ? range : {}),
   });
 }
 

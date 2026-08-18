@@ -1,9 +1,12 @@
 from typing import TypedDict, Optional
 from ajrasakha.agents.state import Location
+from ajrasakha.agents.acc_agent.extraction import ExtractionType
+
 
 class AccAgentState(TypedDict):
     # Initial input
     transcript: str
+    extraction_type: ExtractionType
     
     # Extracted values (pending human verification)
     extracted_query: Optional[str]
@@ -20,6 +23,7 @@ class AccAgentState(TypedDict):
     extracted_village: Optional[str]
     extracted_block: Optional[str]
     extracted_primary_crop: Optional[str]
+    extracted_secondary_crops: list[str]
     
     # Verified and merged location structure
     location: Optional[Location]

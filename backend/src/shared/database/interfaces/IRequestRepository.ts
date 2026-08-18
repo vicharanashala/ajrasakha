@@ -2,7 +2,7 @@ import {
   CreateRequestBodyDto,
   GetAllRequestsQueryDto,
 } from '#root/modules/request/classes/validators/RequestValidators.js';
-import {IRequest, IRequestResponse, RequestStatus} from '#root/shared/index.js';
+import {IRequest, IRequestResponse, IUser, RequestStatus} from '#root/shared/index.js';
 import {ClientSession} from 'mongodb';
 
 export interface IRequestRepository {
@@ -22,11 +22,13 @@ export interface IRequestRepository {
   /**
    * Retrieves all requests for a user.
    * @param query - fiter options.
+   * @param user - The current user to determine filtering based on role.
    * @param session - Optional mongoose session for transactions.
    * @returns A promise resolving to an array of requests.
    */
   getAllRequests(
     query: GetAllRequestsQueryDto,
+    user: IUser,
     session?: ClientSession,
   ): Promise<{requests: IRequest[]; totalPages: number; totalCount: number}>;
 

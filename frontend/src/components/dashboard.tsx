@@ -211,14 +211,20 @@ export const Dashboard = () => {
   );
   const [overviewStartTime, setOverviewStartTime] = useState("00:00");
   const [overviewEndTime, setOverviewEndTime] = useState("23:59");
+  const [overviewUserTypeFilter, setOverviewUserTypeFilter] = useState<
+    "all" | "tmu" | "normal"
+  >("all");
 
   const { data: user } = useGetCurrentUser();
+  const isTrainingUser = user?.isTrainingUser === true;
+  const isAdmin = user?.role === "admin";
 
   // Granular Hooks
   const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview({
     selectedDate: overviewSelectedDate,
     startTime: overviewStartTime,
     endTime: overviewEndTime,
+    userType: isAdmin ? overviewUserTypeFilter : undefined,
   });
   const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
     viewType,
@@ -250,12 +256,28 @@ export const Dashboard = () => {
     }));
   };
   const[sendingReport, setSendingReport] = useState(false);
+  // Optional IST date range for the emailed report. Empty = today (default).
+  const [reportStart, setReportStart] = useState("");
+  const [reportEnd, setReportEnd] = useState("");
   const handleSendCronReport = async () => {
+    if (reportStart && reportEnd && reportEnd < reportStart) {
+      toast.error("End date can't be before start date");
+      return;
+    }
     setSendingReport(true);
     try {
       const service = new PerformaneService();
-      await service.sendCronSnapshotReport();
-      toast.success("Cron snapshot report sent successfully");
+      const range = reportStart
+        ? { startDate: reportStart, endDate: reportEnd || reportStart }
+        : undefined;
+      await service.sendCronSnapshotReport(range);
+      toast.success(
+        range
+          ? `Report for ${range.startDate}${
+              range.endDate !== range.startDate ? ` to ${range.endDate}` : ""
+            } sent successfully`
+          : "Cron snapshot report sent successfully",
+      );
       setSendingReport(false);
     } catch (err) {
       toast.error("Failed to send cron snapshot report");
@@ -320,9 +342,12 @@ export const Dashboard = () => {
               selectedDate={overviewSelectedDate}
               startTime={overviewStartTime}
               endTime={overviewEndTime}
+              isAdmin={isAdmin}
+              userTypeFilter={overviewUserTypeFilter}
               onSelectedDateChange={setOverviewSelectedDate}
               onStartTimeChange={setOverviewStartTime}
               onEndTimeChange={setOverviewEndTime}
+              onUserTypeFilterChange={setOverviewUserTypeFilter}
             />
           </LoadingWrapper>
           <LoadingWrapper
@@ -376,7 +401,7 @@ export const Dashboard = () => {
         </div>
 
         {/* Question Source Charts Row */}
-        {goldenData?.questionSourceBreakdown && (
+        {!isTrainingUser && goldenData?.questionSourceBreakdown && (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <QuestionSourceCharts
               whatsappCount={goldenData.questionSourceBreakdown.whatsapp}
@@ -399,7 +424,7 @@ export const Dashboard = () => {
         )}
 
         {/* Response Adherence Row */}
-        {goldenData?.questionSourceBreakdown && goldenData?.questionsAnsweredWithin120Min && (
+        {!isTrainingUser && goldenData?.questionSourceBreakdown && goldenData?.questionsAnsweredWithin120Min && (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <ResponseAdherence
               totalWhatsapp={goldenData.questionSourceBreakdown.whatsapp}
@@ -428,18 +453,21 @@ export const Dashboard = () => {
         )}
 
         {/* Sources Chart Row */}
-        <div className="mb-6">
-          <LoadingWrapper
-            loading={isContributionLoading}
-            text="Fetching sources chart..."
-          >
-            <SourcesChart
-              data={contributionData ?? []}
-              timeRange={timeRange}
-              setTimeRange={setTimeRange}
-            />
-          </LoadingWrapper>
-        </div>
+        {
+          !isTrainingUser && (
+            <div className="mb-6">
+              <LoadingWrapper
+                loading={isContributionLoading}
+                text="Fetching sources chart..."
+              >
+                <SourcesChart
+                  data={contributionData ?? []}
+                  timeRange={timeRange}
+                  setTimeRange={setTimeRange}
+                />
+              </LoadingWrapper>
+            </div>
+          )}
 
         {/* Question Status Row */}
         <div className="mb-6">
@@ -462,6 +490,7 @@ export const Dashboard = () => {
             <QuestionsAnalytics
               date={date}
               setDate={setDate}
+              isTrainingUser={isTrainingUser}
               analyticsType={analyticsType}
               setAnalyticsType={setAnalyticsType}
               analyticsStatus={analyticsStatus}
@@ -512,10 +541,56 @@ export const Dashboard = () => {
         </div>
       </div>
       {user?.role === "admin" && (
-        <div className="flex justify-end px-6">
+        <div className="flex flex-wrap items-end justify-end gap-3 px-6">
+          <div className="flex flex-col">
+            <label className="text-xs text-muted-foreground mb-1">From</label>
+            <input
+              type="date"
+              value={reportStart}
+              max={reportEnd || undefined}
+              onChange={(e) => setReportStart(e.target.value)}
+              className="border border-input rounded-md px-2 py-1.5 text-sm bg-background"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-muted-foreground mb-1">To</label>
+            <input
+              type="date"
+              value={reportEnd}
+              min={reportStart || undefined}
+              onChange={(e) => setReportEnd(e.target.value)}
+              className="border border-input rounded-md px-2 py-1.5 text-sm bg-background"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              // Yesterday's IST calendar date (shift to IST wall-clock, then -1 day).
+              const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+              ist.setUTCDate(ist.getUTCDate() - 1);
+              const iso = ist.toISOString().slice(0, 10);
+              setReportStart(iso);
+              setReportEnd(iso);
+            }}
+            className="px-3 py-1.5 rounded-md border border-input text-sm hover:bg-muted transition-all"
+          >
+            Yesterday
+          </button>
+          {(reportStart || reportEnd) && (
+            <button
+              type="button"
+              onClick={() => {
+                setReportStart("");
+                setReportEnd("");
+              }}
+              className="px-3 py-1.5 rounded-md border border-input text-sm hover:bg-muted transition-all"
+            >
+              Clear (Today)
+            </button>
+          )}
           <button
             onClick={handleSendCronReport}
-            className="px-4 py-2 rounded-md bg-green-500 text-white text-sm hover:bg-green-600 shadow-md transition-all relative"
+            className="px-4 py-2 rounded-md bg-green-500 text-white text-sm hover:bg-green-600 shadow-md transition-all relative disabled:opacity-60"
             disabled={sendingReport}
           >
             {sendingReport ? "Sending Report..." : "Send Report"}

@@ -41,6 +41,7 @@ import {
   WeatherConcernAnalyticsQueryDto,
   WeatherConcernQueriesQueryDto,
   FeedbackUsersQueryDto,
+  SendResponseAdherenceReportRequest,
 } from '../classes/validators/ChatbotQueryValidators.js';
 import {
   ChatbotErrorResponse,
@@ -144,6 +145,8 @@ export class ChatbotController {
       query.userType,
       query.startTime,
       query.endTime,
+      undefined,
+      query.coordinatorId,
     );
   }
 
@@ -225,6 +228,9 @@ export class ChatbotController {
 
     @QueryParam('endDate')
     endDate: string,
+
+    @QueryParam('coordinatorId')
+    coordinatorId?: string,
   ) {
     // console.log("Selected state code controller", selectedStateCode);
     let convertedStartDate = undefined
@@ -242,6 +248,7 @@ export class ChatbotController {
       userType,
       convertedStartDate,
       convertedEndDate,
+      coordinatorId,
     );
   }
 
@@ -395,8 +402,8 @@ export class ChatbotController {
   @Get('/query-categories')
   @HttpCode(200)
   @Authorized()
-  async getQueryCategories(@QueryParams() query: SourceQueryDto) {
-    return this.chatbotService.getQueryCategories(query.source, query.userType);
+  async getQueryCategories(@QueryParams() query: { source?: string; userType?: string; coordinatorId?: string }) {
+    return this.chatbotService.getQueryCategories(query.source || 'annam', query.userType || 'all', query.coordinatorId);
   }
 
   // @OpenAPI({
@@ -477,6 +484,7 @@ export class ChatbotController {
       userId?: string;
       manualSource?: string;
       effectiveDate?: string;
+      coordinatorId?: string;
     },
     @QueryParam('userId') userId?: string,
   ) {
@@ -495,6 +503,7 @@ export class ChatbotController {
         query.source,
         query.userType,
         query.search,
+        query.coordinatorId,
       );
     } else if (query.state && !query.district && !query.closedWithInTwohours) {
       console.log("Inside first else if.......")
@@ -534,6 +543,7 @@ export class ChatbotController {
         query.source,
         query.userType,
         query.search,
+        query.coordinatorId,
       );
     } else if (query.status) {
       const startDate = new Date(query.startDate);
@@ -733,9 +743,9 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getTopCrops(
-    @QueryParams() query: {source?: string; userType?: string},
+    @QueryParams() query: {source?: string; userType?: string; coordinatorId?: string},
   ) {
-    return this.chatbotService.getTopCrops(query.source, query.userType);
+    return this.chatbotService.getTopCrops(query.source, query.userType, query.coordinatorId);
   }
 
   @OpenAPI({
@@ -1147,8 +1157,8 @@ export class ChatbotController {
   @Get('/duplicate-questions')
   @HttpCode(200)
   @Authorized()
-  async getDuplicateQuestions(@QueryParams() query: SourceQueryDto) {
-    return this.chatbotService.getDuplicateQuestions(query.source);
+  async getDuplicateQuestions(@QueryParams() query: {source?: string; coordinatorId?: string}) {
+    return this.chatbotService.getDuplicateQuestions(query.source || 'annam', query.coordinatorId);
   }
 
   @OpenAPI({
@@ -1159,8 +1169,8 @@ export class ChatbotController {
   @Get('/domain-spikes')
   @HttpCode(200)
   @Authorized()
-  async getDomainSpikes(@QueryParams() query: {days?: number}) {
-    return this.chatbotService.getDomainSpikes(query.days ?? 60);
+  async getDomainSpikes(@QueryParams() query: {days?: number; coordinatorId?: string}) {
+    return this.chatbotService.getDomainSpikes(query.days ?? 60, query.coordinatorId);
   }
 
   @Get('/user-growth')
@@ -1190,12 +1200,13 @@ export class ChatbotController {
         30,
         startDate,
         endDate,
+        query.coordinatorId,
       );
       return data;
     }
 
     const range = Number(query.range) || 30;
-    const data = await this.chatbotService.getGrowth(query.source, query.userType, range);
+    const data = await this.chatbotService.getGrowth(query.source, query.userType, range,undefined, undefined, query.coordinatorId,);
     return data;
   }
 
@@ -1938,21 +1949,24 @@ export class ChatbotController {
       : undefined;
     const source = query.source;
     const userType = query.userType;
+    const coordinatorId = query.coordinatorId;
 
     const [topFaqs, topQuestionsFromCollection, repeatQueryCountData] =
       await Promise.all([
-        this.chatbotService.getTopFaqs(source, userType, startTime, endTime),
+        this.chatbotService.getTopFaqs(source, userType, startTime, endTime, coordinatorId),
         this.chatbotService.getTopQuestionsFromCollection(
           source,
           userType,
           startTime,
           endTime,
+          coordinatorId,
         ),
         this.chatbotService.getRepeatQueryCount(
           source,
           userType,
           startTime,
           endTime,
+          coordinatorId,
         ),
       ]);
 
@@ -1977,6 +1991,7 @@ export class ChatbotController {
       : undefined;
     const source = query.source;
     const userType = query.userType;
+    const coordinatorId = query.coordinatorId;
 
     return await this.chatbotService.getTopQuestionInstances(
       questionId,
@@ -1985,7 +2000,8 @@ export class ChatbotController {
       startTime,
       endTime,
       page,
-      limit
+      limit,
+      coordinatorId
     );
   }
 
@@ -2063,6 +2079,72 @@ export class ChatbotController {
     );
   }
 
+  @OpenAPI({
+    summary: 'Email the Response Adherence Summary report',
+    description:
+      'Sends the Response Adherence Summary report (as built by the dashboard download button) as a CSV attachment to the given list of recipient emails.',
+  })
+  @Post('/response-adherence-table/email')
+  @HttpCode(200)
+  @Authorized()
+  async sendResponseAdherenceReportEmail(
+    @Body() body: SendResponseAdherenceReportRequest,
+    @CurrentUser() user: IUser,
+  ) {
+    const {emails, reportContent, reportHtml, fileName, source, userType, startDate, endDate, timeWindow} = body;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ADMIN_REPORT,
+      action: AuditAction.SEND_DASHBOARD_REPORT,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        recipients: emails,
+        source,
+        userType,
+        startDate,
+        endDate,
+        endPoint: 'sendResponseAdherenceReportEmail',
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      const result = await this.chatbotService.sendResponseAdherenceReportEmail(
+        emails,
+        reportContent,
+        fileName || `response-adherence-report-${startDate || ''}.csv`,
+        {source, userType, startDate, endDate, timeWindow},
+        reportHtml,
+      );
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return result;
+    } catch (error: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: error?.message || 'Failed to send response adherence report email',
+          errorName: error?.name || 'Error',
+          errorStack:
+            error?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      console.error('Error in sendResponseAdherenceReportEmail controller:', error);
+      throw error;
+    }
+  }
+
   @Get('/state-user-data')
   @HttpCode(200)
   @Authorized()
@@ -2094,6 +2176,7 @@ export class ChatbotController {
       query.endDate,
     );
   }
+
 
   @Patch('/assign-users/:userId')
   @HttpCode(200)

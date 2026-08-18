@@ -6,6 +6,7 @@ import {
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource, IUserHistory,UserRole } from '#shared/interfaces/models.js';
 import { MongoClient, ClientSession, ObjectId } from 'mongodb';
+import { TrendGranularity } from '../providers/mongo/repositories/UserRepository.js';
 
 /**
  * Interface representing a repository for user-related operations.
@@ -126,7 +127,7 @@ export interface IUserRepository {
    * Finds all users.
    * @returns A promise that resolves to an array of users.
    */
-  findAll(session?: ClientSession): Promise<IUser[]>;
+  findAll(session?: ClientSession, isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]>;
 
   /**
    * Finds all users.
@@ -226,6 +227,7 @@ export interface IUserRepository {
     search: string,
     sortOption: string,
     filter: string,
+    isTrainingUserFilter?: boolean,
     session?: ClientSession,
   ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }>;
   /**
@@ -241,6 +243,12 @@ export interface IUserRepository {
   ): Promise<void>;
 
   updateSTFStatus(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void>;
+
+  updateTrainingUserStatus(
     userId: string,
     action: string,
     session?: ClientSession,
@@ -264,6 +272,9 @@ export interface IUserRepository {
   getUserRoleCount(
     startDateTime?: string,
     endDateTime?: string,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+    userType?: 'all' | 'tmu' | 'normal',
     session?: ClientSession,
   ): Promise<{
     userRoleOverview: UserRoleOverview[];
@@ -274,7 +285,7 @@ export interface IUserRepository {
   /**
    * @param session
    */
-  getExpertPerformance(session?: ClientSession): Promise<ExpertPerformance[]>;
+  getExpertPerformance(isTrainingUser: boolean,isAdmin?: boolean,session?: ClientSession): Promise<ExpertPerformance[]>;
 
   /**
  * Updates the last check-in time for a user.
@@ -350,11 +361,38 @@ export interface IUserRepository {
   ): Promise<IUser | null>;
   findAvailableModerators(): Promise<IUser[]>;
   findAvailableStfModerators(): Promise<IUser[]>;
-  findAvailableStfModeratorsForSources(sources: QuestionSource[]): Promise<IUser[]>;
+  findAvailableStfModeratorsForSources(sources: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]>;
   findAvailableUsersByRole(role: UserRole): Promise<IUser[]>;
-  addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<void>;
-  removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void>;
+  findAvailableFeedbackReviewers(): Promise<IUser[]>;
+  findUsersByRoles(roles: UserRole[]): Promise<IUser[]>;
+  claimFeedbackAllocationManual(userId: string, questionId: string, session?: ClientSession): Promise<boolean>;
+  claimFeedbackAllocation(userId: string, questionId: string, session?: ClientSession): Promise<boolean>;
+  addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource, session?: ClientSession): Promise<boolean>;
+  removeAssignedQuestion(moderatorId: string, questionId: string, session?: ClientSession): Promise<void>;
   removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
+  
+  /** Find available PAE experts who can take questions for validation.
+   *  - role must be 'pae_expert'
+   *  - isBlocked must NOT be true
+   *  - status must NOT be 'in-active'
+   *  - paeValidationAssigned must be empty or null (not currently holding any question)
+   *  @param session Optional MongoDB client session for transactions
+   *  @returns Promise resolving to array of available PAE experts */
+  findAvailablePaeExperts(session?: ClientSession): Promise<IUser[]>;
+  
+  /** Add a question ID to the user's paeValidationAssigned array.
+   *  @param paeExpertId The PAE expert's user ID
+   *  @param questionId The question ID to assign
+   *  @param session Optional MongoDB client session for transactions
+   *  @returns Promise resolving to boolean indicating success */
+  addPaeValidationAssigned(paeExpertId: string, questionId: string, session?: ClientSession): Promise<boolean>;
+  
+  /** Remove a question ID from the user's paeValidationAssigned array.
+   *  @param paeExpertId The PAE expert's user ID
+   *  @param questionId The question ID to remove
+   *  @param session Optional MongoDB client session for transactions
+   *  @returns Promise resolving to void */
+  removePaeValidationAssigned(paeExpertId: string, questionId: string, session?: ClientSession): Promise<void>;
 
    /**
    * @param session
@@ -364,9 +402,28 @@ export interface IUserRepository {
     session?: ClientSession,
   ): Promise<IUserHistory>;
 
+  getWorkingHoursTrend(
+      query: {
+        userId: string;
+        startDateTime: string;
+        endDateTime: string;
+        granularity: TrendGranularity;
+      },
+      session?: ClientSession,
+  ): Promise<any>
+
   /**
    * Clears all assigned question IDs for a user by setting assignedQuestionIds to null.
    * @param userId - The ID of the user whose assigned questions should be cleared
    */
   clearAssignedQuestions(userId: string): Promise<{ modifiedCount: number }>;
+
+  /**
+   * Removes a questionId from a specific user's feedbacksAssigned array.
+   * @param userId - The user ID whose feedbacksAssigned array should be updated
+   * @param questionId - The question ID to remove from feedbacksAssigned array
+   */
+  removeFeedbacksAssigned(userId: string, questionId: string, session?: ClientSession): Promise<IUser | null>;
+
+  getUsersByRole(roles: UserRole[], session?: ClientSession): Promise<IUser[]>;
 }

@@ -27,10 +27,8 @@ from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.state import AjraSakhaState
 from ajrasakha.agents.language import language_directive_for_synthesis
 from ajrasakha.agents.translation_catalog import language_pair_from_plan
-from ajrasakha.agents.config import SYNTHESIZE_MODEL
+from ajrasakha.agents.config import SYNTHESIZE_MODEL, get_minimax_chat_model
 from ajrasakha.agents.prompts import GREETING_SYNTHESIS_PROMPT
-from langchain_anthropic import ChatAnthropic
-from anthropic import APITimeoutError, APIConnectionError, APIStatusError
 from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
 import asyncio
 
@@ -84,7 +82,7 @@ async def assemble_answer_body_node(
                 vocal_language=vocal_lang,
                 script_language=script_lang,
             )
-            llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
+            llm = get_minimax_chat_model()
             response = await llm.ainvoke(llm_messages, config=config)
 
             # Simple content extraction
