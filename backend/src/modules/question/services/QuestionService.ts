@@ -5967,12 +5967,46 @@ export class QuestionService extends BaseService implements IQuestionService {
         return null;
       }
 
+      // Fetch question submissions to get experts from history
+      const questionIds = questions.map(q => q._id.toString());
+      const submissions = await this.questionSubmissionRepo.getByQuestionIds(questionIds, session);
+
+      // Extract all unique expert IDs from history
+      const allExpertIds = new Set<string>();
+      for (const sub of submissions) {
+        for (const historyEntry of sub.history || []) {
+          const expertId = historyEntry.updatedBy?.toString();
+          if (expertId) {
+            allExpertIds.add(expertId);
+          }
+        }
+      }
+
+      // Fetch user details for all experts
+      const expertMeta = await this.resolveExpertMeta([...allExpertIds]);
+
+      // Build experts string for each question: "Name (level 0), Name (level 1), ..."
+      const questionExperts = new Map<string, string>();
+      for (const sub of submissions) {
+        const qId = sub.questionId.toString();
+        const expertsList: string[] = [];
+        for (let level = 0; level < (sub.history || []).length; level++) {
+          const historyEntry = sub.history[level];
+          const expertId = historyEntry.updatedBy?.toString();
+          if (expertId) {
+            const meta = expertMeta.get(expertId);
+            const displayName = meta?.name || expertId;
+            expertsList.push(`${displayName} (level ${level})`);
+          }
+        }
+        questionExperts.set(qId, expertsList.join(', '));
+      }
+
       // For closed questions, fetch the final answer (text + sources + approving moderator).
       const questionAnswers = new Map<string, string>();
       const questionSources = new Map<string, string>();
       const questionModerator = new Map<string, string>();
       if (includeAnswerDetails) {
-        const questionIds = questions.map(q => q._id.toString());
         const answers = await this.answerRepo.getFinalAnswersByQuestionIds(
           questionIds,
           session,
@@ -6015,6 +6049,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         {header: 'Status', key: 'status', width: 15},
         {header: 'Priority', key: 'priority', width: 15},
         {header: 'Source', key: 'source', width: 15},
+        {header: 'Experts', key: 'experts', width: 60},
       ];
       if (isClosedStatus) {
         columns.push({
@@ -6038,9 +6073,14 @@ export class QuestionService extends BaseService implements IQuestionService {
           vertical: 'top',
         };
       }
+      sheet.getColumn('experts').alignment = {
+        wrapText: true,
+        vertical: 'top',
+      };
 
       // Add data rows
       questions.forEach(q => {
+        const qId = q._id.toString();
         const rowData: any = {
           createdAt: q.createdAt,
           question: q.question,
@@ -6052,6 +6092,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           status: q.status,
           priority: q.priority,
           source: q.source,
+          experts: questionExperts.get(qId) || '',
         };
 
         if (isClosedStatus) {
@@ -6060,7 +6101,6 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         // Add answer / sources / moderator for closed questions.
         if (includeAnswerDetails) {
-          const qId = q._id.toString();
           rowData.answer = questionAnswers.get(qId) || '';
           rowData.sources = questionSources.get(qId) || '';
           rowData.allUsers = questionModerator.get(qId) || '';
