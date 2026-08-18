@@ -6044,13 +6044,27 @@ export class QuestionService extends BaseService implements IQuestionService {
         });
       }
 
+      // Mongo stores UTC; the team reads IST (UTC+5:30). Excel date cells carry no
+      // timezone, so shift the instant by +5:30 and the cell reads as IST.
+      const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+      const asIST = (v: any): Date | null => {
+        const d = v ? new Date(v) : null;
+        return d && !Number.isNaN(d.getTime())
+          ? new Date(d.getTime() + IST_OFFSET_MS)
+          : null;
+      };
+      // Include a Closed At column whenever any question actually has a closedAt
+      // (not only for closed-status reports).
+      const hasClosedAt = questions.some(q => !!q.closedAt);
+
       // Create Excel workbook
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet('Questions');
 
       // Define columns - add Answer column for closed status
       const columns: {header: string; key: string; width: number}[] = [
-        {header: 'Created At', key: 'createdAt', width: 22},
+        {header: 'Question ID', key: 'questionId', width: 26},
+        {header: 'Created At (IST)', key: 'createdAt', width: 22},
         {header: 'Question', key: 'question', width: 60},
         {header: 'State', key: 'state', width: 20},
         {header: 'District', key: 'district', width: 20},
@@ -6068,9 +6082,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         columns.push({header, key: `expert_${level}`, width: 25});
       }
 
-      if (isClosedStatus) {
+      if (isClosedStatus || hasClosedAt) {
         columns.push({
-          header: 'Closed At',
+          header: 'Closed At (IST)',
           key: 'closedAt',
           width: 22,
         });
@@ -6084,6 +6098,11 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       sheet.columns = columns;
+      // IST-formatted date cells (the values are already shifted +5:30 above).
+      sheet.getColumn('createdAt').numFmt = 'yyyy-mm-dd hh:mm';
+      if (isClosedStatus || hasClosedAt) {
+        sheet.getColumn('closedAt').numFmt = 'yyyy-mm-dd hh:mm';
+      }
       if (includeAnswerDetails) {
         sheet.getColumn('sources').alignment = {
           wrapText: true,
@@ -6095,7 +6114,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       questions.forEach(q => {
         const qId = q._id.toString();
         const rowData: any = {
-          createdAt: q.createdAt,
+          questionId: qId,
+          createdAt: asIST(q.createdAt),
           question: q.question,
           state: q.details?.state,
           district: q.details?.district,
@@ -6113,8 +6133,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           rowData[`expert_${level}`] = expertsByLevel[level] || '';
         }
 
-        if (isClosedStatus) {
-          rowData.closedAt = q.closedAt;
+        if (isClosedStatus || hasClosedAt) {
+          rowData.closedAt = asIST(q.closedAt);
         }
 
         // Add answer / sources / moderator for closed questions.
