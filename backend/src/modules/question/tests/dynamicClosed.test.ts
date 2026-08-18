@@ -49,6 +49,7 @@ function buildService(): QuestionService {
     {} as any, // feedbackService
     {} as any, // questionAiService
     {} as any, // duplicateService
+    {} as any, // queueService
   );
 }
 

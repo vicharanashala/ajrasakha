@@ -18,6 +18,7 @@ const TYPES = {
   FeedbackService: Symbol.for('FeedbackService'),
   QuestionAiService: Symbol.for('QuestionAiService'),
   DuplicateService: Symbol.for('DuplicateService'),
+  QueueService: Symbol.for('QueueService'),
   AnswerService: Symbol.for('AnswerService'),
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),
