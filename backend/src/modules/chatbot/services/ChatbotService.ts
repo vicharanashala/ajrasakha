@@ -33,6 +33,7 @@ import type {
   PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
+import {sendEmailWithAttachment} from '#root/utils/mailer.js';
 import {GrowthResponse} from '../types/chatbot.type.js';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -47,6 +48,12 @@ import {WhatsappUsers} from '#root/utils/dummyWhatsAppUsers.js';
 import {access} from 'node:fs';
 import {aiConfig} from '#root/config/ai.js';
 import {appConfig} from '#root/config/app.js';
+import {emailConfig} from '#root/config/mail.js';
+import {getISTStartOfToday} from '#root/utils/date.utils.js';
+import {
+  buildResponseAdherenceCsv,
+  buildResponseAdherenceHtmlTable,
+} from '../utils/responseAdherenceReport.js';
 import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
@@ -3908,6 +3915,191 @@ export class ChatbotService extends BaseService implements IChatbotService {
     ajrasakhaPaeContributionToGDBPct: 0,
     manualPaeContributionToGDBPct: 0,
       }));
+  }
+
+  async sendResponseAdherenceReportEmail(
+    emails: string[],
+    reportContent: string,
+    fileName: string,
+    context?: {
+      source?: string;
+      userType?: string;
+      startDate?: string;
+      endDate?: string;
+      timeWindow?: string;
+    },
+    reportHtml?: string,
+  ): Promise<{success: boolean; message: string}> {
+    try {
+      const formatDateStr = (d?: string) => {
+        if (!d) return '';
+        const parts = d.split(/[-/]/);
+        if (parts.length === 3 && parts[0].length === 4) {
+          return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return d;
+      };
+      
+      const formattedStartDate = formatDateStr(context?.startDate);
+      const formattedEndDate = formatDateStr(context?.endDate);
+
+      const dateRangeLabel =
+        formattedStartDate || formattedEndDate
+          ? ` (${formattedStartDate || ''}${
+              formattedEndDate && formattedEndDate !== formattedStartDate
+                ? ` to ${formattedEndDate}`
+                : ''
+            })`
+          : '';
+      const title = `AjraSakha Response Adherence Report${dateRangeLabel}`;
+      const platformUrl = appConfig.frontendUrl;
+
+      // Colors/typography lifted from the app's own theme (frontend/src/styles.css's :root
+      // OKLCH tokens, converted to hex since email clients don't support oklch()), so the
+      // report reads as part of the AjraSakha Review System rather than a generic spreadsheet
+      // dump. Keep in sync with the frontend/backend copies of this palette in
+      // responseAdherenceReport.ts if the app's theme colors change.
+      const FONT = "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+      const PAGE_BG = '#f3f6f4';
+      const CARD_BG = '#ffffff';
+      const BORDER = '#e5e7eb';
+      const PRIMARY = '#72e3ad';
+      const PRIMARY_SOFT = '#e8faf1';
+      const PRIMARY_BORDER = '#bdeed4';
+      const HEADING = '#14532d';
+      const TEXT = '#171717';
+      const MUTED = '#6b7280';
+
+      const chipEntries: {label: string; value: string}[] = [];
+      if (context?.source) chipEntries.push({label: 'Source', value: context.source});
+      if (context?.userType) {
+        chipEntries.push({
+          label: 'User Type',
+          value: context.userType.toLowerCase() === 'all' ? 'External & Internal' : context.userType,
+        });
+      }
+      if (formattedStartDate || formattedEndDate) {
+        chipEntries.push({
+          label: 'Date',
+          value: `${formattedStartDate || ''}${formattedEndDate && formattedEndDate !== formattedStartDate ? ` to ${formattedEndDate}` : ''}`,
+        });
+      }
+      if (context?.timeWindow) chipEntries.push({label: 'Time', value: context.timeWindow});
+
+      const chipsHtml = chipEntries.length
+        ? `
+            <div style="margin: 22px 0;">
+              ${chipEntries
+                .map(
+                  chip => `
+                <span style="display:inline-block; background:${PRIMARY_SOFT}; border:1px solid ${PRIMARY_BORDER}; border-radius:999px; padding:7px 16px; margin:0 8px 8px 0; font-family:${FONT}; font-size:12px; color:${HEADING};">
+                  <span style="font-weight:700; text-transform:uppercase; letter-spacing:.04em; font-size:10px;">${chip.label}</span>
+                  &nbsp;·&nbsp;<span style="font-weight:600;">${chip.value}</span>
+                </span>`,
+                )
+                .join('')}
+            </div>`
+        : '';
+
+      const html = `
+        <div style="background:${PAGE_BG}; padding: 32px 16px; font-family: ${FONT};">
+          <div style="max-width: 800px; margin: 0 auto; background: ${CARD_BG}; color: ${TEXT}; border: 1px solid ${BORDER}; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+            <div style="text-align: center; padding: 28px 20px 22px; background-color: ${CARD_BG}; border-bottom: 3px solid ${PRIMARY};">
+              <img src="${platformUrl}/annam-logo.png" alt="Annam.ai Logo" style="height: 56px;" />
+            </div>
+            <div style="padding: 30px 28px;">
+              <h2 style="color: ${HEADING}; margin-top: 0; margin-bottom: 16px; text-align: center; font-family: ${FONT}; font-size: 21px;">Response Adherence Report</h2>
+              <p style="font-size: 15px; line-height: 1.6; color: ${TEXT};">Hello,</p>
+              <p style="font-size: 15px; line-height: 1.6; color: ${TEXT};">Please find attached the <b>AjraSakha Response Adherence</b> report. A summary is also provided below for quick reference.</p>
+
+              ${chipsHtml}
+
+              ${reportHtml ? `<div style="overflow-x:auto; margin-top: 8px;">${reportHtml}</div>` : ''}
+
+              <div style="margin-top: 32px; text-align: center;">
+                <a href="${platformUrl}" style="display:inline-block; padding: 13px 28px; background-color: ${HEADING}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 14px; font-family: ${FONT};">
+                  Go to AjraSakha Platform
+                </a>
+              </div>
+
+              <p style="margin-top: 28px; font-size: 13px; color: ${MUTED}; line-height: 1.6; text-align: center;">
+                If you encounter any issues with the report or have any questions regarding the data, please contact the Developer Team for assistance.
+              </p>
+            </div>
+            <div style="background-color: ${PRIMARY_SOFT}; padding: 20px; text-align: center; font-size: 13px; color: ${MUTED}; border-top: 1px solid ${PRIMARY_BORDER};">
+              <p style="margin: 0; color: ${TEXT};">Regards,</p>
+              <p style="margin: 4px 0 0 0; color: ${HEADING}; font-weight: 700;">AjraSakha System</p>
+              <p style="margin: 14px 0 0 0; font-size: 11px; color: ${MUTED};">&copy; ${new Date().getFullYear()} Annam.ai. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      await sendEmailWithAttachment(
+        emails,
+        title,
+        html,
+        reportContent,
+        fileName || 'response-adherence-report.csv',
+        'text/csv',
+      );
+
+      return {
+        success: true,
+        message: 'Response adherence report sent via email',
+      };
+    } catch (error) {
+      console.error('Error in sendResponseAdherenceReportEmail:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cloud Run Job entrypoint for the daily 7 PM (Asia/Kolkata) Response Adherence Summary
+   * report — see backend/src/jobs/response-adherence-report/run.ts. 
+   */
+  async sendDailyResponseAdherenceReportEmail(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    const recipients = (emailConfig.RESPONSE_ADHERENCE_REPORT_EMAILS || '')
+      .split(',')
+      .map(email => email.trim())
+      .filter(Boolean);
+
+    if (!recipients.length) {
+      console.warn(
+        '[sendDailyResponseAdherenceReportEmail] RESPONSE_ADHERENCE_REPORT_EMAILS is not configured; skipping send.',
+      );
+      return {
+        success: false,
+        message: 'RESPONSE_ADHERENCE_REPORT_EMAILS is not configured; report was not sent',
+      };
+    }
+
+    const now = new Date();
+    const startOfDayIST = getISTStartOfToday(now);
+    const dateLabel = now.toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
+
+    // source is intentionally left undefined (all sources combined) — the report's three
+    // columns (Whatsapp / AjraSakha / Manual) are the breakdown, not the `source` filter.
+    const table = await this.getResponseAdherenceTable(
+      undefined,
+      'all',
+      startOfDayIST.toISOString(),
+      now.toISOString(),
+    );
+
+    const reportContent = buildResponseAdherenceCsv(table, dateLabel);
+    const reportHtml = buildResponseAdherenceHtmlTable(table, dateLabel);
+
+    return this.sendResponseAdherenceReportEmail(
+      recipients,
+      reportContent,
+      `response-adherence-report-${dateLabel}.csv`,
+      {userType: 'all', startDate: dateLabel, endDate: dateLabel, timeWindow: table.timeWindow},
+      reportHtml,
+    );
   }
 
   async getQuestionsByCrop(

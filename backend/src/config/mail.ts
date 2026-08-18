@@ -4,4 +4,5 @@ export const emailConfig = {
   BACKUP_NOTIFICATION_EMAIL: env('BACKUP_NOTIFICATION_EMAIL') || null,
   EMAIL_USER: env('EMAIL_USER') || null,
   EMAIL_PASS: env('EMAIL_PASS') || null,
+  RESPONSE_ADHERENCE_REPORT_EMAILS: env('RESPONSE_ADHERENCE_REPORT_EMAILS') || null,
 };

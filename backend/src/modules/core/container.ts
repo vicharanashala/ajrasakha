@@ -24,6 +24,7 @@ import { RequestController } from '../request/controllers/RequestController.js';
 import { RequestService } from '../request/services/RequestService.js';
 import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { DuplicateQuestionRepository } from '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js';
+import { FeedbackRepository } from '#root/shared/database/providers/mongo/repositories/FeedbackRepository.js';
 import { AccAgentService } from '../acc-agent/services/AccAgentService.js';
 import { CheckOverlapsService } from '../question/services/CheckOverlapsService.js';
 export const coreContainerModule = new ContainerModule(options => {
@@ -78,4 +79,5 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.ReviewRepository).to(ReviewRepository).inSingletonScope()
   options.bind(CORE_TYPES.UserRepository).to(UserRepository).inSingletonScope()
   options.bind(CORE_TYPES.DuplicateQuestionRepository).to(DuplicateQuestionRepository).inSingletonScope()
+  options.bind(CORE_TYPES.FeedbackRepository).to(FeedbackRepository).inSingletonScope()
 });

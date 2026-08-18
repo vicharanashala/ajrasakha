@@ -9,6 +9,7 @@ import {
   QuestionStatus,
   QuestionSource,
   IUserHistory,
+  TIME_BOUND_SOURCES,
 } from '#shared/interfaces/models.js';
 import {instanceToPlain} from 'class-transformer';
 import {injectable, inject} from 'inversify';
@@ -1054,6 +1055,29 @@ export class UserRepository implements IUserRepository {
    *  them; moderators use findAvailableStfModerators*, not this method.) */
   async findAvailableUsersByRole(role: UserRole): Promise<IUser[]> {
     await this.init();
+    const emptyFeedbacks = [
+      { feedbacksAssigned: { $exists: false } },
+      { feedbacksAssigned: null },
+      { feedbacksAssigned: { $size: 0 } },
+    ];
+    // What counts as "already busy with a question":
+    //  - Auditors: only a TIME-BOUND (AJRASAKHA/WHATSAPP) assigned question blocks
+    //    them; a manual-source auditor question does NOT (time-bound = the one slot).
+    //  - Other roles (gate keeper): any assigned question blocks (strict, unchanged).
+    const noBlockingQuestion =
+      role === 'auditor'
+        ? {
+            assignedQuestionIds: {
+              $not: { $elemMatch: { source: { $in: TIME_BOUND_SOURCES } } },
+            },
+          }
+        : {
+            $or: [
+              { assignedQuestionIds: { $exists: false } },
+              { assignedQuestionIds: null },
+              { assignedQuestionIds: { $size: 0 } },
+            ],
+          };
     return this.usersCollection
       .find({
         role,
@@ -1061,14 +1085,11 @@ export class UserRepository implements IUserRepository {
         // Only active users. status defaults to 'active' on creation, so treat a
         // missing/null status as active and exclude only explicitly in-active users.
         status: { $ne: 'in-active' },
-
-        $or: [
-          { assignedQuestionIds: { $exists: false } },
-          { assignedQuestionIds: null },
-          { assignedQuestionIds: { $size: 0 } },
-        ],
-
-      })
+        // Free of a blocking question AND any feedback — an auditor holds EITHER one
+        // time-bound item (question OR feedback), never both. Gate keepers never
+        // receive feedback, so the feedbacksAssigned clause is a no-op for them.
+        $and: [noBlockingQuestion, { $or: emptyFeedbacks }],
+      } as any)
       .toArray();
   }
 
@@ -1132,10 +1153,10 @@ export class UserRepository implements IUserRepository {
   }
 
   /** Moderators/auditors currently free to take a NEW feedback review — active, not
-   *  blocked, with an empty feedbacksAssigned. Auditors must ALSO have an empty
-   *  assignedQuestionIds (either one feedback OR one auditor question); moderators may
-   *  hold queue work alongside a feedback. Used by the feedback queue's "available"
-   *  section and mirrors the availability the feedback allocator uses. */
+   *  blocked, with an empty feedbacksAssigned AND no time-bound (AJRASAKHA/WHATSAPP)
+   *  assigned question. Feedback counts as a time-bound item, so a held time-bound
+   *  question blocks feedback for BOTH roles; a manual-source question does not. Mirrors
+   *  the availability the feedback allocator (moderator-queue cron) uses. */
   async findAvailableFeedbackReviewers(): Promise<IUser[]> {
     await this.init();
     const emptyFeedbacks = [
@@ -1143,33 +1164,26 @@ export class UserRepository implements IUserRepository {
       {feedbacksAssigned: null},
       {feedbacksAssigned: {$size: 0}},
     ];
-    const emptyQueue = [
-      {assignedQuestionIds: {$exists: false}},
-      {assignedQuestionIds: null},
-      {assignedQuestionIds: {$size: 0}},
-    ];
+    const noTimeBoundQuestion = {
+      assignedQuestionIds: {
+        $not: {$elemMatch: {source: {$in: TIME_BOUND_SOURCES}}},
+      },
+    };
     return this.usersCollection
       .find({
+        role: {$in: ['moderator', 'auditor']},
         isBlocked: {$ne: true},
         status: {$ne: 'in-active'},
-        $and: [
-          {$or: emptyFeedbacks},
-          {
-            $or: [
-              {role: 'moderator'},
-              {$and: [{role: 'auditor'}, {$or: emptyQueue}]},
-            ],
-          },
-        ],
+        $and: [{$or: emptyFeedbacks}, noTimeBoundQuestion],
       } as any)
       .toArray();
   }
 
   /** Atomically claim a feedback-review assignment for a user only when they are an
-   *  active moderator/auditor with an empty feedback array. Auditors must ALSO have an
-   *  empty assignedQuestionIds array — an auditor holds either one feedback OR one
-   *  auditor-level question, never both. Moderators may hold a feedback alongside their
-   *  queue work, so they are exempt from the assignedQuestionIds check. */
+   *  active, non-blocked user with an empty feedback array AND no time-bound
+   *  (AJRASAKHA/WHATSAPP) assigned question. Feedback counts as a time-bound item, so a
+   *  user holding a time-bound question can't also take feedback (and vice versa); a
+   *  MANUAL-source question does not block them. Applies to moderators and auditors. */
   async claimFeedbackAllocation(
     userId: string,
     questionId: string,
@@ -1177,21 +1191,21 @@ export class UserRepository implements IUserRepository {
   ): Promise<boolean> {
     await this.init();
     const qid = new ObjectId(questionId);
-    // const emptyAssignedQuestions = [
-    //   {assignedQuestionIds: {$exists: false}},
-    //   {assignedQuestionIds: null},
-    //   {assignedQuestionIds: {$size: 0}},
-    // ];
     const result = await this.usersCollection.updateOne(
       {
         _id: new ObjectId(userId),
         isBlocked: { $ne: true },
         status: { $ne: 'in-active' },
+        // One feedback at a time.
         $or: [
           { feedbacksAssigned: { $exists: false } },
           { feedbacksAssigned: null },
           { feedbacksAssigned: { $size: 0 } },
         ],
+        // No time-bound assigned question — feedback shares the time-bound slot.
+        assignedQuestionIds: {
+          $not: { $elemMatch: { source: { $in: TIME_BOUND_SOURCES } } },
+        },
       } as any,
       [
         {
@@ -1239,6 +1253,30 @@ export class UserRepository implements IUserRepository {
     const result = await this.usersCollection.updateOne(
       {
         _id: new ObjectId(moderatorId),
+        // Auditor either-or guard (mirrors findAvailableUsersByRole): an auditor's one
+        // time-bound slot must be free — no feedback AND no time-bound assigned
+        // question. A manual-source assigned question is fine. Non-auditors are
+        // unconstrained.
+        $or: [
+          { role: { $ne: 'auditor' } },
+          {
+            role: 'auditor',
+            $and: [
+              {
+                $or: [
+                  { feedbacksAssigned: { $exists: false } },
+                  { feedbacksAssigned: null },
+                  { feedbacksAssigned: { $size: 0 } },
+                ],
+              },
+              {
+                assignedQuestionIds: {
+                  $not: { $elemMatch: { source: { $in: TIME_BOUND_SOURCES } } },
+                },
+              },
+            ],
+          },
+        ],
       },
       [
         {
@@ -2949,4 +2987,115 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError('Failed to fetch working hours trend');
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PAE Expert Methods
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /** Find available PAE experts who can take questions for validation.
+   *  Criteria:
+   *  - role must be 'pae_expert'
+   *  - isBlocked must NOT be true
+   *  - status must NOT be 'in-active'
+   *  - paeValidationAssigned must be empty or null (not currently holding any question)
+   */
+  async findAvailablePaeExperts(session?: ClientSession): Promise<IUser[]> {
+    await this.init();
+    return this.usersCollection
+      .find({
+        role: 'pae_expert',
+        isBlocked: { $ne: true },
+        status: { $ne: 'in-active' },
+        $or: [
+          { paeValidationAssigned: { $exists: false } },
+          { paeValidationAssigned: null },
+          { paeValidationAssigned: { $size: 0 } },
+        ],
+      })
+      .toArray();
+  }
+
+  /** Add a question ID to the user's paeValidationAssigned array.
+   *  Uses an aggregation pipeline update for null-safety.
+   */
+  async addPaeValidationAssigned(
+    paeExpertId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    const result = await this.usersCollection.updateOne(
+      { _id: new ObjectId(paeExpertId) },
+      [
+        {
+          $set: {
+            paeValidationAssigned: {
+              $concatArrays: [
+                {
+                  $filter: {
+                    input: { $ifNull: ['$paeValidationAssigned', []] },
+                    as: 'q',
+                    cond: { $ne: ['$$q', qid] },
+                  },
+                },
+                [qid],
+              ],
+            },
+            updatedAt: new Date(),
+          },
+        },
+      ],
+      { session },
+    );
+    return result.modifiedCount > 0;
+  }
+
+  /** Remove a question ID from the user's paeValidationAssigned array. */
+  async removePaeValidationAssigned(
+    paeExpertId: string,
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    // Pull both string and ObjectId forms for safety
+    const pullValues: (string | ObjectId)[] = [questionId];
+    if (ObjectId.isValid(questionId)) {
+      pullValues.push(new ObjectId(questionId));
+    }
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(paeExpertId) },
+      {
+        $pull: {
+          paeValidationAssigned: { $in: pullValues } as any,
+        },
+        $set: { updatedAt: new Date() },
+      },
+      { session },
+    );
+  }
+  //find all auditors
+   async findAuditors(): Promise<IUser[]> {
+    await this.init();
+    return await this.usersCollection.find({role: 'auditor'}).toArray();
+  }
+
+  async getUsersByRole(roles: UserRole[]) {
+    await this.init();
+
+    return this.usersCollection.find(
+      {
+        role: { $in: roles },
+      },
+      {
+        projection: {
+          _id: 1,
+          email: 1,
+          firstName: 1,
+          lastName: 1,
+        },
+      },
+    ).toArray();
+  }
+
 }

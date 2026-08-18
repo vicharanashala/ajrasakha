@@ -75,6 +75,9 @@ export interface IUser {
    *  re-routed (handed to an expert) stay for history but do not block new work. */
   assignedQuestionIds?: IAssignedQuestion[] | null;
   isTrainingUser?: boolean;
+  /** Questions assigned to this user for PAE validation (pae_expert only).
+   *  Contains question IDs currently assigned for final validation. */
+  paeValidationAssigned?: (string | ObjectId)[] | null;
   /** Questions assigned to this user for feedback (auditor/moderator only).
    *  Contains question IDs that need feedback review. */
   feedbacksAssigned?: (string | ObjectId)[] | null;
@@ -220,6 +223,7 @@ export interface IQuestion {
   auditorAssignedAt?: Date | null;
   /** Timestamp when the auditor finished (acted on) the question. */
   auditorFinishedAt?: Date | null;
+  autoAllocatePaeValidationExpert?: boolean;
   referenceQuestionDetails?: Array<{
     _id: ObjectId | string;
     duplicate: boolean;
@@ -234,12 +238,22 @@ export interface IQuestion {
     source?: string;
     status?: string;
   }[] | null;
+  /** When the most recent feedback was (re)opened on this question. Stamped whenever
+   *  a feedback status flips to 'open'. The moderator queue orders feedback questions
+   *  by this (rather than the question's original createdAt). */
+  recentFeedback?: Date | null;
   /** Set when a moderator cancels a duplicate flag and reopens the question. The
    *  cancel reason and timestamp are recorded in the audit trail, not on the question. */
   isDuplicateCancelled?: boolean;
   isDelayed?: boolean;
   /** Flag to indicate this question is from the user's feedbacksAssigned array (feedback tab) */
   isFeedbackQuestion?: boolean;
+  /** PAE validation status for questions ready for final validation.
+   *  - 'pending': question is ready for PAE expert validation
+   *  - 'in-progress': PAE expert has been assigned and is working on it
+   *  - 'completed': PAE expert has completed the validation */
+  paeValidation?: 'pending' | 'in-progress' | 'completed';
+  autoAllocateFeedback?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
@@ -383,6 +397,14 @@ export interface IQuestionSubmission {
   // feedbackReviewFinishedAt?: Date | null;
   // /** @deprecated superseded by feedbackReviews[]. Kept for legacy documents. */
   // feedbackReviewerId?: string | ObjectId | null;
+  /** PAE validation records for this question - tracks PAE expert assignment and completion.
+   *  Each entry contains the PAE assignment details with timestamps and status. */
+  paeValidation?: {
+    paeAssignedAt: Date;
+    paeId: ObjectId | string;
+    paeStatus: 'in-progress' | 'completed';
+    paeFinishedAt?: Date | null;
+  }[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -395,6 +417,36 @@ export interface IComment {
   userName?: string;
   text: string;
   createdAt: Date;
+}
+
+/** Feedback submitted by a PAE expert during validation */
+export interface IFeedback {
+  _id?: string | ObjectId;
+  /** The question this feedback is for */
+  questionId: string | ObjectId;
+  /** Information about the user who submitted the feedback */
+  userId: {
+    name: string;
+    email: string;
+  };
+  /** The answer this feedback is associated with (optional) */
+  answerId?: string | ObjectId;
+  /** Type of feedback (e.g., 'PAE_VALIDATION') */
+  type: string;
+  /** The feedback comment */
+  comment: string;
+  /** Optional link with name and source URL */
+  link?: {
+    name: string;
+    source: string;
+  };
+  /** Status of the feedback: open (pending review), approved, or rejected */
+  status: 'open' | 'accept' | 'reject';
+  createdAt?: Date;
+  /** Timestamp when the feedback was approved (if applicable) */
+  approvedAt?: Date | null;
+  /** Optional review note from moderator */
+  reviewNote?: string | null;
 }
 
 export type RequestStatus = 'pending' | 'rejected' | 'approved' | 'in-review';

@@ -81,6 +81,8 @@ class PlannerPlan(TypedDict, total=False):
     is_complete: bool
     missing_info: list[str]
     follow_up_question: Optional[str]
+    crop_required: Optional[bool]
+    crop_requirement_source: Optional[str]
     reasoning: Optional[str]
     entities: PlannerEntities
     skip_synthesize: bool

@@ -655,6 +655,7 @@ export class QuestionRepository implements IQuestionRepository {
         consecutiveApprovals,
         autoAllocateFilter,
         autoAllocateModeratorFilter,
+        feedbackFilter,
         sort,
         closedInTwoHrs,
         hiddenQuestions,
@@ -780,6 +781,38 @@ export class QuestionRepository implements IQuestionRepository {
           filter.autoAllocateModerator = true;
         } else if (autoAllocateModeratorFilter === 'off') {
           filter.autoAllocateModerator = false;
+        }
+      }
+
+      // --- Feedback Status Filter ---
+      if (feedbackFilter && feedbackFilter !== 'all') {
+        const normFeedback = feedbackFilter.toLowerCase();
+        if (!filter.$and) filter.$and = [];
+
+        if (normFeedback === 'open') {
+          filter.$and.push({
+            $or: [
+              { feedbacks: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } } },
+              { feedback: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } } },
+            ],
+          });
+        } else if (normFeedback === 'closed') {
+          filter.$and.push({
+            $or: [
+              {
+                feedbacks: {
+                  $elemMatch: { status: { $regex: '^closed$', $options: 'i' } },
+                  $not: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } },
+                },
+              },
+              {
+                feedback: {
+                  $elemMatch: { status: { $regex: '^closed$', $options: 'i' } },
+                  $not: { $elemMatch: { status: { $regex: '^open$', $options: 'i' } } },
+                },
+              },
+            ],
+          });
         }
       }
 
@@ -2769,6 +2802,92 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Bulk-replace `details.domain` on questions from a { questionId, normalizedDomain }
+   *  list (one DB round trip) — the existing domain values are removed and replaced
+   *  with the single standardized domain. Reports how many questions were modified and
+   *  how many ids didn't match any document (or were invalid). */
+  async bulkSetNormalizedDomain(
+    pairs: { questionId: string; normalizedDomain: string }[],
+  ): Promise<{
+    total: number;
+    matched: number;
+    modified: number;
+    notMatched: number;
+    invalid: number;
+  }> {
+    await this.init();
+    const total = pairs.length;
+    const valid = pairs.filter(
+      p => p.questionId && isValidObjectId(p.questionId),
+    );
+    const invalid = total - valid.length;
+    if (!valid.length) {
+      return { total, matched: 0, modified: 0, notMatched: invalid, invalid };
+    }
+    const ops = valid.map(p => ({
+      updateOne: {
+        filter: { _id: new ObjectId(p.questionId) },
+        update: {
+          $set: {
+            // Remove existing domain values and replace with the standardized one.
+            'details.domain': [p.normalizedDomain ?? ''],
+            updatedAt: new Date(),
+          },
+        },
+      },
+    }));
+    const res = await this.QuestionCollection.bulkWrite(ops as any);
+    const matched = res.matchedCount ?? 0;
+    const modified = res.modifiedCount ?? 0;
+    // notMatched = valid ids that hit no document + the invalid ones.
+    const notMatched = valid.length - matched + invalid;
+    return { total, matched, modified, notMatched, invalid };
+  }
+
+  /** Closed questions that have no moderator recorded (moderatorId is null or missing).
+   *  Used by the backfill that restores moderatorId from the final answer's approver —
+   *  moderatorId is cleared when a question closes. Returns up to `limit` question ids. */
+  async findClosedQuestionsWithoutModerator(limit: number): Promise<string[]> {
+    await this.init();
+    const safeLimit = Math.max(1, Math.min(limit || 500, 2000));
+    const docs = await this.QuestionCollection.find(
+      {
+        $and: [
+          { $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }] },
+          { status: 'closed' },
+        ],
+      },
+      { projection: { _id: 1 }, limit: safeLimit },
+    ).toArray();
+    return docs.map(d => d._id!.toString());
+  }
+
+  /** Bulk-set moderatorId on several questions in one round trip. Invalid ids are
+   *  skipped. Returns the number of questions actually modified. */
+  async bulkSetModeratorId(
+    pairs: { questionId: string; moderatorId: string }[],
+  ): Promise<number> {
+    await this.init();
+    const ops = pairs
+      .filter(
+        p => isValidObjectId(p.questionId) && isValidObjectId(p.moderatorId),
+      )
+      .map(p => ({
+        updateOne: {
+          filter: { _id: new ObjectId(p.questionId) },
+          update: {
+            $set: {
+              moderatorId: new ObjectId(p.moderatorId),
+              updatedAt: new Date(),
+            },
+          },
+        },
+      }));
+    if (!ops.length) return 0;
+    const res = await this.QuestionCollection.bulkWrite(ops as any);
+    return res.modifiedCount ?? 0;
+  }
+
   async updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
@@ -3471,7 +3590,7 @@ export class QuestionRepository implements IQuestionRepository {
     endDate?: Date,
   ): Promise<{
     todayApproved: number;
-    moderatorBreakdown?: { moderatorName: string; count: number; moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
+    moderatorBreakdown?: { moderatorName: string; count: number; closedCount?: number; dynamicClosedCount?: number; duplicateClosedCount?: number; moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
   }> {
     await this.init();
 
@@ -3487,56 +3606,71 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get moderator breakdown
-    const moderatorBreakdown = (await this.AnswersCollection.aggregate(
+    const moderatorBreakdown = (await this.QuestionCollection.aggregate(
       [
+        // Start from CLOSED questions, NOT answers. The old answer-first pipeline
+        // counted orphaned final answers whose question was deleted (question got
+        // deleted but the answer didn't), inflating the counts. Starting from the
+        // questions collection means a deleted question simply can't be counted.
         {
           $match: {
-            status: 'approved',
-            isFinalAnswer: true,
-            approvedBy: { $exists: true, $ne: null },
+            closedAt: { $gte: start, $lt: end },
+            status: { $in: ['closed', 'dynamic_closed', 'duplicate_closed'] },
+            ...(!isAdmin &&
+              (isTrainingUser
+                ? { isTrainingQuestion: true }
+                : { isTrainingQuestion: { $ne: true } })),
           },
         },
 
-        // Lookup question
+        // Look up this question's FINAL answer and its approver — the person who
+        // closed it, moderator OR auditor. Take the most recent one so each closed
+        // question is credited exactly once.
         {
           $lookup: {
-            from: 'questions',
-            localField: 'questionId',
-            foreignField: '_id',
-            as: 'question',
+            from: 'answers',
+            let: { qid: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$questionId', '$$qid'] },
+                      { $eq: ['$isFinalAnswer', true] },
+                    ],
+                  },
+                  approvedBy: { $exists: true, $ne: null },
+                },
+              },
+              { $sort: { updatedAt: -1 } },
+              { $limit: 1 },
+            ],
+            as: 'finalAnswer',
           },
         },
 
+        // Drop closed questions with no final answer / no approver.
         {
           $unwind: {
-            path: '$question',
+            path: '$finalAnswer',
             preserveNullAndEmptyArrays: false,
           },
         },
 
-        // Filter by question.closedAt
-        {
-          $match: {
-            'question.closedAt': {
-              $gte: start,
-              $lt: end,
-            },
-            ...(!isAdmin &&
-              (isTrainingUser
-                ? {
-                  'question.isTrainingQuestion': true,
-                }
-                : {
-                  'question.isTrainingQuestion': { $ne: true },
-                })),
-          },
-        },
-
-        // Group by moderator
+        // Group by the approver (from the final answer), with per-close-status counts.
         {
           $group: {
-            _id: '$approvedBy',
+            _id: '$finalAnswer.approvedBy',
             count: { $sum: 1 },
+            closedCount: {
+              $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] },
+            },
+            dynamicClosedCount: {
+              $sum: { $cond: [{ $eq: ['$status', 'dynamic_closed'] }, 1, 0] },
+            },
+            duplicateClosedCount: {
+              $sum: { $cond: [{ $eq: ['$status', 'duplicate_closed'] }, 1, 0] },
+            },
           },
         },
 
@@ -3652,6 +3786,9 @@ export class QuestionRepository implements IQuestionRepository {
               ],
             },
             count: 1,
+            closedCount: 1,
+            dynamicClosedCount: 1,
+            duplicateClosedCount: 1,
 
             moderatorHours: {
               $round: [
@@ -3743,19 +3880,126 @@ export class QuestionRepository implements IQuestionRepository {
     ).toArray()) as {
       moderatorName: string;
       count: number;
+      closedCount: number;
+      dynamicClosedCount: number;
+      duplicateClosedCount: number;
       moderatorHours: number;
       auditorHours: number;
       gateKeeperHours: number;
     }[];
-    // Calculate total from the breakdown
-    const totalApproved = moderatorBreakdown.reduce(
-      (sum, item) => sum + item.count,
-      0,
-    );
+    // todayApproved counts ONLY questions closed as plain 'closed' (Push to GDB) —
+    // not the Notify-User closes (dynamic_closed / duplicate_closed). Compute it as a
+    // DIRECT count of closed questions in the window (not the by-approver breakdown
+    // sum) so it isn't undercounted when a closed question has no attributable final
+    // answer / approver — those are dropped from the per-approver breakdown but must
+    // still be counted in the total.
+    const totalApproved = await this.QuestionCollection.countDocuments({
+      status: 'closed',
+      closedAt: { $gte: start, $lt: end },
+      ...(!isAdmin &&
+        (isTrainingUser
+          ? { isTrainingQuestion: true }
+          : { isTrainingQuestion: { $ne: true } })),
+    } as any);
 
     return {
       todayApproved: totalApproved,
       moderatorBreakdown: moderatorBreakdown,
+    };
+  }
+
+  /** Diagnostic: closed questions in a window vs their answers. Surfaces the
+   *  "count mismatch" — closed questions that DON'T have a final answer with a valid
+   *  ObjectId `approvedBy` (the ones dropped from the moderator breakdown), with the
+   *  reason (no answers / no final answer / final answer missing approver / approvedBy
+   *  stored as a non-ObjectId). */
+  async getClosedAnswerMismatch(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
+    window: { start: Date; end: Date };
+    totalClosed: number;
+    matched: number;
+    mismatched: number;
+    items: any[];
+  }> {
+    await this.init();
+    const rows = (await this.QuestionCollection.aggregate([
+      { $match: { status: 'closed', closedAt: { $gte: startDate, $lt: endDate } } },
+      {
+        $lookup: {
+          from: 'answers',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'answers',
+        },
+      },
+      {
+        $addFields: {
+          totalAnswers: { $size: '$answers' },
+          finalAnswers: {
+            $filter: {
+              input: '$answers',
+              as: 'a',
+              cond: { $eq: ['$$a.isFinalAnswer', true] },
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          // Final answers that have a proper ObjectId approvedBy — what the breakdown counts.
+          finalWithObjectIdApprover: {
+            $filter: {
+              input: '$finalAnswers',
+              as: 'a',
+              cond: {
+                $and: [
+                  { $ne: [{ $ifNull: ['$$a.approvedBy', null] }, null] },
+                  { $eq: [{ $type: '$$a.approvedBy' }, 'objectId'] },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          question: 1,
+          source: 1,
+          status: 1,
+          closedBy: 1,
+          closedAt: 1,
+          moderatorId: 1,
+          totalAnswers: 1,
+          finalAnswerCount: { $size: '$finalAnswers' },
+          finalWithApproverCount: { $size: '$finalWithObjectIdApprover' },
+          // approvedBy value + BSON type on each final answer, to spot string ids.
+          finalAnswerApprovers: {
+            $map: {
+              input: '$finalAnswers',
+              as: 'a',
+              in: {
+                approvedBy: '$$a.approvedBy',
+                approvedByType: { $type: '$$a.approvedBy' },
+                status: '$$a.status',
+              },
+            },
+          },
+          isMatched: { $gt: [{ $size: '$finalWithObjectIdApprover' }, 0] },
+        },
+      },
+      { $sort: { closedAt: 1 } },
+    ]).toArray()) as any[];
+
+    const mismatchedItems = rows.filter(r => !r.isMatched);
+    return {
+      window: { start: startDate, end: endDate },
+      totalClosed: rows.length,
+      matched: rows.length - mismatchedItems.length,
+      mismatched: mismatchedItems.length,
+      items: mismatchedItems,
     };
   }
 
@@ -8157,12 +8401,27 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
-  async findQuestionsWithOpenFeedbacks(): Promise<IQuestion[]> {
+  async findQuestionsWithOpenFeedbacks(
+    requireAutoAllocate = false,
+  ): Promise<IQuestion[]> {
     await this.init();
-    return this.QuestionCollection.find({
+    // Feedback questions are CLOSED questions that later received feedback (an open
+    // feedback entry). The in-review pool is handled separately by
+    // findUnassignedInReviewQuestions (autoAllocateModerator), so scope this to closed.
+    const filter: Record<string, unknown> = {
+      status: 'closed',
       'feedbacks.status': 'open',
-    } as any)
-      .sort({ createdAt: 1 })
+    };
+    if (requireAutoAllocate) {
+      // Only questions with feedback auto-allocation EXPLICITLY true. A missing or
+      // false field means OFF (same convention as autoAllocateModerator).
+      filter.autoAllocateFeedback = true;
+    }
+    // Feedback questions are ordered by when their feedback arrived (recentFeedback),
+    // not the question's original createdAt. createdAt is the fallback for legacy
+    // feedback questions that predate the recentFeedback stamp.
+    return this.QuestionCollection.find(filter as any)
+      .sort({ recentFeedback: 1, createdAt: 1 })
       .toArray();
   }
 
@@ -8206,6 +8465,37 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** Questions created in a window, for the TAT (turnaround-time) lifecycle report.
+   *  Mirrors scripts/timebound-question-cycle-report.js: default scope is time-bound
+   *  (AJRASAKHA/WHATSAPP + isAutoAllocate), test questions excluded. `allSources` drops
+   *  the time-bound filter; `closedOnly` restricts to closed statuses. Oldest-first. */
+  async findQuestionsForTatReport(
+    from: Date,
+    to: Date,
+    sources?: string[],
+    statuses?: string[],
+  ): Promise<IQuestion[]> {
+    await this.init();
+    const CLOSED_STATUSES = ['closed', 'dynamic_closed', 'duplicate_closed'];
+    // The special status `all-closed` expands to the three closed statuses.
+    const expandedStatuses = statuses?.length
+      ? [
+          ...new Set(
+            statuses.flatMap(s => (s === 'all-closed' ? CLOSED_STATUSES : [s])),
+          ),
+        ]
+      : undefined;
+    const match: Record<string, unknown> = {
+      createdAt: { $gte: from, $lte: to },
+      isTesting: { $ne: true },
+      ...(sources && sources.length ? { source: { $in: sources } } : {}),
+      ...(expandedStatuses ? { status: { $in: expandedStatuses } } : {}),
+    };
+    return this.QuestionCollection.find(match as any)
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
   /** Questions currently assigned to a given role assignee (gateKeeperId / auditorId),
    *  restricted to the statuses that role handles. Used to compute per-user busy state. */
   async findQuestionsAssignedToRole(
@@ -8218,6 +8508,25 @@ export class QuestionRepository implements IQuestionRepository {
       status: { $in: statuses },
       // Gate keeper / auditor only handle time-bound (chatbot) questions.
       source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+    } as any)
+      .toArray();
+  }
+
+  /** "Leaked" role assignments: a question still points to a gate keeper / auditor
+   *  (assigneeField set) and hasn't been marked finished (finishedAtField null/missing),
+   *  yet its status has moved OUT of that role's handling scope (e.g. pushed to auditor).
+   *  Used by the queue cron to free assignees whose post-commit release was missed. */
+  async findLeakedRoleAssignments(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    statuses: QuestionStatus[],
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection.find({
+      [assigneeField]: { $ne: null, $exists: true },
+      // `{ field: null }` matches both an explicit null and a missing field.
+      [finishedAtField]: null,
+      status: { $nin: statuses },
     } as any)
       .toArray();
   }
@@ -8632,13 +8941,14 @@ export class QuestionRepository implements IQuestionRepository {
   //add or update feedback status of the question
   async addOrUpdateFeedbackStatus(
     questionId: string,
-    source: 'DATASET' | 'WEB_APPLICATION',
+    source: 'DATASET' | 'WEB_APPLICATION' | "PAE_Validation",
     session?: ClientSession,
   ): Promise<number> {
     try {
       const normalizedSource = source.toUpperCase() as
         | 'DATASET'
-        | 'WEB_APPLICATION';
+        | 'WEB_APPLICATION'
+        | "PAE_Validation";
       await this.init();
 
       const result = await this.QuestionCollection.updateOne(
@@ -8647,6 +8957,9 @@ export class QuestionRepository implements IQuestionRepository {
           {
             $set: {
               autoAllocateFeedback: true,
+              // Feedback (re)opened now — stamp recency so the moderator queue can
+              // order feedback questions by when feedback arrived, not question age.
+              recentFeedback: '$$NOW',
               feedbacks: {
                 $let: {
                   vars: {
@@ -8716,5 +9029,346 @@ export class QuestionRepository implements IQuestionRepository {
         `Error while updating Question: More info: ${error}`,
       );
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PAE Validation Methods
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /** Find all questions with paeValidation status of 'pending' that are ready for
+   *  PAE expert validation. Questions are sorted by createdAt in ascending order
+   *  (oldest first).
+   */
+  async findQuestionsPendingPaeValidation(
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection.find(
+      { paeValidation: 'pending',autoAllocatePaeValidationExpert:true },
+      { session },
+    )
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Update the paeValidation status on a question. */
+  async updatePaeValidationStatus(
+    questionId: string,
+    paeValidation: 'pending' | 'in-progress' | 'completed',
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    const result = await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      {
+        $set: {
+          paeValidation,
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+    return { modifiedCount: result.modifiedCount };
+  }
+
+  /** Update the paeValidation array in the question's submission document.
+   *  Pushes a new PAE validation entry to the paeValidation array.
+   */
+  async addPaeValidationEntry(
+    questionId: string,
+    paeValidationEntry: {
+      paeAssignedAt: Date;
+      paeId: string | ObjectId;
+      paeStatus: 'in-progress' | 'completed';
+      paeFinishedAt?: Date | null;
+    },
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    // Ensure paeId is stored as ObjectId
+    const entryWithObjectId = {
+      ...paeValidationEntry,
+      paeId: ObjectId.isValid(paeValidationEntry.paeId)
+        ? new ObjectId(paeValidationEntry.paeId)
+        : paeValidationEntry.paeId,
+    };
+    await this.QuestionSubmissionCollection.updateOne(
+      { questionId: qid },
+      {
+        $push: {
+          paeValidation: entryWithObjectId,
+        },
+        $set: {
+          updatedAt: new Date(),
+        },
+      },
+      { session },
+    );
+  }
+
+  /**
+   * Adds a feedback entry to the question's feedbacks array.
+   * Updates recentFeedback timestamp only if:
+   * - There is no existing open feedback, OR
+   * - All existing feedbacks are closed (meaning this is the first/recent open feedback)
+   */
+  async addFeedback(
+    questionId: string,
+    feedbackEntry: {
+      source: string;
+      status: string;
+      recentFeedback?: Date;
+    },
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    const now = new Date();
+
+    // Only consider updating recentFeedback for open status feedbacks
+    const shouldCheckForOpenFeedbacks = feedbackEntry.status === 'open';
+
+    // Check if there's already an open feedback BEFORE we add the new one
+    // We need to do this check first to determine whether to update recentFeedback
+    let hasExistingOpenFeedback = false;
+    if (shouldCheckForOpenFeedbacks) {
+      const existingQuestion = await this.QuestionCollection.findOne(
+        { _id: qid },
+        { 
+          projection: { _id: 1 }, 
+          // Use readConcern 'snapshot' for transaction consistency
+          ...(session ? { session } : {}) 
+        }
+      );
+      
+      if (existingQuestion) {
+        // Use aggregation to check existing feedbacks in a transaction-safe way
+        const pipeline = [
+          { $match: { _id: qid } },
+          { 
+            $project: {
+              hasOpenFeedback: {
+                $gt: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: { $ifNull: ['$feedbacks', []] },
+                        cond: { $eq: ['$$this.status', 'open'] }
+                      }
+                    }
+                  },
+                  0
+                ]
+              }
+            }
+          }
+        ];
+        
+        const result = await this.QuestionCollection.aggregate(pipeline, { session }).toArray();
+        hasExistingOpenFeedback = result[0]?.hasOpenFeedback === true;
+      }
+    }
+
+    // Determine if we should update recentFeedback:
+    // - If there's already an open feedback, don't update recentFeedback (leave it as is)
+    // - If no open feedbacks exist, update recentFeedback to now (this is the first open feedback)
+    const shouldUpdateRecentFeedback = shouldCheckForOpenFeedbacks && !hasExistingOpenFeedback;
+
+    // Build the update operations
+    const updateOps: any = {
+      $push: {
+        feedbacks: {
+          source: feedbackEntry.source,
+          status: feedbackEntry.status,
+        },
+      },
+    };
+
+    // Add $set operation if we need to update recentFeedback
+    if (shouldUpdateRecentFeedback) {
+      updateOps.$set = {
+        recentFeedback: feedbackEntry.recentFeedback || now,
+      };
+    }
+
+    const result = await this.QuestionCollection.updateOne(
+      { _id: qid },
+      updateOps,
+      { session },
+    );
+
+    return { modifiedCount: result.modifiedCount };
+  }
+
+  /** Find questions by their IDs with pagination, joining final answers in a single aggregation pipeline.
+   *  Uses $lookup to join with answers collection and get the final answer with sources.
+   */
+  async findByIdsWithAnswers(
+    ids: ObjectId[],
+    page: number,
+    limit: number,
+    session?: ClientSession,
+  ): Promise<{
+    questions: Array<{
+      _id: ObjectId;
+      question: string;
+      status: QuestionStatus;
+      source: QuestionSource;
+      priority?: string;
+      totalAnswersCount?: number;
+      createdAt: Date;
+      state?: string;
+      district?: string;
+      crop?: string;
+      domain?: string;
+      season?: string;
+      normalised_crop?: string;
+      answer?: {
+        _id: ObjectId;
+        answer: string;
+        sources: Array<{
+          source: string;
+          sourceType?: string;
+          sourceName?: string;
+          page?: string | number;
+        }>;
+        authorId: ObjectId;
+        isFinalAnswer: boolean;
+      };
+    }>;
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+  }> {
+    await this.init();
+
+    const totalCount = ids.length;
+    const totalPages = Math.ceil(totalCount / limit);
+    const safePage = Math.min(Math.max(page, 1), totalPages || 1);
+    const skip = (safePage - 1) * limit;
+
+    // Get the IDs for the current page
+    const pageIds = ids.slice(skip, skip + limit);
+
+    if (pageIds.length === 0) {
+      return {
+        questions: [],
+        totalCount,
+        totalPages,
+        currentPage: safePage,
+      };
+    }
+
+    // Use aggregation pipeline with $lookup to join answers in a single call
+    const pipeline: object[] = [
+      // Match only the questions we need
+      { $match: { _id: { $in: pageIds } } },
+      // Lookup the final answer from answers collection
+      {
+        $lookup: {
+          from: 'answers',
+          let: { questionId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$questionId', '$$questionId'] },
+                    { $eq: ['$isFinalAnswer', true] },
+                  ],
+                },
+              },
+            },
+            // Project only the fields we need
+            {
+              $project: {
+                _id: 1,
+                answer: 1,
+                sources: 1,
+                authorId: 1,
+                isFinalAnswer: 1,
+              },
+            },
+            // Limit to 1 final answer
+            { $limit: 1 },
+          ],
+          as: 'answerData',
+        },
+      },
+      // Unwind the answer array (if exists) or keep as empty
+      {
+        $addFields: {
+          answer: {
+            $cond: {
+              if: { $gt: [{ $size: '$answerData' }, 0] },
+              then: { $arrayElemAt: ['$answerData', 0] },
+              else: null,
+            },
+          },
+        },
+      },
+      // Project the final shape, excluding the answerData array
+      {
+        $project: {
+          answerData: 0,
+        },
+      },
+    ];
+
+    const options = session ? { session } : undefined;
+    const results = await this.QuestionCollection.aggregate(pipeline, options).toArray();
+    // Map the results to the expected shape
+    const questions = results.map((doc: any) => ({
+      _id: doc._id,
+      question: doc.question,
+      status: doc.status,
+      source: doc.source,
+      priority: doc.priority,
+      totalAnswersCount: doc.totalAnswersCount,
+      createdAt: doc.createdAt,
+      state: doc.details.state,
+      district: doc.details.district,
+      crop: doc.details.crop,
+      domain: doc.details.domain,
+      season: doc.details.season,
+      normalised_crop: doc.details.normalised_crop,
+      answer: doc.answer
+        ? {
+            _id: doc.answer._id,
+            answer: doc.answer.answer,
+            sources: doc.answer.sources || [],
+            authorId: doc.answer.authorId,
+            isFinalAnswer: doc.answer.isFinalAnswer,
+          }
+        : undefined,
+    }));
+
+    return {
+      questions,
+      totalCount,
+      totalPages,
+      currentPage: safePage,
+    };
+  }
+
+  async findQuestionsWithOpenPaeValidation(
+    requireAutoAllocate = false,
+  ): Promise<IQuestion[]> {
+    await this.init();
+
+    const filter: Record<string, unknown> = {
+      status: {$in:['closed','dynamic_closed','duplicate_closed']},
+      paeValidation: {$ne:'completed'},
+    };
+    if (requireAutoAllocate) {
+      // Only questions with pae validation auto-allocation EXPLICITLY true. A missing or
+      // false field means OFF (same convention as autoAllocateModerator).
+      filter.autoAllocatePaeValidationExpert = true;
+    }
+
+    return this.QuestionCollection.find(filter as any)
+      .sort({ createdAt: 1 })
+      .toArray();
   }
 }

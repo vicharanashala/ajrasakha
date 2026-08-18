@@ -287,6 +287,20 @@ export class UserController {
     return await this.userService.getModeratorsList();
   }
 
+  @Get('/pae-val-experts')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'List PAE validation experts',
+    description:
+      'Returns users with role pae_expert whose paeValidationAssigned array is empty or missing.',
+  })
+  async getPaeValidationExperts(): Promise<
+    { _id: string; name: string; email: string }[]
+  > {
+    return await this.userService.getPaeValidationExperts();
+  }
+
   @OpenAPI({
     summary: 'Get STF moderators',
     description: 'Returns non-blocked moderators that have Special Task Force enabled. Filters by isTrainingUser status.',
@@ -990,7 +1004,11 @@ export class UserController {
         email: targetUser?.email,
       },
       changes: {
-        before: { isVerified: targetUser?.isVerified },
+        before: { 
+          isVerified: targetUser?.isVerified,
+          isBlocked: targetUser?.isBlocked,
+          status: targetUser?.status,
+        },
       },
       createdAt: new Date(),
     };
@@ -1000,7 +1018,11 @@ export class UserController {
         ...auditPayload,
         changes: {
           ...auditPayload.changes,
-          after: { isVerified },
+          after: { 
+            isVerified,
+            isBlocked: false,
+            status: 'active',
+          },
         },
         outcome: { status: OutComeStatus.SUCCESS },
       });
@@ -1343,5 +1365,17 @@ export class UserController {
     @QueryParams() query: {userId: string; startDateTime: string; endDateTime: string; granularity: TrendGranularity;}
   ): Promise<any>{
     return await this.userService.getWorkingHoursTrend(query)
+  }
+
+  @Get('/by-role')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: '({_id, name, email}) List users filtered by roles',
+  })
+  async getUsersByRole(
+    @QueryParams() query: { role: UserRole[] },
+  ) {
+    return await this.userService.getUsersByRole(query.role ?? []);
   }
 }

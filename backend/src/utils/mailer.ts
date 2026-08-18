@@ -52,6 +52,7 @@ export async function sendEmailWithAttachment(
   //   service: 'gmail',
   //   auth: {user, pass},
   // });
+  console.log(user, pass);
   const transporter = nodemailer.createTransport({
     host: 'smtp.zoho.in',
     port: 465,
