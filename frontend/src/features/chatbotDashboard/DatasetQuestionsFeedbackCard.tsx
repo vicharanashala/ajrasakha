@@ -20,6 +20,7 @@ import {
   type DatasetUserListItem,
 } from "./hooks/useDashboardData";
 import { DatasetListModal } from "./components/DatasetListModal";
+import { QuestionIdLink } from "./components/QuestionIdLink";
 import type { ReusableTableColumn } from "./components/ReusableDataTable";
 
 const DATASET_LIST_PAGE_SIZE = 10;
@@ -91,7 +92,15 @@ export function DatasetQuestionsFeedbackCard({
 
   const questionColumns = useMemo<ReusableTableColumn<DatasetQuestionListItem>[]>(
     () => [
-      { key: "questionId", header: "Question ID", render: (r) => r.questionId || "-" },
+      {
+        key: "questionId",
+        header: "Question ID",
+        render: (r) => (
+          <QuestionIdLink questionId={r.questionId}>
+            {r.questionId || "-"}
+          </QuestionIdLink>
+        ),
+      },
       { key: "question", header: "Question", render: (r) => r.question || "-" },
       {
         key: "createdAt",
@@ -105,7 +114,15 @@ export function DatasetQuestionsFeedbackCard({
   const feedbackColumns = useMemo<ReusableTableColumn<DatasetFeedbackListItem>[]>(
     () => [
       { key: "email", header: "Email", render: (r) => r.email || "-" },
-      { key: "questionId", header: "Question ID", render: (r) => r.questionId || "-" },
+      {
+        key: "questionId",
+        header: "Question ID",
+        render: (r) => (
+          <QuestionIdLink questionId={r.questionId}>
+            {r.questionId || "-"}
+          </QuestionIdLink>
+        ),
+      },
       { key: "tag", header: "Tag", render: (r) => r.tag || "-" },
       { key: "type", header: "Type", render: (r) => r.type || "-" },
       {
