@@ -16,6 +16,10 @@ export class ExpertDashboardPage {
   readonly questionTable: Locator;
   readonly emptyState: Locator;
 
+  // Lazily-initialized CDP session used to force real cache bypass on
+  // reload() — see comment there for why this exists.
+  private cacheDisabled = false;
+
   constructor(private readonly page: Page) {
     this.allQuestionsTab = page.getByRole("tab", { name: "All Questions" });
     this.questionTable = page.getByRole("table");
@@ -28,6 +32,47 @@ export class ExpertDashboardPage {
   async waitForShell(): Promise<void> {
     await expect(this.page).toHaveURL(/\/home(?:[/?#]|$)/);
     await expect(this.allQuestionsTab).toBeVisible();
+  }
+
+  /**
+   * Disables the browser's HTTP cache for this page via CDP, once.
+   *
+   * Root cause of the "expert4 stuck disabled for 5 straight minutes,
+   * every run" failure: it wasn't backend latency at all. Checking the
+   * moderator's Allocation Queue view mid-run showed expert4's status
+   * pill as "Waiting" (tooltip: "Expert is currently reviewing Expert's
+   * answer") — i.e. the backend had already handed over the turn — and
+   * manually opening the same question in a real browser showed it as
+   * fully actionable. A plain `page.reload()` still honors normal
+   * browser HTTP caching/revalidation, so a tight poll loop (reload
+   * every 10-15s) can keep being served the exact same stale "not your
+   * turn yet" response for far longer than any real backend delay,
+   * while a human — who takes longer than that between manual steps
+   * regardless — lets the cache entry expire naturally before they
+   * check. This forces every subsequent reload() to skip cache
+   * entirely (Chromium only, matches this project's single configured
+   * browser), so the poll loop actually sees fresh data each time
+   * instead of re-reading the same cached response.
+   */
+  private async ensureCacheDisabled(): Promise<void> {
+    if (this.cacheDisabled) {
+      return;
+    }
+
+    try {
+      const client = await this.page.context().newCDPSession(this.page);
+      await client.send("Network.setCacheDisabled", { cacheDisabled: true });
+      this.cacheDisabled = true;
+    } catch (error) {
+      // Non-Chromium browsers don't support this CDP domain. Degrade
+      // gracefully rather than failing the whole reload — worst case
+      // we're back to the old (potentially stale) behaviour.
+      console.log(
+        `ExpertDashboardPage: could not disable cache via CDP (${
+          (error as Error).message
+        }); reload() may see cached responses.`,
+      );
+    }
   }
 
   /**
@@ -45,41 +90,29 @@ export class ExpertDashboardPage {
    * never see a question that became available to them *after* their
    * page first loaded.
    *
+   * Also bypasses HTTP cache (see ensureCacheDisabled) so repeated
+   * calls during a poll loop actually observe fresh state.
+   *
    * Call this right before waitForQuestion() whenever this expert's
    * fixture was resolved earlier than the action that unlocks their
    * turn in the review chain.
    */
   async reload(): Promise<void> {
+    await this.ensureCacheDisabled();
     await this.page.reload();
     await this.waitForShell();
   }
 
   /**
-   * Poll (reloading periodically) until this expert's question row is
-   * both present AND enabled/clickable.
+   * Poll (reloading periodically, with cache bypassed) until this
+   * expert's question row is both present AND enabled/clickable.
    *
-   * A single reload() is enough for a row that just became visible for
-   * the first time (see above) — but for a reviewer further down a
-   * multi-reviewer chain, the row can appear immediately after the
-   * prior reviewer accepts and yet stay disabled
-   * (`cursor-not-allowed` / `aria-disabled`) for a while. This is
-   * confirmed real backend behaviour, not a bug in this helper or a
-   * product limitation: inspecting the Response History panel for
-   * other, already-completed 3-reviewer chains in this same
-   * environment shows the third reviewer's Accept/Reject/Modify
-   * controls do become live once their turn arrives — it just isn't
-   * instant, and the third hop in the chain has been observed to take
-   * noticeably longer than the second. A single page snapshot never
-   * updates itself (no live polling in the UI), so a plain click()
-   * retry just hammers a frozen disabled element until the test times
-   * out. This reloads repeatedly until the row is enabled, or gives up
-   * after `timeout` so the failure is loud and diagnosable instead of
-   * silently eating the whole test budget.
-   *
-   * Pass a larger `timeout` explicitly for reviewers further down the
-   * chain (e.g. the third of three) rather than raising the default
-   * for everyone — see call sites in
-   * expert-triple-acceptance-workflow.spec.ts.
+   * See reload()/ensureCacheDisabled() above for why a plain reload
+   * wasn't enough — this now bypasses HTTP cache on every attempt, so
+   * a stale cached response can no longer make an already-unlocked
+   * turn look permanently disabled. Kept as a bounded, diagnosable poll
+   * (rather than one reload + a bare assertion) since some genuine
+   * propagation delay on top of the cache issue is still plausible.
    */
   async waitForQuestionEnabled(
     question: string,
@@ -141,43 +174,6 @@ export class ExpertDashboardPage {
       `Question "${question}" did not become enabled within ` + `${timeout}ms.`,
     );
   }
-  // async waitForQuestionEnabled(
-  //   question: string,
-  //   timeout = 120_000,
-  //   pollInterval = 5_000,
-  // ): Promise<void> {
-  //   const label = this.questionLabel(question);
-  //   const deadline = Date.now() + timeout;
-  //   const startedAt = Date.now();
-  //   let attempt = 0;
-
-  //   while (Date.now() < deadline) {
-  //     attempt += 1;
-
-  //     await this.reload();
-  //     await this.waitForQuestion(question);
-
-  //     if (await label.isEnabled()) {
-  //       console.log(
-  //         `waitForQuestionEnabled: "${question}" became enabled after ` +
-  //           `${attempt} attempt(s), ${Date.now() - startedAt}ms`,
-  //       );
-  //       return;
-  //     }
-
-  //     console.log(
-  //       `waitForQuestionEnabled: "${question}" still disabled after ` +
-  //         `${attempt} attempt(s), ${Date.now() - startedAt}ms elapsed ` +
-  //         `(budget ${timeout}ms)`,
-  //     );
-
-  //     await this.page.waitForTimeout(pollInterval);
-  //   }
-
-  //   // Final attempt — let this assertion produce the real failure
-  //   // message instead of a generic loop timeout.
-  //   await expect(label).toBeEnabled({ timeout: 1000 });
-  // }
 
   async openAllQuestions(): Promise<void> {
     await this.allQuestionsTab.click();

@@ -389,13 +389,28 @@ export class ReviewPanelPage {
   async expectConfirmAcceptEnabled(): Promise<void> {
     await expect(this.confirmAcceptButton).toBeEnabled();
   }
+  /**
+   * Confirms acceptance and waits for genuine backend confirmation, not
+   * just the dialog closing.
+   *
+   * The dialog closing on click is NOT itself reliable confirmation
+   * that the accept request resolved — see the identical caution
+   * already documented on submitRejection() below, which explicitly
+   * calls out Accept's dialog as the (incorrectly) assumed exception to
+   * that rule. `acceptSuccessToast` already existed as a locator but
+   * was never actually awaited here, so any code downstream of a
+   * confirmAcceptance() call could previously run before the backend
+   * had truly finished processing the acceptance — for a sequential
+   * multi-reviewer chain, that's exactly the kind of race that could
+   * make the *next* reviewer's turn look like it never unlocks.
+   */
   async confirmAcceptance(): Promise<void> {
     await this.confirmAcceptButton.click();
 
     await expect(this.confirmAcceptanceDialog).toBeHidden();
-    await expect(this.acceptSuccessToast).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(this.acceptSuccessToast).toBeVisible();
+
+    console.log(`[ACCEPT SUCCESS] ${this.page.url()}`);
   }
 
   async expectAcceptSuccess(): Promise<void> {

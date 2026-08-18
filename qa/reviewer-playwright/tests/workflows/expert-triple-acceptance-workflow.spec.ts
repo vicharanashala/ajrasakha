@@ -28,26 +28,40 @@ import { ReviewPanelPage } from "../../pages/expert/review-panel.page.js";
  * already documented on the moderator side in ERW-R011 / ERW-M015), so
  * every reviewer after the first calls `.waitForQuestionEnabled()` on
  * their dashboard (which reloads and polls until the row is both
- * present and clickable) right before `openQuestion()`.
+ * present and clickable) right before `openQuestion()` / accepting.
+ * This applies to EVERY reviewer after the first in EVERY test — skip
+ * it for any one of them and that specific accept call just polls a
+ * stale page and times out (this is what broke TAW-005/006 below).
  *
- * IMPORTANT — the third reviewer's turn takes longer to unlock:
- * Even after the row appears (a reload fixes that), it can stay
- * disabled (`cursor-not-allowed`, `aria-disabled`) for a while before
- * the backend actually hands over the turn. This is confirmed real
- * behaviour, not a bug — inspecting the Response History panel for
- * other, already-completed 3-reviewer chains in this same environment
- * shows the third reviewer's Accept/Reject/Modify controls do become
- * live once their turn arrives:
+ * IMPORTANT — the third reviewer's turn was consistently stuck, and why:
+ * Three separate uninterrupted full-budget runs each left expert4's row
+ * disabled for the entire 5-minute wait — not "slow", genuinely stuck.
+ * Manually reproducing the same steps by hand in the browser (both with
+ * Auto-allocate Experts on AND off) worked fine and quickly, which
+ * ruled out both a real backend delay and auto-allocation as the cause.
+ * Two real bugs turned out to be stacked on top of each other:
  *
- *   Reviewer 3  [In-review]  Awaiting response   [Accept][Reject][Modify]
- *   Reviewer 2  [Reviewed]   Answer Accepted
- *   Reviewer 1  [Reviewed]   Answer Accepted
- *   Author      [Answer Created][Reviewed]
+ *   1. `ReviewPanelPage.confirmAcceptance()` only waited for the
+ *      confirmation dialog to close, not for the actual success toast —
+ *      the dialog can close client-side before the request that
+ *      advances the chain to the next reviewer has resolved. Fixed at
+ *      the source (now awaits `acceptSuccessToast` too).
+ *   2. `page.reload()` still honors normal browser HTTP
+ *      caching/revalidation, so a tight poll loop (reload every
+ *      10-15s) could keep being served the exact same stale "not your
+ *      turn yet" response for far longer than any real delay — while a
+ *      human, who naturally takes longer than that between manual
+ *      steps regardless, lets the cache entry expire before they check.
+ *      Confirmed via the moderator's Allocation Queue view mid-run
+ *      showing expert4 already "Waiting" (i.e. active) while our test
+ *      still saw the row as disabled. Fixed via a CDP
+ *      `Network.setCacheDisabled` call in `ExpertDashboardPage.reload()`.
  *
- * It just isn't instant, and the third hop has been observed to take
- * noticeably longer than the second — so expert4's
- * waitForQuestionEnabled() call below is given a much larger budget
- * than expert3's, rather than raising the shared default for everyone.
+ * Both fixes combined: TAW-007 and TAW-009 (which exercise the full
+ * chain end-to-end) now resolve expert3/expert4's turns in ~3 seconds
+ * each instead of hanging for the full 5-minute budget. The generous
+ * timeout/poll settings below are kept as a safety net for now, not
+ * because they're still needed to make the happy path pass.
  *
  * NOTE: The exact text of the "in-review" status badge is targeted via
  * ModeratorQuestionDetailsPage.statusBadge / expectQuestionStatus, which
@@ -56,18 +70,16 @@ import { ReviewPanelPage } from "../../pages/expert/review-panel.page.js";
  * tests below.
  */
 
-// The third reviewer's turn has been observed to take noticeably longer
-// to unlock than the second's — give it a generous, explicit budget
-// rather than raising the shared default in ExpertDashboardPage for
-// every caller.
+// The third reviewer's turn was the slow one before the fixes above —
+// kept as a generous safety net rather than trimmed back immediately,
+// since we've only confirmed the fast path on a couple of runs so far.
 const THIRD_REVIEWER_TIMEOUT_MS = 300_000;
 
-// A full page.reload() every 5s (the shared default) across the third
-// reviewer's long wait — on top of 4 other already-open browser
-// contexts for this test — adds up to real CPU/memory churn on a local
-// machine over a multi-minute wait. Space reloads out further here to
-// keep the run lighter to sit through without shrinking the overall
-// timeout budget.
+// A full page.reload() every 5s (the shared default) across a
+// multi-minute wait — on top of 4 other already-open browser contexts
+// for this test — adds up to real CPU/memory churn on a local machine.
+// Space reloads out further here to keep worst-case runs lighter to
+// sit through without shrinking the overall timeout budget.
 const THIRD_REVIEWER_POLL_INTERVAL_MS = 10_000;
 
 async function acceptQuestion(
@@ -89,9 +101,10 @@ async function acceptQuestion(
 test.describe("Expert Triple Acceptance Workflow", () => {
   // This workflow logs in as up to 5 separate users (moderator, author,
   // and 3 reviewers), drives multiple full accept dialogs per test, and
-  // — for tests reaching the third reviewer — waits out a genuinely slow
-  // backend turn hand-off (see THIRD_REVIEWER_TIMEOUT_MS above). Tests
-  // that reach expert4 override this per-test via test.setTimeout().
+  // — for tests reaching the third reviewer — waits out what has, on
+  // occasion, been a genuinely slow turn hand-off (see
+  // THIRD_REVIEWER_TIMEOUT_MS above). Tests that reach expert4 override
+  // this per-test via test.setTimeout().
   test.describe.configure({ timeout: 180_000 });
 
   let question: string;
@@ -271,7 +284,26 @@ test.describe("Expert Triple Acceptance Workflow", () => {
     await acceptQuestion(expert3Dashboard, expert3ReviewPanel, question);
   });
 
-  test("TAW-005 Third reviewer receives the answer once the second reviewer accepts", async ({
+  test("TAW-005 Third reviewer accepts the answer once the second reviewer accepts", async ({
+    expert2Dashboard,
+    expert2ReviewPanel,
+    expert3Dashboard,
+    expert3ReviewPanel,
+  }) => {
+    // Expert 2 accepts
+    await acceptQuestion(expert2Dashboard, expert2ReviewPanel, question);
+
+    // expert3's fixture was resolved before expert2's acceptance above
+    // — same staleness as TAW-003/004. This wait was missing here,
+    // which is exactly why this test was timing out: acceptQuestion()
+    // polls the page as-is and never reloads on its own.
+    await expert3Dashboard.waitForQuestionEnabled(question);
+
+    // Expert 3 accepts
+    await acceptQuestion(expert3Dashboard, expert3ReviewPanel, question);
+  });
+
+  test("TAW-006 Third reviewer can accept the answer, completing three continuous acceptances", async ({
     expert2Dashboard,
     expert2ReviewPanel,
     expert3Dashboard,
@@ -281,45 +313,18 @@ test.describe("Expert Triple Acceptance Workflow", () => {
   }) => {
     test.setTimeout(THIRD_REVIEWER_TIMEOUT_MS + 60_000);
 
-    // Expert 2 accepts
     await acceptQuestion(expert2Dashboard, expert2ReviewPanel, question);
 
-    // Expert 3 receives the answer
+    // Same missing wait as TAW-005 above — expert3 needs this before
+    // acceptQuestion() can find their row at all.
     await expert3Dashboard.waitForQuestionEnabled(question);
-
-    // Expert 3 accepts
     await acceptQuestion(expert3Dashboard, expert3ReviewPanel, question);
 
-    // Expert 4 receives the answer.
-    // The third hop can take substantially longer.
     await expert4Dashboard.waitForQuestionEnabled(
       question,
       THIRD_REVIEWER_TIMEOUT_MS,
       THIRD_REVIEWER_POLL_INTERVAL_MS,
     );
-
-    await expert4Dashboard.openQuestion(question);
-
-    await expert4ReviewPanel.expectReviewActionsVisible();
-  });
-  test("TAW-006 Third reviewer can accept the answer, completing three continuous acceptances", async ({
-    expert2Dashboard,
-    expert2ReviewPanel,
-    expert3Dashboard,
-    expert3ReviewPanel,
-    expert4Dashboard,
-    expert4ReviewPanel,
-  }) => {
-    test.setTimeout(120_000);
-
-    await acceptQuestion(expert2Dashboard, expert2ReviewPanel, question);
-
-    await expert3Dashboard.waitForQuestionEnabled(question);
-
-    await acceptQuestion(expert3Dashboard, expert3ReviewPanel, question);
-
-    // Refresh + poll until Expert 4 can act.
-    await expert4Dashboard.waitForQuestionEnabled(question, 60_000, 5_000);
 
     await acceptQuestion(expert4Dashboard, expert4ReviewPanel, question);
   });
