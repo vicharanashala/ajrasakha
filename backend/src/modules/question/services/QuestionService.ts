@@ -9887,10 +9887,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         },
       };
     }
-    // const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
     const WEB_APP_Url = process.env.WEB_APP_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
-
+    const webAuthKey = process.env.WEB_WEBHOOK_API_KEY
     if (!dataReleaseUrl) {
       throw new Error(
         'DATA_RELEASE_URL environment variable is not configured',
@@ -9932,7 +9932,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${authKey}`,
+            Authorization: `Bearer ${webAuthKey}`,
           },
           body: JSON.stringify(payload),
         },
