@@ -137,10 +137,7 @@ export function DatasetQuestionsFeedbackCard({
 
   const userColumns = useMemo<ReusableTableColumn<DatasetUserListItem>[]>(
     () => [
-      { key: "name", header: "Name", render: (r) => r.name || "-" },
       { key: "email", header: "Email", render: (r) => r.email || "-" },
-      { key: "phone", header: "Phone", render: (r) => r.phone || "-" },
-      { key: "age", header: "Age", render: (r) => r.age ?? "-" },
       {
         key: "createdAt",
         header: "Created At",
