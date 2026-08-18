@@ -1,4 +1,10 @@
 import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { IQuestionReportService } from '../interfaces/IQuestionReportService.js';
+import { IPaeValidationService } from '../interfaces/IPaeValidationService.js';
+import { IFeedbackService } from '../interfaces/IFeedbackService.js';
+import { IQuestionAiService } from '../interfaces/IQuestionAiService.js';
+import { resolveExpertMeta } from './helpers/reportHelpers.js';
+import { queueCropName, submissionToQueueItem } from './helpers/queueItem.js';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { inject, injectable } from 'inversify';
@@ -63,16 +69,7 @@ import {
   QueueSectionName,
   QueueSectionResult,
   RawQueueQuestionRow,
-  FeedbackResponse,
-  FeedbackData,
-  FeedbackQueueDetails,
-  PaeValidationQueueDetails,
 } from '../interfaces/IQuestionService.js';
-import type {
-  PaeValidationQuestion,
-  PaeValidationAnswer,
-  PaeValidationAssignedQuestionsResponse,
-} from '../interfaces/QuestionValidationTypes.js';
 import { isToday } from '#root/utils/date.utils.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
@@ -102,8 +99,6 @@ import {
 } from '#root/shared/constants/general.js';
 import { toTitleCase } from '#root/utils/ToTitlecase.js';
 import axios from 'axios';
-import { AccAgentService } from '#root/modules/acc-agent/services/AccAgentService.js';
-import type { ICallDetailsRepository, QAPairs, QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
 /**
  * Module-level guard so two time-bound reallocation runs never overlap. The cron
@@ -116,16 +111,11 @@ let isReallocatingTimeBound = false;
 /** Same guard as above, for the manual (AGRI_EXPERT/OUTREACH) single-allocation cron. */
 let isReallocatingManual = false;
 
-let isReallocatingFeedback = false;
-
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
   constructor(
     @inject(CORE_TYPES.AIService)
     private readonly aiService: AiService,
-
-    @inject(GLOBAL_TYPES.AccAgentService)
-    private readonly accAgentService: AccAgentService,
 
     @inject(GLOBAL_TYPES.ContextRepository)
     private readonly contextRepo: IContextRepository,
@@ -169,13 +159,23 @@ export class QuestionService extends BaseService implements IQuestionService {
     @inject(GLOBAL_TYPES.UserService)
     private readonly userService: UserService,
 
-    @inject(Symbol.for('CallDetailsRepository'))
-    private readonly callDetailsRepository: ICallDetailsRepository,
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
 
     @inject(CORE_TYPES.FeedbackRepository)
     private readonly feedbackRepo: IFeedbackRepository,
+
+    @inject(GLOBAL_TYPES.QuestionReportService)
+    private readonly questionReportService: IQuestionReportService,
+
+    @inject(GLOBAL_TYPES.PaeValidationService)
+    private readonly paeValidationService: IPaeValidationService,
+
+    @inject(GLOBAL_TYPES.FeedbackService)
+    private readonly feedbackService: IFeedbackService,
+
+    @inject(GLOBAL_TYPES.QuestionAiService)
+    private readonly questionAiService: IQuestionAiService,
   ) {
     super(mongoDatabase);
   }
@@ -535,458 +535,64 @@ export class QuestionService extends BaseService implements IQuestionService {
     return result;
   }
 
-  async getQuestionFromRawContext(
-    // While text to speech
-    context: string,
-  ): Promise<GeneratedQuestionResponse[]> {
-    const questions = await this.aiService.getQuestionByContext(context);
-    // SAMPLE RESPONSE (mocked because API doesn't work locally)
-    /* const questions: any = {
-       reviewer: [
-         {
-           id: "697dbfb7622aa3a183070682",
-           question: "How to control stem borer grubs in paddy crop?",
-           answer: "Stem borer is one of the most destructive pests of paddy (rice) crop...",
-           source: "AGRI_EXPERT",
-           details: {
-             state: "Haryana",
-             district: "HISSAR",
-             crop: "Paddy",
-             season: "KHARIF",
-             domain: "Pest",
-           },
-           score: 0.9331517815589905,
-         },
-         {
-           id: "695b446528ae67127339da95",
-           question: "How to control Stem Borer infestation in Paddy?",
-           answer: "Stem borer is one of the most destructive pests affecting paddy crops in India...",
-           source: "AGRI_EXPERT",
-           details: {
-             state: "UTTAR PRADESH",
-             district: "CHANDAULI",
-             crop: "Paddy",
-             season: "Kharif",
-             domain: "Plant Protection",
-           },
-           score: 0.932569146156311,
-         },
-       ],
-   
-       golden: [
-         {
-           question: "How to prevent stem borer in paddy?",
-           answer: "Stem borer in paddy is a major pest and shows distinct symptoms...",
-           metadata: {
-             "Agri Specialist": "Gonnabathula Girishma",
-             Crop: "Paddy Dhan",
-             District: "YADADRI BHUVANAGIRI",
-             Season: "Kharif",
-             State: "TELANGANA",
-           },
-           score: 0.9287769794464111,
-         },
-       ],
-   
-       pop: [
-         {
-           text: "Rice stem borers: The larvae of these insects bore into the stem and cause damage from July to October...",
-           metadata: {
-             page_no: 24,
-             headings: ["A. Insect Pests"],
-             source:
-               "https://storage.googleapis.com/annam-dataset/pops/Punjab_Kharif_2025.pdf",
-           },
-           score: 0.9020636677742004,
-         },
-       ],
-     };*/
-    const merged = [
-      ...(questions.reviewer || []).map((item: any) => ({
-        question: item.question,
-        answer: item.answer,
-        agri_specialist: item.source || 'AGRI_EXPERT',
-        referenceSource: 'reviewer',
-      })),
-
-      ...(questions.golden || []).map((item: any) => ({
-        question: item.question,
-        answer: item.answer,
-        agri_specialist: item.metadata?.['Agri Specialist'] || 'Unknown',
-        referenceSource: 'golden',
-      })),
-
-      ...(questions.pop || []).map((item: any) => ({
-        question: 'Reference Information',
-        answer: item.text,
-        agri_specialist: 'POP_DOCUMENT',
-        referenceSource: 'pop',
-      })),
-    ];
-    const uniqueQuestions = Array.from(
-      new Map(merged.map(q => [q.question, q])).values(),
-    ).map(q => ({
-      ...q,
-      id: new ObjectId().toString(),
-    }));
-    return uniqueQuestions;
+  // ── AI / ACC-agent helpers delegate to QuestionAiService ──
+  async getQuestionFromRawContext(context: string) {
+    return this.questionAiService.getQuestionFromRawContext(context);
   }
 
-  /**
-   * Generate questions from call context (audio transcription)
-   */
   async getQuestionFromCallContext(
     context: string,
     state?: string,
     crop?: string,
-  ): Promise<GeneratedQuestionResponse[]> {
-    try {
-      const payload: any = {query: context};
-      if (state) payload.state = state;
-      if (crop) payload.crop = crop;
-
-      const agentSearchResponse = await axios.post(
-        'http://100.100.108.44:6002/search',
-        payload,
-        {timeout: 100000},
-      );
-      console.log(
-        'Agent Search Output:',
-        JSON.stringify(agentSearchResponse.data, null, 2),
-      );
-
-      const data = agentSearchResponse.data || {};
-
-      // Send this in the appropriate format expected by the frontend
-      let formattedResponse: any[] = [];
-
-      if (
-        data &&
-        (Array.isArray(data.reviewer) ||
-          Array.isArray(data.golden) ||
-          Array.isArray(data.pop))
-      ) {
-        formattedResponse = [
-          ...(data.reviewer || []).map((item: any) => ({
-            question: item.question,
-            answer: item.answer || item.text,
-            agri_specialist:
-              item.agri_expert ||
-              item.agri_specialist ||
-              item.source ||
-              'AGRI_EXPERT',
-            referenceSource: 'reviewer',
-            id: item.id || new ObjectId().toString(),
-          })),
-          ...(data.golden || []).map((item: any) => ({
-            question: item.question,
-            answer: item.answer || item.text,
-            agri_specialist:
-              item.agri_expert ||
-              item.agri_specialist ||
-              item.metadata?.['Agri Specialist'] ||
-              'Unknown',
-            referenceSource: 'golden',
-            id: item.id || new ObjectId().toString(),
-          })),
-          ...(data.pop || []).map((item: any) => ({
-            question: 'Reference Information',
-            answer: item.text,
-            agri_specialist: 'POP_DOCUMENT',
-            referenceSource: 'pop',
-            id: item.id || new ObjectId().toString(),
-          })),
-        ];
-      } else if (data && Array.isArray(data.results)) {
-        // Map the results array from the agent_search response
-        formattedResponse = data.results.map((item: any) => ({
-          question: item.question || data.extracted_question || context,
-          answer: item.answer || item.text || 'Answer not available',
-          agri_specialist: item.source || 'AGRI_EXPERT',
-          referenceSource: 'agent_search',
-          id: item.id || new ObjectId().toString(),
-        }));
-      } else if (Array.isArray(data)) {
-        formattedResponse = data.map((item: any) => ({
-          question: item.question || context,
-          answer: item.answer || item.response || JSON.stringify(item),
-          agri_specialist: item.agri_specialist || item.source || 'AGRI_EXPERT',
-          referenceSource: item.referenceSource || 'agent_search',
-          id: item.id || new ObjectId().toString(),
-        }));
-      } else if (data && typeof data === 'object') {
-        formattedResponse = [
-          {
-            question: data.extracted_question || data.question || context,
-            answer: data.answer || data.response || JSON.stringify(data),
-            agri_specialist:
-              data.agri_specialist || data.source || 'AGRI_EXPERT',
-            referenceSource: data.referenceSource || 'agent_search',
-            id: data.id || new ObjectId().toString(),
-          },
-        ];
-      }
-
-      // Deduplicate by question text
-      const uniqueQuestions = Array.from(
-        new Map(formattedResponse.map(q => [q.question, q])).values(),
-      ).map(q => ({
-        ...q,
-        id: q.id || new ObjectId().toString(),
-      }));
-
-      return uniqueQuestions;
-    } catch (error) {
-      console.error('Failed to generate questions from call context:', error);
-      throw new InternalServerError(
-        'Failed to generate questions from call context',
-      );
-    }
+  ) {
+    return this.questionAiService.getQuestionFromCallContext(
+      context,
+      state,
+      crop,
+    );
   }
 
-  async getCallSummary(query: string): Promise<any> {
-    try {
-      const extractResponse = await axios.post(
-        'http://100.100.108.44:6002/extract',
-        {query},
-        {timeout: 100000},
-      );
-      return extractResponse.data;
-    } catch (error) {
-      console.error('Failed to generate call summary:', error);
-      throw new InternalServerError('Failed to generate call summary');
-    }
+  async getCallSummary(query: string) {
+    return this.questionAiService.getCallSummary(query);
   }
 
-  /**
-   * HIL Flow: Create thread for ACC Agent
-   */
-  async createAccAgentThread(): Promise<{thread_id: string}> {
-    try {
-      const result = await this.accAgentService.createThread();
-      return result;
-    } catch (error) {
-      console.error('[QuestionService] createAccAgentThread: Error', error);
-      throw new InternalServerError('Failed to create ACC Agent thread');
-    }
+  async createAccAgentThread() {
+    return this.questionAiService.createAccAgentThread();
   }
 
-  /**
-   * HIL Flow: Extract data from transcript
-   */
-  async extractAccAgentData(
-    threadId: string,
-    transcript: string,
-  ): Promise<{
-    extracted_query: string;
-    extracted_crop: string;
-    extracted_state: string;
-    extracted_district: string;
-    extracted_domain?: string | string[];
-    extracted_name?: string;
-    extracted_phone?: string;
-    extracted_age?: number;
-    extracted_gender?: string;
-    extracted_village?: string;
-    extracted_block?: string;
-    extracted_primary_crop?: string;
-  }> {
-    try {
-      const result = await this.accAgentService.extractData(
-        threadId,
-        transcript,
-      );
-
-      return result;
-    } catch (error) {
-      console.error('[QuestionService] extractAccAgentData: Error', error);
-      throw new InternalServerError('Failed to extract data using ACC Agent');
-    }
+  async extractAccAgentData(threadId: string, transcript: string) {
+    return this.questionAiService.extractAccAgentData(threadId, transcript);
   }
 
-  /**
-   * HIL Flow: Update state with human corrections
-   */
   async updateAccAgentState(
     threadId: string,
-    correctedData: {
-      query: string;
-      crop: string;
-      state: string;
-      district: string;
-      domain: string | string[];
-      season: string;
-      farmerName?: string;
-      farmerPhone?: string;
-      farmerAge?: number;
-      farmerGender?: string;
-      farmerVillage?: string;
-      farmerBlock?: string;
-      farmerPrimaryCrop?: string;
-    },
-  ): Promise<void> {
-    try {
-      await this.accAgentService.updateState(threadId, correctedData);
-    } catch (error) {
-      console.error('[QuestionService] updateAccAgentState: Error', error);
-      throw new InternalServerError('Failed to update ACC Agent state');
-    }
+    correctedData: Parameters<
+      IQuestionAiService['updateAccAgentState']
+    >[1],
+  ) {
+    return this.questionAiService.updateAccAgentState(threadId, correctedData);
   }
 
-  /**
-   * HIL Flow: Resume and get final answer
-   */
   async resumeAccAgentAndGetAnswer(
     threadId: string,
     callUuid?: string,
-    metadata?: QAMetadata,
-  ): Promise<{final_answer: string}> {
-    try {
-      const result = await this.accAgentService.resumeAndGetAnswer(threadId);
-
-      // If callUuid and metadata are provided, store Q/A pairs in call_details
-      if (callUuid && metadata) {
-        const qaPairs: QAPairs = {
-          metadata,
-          QnA: [
-            {
-              question: metadata.extracted_query,
-              answer: result.final_answer,
-              agri_specialist: 'ACC_AGENT',
-              referenceSource: 'acc_agent_hitl',
-              id: new ObjectId().toString(),
-            },
-          ],
-        };
-
-        // Check if call_details document exists
-        const existingCallDetails =
-          await this.callDetailsRepository.getByCallUuid(callUuid);
-
-        if (existingCallDetails) {
-          // Update existing document
-          await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
-        } else {
-          console.warn(
-            `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
-          );
-          // Create a new call_details document with the Q/A pairs
-          await this.callDetailsRepository.create({
-            callUuid,
-            QA_pairs: qaPairs,
-            status: 'completed',
-            direction: 'inbound',
-            caller: {
-              transcript: '',
-              translation: '',
-              detectedLanguage: 'unknown',
-            },
-            agent: {
-              transcript: '',
-              translation: '',
-              detectedLanguage: 'unknown',
-            },
-          });
-        }
-      }
-
-      return result;
-    } catch (error) {
-      console.error(
-        '[QuestionService] resumeAccAgentAndGetAnswer: Error',
-        error,
-      );
-      throw new InternalServerError(
-        'Failed to get final answer from ACC Agent',
-      );
-    }
+    metadata?: Parameters<
+      IQuestionAiService['resumeAccAgentAndGetAnswer']
+    >[2],
+  ) {
+    return this.questionAiService.resumeAccAgentAndGetAnswer(
+      threadId,
+      callUuid,
+      metadata,
+    );
   }
 
   async getAccAgentState(
     threadId: string,
     callUuid?: string,
-    metadata?: QAMetadata,
-  ): Promise<any> {
-    try {
-      // 1. Resume the agent
-      await this.accAgentService.resumeAndGetAnswer(threadId);
-
-      // 2. Fetch the full thread state (with parsed final_answer, weather, and similar pairs)
-      const threadState = await this.accAgentService.getThreadState(threadId);
-
-      // 3. If callUuid and metadata are provided, store Q/A pairs in call_details
-      if (callUuid && metadata) {
-        const finalAnswerObj = threadState?.values?.final_answer;
-        const finalAnswerMarkdown =
-          typeof finalAnswerObj === 'string'
-            ? finalAnswerObj
-            : finalAnswerObj?.final_answer || '';
-
-        const weather = finalAnswerObj?.weather || null;
-        const similarPair = finalAnswerObj?.gdb?.similar_pair1 || null;
-        const authorName = similarPair?.details?.[0]?.author_name || '';
-        const sourceName = similarPair?.details?.[0]?.source_name || '';
-        const sourceLink = similarPair?.details?.[0]?.source_link || '';
-
-        const qaPairs: QAPairs = {
-          metadata,
-          QnA: [
-            {
-              question: metadata.extracted_query,
-              answer: finalAnswerMarkdown,
-              agri_specialist: 'ACC_AGENT',
-              referenceSource: 'acc_agent_hitl',
-              id: new ObjectId().toString(),
-              ...(weather ? {weather} : {}),
-              ...(authorName ? {authorName} : {}),
-              ...(sourceName ? {sourceName} : {}),
-              ...(sourceLink ? {sourceLink} : {}),
-            } as any,
-          ],
-        };
-
-        // Check if call_details document exists
-        const existingCallDetails =
-          await this.callDetailsRepository.getByCallUuid(callUuid);
-
-        if (existingCallDetails) {
-          // Update existing document
-          await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
-        } else {
-          console.warn(
-            `[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`,
-          );
-          // Create a new call_details document with the Q/A pairs
-          await this.callDetailsRepository.create({
-            callUuid,
-            QA_pairs: qaPairs,
-            status: 'completed',
-            direction: 'inbound',
-            caller: {
-              transcript: '',
-              translation: '',
-              detectedLanguage: 'unknown',
-            },
-            agent: {
-              transcript: '',
-              translation: '',
-              detectedLanguage: 'unknown',
-            },
-          });
-        }
-      }
-
-      // 4. Return the full thread state
-      return threadState;
-    } catch (error) {
-      console.error(
-        '[QuestionService] getAccAgentState: Error resuming or fetching state',
-        error,
-      );
-      throw new InternalServerError(
-        'Failed to resume or fetch ACC Agent state',
-      );
-    }
+    metadata?: Parameters<IQuestionAiService['getAccAgentState']>[2],
+  ) {
+    return this.questionAiService.getAccAgentState(threadId, callUuid, metadata);
   }
 
   // Reusable duplicate detection helper.
@@ -5172,246 +4778,17 @@ export class QuestionService extends BaseService implements IQuestionService {
   //     );
   //   }
 
+  // ── Report generation delegates to QuestionReportService ──
   async sendOutReachQuestionsMail(
     startDate: string,
     endDate: string,
     emails: string | string[],
   ): Promise<{success: boolean; message: string}> {
-    try {
-      if (!startDate || !endDate) {
-        throw new Error('startDate and endDate are required');
-      }
-
-      const start = new Date(startDate + 'T00:00:00.000Z');
-      const end = new Date(endDate + 'T23:59:59.999Z');
-      const questions = await this.questionRepo.findByDateRangeAndSource(
-        start,
-        end,
-        'AJRASAKHA',
-      );
-
-      // const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(start, end, 'AJRASAKHA');
-      const duplicateQuestions =
-        await this.duplicateQuestionRepository.findDuplicatesByDateRange(
-          start,
-          end,
-        );
-      const combineQuestions = [...questions, ...duplicateQuestions];
-      const allQuestions = [
-        ...combineQuestions.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        ),
-      ];
-
-      if (allQuestions.length === 0) {
-        return {
-          success: true,
-          message: 'There are no Outreach questions in the selected time',
-        };
-      }
-
-      // OLD CSV IMPLEMENTATION
-      // const csv = this.convertQuestionsToCSV(allQuestions, startDate, endDate);
-      // await sendEmailWithAttachment(
-      //   emails,
-      //   'Ajrasakha Outreach Questions Report',
-      //   `
-      //     <p>Hello,</p>
-      //     <p>Please find attached the <b>Ajrasakha Outreach Questions</b> report.</p>
-      //     <p>Date Range: <b>${startDate}</b> to <b>${endDate}</b></p>
-      //     <br />
-      //     <p>Regards,<br/>Ajrasakha System</p>
-      //   `,
-      //   csv,
-      //   'out_reach_questions.csv',
-      // );
-
-      // NEW EXCEL IMPLEMENTATION
-      const excelBuffer = await this.convertQuestionsToExcel(
-        allQuestions,
-        startDate,
-        endDate,
-      );
-
-      await sendEmailWithAttachment(
-        emails,
-        'Ajrasakha Outreach Questions Report',
-        `
-          <p>Hello,</p>
-          <p>Please find attached the <b>Ajrasakha Outreach Questions</b> report.</p>
-          <p>Date Range: <b>${startDate}</b> to <b>${endDate}</b></p>
-          <br />
-          <p>Regards,<br/>Ajrasakha System</p>
-        `,
-        excelBuffer,
-        'out_reach_questions.xlsx',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-
-      return {
-        success: true,
-        message: 'Outreach questions report sent via email',
-      };
-    } catch (error) {
-      console.error('Error in sendOutReachQuestionsMail:', error);
-      throw error;
-    }
-  }
-
-  // OLD CSV IMPLEMENTATION
-  // private convertQuestionsToCSV(
-  //   data: IQuestion[],
-  //   startDate?: string,
-  //   endDate?: string,
-  // ): string {
-  //   if (!data.length) return '';
-
-  //   const reportHeader = [
-  //     'Out Reach Data Report',
-  //     `Date Range: ${this.formatDate(startDate)} - ${this.formatDate(endDate)}`,
-  //     '', // empty line
-  //   ].join('\n');
-
-  //   const headers = [
-  //     'Question',
-  //     'Status',
-  //     'Priority',
-  //     // 'Is Auto Allocate',
-  //     'Source',
-  //     'State',
-  //     'District',
-  //     'Crop',
-  //     'Season',
-  //     'Domain',
-  //     // 'Total Answers',
-  //     // 'AI Initial Answer',
-  //     'Text',
-  //     // 'Closed At',
-  //     'Created At',
-  //     // 'Updated At',
-  //   ];
-
-  //   const rows = data.map(q => [
-  //     this.escape(q.question),
-  //     q.status,
-  //     q.priority,
-  //     // q.isAutoAllocate,
-  //     q.source,
-  //     q.details?.state,
-  //     q.details?.district,
-  //     q.details?.crop,
-  //     q.details?.season,
-  //     q.details?.domain,
-  //     // q.totalAnswersCount,
-  //     // this.escape(q.aiInitialAnswer),
-  //     this.escape(q.text),
-  //     // q.closedAt ? this.formatDate(q.closedAt) : '',
-  //     q.createdAt ? this.formatDate(q.createdAt) : '',
-  //     // q.updatedAt ? this.formatDate(q.updatedAt) : '',
-  //   ]);
-
-  //   return [
-  //     reportHeader,
-  //     headers.join(','),
-  //     ...rows.map(r => r.join(',')),
-  //   ].join('\n');
-  // }
-
-  // NEW EXCEL IMPLEMENTATION
-  private async convertQuestionsToExcel(
-    data: IQuestion[],
-    startDate?: string,
-    endDate?: string,
-  ): Promise<Buffer> {
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Outreach Questions');
-
-    // Add title and date range at the top
-    sheet.mergeCells('A1:K1');
-    const titleCell = sheet.getCell('A1');
-    titleCell.value = 'Out Reach Data Report';
-    titleCell.font = {bold: true, size: 14};
-    titleCell.alignment = {horizontal: 'center', vertical: 'middle'};
-
-    sheet.mergeCells('A2:K2');
-    const dateRangeCell = sheet.getCell('A2');
-    dateRangeCell.value = `Date Range: ${this.formatDate(startDate)} - ${this.formatDate(endDate)}`;
-    dateRangeCell.font = {bold: true, size: 11};
-    dateRangeCell.alignment = {horizontal: 'center', vertical: 'middle'};
-
-    // Add empty row
-    sheet.addRow([]);
-
-    // Manually add header row (row 4)
-    const headerRow = sheet.addRow([
-      'Question',
-      'Status',
-      'Priority',
-      'Source',
-      'State',
-      'District',
-      'Crop',
-      'Season',
-      'Domain',
-      'Text',
-      'Created At',
-    ]);
-
-    // Style the header row
-    headerRow.font = {bold: true};
-    headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: {argb: 'FFD3D3D3'},
-    };
-
-    // Set column widths
-    sheet.getColumn(1).width = 50; // Question
-    sheet.getColumn(2).width = 15; // Status
-    sheet.getColumn(3).width = 15; // Priority
-    sheet.getColumn(4).width = 15; // Source
-    sheet.getColumn(5).width = 20; // State
-    sheet.getColumn(6).width = 20; // District
-    sheet.getColumn(7).width = 20; // Crop
-    sheet.getColumn(8).width = 15; // Season
-    sheet.getColumn(9).width = 25; // Domain
-    sheet.getColumn(10).width = 50; // Text
-    sheet.getColumn(11).width = 22; // Created At
-
-    // Add data rows
-    data.forEach(q => {
-      const row = sheet.addRow([
-        q.question || '',
-        q.status || '',
-        q.priority || '',
-        q.source || '',
-        q.details?.state || '',
-        q.details?.district || '',
-        q.details?.crop || '',
-        q.details?.season || '',
-        q.details?.domain || '',
-        q.text || '',
-        q.createdAt ? this.formatDate(q.createdAt) : '',
-      ]);
-
-      // Enable text wrapping for long content
-      row.getCell(1).alignment = {wrapText: true, vertical: 'top'}; // Question
-      row.getCell(10).alignment = {wrapText: true, vertical: 'top'}; // Text
-    });
-
-    // Generate buffer
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
-  }
-
-  private formatDate(date: Date | string): string {
-    return new Date(date).toISOString().split('T')[0]; // YYYY-MM-DD
-  }
-  private escape(value: any): string {
-    if (value === null || value === undefined) return '';
-    return `"${String(value).replace(/"/g, '""')}"`;
+    return this.questionReportService.sendOutReachQuestionsMail(
+      startDate,
+      endDate,
+      emails,
+    );
   }
 
   async generateQuestionReport(
@@ -5421,330 +4798,21 @@ export class QuestionService extends BaseService implements IQuestionService {
     isTrainingUser?: boolean,
     isAdmin?: boolean,
   ) {
-    const result = await this.answerRepo.groupbyquestion(
+    return this.questionReportService.generateQuestionReport(
       consecutiveApprovals,
       startDate,
       endDate,
       isTrainingUser,
       isAdmin,
     );
-
-    // Check if there's any data with reasons
-    const hasData = result.reasons.some(item => {
-      const modList = (item.reasonForModification || []).filter(Boolean);
-      const rejList = (item.reasonForRejection || []).filter(Boolean);
-      return modList.length > 0 || rejList.length > 0;
-    });
-
-    // Return null if no data found
-    if (!hasData) {
-      return null;
-    }
-
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Question Reasons');
-
-    sheet.columns = [
-      {header: 'Created At', key: 'createdAt', width: 22},
-      {header: 'Question', key: 'question', width: 50},
-      {header: 'Reason For Modification', key: 'mod', width: 50},
-      {header: 'Reason For Rejection', key: 'rej', width: 50},
-    ];
-
-    let rowCount = 0;
-    result.reasons.forEach(item => {
-      const modList = (item.reasonForModification || []).filter(Boolean);
-      const rejList = (item.reasonForRejection || []).filter(Boolean);
-
-      if (!modList.length && !rejList.length) return;
-
-      const row = sheet.addRow({
-        createdAt: item.createdAt,
-        question: item.question,
-        mod: modList.map((r, i) => `${i + 1}) ${r}`).join('\n'),
-        rej: rejList.map((r, i) => `${i + 1}) ${r}`).join('\n'),
-      });
-
-      row.getCell('mod').alignment = {wrapText: true};
-      row.getCell('rej').alignment = {wrapText: true};
-      rowCount++;
-    });
-
-    const data = await workbook.xlsx.writeBuffer();
-    return data;
   }
 
-  /**
-   * TAT (turnaround-time) lifecycle report → Excel buffer.
-   *
-   * One row per question created in [startDate, endDate]: the author, each reviewer and
-   * the moderator, with the time each took, plus the question's total lifecycle time.
-   * Ports scripts/timebound-question-cycle-report.js. Timings come from the submission
-   * history work-log; timestamps are written in IST. Returns null when nothing matched.
-   */
   async generateTatReport(
     startDate: Date,
     endDate: Date,
-    opts: {
-      sources?: string[];
-      statuses?: string[];
-      maxReviewers?: number;
-    } = {},
+    opts: {sources?: string[]; statuses?: string[]; maxReviewers?: number} = {},
   ): Promise<ArrayBuffer | null> {
-    const {sources, statuses, maxReviewers: maxReviewersArg = 0} = opts;
-
-    const CLOSED_STATUSES = ['closed', 'dynamic_closed', 'duplicate_closed'];
-    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-
-    const asDate = (v: any): Date | null => (v ? new Date(v) : null);
-    // Excel cells carry no timezone, so shift the instant by +5:30 and the cell reads IST.
-    const asIST = (v: any): Date | null => {
-      const d = asDate(v);
-      return d && !Number.isNaN(d.getTime())
-        ? new Date(d.getTime() + IST_OFFSET_MS)
-        : null;
-    };
-    const istLabel = (d: Date): string =>
-      `${new Date(d.getTime() + IST_OFFSET_MS)
-        .toISOString()
-        .slice(0, 19)
-        .replace('T', ' ')} IST`;
-    const hoursBetween = (start: any, end: any): number | null => {
-      const a = asDate(start);
-      const b = asDate(end);
-      if (!a || !b || Number.isNaN(a.getTime()) || Number.isNaN(b.getTime()))
-        return null;
-      return (b.getTime() - a.getTime()) / 36e5;
-    };
-    const humanDuration = (hours: number | null): string => {
-      if (hours === null) return '';
-      const totalMin = Math.round(hours * 60);
-      const d = Math.floor(totalMin / 1440);
-      const h = Math.floor((totalMin % 1440) / 60);
-      const m = totalMin % 60;
-      return [d && `${d}d`, h && `${h}h`, `${m}m`].filter(Boolean).join(' ');
-    };
-    const initialStatus = (q: any): string => {
-      if (q.referenceQuestionId) return 'Duplicate';
-      if (q.tag === 'static_dynamic') return 'Static Dynamic';
-      if (q.tag === 'dynamic') return 'Dynamic';
-      return 'Unique';
-    };
-    const idStr = (v: any): string => (v ? v.toString() : '');
-    const reviewAction = (entry: any): string => {
-      if (entry.approvedAnswer) return 'approved';
-      if (entry.modifiedAnswer) return 'modified';
-      if (entry.rejectedAnswer) return 'rejected';
-      return entry.status ?? '';
-    };
-
-    const docs = await this.questionRepo.findQuestionsForTatReport(
-      startDate,
-      endDate,
-      sources,
-      statuses,
-    );
-    if (!docs.length) return null;
-
-    const qIds = docs
-      .map(q => idStr(q._id))
-      .filter((id): id is string => Boolean(id));
-    const subs = await this.questionSubmissionRepo.getByQuestionIds(qIds);
-    const subByQ = new Map(subs.map(s => [idStr(s.questionId), s]));
-
-    // Resolve every referenced user (author/reviewers from history, plus moderatorId).
-    const userIds = new Set<string>();
-    const collect = (v: any) => {
-      const s = idStr(v);
-      if (s) userIds.add(s);
-    };
-    for (const q of docs) {
-      collect(q.userId);
-      collect((q as any).moderatorId);
-      collect((q as any).gateKeeperId);
-      collect((q as any).auditorId);
-      const s = subByQ.get(idStr(q._id)) as any;
-      if (s) {
-        collect(s.lastRespondedBy);
-        (s.queue ?? []).forEach(collect);
-        (s.history ?? []).forEach((h: any) => collect(h.updatedBy));
-      }
-    }
-    const users = userIds.size
-      ? await this.userRepo.getUsersByIds([...userIds])
-      : [];
-    const userById = new Map(users.map(u => [idStr(u._id), u]));
-    const nameOf = (v: any): string => {
-      const u = userById.get(idStr(v)) as any;
-      if (!u) return '';
-      return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || '';
-    };
-
-    // The submission history IS the work log: entry [0] is the author, [1..] the reviewers.
-    const perQuestion = docs.map(q => {
-      const history = ((subByQ.get(idStr(q._id)) as any)?.history ?? []) as any[];
-      return {authorEntry: history[0] ?? null, chain: history.slice(1)};
-    });
-
-    const observedMax = Math.max(3, ...perQuestion.map(p => p.chain.length));
-    const maxReviewers =
-      maxReviewersArg > 0 ? Math.min(maxReviewersArg, observedMax) : observedMax;
-
-    const totals: number[] = [];
-    const authorTimes: number[] = [];
-    const reviewerTimes: number[] = [];
-    const moderatorTimes: number[] = [];
-    const handlingTimes: number[] = [];
-
-    const rows = perQuestion.map(({authorEntry, chain}, i) => {
-      const q = docs[i] as any;
-
-      // Author: firstAllocationAt → author's history entry createdAt (submit time).
-      const authorStart = q.firstAllocationAt ?? null;
-      const authorEnd = authorEntry?.createdAt ?? null;
-      const authorHours = hoursBetween(authorStart, authorEnd);
-
-      // Reviewers: each reviewer's own history entry createdAt → updatedAt.
-      const reviewerBlock: Record<string, any> = {};
-      for (let n = 0; n < maxReviewers; n++) {
-        const r = chain[n];
-        const h = r ? hoursBetween(r.createdAt, r.updatedAt) : null;
-        const label = `Reviewer ${n + 1}`;
-        reviewerBlock[label] = r ? nameOf(r.updatedBy) : '';
-        reviewerBlock[`${label} Action`] = r ? reviewAction(r) : '';
-        reviewerBlock[`${label} Assigned At (IST)`] = asIST(r?.createdAt);
-        reviewerBlock[`${label} Completed At (IST)`] = asIST(r?.updatedAt);
-        reviewerBlock[`${label} Time`] = humanDuration(h);
-      }
-
-      // Moderator: assigned → question closed.
-      const modStart = q.moderatorAssignedAt ?? null;
-      const closedAt = q.closedAt ?? null;
-      const modHours = hoursBetween(modStart, closedAt);
-
-      const totalHours = hoursBetween(q.createdAt, closedAt);
-      totals.push(totalHours as any);
-
-      // Hands-on time: author + every reviewer + moderator (minus idle gaps).
-      const handledParts = [
-        authorHours,
-        ...chain.map(r => hoursBetween(r.createdAt, r.updatedAt)),
-        modHours,
-      ].filter((h): h is number => h !== null);
-      const handledHours = handledParts.length
-        ? handledParts.reduce((a, b) => a + b, 0)
-        : null;
-
-      if (authorHours !== null) authorTimes.push(authorHours);
-      if (modHours !== null) moderatorTimes.push(modHours);
-      if (handledHours !== null) handlingTimes.push(handledHours);
-      chain.forEach(r => {
-        const h = hoursBetween(r.createdAt, r.updatedAt);
-        if (h !== null) reviewerTimes.push(h);
-      });
-
-      return {
-        'Question ID': idStr(q._id),
-        Question: q.question ?? '',
-        Source: q.source ?? '',
-        'Initial Status': initialStatus(q),
-        Status: q.status ?? '',
-        'Created At (IST)': asIST(q.createdAt),
-        'Closed At (IST)': asIST(closedAt),
-
-        'Answer Author': nameOf(authorEntry?.updatedBy),
-        'Author Assigned At (IST)': asIST(authorStart),
-        'Author Completed At (IST)': asIST(authorEnd),
-        'Author Time': humanDuration(authorHours),
-
-        ...reviewerBlock,
-
-        Moderator: nameOf(q.moderatorId),
-        'Moderator Assigned At (IST)': asIST(modStart),
-        'Moderator Completed At (IST)': asIST(closedAt),
-        'Moderator Time': humanDuration(modHours),
-
-        'Total Time Taken': humanDuration(totalHours),
-        'Author + Reviewers + Moderator Time': humanDuration(handledHours),
-      } as Record<string, any>;
-    });
-
-    /* ─── workbook ─── */
-    const workbook = new ExcelJS.Workbook();
-    workbook.created = new Date();
-    const ws = workbook.addWorksheet('Question Lifecycle');
-
-    const headers = Object.keys(rows[0]);
-    ws.columns = headers.map(h => ({
-      key: h,
-      width: /Question$/.test(h)
-        ? 60
-        : /At \(IST\)$/.test(h)
-          ? 22
-          : Math.min(Math.max(h.length + 4, 12), 28),
-    }));
-
-    const mean = (xs: number[]): number | null =>
-      xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
-
-    // Averages block above the table.
-    const titleRow = ws.addRow([
-      `AVERAGE TIME TAKEN — ${rows.length} question(s), ${istLabel(startDate).slice(
-        0,
-        10,
-      )} → ${istLabel(endDate).slice(0, 10)} IST`,
-    ]);
-    titleRow.font = {bold: true, size: 12};
-
-    const avgLabelRow = ws.addRow([
-      'Author',
-      'Reviewer (per review)',
-      'Moderator',
-      'Author + Reviewers + Moderator',
-      'Total Time Taken (created→closed)',
-    ]);
-    avgLabelRow.font = {bold: true};
-    avgLabelRow.eachCell(c => {
-      c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF3E7D3'}};
-    });
-    const avgValueRow = ws.addRow([
-      humanDuration(mean(authorTimes)),
-      humanDuration(mean(reviewerTimes)),
-      humanDuration(mean(moderatorTimes)),
-      humanDuration(mean(handlingTimes)),
-      humanDuration(mean(totals.filter(t => t !== null))),
-    ]);
-    avgValueRow.eachCell(c => {
-      c.alignment = {horizontal: 'left'};
-      c.numFmt = '@';
-    });
-
-    ws.addRow([]); // spacer
-
-    const headerRow = ws.addRow(headers);
-    headerRow.font = {bold: true};
-    headerRow.eachCell(c => {
-      c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFE4F6EA'}};
-    });
-    const HEADER_ROW = headerRow.number;
-
-    rows.forEach(r => ws.addRow(r));
-
-    ws.views = [{state: 'frozen', ySplit: HEADER_ROW}];
-    ws.autoFilter = {
-      from: {row: HEADER_ROW, column: 1},
-      to: {row: HEADER_ROW, column: headers.length},
-    };
-
-    // Scope date formats to the data rows only (not the averages text block above).
-    headers.forEach((h, i) => {
-      if (!/At \(IST\)$/.test(h)) return;
-      for (let r = HEADER_ROW + 1; r <= ws.rowCount; r++) {
-        ws.getRow(r).getCell(i + 1).numFmt = 'yyyy-mm-dd hh:mm';
-      }
-    });
-
-    return workbook.xlsx.writeBuffer();
+    return this.questionReportService.generateTatReport(startDate, endDate, opts);
   }
 
   async generateOverallQuestionReport(
@@ -5753,409 +4821,20 @@ export class QuestionService extends BaseService implements IQuestionService {
     isTrainingUser?: boolean,
     isAdmin?: boolean,
   ): Promise<ArrayBuffer | null> {
-    return this._withTransaction(async session => {
-      // Get monthly statistics from the repository
-      const stats = await this.questionRepo.getMonthlyQuestionStats(
-        startDate,
-        endDate,
-        isTrainingUser,
-        isAdmin,
-        session,
-      );
-
-      // Check if there's any data
-      if (!stats || stats.length === 0) {
-        return null;
-      }
-
-      // Create Excel workbook
-      const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet('Overall Questions Report');
-
-      // Define columns matching the template
-      sheet.columns = [
-        {header: 'Year', key: 'year', width: 12},
-        {header: 'Month', key: 'month', width: 15},
-        {header: 'Total No. of Q', key: 'totalQuestions', width: 18},
-        {header: 'Modified Answ', key: 'modifiedAnswers', width: 18},
-        {header: 'Rejected Answ', key: 'rejectedAnswers', width: 18},
-        {header: 'Total (Modified + Rejected)', key: 'total', width: 28},
-      ];
-
-      // Add data rows
-      stats.forEach(stat => {
-        sheet.addRow({
-          year: stat.year,
-          month: stat.month,
-          totalQuestions: stat.totalQuestions,
-          modifiedAnswers: stat.modifiedAnswers,
-          rejectedAnswers: stat.rejectedAnswers,
-          total: stat.modifiedAnswers + stat.rejectedAnswers,
-        });
-      });
-
-      // Style the header row
-      const headerRow = sheet.getRow(1);
-      headerRow.font = {bold: true};
-      headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
-
-      // Generate buffer
-      const buffer = await workbook.xlsx.writeBuffer();
-      return buffer as ArrayBuffer;
-    });
+    return this.questionReportService.generateOverallQuestionReport(
+      startDate,
+      endDate,
+      isTrainingUser,
+      isAdmin,
+    );
   }
 
-  async generateStateCropQuestionReport(filters: {
-    state?: string;
-    crop?: string;
-    normalised_crop?: string;
-    season?: string;
-    domain?: string;
-    status?: string;
-    source?: string;
-    hiddenQuestions?: string;
-    duplicateQuestions?: string;
-    startDate?: string;
-    endDate?: string;
-    /** All Users to filter questions by. */
-    allUsers?: string;
-  }): Promise<ArrayBuffer | null> {
-    return this._withTransaction(async session => {
-      // Build filter query
-      const query: any = {};
-      if (filters.state && filters.state !== 'all') {
-        query['details.state'] = filters.state;
-      }
-      if (filters.crop && filters.crop !== 'all') {
-        query['details.crop'] = filters.crop;
-      }
-      if (filters.normalised_crop && filters.normalised_crop !== 'all') {
-        // Handle comma-separated multiple crops
-        const crops = filters.normalised_crop
-          .split(',')
-          .map(c => c.trim())
-          .filter(c => c);
-        if (crops.length === 0) {
-          // No valid crops, skip filter
-        } else if (crops.length === 1) {
-          // Single crop - use regex match
-          if (crops[0] === '__NOT_SET__') {
-            query.$or = [
-              {'details.normalised_crop': {$exists: false}},
-              {'details.normalised_crop': null},
-              {'details.normalised_crop': ''},
-            ];
-          } else {
-            query['details.normalised_crop'] = {
-              $regex: `^${crops[0]}$`,
-              $options: 'i',
-            };
-          }
-        } else {
-          // Multiple crops - use $in with regex for each
-          query['details.normalised_crop'] = {
-            $in: crops.map(crop => new RegExp(`^${crop}$`, 'i')),
-          };
-        }
-      }
-      if (filters.season && filters.season !== 'all') {
-        query['details.season'] = filters.season;
-      }
-      if (filters.domain && filters.domain !== 'all') {
-        query['details.domain'] = filters.domain;
-      }
-      if (filters.status && filters.status !== 'all') {
-        if (filters.status === 'pae_closed') {
-          query.status = 'closed';
-          query.pae_review = true;
-        } else if (filters.status === 'all-closed') {
-          query.status = {
-            $in: ['closed', 'duplicate_closed', 'dynamic_closed'],
-          };
-        } else {
-          query.status = filters.status;
-        }
-      }
-      if (filters.source && filters.source !== 'all') {
-        query.source = filters.source;
-      }
-      if (filters.hiddenQuestions === 'true') {
-        query.isHidden = {$eq: true};
-      }
-      if (filters.startDate || filters.endDate) {
-        // For closed statuses, filter using closedAt.
-        // Date boundaries are based on IST:
-        // 00:00 IST = previous day 18:30 UTC
-        const isClosedStatus =
-          filters.status === 'closed' ||
-          filters.status === 'pae_closed' ||
-          filters.status === 'dynamic_closed' ||
-          filters.status === 'duplicate_closed' ||
-          filters.status === 'all-closed';
-
-        const dateField = isClosedStatus ? 'closedAt' : 'createdAt';
-
-        query[dateField] = {};
-
-        if (filters.startDate) {
-          const [year, month, day] = filters.startDate.split('-').map(Number);
-
-          const startUTC = new Date(
-            Date.UTC(year, month - 1, day, 0, 0, 0, 0) -
-              (5 * 60 + 30) * 60 * 1000,
-          );
-
-          query[dateField].$gte = startUTC;
-        }
-
-        if (filters.endDate) {
-          const [year, month, day] = filters.endDate.split('-').map(Number);
-
-          const endUTC = new Date(
-            Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0) -
-              (5 * 60 + 30) * 60 * 1000,
-          );
-
-          query[dateField].$lt = endUTC;
-        }
-      }
-
-      // Check if this is a closed status report - if so, limit to 50 questions
-      const isClosedStatus =
-        filters.status === 'closed' ||
-        filters.status === 'pae_closed' ||
-        filters.status === 'dynamic_closed' ||
-        filters.status === 'duplicate_closed' ||
-        filters.status === 'all-closed';
-      // `allUsers` is a comma-separated list of user (approvedBy) ids.
-      const allUserIds =
-        filters.allUsers && filters.allUsers !== 'all'
-          ? filters.allUsers
-              .split(',')
-              .map(s => s.trim())
-              .filter(Boolean)
-          : [];
-      const filterByAllUsers = allUserIds.length > 0;
-      // Answer / Sources / All Users details only exist on a closed question's final
-      // answer, so they are included for closed reports or when filtering by all users.
-      const includeAnswerDetails = isClosedStatus || filterByAllUsers;
-      const questionLimit = includeAnswerDetails ? 50 : undefined;
-
-      // All Users filter (= final answer's approvedBy): restrict to the closed questions
-      // those users approved. Final answers only exist for closed questions, so this
-      // also scopes the report to closed questions.
-      if (filterByAllUsers) {
-        const approvedQuestionIds =
-          await this.answerRepo.getFinalAnswerQuestionIdsByApprover(
-            allUserIds,
-            session,
-          );
-        if (!approvedQuestionIds.length) {
-          console.log('No closed questions approved by the selected user(s)');
-          return null;
-        }
-        query._id = {
-          $in: approvedQuestionIds.map((id: string) => new ObjectId(id)),
-        };
-      }
-
-      // Get questions from repository
-      const questions = await this.questionRepo.getQuestionsByFilters(
-        query,
-        session,
-        filters.duplicateQuestions === 'true',
-        questionLimit,
-      );
-
-      if (!questions || questions.length === 0) {
-        console.log('No questions found for given filters');
-        return null;
-      }
-
-      // Fetch question submissions to get experts from history
-      const questionIds = questions.map(q => q._id.toString());
-      const submissions = await this.questionSubmissionRepo.getByQuestionIds(questionIds, session);
-
-      // Extract all unique expert IDs from history
-      const allExpertIds = new Set<string>();
-      let maxHistoryLength = 0;
-      for (const sub of submissions) {
-        const historyLength = sub.history?.length || 0;
-        if (historyLength > maxHistoryLength) {
-          maxHistoryLength = historyLength;
-        }
-        for (const historyEntry of sub.history || []) {
-          const expertId = historyEntry.updatedBy?.toString();
-          if (expertId) {
-            allExpertIds.add(expertId);
-          }
-        }
-      }
-
-      // Fetch user details for all experts
-      const expertMeta = await this.resolveExpertMeta([...allExpertIds]);
-
-      // Build experts map for each question: questionId -> array of expert names by level
-      const questionExpertsByLevel = new Map<string, (string | null)[]>();
-      for (const sub of submissions) {
-        const qId = sub.questionId.toString();
-        const expertsByLevel: (string | null)[] = [];
-        for (let level = 0; level < maxHistoryLength; level++) {
-          const historyEntry = sub.history?.[level];
-          const expertId = historyEntry?.updatedBy?.toString();
-          if (expertId) {
-            const meta = expertMeta.get(expertId);
-            expertsByLevel.push(meta?.name || expertId);
-          } else {
-            expertsByLevel.push(null);
-          }
-        }
-        questionExpertsByLevel.set(qId, expertsByLevel);
-      }
-
-      // For closed questions, fetch the final answer (text + sources + approving moderator).
-      const questionAnswers = new Map<string, string>();
-      const questionSources = new Map<string, string>();
-      const questionModerator = new Map<string, string>();
-      if (includeAnswerDetails) {
-        const answers = await this.answerRepo.getFinalAnswersByQuestionIds(
-          questionIds,
-          session,
-        );
-
-        // Resolve approving-moderator ids → display names in one batch.
-        const approverIds = [
-          ...new Set(
-            answers
-              .map(a => a.approvedBy?.toString())
-              .filter(Boolean) as string[],
-          ),
-        ];
-        const moderatorNames = await this.resolveExpertNames(approverIds);
-
-        answers.forEach(answer => {
-          if (!answer.questionId) return;
-          const qId = answer.questionId.toString();
-          questionAnswers.set(qId, answer.answer ?? '');
-          questionSources.set(qId, this.formatAnswerSources(answer.sources));
-          const approverId = answer.approvedBy?.toString();
-          if (approverId)
-            questionModerator.set(qId, moderatorNames.get(approverId) ?? '');
-        });
-      }
-
-      // Mongo stores UTC; the team reads IST (UTC+5:30). Excel date cells carry no
-      // timezone, so shift the instant by +5:30 and the cell reads as IST.
-      const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
-      const asIST = (v: any): Date | null => {
-        const d = v ? new Date(v) : null;
-        return d && !Number.isNaN(d.getTime())
-          ? new Date(d.getTime() + IST_OFFSET_MS)
-          : null;
-      };
-      // Include a Closed At column whenever any question actually has a closedAt
-      // (not only for closed-status reports).
-      const hasClosedAt = questions.some(q => !!q.closedAt);
-
-      // Create Excel workbook
-      const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet('Questions');
-
-      // Define columns - add Answer column for closed status
-      const columns: {header: string; key: string; width: number}[] = [
-        {header: 'Question ID', key: 'questionId', width: 26},
-        {header: 'Created At (IST)', key: 'createdAt', width: 22},
-        {header: 'Question', key: 'question', width: 60},
-        {header: 'State', key: 'state', width: 20},
-        {header: 'District', key: 'district', width: 20},
-        {header: 'Crop', key: 'crop', width: 20},
-        {header: 'Season', key: 'season', width: 20},
-        {header: 'Domain', key: 'domain', width: 25},
-        {header: 'Status', key: 'status', width: 15},
-        {header: 'Priority', key: 'priority', width: 15},
-        {header: 'Source', key: 'source', width: 15},
-      ];
-
-      // Add Author and Level columns based on max history length
-      for (let level = 0; level < maxHistoryLength; level++) {
-        const header = level === 0 ? 'Author' : `Level ${level}`;
-        columns.push({header, key: `expert_${level}`, width: 25});
-      }
-
-      if (isClosedStatus || hasClosedAt) {
-        columns.push({
-          header: 'Closed At (IST)',
-          key: 'closedAt',
-          width: 22,
-        });
-      }
-
-      // Add Answer / Sources / Moderator columns for closed questions.
-      if (includeAnswerDetails) {
-        columns.push({header: 'Answer', key: 'answer', width: 80});
-        columns.push({header: 'Sources', key: 'sources', width: 50});
-        columns.push({header: 'AllUsers', key: 'allUsers', width: 25});
-      }
-
-      sheet.columns = columns;
-      // IST-formatted date cells (the values are already shifted +5:30 above).
-      sheet.getColumn('createdAt').numFmt = 'yyyy-mm-dd hh:mm';
-      if (isClosedStatus || hasClosedAt) {
-        sheet.getColumn('closedAt').numFmt = 'yyyy-mm-dd hh:mm';
-      }
-      if (includeAnswerDetails) {
-        sheet.getColumn('sources').alignment = {
-          wrapText: true,
-          vertical: 'top',
-        };
-      }
-
-      // Add data rows
-      questions.forEach(q => {
-        const qId = q._id.toString();
-        const rowData: any = {
-          questionId: qId,
-          createdAt: asIST(q.createdAt),
-          question: q.question,
-          state: q.details?.state,
-          district: q.details?.district,
-          crop: q.details?.crop,
-          season: q.details?.season,
-          domain: q.details?.domain,
-          status: q.status,
-          priority: q.priority,
-          source: q.source,
-        };
-
-        // Add expert columns for each level
-        const expertsByLevel = questionExpertsByLevel.get(qId) || [];
-        for (let level = 0; level < maxHistoryLength; level++) {
-          rowData[`expert_${level}`] = expertsByLevel[level] || '';
-        }
-
-        if (isClosedStatus || hasClosedAt) {
-          rowData.closedAt = asIST(q.closedAt);
-        }
-
-        // Add answer / sources / moderator for closed questions.
-        if (includeAnswerDetails) {
-          rowData.answer = questionAnswers.get(qId) || '';
-          rowData.sources = questionSources.get(qId) || '';
-          rowData.allUsers = questionModerator.get(qId) || '';
-        }
-
-        sheet.addRow(rowData);
-      });
-
-      // Style the header row
-      const headerRow = sheet.getRow(1);
-      headerRow.font = {bold: true};
-      headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
-
-      // Generate buffer
-      const buffer = await workbook.xlsx.writeBuffer();
-      return buffer as ArrayBuffer;
-    });
+  async generateStateCropQuestionReport(
+    filters: Parameters<
+      IQuestionReportService['generateStateCropQuestionReport']
+    >[0],
+  ): Promise<ArrayBuffer | null> {
+    return this.questionReportService.generateStateCropQuestionReport(filters);
   }
 
   async generateDuplicateQuestionReport(
@@ -6164,109 +4843,12 @@ export class QuestionService extends BaseService implements IQuestionService {
     isTrainingUser?: boolean,
     isAdmin?: boolean,
   ): Promise<ArrayBuffer | null> {
-    return this._withTransaction(async session => {
-      if (!startDate || !endDate) {
-        throw new BadRequestError('startDate and endDate are required');
-      }
-
-      // Fetch duplicates using the repository
-      // const duplicateQuestions = await this.duplicateQuestionRepository.findDuplicatesByDateRange(startDate, endDate, 'AJRASAKHA', session);
-      const duplicateQuestions =
-        await this.duplicateQuestionRepository.findDuplicatesByDateRange(
-          startDate,
-          endDate,
-          isTrainingUser,
-          isAdmin,
-          session,
-        );
-
-      if (!duplicateQuestions || duplicateQuestions.length === 0) {
-        return null;
-      }
-
-      // Fetch reference question details for metadata
-      // Use a Map to avoid duplicate fetches for the same reference question
-      const refDetailsMap = new Map<
-        string,
-        {
-          state: string;
-          district: string;
-          crop: string | import('#root/shared/interfaces/models.js').ICropRef;
-          season: string;
-          domain: string[];
-        } | null
-      >();
-
-      for (const q of duplicateQuestions) {
-        const refId = q.referenceQuestionId?.toString();
-        if (refId && !refDetailsMap.has(refId)) {
-          try {
-            const refQuestion = await this.questionRepo.getById(refId, session);
-            refDetailsMap.set(refId, refQuestion?.details || null);
-          } catch {
-            refDetailsMap.set(refId, null);
-          }
-        }
-      }
-
-      // Create Excel workbook
-      const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet('Similar Questions');
-
-      // Define columns with metadata for both question and reference question
-      sheet.columns = [
-        {header: 'createdAt', key: 'createdAt', width: 22},
-        {header: 'question', key: 'question', width: 60},
-        {header: 'q_state', key: 'q_state', width: 18},
-        {header: 'q_district', key: 'q_district', width: 20},
-        {header: 'q_crop', key: 'q_crop', width: 18},
-        {header: 'q_season', key: 'q_season', width: 18},
-        {header: 'q_domain', key: 'q_domain', width: 22},
-        {header: 'source', key: 'source', width: 15},
-        {header: 'similarityScore', key: 'similarityScore', width: 18},
-        {header: 'referenceQuestion', key: 'referenceQuestion', width: 60},
-        {header: 'referenceSource', key: 'referenceSource', width: 20},
-        {header: 'ref_state', key: 'ref_state', width: 18},
-        {header: 'ref_district', key: 'ref_district', width: 20},
-        {header: 'ref_crop', key: 'ref_crop', width: 18},
-        {header: 'ref_season', key: 'ref_season', width: 18},
-        {header: 'ref_domain', key: 'ref_domain', width: 22},
-      ];
-
-      // Add data rows
-      duplicateQuestions.forEach(q => {
-        const refId = q.referenceQuestionId?.toString();
-        const refDetails = refId ? refDetailsMap.get(refId) : null;
-
-        sheet.addRow({
-          createdAt: q.createdAt,
-          question: q.question,
-          q_state: q.details?.state || '',
-          q_district: q.details?.district || '',
-          q_crop: q.details?.crop || '',
-          q_season: q.details?.season || '',
-          q_domain: q.details?.domain || '',
-          source: q.source,
-          similarityScore: q.similarityScore,
-          referenceQuestion: q.referenceQuestion ? q.referenceQuestion : '',
-          referenceSource: q.referenceSource || '',
-          ref_state: refDetails?.state || '',
-          ref_district: refDetails?.district || '',
-          ref_crop: refDetails?.crop || '',
-          ref_season: refDetails?.season || '',
-          ref_domain: refDetails?.domain || '',
-        });
-      });
-
-      // Style the header row
-      const headerRow = sheet.getRow(1);
-      headerRow.font = {bold: true};
-      headerRow.alignment = {horizontal: 'center', vertical: 'middle'};
-
-      // Generate buffer
-      const buffer = await workbook.xlsx.writeBuffer();
-      return buffer as ArrayBuffer;
-    });
+    return this.questionReportService.generateDuplicateQuestionReport(
+      startDate,
+      endDate,
+      isTrainingUser,
+      isAdmin,
+    );
   }
 
   /*async getMatchedQuestion(questionId: string) {
@@ -6516,37 +5098,6 @@ export class QuestionService extends BaseService implements IQuestionService {
     };
   }
 
-  async getQuestionFeedback(questionId: string) {
-    const questionData = await this.questionRepo.getById(questionId);
-
-    if (!questionData) {
-      throw new Error('Question not found');
-    }
-
-    const {question, details, createdAt, messageId} = questionData;
-
-    const annamMessages = await this.chatbotRepository.findFromSecondDb({
-      question,
-      details,
-      createdAt,
-      questionId: questionId.toString(),
-      messageId: messageId ? messageId.toString() : undefined,
-    });
-
-    const message = annamMessages?.[0];
-
-    return {
-      feedback: message?.feedback || null,
-      user: {
-        username: message?.userDetails?.username || 'N/A',
-        email: message?.userDetails?.email || '',
-        avatar: message?.userDetails?.avatar || null,
-      },
-      createdAt: message?.createdAt
-        ? new Date(message.createdAt).toISOString()
-        : '',
-    };
-  }
   async checkStatus(questionIds: string[]): Promise<ICheckStatusResponse[]> {
     const result =
       await this.questionRepo.getQuestionsWithAnswerDetails(questionIds);
@@ -8474,12 +7025,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   private queueCropName(crop: unknown): string | undefined {
-    if (!crop) return undefined;
-    if (typeof crop === 'string') return crop;
-    if (typeof crop === 'object' && 'name' in (crop as any)) {
-      return (crop as any).name?.toString();
-    }
-    return undefined;
+    return queueCropName(crop);
   }
 
   private rawToQueueItem(row: RawQueueQuestionRow): QueueQuestionItem {
@@ -8499,19 +7045,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   /** Map a joined submission (with `.question`) into a lean question item. */
   private submissionToQueueItem(sub: any): QueueQuestionItem {
-    const q = sub.question || {};
-    return {
-      _id: (q._id ?? sub.questionId)?.toString(),
-      question: q.question ?? '',
-      status: q.status ?? '',
-      source: q.source ?? '',
-      isTrainingQuestion: q.isTrainingQuestion === true,
-      priority: q.priority,
-      createdAt: q.createdAt,
-      state: q.details?.state,
-      district: q.details?.district,
-      crop: this.queueCropName(q.details?.crop),
-    };
+    return submissionToQueueItem(sub);
   }
 
   /** Build the full queue as "Name (Level)" entries — Author for position 0,
@@ -8529,55 +7063,12 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   /** Format an answer's sources into a newline-separated cell for the Excel report. */
-  private formatAnswerSources(
-    sources?: {source: string; sourceName?: string; page?: string | number}[],
-  ): string {
-    if (!sources?.length) return '';
-    return sources
-      .map(s => {
-        const label = s.sourceName?.trim();
-        const page =
-          s.page != null && String(s.page).trim() ? ` (p.${s.page})` : '';
-        const src = (s.source ?? '').toString().trim();
-        if (!label && !src) return '';
-        return label ? `${label}: ${src}${page}` : `${src}${page}`;
-      })
-      .filter(Boolean)
-      .join('\n');
-  }
-
-  /** Resolve expert ids → display names in a single batched lookup. */
-  private async resolveExpertNames(
-    ids: string[],
-  ): Promise<Map<string, string>> {
-    const map = new Map<string, string>();
-    const unique = [...new Set(ids.filter(Boolean))];
-    if (!unique.length) return map;
-    const users = await this.userRepo.getUsersByIds(unique);
-    for (const u of users) {
-      const name =
-        `${(u as any).firstName ?? ''} ${(u as any).lastName ?? ''}`.trim();
-      map.set(u._id.toString(), name || (u as any).email || 'Unknown');
-    }
-    return map;
-  }
-
-  private async resolveExpertMeta(
+  /** Resolve expert ids → {name, isTrainingUser}. Delegates to the shared helper
+   *  (also used by QuestionReportService). */
+  private resolveExpertMeta(
     ids: string[],
   ): Promise<Map<string, {name: string; isTrainingUser: boolean}>> {
-    const map = new Map<string, {name: string; isTrainingUser: boolean}>();
-    const unique = [...new Set(ids.filter(Boolean))];
-    if (!unique.length) return map;
-    const users = await this.userRepo.getUsersByIds(unique);
-    for (const u of users) {
-      const name =
-        `${(u as any).firstName ?? ''} ${(u as any).lastName ?? ''}`.trim();
-      map.set(u._id.toString(), {
-        name: name || (u as any).email || 'Unknown',
-        isTrainingUser: (u as any).isTrainingUser === true,
-      });
-    }
-    return map;
+    return resolveExpertMeta(this.userRepo, ids);
   }
 
   private expertMetaToNames(
@@ -9647,206 +8138,15 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   // Feedback allocation
-  async allocateFeedbackQuestions(): Promise<{
-    message: string;
-    allocated: number;
-    skipped: number;
-  }> {
-    if (isReallocatingFeedback) {
-      console.log(
-        '[Feedback] Previous run still in progress — skipping this tick to avoid double-allocation.',
-      );
-      return {
-        message: 'Reallocation already in progress',
-        allocated: 0,
-        skipped: 0,
-      };
-    }
-    isReallocatingFeedback = true;
-    try {
-      const questions =
-        await this.questionRepo.findQuestionsWithOpenFeedbacks();
-      if (!questions.length) {
-        console.log('[Feedback] No questions found with open feedback.');
-        return {
-          message: 'No questions found with open feedback',
-          allocated: 0,
-          skipped: 0,
-        };
-      }
-
-      const questionIds = questions
-        .map(question => question._id?.toString())
-        .filter((id): id is string => Boolean(id));
-      const finalAnswers =
-        await this.answerRepo.getFinalAnswersByQuestionIds(questionIds);
-      const approverByQuestionId = new Map<string, string>();
-
-      for (const answer of finalAnswers) {
-        const questionId = answer.questionId?.toString();
-        const approvedBy = answer.approvedBy?.toString();
-        if (questionId && approvedBy && !approverByQuestionId.has(questionId)) {
-          approverByQuestionId.set(questionId, approvedBy);
-        }
-      }
-
-      let allocated = 0;
-      let skipped = 0;
-
-      for (const question of questions) {
-        const questionId = question._id?.toString();
-        if (!questionId) {
-          skipped++;
-          continue;
-        }
-
-        const approvedByUserId = approverByQuestionId.get(questionId);
-        if (!approvedByUserId) {
-          console.log(
-            `[Feedback] Skipped question ${questionId}: no approvedBy user found.`,
-          );
-          skipped++;
-          continue;
-        }
-
-        try {
-          const assignedAt = new Date();
-          let assignedReviewerId: string | undefined;
-          // Try to claim the approved reviewer first; if unavailable, try other
-          // available moderators/auditors until one successfully claims the feedback.
-          await this._withTransaction(async session => {
-            // Candidate order: approvedByUserId first, then available moderators,
-            // then available auditors. Exclude the approved user when fetching lists
-            // to avoid duplicate checks.
-            const candidateIds: string[] = [];
-
-            // Start with the approved reviewer as preferred candidate.
-            candidateIds.push(approvedByUserId);
-
-            // Fetch other available auditors to use as fallback.
-
-            const availAuditors =
-              await this.userRepo.findAvailableUsersByRole('auditor');
-            for (const a of availAuditors) {
-              const id = a._id?.toString();
-              if (id && id !== approvedByUserId) candidateIds.push(id);
-            }
-
-            let assigned = false;
-            let lastClaimedUser: string | undefined;
-
-            for (const candidateId of candidateIds) {
-              const reviewerClaimed =
-                await this.userRepo.claimFeedbackAllocation(
-                  candidateId,
-                  questionId,
-                  session,
-                );
-              if (!reviewerClaimed) continue;
-
-              // We claimed this user's feedback slot; now assign the submission
-              // to that reviewer. If assignment fails, the transaction will abort
-              // and the claim will not persist.
-              const submissionAssigned =
-                await this.questionSubmissionRepo.assignFeedbackReviewer(
-                  questionId,
-                  candidateId,
-                  assignedAt,
-                  session,
-                );
-              if (submissionAssigned) {
-                assigned = true;
-                lastClaimedUser = candidateId;
-                // capture outside-transaction variable for logging after commit
-                assignedReviewerId = candidateId;
-                // Mark the question's feedback auto-allocation ON now that a reviewer
-                // has been assigned — keeps the flag/toggle in sync with the state.
-                await this.questionRepo.updateQuestion(
-                  questionId,
-                  {autoAllocateFeedback: true} as any,
-                  session,
-                );
-                break;
-              }
-            }
-
-            if (!assigned) {
-              throw new Error(
-                'FEEDBACK_SUBMISSION_NOT_ASSIGNABLE_OR_NO_REVIEWER',
-              );
-            }
-          });
-
-          allocated++;
-          console.log(
-            `[Feedback] Allocated question ${questionId} to reviewer ${assignedReviewerId ?? approvedByUserId}.`,
-          );
-
-          // Audit the system feedback allocation (fire-and-forget, mirrors the
-          // time-bound / moderator-queue crons' SYSTEM_ALLOCATED entries).
-          if (assignedReviewerId) {
-            const meta = await this.resolveExpertMeta([assignedReviewerId]);
-            const reviewerName =
-              meta.get(assignedReviewerId)?.name ?? assignedReviewerId;
-            this.auditTrailsService
-              .createAuditTrail({
-                category: AuditCategory.EXPERTS_CATEGORY,
-                action: AuditAction.SYSTEM_ALLOCATED,
-                actor: {
-                  id: 'system',
-                  name: 'System',
-                  email: '',
-                  role: 'system',
-                  avatar: '',
-                },
-                context: {
-                  questionId,
-                  question: (question as any)?.question,
-                  expertId: assignedReviewerId,
-                  operation: 'feedback',
-                },
-                changes: {after: {'feedback reviewer': reviewerName}},
-                outcome: {status: OutComeStatus.SUCCESS},
-                createdAt: new Date(),
-              } as ModeratorAuditTrail)
-              .catch((err: any) =>
-                console.error(
-                  '[Feedback] Failed to write SYSTEM_ALLOCATED audit:',
-                  err?.message,
-                ),
-              );
-          }
-        } catch (error: any) {
-          skipped++;
-          const reason =
-            error?.message === 'FEEDBACK_REVIEWER_UNAVAILABLE'
-              ? 'reviewer not available'
-              : error?.message === 'FEEDBACK_SUBMISSION_NOT_ASSIGNABLE'
-                ? 'submission missing or already assigned'
-                : error?.message ===
-                    'FEEDBACK_SUBMISSION_NOT_ASSIGNABLE_OR_NO_REVIEWER'
-                  ? 'no available reviewer or submission not assignable'
-                  : error?.message || 'unknown error';
-          console.log(`[Feedback] Skipped question ${questionId}: ${reason}.`);
-        }
-      }
-
-      console.log(
-        `[Feedback] Done. allocated=${allocated}, skipped=${skipped}`,
-      );
-      return {
-        message: 'Feedback allocation completed',
-        allocated,
-        skipped,
-      };
-    } finally {
-      isReallocatingFeedback = false;
-    }
+  // ── Feedback delegates to FeedbackService ──
+  async getQuestionFeedback(questionId: string) {
+    return this.feedbackService.getQuestionFeedback(questionId);
   }
 
-  /**
-   * Handle feedback action (accept/reject) and notify data release service
-   */
+  async allocateFeedbackQuestions() {
+    return this.feedbackService.allocateFeedbackQuestions();
+  }
+
   async handleFeedbackAction(
     questionId: string,
     feedbackId: string,
@@ -9854,525 +8154,58 @@ export class QuestionService extends BaseService implements IQuestionService {
     reason: string,
     processedBy: string,
     source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation',
-  ): Promise<{
-    success: boolean;
-    message: string;
-    data?: {
-      feedbackId: string;
-      action: string;
-      reason: string;
-      processedBy: string;
-      processedAt: string;
-    };
-  }> {
-    if (source === 'PAE_Validation') {
-      const feedback = await this.feedbackRepo.findById(feedbackId.toString());
-      if (!feedback) {
-        throw new NotFoundError(`Feedback with ID ${feedbackId} not found`);
-      }
-
-      // Update the feedback in the feedbacks collection
-      await this.feedbackRepo.updateFeedbackAction(
-        feedbackId.toString(),
-        action,
-        reason,
-        processedBy,
-      );
-
-      const processedAt = new Date().toISOString();
-
-      // Record this individual feedback as closed on the OPEN feedback-review round
-      // (so the view can hide accept/reject for it going forward).
-      await this.questionSubmissionRepo.addClosedFeedbackToOpenRound(
-        questionId,
-        feedbackId,
-        new Date(),
-      );
-
-      // Check if all feedbacks are processed (for PAE_Validation, we only have one feedback)
-      // Update the question's feedbacks array to mark this feedback as closed
-      await this.questionRepo.updateQuestion(questionId, {
-        'feedbacks.$[].status': 'closed',
-      } as any);
-
-      // Close the open feedback-review round on the submission (stamps finishedAt
-      // on the round that has no finishedAt yet).
-      await this.questionSubmissionRepo.finishOpenFeedbackReviews(
-        questionId,
-        new Date(),
-      );
-
-      // Remove the questionId from the processedBy user's feedbacksAssigned array
-      await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
-
-      return {
-        success: true,
-        message: `Feedback ${action}ed successfully. All feedbacks processed.`,
-        data: {
-          feedbackId,
-          action,
-          reason,
-          processedBy,
-          processedAt,
-        },
-      };
-    }
-    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
-    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
-
-    if (!dataReleaseUrl) {
-      throw new Error(
-        'DATA_RELEASE_URL environment variable is not configured',
-      );
-    }
-
-    if (!authKey) {
-      throw new Error(
-        'REVIEW_SYSTEM_AUTH_KEY environment variable is not configured',
-      );
-    }
-
-    // Call the data release service
-    const payload = {
-      note: reason,
-      status: action === 'accept' ? 'accepted' : 'rejected',
-    };
-
-    let dataReleaseResponse: {status: string; pendingFeedbackCount: number};
-
-    try {
-      const response = await fetch(
-        `${dataReleaseUrl}/feedbacks/${feedbackId}/status`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authKey}`,
-          },
-          body: JSON.stringify(payload),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Data release service returned status ${response.status}`,
-        );
-      }
-
-      const responseData = (await response.json()) as {
-        status: string;
-        pendingFeedbackCount: number;
-      };
-      dataReleaseResponse = responseData;
-      //dataReleaseResponse = {status: 'closed', pendingFeedbackCount: 0};
-    } catch (error: any) {
-      console.error(
-        '[QuestionService] handleFeedbackAction: Failed to call data release service:',
-        error,
-      );
-      throw new InternalServerError(
-        'Failed to process feedback action: ' + error.message,
-      );
-    }
-
-    const processedAt = new Date().toISOString();
-
-    // Record this individual feedback as closed on the OPEN feedback-review round
-    // (so the view can hide accept/reject for it going forward).
-    await this.questionSubmissionRepo.addClosedFeedbackToOpenRound(
+  ) {
+    return this.feedbackService.handleFeedbackAction(
       questionId,
       feedbackId,
-      new Date(),
+      action,
+      reason,
+      processedBy,
+      source,
     );
-
-    // Check if all feedbacks are processed
-    if (dataReleaseResponse.pendingFeedbackCount <= 0) {
-      const now = new Date();
-
-      // Update the question's feedbacks.source to 'closed' and set feedbackReviewFinishedAt
-      await this.questionRepo.updateQuestion(questionId, {
-        'feedbacks.$[].status': 'closed',
-      } as any);
-
-      // await this.questionSubmissionRepo.(questionId, now);
-
-      //need to add the finished at when closing.
-
-      // Close the open feedback-review round on the submission (stamps finishedAt
-      // on the round that has no finishedAt yet).
-      await this.questionSubmissionRepo.finishOpenFeedbackReviews(
-        questionId,
-        now,
-      );
-
-      // Remove the questionId from the processedBy user's feedbacksAssigned array
-      await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
-
-      return {
-        success: true,
-        message: `Feedback ${action}ed successfully. All feedbacks processed.`,
-        data: {
-          feedbackId,
-          action,
-          reason,
-          processedBy,
-          processedAt,
-        },
-      };
-    }
-
-    // There are still pending feedbacks
-    return {
-      success: true,
-      message: `Feedback ${action}ed successfully. ${dataReleaseResponse.pendingFeedbackCount} pending feedback(s) remaining.`,
-      data: {
-        feedbackId,
-        action,
-        reason,
-        processedBy,
-        processedAt,
-      },
-    };
   }
 
-  /** Data for the dedicated Feedback tab — every feedback-related bucket in one call.
-   *  Read-only; touches no allocation state. */
-  async getFeedbackQueueDetails(): Promise<FeedbackQueueDetails> {
-    // All questions with an open feedback (auto ON and OFF).
-    const openFeedbackQuestions =
-      await this.questionRepo.findQuestionsWithOpenFeedbacks(false);
-    const qIds = openFeedbackQuestions
-      .map(q => q._id?.toString())
-      .filter((id): id is string => Boolean(id));
-
-    // Questions already assigned a reviewer (open feedback-review round).
-    const openReviews =
-      await this.questionSubmissionRepo.findOpenFeedbackReviews();
-    const reviewerByQuestion = new Map<string, string>();
-    for (const o of openReviews) {
-      if (o.questionId && !reviewerByQuestion.has(o.questionId)) {
-        reviewerByQuestion.set(o.questionId, o.reviewerId);
-      }
-    }
-    const assignedIds = new Set(reviewerByQuestion.keys());
-
-    // Final-answer approver per question.
-    const finalAnswers =
-      await this.answerRepo.getFinalAnswersByQuestionIds(qIds);
-    const approverByQuestion = new Map<string, string>();
-    for (const a of finalAnswers) {
-      const qid = a.questionId?.toString();
-      const approver = a.approvedBy?.toString();
-      if (qid && approver && !approverByQuestion.has(qid)) {
-        approverByQuestion.set(qid, approver);
-      }
-    }
-
-    // Names (reviewers + approvers) and approver user docs (for eligibility).
-    const meta = await this.resolveExpertMeta([
-      ...reviewerByQuestion.values(),
-      ...approverByQuestion.values(),
-    ]);
-    const approverIds = [...new Set(approverByQuestion.values())];
-    const approverUsers = approverIds.length
-      ? await this.userRepo.getUsersByIds(approverIds)
-      : [];
-    const approverById = new Map(
-      approverUsers.map(u => [u._id!.toString(), u]),
-    );
-    const isActiveModerator = (u: any) =>
-      !!u &&
-      u.role === 'moderator' &&
-      u.isBlocked !== true &&
-      u.status !== 'in-active';
-
-    const waitingAuto: QueueQuestionItem[] = [];
-    const waitingManual: QueueQuestionItem[] = [];
-    const assigned: QueueQuestionItem[] = [];
-    const withActiveMod: QueueQuestionItem[] = [];
-    const withoutActiveMod: QueueQuestionItem[] = [];
-
-    for (const q of openFeedbackQuestions) {
-      const id = q._id?.toString();
-      if (!id) continue;
-      const base = this.submissionToQueueItem({question: q});
-
-      if (assignedIds.has(id)) {
-        const reviewerId = reviewerByQuestion.get(id);
-        assigned.push({
-          ...base,
-          assigneeName: (reviewerId && meta.get(reviewerId)?.name) || 'Unknown',
-        });
-      } else if ((q as any).autoAllocateFeedback === true) {
-        // Auto-allocation ON only when explicitly true; missing/false = manual.
-        waitingAuto.push(base);
-      } else {
-        waitingManual.push(base);
-      }
-
-      const approver = approverById.get(approverByQuestion.get(id) ?? '');
-      if (isActiveModerator(approver)) withActiveMod.push(base);
-      else withoutActiveMod.push(base);
-    }
-
-    // Reviewers free for feedback (no feedback held, no time-bound question).
-    const freeReviewers = await this.userRepo.findAvailableFeedbackReviewers();
-    const toExpertItem = (u: any): QueueExpertItem => ({
-      _id: u._id.toString(),
-      name:
-        `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
-        u.email ||
-        'Unknown',
-      email: u.email,
-      reputationScore: u.reputation_score,
-      role: u.role,
-      isSpecialTaskForce: u.special_task_force === true,
-      isTrainingUser: u.isTrainingUser === true,
-    });
-    const availableModerators = freeReviewers
-      .filter(u => u.role === 'moderator')
-      .map(toExpertItem);
-    const availableAuditors = freeReviewers
-      .filter(u => u.role === 'auditor')
-      .map(toExpertItem);
-    const freeIds = new Set(freeReviewers.map(u => u._id!.toString()));
-
-    // Respective moderators: waiting-auto questions whose approver is an active
-    // moderator AND currently free (question ↔ eligible-approver pairs).
-    const respectiveModerators = openFeedbackQuestions
-      .filter(q => {
-        const id = q._id?.toString();
-        if (
-          !id ||
-          assignedIds.has(id) ||
-          (q as any).autoAllocateFeedback !== true
-        )
-          return false;
-        const approverId = approverByQuestion.get(id);
-        const approver = approverById.get(approverId ?? '');
-        return (
-          isActiveModerator(approver) && !!approverId && freeIds.has(approverId)
-        );
-      })
-      .map(q => {
-        const id = q._id!.toString();
-        const approverId = approverByQuestion.get(id)!;
-        return {
-          ...this.submissionToQueueItem({question: q}),
-          approverId,
-          approverName: meta.get(approverId)?.name ?? 'Unknown',
-        };
-      });
-
-    const wrap = <T>(items: T[]) => ({count: items.length, items});
-    return {
-      waitingAuto: wrap(waitingAuto),
-      waitingManual: wrap(waitingManual),
-      assigned: wrap(assigned),
-      availableModerators: wrap(availableModerators),
-      respectiveModerators: wrap(respectiveModerators),
-      availableAuditors: wrap(availableAuditors),
-      questionsWithActiveModerator: wrap(withActiveMod),
-      questionsWithoutActiveModerator: wrap(withoutActiveMod),
-    };
+  async getFeedbackQueueDetails() {
+    return this.feedbackService.getFeedbackQueueDetails();
   }
 
-  /** Feedback-review timeline for a question: each round (reviewer + assigned/finished)
-   *  plus the current auto-allocation flag and whether an open feedback exists. */
-  async getFeedbackTimeline(questionId: string): Promise<{
-    autoAllocateFeedback: boolean;
-    hasOpenFeedback: boolean;
-    reviews: {
-      index: number;
-      reviewerId: string;
-      reviewerName: string;
-      assignedAt: Date;
-      finishedAt: Date | null;
-      /** How many feedbacks this reviewer has already acted on (accepted/rejected). */
-      completedCount: number;
-    }[];
-  }> {
-    const [question, submission] = await Promise.all([
-      this.questionRepo.getById(questionId),
-      this.questionSubmissionRepo.getByQuestionId(questionId),
-    ]);
-    const rounds = ((submission as any)?.feedbackReviews ?? []) as any[];
-    const names = await this.resolveExpertMeta(
-      rounds.map(r => r.reviewerId?.toString()).filter(Boolean),
-    );
-    const feedbacks = ((question as any)?.feedbacks ?? []) as any[];
-    return {
-      autoAllocateFeedback: (question as any)?.autoAllocateFeedback === true,
-      hasOpenFeedback:
-        Array.isArray(feedbacks) && feedbacks.some(f => f?.status === 'open'),
-      reviews: rounds
-        // `index` is the round's position in the DB array — the change/remove APIs
-        // operate by that index, so keep it even though we sort for display.
-        .map((r, i) => ({
-          index: i,
-          reviewerId: r.reviewerId?.toString(),
-          reviewerName: names.get(r.reviewerId?.toString())?.name ?? 'Unknown',
-          assignedAt: r.assignedAt,
-          finishedAt: r.finishedAt ?? null,
-          completedCount: Array.isArray(r.closedFeedbacks)
-            ? r.closedFeedbacks.length
-            : 0,
-        }))
-        .sort(
-          (a, b) =>
-            new Date(a.assignedAt).getTime() - new Date(b.assignedAt).getTime(),
-        ),
-    };
+  async getFeedbackTimeline(questionId: string) {
+    return this.feedbackService.getFeedbackTimeline(questionId);
   }
 
-  /** All moderators/auditors eligible to be a feedback reviewer (for the manual picker). */
-  async getAssignableFeedbackReviewers(): Promise<
-    {_id: string; name: string; email: string; role: string}[]
-  > {
-    const users = await this.userRepo.findUsersByRoles([
-      'moderator',
-      'auditor',
-    ]);
-    return users.map(u => ({
-      _id: u._id!.toString(),
-      name:
-        `${(u as any).firstName ?? ''} ${(u as any).lastName ?? ''}`.trim() ||
-        u.email ||
-        'Unknown',
-      email: u.email,
-      role: u.role,
-    }));
+  async getAssignableFeedbackReviewers() {
+    return this.feedbackService.getAssignableFeedbackReviewers();
   }
 
-  /** Manually assign OR reassign the feedback reviewer (admin/moderator). When a round
-   *  is already open it repoints that round to the new reviewer and releases the old one;
-   *  otherwise it opens a fresh round. Respects the same one-at-a-time / auditor either-or
-   *  rules as the cron. */
   async assignFeedbackReviewerManually(
     questionId: string,
     userId: string,
     index?: number,
-  ): Promise<{success: true}> {
-    await this._withTransaction(async session => {
-      // Don't allow assigning a reviewer once the feedback is closed (no open
-      // feedback left on the question).
-      const question = await this.questionRepo.getById(questionId);
-      const feedbacks = ((question as any)?.feedbacks ?? []) as any[];
-      const hasOpenFeedback =
-        Array.isArray(feedbacks) && feedbacks.some(f => f?.status === 'open');
-      if (!hasOpenFeedback) {
-        throw new BadRequestError('This feedback is already closed.');
-      }
-
-      const submission =
-        await this.questionSubmissionRepo.getByQuestionId(questionId);
-      const rounds = ((submission as any)?.feedbackReviews ?? []) as any[];
-
-      // Resolve the round being changed: an explicit index (one of several rounds)
-      // or the single open round when none is given.
-      const targetIndex =
-        typeof index === 'number' && index >= 0
-          ? index
-          : rounds.findIndex(r => !r.finishedAt);
-      const targetRound = targetIndex >= 0 ? rounds[targetIndex] : undefined;
-
-      if (targetRound && targetRound.finishedAt) {
-        throw new BadRequestError(
-          'That feedback review is already completed and cannot be reassigned.',
-        );
-      }
-      const oldReviewerId = targetRound?.reviewerId?.toString();
-      if (oldReviewerId === userId) {
-        return; // already assigned to this reviewer — no-op
-      }
-
-      // Claim the new reviewer's slot first (fails if they're not free). Manual claim
-      // lets an admin/moderator pick ANY active user (not restricted to mod/auditor),
-      // still one feedback at a time.
-      const claimed = await this.userRepo.claimFeedbackAllocationManual(
-        userId,
-        questionId,
-        session,
-      );
-      if (!claimed) {
-        throw new BadRequestError(
-          'Selected user is not available (already holds a feedback, or is inactive/blocked).',
-        );
-      }
-
-      if (targetRound) {
-        // Reassign only the targeted round (by index) and release its previous reviewer.
-        await this.questionSubmissionRepo.reassignFeedbackReviewerByIndex(
-          questionId,
-          targetIndex,
-          userId,
-          new Date(),
-          session,
-        );
-        if (oldReviewerId) {
-          await this.userRepo.removeFeedbacksAssigned(
-            oldReviewerId,
-            questionId,
-            session,
-          );
-        }
-      } else {
-        // Fresh assignment: open a new round.
-        const assigned =
-          await this.questionSubmissionRepo.assignFeedbackReviewer(
-            questionId,
-            userId,
-            new Date(),
-            session,
-          );
-        if (!assigned) {
-          throw new BadRequestError(
-            'This question already has an open feedback review.',
-          );
-        }
-      }
-    });
-    return {success: true};
+  ) {
+    return this.feedbackService.assignFeedbackReviewerManually(
+      questionId,
+      userId,
+      index,
+    );
   }
 
-  /** Remove an OPEN feedback-review round by index (admin/moderator/etc). Releases the
-   *  reviewer's feedback slot. Completed rounds cannot be removed. */
-  async removeFeedbackReviewer(
+  async removeFeedbackReviewer(questionId: string, index: number) {
+    return this.feedbackService.removeFeedbackReviewer(questionId, index);
+  }
+
+  async getFeedbacks(
     questionId: string,
-    index: number,
-  ): Promise<{success: true}> {
-    await this._withTransaction(async session => {
-      const submission =
-        await this.questionSubmissionRepo.getByQuestionId(questionId);
-      const rounds = ((submission as any)?.feedbackReviews ?? []) as any[];
-      const round = rounds[index];
-      if (!round) {
-        throw new BadRequestError('No feedback review found at that position.');
-      }
-      if (round.finishedAt) {
-        throw new BadRequestError(
-          'A completed feedback review cannot be removed.',
-        );
-      }
-      const removed =
-        await this.questionSubmissionRepo.removeFeedbackReviewByIndex(
-          questionId,
-          index,
-          session,
-        );
-      if (!removed) {
-        throw new BadRequestError('Could not remove the feedback review.');
-      }
-      const reviewerId = round.reviewerId?.toString();
-      if (reviewerId) {
-        await this.userRepo.removeFeedbacksAssigned(
-          reviewerId,
-          questionId,
-          session,
-        );
-      }
-    });
-    return {success: true};
+    page: number = 1,
+    pageSize: number = 5,
+  ) {
+    return this.feedbackService.getFeedbacks(questionId, page, pageSize);
+  }
+
+  async handleFeedbackStatusUpdate(
+    questionId: string,
+    source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation',
+  ) {
+    return this.feedbackService.handleFeedbackStatusUpdate(questionId, source);
   }
 
   /**
@@ -10487,662 +8320,51 @@ export class QuestionService extends BaseService implements IQuestionService {
    * Get feedbacks for a question (paginated)
    * Fetches from external data release service with mock data fallback
    */
-  async getFeedbacks(
-    questionId: string,
-    page: number = 1,
-    pageSize: number = 5,
-  ): Promise<FeedbackResponse> {
-    // Empty result used whenever the external data-release service can't be reached
-    // or isn't configured — feedbacks are supplementary, so a failure here must not
-    // 500 the whole question-details view. It just shows "no feedbacks".
-    const emptyResponse: FeedbackResponse = {
-      data: [],
-      totalCount: 0,
-      page,
-      pageSize,
-      totalPages: 0,
-    };
-
-    const question = await this.questionRepo.getById(questionId);
-
-    const externalFeedbacks =
-      question?.feedbacks?.filter(
-        f => f.source === 'DATASET' || f.source === 'WEB_APPLICATION',
-      ) ?? [];
-
-    // PAE flow
-    const paeFeedbackData =
-      (await this.feedbackRepo.findByQuestionId(questionId)) ?? [];
-
-    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
-    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
-
-    /**
-     * Normalize external feedbacks to FeedbackData.
-     */
-    //Helpers for converting MongoDB values
-    //to the extended JSON format expected by frontend.
-    // The data-release service returns feedbacks in a flat shape
-    // ({ id, questionId, answerId as strings, createdAt as ISO strings }) and
-    // already paginates the result. Normalize each item to the extended-JSON
-    // shape the frontend consumes ({ _id: { $oid }, createdAt: { $date }, … })
-    // and pass the service's own pagination through unchanged.
-    const asOid = (value: any): {$oid: string} => ({
-      $oid:
-        typeof value === 'string'
-          ? value
-          : (value?.$oid ??
-            value?.toHexString?.() ??
-            value?._id?.toHexString?.() ??
-            ''),
-    });
-
-    const asDate = (value: any): {$date: string} => ({
-      $date:
-        typeof value === 'string'
-          ? value
-          : (value?.$date ?? value?.toISOString?.() ?? ''),
-    });
-
-    /**
-     * PAE feedbacks
-     *
-     * PAE and external feedbacks come from different sources,
-     * but both are converted to the common FeedbackData response.
-     */
-    const paeData: FeedbackData[] = paeFeedbackData.map((feedback: any) => ({
-      _id: asOid(feedback._id),
-
-      questionId: asOid(feedback.questionId ?? questionId),
-
-      userId: {
-        name: feedback.userId?.name ?? '',
-        email: feedback.userId?.email ?? '',
-      },
-
-      answerId: feedback.answerId ? asOid(feedback.answerId) : null,
-
-      type: 'PAE_VALIDATION',
-
-      predefinedOption: feedback.predefinedOption ?? '',
-
-      comment: feedback.comment ?? '',
-
-      status: feedback.status,
-
-      link: feedback.link,
-
-      reviewNote: feedback.reviewNote,
-
-      createdAt: asDate(feedback.createdAt),
-
-      updatedAt: asDate(feedback.updatedAt ?? feedback.createdAt),
-    }));
-
-    /**
-     * If there are no external feedbacks,
-     * return PAE feedbacks only.
-     */
-    if (externalFeedbacks.length === 0) {
-      if (paeData.length === 0) {
-        return emptyResponse;
-      }
-
-      const totalCount = paeData.length;
-
-      return {
-        data: paeData,
-        totalCount,
-        page,
-        pageSize,
-        totalPages: Math.ceil(totalCount / pageSize),
-      };
-    }
-
-    /**
-     * External service is not configured.
-     * PAE feedbacks should still be returned.
-     */
-    if (!dataReleaseUrl || !authKey) {
-      console.warn(
-        '[QuestionService] getFeedbacks: data-release service not configured (DATA_RELEASE_URL / REVIEW_SYSTEM_AUTH_KEY missing) — returning empty feedbacks.',
-      );
-
-      if (paeData.length === 0) {
-        return emptyResponse;
-      }
-      const totalCount = paeData.length;
-
-      return {
-        data: paeData,
-        totalCount,
-        page,
-        pageSize,
-        totalPages: Math.ceil(totalCount / pageSize),
-      };
-    }
-
-    try {
-      /**
-       * External feedback flow
-       */
-      const response = await fetch(
-        `${dataReleaseUrl}/feedbacks/question/${questionId}?page=${page}&pageSize=${pageSize}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authKey}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Data release service returned status ${response.status}`,
-        );
-      }
-      const res = (await response.json()) as {
-        data?: any[];
-        total?: number;
-        page?: number;
-        limit?: number;
-        totalPages?: number;
-      };
-
-      const externalData: FeedbackData[] = (
-        Array.isArray(res.data) ? res.data : []
-      ).map((f: any) => ({
-        _id: asOid(f.id ?? f._id),
-        questionId: f.questionId ? asOid(f.questionId) : {$oid: questionId},
-        userId: {
-          name: f.userId?.name ?? '',
-          email: f.userId?.email ?? '',
-        },
-        answerId: asOid(f.answerId),
-        type: f.type,
-        predefinedOption: f.predefinedOption ?? '',
-        comment: f.comment ?? '',
-        status: f.status,
-        reviewNote: f.reviewNote,
-        createdAt: asDate(f.createdAt),
-        updatedAt: asDate(f.updatedAt),
-      }));
-
-      /**
-       * Combine external + PAE feedbacks.
-       */
-      const data: FeedbackData[] = [...externalData, ...paeData];
-
-      if (data.length === 0) {
-        return emptyResponse;
-      }
-      const externalTotal =
-        typeof res.total === 'number' ? res.total : externalData.length;
-
-      const totalCount = externalTotal + paeData.length;
-      console.log('final:', data);
-      return {
-        data,
-        totalCount,
-        page: typeof res.page === 'number' ? res.page : page,
-        pageSize: typeof res.limit === 'number' ? res.limit : pageSize,
-        totalPages:
-          typeof res.totalPages === 'number'
-            ? res.totalPages
-            : Math.ceil(totalCount / pageSize),
-      };
-    } catch (error: any) {
-      // Network failure (ECONNREFUSED / timeout), non-OK status, or bad JSON —
-      // log and degrade to an empty list rather than 500ing the question view.
-      console.error(
-        '[QuestionService] getFeedbacks: Failed to call data release service:',
-        error?.message ?? error,
-      );
-
-      if (paeData.length === 0) {
-        return emptyResponse;
-      }
-
-      const totalCount = paeData.length;
-
-      return {
-        data: paeData,
-        totalCount,
-        page,
-        pageSize,
-        totalPages: Math.ceil(totalCount / pageSize),
-      };
-    }
-  }
-
-  /**
-   * handle Feedback Status Update for a question
-   */
-  async handleFeedbackStatusUpdate(
-    questionId: string,
-    source: 'DATASET' | 'WEB_APPLICATION' | 'PAE_Validation',
-  ): Promise<{success: boolean}> {
-    const matchedCount = await this.questionRepo.addOrUpdateFeedbackStatus(
-      questionId,
-      source,
-    );
-
-    if (matchedCount === 0) {
-      throw new NotFoundError('Question not found');
-    }
-
-    return {
-      success: true,
-    };
-  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // PAE VALIDATION QUEUE CRON
   // ─────────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Cron job to assign questions pending PAE validation to available PAE experts.
-   */
-  async runPaeValidationQueueCron(): Promise<{
-    assigned: number;
-    availableWaiting: number;
-    failedAssignments: number;
-  }> {
-    console.log(
-      '[PaeValidationQueue] Starting PAE validation queue assignment check...',
-    );
-
-    try {
-      const pendingQuestions =
-        await this.questionRepo.findQuestionsPendingPaeValidation();
-      const availableExperts = await this.userRepo.findAvailablePaeExperts();
-
-      if (!pendingQuestions.length) {
-        console.log(
-          '[PaeValidationQueue] No pending questions for PAE validation',
-        );
-        return {
-          assigned: 0,
-          availableWaiting: availableExperts.length,
-          failedAssignments: 0,
-        };
-      }
-
-      if (!availableExperts.length) {
-        console.log('[PaeValidationQueue] No available PAE experts');
-        return {assigned: 0, availableWaiting: 0, failedAssignments: 0};
-      }
-
-      console.log(
-        `[PaeValidationQueue] Found ${pendingQuestions.length} pending questions and ${availableExperts.length} available PAE experts`,
-      );
-
-      const claimedQuestionIds = new Set<string>();
-      let assigned = 0;
-      let availableWaiting = 0;
-      let failedAssignments = 0;
-
-      for (const expert of availableExperts) {
-        const expertId = expert._id!.toString();
-
-        const matchedQuestion = pendingQuestions.find(
-          q =>
-            !claimedQuestionIds.has(q._id!.toString()) &&
-            isQuestionMatchForPaeExpert(q, expert),
-        );
-
-        if (!matchedQuestion) {
-          console.log(
-            '[PaeValidationQueue] No matching question found for PAE expert',
-            expertId,
-          );
-          availableWaiting++;
-          continue;
-        }
-
-        const questionId = matchedQuestion._id!.toString();
-        claimedQuestionIds.add(questionId);
-
-        try {
-          await this._withTransaction(async (session: ClientSession) => {
-            await this.questionRepo.updatePaeValidationStatus(
-              questionId,
-              'in-progress',
-              session,
-            );
-            await this.questionRepo.addPaeValidationEntry(
-              questionId,
-              {
-                paeAssignedAt: new Date(),
-                paeId: expertId,
-                paeStatus: 'in-progress',
-                paeFinishedAt: null,
-              },
-              session,
-            );
-            await this.userRepo.addPaeValidationAssigned(
-              expertId,
-              questionId,
-              session,
-            );
-          });
-
-          await this.notificationService.saveTheNotifications(
-            `A question (${matchedQuestion.question.substring(0, 50)}...) has been assigned to you for PAE validation`,
-            'Question Assigned for PAE Validation',
-            questionId,
-            expertId,
-            'pae_validation',
-          );
-
-          console.log(
-            `[PaeValidationQueue] Assigned question ${questionId} → PAE expert ${expertId}`,
-          );
-          assigned++;
-        } catch (error: any) {
-          console.error(
-            `[PaeValidationQueue] Failed to assign question ${questionId} to ${expertId}:`,
-            error?.message,
-          );
-          claimedQuestionIds.delete(questionId);
-          failedAssignments++;
-        }
-      }
-
-      console.log(
-        `[PaeValidationQueue] Done: assigned=${assigned}, availableWaiting=${availableWaiting}, failedAssignments=${failedAssignments}`,
-      );
-      return {assigned, availableWaiting, failedAssignments};
-    } catch (error: any) {
-      console.error(
-        '[PaeValidationQueue] PAE validation queue cron failed:',
-        error?.message,
-      );
-      throw new BadRequestError(
-        `PAE validation queue cron failed: ${error?.message}`,
-      );
-    }
+  // ── PAE validation delegates to PaeValidationService ──
+  async runPaeValidationQueueCron() {
+    return this.paeValidationService.runPaeValidationQueueCron();
   }
 
-  //pae validation timeline
-  async getPaeValidationTimeline(questionId: string): Promise<{
-    autoAllocatePaeValidationExpert: boolean;
-    hasOpenRound: boolean;
-    reviews: {
-      index: number;
-      paeId: string;
-      paeName: string;
-      paeAssignedAt: Date;
-      paeFinishedAt: Date | null;
-      paeStatus: string;
-    }[];
-  }> {
-    const [question, submission] = await Promise.all([
-      this.questionRepo.getById(questionId),
-      this.questionSubmissionRepo.getByQuestionId(questionId),
-    ]);
-
-    const rounds = ((submission as any)?.paeValidation ?? []) as any[];
-
-    const names = await this.resolveExpertMeta(
-      rounds.map(r => r.paeId?.toString()).filter(Boolean),
-    );
-
-    return {
-      autoAllocatePaeValidationExpert:
-        (question as any)?.autoAllocatePaeValidationExpert === true,
-
-      hasOpenRound:
-        Array.isArray(rounds) &&
-        rounds.some(r => r?.paeStatus === 'in-progress'),
-
-      reviews: rounds
-        .map((r, i) => ({
-          index: i,
-          paeId: r.paeId?.toString() ?? '',
-          paeName: names.get(r.paeId?.toString())?.name ?? 'Unknown',
-          paeAssignedAt: r.paeAssignedAt,
-          paeFinishedAt: r.paeFinishedAt ?? null,
-          paeStatus: r.paeStatus ?? '',
-        }))
-        .sort(
-          (a, b) =>
-            new Date(a.paeAssignedAt).getTime() -
-            new Date(b.paeAssignedAt).getTime(),
-        ),
-    };
+  async getPaeValidationTimeline(questionId: string) {
+    return this.paeValidationService.getPaeValidationTimeline(questionId);
   }
 
-  /** Manually assign OR reassign the pae validation reviewer (admin/moderator). When a round
-   *  is already open it repoints that round to the new reviewer and releases the old one;
-   *  otherwise it opens a fresh round. Respects the same one-at-a-time;
-   *  rules as the cron. */
   async assignPaeValidationReviewerManually(
     questionId: string,
     userId: string,
     index?: number,
-  ): Promise<{success: true}> {
-    await this._withTransaction(async session => {
-      // Don't allow assigning a reviewer once the feedback is closed (no open
-      // feedback left on the question).
-      // const question = await this.questionRepo.getById(questionId);
-      // const feedbacks = ((question as any)?.feedbacks ?? []) as any[];
-      // const hasOpenFeedback =
-      //   Array.isArray(feedbacks) && feedbacks.some(f => f?.status === 'open');
-      // if (!hasOpenFeedback) {
-      //   throw new BadRequestError('This feedback is already closed.');
-      // }
-
-      const question = await this.questionRepo.getById(questionId);
-
-      if ((question as any)?.paeValidation === 'completed')
-        throw new BadRequestError(
-          'This question has already completed PAE validation.',
-        );
-
-      const submission =
-        await this.questionSubmissionRepo.getByQuestionId(questionId);
-      const rounds = ((submission as any)?.paeValidation ?? []) as any[];
-
-      // Resolve the round being changed: an explicit index (one of several rounds)
-      // or the single open round when none is given.
-      const targetIndex =
-        typeof index === 'number' && index >= 0
-          ? index
-          : rounds.findIndex(r => !r.paeFinishedAt);
-      const targetRound = targetIndex >= 0 ? rounds[targetIndex] : undefined;
-
-      if (targetRound && targetRound.paeFinishedAt) {
-        throw new BadRequestError(
-          'That pae validation review is already completed and cannot be reassigned.',
-        );
-      }
-      const oldReviewerId = targetRound?.paeId?.toString();
-      if (oldReviewerId === userId) {
-        return; // already assigned to this reviewer — no-op
-      }
-
-      // Claim the new reviewer's slot first (fails if they're not free). Manual claim
-      // lets an admin/moderator pick ANY active user (not restricted to mod/auditor),
-      // still one feedback at a time.
-      const claimed = await this.userRepo.addPaeValidationAssigned(
-        userId,
-        questionId,
-        session,
-      );
-      if (!claimed) {
-        throw new BadRequestError(
-          'Selected user is not available (already holds a pae validation, or is inactive/blocked).',
-        );
-      }
-      // Fresh assignment: open a new round.
-      const assigned =
-        await this.questionSubmissionRepo.assignPaeValidationReviewer(
-          questionId,
-          userId,
-          new Date(),
-          session,
-        );
-      if (!assigned) {
-        throw new BadRequestError(
-          'This question already has an open pae validation review.',
-        );
-      }
-
-      if (oldReviewerId) {
-        await this.userRepo.removePaeValidationAssigned(
-          oldReviewerId,
-          questionId,
-          session,
-        );
-      }
-
-      await this.questionRepo.updatePaeValidationStatus(
-        questionId,
-        'in-progress',
-        session,
-      );
-    });
-    return {success: true};
+  ) {
+    return this.paeValidationService.assignPaeValidationReviewerManually(
+      questionId,
+      userId,
+      index,
+    );
   }
 
-  //Remove an OPEN pae-validation--review round by index (admin/moderator/etc).
-  async removePaeValidationReviewer(
-    questionId: string,
-    index: number,
-  ): Promise<{success: true}> {
-    await this._withTransaction(async session => {
-      const submission =
-        await this.questionSubmissionRepo.getByQuestionId(questionId);
-      const rounds = ((submission as any)?.paeValidation ?? []) as any[];
-      const round = rounds[index];
-      if (!round) {
-        throw new BadRequestError(
-          'No pae validation review found at that position.',
-        );
-      }
-      if (round.paeFinishedAt) {
-        throw new BadRequestError(
-          'A completed pae validation review cannot be removed.',
-        );
-      }
-      const removed =
-        await this.questionSubmissionRepo.removePaeValidationReviewByIndex(
-          questionId,
-          index,
-          session,
-        );
-      if (!removed) {
-        throw new BadRequestError(
-          'Could not remove the pae validation review.',
-        );
-      }
-
-      await this.questionRepo.updatePaeValidationStatus(
-        questionId,
-        'pending',
-        session,
-      );
-      const reviewerId = round.paeId?.toString();
-      if (reviewerId) {
-        await this.userRepo.removePaeValidationAssigned(
-          reviewerId,
-          questionId,
-          session,
-        );
-      }
-    });
-    return {success: true};
+  async removePaeValidationReviewer(questionId: string, index: number) {
+    return this.paeValidationService.removePaeValidationReviewer(
+      questionId,
+      index,
+    );
   }
 
-  /** Get all questions assigned to a PAE expert for validation, with pagination.
-   *  Includes answer data and sources from the answer collection.
-   */
   async getPaeValidationAssignedQuestions(
     paeExpertId: string,
     page: number,
     limit: number,
-  ): Promise<PaeValidationAssignedQuestionsResponse> {
-    // Get the user to check paeValidationAssigned
-    const user = await this.userRepo.findById(paeExpertId);
-
-    if (!user) {
-      throw new NotFoundError(`User with ID ${paeExpertId} not found`);
-    }
-
-    // Get the question IDs from paeValidationAssigned
-    const questionIds = (user.paeValidationAssigned || []).map(id => {
-      if (typeof id === 'string') {
-        return new ObjectId(id);
-      }
-      return id as ObjectId;
-    });
-
-    if (questionIds.length === 0) {
-      return {
-        questions: [],
-        totalCount: 0,
-        totalPages: 0,
-        currentPage: page,
-      };
-    }
-
-    // Get paginated questions with answers joined in a single aggregation call
-    const {
-      questions: paginatedQuestions,
-      totalCount,
-      totalPages,
-      currentPage,
-    } = await this.questionRepo.findByIdsWithAnswers(questionIds, page, limit);
-
-    // Transform the results to match the expected response format
-    const questionsWithAnswers: PaeValidationQuestion[] =
-      paginatedQuestions.map(q => ({
-        _id: q._id.toString(),
-        question: q.question,
-        status: q.status,
-        source: q.source,
-        priority: q.priority,
-        totalAnswersCount: q.totalAnswersCount,
-        createdAt: q.createdAt || new Date(),
-        state: q.state,
-        district: q.district,
-        crop: q.crop,
-        domain: q.domain,
-        season: q.season,
-        normalised_crop: q.normalised_crop,
-        answer: q.answer
-          ? {
-              _id: q.answer._id.toString(),
-              answer: q.answer.answer,
-              sources: q.answer.sources || [],
-              authorId: q.answer.authorId.toString(),
-              isFinalAnswer: q.answer.isFinalAnswer,
-            }
-          : undefined,
-      }));
-
-    return {
-      questions: questionsWithAnswers,
-      totalCount,
-      totalPages,
-      currentPage,
-    };
+  ) {
+    return this.paeValidationService.getPaeValidationAssignedQuestions(
+      paeExpertId,
+      page,
+      limit,
+    );
   }
 
-  /**
-   * Process a PAE validation decision (approve or provide feedback).
-   *
-   * When status is 'approve':
-   * - Updates question.paeValidation to 'completed'
-   * - Removes the question from the user's paeValidationAssigned array
-   * - Updates the question submission's paeValidation array entry to 'completed' with paeFinishedAt
-   *
-   * When status is 'feedback':
-   * - Currently just logs the feedback; can be extended to store feedback in the submission
-   * - The question remains in the user's paeValidationAssigned for further work
-   */
   async processPaeValidation(
     paeExpertId: string,
     questionId: string,
@@ -11151,225 +8373,19 @@ export class QuestionService extends BaseService implements IQuestionService {
     suggestionLink?: string,
     answerId?: string,
     suggestionSourceName?: string,
-  ): Promise<{success: boolean; message: string}> {
-    // Verify the question exists and is assigned to this PAE expert
-    const question = await this.questionRepo.getById(questionId);
-    if (!question) {
-      throw new NotFoundError(`Question with ID ${questionId} not found`);
-    }
-
-    // Check if the question is in paeValidation status (either pending or in-progress)
-    if (!question.paeValidation || question.paeValidation === 'completed') {
-      throw new BadRequestError(
-        `Question ${questionId} is not in a valid state for PAE validation`,
-      );
-    }
-
-    // Verify the user has this question assigned
-    const user = await this.userRepo.findById(paeExpertId);
-    if (!user) {
-      throw new NotFoundError(`User with ID ${paeExpertId} not found`);
-    }
-
-    const questionIds = (user.paeValidationAssigned || []).map(id =>
-      typeof id === 'string' ? id : (id as ObjectId).toString(),
+  ) {
+    return this.paeValidationService.processPaeValidation(
+      paeExpertId,
+      questionId,
+      status,
+      suggestionComment,
+      suggestionLink,
+      answerId,
+      suggestionSourceName,
     );
-
-    if (!questionIds.includes(questionId)) {
-      throw new BadRequestError(
-        `Question ${questionId} is not assigned to this PAE expert`,
-      );
-    }
-
-    if (status === 'approve') {
-      // Use transaction to update all related documents atomically
-      await this._withTransaction(async (session: ClientSession) => {
-        // 1. Update question.paeValidation to 'completed'
-        await this.questionRepo.updatePaeValidationStatus(
-          questionId,
-          'completed',
-          session,
-        );
-
-        // 2. Remove the question from user's paeValidationAssigned array
-        await this.userRepo.removePaeValidationAssigned(
-          paeExpertId,
-          questionId,
-          session,
-        );
-
-        // 3. Update the question submission's paeValidation array entry to 'completed'
-        await this.questionSubmissionRepo.updatePaeValidationStatus(
-          questionId,
-          paeExpertId,
-          'completed',
-          new Date(),
-          session,
-        );
-      });
-
-      return {
-        success: true,
-        message: `Question ${questionId} has been approved and PAE validation completed`,
-      };
-    } else {
-      // Status is 'feedback' - store the feedback and keep the question assigned
-      const now = new Date();
-
-      await this._withTransaction(async (session: ClientSession) => {
-        // 1. Update the question submission's paeValidation array entry with paeFinishedAt
-        // (Mark this validation round as finished even though we're providing feedback)
-        await this.questionRepo.updatePaeValidationStatus(
-          questionId,
-          'completed',
-          session,
-        );
-        await this.questionSubmissionRepo.updatePaeValidationStatus(
-          questionId,
-          paeExpertId,
-          'completed',
-          now,
-          session,
-        );
-
-        await this.userRepo.removePaeValidationAssigned(
-          paeExpertId,
-          questionId,
-          session,
-        );
-
-        // 2. Create a new feedback entry in the feedbacks collection
-        const feedbackData: Omit<IFeedback, '_id'> = {
-          questionId: new ObjectId(questionId),
-          userId: {
-            name: `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`.trim(),
-            email: user.email,
-          },
-          type: 'PAE_VALIDATION',
-          comment: suggestionComment || '',
-          answerId: answerId ? new ObjectId(answerId) : undefined,
-          link: suggestionLink
-            ? {
-                name: suggestionSourceName || suggestionLink,
-                source: suggestionLink,
-              }
-            : undefined,
-          status: 'open',
-          createdAt: now,
-        };
-
-        const createdFeedback = await this.feedbackRepo.create(
-          feedbackData,
-          session,
-        );
-
-        await this.questionRepo.updateQuestion(
-          questionId,
-          {autoAllocateFeedback: true} as any,
-          session,
-        );
-
-        // 3. Update the question's feedbacks array
-        await this.questionRepo.addFeedback(
-          questionId,
-          {
-            source: 'PAE_Validation',
-            status: 'open',
-          },
-          session,
-        );
-
-        console.log(
-          `[processPaeValidation] Feedback created for question ${questionId} by PAE expert ${paeExpertId}`,
-          {
-            feedbackId: createdFeedback._id?.toString(),
-            suggestionComment,
-            suggestionLink,
-            suggestionSourceName,
-          },
-        );
-      });
-
-      // Note: Question remains in user's paeValidationAssigned for further work
-      // The moderator will need to address the feedback
-
-      return {
-        success: true,
-        message: `Feedback noted for question ${questionId}. The question remains assigned for further work.`,
-      };
-    }
   }
 
-    /** Data for the dedicated pae validation tab. **/
-
-  async getPaeValidationQueueDetails(): Promise<PaeValidationQueueDetails> {
-    // All questions with an open pae validaiton (auto ON and OFF).
-    const openPaeValidationQuestions =
-      await this.questionRepo.findQuestionsWithOpenPaeValidation(false);
-
-    // Questions already assigned a reviewer .
-    const openReviews =
-      await this.questionSubmissionRepo.findOpenPaeValidationReviews();
-    const reviewerByQuestion = new Map<string, string>();
-    for (const o of openReviews) {
-      if (o.questionId && !reviewerByQuestion.has(o.questionId)) {
-        reviewerByQuestion.set(o.questionId, o.reviewerId);
-      }
-    }
-    const assignedIds = new Set(reviewerByQuestion.keys());
-
-    // Names of reviewers.
-    const meta = await this.resolveExpertMeta([
-      ...reviewerByQuestion.values()
-    ]);
-
-    const waitingAuto: QueueQuestionItem[] = [];
-    const waitingManual: QueueQuestionItem[] = [];
-    const assigned: QueueQuestionItem[] = [];
-
-    for (const q of openPaeValidationQuestions) {
-
-      const id = q._id?.toString();
-      if (!id) continue;
-      const base = this.submissionToQueueItem({ question: q });
-
-      if (assignedIds.has(id)) {
-        const reviewerId = reviewerByQuestion.get(id);
-        assigned.push({
-          ...base,
-          assigneeName:
-            (reviewerId && meta.get(reviewerId)?.name) || 'Unknown',
-        });
-      } else if ((q as any).autoAllocatePaeValidationExpert === true && (q as any).paeValidation === 'pending') {
-        // Auto-allocation ON only when explicitly true; missing/false = manual.
-        waitingAuto.push(base);
-      } else if ((q as any).autoAllocatePaeValidationExpert === false && (q as any).paeValidation === 'pending') {
-        waitingManual.push(base);
-      }
-    }
-    // Reviewers free for pae validaiton.
-    const availablePaeExperts = await this.userRepo.findAvailablePaeExperts();
-    const toExpertItem = (u: any): QueueExpertItem => ({
-      _id: u._id.toString(),
-      name:
-        `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
-        u.email ||
-        'Unknown',
-      email: u.email,
-      reputationScore: u.reputation_score,
-      role: u.role,
-      isSpecialTaskForce: u.special_task_force === true,
-      isTrainingUser: u.isTrainingUser === true,
-    });
-
-    const availablePaeExpertItems = availablePaeExperts.map(toExpertItem);
-
-    const wrap = <T>(items: T[]) => ({ count: items.length, items });
-    return {
-      waitingAuto: wrap(waitingAuto),
-      waitingManual: wrap(waitingManual),
-      assigned: wrap(assigned),
-      availablePaeExperts: wrap(availablePaeExpertItems),
-    };
+  async getPaeValidationQueueDetails() {
+    return this.paeValidationService.getPaeValidationQueueDetails();
   }
 }

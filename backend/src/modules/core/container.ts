@@ -14,6 +14,10 @@ import { AnswerService } from '../answer/services/AnswerService.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
 import { QuestionController } from '../question/controllers/QuestionController.js';
 import { QuestionService } from '../question/services/QuestionService.js';
+import { QuestionReportService } from '../question/services/QuestionReportService.js';
+import { PaeValidationService } from '../question/services/PaeValidationService.js';
+import { FeedbackService } from '../question/services/FeedbackService.js';
+import { QuestionAiService } from '../question/services/QuestionAiService.js';
 import { ContextController } from '../context/controllers/ContextController.js';
 import { ContextService } from '../context/services/ContextService.js';
 import { PerformanceController } from '../performance/controllers/PerformanceController.js';
@@ -38,8 +42,24 @@ export const coreContainerModule = new ContainerModule(options => {
   // Services
 
   options
-    .bind(CORE_TYPES.QuestionService) 
+    .bind(CORE_TYPES.QuestionService)
     .to(QuestionService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.QuestionReportService)
+    .to(QuestionReportService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.PaeValidationService)
+    .to(PaeValidationService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.FeedbackService)
+    .to(FeedbackService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.QuestionAiService)
+    .to(QuestionAiService)
     .inSingletonScope();
   options.bind(CORE_TYPES.AnswerService).to(AnswerService).inSingletonScope();
   options.bind(CORE_TYPES.ContextService).to(ContextService).inSingletonScope();

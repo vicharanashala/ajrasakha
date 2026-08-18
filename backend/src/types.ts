@@ -13,6 +13,10 @@ const TYPES = {
   // Services
   UserService: Symbol.for('UserService'),
   QuestionService: Symbol.for('QuestionService'),
+  QuestionReportService: Symbol.for('QuestionReportService'),
+  PaeValidationService: Symbol.for('PaeValidationService'),
+  FeedbackService: Symbol.for('FeedbackService'),
+  QuestionAiService: Symbol.for('QuestionAiService'),
   AnswerService: Symbol.for('AnswerService'),
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),
