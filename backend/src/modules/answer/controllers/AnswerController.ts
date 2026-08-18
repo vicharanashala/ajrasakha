@@ -28,7 +28,8 @@ import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, FetchAiInitialAnswerB
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
-import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { auditActor, failureOutcome, successOutcome } from '#root/modules/auditTrails/utils/auditHelpers.js';
 import { IQuestionService } from '#root/modules/question/interfaces/index.js';
 
 @OpenAPI({
@@ -60,13 +61,7 @@ export class AnswerController {
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ANSWER,
       action: AuditAction.ANSWER_CREATED,
-      actor: {
-        id: user._id.toString(),
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        role: user.role,
-        avatar: user?.avatar || '',
-      },
+      actor: auditActor(user),
       context: { questionId },
       createdAt: new Date(),
     };
@@ -75,19 +70,13 @@ export class AnswerController {
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
         changes: { after: { answer: answer?.substring(0, 200) } },
-        outcome: { status: OutComeStatus.SUCCESS },
+        outcome: successOutcome(),
       });
       return result;
     } catch (err: any) {
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        outcome: {
-          status: OutComeStatus.FAILED,
-          errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage: err?.message || 'Failed to add answer',
-          errorName: err?.name || 'Error',
-          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
-        },
+        outcome: failureOutcome(err, 'Failed to add answer'),
       });
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
@@ -112,13 +101,7 @@ export class AnswerController {
       // No review status means the expert is creating the (first) answer rather than
       // reviewing an existing one — log it as ANSWER_CREATED.
       action: body.status ? AuditAction.REVIEW_ANSWER : AuditAction.ANSWER_CREATED,
-      actor: {
-        id: user._id.toString(),
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        role: user.role,
-        avatar: user?.avatar || '',
-      },
+      actor: auditActor(user),
       context: {
         questionId: body.questionId,
         type: body.type,
@@ -136,19 +119,13 @@ export class AnswerController {
       }
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        outcome: { status: OutComeStatus.SUCCESS },
+        outcome: successOutcome(),
       });
       return result;
     } catch (err: any) {
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        outcome: {
-          status: OutComeStatus.FAILED,
-          errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage: err?.message || 'Failed to review answer',
-          errorName: err?.name || 'Error',
-          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
-        },
+        outcome: failureOutcome(err, 'Failed to review answer'),
       });
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
@@ -242,20 +219,12 @@ export class AnswerController {
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ANSWER,
       action: AuditAction.APPROVE_ANSWER,
-      actor: {
-        id: userId,
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        role: user.role,
-        avatar: user?.avatar || '',
-      },
+      actor: auditActor(user),
       context: {
         answerId: body.answerId,
       },
       changes: {},
-      outcome: {
-        status: OutComeStatus.SUCCESS,
-      },
+      outcome: successOutcome(),
     };
     try {
       if (hasAnswerId) {
@@ -306,13 +275,7 @@ export class AnswerController {
           questionId: prevAnswer?.questionId?.toString() || body.questionId,
           question: questionData?.question,
         },
-        outcome: {
-          status: OutComeStatus.FAILED,
-          errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage: err?.message || 'Failed to approve answer',
-          errorName: err?.name || 'Error',
-          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
-        },
+        outcome: failureOutcome(err, 'Failed to approve answer'),
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
       if(err instanceof InternalServerError){
@@ -351,20 +314,12 @@ export class AnswerController {
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ANSWER,
       action: AuditAction.APPROVE_LLM_ANSWER,
-      actor: {
-        id: userId,
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        role: user.role,
-        avatar: user?.avatar || '',
-      },
+      actor: auditActor(user),
       context: {
         questionId: body.questionId,
       },
       changes: {},
-      outcome: {
-        status: OutComeStatus.SUCCESS,
-      },
+      outcome: successOutcome(),
     };
     try {
       questionData = await this.questionService.getQuestionDataById(body.questionId!);
@@ -394,13 +349,7 @@ export class AnswerController {
           ...auditPayload.context,
           question: questionData?.question,
         },
-        outcome: {
-          status: OutComeStatus.FAILED,
-          errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage: err?.message || 'Failed to approve answer',
-          errorName: err?.name || 'Error',
-          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
-        },
+        outcome: failureOutcome(err, 'Failed to approve answer'),
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
       if (err instanceof InternalServerError) {
@@ -431,16 +380,10 @@ export class AnswerController {
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
       action: AuditAction.CONFIRM_DUPLICATE,
-      actor: {
-        id: userId,
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        role: user.role,
-        avatar: user?.avatar || '',
-      },
+      actor: auditActor(user),
       context: {questionId},
       changes: {},
-      outcome: {status: OutComeStatus.SUCCESS},
+      outcome: successOutcome(),
     };
     try {
       questionData = await this.questionService.getQuestionDataById(questionId);
@@ -460,15 +403,7 @@ export class AnswerController {
       auditPayload = {
         ...auditPayload,
         context: {...auditPayload.context, question: questionData?.question},
-        outcome: {
-          status: OutComeStatus.FAILED,
-          errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage: err?.message || 'Failed to confirm duplicate',
-          errorName: err?.name || 'Error',
-          errorStack:
-            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
-            'No stack trace available',
-        },
+        outcome: failureOutcome(err, 'Failed to confirm duplicate'),
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
       if (err instanceof InternalServerError) {
@@ -492,13 +427,7 @@ export class AnswerController {
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ANSWER,
       action: AuditAction.DELETE_ANSWER,
-      actor: {
-        id: user._id.toString(),
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        role: user.role,
-        avatar: user?.avatar || '',
-      },
+      actor: auditActor(user),
       context: { questionId, answerId },
       createdAt: new Date(),
     };
@@ -506,19 +435,13 @@ export class AnswerController {
       const result = await this.answerService.deleteAnswer(questionId, answerId);
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        outcome: { status: OutComeStatus.SUCCESS },
+        outcome: successOutcome(),
       });
       return result;
     } catch (err: any) {
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        outcome: {
-          status: OutComeStatus.FAILED,
-          errorCode: err?.errorCode || 'INTERNAL_ERROR',
-          errorMessage: err?.message || 'Failed to delete answer',
-          errorName: err?.name || 'Error',
-          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
-        },
+        outcome: failureOutcome(err, 'Failed to delete answer'),
       });
       throw err;
     }
