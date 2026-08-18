@@ -82,8 +82,12 @@ export interface DatasetQuestionListItem {
 export interface DatasetFeedbackListItem {
   email: string;
   questionId: string;
-  rating: string;
   tag: string;
+  type: string;
+  predefinedOption: string;
+  comment: string;
+  reviewNote: string;
+  status: string;
   createdAt: string;
 }
 

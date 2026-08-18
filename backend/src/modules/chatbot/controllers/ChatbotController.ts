@@ -2477,7 +2477,7 @@ export class ChatbotController {
 
   @OpenAPI({
     summary: 'List feedbacks in the dataset application',
-    description: 'Paginated list of dataset-app feedbacks (email, questionId, rating, tag, createdAt).',
+    description: 'Paginated list of dataset-app feedbacks (email, questionId, tag, type, predefinedOption, comment, reviewNote, status, createdAt).',
   })
   @Get('/dataset/feedbacks')
   @HttpCode(200)

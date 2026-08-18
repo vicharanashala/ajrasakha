@@ -4556,8 +4556,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
     return {
       email: raw?.email ?? raw?.userId?.email ?? '',
       questionId: String(raw?.questionId?.$oid ?? raw?.questionId ?? ''),
-      rating: raw?.rating != null ? String(raw.rating) : '',
-      tag: raw?.tag ?? raw?.predefinedOption ?? '',
+      tag: raw?.tag ?? '',
+      type: raw?.type ?? '',
+      predefinedOption: raw?.predefinedOption ?? '',
+      comment: raw?.comment ?? '',
+      reviewNote: raw?.reviewNote ?? '',
+      status: raw?.status ?? '',
       createdAt:
         typeof raw?.createdAt === 'string'
           ? raw.createdAt

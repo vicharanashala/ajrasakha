@@ -106,8 +106,26 @@ export function DatasetQuestionsFeedbackCard({
     () => [
       { key: "email", header: "Email", render: (r) => r.email || "-" },
       { key: "questionId", header: "Question ID", render: (r) => r.questionId || "-" },
-      { key: "rating", header: "Rating", render: (r) => r.rating || "-" },
       { key: "tag", header: "Tag", render: (r) => r.tag || "-" },
+      { key: "type", header: "Type", render: (r) => r.type || "-" },
+      {
+        key: "predefinedOption",
+        header: "Predefined Option",
+        render: (r) => r.predefinedOption || "-",
+      },
+      {
+        key: "comment",
+        header: "Comment",
+        className: "max-w-[220px] truncate",
+        render: (r) => r.comment || "-",
+      },
+      {
+        key: "reviewNote",
+        header: "Review Note",
+        className: "max-w-[220px] truncate",
+        render: (r) => r.reviewNote || "-",
+      },
+      { key: "status", header: "Status", render: (r) => r.status || "-" },
       {
         key: "createdAt",
         header: "Created At",
