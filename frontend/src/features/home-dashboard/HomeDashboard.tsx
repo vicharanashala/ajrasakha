@@ -30,7 +30,15 @@ import {
   Calendar,
   Shield,
   Cpu,
+  Smartphone,
+  Trophy,
 } from "lucide-react";
+import {
+  FARMERS_FRIDAY_IMAGE_NAME,
+  FARMERS_FRIDAY_VIDEO_NAME,
+  OUTREACH_IMAGE_NAME,
+  OUTREACH_VIDEO_NAME,
+} from "@/hooks/services/publicDashboardService";
 import "./home-dashboard.css";
 import CinematicHero from "./components/hero/CinematicHero";
 import IndiaCoverageMap from "./components/IndiaCoverageMap";
@@ -128,6 +136,7 @@ export const HomeDashboard: React.FC = () => {
   const [selectedLang, setSelectedLang] = useState("English");
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
   const [activeStoryIdx, setActiveStoryIdx] = useState(0);
+  const [activeFarmersFridayIdx, setActiveFarmersFridayIdx] = useState(0);
   const [activeFutureSlideIdx, setActiveFutureSlideIdx] = useState(0);
   const [reviewStage, setReviewStage] = useState(0);
   const [reviewProgress, setReviewProgress] = useState(0);
@@ -478,54 +487,55 @@ export const HomeDashboard: React.FC = () => {
 
   const outreachStories = React.useMemo(() => {
     if (publicItems && publicItems.length > 0) {
-      const videoItems = publicItems.filter(
+      const items = publicItems.filter(
         (it) =>
-          it.name?.toLowerCase() === "outreach video" ||
-          it.name?.toLowerCase().includes("video") ||
-          (typeof it.value === "object" &&
-            it.value !== null &&
-            ("videoUrl" in it.value || "url" in it.value))
+          it.name === OUTREACH_VIDEO_NAME ||
+          it.name === OUTREACH_IMAGE_NAME ||
+          it.name?.toLowerCase().includes("outreach")
       );
 
-      const presetStories = [
+      const presets = [
         {
-          place: "Godavari Basin, Andhra Pradesh",
-          title: "Early Paddy Blast Warning & Bio-Control",
-          body: "When satellite humidity indices flagged outbreak risks across 4,200 paddy hectares, local field experts dispatched verified bio-pesticide formulations directly over WhatsApp voice messages in Telugu.",
+          place: "PHASE 1: LISTEN",
+          title: "Ground-Zero Connect",
+          body: "Agriculture doesn't happen in dashboards — it happens in fields, villages and communities. We start there, meeting farmers where they live and work, to understand not just what they grow, but the realities and decisions that shape every season.",
           reach: "4,200+",
           outcome: "1,150",
+          url: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=1200&auto=format&fit=crop",
         },
         {
-          place: "Vidarbha Region, Maharashtra",
+          place: "PHASE 2: DEMO",
           title: "Cotton Pink Bollworm Pheromone Trap Alert",
           body: "Automated phone IVR in Marathi alerted 8,500 cotton growers to deploy pheromone lures 7 days prior to moth emergence, averting crop loss across 12,000 acres.",
           reach: "8,500+",
           outcome: "3,200",
+          url: "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?q=80&w=1200&auto=format&fit=crop",
         },
         {
-          place: "Malwa Region, Punjab",
+          place: "PHASE 3: SCALE",
           title: "Micro-Irrigation & Tensiometer Scheduling",
           body: "Precision soil moisture sensor advisories reduced canal water consumption by 32% while boosting wheat grain weight by 4.8 quintals per hectare.",
           reach: "3,100+",
           outcome: "980",
+          url: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?q=80&w=1200&auto=format&fit=crop",
         },
       ];
 
-      if (videoItems.length > 0) {
-        return videoItems.map((it, idx) => {
+      if (items.length > 0) {
+        return items.map((it, idx) => {
           const val = typeof it.value === "object" && it.value !== null ? (it.value as any) : {};
-          const rawUrl = typeof it.value === "string" ? it.value : val.videoUrl || val.url || "";
-          const preset = presetStories[idx % presetStories.length];
+          const rawUrl = typeof it.value === "string" ? it.value : val.url || val.videoUrl || val.imageUrl || "";
+          const preset = presets[idx % presets.length];
 
           return {
-            id: it.id || `video-${idx}`,
+            id: it.id || `outreach-${idx}`,
             place: val.place || preset.place,
-            title: val.title || (it.name === "outreach video" ? preset.title : it.name),
+            title: val.title || (it.name === OUTREACH_VIDEO_NAME || it.name === OUTREACH_IMAGE_NAME ? preset.title : it.name),
             body: val.body || val.description || preset.body,
             reach: val.reach || preset.reach,
             outcome: val.outcome || preset.outcome,
+            url: rawUrl || preset.url,
             videoUrl: rawUrl,
-            thumbnail: "",
           };
         });
       }
@@ -534,33 +544,90 @@ export const HomeDashboard: React.FC = () => {
     return [
       {
         id: "default-story-1",
-        place: "Godavari Basin, Andhra Pradesh",
-        title: "Early Paddy Blast Warning & Bio-Control",
-        body: "When satellite humidity indices flagged outbreak risks across 4,200 paddy hectares, local field experts dispatched verified bio-pesticide formulations directly over WhatsApp voice messages in Telugu.",
+        place: "PHASE 1: LISTEN",
+        title: "Ground-Zero Connect",
+        body: "Agriculture doesn't happen in dashboards — it happens in fields, villages and communities. We start there, meeting farmers where they live and work, to understand not just what they grow, but the realities and decisions that shape every season.",
         reach: "4,200+",
         outcome: "1,150",
+        url: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=1200&auto=format&fit=crop",
         videoUrl: "",
-        thumbnail: "/assets/farmer-network.png",
       },
       {
         id: "default-story-2",
-        place: "Vidarbha Region, Maharashtra",
+        place: "PHASE 2: DEMO",
         title: "Cotton Pink Bollworm Pheromone Trap Alert",
         body: "Automated phone IVR in Marathi alerted 8,500 cotton growers to deploy pheromone lures 7 days prior to moth emergence, averting crop loss across 12,000 acres.",
         reach: "8,500+",
         outcome: "3,200",
+        url: "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?q=80&w=1200&auto=format&fit=crop",
         videoUrl: "",
-        thumbnail: "/assets/future-crops.png",
       },
       {
         id: "default-story-3",
-        place: "Malwa Region, Punjab",
+        place: "PHASE 3: SCALE",
         title: "Micro-Irrigation & Tensiometer Scheduling",
         body: "Precision soil moisture sensor advisories reduced canal water consumption by 32% while boosting wheat grain weight by 4.8 quintals per hectare.",
         reach: "3,100+",
         outcome: "980",
+        url: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?q=80&w=1200&auto=format&fit=crop",
         videoUrl: "",
-        thumbnail: "/assets/learning-campus.png",
+      },
+    ];
+  }, [publicItems]);
+
+  const farmersFridayStories = React.useMemo(() => {
+    if (publicItems && publicItems.length > 0) {
+      const items = publicItems.filter(
+        (it) =>
+          it.name === FARMERS_FRIDAY_IMAGE_NAME ||
+          it.name === FARMERS_FRIDAY_VIDEO_NAME ||
+          it.name?.toLowerCase().includes("farmers friday")
+      );
+
+      if (items.length > 0) {
+        return items.map((it, idx) => {
+          const val = typeof it.value === "object" && it.value !== null ? (it.value as any) : {};
+          const rawUrl = typeof it.value === "string" ? it.value : val.url || val.imageUrl || val.videoUrl || "";
+          return {
+            id: it.id || `ff-${idx}`,
+            title: val.title || `Farmers' Friday Session #${idx + 1}`,
+            url: rawUrl,
+            isVideo: it.name === FARMERS_FRIDAY_VIDEO_NAME || !!getYouTubeEmbedUrl(rawUrl),
+          };
+        });
+      }
+    }
+
+    return [
+      {
+        id: "ff-1",
+        title: "Farmers' Friday Workshop",
+        url: "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?q=80&w=1200&auto=format&fit=crop",
+        isVideo: false,
+      },
+      {
+        id: "ff-2",
+        title: "Practical Learning & Demonstration",
+        url: "https://images.unsplash.com/photo-1592982537447-7440770cbfc9?q=80&w=1200&auto=format&fit=crop",
+        isVideo: false,
+      },
+      {
+        id: "ff-3",
+        title: "Digital Adoption Guidance",
+        url: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?q=80&w=1200&auto=format&fit=crop",
+        isVideo: false,
+      },
+      {
+        id: "ff-4",
+        title: "Field Advisory Interaction",
+        url: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=1200&auto=format&fit=crop",
+        isVideo: false,
+      },
+      {
+        id: "ff-5",
+        title: "Cohort Learning Session",
+        url: "https://images.unsplash.com/photo-1586771107445-d3ca888129ff?q=80&w=1200&auto=format&fit=crop",
+        isVideo: false,
       },
     ];
   }, [publicItems]);
@@ -1019,168 +1086,292 @@ export const HomeDashboard: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          {/* Outreach Panel */}
-          <div className="outreach-panel" id="outreach">
-            <div className="outreach-head">
-              <div>
-                <span className="eyebrow">Outreach stories</span>
-                <h2>Co-creating with farmers. Listening, learning and empowering.</h2>
+      {/* 8. Outreach Stories & Farmers' Friday Section */}
+      <section className="outreach-section">
+        <div className="page-shell">
+          {/* Outreach Panel (Redesigned) */}
+          <div className="outreach-dark-panel" id="outreach">
+            <div className="outreach-dark-header">
+              <div className="outreach-dark-badge-group">
+                <span className="outreach-dark-tag">ON-GROUND CAMPAIGNS</span>
               </div>
-              <span>
-                0{Math.min(activeStoryIdx + 1, outreachStories.length)} / 0{outreachStories.length}
-              </span>
+              <div className="outreach-dark-step-indicator">
+                <span className="outreach-step-text">
+                  <strong className="outreach-step-current">
+                    {String(Math.min(activeStoryIdx + 1, outreachStories.length)).padStart(2, "0")}
+                  </strong>{" "}
+                  / {String(outreachStories.length).padStart(2, "0")}
+                </span>
+                <div className="outreach-step-bars">
+                  {outreachStories.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`outreach-step-bar ${idx === activeStoryIdx ? "active" : ""}`}
+                      onClick={() => setActiveStoryIdx(idx)}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+                {outreachStories.length > 1 && (
+                  <div className="outreach-header-nav" style={{ display: "flex", gap: "6px", marginLeft: "6px" }}>
+                    <button
+                      type="button"
+                      className="farmers-friday-nav-btn"
+                      style={{ position: "static", transform: "none", width: "32px", height: "32px" }}
+                      aria-label="Previous story"
+                      onClick={() =>
+                        setActiveStoryIdx(
+                          (prev) => (prev - 1 + outreachStories.length) % outreachStories.length
+                        )
+                      }
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="farmers-friday-nav-btn"
+                      style={{ position: "static", transform: "none", width: "32px", height: "32px" }}
+                      aria-label="Next story"
+                      onClick={() =>
+                        setActiveStoryIdx((prev) => (prev + 1) % outreachStories.length)
+                      }
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="outreach-story">
-              <div className="outreach-image" style={{ position: "relative", minHeight: "360px", height: "100%", overflow: "hidden", borderRadius: "20px", background: "#0c281e" }}>
+            <h2 className="outreach-dark-title">Outreach & Engagement</h2>
+
+            <div className="outreach-dark-body">
+              <div className="outreach-dark-info">
+                <span className="outreach-dark-phase">
+                  — {outreachStories[activeStoryIdx]?.place || "PHASE 1: LISTEN"}
+                </span>
+                <h3 className="outreach-dark-heading">
+                  {outreachStories[activeStoryIdx]?.title}
+                </h3>
+                <p className="outreach-dark-desc">
+                  {outreachStories[activeStoryIdx]?.body}
+                </p>
+                {outreachStories[activeStoryIdx]?.reach && (
+                  <div className="outreach-dark-metrics">
+                    <div>
+                      <strong>{outreachStories[activeStoryIdx]?.reach}</strong>
+                      <small>FARMERS REACHED</small>
+                    </div>
+                    {outreachStories[activeStoryIdx]?.outcome && (
+                      <div>
+                        <strong>{outreachStories[activeStoryIdx]?.outcome}</strong>
+                        <small>ACTIONS COMPLETED</small>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="outreach-dark-media" style={{ position: "relative" }}>
                 {(() => {
-                  const embedUrl = getYouTubeEmbedUrl(outreachStories[activeStoryIdx]?.videoUrl);
+                  const story = outreachStories[activeStoryIdx];
+                  const mediaUrl = story?.url || story?.videoUrl;
+                  const embedUrl = getYouTubeEmbedUrl(mediaUrl);
                   if (embedUrl) {
                     return (
                       <iframe
                         src={embedUrl}
-                        title={outreachStories[activeStoryIdx]?.title || "Farmers outreach video"}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          minHeight: "360px",
-                          border: 0,
-                          borderRadius: "20px",
-                        }}
+                        title={story?.title || "Outreach Video"}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                         allowFullScreen
                       />
                     );
                   }
-
                   return (
                     <img
-                      src="/assets/farmer-network.png"
-                      alt={outreachStories[activeStoryIdx]?.title || "Farmers outreach story"}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        borderRadius: "20px",
+                      src={mediaUrl || "/assets/farmer-network.png"}
+                      alt={story?.title || "Outreach Story"}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = "/assets/farmer-network.png";
                       }}
                     />
                   );
                 })()}
+
+                {outreachStories.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      className="farmers-friday-nav-btn prev"
+                      aria-label="Previous story"
+                      onClick={() =>
+                        setActiveStoryIdx(
+                          (prev) => (prev - 1 + outreachStories.length) % outreachStories.length
+                        )
+                      }
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <button
+                      type="button"
+                      className="farmers-friday-nav-btn next"
+                      aria-label="Next story"
+                      onClick={() =>
+                        setActiveStoryIdx((prev) => (prev + 1) % outreachStories.length)
+                      }
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Farmers' Friday Panel */}
+          <div className="farmers-friday-panel" id="farmers-friday">
+            <div className="farmers-friday-hero-grid">
+              <div className="farmers-friday-info">
+                <div className="farmers-friday-badge-group">
+                  <span className="farmers-friday-tag">SUSTAINED ON-GROUND MODEL</span>
+                </div>
+                <h2 className="farmers-friday-title">Farmers' Friday</h2>
+                <div className="farmers-friday-subtag">
+                  RECURRING ENGAGEMENT (3 FRIDAYS / MONTH)
+                </div>
+
+                <div className="farmers-friday-objectives">
+                  <span className="farmers-friday-obj-label">OBJECTIVES</span>
+                  <p className="farmers-friday-obj-text">
+                    Strengthening village-level outreach through recurring one-on-one interactions, demonstrating agricultural technologies in a farmer-friendly manner, facilitating cohort-based learning, capturing real-time feedback, and validating AI advisories across districts.
+                  </p>
+                </div>
               </div>
 
-              <article style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 0 }}>
-                <span style={{
-                  display: "block",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "var(--forest-mid, #245d43)",
-                  marginBottom: "10px",
-                }}>
-                  {outreachStories[activeStoryIdx]?.place}
-                </span>
-                <h3 style={{
-                  margin: "0 0 14px",
-                  fontFamily: "Newsreader, serif",
-                  fontSize: "clamp(20px, 2vw, 28px)",
-                  fontWeight: 600,
-                  lineHeight: 1.2,
-                  letterSpacing: "-0.02em",
-                  color: "var(--ink, #173326)",
-                }}>
-                  {outreachStories[activeStoryIdx]?.title}
-                </h3>
-                <p style={{
-                  margin: "0 0 24px",
-                  fontSize: "15px",
-                  lineHeight: 1.75,
-                  color: "rgba(23, 51, 38, 0.72)",
-                }}>
-                  {outreachStories[activeStoryIdx]?.body}
-                </p>
-                <div style={{ display: "flex", gap: "32px", flexWrap: "wrap" }}>
-                  <strong style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-                    <span style={{
-                      fontFamily: "Newsreader, serif",
-                      fontSize: "26px",
-                      fontWeight: 600,
-                      color: "var(--ink, #173326)",
-                      lineHeight: 1,
-                    }}>
-                      {outreachStories[activeStoryIdx]?.reach}
-                    </span>
-                    <small style={{
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      color: "rgba(23, 51, 38, 0.5)",
-                    }}>
-                      farmers reached
-                    </small>
-                  </strong>
-                  <strong style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-                    <span style={{
-                      fontFamily: "Newsreader, serif",
-                      fontSize: "26px",
-                      fontWeight: 600,
-                      color: "var(--ink, #173326)",
-                      lineHeight: 1,
-                    }}>
-                      {outreachStories[activeStoryIdx]?.outcome}
-                    </span>
-                    <small style={{
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      color: "rgba(23, 51, 38, 0.5)",
-                    }}>
-                      actions completed
-                    </small>
-                  </strong>
+              <div className="farmers-friday-slider-wrap">
+                <div className="farmers-friday-slider">
+                  <span className="farmers-friday-slider-counter">
+                    {activeFarmersFridayIdx + 1} / {farmersFridayStories.length}
+                  </span>
+
+                  {(() => {
+                    const currentMedia = farmersFridayStories[activeFarmersFridayIdx];
+                    const embedUrl = currentMedia?.isVideo ? getYouTubeEmbedUrl(currentMedia.url) : null;
+
+                    if (embedUrl) {
+                      return (
+                        <iframe
+                          src={embedUrl}
+                          title={currentMedia?.title || "Farmers Friday Video"}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      );
+                    }
+
+                    return (
+                      <img
+                        src={currentMedia?.url || "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?q=80&w=1200&auto=format&fit=crop"}
+                        alt={currentMedia?.title || "Farmers Friday"}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src =
+                            "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?q=80&w=1200&auto=format&fit=crop";
+                        }}
+                      />
+                    );
+                  })()}
+
+                  <button
+                    type="button"
+                    className="farmers-friday-nav-btn prev"
+                    aria-label="Previous photo"
+                    onClick={() =>
+                      setActiveFarmersFridayIdx(
+                        (prev) => (prev - 1 + farmersFridayStories.length) % farmersFridayStories.length
+                      )
+                    }
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="farmers-friday-nav-btn next"
+                    aria-label="Next photo"
+                    onClick={() =>
+                      setActiveFarmersFridayIdx(
+                        (prev) => (prev + 1) % farmersFridayStories.length
+                      )
+                    }
+                  >
+                    <ChevronRight size={20} />
+                  </button>
                 </div>
-              </article>
+
+                <div className="farmers-friday-dots">
+                  {farmersFridayStories.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`farmers-friday-dot ${idx === activeFarmersFridayIdx ? "active" : ""}`}
+                      onClick={() => setActiveFarmersFridayIdx(idx)}
+                      aria-label={`Go to slide ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="story-controls">
-              <div className="story-indicators">
-                {outreachStories.map((story, idx) => (
-                  <button
-                    key={story.id || idx}
-                    type="button"
-                    className={idx === activeStoryIdx ? "active" : ""}
-                    aria-label={`Show story from ${story.place}`}
-                    onClick={() => setActiveStoryIdx(idx)}
-                  />
-                ))}
-              </div>
+            {/* Core Components */}
+            <div className="farmers-friday-components">
+              <span className="farmers-friday-comp-label">
+                CORE COMPONENTS OF FARMERS' FRIDAY
+              </span>
 
-              <div className="story-nav-buttons">
-                <button
-                  type="button"
-                  className="prev-story"
-                  aria-label="Previous outreach story"
-                  onClick={() =>
-                    setActiveStoryIdx(
-                      (prev) => (prev - 1 + outreachStories.length) % outreachStories.length
-                    )
-                  }
-                >
-                  <ArrowLeft size={18} />
-                </button>
-                <button
-                  type="button"
-                  className="next-story"
-                  aria-label="Next outreach story"
-                  onClick={() =>
-                    setActiveStoryIdx((prev) => (prev + 1) % outreachStories.length)
-                  }
-                >
-                  <ArrowRight size={18} />
-                </button>
+              <div className="farmers-friday-comp-grid">
+                <div className="farmers-friday-comp-card">
+                  <div className="farmers-friday-icon-box">
+                    <span className="farmers-friday-icon">&gt;_</span>
+                  </div>
+                  <h3>Technology Spotlight</h3>
+                  <p>
+                    Focused demonstrations of developed agricultural tech, including voice-enabled AI advisors and decision-support systems relevant to day-to-day farming needs.
+                  </p>
+                </div>
+
+                <div className="farmers-friday-comp-card">
+                  <div className="farmers-friday-icon-box">
+                    <BookOpen size={20} />
+                  </div>
+                  <h3>Practical Learning Modules</h3>
+                  <p>
+                    Interactive sessions designed to show farmers how to access digital tools and utilize data-driven insights to plan crops, reduce risks, and boost yields.
+                  </p>
+                </div>
+
+                <div className="farmers-friday-comp-card">
+                  <div className="farmers-friday-icon-box">
+                    <Smartphone size={20} />
+                  </div>
+                  <h3>Digital Adoption in Farming</h3>
+                  <p>
+                    Simplifying onboarding pathways, overcoming accessibility barriers, and building digital literacy through guided support and localized dialects.
+                  </p>
+                </div>
+
+                <div className="farmers-friday-comp-card">
+                  <div className="farmers-friday-icon-box">
+                    <Trophy size={20} />
+                  </div>
+                  <h3>Success Stories from the Field</h3>
+                  <p>
+                    Highlighting tangible benefits and case studies where farmers used data-driven advisories to mitigate pest damage or optimize inputs.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

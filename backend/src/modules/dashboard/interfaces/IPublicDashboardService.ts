@@ -41,5 +41,6 @@ export interface IPublicDashboardService {
   uploadMedia(
     file: Express.Multer.File,
     kind: 'image' | 'video',
+    itemName?: string,
   ): Promise<PublicDashboardItem>;
 }

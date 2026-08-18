@@ -7,6 +7,8 @@ const API_BASE_URL = env.apiBaseUrl();
 export const SATURATION_LIMIT_NAME = "saturation limit crop";
 export const OUTREACH_VIDEO_NAME = "outreach video";
 export const OUTREACH_IMAGE_NAME = "outreach image";
+export const FARMERS_FRIDAY_IMAGE_NAME = "farmers friday image";
+export const FARMERS_FRIDAY_VIDEO_NAME = "farmers friday video";
 
 /** Homepage hero statistics — admin-editable single-value items. */
 export const STAT_QUESTIONS_COLLECTED = "stat questions collected";
@@ -135,10 +137,12 @@ export class PublicDashboardService {
   async uploadMedia(
     file: File,
     type: "image" | "video",
+    name?: string,
   ): Promise<PublicDashboardItem | null> {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("type", type);
+    if (name) formData.append("name", name);
     return apiFetch<PublicDashboardItem>(
       `${API_BASE_URL}/public-dashboard/media`,
       { method: "POST", body: formData },

@@ -92,6 +92,7 @@ export class PublicDashboardController {
     @UploadedFile('file', {options: mediaUploadOptions})
     file: Express.Multer.File,
     @BodyParam('type') type: string,
+    @BodyParam('name') name: string,
     @CurrentUser() user: IUser,
   ) {
     this.assertAdmin(user);
@@ -99,7 +100,7 @@ export class PublicDashboardController {
       throw new BadRequestError('file is required');
     }
     const kind: 'image' | 'video' = type === 'video' ? 'video' : 'image';
-    return this.publicDashboardService.uploadMedia(file, kind);
+    return this.publicDashboardService.uploadMedia(file, kind, name);
   }
 
   /** Admin-only: update an item's name/value by id. */
