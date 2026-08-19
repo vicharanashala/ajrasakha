@@ -3794,6 +3794,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     questionId: string,
     expertId: string,
     isTimeBound: boolean = true,
+    session?: ClientSession,
   ): Promise<void> {
     await this.init();
 
@@ -3807,14 +3808,16 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         currentExpertOpenedAt: {$ne: null},
       },
       {$set: {currentExpertOpenedAt: null, updatedAt: new Date()}},
+      {session},
     );
 
     // Only set currentExpertOpenedAt on the current question if it's time-bound
     if (!isTimeBound) return;
 
-    const submission = await this.QuestionSubmissionCollection.findOne({
-      questionId: new ObjectId(questionId),
-    });
+    const submission = await this.QuestionSubmissionCollection.findOne(
+      { questionId: new ObjectId(questionId) },
+      { session }
+    );
     if (!submission) return;
     if (submission.currentExpertOpenedAt) return; // already marked
 
@@ -3840,6 +3843,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     await this.QuestionSubmissionCollection.updateOne(
       {questionId: new ObjectId(questionId)},
       {$set: {currentExpertOpenedAt: new Date(), updatedAt: new Date()}},
+      {session}
     );
   }
 
