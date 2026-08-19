@@ -9,19 +9,19 @@ export async function sendEmailNotification(
 ) {
   const user = emailConfig.EMAIL_USER;
   const pass = emailConfig.EMAIL_PASS;
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {user, pass},
-  });
   // const transporter = nodemailer.createTransport({
-  //   host: 'smtp.zoho.in',
-  //   port: 465,
-  //   secure: true,
-  //   auth: {
-  //     user,
-  //     pass,
-  //   },
+  //   service: 'gmail',
+  //   auth: {user, pass},
   // });
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.zoho.in',
+    port: 465,
+    secure: true,
+    auth: {
+      user,
+      pass,
+    },
+  });
   
   try {
     const info = await transporter.sendMail({
@@ -57,20 +57,20 @@ export async function sendEmailWithAttachment(
 ) {
   const user = emailConfig.EMAIL_USER;
   const pass = emailConfig.EMAIL_PASS;
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {user, pass},
-  });
-  console.log(user, pass);
   // const transporter = nodemailer.createTransport({
-  //   host: 'smtp.zoho.in',
-  //   port: 465,
-  //   secure: true,
-  //   auth: {
-  //     user,
-  //     pass,
-  //   },
+  //   service: 'gmail',
+  //   auth: {user, pass},
   // });
+  console.log(user, pass);
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.zoho.in',
+    port: 465,
+    secure: true,
+    auth: {
+      user,
+      pass,
+    },
+  });
   await transporter.sendMail({
     from: `"Agri Platform" <${emailConfig.EMAIL_USER}>`,
     to: email,
