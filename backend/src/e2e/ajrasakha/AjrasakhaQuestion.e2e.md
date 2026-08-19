@@ -458,18 +458,16 @@ See `src/e2e/whatsapp/WhatsAppQuestion.e2e.md` BUG-001 for the full analysis.
 
 ## Last Run
 
-**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 10 passed &nbsp;|&nbsp; **Duration:** 58.4 s
+**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 11 passed &nbsp;|&nbsp; **Duration:** 18.3 s
+
+> ⚠ Vitest only printed 7 of 11 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Ajrasakha ingestion — authentication (FlexibleAuth) > rejects ingestion when no auth he... | ✅ | — |
-| 2 | Ajrasakha ingestion — authentication (FlexibleAuth) > rejects ingestion when an incorre... | ✅ | — |
-| 3 | Ajrasakha ingestion — happy path (open, agri, thread valid) > creates an open question ... | ✅ | — |
-| 4 | Ajrasakha ingestion — question FOUND (GDB exact match → duplicate) > marks the question... | ✅ | — |
-| 5 | Ajrasakha ingestion — question matches the GDB pending-duplicate queue > marks the ques... | ✅ | — |
-| 6 | Ajrasakha ingestion — pending-duplicate-queue check throws → degrades gracefully to ope... | ✅ | — |
-| 7 | Ajrasakha ingestion — non-agricultural question (LLM filter) > marks the question as no... | ✅ | — |
-| 8 | Ajrasakha ingestion — invalid payload (missing required detail field) > rejects with 40... | ✅ | — |
-| 9 | Ajrasakha ingestion — invalid payload (empty question text) > rejects when the question... | ✅ | — |
-| 10 | Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question ... | ❌ | Timed out waiting for question 6a85784a83704b0430187db9. Last status='pending', isTesting=undefined |
-| 11 | Ajrasakha ingestion — LLM failure degrades gracefully to open > still opens the questio... | ✅ | — |
+| 1 | Ajrasakha ingestion — happy path (open, agri, thread valid) > creates an open question ... | ✅ | — |
+| 2 | Ajrasakha ingestion — question FOUND (GDB exact match → duplicate) > marks the question... | ✅ | — |
+| 3 | Ajrasakha ingestion — question matches the GDB pending-duplicate queue > marks the ques... | ✅ | — |
+| 4 | Ajrasakha ingestion — pending-duplicate-queue check throws → degrades gracefully to ope... | ✅ | — |
+| 5 | Ajrasakha ingestion — non-agricultural question (LLM filter) > marks the question as no... | ✅ | — |
+| 6 | Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question ... | ✅ | — |
+| 7 | Ajrasakha ingestion — LLM failure degrades gracefully to open > still opens the questio... | ✅ | — |

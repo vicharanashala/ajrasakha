@@ -27,6 +27,7 @@ const SUITE_MAP = {
   'reviewer-queue/ReviewerQueue.e2e.test.ts':                   'reviewer-queue/ReviewerQueue.e2e.md',
   'whatsapp/WhatsAppQuestion.e2e.test.ts':                      'whatsapp/WhatsAppQuestion.e2e.md',
   'gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts':           'gatekeeper-auditor/GatekeeperAuditor.e2e.md',
+  'feedback/Feedback.e2e.test.ts':                              'feedback/Feedback.e2e.md',
 };
 
 // Display order and descriptions for the README "Suites at a glance" table
@@ -41,6 +42,7 @@ const SUITE_META = [
   { key: 'allocation-ordering/AllocationOrdering.e2e.test.ts',     name: 'Allocation ordering',  covers: 'Chronological ordering + history exclusion for `reallocateTimeBoundQuestions()` (Issues #3, #5)' },
   { key: 'post-allocation/PostAllocation.e2e.test.ts',             name: 'Post-allocation',      covers: 'Full expert peer-review → moderator-approval state machine' },
   { key: 'gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts',       name: 'Gatekeeper / Auditor', covers: 'Push to auditor, finalize, cancel/confirm duplicate, close-propagation, single-allocation queue cron' },
+  { key: 'feedback/Feedback.e2e.test.ts',                          name: 'Feedback',             covers: 'PAE_Validation / DATASET / WEB_APPLICATION feedback, moderator↔auditor routing, accept/reject settlement, manual admin controls' },
 ];
 
 // ─── pipeline-map auto-patch ─────────────────────────────────────────────────
@@ -57,6 +59,7 @@ const SUITE_CODES = {
   'allocation-ordering/AllocationOrdering.e2e.test.ts':         'AO',
   'post-allocation/PostAllocation.e2e.test.ts':                 'PA',
   'gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts':           'GA',
+  'feedback/Feedback.e2e.test.ts':                              'FB',
 };
 
 // Each entry links a vitest test-name substring to a pipeline-map line.
@@ -226,6 +229,18 @@ const PIPELINE_TESTS = [
   { suite: 'gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts', test: 'does not touch a busy gate keeper',                                            lineAnchor: 'single-allocation queue cron (runGateKeeperAuditorQueueCron)' },
   { suite: 'gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts', test: 'an expert user can push a question to auditor_review directly',                lineAnchor: 'BUG-006: no role guard on push-to-auditor / cancel-duplicate' },
   { suite: 'gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts', test: 'a call_agent user (not auditor/moderator/admin) can also finalize',            lineAnchor: 'BUG-012: approveAnswer role check is a blacklist, not a whitelist' },
+
+  // ── Feedback (PAE_Validation / DATASET / WEB_APPLICATION) ─────────────────
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'runPaeValidationQueueCron assigns an ancient pending question',                lineAnchor: 'PAE validation cron assigns pending question to pae_expert' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'PAE expert submitting status=feedback opens a PAE_Validation feedback',        lineAnchor: 'PAE expert feedback opens PAE_Validation source, frees expert' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'an active, free approver-moderator gets the feedback assigned directly',       lineAnchor: 'active free approver-moderator gets feedback directly' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'a BLOCKED approver-moderator falls back to an available auditor',              lineAnchor: 'blocked/busy/inactive approver-moderator falls back to auditor' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'already holding another feedback falls back to an auditor',                    lineAnchor: 'blocked/busy/inactive approver-moderator falls back to auditor' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'an INACTIVE approver-moderator (status=in-active) falls back to an auditor',   lineAnchor: 'blocked/busy/inactive approver-moderator falls back to auditor' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'rejects the internal feedback-status webhook without a valid x-internal-api-key', lineAnchor: 'DATASET/WEB_APPLICATION intake webhook (InternalApiAuth)' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'a question with PAE_Validation AND DATASET both open is not released',         lineAnchor: 'accept/reject settlement, multi-source not released early' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'WEB_APPLICATION accept still calls DATA_RELEASE_URL',                          lineAnchor: "BUG-014: WEB_APPLICATION settlement calls DATASET's URL" },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'admin manually assigns a feedback reviewer to a waiting',                      lineAnchor: 'manual admin assign/reassign/remove reviewer, toggle' },
 ];
 
 // Returns true if the test passed, false if failed, null if the suite has no log data.

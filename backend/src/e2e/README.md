@@ -78,13 +78,14 @@ preference-scoring test (#5) to be deterministic.
 | Question CRUD | `question/QuestionCreate.e2e.test.ts` | 15 | ✅ 15/15 | Moderator create / get / update / delete / bulk-delete (OUTREACH source) |
 | Reviewer queue | `reviewer-queue/ReviewerQueue.e2e.test.ts` | 14 | ❌ 13/14 | `POST /allocated` visibility: author slot, reviewer slot, exclusions, `review_level_number` |
 | WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 21 | ❌ 20/21 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
-| AjraSakha ingestion | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 11 | ❌ 10/11 | AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases |
-| Manual allocation | `manual-allocation/ManualAllocation.e2e.test.ts` | 10 | ✅ 10/10 | `POST /allocate-experts` + `DELETE /allocation` on an OUTREACH question |
+| AjraSakha ingestion | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 11 | ✅ 11/11 | AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases |
+| Manual allocation | `manual-allocation/ManualAllocation.e2e.test.ts` | 10 | ❌ 9/10 | `POST /allocate-experts` + `DELETE /allocation` on an OUTREACH question |
 | Auto allocation | `auto-allocation/AutoAllocation.e2e.test.ts` | 55 | ✅ 55/55 | AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard |
 | Allocation ordering | `allocation-ordering/AllocationOrdering.e2e.test.ts` | 8 | ✅ 8/8 | Chronological ordering + history exclusion for `reallocateTimeBoundQuestions()` (Issues #3, #5) |
 | Post-allocation | `post-allocation/PostAllocation.e2e.test.ts` | 27 | ✅ 27/27 | Full expert peer-review → moderator-approval state machine |
-| Gatekeeper / Auditor | `gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts` | 37 | ✅ 37/37 | Push to auditor, finalize, cancel/confirm duplicate, close-propagation, single-allocation queue cron |
-| **Total** | | **213** | **210/213** | |
+| Gatekeeper / Auditor | `gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts` | 37 | ❌ 36/37 | Push to auditor, finalize, cancel/confirm duplicate, close-propagation, single-allocation queue cron |
+| Feedback | `feedback/Feedback.e2e.test.ts` | 23 | ✅ 23/23 | PAE_Validation / DATASET / WEB_APPLICATION feedback, moderator↔auditor routing, accept/reject settlement, manual admin controls |
+| **Total** | | **236** | **232/236** | |
 
 ---
 
@@ -94,10 +95,13 @@ preference-scoring test (#5) to be deterministic.
 - Reviewer queue — author-slot question appears before reviewer-slot question for STF expert (Issue #2) > author-slot question appears before reviewer-slot question in the /allocated response → expected 2 to be less than 0
 
 **WhatsApp ingestion** — 1 failing → see `whatsapp/WhatsAppQuestion.e2e.md`
-- WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > proceeds to open (not isTesting) when the thread API throws non-not-found errors → Timed out waiting for question 6a8576e87462083549efe5ba. Last status='pending', isTesting=undefined
+- WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > proceeds to open (not isTesting) when the thread API throws non-not-found errors → Timed out waiting for question 6a85885eb288fcb1d703e12f. Last status='pending', isTesting=undefined
 
-**AjraSakha ingestion** — 1 failing → see `ajrasakha/AjrasakhaQuestion.e2e.md`
-- Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question isTesting=true when threadId is empty, before any pipeline step → Timed out waiting for question 6a85784a83704b0430187db9. Last status='pending', isTesting=undefined
+**Manual allocation** — 1 failing → see `manual-allocation/ManualAllocation.e2e.md`
+- Manual allocation — moderator removes an expert > moderator removes expert at index 0 → 200 → Test timed out in 5000ms.
+
+**Gatekeeper / Auditor** — 1 failing → see `gatekeeper-auditor/GatekeeperAuditor.e2e.md`
+- Close-propagation — approving a question closes its duplicate_confirmed children > replicates the final answer onto each duplicate_confirmed child, closes them as System, and fires each child's own customer webhook → Test timed out in 5000ms.
 ---
 
 ## The in-process harness — boilerplate every suite shares
@@ -301,6 +305,7 @@ demonstrates it — open that file for the exact test and assertion.
 | BUG-011 | Close-propagation hardcodes child status to `closed` regardless of the parent's actual `closeStatus` — a `dynamic` parent closing as `dynamic_closed` still produces plain-`closed` children. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
 | BUG-012 | `AnswerService.approveAnswer`'s role check is a blacklist of only `role==='expert'` — a `call_agent` user can also finalize via `PUT /answers`, bypassing the intended moderator/admin-only gate. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
 | BUG-013 | The new `closeIntent` field on `PUT /answers` broke backward compatibility: before it existed, `isDynamicClose` alone (`question.status === 'dynamic'`) was enough to close as `dynamic_closed`. Now a caller that omits `closeIntent` (any client not yet updated to send it) gets plain `closed` instead, even for a genuinely dynamic/duplicate question. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
+| BUG-014 | `QuestionService.handleFeedbackAction`'s `WEB_APPLICATION` branch resolves `WEB_APP_URL` into a variable but never uses it — both the `DATASET` and `WEB_APPLICATION` branches fetch `${DATA_RELEASE_URL}/feedbacks/${feedbackId}/status`; `WEB_APPLICATION` only swaps the `Authorization` header. A real public-site feedback accept/reject is sent to the DATASET data-release service instead of the web app. | `feedback/Feedback.e2e.md` |
 
 ---
 
@@ -347,7 +352,7 @@ WHATSAPP / AJRASAKHA ingestion
   ├─ auth failures                                    [WA ✓] [AJ ✓]
   ├─ invalid payload (missing field → 400)            [WA ✓] [AJ ✓]
   ├─ invalid payload (empty text → 500)               [WA ✓] [AJ ✓] BUG-001 documented
-  ├─ thread: empty → isTesting                        [WA ✓] [AJ ✗]
+  ├─ thread: empty → isTesting                        [WA ✓] [AJ ✓]
   ├─ thread: not found after retries → isTesting      [WA ✓]
   ├─ thread: API down → open                          [WA ✗]
   ├─ thread: transient fail → retry → open            [WA ✓]
@@ -406,7 +411,7 @@ Manual allocation (OUTREACH source)
   ├─ allocate expert2 → queue=[e1,e2]                 [MA ✓]
   ├─ duplicate guard → 200 (BUG-002 documented)       [MA ✓]
   ├─ non-existent questionId → 500 (known)            [MA ✓]
-  └─ remove expert by index → queue shrinks           [MA ✓]
+  └─ remove expert by index → queue shrinks           [MA ✗]
 
 Post-allocation review workflow
   ├─ auth + role guards (401, 500 known)              [PA ✓]
@@ -444,4 +449,14 @@ Gatekeeper / Auditor (gate_keeper / auditor roles, single-allocation queue cron)
   ├─ BUG-011: close-propagation hardcodes child status=closed       [GA ✓]
   ├─ single-allocation queue cron (runGateKeeperAuditorQueueCron)   [GA ✓]
   └─ BUG-012: approveAnswer role check is a blacklist, not a whitelist [GA ✓]
+
+Feedback (PAE_Validation / DATASET / WEB_APPLICATION, moderator↔auditor routing)
+  ├─ PAE validation cron assigns pending question to pae_expert     [FB ✓]
+  ├─ PAE expert feedback opens PAE_Validation source, frees expert  [FB ✓]
+  ├─ active free approver-moderator gets feedback directly          [FB ✓]
+  ├─ blocked/busy/inactive approver-moderator falls back to auditor [FB ✓]
+  ├─ DATASET/WEB_APPLICATION intake webhook (InternalApiAuth)       [FB ✓]
+  ├─ accept/reject settlement, multi-source not released early      [FB ✓]
+  ├─ BUG-014: WEB_APPLICATION settlement calls DATASET's URL         [FB ✓]
+  └─ manual admin assign/reassign/remove reviewer, toggle           [FB ✓]
 ```

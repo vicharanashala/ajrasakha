@@ -624,18 +624,19 @@ pnpm exec vitest run src/e2e/auto-allocation/AutoAllocation.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 55 passed &nbsp;|&nbsp; **Duration:** 41.7 s
+**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 55 passed &nbsp;|&nbsp; **Duration:** 47.2 s
 
-> ⚠ Vitest only printed 9 of 55 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 10 of 55 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
 | 1 | Auto allocation — OUTREACH question: queue stays empty at creation > question is open w... | ✅ | — |
-| 2 | Auto allocation — OUTREACH question: queue stays empty at creation > queue remains empt... | ✅ | — |
-| 3 | Auto allocation — toggle-auto-allocate endpoint > OFF → ON: toggles flag to true and fi... | ✅ | — |
-| 4 | Auto allocation — toggle-auto-allocate endpoint > ON → OFF: toggles flag to false and l... | ✅ | — |
-| 5 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > answer_cr... | ✅ | — |
-| 6 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > submissi... | ✅ | — |
-| 7 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 2 | Auto allocation — OUTREACH question: queue stays empty at creation > submission queue i... | ✅ | — |
+| 3 | Auto allocation — OUTREACH question: queue stays empty at creation > queue remains empt... | ✅ | — |
+| 4 | Auto allocation — toggle-auto-allocate endpoint > OFF → ON: toggles flag to true and fi... | ✅ | — |
+| 5 | Auto allocation — toggle-auto-allocate endpoint > ON → OFF: toggles flag to false and l... | ✅ | — |
+| 6 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > allocated... | ✅ | — |
+| 7 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > submissi... | ✅ | — |
 | 8 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
 | 9 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 10 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |

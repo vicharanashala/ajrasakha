@@ -276,9 +276,7 @@ Pinned in `Auditor — Notify User ... > [FINDING-008] a legacy caller that omit
 
 ## Last Run
 
-**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 37 passed &nbsp;|&nbsp; **Duration:** 1.2 min
-
-> ⚠ Vitest only printed 35 of 37 test lines (passing suites are truncated in the output).
+**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 36 passed &nbsp;|&nbsp; **Duration:** 1.3 min
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
@@ -300,20 +298,22 @@ Pinned in `Auditor — Notify User ... > [FINDING-008] a legacy caller that omit
 | 16 | Gate Keeper — Confirm Duplicate > rejects confirm-duplicate on a question that is not q... | ✅ | — |
 | 17 | Gate Keeper — Confirm Duplicate > rejects confirm-duplicate when the question has no re... | ✅ | — |
 | 18 | Gate Keeper — Confirm Duplicate > [KNOWN GAP] an expert user can confirm-duplicate dire... | ✅ | — |
-| 19 | Close-propagation — approving a question closes its duplicate_confirmed children > repl... | ✅ | — |
+| 19 | Close-propagation — approving a question closes its duplicate_confirmed children > repl... | ❌ | Test timed out in 5000ms. |
 | 20 | Close-propagation — approving a question closes its duplicate_confirmed children > [FIN... | ✅ | — |
 | 21 | Close-propagation — approving a question closes its duplicate_confirmed children > leav... | ✅ | — |
 | 22 | Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsers... | ✅ | — |
 | 23 | Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsers... | ✅ | — |
 | 24 | Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsers... | ✅ | — |
 | 25 | Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsers... | ✅ | — |
-| 26 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > assigns a free gate kee... | ✅ | — |
-| 27 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > assigns a free auditor ... | ✅ | — |
-| 28 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > does not touch a busy g... | ✅ | — |
-| 29 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
-| 30 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
+| 26 | Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsers... | ✅ | — |
+| 27 | Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsers... | ✅ | — |
+| 28 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > assigns a free gate kee... | ✅ | — |
+| 29 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > assigns a free auditor ... | ✅ | — |
+| 30 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > does not touch a busy g... | ✅ | — |
 | 31 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
-| 32 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user can... | ✅ | — |
-| 33 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user can... | ✅ | — |
-| 34 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user is ... | ✅ | — |
-| 35 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > [KNOWN GAP] a call... | ✅ | — |
+| 32 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
+| 33 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
+| 34 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user can... | ✅ | — |
+| 35 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user can... | ✅ | — |
+| 36 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user is ... | ✅ | — |
+| 37 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > [KNOWN GAP] a call... | ✅ | — |

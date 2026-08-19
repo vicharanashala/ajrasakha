@@ -370,7 +370,7 @@ seeded questions, submissions, answers, reviews and notifications in `afterAll`.
 
 ## Last Run
 
-**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 56.1 s
+**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 1.1 min
 
 > ⚠ Vitest only printed 22 of 27 test lines (passing suites are truncated in the output).
 
