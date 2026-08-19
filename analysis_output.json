@@ -1,0 +1,1030 @@
+{
+  "generated_at": "2026-08-10T13:29:41.851270Z",
+  "weeks": [
+    "2026-05-03",
+    "2026-05-10",
+    "2026-05-17",
+    "2026-05-24",
+    "2026-05-31",
+    "2026-06-07",
+    "2026-06-14",
+    "2026-06-21",
+    "2026-06-28",
+    "2026-07-05",
+    "2026-07-12",
+    "2026-07-19"
+  ],
+  "report": {
+    "report_week": "2026-07-19",
+    "period_covered": "2026-05-03 to 2026-07-19",
+    "total_disclaimer_queries": 2078,
+    "total_gap_clusters": 10,
+    "high_volume_threshold": 243.8,
+    "fast_growth_threshold_pct": 40.0,
+    "headline_stats": {
+      "top_gap_by_volume": {
+        "crop": "Wheat",
+        "domain": "Disease Diagnosis",
+        "state": "Rajasthan",
+        "volume": 374
+      },
+      "top_gap_by_growth": {
+        "crop": "Onion",
+        "domain": "Weather Impact",
+        "state": "Maharashtra",
+        "growth_pct": 77.8
+      },
+      "immediate_actions_count": 3
+    }
+  },
+  "clusters": [
+    {
+      "crop": "Wheat",
+      "domain": "Disease Diagnosis",
+      "state": "Rajasthan",
+      "top_intent": "Product recommendation",
+      "intent_breakdown": {
+        "Price/Market query": 56,
+        "Treatment (how to fix)": 50,
+        "Scheme eligibility": 71,
+        "Diagnosis (what is this)": 56,
+        "Product recommendation": 79,
+        "Preventive advice": 62
+      },
+      "total_volume": 374,
+      "weekly_series": [
+        28,
+        30,
+        27,
+        33,
+        29,
+        31,
+        36,
+        30,
+        32,
+        34,
+        31,
+        33
+      ],
+      "growth_pct": -3.0,
+      "priority_score": 224.4,
+      "representative_question": "Yellow rust appearing on Wheat in Rajasthan, is this dangerous and how to control it?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "Wheat plants wilting suddenly in Rajasthan, what disease is this?",
+        "Yellow rust appearing on Wheat in Rajasthan, is this dangerous and how to control it?",
+        "Black spots on Wheat leaves in Rajasthan, please identify the disease."
+      ]
+    },
+    {
+      "crop": "Chana",
+      "domain": "Govt Scheme",
+      "state": "Uttar Pradesh",
+      "top_intent": "Product recommendation",
+      "intent_breakdown": {
+        "Treatment (how to fix)": 53,
+        "Product recommendation": 57,
+        "Preventive advice": 49,
+        "Scheme eligibility": 40,
+        "Diagnosis (what is this)": 41,
+        "Price/Market query": 46
+      },
+      "total_volume": 286,
+      "weekly_series": [
+        20,
+        22,
+        19,
+        24,
+        21,
+        25,
+        23,
+        27,
+        24,
+        28,
+        25,
+        28
+      ],
+      "growth_pct": 1.9,
+      "priority_score": 172.4,
+      "representative_question": "How to apply for crop insurance for Chana in Uttar Pradesh?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "Am I eligible for PM-Kisan benefit for Chana farming in Uttar Pradesh?",
+        "How to apply for crop insurance for Chana in Uttar Pradesh?",
+        "Subsidy available for Chana seeds in Uttar Pradesh?"
+      ]
+    },
+    {
+      "crop": "Mustard",
+      "domain": "Nutrient/Fertilizer",
+      "state": "Rajasthan",
+      "top_intent": "Diagnosis (what is this)",
+      "intent_breakdown": {
+        "Product recommendation": 41,
+        "Diagnosis (what is this)": 54,
+        "Preventive advice": 49,
+        "Treatment (how to fix)": 41,
+        "Scheme eligibility": 36,
+        "Price/Market query": 37
+      },
+      "total_volume": 258,
+      "weekly_series": [
+        18,
+        20,
+        17,
+        19,
+        22,
+        20,
+        24,
+        21,
+        23,
+        25,
+        22,
+        27
+      ],
+      "growth_pct": 2.1,
+      "priority_score": 155.6,
+      "representative_question": "What is the correct DAP dose for Mustard this season in Rajasthan?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "What is the correct DAP dose for Mustard this season in Rajasthan?",
+        "Best micronutrient mix for Mustard in Rajasthan soil?",
+        "Mustard leaves turning yellow, is this nitrogen deficiency in Rajasthan?"
+      ]
+    },
+    {
+      "crop": "Cotton",
+      "domain": "Pest Management",
+      "state": "Punjab",
+      "top_intent": "Scheme eligibility",
+      "intent_breakdown": {
+        "Product recommendation": 36,
+        "Scheme eligibility": 39,
+        "Price/Market query": 32,
+        "Diagnosis (what is this)": 26,
+        "Preventive advice": 29,
+        "Treatment (how to fix)": 39
+      },
+      "total_volume": 201,
+      "weekly_series": [
+        3,
+        4,
+        3,
+        5,
+        6,
+        8,
+        11,
+        16,
+        22,
+        31,
+        40,
+        52
+      ],
+      "growth_pct": 73.6,
+      "priority_score": 150.0,
+      "representative_question": "Pink bollworm seen in Cotton field in Punjab, what should I do?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "My Cotton leaves have small holes, which pest is this and what spray should I use in Punjab?",
+        "Pink bollworm seen in Cotton field in Punjab, what should I do?",
+        "White fly attack on Cotton in Punjab, organic treatment available?"
+      ]
+    },
+    {
+      "crop": "Soybean",
+      "domain": "Disease Diagnosis",
+      "state": "Maharashtra",
+      "top_intent": "Price/Market query",
+      "intent_breakdown": {
+        "Scheme eligibility": 29,
+        "Diagnosis (what is this)": 23,
+        "Preventive advice": 29,
+        "Product recommendation": 24,
+        "Price/Market query": 35,
+        "Treatment (how to fix)": 28
+      },
+      "total_volume": 168,
+      "weekly_series": [
+        3,
+        4,
+        2,
+        4,
+        5,
+        7,
+        9,
+        14,
+        19,
+        27,
+        33,
+        41
+      ],
+      "growth_pct": 60.9,
+      "priority_score": 125.2,
+      "representative_question": "Soybean plants wilting suddenly in Maharashtra, what disease is this?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "Soybean plants wilting suddenly in Maharashtra, what disease is this?",
+        "Black spots on Soybean leaves in Maharashtra, please identify the disease.",
+        "Yellow rust appearing on Soybean in Maharashtra, is this dangerous and how to control it?"
+      ]
+    },
+    {
+      "crop": "Onion",
+      "domain": "Weather Impact",
+      "state": "Maharashtra",
+      "top_intent": "Preventive advice",
+      "intent_breakdown": {
+        "Scheme eligibility": 16,
+        "Product recommendation": 14,
+        "Price/Market query": 24,
+        "Diagnosis (what is this)": 24,
+        "Treatment (how to fix)": 23,
+        "Preventive advice": 28
+      },
+      "total_volume": 129,
+      "weekly_series": [
+        1,
+        2,
+        1,
+        3,
+        2,
+        4,
+        6,
+        10,
+        15,
+        21,
+        28,
+        36
+      ],
+      "growth_pct": 77.8,
+      "priority_score": 108.5,
+      "representative_question": "Heatwave effect on Onion flowering in Maharashtra, any protection measure?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "Unseasonal rain damaged Onion in Maharashtra, what should I do now?",
+        "Frost warning issued in Maharashtra, how to protect Onion?",
+        "Heatwave effect on Onion flowering in Maharashtra, any protection measure?"
+      ]
+    },
+    {
+      "crop": "Sugarcane",
+      "domain": "Post-Harvest",
+      "state": "Uttar Pradesh",
+      "top_intent": "Product recommendation",
+      "intent_breakdown": {
+        "Product recommendation": 27,
+        "Preventive advice": 11,
+        "Diagnosis (what is this)": 14,
+        "Price/Market query": 16,
+        "Treatment (how to fix)": 17,
+        "Scheme eligibility": 13
+      },
+      "total_volume": 98,
+      "weekly_series": [
+        5,
+        6,
+        5,
+        7,
+        6,
+        9,
+        9,
+        8,
+        10,
+        11,
+        10,
+        12
+      ],
+      "growth_pct": 4.8,
+      "priority_score": 60.7,
+      "representative_question": "Best packaging for Sugarcane before selling in Uttar Pradesh?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "Best packaging for Sugarcane before selling in Uttar Pradesh?",
+        "Sugarcane grains showing weevils after storage in Uttar Pradesh, what to do?",
+        "How to store Sugarcane safely to avoid fungus in Uttar Pradesh humidity?"
+      ]
+    },
+    {
+      "crop": "Groundnut",
+      "domain": "Soil Health",
+      "state": "Gujarat",
+      "top_intent": "Product recommendation",
+      "intent_breakdown": {
+        "Scheme eligibility": 10,
+        "Preventive advice": 9,
+        "Treatment (how to fix)": 6,
+        "Diagnosis (what is this)": 8,
+        "Product recommendation": 12,
+        "Price/Market query": 3
+      },
+      "total_volume": 48,
+      "weekly_series": [
+        4,
+        3,
+        5,
+        4,
+        3,
+        4,
+        5,
+        4,
+        3,
+        4,
+        5,
+        4
+      ],
+      "growth_pct": 28.6,
+      "priority_score": 40.2,
+      "representative_question": "How to improve soil structure for Groundnut cultivation in Gujarat?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "How to improve soil structure for Groundnut cultivation in Gujarat?",
+        "My soil health card shows low organic carbon, what to do for Groundnut in Gujarat?",
+        "Soil is becoming saline in Gujarat, can I still grow Groundnut?"
+      ]
+    },
+    {
+      "crop": "Maize",
+      "domain": "Nutrient/Fertilizer",
+      "state": "Bihar",
+      "top_intent": "Preventive advice",
+      "intent_breakdown": {
+        "Preventive advice": 2,
+        "Diagnosis (what is this)": 1,
+        "Scheme eligibility": 1
+      },
+      "total_volume": 4,
+      "weekly_series": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0
+      ],
+      "growth_pct": -50.0,
+      "priority_score": 2.4,
+      "representative_question": "Maize leaves turning yellow, is this nitrogen deficiency in Bihar?",
+      "n_question_variants": 1,
+      "sample_questions": [
+        "Maize leaves turning yellow, is this nitrogen deficiency in Bihar?",
+        "What is the correct DAP dose for Maize this season in Bihar?"
+      ]
+    },
+    {
+      "crop": "Sugarcane",
+      "domain": "Soil Health",
+      "state": "Bihar",
+      "top_intent": "Scheme eligibility",
+      "intent_breakdown": {
+        "Scheme eligibility": 2,
+        "Treatment (how to fix)": 1,
+        "Price/Market query": 1
+      },
+      "total_volume": 4,
+      "weekly_series": [
+        2,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "growth_pct": 0.0,
+      "priority_score": 2.4,
+      "representative_question": "Soil is becoming saline in Bihar, can I still grow Sugarcane?",
+      "n_question_variants": 1,
+      "sample_questions": [
+        "Soil is becoming saline in Bihar, can I still grow Sugarcane?",
+        "My soil health card shows low organic carbon, what to do for Sugarcane in Bihar?"
+      ]
+    }
+  ],
+  "high_volume_gaps": [
+    {
+      "crop": "Wheat",
+      "domain": "Disease Diagnosis",
+      "state": "Rajasthan",
+      "top_intent": "Product recommendation",
+      "intent_breakdown": {
+        "Price/Market query": 56,
+        "Treatment (how to fix)": 50,
+        "Scheme eligibility": 71,
+        "Diagnosis (what is this)": 56,
+        "Product recommendation": 79,
+        "Preventive advice": 62
+      },
+      "total_volume": 374,
+      "weekly_series": [
+        28,
+        30,
+        27,
+        33,
+        29,
+        31,
+        36,
+        30,
+        32,
+        34,
+        31,
+        33
+      ],
+      "growth_pct": -3.0,
+      "priority_score": 224.4,
+      "representative_question": "Yellow rust appearing on Wheat in Rajasthan, is this dangerous and how to control it?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "Wheat plants wilting suddenly in Rajasthan, what disease is this?",
+        "Yellow rust appearing on Wheat in Rajasthan, is this dangerous and how to control it?",
+        "Black spots on Wheat leaves in Rajasthan, please identify the disease."
+      ]
+    },
+    {
+      "crop": "Chana",
+      "domain": "Govt Scheme",
+      "state": "Uttar Pradesh",
+      "top_intent": "Product recommendation",
+      "intent_breakdown": {
+        "Treatment (how to fix)": 53,
+        "Product recommendation": 57,
+        "Preventive advice": 49,
+        "Scheme eligibility": 40,
+        "Diagnosis (what is this)": 41,
+        "Price/Market query": 46
+      },
+      "total_volume": 286,
+      "weekly_series": [
+        20,
+        22,
+        19,
+        24,
+        21,
+        25,
+        23,
+        27,
+        24,
+        28,
+        25,
+        28
+      ],
+      "growth_pct": 1.9,
+      "priority_score": 172.4,
+      "representative_question": "How to apply for crop insurance for Chana in Uttar Pradesh?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "Am I eligible for PM-Kisan benefit for Chana farming in Uttar Pradesh?",
+        "How to apply for crop insurance for Chana in Uttar Pradesh?",
+        "Subsidy available for Chana seeds in Uttar Pradesh?"
+      ]
+    },
+    {
+      "crop": "Mustard",
+      "domain": "Nutrient/Fertilizer",
+      "state": "Rajasthan",
+      "top_intent": "Diagnosis (what is this)",
+      "intent_breakdown": {
+        "Product recommendation": 41,
+        "Diagnosis (what is this)": 54,
+        "Preventive advice": 49,
+        "Treatment (how to fix)": 41,
+        "Scheme eligibility": 36,
+        "Price/Market query": 37
+      },
+      "total_volume": 258,
+      "weekly_series": [
+        18,
+        20,
+        17,
+        19,
+        22,
+        20,
+        24,
+        21,
+        23,
+        25,
+        22,
+        27
+      ],
+      "growth_pct": 2.1,
+      "priority_score": 155.6,
+      "representative_question": "What is the correct DAP dose for Mustard this season in Rajasthan?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "What is the correct DAP dose for Mustard this season in Rajasthan?",
+        "Best micronutrient mix for Mustard in Rajasthan soil?",
+        "Mustard leaves turning yellow, is this nitrogen deficiency in Rajasthan?"
+      ]
+    }
+  ],
+  "fast_growing_gaps": [
+    {
+      "crop": "Onion",
+      "domain": "Weather Impact",
+      "state": "Maharashtra",
+      "top_intent": "Preventive advice",
+      "intent_breakdown": {
+        "Scheme eligibility": 16,
+        "Product recommendation": 14,
+        "Price/Market query": 24,
+        "Diagnosis (what is this)": 24,
+        "Treatment (how to fix)": 23,
+        "Preventive advice": 28
+      },
+      "total_volume": 129,
+      "weekly_series": [
+        1,
+        2,
+        1,
+        3,
+        2,
+        4,
+        6,
+        10,
+        15,
+        21,
+        28,
+        36
+      ],
+      "growth_pct": 77.8,
+      "priority_score": 108.5,
+      "representative_question": "Heatwave effect on Onion flowering in Maharashtra, any protection measure?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "Unseasonal rain damaged Onion in Maharashtra, what should I do now?",
+        "Frost warning issued in Maharashtra, how to protect Onion?",
+        "Heatwave effect on Onion flowering in Maharashtra, any protection measure?"
+      ]
+    },
+    {
+      "crop": "Cotton",
+      "domain": "Pest Management",
+      "state": "Punjab",
+      "top_intent": "Scheme eligibility",
+      "intent_breakdown": {
+        "Product recommendation": 36,
+        "Scheme eligibility": 39,
+        "Price/Market query": 32,
+        "Diagnosis (what is this)": 26,
+        "Preventive advice": 29,
+        "Treatment (how to fix)": 39
+      },
+      "total_volume": 201,
+      "weekly_series": [
+        3,
+        4,
+        3,
+        5,
+        6,
+        8,
+        11,
+        16,
+        22,
+        31,
+        40,
+        52
+      ],
+      "growth_pct": 73.6,
+      "priority_score": 150.0,
+      "representative_question": "Pink bollworm seen in Cotton field in Punjab, what should I do?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "My Cotton leaves have small holes, which pest is this and what spray should I use in Punjab?",
+        "Pink bollworm seen in Cotton field in Punjab, what should I do?",
+        "White fly attack on Cotton in Punjab, organic treatment available?"
+      ]
+    },
+    {
+      "crop": "Soybean",
+      "domain": "Disease Diagnosis",
+      "state": "Maharashtra",
+      "top_intent": "Price/Market query",
+      "intent_breakdown": {
+        "Scheme eligibility": 29,
+        "Diagnosis (what is this)": 23,
+        "Preventive advice": 29,
+        "Product recommendation": 24,
+        "Price/Market query": 35,
+        "Treatment (how to fix)": 28
+      },
+      "total_volume": 168,
+      "weekly_series": [
+        3,
+        4,
+        2,
+        4,
+        5,
+        7,
+        9,
+        14,
+        19,
+        27,
+        33,
+        41
+      ],
+      "growth_pct": 60.9,
+      "priority_score": 125.2,
+      "representative_question": "Soybean plants wilting suddenly in Maharashtra, what disease is this?",
+      "n_question_variants": 3,
+      "sample_questions": [
+        "Soybean plants wilting suddenly in Maharashtra, what disease is this?",
+        "Black spots on Soybean leaves in Maharashtra, please identify the disease.",
+        "Yellow rust appearing on Soybean in Maharashtra, is this dangerous and how to control it?"
+      ]
+    }
+  ],
+  "crop_domain_heatmap": {
+    "rows": [
+      "Bajra",
+      "Chana",
+      "Cotton",
+      "Groundnut",
+      "Maize",
+      "Mustard",
+      "Onion",
+      "Paddy",
+      "Soybean",
+      "Sugarcane",
+      "Tur (Arhar)",
+      "Wheat"
+    ],
+    "cols": [
+      "Disease Diagnosis",
+      "Govt Scheme",
+      "Irrigation/Water",
+      "Market Price",
+      "Nutrient/Fertilizer",
+      "Pest Management",
+      "Post-Harvest",
+      "Seed/Variety",
+      "Soil Health",
+      "Weather Impact"
+    ],
+    "matrix": {
+      "Bajra": {
+        "Disease Diagnosis": 4,
+        "Govt Scheme": 7,
+        "Irrigation/Water": 3,
+        "Market Price": 5,
+        "Nutrient/Fertilizer": 4,
+        "Pest Management": 3,
+        "Post-Harvest": 5,
+        "Seed/Variety": 4,
+        "Soil Health": 4,
+        "Weather Impact": 2
+      },
+      "Chana": {
+        "Disease Diagnosis": 2,
+        "Govt Scheme": 288,
+        "Irrigation/Water": 1,
+        "Market Price": 3,
+        "Nutrient/Fertilizer": 9,
+        "Pest Management": 3,
+        "Post-Harvest": 4,
+        "Seed/Variety": 5,
+        "Soil Health": 5,
+        "Weather Impact": 6
+      },
+      "Cotton": {
+        "Disease Diagnosis": 3,
+        "Govt Scheme": 1,
+        "Irrigation/Water": 3,
+        "Market Price": 6,
+        "Nutrient/Fertilizer": 7,
+        "Pest Management": 207,
+        "Post-Harvest": 4,
+        "Seed/Variety": 2,
+        "Soil Health": 10,
+        "Weather Impact": 7
+      },
+      "Groundnut": {
+        "Disease Diagnosis": 5,
+        "Govt Scheme": 4,
+        "Irrigation/Water": 3,
+        "Market Price": 4,
+        "Nutrient/Fertilizer": 4,
+        "Pest Management": 4,
+        "Post-Harvest": 1,
+        "Seed/Variety": 5,
+        "Soil Health": 52,
+        "Weather Impact": 5
+      },
+      "Maize": {
+        "Disease Diagnosis": 3,
+        "Govt Scheme": 2,
+        "Irrigation/Water": 3,
+        "Market Price": 8,
+        "Nutrient/Fertilizer": 10,
+        "Pest Management": 5,
+        "Post-Harvest": 6,
+        "Seed/Variety": 2,
+        "Soil Health": 3,
+        "Weather Impact": 4
+      },
+      "Mustard": {
+        "Disease Diagnosis": 4,
+        "Govt Scheme": 5,
+        "Irrigation/Water": 6,
+        "Market Price": 3,
+        "Nutrient/Fertilizer": 262,
+        "Pest Management": 2,
+        "Post-Harvest": 5,
+        "Seed/Variety": 7,
+        "Soil Health": 6,
+        "Weather Impact": 5
+      },
+      "Onion": {
+        "Disease Diagnosis": 4,
+        "Govt Scheme": 2,
+        "Irrigation/Water": 3,
+        "Market Price": 6,
+        "Nutrient/Fertilizer": 5,
+        "Pest Management": 5,
+        "Post-Harvest": 9,
+        "Seed/Variety": 7,
+        "Soil Health": 7,
+        "Weather Impact": 130
+      },
+      "Paddy": {
+        "Disease Diagnosis": 4,
+        "Govt Scheme": 4,
+        "Irrigation/Water": 2,
+        "Market Price": 4,
+        "Nutrient/Fertilizer": 4,
+        "Pest Management": 5,
+        "Post-Harvest": 6,
+        "Seed/Variety": 4,
+        "Soil Health": 4,
+        "Weather Impact": 6
+      },
+      "Soybean": {
+        "Disease Diagnosis": 171,
+        "Govt Scheme": 4,
+        "Irrigation/Water": 4,
+        "Market Price": 5,
+        "Nutrient/Fertilizer": 4,
+        "Pest Management": 7,
+        "Post-Harvest": 4,
+        "Seed/Variety": 5,
+        "Soil Health": 4,
+        "Weather Impact": 2
+      },
+      "Sugarcane": {
+        "Disease Diagnosis": 4,
+        "Govt Scheme": 6,
+        "Irrigation/Water": 4,
+        "Market Price": 5,
+        "Nutrient/Fertilizer": 3,
+        "Pest Management": 3,
+        "Post-Harvest": 99,
+        "Seed/Variety": 6,
+        "Soil Health": 9,
+        "Weather Impact": 4
+      },
+      "Tur (Arhar)": {
+        "Disease Diagnosis": 3,
+        "Govt Scheme": 7,
+        "Irrigation/Water": 5,
+        "Market Price": 3,
+        "Nutrient/Fertilizer": 1,
+        "Pest Management": 2,
+        "Post-Harvest": 3,
+        "Seed/Variety": 4,
+        "Soil Health": 5,
+        "Weather Impact": 2
+      },
+      "Wheat": {
+        "Disease Diagnosis": 378,
+        "Govt Scheme": 5,
+        "Irrigation/Water": 5,
+        "Market Price": 3,
+        "Nutrient/Fertilizer": 5,
+        "Pest Management": 5,
+        "Post-Harvest": 2,
+        "Seed/Variety": 3,
+        "Soil Health": 3,
+        "Weather Impact": 5
+      }
+    }
+  },
+  "state_domain_heatmap": {
+    "rows": [
+      "Andhra Pradesh",
+      "Bihar",
+      "Gujarat",
+      "Haryana",
+      "Karnataka",
+      "Madhya Pradesh",
+      "Maharashtra",
+      "Punjab",
+      "Rajasthan",
+      "Uttar Pradesh"
+    ],
+    "cols": [
+      "Disease Diagnosis",
+      "Govt Scheme",
+      "Irrigation/Water",
+      "Market Price",
+      "Nutrient/Fertilizer",
+      "Pest Management",
+      "Post-Harvest",
+      "Seed/Variety",
+      "Soil Health",
+      "Weather Impact"
+    ],
+    "matrix": {
+      "Andhra Pradesh": {
+        "Disease Diagnosis": 1,
+        "Govt Scheme": 3,
+        "Irrigation/Water": 8,
+        "Market Price": 5,
+        "Nutrient/Fertilizer": 5,
+        "Pest Management": 4,
+        "Post-Harvest": 3,
+        "Seed/Variety": 4,
+        "Soil Health": 11,
+        "Weather Impact": 8
+      },
+      "Bihar": {
+        "Disease Diagnosis": 6,
+        "Govt Scheme": 2,
+        "Irrigation/Water": 5,
+        "Market Price": 12,
+        "Nutrient/Fertilizer": 12,
+        "Pest Management": 4,
+        "Post-Harvest": 4,
+        "Seed/Variety": 5,
+        "Soil Health": 9,
+        "Weather Impact": 7
+      },
+      "Gujarat": {
+        "Disease Diagnosis": 2,
+        "Govt Scheme": 6,
+        "Irrigation/Water": 4,
+        "Market Price": 8,
+        "Nutrient/Fertilizer": 5,
+        "Pest Management": 3,
+        "Post-Harvest": 6,
+        "Seed/Variety": 2,
+        "Soil Health": 52,
+        "Weather Impact": 6
+      },
+      "Haryana": {
+        "Disease Diagnosis": 2,
+        "Govt Scheme": 5,
+        "Irrigation/Water": 8,
+        "Market Price": 5,
+        "Nutrient/Fertilizer": 6,
+        "Pest Management": 2,
+        "Post-Harvest": 6,
+        "Seed/Variety": 4,
+        "Soil Health": 5,
+        "Weather Impact": 3
+      },
+      "Karnataka": {
+        "Disease Diagnosis": 4,
+        "Govt Scheme": 6,
+        "Irrigation/Water": 7,
+        "Market Price": 5,
+        "Nutrient/Fertilizer": 10,
+        "Pest Management": 6,
+        "Post-Harvest": 7,
+        "Seed/Variety": 8,
+        "Soil Health": 5,
+        "Weather Impact": 4
+      },
+      "Madhya Pradesh": {
+        "Disease Diagnosis": 5,
+        "Govt Scheme": 10,
+        "Irrigation/Water": 2,
+        "Market Price": 4,
+        "Nutrient/Fertilizer": 6,
+        "Pest Management": 3,
+        "Post-Harvest": 4,
+        "Seed/Variety": 4,
+        "Soil Health": 2,
+        "Weather Impact": 5
+      },
+      "Maharashtra": {
+        "Disease Diagnosis": 171,
+        "Govt Scheme": 6,
+        "Irrigation/Water": 2,
+        "Market Price": 5,
+        "Nutrient/Fertilizer": 1,
+        "Pest Management": 8,
+        "Post-Harvest": 3,
+        "Seed/Variety": 9,
+        "Soil Health": 4,
+        "Weather Impact": 130
+      },
+      "Punjab": {
+        "Disease Diagnosis": 9,
+        "Govt Scheme": 5,
+        "Irrigation/Water": 2,
+        "Market Price": 4,
+        "Nutrient/Fertilizer": 3,
+        "Pest Management": 212,
+        "Post-Harvest": 7,
+        "Seed/Variety": 8,
+        "Soil Health": 12,
+        "Weather Impact": 4
+      },
+      "Rajasthan": {
+        "Disease Diagnosis": 379,
+        "Govt Scheme": 1,
+        "Irrigation/Water": 0,
+        "Market Price": 2,
+        "Nutrient/Fertilizer": 263,
+        "Pest Management": 3,
+        "Post-Harvest": 6,
+        "Seed/Variety": 5,
+        "Soil Health": 3,
+        "Weather Impact": 5
+      },
+      "Uttar Pradesh": {
+        "Disease Diagnosis": 6,
+        "Govt Scheme": 291,
+        "Irrigation/Water": 4,
+        "Market Price": 5,
+        "Nutrient/Fertilizer": 7,
+        "Pest Management": 6,
+        "Post-Harvest": 102,
+        "Seed/Variety": 5,
+        "Soil Health": 9,
+        "Weather Impact": 6
+      }
+    }
+  },
+  "outreach_plan": [
+    {
+      "crop": "Onion",
+      "domain": "Weather Impact",
+      "state": "Maharashtra",
+      "total_volume": 129,
+      "growth_pct": 77.8,
+      "priority_score": 108.5,
+      "urgency": "Immediate",
+      "recommended_action": "Deploy an SOP/advisory note on weather impact for Onion in Maharashtra within 1 week; this pattern is escalating fast and looks like an emerging seasonal event."
+    },
+    {
+      "crop": "Cotton",
+      "domain": "Pest Management",
+      "state": "Punjab",
+      "total_volume": 201,
+      "growth_pct": 73.6,
+      "priority_score": 150.0,
+      "urgency": "Immediate",
+      "recommended_action": "Deploy an SOP/advisory note on pest management for Cotton in Punjab within 1 week; this pattern is escalating fast and looks like an emerging seasonal event."
+    },
+    {
+      "crop": "Soybean",
+      "domain": "Disease Diagnosis",
+      "state": "Maharashtra",
+      "total_volume": 168,
+      "growth_pct": 60.9,
+      "priority_score": 125.2,
+      "urgency": "Immediate",
+      "recommended_action": "Deploy an SOP/advisory note on disease diagnosis for Soybean in Maharashtra within 1 week; this pattern is escalating fast and looks like an emerging seasonal event."
+    },
+    {
+      "crop": "Wheat",
+      "domain": "Disease Diagnosis",
+      "state": "Rajasthan",
+      "total_volume": 374,
+      "growth_pct": -3.0,
+      "priority_score": 224.4,
+      "urgency": "This sprint",
+      "recommended_action": "Commission a dedicated GDB knowledge article + verified expert answer for Wheat disease diagnosis queries in Rajasthan; chronic high-volume gap."
+    },
+    {
+      "crop": "Chana",
+      "domain": "Govt Scheme",
+      "state": "Uttar Pradesh",
+      "total_volume": 286,
+      "growth_pct": 1.9,
+      "priority_score": 172.4,
+      "urgency": "This sprint",
+      "recommended_action": "Commission a dedicated GDB knowledge article + verified expert answer for Chana govt scheme queries in Uttar Pradesh; chronic high-volume gap."
+    },
+    {
+      "crop": "Mustard",
+      "domain": "Nutrient/Fertilizer",
+      "state": "Rajasthan",
+      "total_volume": 258,
+      "growth_pct": 2.1,
+      "priority_score": 155.6,
+      "urgency": "This sprint",
+      "recommended_action": "Commission a dedicated GDB knowledge article + verified expert answer for Mustard nutrient/fertilizer queries in Rajasthan; chronic high-volume gap."
+    }
+  ]
+}
