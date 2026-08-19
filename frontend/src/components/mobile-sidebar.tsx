@@ -1,5 +1,6 @@
 import type { IUser } from "@/types";
 import {
+  Activity,
   AlertTriangle,
   BarChart3,
   Bot,
@@ -83,6 +84,8 @@ export const MobileSidebar = ({
       navigate({ to: "/chatbot" });
     } else if (value === "whatsapp_history") {
       navigate({ to: "/whatsapp-history" });
+    } else if (value === "gap_detector") {
+      navigate({ to: "/gap-detector" });
     } else {
       setTab(value);
       setActiveTab(value);
@@ -157,6 +160,16 @@ export const MobileSidebar = ({
 
     ...(user && user.role === "admin"
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
+      : []),
+
+    ...(user && user.role !== "expert" && user.role !== "call_agent"
+      ? [
+          {
+            id: "gap_detector",
+            label: "Gap Detector",
+            icon: Activity,
+          },
+        ]
       : []),
 
     ...(user && !isCoordinator && user.role !== "call_agent"
