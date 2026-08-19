@@ -45,6 +45,15 @@ export async function sendEmailWithAttachment(
   fileContent: string | Buffer,
   filename: string,
   contentType?: string,
+  // Inline (CID) images referenced from `html` as `<img src="cid:...">`. Passed straight through
+  // to nodemailer's `attachments`, which treats an entry carrying a `cid` as an inline part rather
+  // than a downloadable file.
+  inlineImages?: {
+    filename: string;
+    content: Buffer;
+    contentType: string;
+    cid: string;
+  }[],
 ) {
   const user = emailConfig.EMAIL_USER;
   const pass = emailConfig.EMAIL_PASS;
@@ -74,6 +83,7 @@ export async function sendEmailWithAttachment(
         // contentType: 'text/csv',
         contentType: contentType || 'text/csv',
       },
+      ...(inlineImages ?? []),
     ],
   });
 }
