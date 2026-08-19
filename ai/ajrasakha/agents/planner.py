@@ -454,6 +454,7 @@ async def _apply_domain_and_crop_async(
     *,
     crop_prefilled: Optional[str],
     config: RunnableConfig,
+    prev_plan: Optional[PlannerPlan] = None,
 ) -> tuple[PlannerPlan, str, bool]:
     """Normalize domains, derive flags, apply CROP_ALL / CROP_REQUIRED crop rules."""
     domains_raw = plan.get("domains") or [plan.get("domain") or "General"]
@@ -488,9 +489,17 @@ async def _apply_domain_and_crop_async(
     deterministic_crop_output = is_crop_output_question(question) or is_crop_output_question(user_text)
     deterministic_all_crop = is_explicit_all_crop_request(question) or is_explicit_all_crop_request(user_text)
 
-    entities = apply_crop_one_shot_fallback(messages, entities, domains)
+    entities = apply_crop_one_shot_fallback(
+        messages,
+        entities,
+        domains,
+        prev_plan=prev_plan,
+    )
 
-    resolved_turn_crop, resolved_turn_source = resolve_crop_for_turn_with_source(messages)
+    resolved_turn_crop, resolved_turn_source = resolve_crop_for_turn_with_source(
+        messages,
+        prev_plan=prev_plan,
+    )
     # Prefer the deterministic resolution of the current farmer turn over an
     # LLM entity. The LLM may copy a seasonal term (for example, ``kharif``)
     # into entities.crop even though the farmer did not name that crop.
@@ -746,7 +755,7 @@ async def planner_node(
     )
 
     state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
-    crop_resolved = resolve_crop_for_turn(messages)
+    crop_resolved = resolve_crop_for_turn(messages, prev_plan=prev_plan)
     clarification_query = merge_clarification_reply_into_query(prev_plan, user_text)
     previous_vocal_language = (prev_plan.get("vocal_language") or "").strip()
     previous_script_language = (prev_plan.get("script_language") or "").strip()
@@ -1014,6 +1023,7 @@ async def planner_node(
             messages,
             location,
             prev_entities,
+            prev_plan=prev_plan,
             stored_location=stored_location,
             sources_out=location_sources,
         )
@@ -1034,6 +1044,7 @@ async def planner_node(
             plan,
             messages,
             crop_prefilled=entities.get("crop"),
+            prev_plan=prev_plan,
             config=config,
         )
 
@@ -1061,6 +1072,7 @@ async def planner_node(
             messages,
             location,
             prev_entities,
+            prev_plan=prev_plan,
             stored_location=stored_location,
             sources_out=location_sources,
         )
