@@ -34,7 +34,6 @@ function buildService(): QuestionService {
     {} as any, // questionSubmissionRepo
     {} as any, // requestRepository
     mockAnswerRepo as any, // answerRepo
-    {} as any, // notificationRepository
     {} as any, // notificationService
     {} as any, // reRouteRepository
     {} as any, // duplicateQuestionRepository
@@ -53,6 +52,7 @@ function buildService(): QuestionService {
     {freeRoleAssigneeOnStatusChange: vi.fn()} as any, // roleAssigneeService
     {} as any, // allocationService
     {} as any, // moderatorQueueService
+    {} as any, // maintenanceService
   );
 }
 

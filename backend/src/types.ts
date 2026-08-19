@@ -22,6 +22,7 @@ const TYPES = {
   RoleAssigneeService: Symbol.for('RoleAssigneeService'),
   AllocationService: Symbol.for('AllocationService'),
   ModeratorQueueService: Symbol.for('ModeratorQueueService'),
+  QuestionMaintenanceService: Symbol.for('QuestionMaintenanceService'),
   AnswerService: Symbol.for('AnswerService'),
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),
