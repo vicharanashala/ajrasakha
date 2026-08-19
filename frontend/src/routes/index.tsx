@@ -1,4 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router"
+//import { createFileRoute } from "@tanstack/react-router"
+//import { createFileRoute } from "@tanstack/react-router"
+//import { createFileRoute } from "@tanstack/react-router"
 //To make public dashboard 
 
 // import { createFileRoute } from "@tanstack/react-router";
@@ -8,7 +10,7 @@ import { createFileRoute } from "@tanstack/react-router"
 //   component: HomeDashboard,
 // });
 
-// import { createFileRoute, useNavigate } from "@tanstack/react-router";
+ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuthStore } from "@/stores/auth-store";
 import { useEffect } from "react";
 
