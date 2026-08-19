@@ -692,11 +692,11 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({
 
         <button
           type="button"
-          style={{ marginTop: "20px" }}
+          style={{ marginTop: "20px", color: "#ffffff" }}
           onClick={() => alert(`Opening ${formattedActiveStateName || "All-India"} Regional Agri Dashboard...`)}
         >
-          <span>View {isStateHasData ? `${formattedActiveStateName}` : "national"} dashboard</span>
-          <span>→</span>
+          <span style={{ color: "#ffffff", fontWeight: 700 }}>View {isStateHasData ? `${formattedActiveStateName}` : "national"} dashboard</span>
+          <span style={{ color: "#ffffff", fontWeight: 700 }}>→</span>
         </button>
       </aside>
     </>

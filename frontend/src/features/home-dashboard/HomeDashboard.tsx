@@ -145,6 +145,16 @@ export const HomeDashboard: React.FC = () => {
   const [hoveredKvkIdx, setHoveredKvkIdx] = useState<number | null>(null);
   const [isNavScrolled, setIsNavScrolled] = useState(false);
 
+  // Mount / Unmount lifecycle hook to isolate Home Dashboard global styles from the rest of the application
+  useEffect(() => {
+    document.documentElement.classList.add("home-dashboard-active");
+    document.body.classList.add("home-dashboard-active");
+    return () => {
+      document.documentElement.classList.remove("home-dashboard-active");
+      document.body.classList.remove("home-dashboard-active");
+    };
+  }, []);
+
   // Intersection Observer: Detach navbar when #knowledge section enters view (0% scroll overhead)
   useEffect(() => {
     const knowledgeEl = document.getElementById("knowledge");
@@ -221,7 +231,8 @@ export const HomeDashboard: React.FC = () => {
   const scrollToStage = (stageIdx: number) => {
     const section = document.getElementById("engine");
     if (!section) return;
-    const sectionTop = section.offsetTop;
+    const rect = section.getBoundingClientRect();
+    const sectionTop = rect.top + window.scrollY;
     const sectionHeight = section.offsetHeight;
     const windowHeight = window.innerHeight;
     const maxScroll = sectionHeight - windowHeight;
@@ -846,8 +857,8 @@ export const HomeDashboard: React.FC = () => {
                     onClick={() => scrollToStage(Math.min(4, reviewStage + 1))}
                     aria-label="Next stage"
                   >
-                    <span>Next</span>
-                    <ChevronRight size={18} />
+                    <span style={{ color: "#ffffff", fontWeight: 700 }}>Next</span>
+                    <ChevronRight size={18} style={{ color: "#ffffff" }} />
                   </button>
                 </div>
               </div>
