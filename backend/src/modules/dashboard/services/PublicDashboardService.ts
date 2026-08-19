@@ -17,6 +17,8 @@ import {
 export const SATURATION_LIMIT_NAME = 'saturation limit crop';
 export const OUTREACH_VIDEO_NAME = 'outreach video';
 export const OUTREACH_IMAGE_NAME = 'outreach image';
+export const FARMERS_FRIDAY_IMAGE_NAME = 'farmers friday image';
+export const FARMERS_FRIDAY_VIDEO_NAME = 'farmers friday video';
 
 /** Fallback used until an admin sets the saturation limit item. */
 const DEFAULT_SATURATION_LIMIT = 50;
@@ -100,10 +102,12 @@ export class PublicDashboardService implements IPublicDashboardService {
   async uploadMedia(
     file: Express.Multer.File,
     kind: 'image' | 'video',
+    itemName?: string,
   ): Promise<PublicDashboardItem> {
     const url = await uploadPublicDashboardMedia(file, kind);
-    const name =
+    const defaultName =
       kind === 'video' ? OUTREACH_VIDEO_NAME : OUTREACH_IMAGE_NAME;
+    const name = itemName?.trim() || defaultName;
     return this.addItem(name, url);
   }
 
@@ -115,6 +119,27 @@ export class PublicDashboardService implements IPublicDashboardService {
       throw new NotFoundError(`Public dashboard item ${id} not found`);
     }
     await this.repo.saveItems(next);
+  }
+
+  /** Admin: reorder public dashboard items by array of ordered item IDs. */
+  async reorderItems(orderedIds: string[]): Promise<PublicDashboardItem[]> {
+    const items = await this.repo.getItems();
+    const map = new Map(items.map(i => [i.id, i]));
+    const next: PublicDashboardItem[] = [];
+
+    for (const id of orderedIds) {
+      const item = map.get(id);
+      if (item) {
+        next.push(item);
+        map.delete(id);
+      }
+    }
+    for (const item of map.values()) {
+      next.push(item);
+    }
+
+    await this.repo.saveItems(next);
+    return next;
   }
 
   // ── helpers ──
@@ -139,7 +164,12 @@ export class PublicDashboardService implements IPublicDashboardService {
       return n;
     }
 
-    if (name === OUTREACH_VIDEO_NAME || name === OUTREACH_IMAGE_NAME) {
+    if (
+      name === OUTREACH_VIDEO_NAME ||
+      name === OUTREACH_IMAGE_NAME ||
+      name === FARMERS_FRIDAY_IMAGE_NAME ||
+      name === FARMERS_FRIDAY_VIDEO_NAME
+    ) {
       // Value may be a plain URL string (legacy) OR an object { url, place?, title?, body?, reach?, outcome? }
       if (value !== null && typeof value === 'object') {
         const v = value as Record<string, unknown>;

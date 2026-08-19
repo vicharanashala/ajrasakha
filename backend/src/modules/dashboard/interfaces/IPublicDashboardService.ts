@@ -41,5 +41,9 @@ export interface IPublicDashboardService {
   uploadMedia(
     file: Express.Multer.File,
     kind: 'image' | 'video',
+    itemName?: string,
   ): Promise<PublicDashboardItem>;
+
+  /** Admin: reorder public dashboard items. */
+  reorderItems(orderedIds: string[]): Promise<PublicDashboardItem[]>;
 }

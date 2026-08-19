@@ -79,8 +79,20 @@ export const useUploadPublicDashboardMedia = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["upload-public-dashboard-media"],
-    mutationFn: ({ file, type }: { file: File; type: "image" | "video" }) =>
-      service.uploadMedia(file, type),
+    mutationFn: ({ file, type, name }: { file: File; type: "image" | "video"; name?: string }) =>
+      service.uploadMedia(file, type, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ITEMS_KEY });
+    },
+  });
+};
+
+/** Admin: reorder public dashboard items. */
+export const useReorderPublicDashboardItems = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["reorder-public-dashboard-items"],
+    mutationFn: (orderedIds: string[]) => service.reorderItems(orderedIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ITEMS_KEY });
     },
