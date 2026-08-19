@@ -50,6 +50,9 @@ function buildService(): QuestionService {
     {} as any, // questionAiService
     {} as any, // duplicateService
     {} as any, // queueService
+    {freeRoleAssigneeOnStatusChange: vi.fn()} as any, // roleAssigneeService
+    {} as any, // allocationService
+    {} as any, // moderatorQueueService
   );
 }
 

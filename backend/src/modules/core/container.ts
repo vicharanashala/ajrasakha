@@ -20,6 +20,9 @@ import { FeedbackService } from '../question/services/FeedbackService.js';
 import { QuestionAiService } from '../question/services/QuestionAiService.js';
 import { DuplicateService } from '../question/services/DuplicateService.js';
 import { QueueService } from '../question/services/QueueService.js';
+import { RoleAssigneeService } from '../question/services/RoleAssigneeService.js';
+import { AllocationService } from '../question/services/AllocationService.js';
+import { ModeratorQueueService } from '../question/services/ModeratorQueueService.js';
 import { ContextController } from '../context/controllers/ContextController.js';
 import { ContextService } from '../context/services/ContextService.js';
 import { PerformanceController } from '../performance/controllers/PerformanceController.js';
@@ -70,6 +73,18 @@ export const coreContainerModule = new ContainerModule(options => {
   options
     .bind(GLOBAL_TYPES.QueueService)
     .to(QueueService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.RoleAssigneeService)
+    .to(RoleAssigneeService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AllocationService)
+    .to(AllocationService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.ModeratorQueueService)
+    .to(ModeratorQueueService)
     .inSingletonScope();
   options.bind(CORE_TYPES.AnswerService).to(AnswerService).inSingletonScope();
   options.bind(CORE_TYPES.ContextService).to(ContextService).inSingletonScope();
