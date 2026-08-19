@@ -1158,8 +1158,8 @@ export class ChatbotRepository implements IChatbotRepository {
             totalResponded: [
               {
                 $match: {
-                  operationalCompletionAt: {$ne: null},
-                  normalizedStatus: {
+                  _operationalCompletionAt: {$ne: null},
+                  _normalizedStatus: {
                     $in: [
                       'closed',
                       'pass',
