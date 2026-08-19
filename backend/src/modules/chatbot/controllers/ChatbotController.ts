@@ -2431,4 +2431,76 @@ export class ChatbotController {
     )
   }
 
+  // Dataset Application Totals (external data release service)
+  @OpenAPI({ summary: 'Get total number of questions in the dataset application' })
+  @Get('/dataset/total-questions')
+  @HttpCode(200)
+  @Authorized()
+  async getTotalQuestionsFromDataset() {
+    const total = await this.chatbotService.getTotalQuestionsFromDataset();
+    return { total };
+  }
+
+  @OpenAPI({ summary: 'Get total number of feedbacks in the dataset application' })
+  @Get('/dataset/total-feedbacks')
+  @HttpCode(200)
+  @Authorized()
+  async getTotalFeedbacksFromDataset() {
+    const total = await this.chatbotService.getTotalFeedbacksFromDataset();
+    return { total };
+  }
+
+  @OpenAPI({ summary: 'Get total number of users in the dataset application' })
+  @Get('/dataset/total-users')
+  @HttpCode(200)
+  @Authorized()
+  async getTotalUsersFromDataset() {
+    const total = await this.chatbotService.getTotalUsersFromDataset();
+    return { total };
+  }
+
+  // Dataset Application Lists (external data release service — NOT the
+  // internal review system)
+  @OpenAPI({
+    summary: 'List questions in the dataset application',
+    description: 'Paginated list of dataset-app questions (questionId, question, createdAt).',
+  })
+  @Get('/dataset/questions')
+  @HttpCode(200)
+  @Authorized()
+  async listQuestionsFromDataset(
+    @QueryParam('page') page: number = 1,
+    @QueryParam('pageSize') pageSize: number = 10,
+  ) {
+    return this.chatbotService.listQuestionsFromDataset(page, pageSize);
+  }
+
+  @OpenAPI({
+    summary: 'List feedbacks in the dataset application',
+    description: 'Paginated list of dataset-app feedbacks (email, questionId, tag, type, predefinedOption, comment, reviewNote, status, createdAt).',
+  })
+  @Get('/dataset/feedbacks')
+  @HttpCode(200)
+  @Authorized()
+  async listFeedbacksFromDataset(
+    @QueryParam('page') page: number = 1,
+    @QueryParam('pageSize') pageSize: number = 10,
+  ) {
+    return this.chatbotService.listFeedbacksFromDataset(page, pageSize);
+  }
+
+  @OpenAPI({
+    summary: 'List users in the dataset application',
+    description: 'Paginated list of dataset-app users (name, email, phone, age, createdAt).',
+  })
+  @Get('/dataset/users')
+  @HttpCode(200)
+  @Authorized()
+  async listUsersFromDataset(
+    @QueryParam('page') page: number = 1,
+    @QueryParam('pageSize') pageSize: number = 10,
+  ) {
+    return this.chatbotService.listUsersFromDataset(page, pageSize);
+  }
+
 }

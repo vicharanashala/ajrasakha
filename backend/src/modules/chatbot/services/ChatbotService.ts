@@ -8,6 +8,10 @@ import {CHATBOT_TYPES} from '../types.js';
 import type {
   IChatbotService,
   DashboardResponse,
+  DatasetListResponse,
+  DatasetQuestionListItem,
+  DatasetFeedbackListItem,
+  DatasetUserListItem,
 } from '../interfaces/IChatbotService.js';
 import type {
   IChatbotRepository,
@@ -4379,6 +4383,254 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }catch(error){
       throw new InternalServerError(`Something went wrong ${error}`)
     }
+  }
+
+  private async fetchDataReleaseTotalCount(resourcePath: string): Promise<number> {
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+
+    try {
+      const response = await fetch(
+        `${dataReleaseUrl}/${resourcePath}/total?page=1&pageSize=1`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authKey}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+
+      const res = (await response.json()) as {
+        total?: number;
+        totalCount?: number;
+      };
+
+      if (typeof res.total === 'number') {
+        return res.total;
+      }
+      if (typeof res.totalCount === 'number') {
+        return res.totalCount;
+      }
+      return 0;
+    } catch (error: any) {
+      console.error(
+        `[ChatbotService] fetchDataReleaseTotalCount(${resourcePath}): Failed to call data release service:`,
+        error,
+      );
+      throw new InternalServerError(
+        `Failed to get total count for ${resourcePath}: ` + error.message,
+      );
+    }
+  }
+
+  /**
+   * Total number of questions in the dataset application (external data
+   * release service).
+   */
+  async getTotalQuestionsFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('questions');
+  }
+
+  /**
+   * Total number of feedbacks in the dataset application (external data
+   * release service).
+   */
+  async getTotalFeedbacksFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('feedbacks');
+  }
+
+  /**
+   * Total number of users in the dataset application (external data
+   * release service).
+   */
+  async getTotalUsersFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('users');
+  }
+
+  /**
+   * Shared helper to fetch a paginated list from the external data release
+   * service (the dataset application — NOT the internal review system).
+   * Mirrors the DATA_RELEASE_URL/REVIEW_SYSTEM_AUTH_KEY fetch pattern used
+   * by QuestionService.getFeedbacks() and fetchDataReleaseTotalCount()
+   * above. `mapItem` normalizes each raw item from the external service
+   * into the shape this app displays.
+   */
+  private async fetchDataReleaseList<T>(
+    resourcePath: string,
+    page: number,
+    pageSize: number,
+    mapItem: (raw: any) => T,
+  ): Promise<DatasetListResponse<T>> {
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+
+    try {
+      const response = await fetch(
+        `${dataReleaseUrl}/${resourcePath}/list?page=${page}&pageSize=${pageSize}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authKey}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+
+      const res = (await response.json()) as {
+        data?: any[];
+        total?: number;
+        totalCount?: number;
+        page?: number;
+        limit?: number;
+        totalPages?: number;
+      };
+
+      const data = (Array.isArray(res.data) ? res.data : []).map(mapItem);
+      const total =
+        typeof res.total === 'number'
+          ? res.total
+          : typeof res.totalCount === 'number'
+            ? res.totalCount
+            : data.length;
+
+      return {
+        data,
+        total,
+        page: typeof res.page === 'number' ? res.page : page,
+        pageSize: typeof res.limit === 'number' ? res.limit : pageSize,
+        totalPages:
+          typeof res.totalPages === 'number'
+            ? res.totalPages
+            : Math.ceil(total / pageSize),
+      };
+    } catch (error: any) {
+      console.error(
+        `[ChatbotService] fetchDataReleaseList(${resourcePath}): Failed to call data release service:`,
+        error,
+      );
+      throw new InternalServerError(
+        `Failed to list ${resourcePath}: ` + error.message,
+      );
+    }
+  }
+
+  /** Normalizes a raw dataset-app question record into the display shape. */
+  private mapDatasetQuestionItem(raw: any): DatasetQuestionListItem {
+    return {
+      questionId: String(raw?.id ?? raw?._id?.$oid ?? raw?._id ?? ''),
+      question: raw?.question ?? '',
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  /** Normalizes a raw dataset-app feedback record into the display shape. */
+  private mapDatasetFeedbackItem(raw: any): DatasetFeedbackListItem {
+    return {
+      email: raw?.email ?? raw?.userId?.email ?? '',
+      questionId: String(raw?.questionId?.$oid ?? raw?.questionId ?? ''),
+      tag: raw?.tag ?? '',
+      type: raw?.type ?? '',
+      predefinedOption: raw?.predefinedOption ?? '',
+      comment: raw?.comment ?? '',
+      reviewNote: raw?.reviewNote ?? '',
+      status: raw?.status ?? '',
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  /** Normalizes a raw dataset-app user record into the display shape. */
+  private mapDatasetUserItem(raw: any): DatasetUserListItem {
+    return {
+      name:
+        raw?.name ??
+        [raw?.firstName, raw?.lastName].filter(Boolean).join(' ').trim(),
+      email: raw?.email ?? '',
+      phone: raw?.phone ?? raw?.phoneNumber ?? '',
+      age: typeof raw?.age === 'number' ? raw.age : null,
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  /**
+   * Paginated list of questions in the dataset application (external data
+   * release service).
+   */
+  async listQuestionsFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetQuestionListItem>> {
+    return this.fetchDataReleaseList(
+      'questions',
+      page,
+      pageSize,
+      this.mapDatasetQuestionItem,
+    );
+  }
+
+  /**
+   * Paginated list of feedbacks in the dataset application (external data
+   * release service).
+   */
+  async listFeedbacksFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetFeedbackListItem>> {
+    return this.fetchDataReleaseList(
+      'feedbacks',
+      page,
+      pageSize,
+      this.mapDatasetFeedbackItem,
+    );
+  }
+
+  /**
+   * Paginated list of users in the dataset application (external data
+   * release service).
+   */
+  async listUsersFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetUserListItem>> {
+    return this.fetchDataReleaseList(
+      'users',
+      page,
+      pageSize,
+      this.mapDatasetUserItem,
+    );
   }
 }
 

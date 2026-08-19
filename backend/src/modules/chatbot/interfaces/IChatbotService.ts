@@ -71,6 +71,44 @@ export interface QueryAnalyticsResponse {
   totalPages: number;
 }
 
+/** Dataset application (external data release service) — question list item */
+export interface DatasetQuestionListItem {
+  questionId: string;
+  question: string;
+  createdAt: string;
+}
+
+/** Dataset application (external data release service) — feedback list item */
+export interface DatasetFeedbackListItem {
+  email: string;
+  questionId: string;
+  tag: string;
+  type: string;
+  predefinedOption: string;
+  comment: string;
+  reviewNote: string;
+  status: string;
+  createdAt: string;
+}
+
+/** Dataset application (external data release service) — user list item */
+export interface DatasetUserListItem {
+  name: string;
+  email: string;
+  phone: string;
+  age: number | null;
+  createdAt: string;
+}
+
+/** Generic paginated response shape for dataset application list endpoints */
+export interface DatasetListResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface IChatbotService {
   getFeedbackUsers(
     source?: string,
@@ -579,4 +617,55 @@ export interface IChatbotService {
     )
 
     getReviewerLifecycle( userId: string, startDate?: Date, endDate?: Date ): Promise<any>
+
+  /**
+   * Total number of questions in the dataset application, fetched from the
+   * external data release service (DATA_RELEASE_URL) — NOT the internal
+   * review-system database.
+   */
+  getTotalQuestionsFromDataset(): Promise<number>;
+
+  /**
+   * Total number of feedbacks in the dataset application, fetched from the
+   * external data release service (DATA_RELEASE_URL) — NOT the internal
+   * review-system database.
+   */
+  getTotalFeedbacksFromDataset(): Promise<number>;
+
+  /**
+   * Total number of users in the dataset application, fetched from the
+   * external data release service (DATA_RELEASE_URL) — NOT the internal
+   * review-system database.
+   */
+  getTotalUsersFromDataset(): Promise<number>;
+
+  /**
+   * Paginated list of questions in the dataset application, fetched from
+   * the external data release service (DATA_RELEASE_URL) — NOT the
+   * internal review-system database.
+   */
+  listQuestionsFromDataset(
+    page?: number,
+    pageSize?: number,
+  ): Promise<DatasetListResponse<DatasetQuestionListItem>>;
+
+  /**
+   * Paginated list of feedbacks in the dataset application, fetched from
+   * the external data release service (DATA_RELEASE_URL) — NOT the
+   * internal review-system database.
+   */
+  listFeedbacksFromDataset(
+    page?: number,
+    pageSize?: number,
+  ): Promise<DatasetListResponse<DatasetFeedbackListItem>>;
+
+  /**
+   * Paginated list of users in the dataset application, fetched from the
+   * external data release service (DATA_RELEASE_URL) — NOT the internal
+   * review-system database.
+   */
+  listUsersFromDataset(
+    page?: number,
+    pageSize?: number,
+  ): Promise<DatasetListResponse<DatasetUserListItem>>;
 }
