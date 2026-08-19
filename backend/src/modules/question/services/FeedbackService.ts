@@ -93,8 +93,18 @@ export class FeedbackService extends BaseService {
 
     const message = annamMessages?.[0];
 
+    // Convert feedback _id to string if it exists
+    const feedback = message?.feedback;
+    const processedFeedback = feedback
+      ? {
+          ...feedback,
+          id: feedback._id?.toString() || feedback.id,
+          _id: feedback._id?.toString(),
+        }
+      : null;
+
     return {
-      feedback: message?.feedback || null,
+      feedback: processedFeedback,
       user: {
         username: message?.userDetails?.username || 'N/A',
         email: message?.userDetails?.email || '',
@@ -348,25 +358,32 @@ export class FeedbackService extends BaseService {
         new Date(),
       );
 
-      // Check if all feedbacks are processed (for PAE_Validation, we only have one feedback)
-      // Update the question's feedbacks array to mark this feedback as closed
-      await this.questionRepo.updateQuestion(questionId, {
-        'feedbacks.$[].status': 'closed',
-      } as any);
-
-      // Close the open feedback-review round on the submission (stamps finishedAt
-      // on the round that has no finishedAt yet).
-      await this.questionSubmissionRepo.finishOpenFeedbackReviews(
+      // Close ONLY this source's feedback entry, then check whether EVERY source is
+      // now closed. The reviewer's feedbacksAssigned id is removed AND the review
+      // round is finished only when all feedback statuses are closed — a still-open
+      // source keeps the question assigned and the round open.
+      const allClosed = await this.questionRepo.closeFeedbackSourceAndCheckAll(
         questionId,
-        new Date(),
+        source,
       );
 
-      // Remove the questionId from the processedBy user's feedbacksAssigned array
-      await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+      if (allClosed) {
+        // Close the open feedback-review round on the submission (stamps finishedAt
+        // on the round that has no finishedAt yet).
+        await this.questionSubmissionRepo.finishOpenFeedbackReviews(
+          questionId,
+          new Date(),
+        );
+
+        // Remove the questionId from the processedBy user's feedbacksAssigned array
+        await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+      }
 
       return {
         success: true,
-        message: `Feedback ${action}ed successfully. All feedbacks processed.`,
+        message: allClosed
+          ? `Feedback ${action}ed successfully. All feedbacks processed.`
+          : `Feedback ${action}ed successfully. Other feedback sources still open.`,
         data: {
           feedbackId,
           action,
@@ -377,7 +394,9 @@ export class FeedbackService extends BaseService {
       };
     }
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const WEB_APP_Url = process.env.WEB_APP_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+    const webAuthKey = process.env.WEB_WEBHOOK_API_KEY;
 
     if (!dataReleaseUrl) {
       throw new Error(
@@ -400,17 +419,32 @@ export class FeedbackService extends BaseService {
     let dataReleaseResponse: {status: string; pendingFeedbackCount: number};
 
     try {
-      const response = await fetch(
-        `${dataReleaseUrl}/feedbacks/${feedbackId}/status`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authKey}`,
+      let response;
+      if (source === 'DATASET') {
+        response = await fetch(
+          `${dataReleaseUrl}/feedbacks/${feedbackId}/status`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${authKey}`,
+            },
+            body: JSON.stringify(payload),
           },
-          body: JSON.stringify(payload),
-        },
-      );
+        );
+      } else if (source === 'WEB_APPLICATION') {
+        response = await fetch(
+          `${dataReleaseUrl}/feedbacks/${feedbackId}/status`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${webAuthKey}`,
+            },
+            body: JSON.stringify(payload),
+          },
+        );
+      }
 
       if (!response.ok) {
         throw new Error(
@@ -444,32 +478,35 @@ export class FeedbackService extends BaseService {
       new Date(),
     );
 
-    // Check if all feedbacks are processed
+    // This source's feedbacks are all processed once the data-release service reports
+    // no pending items for it. Close ONLY this source's entry on the question, then
+    // remove the reviewer's feedbacksAssigned id AND finish the round only when EVERY
+    // feedback status is closed (a still-open source keeps the question assigned).
     if (dataReleaseResponse.pendingFeedbackCount <= 0) {
       const now = new Date();
 
-      // Update the question's feedbacks.source to 'closed' and set feedbackReviewFinishedAt
-      await this.questionRepo.updateQuestion(questionId, {
-        'feedbacks.$[].status': 'closed',
-      } as any);
-
-      // await this.questionSubmissionRepo.(questionId, now);
-
-      //need to add the finished at when closing.
-
-      // Close the open feedback-review round on the submission (stamps finishedAt
-      // on the round that has no finishedAt yet).
-      await this.questionSubmissionRepo.finishOpenFeedbackReviews(
+      const allClosed = await this.questionRepo.closeFeedbackSourceAndCheckAll(
         questionId,
-        now,
+        source,
       );
 
-      // Remove the questionId from the processedBy user's feedbacksAssigned array
-      await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+      if (allClosed) {
+        // Close the open feedback-review round on the submission (stamps finishedAt
+        // on the round that has no finishedAt yet).
+        await this.questionSubmissionRepo.finishOpenFeedbackReviews(
+          questionId,
+          now,
+        );
+
+        // Remove the questionId from the processedBy user's feedbacksAssigned array
+        await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+      }
 
       return {
         success: true,
-        message: `Feedback ${action}ed successfully. All feedbacks processed.`,
+        message: allClosed
+          ? `Feedback ${action}ed successfully. All feedbacks processed.`
+          : `Feedback ${action}ed successfully. Other feedback sources still open.`,
         data: {
           feedbackId,
           action,

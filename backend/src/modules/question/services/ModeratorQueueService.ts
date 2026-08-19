@@ -204,8 +204,18 @@ export class ModeratorQueueService {
       // time-bound question). The claim + submission guards enforce one-at-a-time.
       const feedbackAssignedModeratorIds = new Set<string>();
       try {
-        const feedbackQuestions =
-          await this.questionRepo.findQuestionsWithOpenFeedbacks(true);
+        // Open-feedback questions (auto-allocation ON). A question qualifies only when
+        // it needs a (new) reviewer: no review round yet, OR its LAST round is finished.
+        // Questions whose last round is still open are actively being reviewed by
+        // someone — skip them (matches findOpenFeedbackReviews' last-round semantics).
+        const [allFeedbackQuestions, openReviews] = await Promise.all([
+          this.questionRepo.findQuestionsWithOpenFeedbacks(true),
+          this.questionSubmissionRepo.findOpenFeedbackReviews(),
+        ]);
+        const inProgressIds = new Set(openReviews.map(o => o.questionId));
+        const feedbackQuestions = allFeedbackQuestions.filter(
+          q => !inProgressIds.has(q._id?.toString()),
+        );
         if (feedbackQuestions.length) {
           const fbIds = feedbackQuestions
             .map(q => q._id?.toString())

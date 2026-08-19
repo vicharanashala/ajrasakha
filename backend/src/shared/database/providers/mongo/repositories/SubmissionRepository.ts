@@ -3760,27 +3760,23 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     {questionId: string; reviewerId: string; assignedAt: Date}[]
   > {
     await this.init();
+    // A question is still "under review" only when its LAST feedback-review round is
+    // open (finishedAt null/absent). If there are no rounds, or the last round is
+    // finished, the question needs a (new) reviewer → it is NOT returned here.
+    // Keying on the last round (not "any open round") matches the rule:
+    //   needs reviewer ⇔ open feedback AND (no rounds OR last round finished).
     const rows = await this.QuestionSubmissionCollection.aggregate([
-      {$match: {feedbackReviews: {$elemMatch: {finishedAt: null}}}},
-      {
-        $project: {
-          questionId: 1,
-          open: {
-            $filter: {
-              input: {$ifNull: ['$feedbackReviews', []]},
-              as: 'r',
-              cond: {$eq: ['$$r.finishedAt', null]},
-            },
-          },
-        },
-      },
-      {$unwind: '$open'},
+      // Must have at least one round; an empty/absent array is "no reviewer yet".
+      {$match: {'feedbackReviews.0': {$exists: true}}},
+      {$addFields: {lastRound: {$last: {$ifNull: ['$feedbackReviews', []]}}}},
+      // Last round not yet finished ⇒ currently under review / in progress.
+      {$match: {'lastRound.finishedAt': null}},
       {
         $project: {
           _id: 0,
           questionId: 1,
-          reviewerId: '$open.reviewerId',
-          assignedAt: '$open.assignedAt',
+          reviewerId: '$lastRound.reviewerId',
+          assignedAt: '$lastRound.assignedAt',
         },
       },
       {$sort: {assignedAt: 1}},
