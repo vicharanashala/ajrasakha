@@ -23,6 +23,7 @@ import { ConfirmationModal } from "@/components/confirmation-modal";
 import {
   CalendarClock,
   CheckCheck,
+  ChevronDown,
   Clock,
   GraduationCap,
   Info,
@@ -41,6 +42,8 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { formatDuration } from "../utils/formatDate";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface ModeratorQueueProps {
   question: IQuestionFullData;
@@ -55,6 +58,7 @@ interface ModeratorQueueProps {
  * is still in-review or re-routed.
  */
 export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) => {
+  const [isOpen, setIsOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedModId, setSelectedModId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -188,12 +192,15 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
       <div className="flex flex-col gap-4 pb-6 border-b border-border">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           {/* LEFT SECTION */}
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10">
+          <div
+            onClick={() => setIsOpen((prev) => !prev)}
+            className="flex items-center gap-3 cursor-pointer select-none group"
+          >
+            <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
               <UserCheck className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-semibold text-foreground">
+              <h2 className="text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
                 Moderator Queue
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
@@ -278,9 +285,48 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                 </span>
               </div>
             )}
+
+            <Button
+              variant="default"
+              size="sm"
+              className="h-9 mr-2 w-9 p-0 rounded-lg hover:bg-muted"
+              title={isOpen ? "Collapse" : "Expand"}
+              onClick={() => setIsOpen((prev) => !prev)}
+            >
+              <ChevronDown
+                className={cn(
+                  "h-5 w-5 transition-transform duration-300 ease-in-out",
+                  isOpen ? "rotate-180" : ""
+                )}
+              />
+            </Button>
           </div>
         </div>
       </div>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="moderator-queue-content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{
+              height: "auto",
+              opacity: 1,
+              transition: {
+                height: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1.0] },
+                opacity: { duration: 0.25, delay: 0.05 },
+              },
+            }}
+            exit={{
+              height: 0,
+              opacity: 0,
+              transition: {
+                height: { duration: 0.28, ease: [0.25, 0.1, 0.25, 1.0] },
+                opacity: { duration: 0.18 },
+              },
+            }}
+            className="overflow-hidden"
+          >
 
       {/* Assigned moderator — circular node, same style as the expert allocation cards.
           On hover the card flips to reveal the moderation timeline (assigned / completed
@@ -428,6 +474,9 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
           </div>
         </div>
       )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Select-moderator modal — same layout as "Select Experts Manually" (single-select) */}
       <Dialog open={isModalOpen} onOpenChange={(open) => (open ? setIsModalOpen(true) : closeModal())}>
