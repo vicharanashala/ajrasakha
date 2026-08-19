@@ -1,0 +1,37 @@
+runtime: python312
+env: standard
+threadsafe: true
+
+handlers:
+  # Serve JS/CSS bundles (Vite outputs to dist/assets)
+  - url: /acc-frontend/assets
+    static_dir: dist/assets
+    secure: always
+    http_headers:
+      Cache-Control: public, max-age=31536000
+
+  # Serve public folder files (logo, etc.)
+  - url: /acc-frontend/favicon.ico
+    static_files: dist/favicon.ico
+    upload: dist/favicon.ico
+    secure: always
+
+  - url: /acc-frontend/logo.png
+    static_files: dist/logo.png
+    upload: dist/logo.png
+    secure: always
+
+  # SPA fallback - serve index.html for all other frontend routes
+  - url: /acc-frontend/.*
+    static_files: dist/index.html
+    upload: dist/index.html
+    secure: always
+    http_headers:
+      Cache-Control: no-cache
+
+  # Root fallback
+  - url: /.*
+    static_dir: dist
+    secure: always
+    http_headers:
+      Cache-Control: no-cache
