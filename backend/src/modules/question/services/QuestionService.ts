@@ -6535,8 +6535,16 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     const message = annamMessages?.[0];
 
+    // Convert feedback _id to string if it exists
+    const feedback = message?.feedback;
+    const processedFeedback = feedback ? {
+      ...feedback,
+      id: feedback._id?.toString() || feedback.id,
+      _id: feedback._id?.toString(),
+    } : null;
+
     return {
-      feedback: message?.feedback || null,
+      feedback: processedFeedback,
       user: {
         username: message?.userDetails?.username || 'N/A',
         email: message?.userDetails?.email || '',
@@ -9918,8 +9926,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
     const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const WEB_APP_Url = process.env.WEB_APP_URL;
     const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
-
+    const webAuthKey = process.env.WEB_WEBHOOK_API_KEY
     if (!dataReleaseUrl) {
       throw new Error(
         'DATA_RELEASE_URL environment variable is not configured',
@@ -9941,7 +9950,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     let dataReleaseResponse: {status: string; pendingFeedbackCount: number};
 
     try {
-      const response = await fetch(
+      let response;
+      if(source === 'DATASET') {
+      response = await fetch(
         `${dataReleaseUrl}/feedbacks/${feedbackId}/status`,
         {
           method: 'PATCH',
@@ -9952,6 +9963,19 @@ export class QuestionService extends BaseService implements IQuestionService {
           body: JSON.stringify(payload),
         },
       );
+    }else if(source === 'WEB_APPLICATION'){
+      response = await fetch(
+        `${dataReleaseUrl}/feedbacks/${feedbackId}/status`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${webAuthKey}`,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+    }
 
       if (!response.ok) {
         throw new Error(

@@ -607,9 +607,11 @@ export interface QuestionFeedbackResponse {
   success: boolean;
   data: {
     feedback: {
+      _id?:string;
       rating: string;
       tag?: string;
       text?: string;
+      status?:string;
     } | null;
     user?: {
       username: string;

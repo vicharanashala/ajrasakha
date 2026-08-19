@@ -312,7 +312,7 @@ export const QuestionDetails = ({
                   }
                   navigateToQuestionPage={navigateToQuestionPage}
                 />
-                <UserFeedbackDetail questionId={question._id || null} />
+                <UserFeedbackDetail questionId={question._id || null} currentUser={currentUser} />
               </>
             )}
 
@@ -325,6 +325,7 @@ export const QuestionDetails = ({
           )}
 
           {/* Feedback-review timeline: rounds + reviewers, on/off toggle, manual assign. */}
+          
           {question?._id && currentUser && currentUser.role != "expert" && (
             <FeedbackReviewTimeline
               questionId={question._id}
