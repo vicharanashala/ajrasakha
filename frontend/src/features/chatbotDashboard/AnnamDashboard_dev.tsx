@@ -14,6 +14,7 @@ import {
   useResponseAdherenceTable,
   useTopFaqs,
   useUserMertices,
+  useDatasetTotals,
 } from "./hooks/useDashboardData";
 import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
@@ -68,11 +69,14 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 // import { RefreshCw } from "lucide-react";
 import { KnowledgeAwarenessCard } from "./components/KnowledgeAwarenessCard";
+import { UsersListModal } from "./components/UsersListModal";
 import { ActiveUsersSection } from "./components/ActiveUsersSection";
 import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
 import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
+import { DatasetQuestionsFeedbackCard } from "./DatasetQuestionsFeedbackCard";
+import { StatsCarousel } from "./components/StatsCarousel";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
 import {
@@ -123,16 +127,26 @@ export function LazySectionSkeleton({
 export function AnnamDashboard_dev({
   className,
   source: initialSource = "annam",
-  // onSourceChange,
+  onSourceChange,
+  mapView: initialMapView,
+  onMapViewChange,
+  userType: initialUserType,
+  onUserTypeChange,
 }: {
   className?: string;
   source?: "annam" | "whatsapp" | "acc";
   onSourceChange?: (source: "annam" | "whatsapp" | "acc") => void;
+  mapView?: boolean;
+  onMapViewChange?: (mapView: boolean) => void;
+  userType?: DashboardFilterValues["userType"];
+  onUserTypeChange?: (userType: DashboardFilterValues["userType"]) => void;
 }) {
   const queryClient = useQueryClient();
 
   // ─── Core State ────────────────────────────────────────────────────────────
-  const [source, setSource] = useState<"annam" | "whatsapp" | "acc">(initialSource);
+  const [source, setSource] = useState<"annam" | "whatsapp" | "acc">(
+    initialSource,
+  );
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [activeChartTab, setActiveChartTab] = useState<string>("dau");
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
@@ -142,7 +156,7 @@ export function AnnamDashboard_dev({
     season: "all",
     startTime: undefined,
     endTime: undefined,
-    userType: "all",
+    userType: initialUserType ?? "all",
   });
   const [weatherConcernFilters, setWeatherConcernFilters] =
     useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
@@ -176,12 +190,22 @@ export function AnnamDashboard_dev({
   const [hovered, setHovered] = useState<string | null>(null);
   const [agriHovered, setAgriHovered] = useState<string | null>(null);
 
-  const [mapView, setMapView] = useState<boolean>(false);
+  const [mapView, setMapView] = useState<boolean>(initialMapView ?? false);
+
+  const [analyticData, setAnalyticData] = useState<any>(null);
 
   // User details initial filters
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
   >(undefined);
+
+  const [selectedMetricUsers, setSelectedMetricUsers] = useState<{
+    title: string;
+    category: string;
+    value: string;
+    dynamicFieldLabel: string;
+    dynamicFieldKey: string;
+  } | null>(null);
 
   // ─── Computed Values ───────────────────────────────────────────────────────
   const isAppAnalyticsSource = source === "annam" || source === "whatsapp";
@@ -193,6 +217,10 @@ export function AnnamDashboard_dev({
     source,
     isAppAnalyticsSource,
   );
+  useEffect(() => {
+    setAnalyticData(data);
+  }, [data]);
+
   const { data: inactiveWhatsappUsers } = useInactiveWhatsappUsers(
     inactiveUsersPage,
     source === "whatsapp",
@@ -211,30 +239,24 @@ export function AnnamDashboard_dev({
     () => getISOStringsForDateRange(customerNotificationsDateRange),
     [customerNotificationsDateRange],
   );
-  const [closed2hSource, setClosed2hSource] = useState<
-    "both" | "annam" | "whatsapp"
-  >("both");
-  const [questionStatusSource, setQuestionStatusSource] = useState<
-    "both" | "annam" | "whatsapp"
-  >("both");
-  const [notificationsSource, setNotificationsSource] = useState<
-    "both" | "annam" | "whatsapp"
-  >("both");
+  const [closed2hSource, setClosed2hSource] = useState<string>("whatsapp,annam");
+  const [questionStatusSource, setQuestionStatusSource] = useState<string>("whatsapp,annam");
+  const [notificationsSource, setNotificationsSource] = useState<string>("whatsapp,annam");
   // Data queries with date ranges
-  const { data: closed2hData, isFetching: isClosed2hFetching } =
+  const { data: closed2hData, isLoading: isClosed2hLoading, isFetching: isClosed2hFetching } =
     useClosedAndNotifedData(
       closed2hSource,
       filters.userType,
       closed2hRange.startTime,
       closed2hRange.endTime,
     );
-  const { data: questionStatusData } = useClosedAndNotifedData(
+  const { data: questionStatusData, isLoading: isQuestionStatusLoading } = useClosedAndNotifedData(
     questionStatusSource,
     filters.userType,
     questionStatusRange.startTime,
     questionStatusRange.endTime,
   );
-  const { data: customerNotificationsData } = useClosedAndNotifedData(
+  const { data: customerNotificationsData, isLoading: isCustomerNotificationsLoading } = useClosedAndNotifedData(
     notificationsSource,
     filters.userType,
     customerNotificationsRange.startTime,
@@ -408,6 +430,17 @@ export function AnnamDashboard_dev({
     true,
   );
 
+  // Dataset totals (total questions / feedbacks / users) for the "Dataset
+  // Questions and Feedback Metrics" card — fetched from the dataset
+  // application (external data release service) via useDatasetTotals,
+  // which calls the ChatbotController /analytics/dataset/total-* routes.
+  // NOT from the internal review system's user-details/user-metrices
+  // endpoints.
+  const {
+    data: datasetTotalsData,
+    isLoading: isDatasetTotalsLoading,
+  } = useDatasetTotals();
+
   // ─── Stats Cards Refresh Handler ────────────────────────────────────────────
   // Refresh all related stats cards in the row (Closed in 2h, Question Status, Notifications)
   const handleRefreshStatsCards = useCallback(async () => {
@@ -415,16 +448,24 @@ export function AnnamDashboard_dev({
   }, [queryClient]);
 
   // ─── Source Change Handler ─────────────────────────────────────────────────
-  const handleSourceChange = useCallback((newSource: "annam" | "whatsapp" | "acc") => {
-    setSource(newSource);
-    if (newSource === "whatsapp") {
-      setFilters((prev) => ({ ...prev, userType: "all" }));
-    }
-    setClosed2hDateRange(undefined);
-    setQuestionStatusDateRange(undefined);
-    setCustomerNotificationsDateRange(undefined);
-  }, []);
+  const handleSourceChange = useCallback(
+    (newSource: "annam" | "whatsapp" | "acc") => {
+      setSource(newSource);
 
+      if (newSource === "whatsapp") {
+        setFilters((prev) => ({ ...prev, userType: "all" }));
+        onUserTypeChange?.("all"); 
+      }
+
+      setClosed2hDateRange(undefined);
+      setQuestionStatusDateRange(undefined);
+      setCustomerNotificationsDateRange(undefined);
+
+      onSourceChange?.(newSource); 
+    },
+    [onSourceChange, onUserTypeChange], 
+  );
+  
   const handleCardClick = useCallback(
     (id: string) => {
       if (id === "totalInstalls") {
@@ -434,6 +475,30 @@ export function AnnamDashboard_dev({
       }
     },
     [setUserDetailsInitialFilters, setActiveView, scrollTo],
+  );
+
+  // ─── Map View Change Handler ───────────────────────────────────────────────
+  // Wraps setMapView so switching between the "dash" and "map" top-level
+  // modes also notifies the parent/URL, same pattern as source.
+  const handleMapViewChange = useCallback(
+    (value: boolean) => {
+      setMapView(value);
+      onMapViewChange?.(value);
+    },
+    [onMapViewChange],
+  );
+
+  // ─── Filters Change Handler ────────────────────────────────────────────────
+  // Wraps setFilters so a userType change made via the header's user-type
+  // selector also notifies the parent/URL, same pattern as source/mapView.
+  const handleFiltersChange = useCallback(
+    (newFilters: DashboardFilterValues) => {
+      setFilters(newFilters);
+      if (newFilters.userType !== filters.userType) {
+        onUserTypeChange?.(newFilters.userType);
+      }
+    },
+    [filters.userType, onUserTypeChange],
   );
 
   // ─── Computed KPI Data ─────────────────────────────────────────────────────
@@ -468,6 +533,29 @@ export function AnnamDashboard_dev({
   const monthlyAnalytics = queryCard?.monthlyAnalytics || [];
 
   // ─── Effects ───────────────────────────────────────────────────────────────
+  // Keep internal source/mapView/userType state in sync with externally-
+  // controlled (e.g. URL-driven) prop values — needed so browser Back/Forward,
+  // which only changes props on this already-mounted component, still takes
+  // effect. Note: `activeView` (the sidebar's internal navigation) is
+  // deliberately NOT synced here — it stays local-only, untouched by the URL.
+  useEffect(() => {
+    setSource(initialSource);
+  }, [initialSource]);
+
+  useEffect(() => {
+    if (initialMapView !== undefined) {
+      setMapView(initialMapView);
+    }
+  }, [initialMapView]);
+
+  useEffect(() => {
+    if (initialUserType !== undefined) {
+      setFilters((prev) =>
+        prev.userType === initialUserType ? prev : { ...prev, userType: initialUserType },
+      );
+    }
+  }, [initialUserType]);
+
   useEffect(() => {
     if (source === "whatsapp") {
       setFilters((prev) => ({ ...prev, userType: "all" }));
@@ -501,7 +589,7 @@ export function AnnamDashboard_dev({
 
             <div className="flex-1 overflow-y-auto px-5 pb-5">
               {!mapView && source !== "acc" && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-stretch">
+                <StatsCarousel className="mb-6">
                   <ClosedQuestionsCard
                     closedQuestions={
                       questionStatusData?.closedVsTotalQuestions?.closed?.count
@@ -511,8 +599,8 @@ export function AnnamDashboard_dev({
                     }
                     dateRange={questionStatusDateRange}
                     onDateRangeChange={setQuestionStatusDateRange}
-                    isLoading={false}
-                    isFetching={false}
+                    isLoading={isQuestionStatusLoading}
+                    isFetching={isQuestionStatusLoading}
                     carryForward={questionStatusData?.carryForward}
                     avgCloseTimeMinutes={
                       questionStatusData?.closedVsTotalQuestions?.closed
@@ -527,10 +615,10 @@ export function AnnamDashboard_dev({
                     userType={filters.userType}
                     onRefresh={handleRefreshStatsCards}
                     passedQuestions={
-                      questionStatusData?.closedVsTotalQuestions?.statuses?.pass
+                      questionStatusData?.closedVsTotalQuestions?.nonGdb?.count
                     }
                     avgPassTimeMinutes={
-                      questionStatusData?.closedVsTotalQuestions?.pass
+                      questionStatusData?.closedVsTotalQuestions?.nonGdb
                         ?.avgTimeMinutes
                     }
                     combinedCount={
@@ -556,7 +644,7 @@ export function AnnamDashboard_dev({
                     }
                     dateRange={closed2hDateRange}
                     onDateRangeChange={setClosed2hDateRange}
-                    isLoading={false}
+                    isLoading={isClosed2hLoading}
                     isFetching={isClosed2hFetching}
                     onRefresh={handleRefreshStatsCards}
                     passedInLastTwoHours={
@@ -564,6 +652,18 @@ export function AnnamDashboard_dev({
                     }
                     totalPassed={
                       closed2hData?.closedInLastTwoHours?.totalPassCount
+                    }
+                    dynamicClosedInLastTwoHours={
+                      closed2hData?.closedInLastTwoHours?.dynamicClosedInTwoHoursCount
+                    }
+                    totalDynamicClosed={
+                      closed2hData?.closedInLastTwoHours?.totalDynamicClosedCount
+                    }
+                    duplicateClosedInLastTwoHours={
+                      closed2hData?.closedInLastTwoHours?.duplicateClosedInTwoHoursCount
+                    }
+                    totalDuplicateClosed={
+                      closed2hData?.closedInLastTwoHours?.totalDuplicateClosedCount
                     }
                   />
 
@@ -580,25 +680,34 @@ export function AnnamDashboard_dev({
                     }
                     dateRange={customerNotificationsDateRange}
                     onDateRangeChange={setCustomerNotificationsDateRange}
-                    isLoading={false}
-                    isFetching={false}
+                    isLoading={isCustomerNotificationsLoading}
+                    isFetching={isCustomerNotificationsLoading}
                     source={notificationsSource}
                     userType={filters.userType}
                     onRefresh={handleRefreshStatsCards}
                     onSourceChange={setNotificationsSource}
                   />
-                </div>
+
+                  <DatasetQuestionsFeedbackCard
+                    totalQuestions={datasetTotalsData?.totalQuestions}
+                    totalFeedbacks={datasetTotalsData?.totalFeedbacks}
+                    totalUsers={datasetTotalsData?.totalUsers}
+                    isLoading={isDatasetTotalsLoading}
+                  />
+                </StatsCarousel>
               )}
               {/* Source Selection Tabs & Refresh */}
               <SourceTabsHeader
                 source={source}
                 onSourceChange={handleSourceChange}
                 filters={filters}
-                onFilterChange={setFilters}
+                onFilterChange={handleFiltersChange}
                 invalidating={invalidating}
                 onRefresh={handleRefreshAll}
                 mapView={mapView}
-                setMapView={setMapView}
+                setMapView={handleMapViewChange}
+                dateRange={questionStatusDateRange}
+                onDateRangeChange={setQuestionStatusDateRange}
               />
 
               {/* <DashboardFilters filters={filters} onFilterChange={setFilters} /> */}
@@ -615,6 +724,11 @@ export function AnnamDashboard_dev({
                   source={source}
                   userType={filters.userType}
                   todayActiveFarmersData={todayActiveFarmersData}
+                  analyticsData={dailyAnalytics}
+                  weeklyAnalyticsData={weeklyAnalytics}
+                  monthlyAnalyticsData={monthlyAnalytics}
+                  questionStatusRange={questionStatusRange}
+                  questionStatusDateRange={questionStatusDateRange}
                 />
               ) : (
                 <>
@@ -717,6 +831,7 @@ export function AnnamDashboard_dev({
                                 isResponseAdherenceLoading ||
                                 isResponseAdherenceFetching
                               }
+                              userType={filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[400px]" />
@@ -846,12 +961,33 @@ export function AnnamDashboard_dev({
                           setAgriHovered={setAgriHovered}
                           isRefreshing={kwDataRefreshing}
                           onRefresh={handleKWRefresh}
+                          onMetricClick={(metric, value) => {
+                            if (metric === "kcc") {
+                              setSelectedMetricUsers({
+                                title: "KCC Awareness Users List",
+                                category: "kccAwareness",
+                                value: value,
+                                dynamicFieldLabel: "KCC Awareness",
+                                dynamicFieldKey: "awarenessOfKCC",
+                              });
+                            } else {
+                              setSelectedMetricUsers({
+                                title: "Uses Agri Apps Users List",
+                                category: "agriAppUsage",
+                                value: value,
+                                dynamicFieldLabel: "Uses Agri Apps",
+                                dynamicFieldKey: "usesAgriApps",
+                              });
+                            }
+                          }}
                         />
                       </div>
                     )}
 
                     {source !== "whatsapp" && (
                       <FeedbackCard
+                        source={source}
+                        userType={filters.userType}
                         title="Feedback Data"
                         positiveFeedbacksCount={
                           userMetricesData?.feedbackData?.stats
@@ -942,6 +1078,8 @@ export function AnnamDashboard_dev({
                           dateRange={faqsDateRange}
                           onDateRangeChange={setFaqsDateRange}
                           isLoading={faqsLoading}
+                          source={source}
+                          userType={filters.userType}
                         />
                       </>
                     ) : (
@@ -1043,6 +1181,22 @@ export function AnnamDashboard_dev({
                     >
                       <WhatsAppUsersView />
                     </div>
+                  )}
+
+                  {selectedMetricUsers && (
+                    <UsersListModal
+                      isOpen={Boolean(selectedMetricUsers)}
+                      onClose={() => setSelectedMetricUsers(null)}
+                      title={selectedMetricUsers.title}
+                      source={source as any}
+                      userType={filters.userType as any}
+                      dynamicFieldLabel={selectedMetricUsers.dynamicFieldLabel}
+                      dynamicFieldKey={selectedMetricUsers.dynamicFieldKey}
+                      category={selectedMetricUsers.category}
+                      value={selectedMetricUsers.value}
+                      filterOptions={["Yes", "No"]}
+                      initialFilterValue={selectedMetricUsers.value === "yes" ? "Yes" : "No"}
+                    />
                   )}
                 </>
               )}

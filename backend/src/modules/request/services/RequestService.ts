@@ -102,7 +102,7 @@ export class RequestService extends BaseService implements IRequestService{
           );
         }
         const {requests, totalPages, totalCount} =
-          await this.requestRepository.getAllRequests(query);
+          await this.requestRepository.getAllRequests(query, user);
 
         return {
           requests,

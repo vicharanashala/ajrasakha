@@ -35,6 +35,9 @@ export const DISTRICT_RENAMES: Record<string, string> = {
 
   // Uttar Pradesh
   Kanpur: "Kanpur Nagar",
+
+  // Punjab
+  "Nawan Shehar": "Nawanshahr"
 };
 
 export const STATE_RENAMES: Record<string, string> = {

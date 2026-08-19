@@ -16,6 +16,7 @@ on:
           - reviewer
           - llm_cache_proxy
           - langgraph_openai_adapter
+          - daily_price
 
 permissions:
   contents: read
@@ -75,6 +76,11 @@ jobs:
           # LangGraph OpenAI Adapter
           if [[ "$TARGET" == "all" || "$TARGET" == "langgraph_openai_adapter" ]]; then
             add_entry "langgraph_openai_adapter" "./apis/langgraph-openai-adapter" "./apis/langgraph-openai-adapter/Dockerfile"
+          fi
+
+          # Daily market price MCP
+          if [[ "$TARGET" == "all" || "$TARGET" == "daily_price" ]]; then
+            add_entry "daily_price" "./ai" "./ai/ajrasakha/tools/daily_price/Dockerfile"
           fi
 
           # Compact the JSON to single line to avoid issues with GHA outputs

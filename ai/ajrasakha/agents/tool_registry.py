@@ -7,8 +7,8 @@ from langgraph.prebuilt import ToolNode
 
 from ajrasakha.agents.chemical_checker_agent import chemical_checker
 from ajrasakha.agents.config import MCP_URLS
+from ajrasakha.agents.daily_price_agent import daily_price
 from ajrasakha.agents.gdb_agent import gdb
-from ajrasakha.agents.market_agent import market
 from ajrasakha.agents.schemes_agent import schemes
 from ajrasakha.agents.soil_agent import soil
 from ajrasakha.agents.weather_agent import weather
@@ -47,7 +47,7 @@ async def get_main_tools() -> list:
         gdb,
         weather,
         soil,
-        market,
+        daily_price,
         location_mcp,
         schemes,
         chemical_checker,

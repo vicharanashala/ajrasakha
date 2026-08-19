@@ -8,6 +8,7 @@ import type { IUser } from "@/types";
 import {
   CROPS,
   STATES,
+  type AdvanceFilterValues,
   type QuestionDateRangeFilter,
   type QuestionFilterStatus,
   type QuestionPriorityFilter,
@@ -23,6 +24,7 @@ import { ReviewLevelsTable } from "@/features/questions/components/review-level/
 import { useGetQuestionsAndLevel } from "@/features/questions/hooks/useGetQuestionsAndLevel";
 import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLevel";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
+import type { DedicatedSubTab } from "@/features/question-table-page/AnswerModeSwitcher";
 
 export const QuestionsPage = ({
   currentUser,
@@ -78,18 +80,22 @@ export const QuestionsPage = ({
   const [consecutiveApprovals, setConsecutiveApprovals] = useState("all");
   const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
   const [autoAllocateModeratorFilter, setAutoAllocateModeratorFilter] = useState("all");
+  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "open" | "closed">("all");
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
   const [unallocatedQuestions, setUnallocatedQuestions] = useState(false);
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
   const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
   const [isNonAgri, setIsNonAgri] = useState<boolean | undefined>(undefined);
+  const [isTesting, setIsTesting] = useState<boolean | undefined>(undefined);
+  const [isTrainingQuestion, setIsTrainingQuestion] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [domain, setDomain] = useState("all");
   const [user, setUser] = useState("all");
+  const [assignedUser, setAssignedUser] = useState("all");
   const [selectedQuestionId, setSelectedQuestionId] = useState(
     autoOpenQuestionId || "",
   );
@@ -106,6 +112,7 @@ export const QuestionsPage = ({
   const [limit, setLimit] = useState(12);
   const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
   const suppressAutoOpenRef = useRef(false);
+  const [dedicatedSubTab, setDedicatedSubTab] = useState<DedicatedSubTab>("questions");
 
   useEffect(() => {
     setCurrentPage(1);
@@ -172,6 +179,7 @@ export const QuestionsPage = ({
         priority,
         domain,
         user,
+        assignedUser,
         startTime,
         endTime,
         review_level,
@@ -180,6 +188,7 @@ export const QuestionsPage = ({
         consecutiveApprovals,
         autoAllocateFilter,
         autoAllocateModeratorFilter,
+        feedbackFilter,
         closedInTwoHrs,
         hiddenQuestions,
         duplicateQuestions,
@@ -187,6 +196,9 @@ export const QuestionsPage = ({
         unallocatedQuestions,
         pae_review: paeReview,
         is_non_agri: isNonAgri,
+        is_testing: isTesting,
+        isTrainingQuestion,
+        // Dedicated tab: filter to questions assigned to the current moderator
         // Dedicated ("My Assignment") tab: filter to questions assigned to the current
         // user, by their role — moderator, gate keeper, or auditor.
         moderatorId:
@@ -216,6 +228,7 @@ export const QuestionsPage = ({
       priority,
       domain,
       user,
+      assignedUser,
       startTime,
       endTime,
       review_level,
@@ -224,6 +237,7 @@ export const QuestionsPage = ({
       consecutiveApprovals,
       autoAllocateFilter,
       autoAllocateModeratorFilter,
+      feedbackFilter,
       closedInTwoHrs,
       hiddenQuestions,
       duplicateQuestions,
@@ -231,8 +245,14 @@ export const QuestionsPage = ({
       unallocatedQuestions,
       paeReview,
       isNonAgri,
+      isTesting,
+      isTrainingQuestion,
       viewMode,
-      currentUser,
+      // Only the id and role are read above. Depending on the whole `currentUser` object
+      // rebuilt this filter on every window-focus refetch (react-query returns a new
+      // object identity even when the data is unchanged).
+      currentUser?._id,
+      currentUser?.role,
     ],
   );
 
@@ -283,11 +303,23 @@ export const QuestionsPage = ({
     }
   }, [autoOpenQuestionId, selectedQuestionId]);
 
+  // Close the open question when the LIST's filters change, so the detail view never
+  // shows a question that's no longer in the result set.
+  //
+  // Keyed on a serialised snapshot rather than the `filter` object: `filter` is memoised
+  // on `currentUser`, a react-query value that gets a new identity on every window-focus
+  // refetch. Depending on the object meant that simply switching browser tabs and coming
+  // back re-ran this effect and slammed the moderator's open question shut, losing edits.
+  const filterSignature = useMemo(
+    () => JSON.stringify(filter),
+    [filter],
+  );
+
   useEffect(() => {
     if (selectedQuestionId && !autoOpenQuestionId) {
       setSelectedQuestionId("");
     }
-  }, [filter, debouncedSearch]);
+  }, [filterSignature, debouncedSearch]);
 
   useEffect(() => {
     if (debouncedSearch === "") return;
@@ -304,6 +336,12 @@ export const QuestionsPage = ({
 
   const filteredQuestions = useMemo(() => {
     const questions = questionData?.questions || [];
+    
+    // In dedicated view with feedbacks tab, show feedback questions
+    if (viewMode === "dedicated" && dedicatedSubTab === "feedbacks") {
+      return questionData?.feedbackQuestions || [];
+    }
+    
     if (!debouncedSearch || searchTabMode === "search") return questions;
     const srcFilter = sourceByMode[searchTabMode];
     if (srcFilter) return questions.filter((q) => q.source === srcFilter);
@@ -311,8 +349,9 @@ export const QuestionsPage = ({
     if (searchTabMode === "non_agri") return questions.filter((q) => q.status === "non_agri");
     if (searchTabMode === "pae") return questions.filter((q) => (q as any).pae_review === true);
     if (searchTabMode === "dynamic") return questions.filter((q) => q.status === "dynamic");
+    if (searchTabMode === "training") return questions.filter((q) => q.isTrainingQuestion === true);
     return questions;
-  }, [questionData, debouncedSearch, searchTabMode]);
+  }, [questionData, debouncedSearch, searchTabMode, viewMode, dedicatedSubTab]);
 
   const currentItems = useMemo(() => {
     if (viewMode === "review-level") return reviewData?.data || [];
@@ -346,7 +385,10 @@ export const QuestionsPage = ({
 
   const handleNext = () => {
     if (currentIndex < currentItems.length - 1) {
-      setSelectedQuestionId(currentItems[currentIndex + 1]._id);
+      const nextQuestionId = currentItems[currentIndex + 1]?._id;
+      if (nextQuestionId) {
+        setSelectedQuestionId(nextQuestionId);
+      }
     } else if (currentPageVal < totalPages) {
       setPendingNav("next");
       if (viewMode === "review-level") setReviewPage(prev => prev + 1);
@@ -356,7 +398,10 @@ export const QuestionsPage = ({
 
   const handlePrev = () => {
     if (currentIndex > 0) {
-      setSelectedQuestionId(currentItems[currentIndex - 1]._id);
+      const previousQuestionId = currentItems[currentIndex - 1]?._id;
+      if (previousQuestionId) {
+        setSelectedQuestionId(previousQuestionId);
+      }
     } else if (currentPageVal > 1) {
       setPendingNav("prev");
       if (viewMode === "review-level") setReviewPage(prev => prev - 1);
@@ -367,9 +412,15 @@ export const QuestionsPage = ({
   useEffect(() => {
     if (pendingNav && !isLoading && !isFetching && !isReviewLoading && currentItems.length > 0) {
       if (pendingNav === "next") {
-        setSelectedQuestionId(currentItems[0]._id);
+        const firstQuestionId = currentItems[0]?._id;
+        if (firstQuestionId) {
+          setSelectedQuestionId(firstQuestionId);
+        }
       } else {
-        setSelectedQuestionId(currentItems[currentItems.length - 1]._id);
+        const lastQuestionId = currentItems[currentItems.length - 1]?._id;
+        if (lastQuestionId) {
+          setSelectedQuestionId(lastQuestionId);
+        }
       }
       setPendingNav(null);
     }
@@ -386,6 +437,7 @@ export const QuestionsPage = ({
     normalisedCrops?: string[];
     domain?: string;
     user?: string;
+    assignedUser?: string;
     answersCount?: [number, number];
     dateRange?: QuestionDateRangeFilter;
     startTime?: Date | undefined;
@@ -403,6 +455,7 @@ export const QuestionsPage = ({
     unallocatedQuestions?: boolean;
     pae_review?: boolean;
     is_non_agri?: boolean;
+    is_testing?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -416,6 +469,7 @@ export const QuestionsPage = ({
     if (next.priority !== undefined) setPriority(next.priority);
     if (next.domain !== undefined) setDomain(next.domain);
     if (next.user !== undefined) setUser(next.user);
+    if (next.assignedUser !== undefined) setAssignedUser(next.assignedUser);
     if (next.startTime !== undefined) setStartTime(next.startTime);
     if (next.endTime !== undefined) setEndTime(next.endTime);
     if (next.review_level !== undefined) setReviewLevel(next.review_level);
@@ -427,6 +481,8 @@ export const QuestionsPage = ({
       setAutoAllocateFilter(next.autoAllocateFilter);
     if (next.autoAllocateModeratorFilter !== undefined)
       setAutoAllocateModeratorFilter(next.autoAllocateModeratorFilter);
+    if (next.feedbackFilter !== undefined)
+      setFeedbackFilter(next.feedbackFilter);
     if (next.closedInTwoHrs !== undefined)
       setClosedInTwoHrs(next.closedInTwoHrs);    
     if (next.hiddenQuestions !== undefined)
@@ -441,6 +497,10 @@ export const QuestionsPage = ({
       setPaeReview(next.pae_review);
     if ("is_non_agri" in next)
       setIsNonAgri(next.is_non_agri);
+    if ("is_testing" in next)
+      setIsTesting(next.is_testing);
+    if ("isTrainingQuestion" in next)
+      setIsTrainingQuestion(next.isTrainingQuestion);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);
@@ -467,6 +527,7 @@ export const QuestionsPage = ({
     setPriority("all");
     setDomain("all");
     setUser("all");
+    setAssignedUser("all");
     setReviewLevel("all");
     setStartTime(undefined);
     setEndTime(undefined);
@@ -475,12 +536,15 @@ export const QuestionsPage = ({
     setConsecutiveApprovals("all");
     setAutoAllocateFilter("all");
     setAutoAllocateModeratorFilter("all");
+    setFeedbackFilter("all");
     setClosedInTwoHrs(false);
     setHiddenQuestions(false);
     setDuplicateQuestions(false);
     setIsOnHold(false);
     setPaeReview(undefined);
     setIsNonAgri(undefined);
+    setIsTesting(undefined);
+    setIsTrainingQuestion(undefined);
   };
 
   const handleViewMore = (questoinId: string) => {
@@ -580,6 +644,7 @@ export const QuestionsPage = ({
               refetch();
             }}
             totalQuestions={displayTotal}
+            currentUser={currentUser}
             userRole={currentUser?.role!}
             isSelectionModeOn={isSelectionModeOn}
             handleBulkDelete={handleBulkDelete}
@@ -597,6 +662,8 @@ export const QuestionsPage = ({
             view={view}
             setView={setView}
             onAnswerModeChange={setSearchTabMode}
+            dedicatedSubTab={dedicatedSubTab}
+            onDedicatedSubTabChange={setDedicatedSubTab}
           />
 
           {viewMode === "all" || viewMode === "dedicated" ? (

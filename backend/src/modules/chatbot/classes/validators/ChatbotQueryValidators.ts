@@ -1,4 +1,4 @@
-import { IsOptional, IsIn, IsInt, IsString, Min, IsNotEmpty } from 'class-validator';
+import { IsOptional, IsIn, IsInt, IsString, Min, IsNotEmpty, IsArray, ArrayNotEmpty, IsEmail } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JSONSchema } from 'class-validator-jsonschema';
 
@@ -29,6 +29,11 @@ export class DashboardQueryDto {
   @IsOptional()
   @IsString()
   endTime?: string;
+
+  @JSONSchema({ example: '6a3385e5d7128c0afd3f2283', description: 'Filter by coordinator ID to scope metrics to their hierarchy' })
+  @IsOptional()
+  @IsString()
+  coordinatorId?: string;
 }
 
 export class SourceQueryDto {
@@ -41,6 +46,47 @@ export class SourceQueryDto {
   @IsOptional()
   @IsIn(['all', 'external', 'internal'])
   userType: 'all' | 'external' | 'internal' = 'all';
+}
+
+export class FeedbackUsersQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+
+  @JSONSchema({ example: 'seed', description: 'Search term' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @JSONSchema({ example: 'createdAt', description: 'Field to sort by' })
+  @IsOptional()
+  @IsString()
+  sortBy: string = 'createdAt';
+
+  @JSONSchema({ example: 'desc', description: 'Sort order: asc or desc' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder: 'asc' | 'desc' = 'desc';
+
+  @JSONSchema({ example: 'thumbsUp', description: 'Filter by feedback rating: thumbsUp or thumbsDown' })
+  @IsOptional()
+  @IsIn(['all', 'thumbsUp', 'thumbsDown'])
+  rating?: string;
+
+  @JSONSchema({ example: 'accurate_reliable', description: 'Filter by specific feedback tag' })
+  @IsOptional()
+  @IsString()
+  tag?: string;
 }
 
 export class QueryAnalyticsQueryDto extends SourceQueryDto {
@@ -214,6 +260,52 @@ export class DemographicUsersQueryDto {
   sortOrder: 'asc' | 'desc' = 'desc';
 }
 
+export class PlatformUsersQueryDto {
+  @JSONSchema({ example: 'Android', description: 'Platform name to filter users by' })
+  @IsNotEmpty()
+  @IsString()
+  platform!: string;
+
+  @JSONSchema({ example: 'annam', description: 'Data source to query' })
+  @IsOptional()
+  @IsIn(['annam', 'whatsapp'])
+  source: 'annam' | 'whatsapp' = 'annam';
+
+  @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
+  @IsOptional()
+  @IsIn(['all', 'external', 'internal'])
+  userType: 'all' | 'external' | 'internal' = 'all';
+
+  @JSONSchema({ example: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+
+  @JSONSchema({ example: 'john', description: 'Search by name, email, or phone number' })
+  @IsOptional()
+  @IsString()
+  search: string = '';
+
+  @JSONSchema({ example: 'name', description: 'Sort by field: name, email, or createdAt' })
+  @IsOptional()
+  @IsIn(['name', 'email', 'createdAt'])
+  sortBy: 'name' | 'email' | 'createdAt' = 'createdAt';
+
+  @JSONSchema({ example: 'asc', description: 'Sort order: asc or desc' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder: 'asc' | 'desc' = 'desc';
+}
+
 export class UserDetailsQueryDto {
   @JSONSchema({ example: '2025-01-01', description: 'Filter start date (ISO string)' })
   @IsOptional()
@@ -333,4 +425,73 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsString()
   isVerified?: string;
+
+     @JSONSchema({ example: 'true', description: 'If true, return only users who are has state in farmer profile' })
+  @IsOptional()
+  @IsString()
+  fromMap?: string;
+
+  @JSONSchema({ example: 'loggedIn', description: 'Filter by login status: all, loggedIn, or loggedOut' })
+  @IsOptional()
+  @IsIn(['all', 'loggedIn', 'loggedOut'])
+  loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all';
+}
+
+export class SendResponseAdherenceReportRequest {
+  @JSONSchema({
+    description: 'Array of recipient email addresses',
+    example: ['admin@example.com', 'manager@example.com'],
+    type: 'array',
+    items: { type: 'string', format: 'email' },
+  })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsEmail({}, { each: true })
+  emails!: string[];
+
+  @JSONSchema({
+    description: 'The report content (CSV) to email as an attachment, exactly as built by the download button',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  reportContent!: string;
+
+  @JSONSchema({
+    description: 'The report rendered as an HTML table, embedded directly in the email body in addition to the CSV attachment',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  reportHtml?: string;
+
+  @JSONSchema({ description: 'Attachment file name', example: 'response-adherence-report-2026-08-12.csv', type: 'string' })
+  @IsOptional()
+  @IsString()
+  fileName?: string;
+
+  @JSONSchema({ description: 'Source filter used to generate the report (for the audit trail / email subject only)', type: 'string' })
+  @IsOptional()
+  @IsString()
+  source?: string;
+
+  @JSONSchema({ description: 'User type filter used to generate the report (for the audit trail / email subject only)', type: 'string' })
+  @IsOptional()
+  @IsString()
+  userType?: string;
+
+  @JSONSchema({ description: 'Start date used to generate the report (for the audit trail / email subject only)', type: 'string' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @JSONSchema({ description: 'End date used to generate the report (for the audit trail / email subject only)', type: 'string' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @JSONSchema({ description: 'Time window used to generate the report, shown alongside the Source/UserType/Date summary in the email body', type: 'string' })
+  @IsOptional()
+  @IsString()
+  timeWindow?: string;
 }

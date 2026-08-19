@@ -1,0 +1,25 @@
+# Daily market price MCP service.
+# Run from this directory:
+#   docker compose up --build -d
+# Or from ajrasakha/ai:
+#   docker compose -f ajrasakha/tools/daily_price/docker-compose.yml up --build -d
+#
+# Requires .env in this directory with at least:
+#   MARKET_MONGO_URI=mongodb://...
+# Optional:
+#   MARKET_MONGO_DB_NAME=Price
+#   MARKET_DEFAULT_TOP_N_NEAREST=5
+
+services:
+  daily-price-mcp:
+    build:
+      context: ../../..
+      dockerfile: ajrasakha/tools/daily_price/Dockerfile
+    container_name: daily-price-mcp
+    ports:
+      - "8111:8006"
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+    restart: unless-stopped

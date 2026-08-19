@@ -7,6 +7,13 @@ export interface ExtractDataResponse {
   extracted_state: string;
   extracted_district: string;
   extracted_domain?: string | string[];
+  extracted_name?: string;
+  extracted_phone?: string;
+  extracted_age?: number;
+  extracted_gender?: string;
+  extracted_village?: string;
+  extracted_block?: string;
+  extracted_primary_crop?: string;
 }
 
 export interface CorrectedData {
@@ -16,6 +23,13 @@ export interface CorrectedData {
   district: string;
   domain: string | string[];
   season: string;
+  farmerName?: string;
+  farmerPhone?: string;
+  farmerAge?: number;
+  farmerGender?: string;
+  farmerVillage?: string;
+  farmerBlock?: string;
+  farmerPrimaryCrop?: string;
 }
 
 export interface QAMetadata {

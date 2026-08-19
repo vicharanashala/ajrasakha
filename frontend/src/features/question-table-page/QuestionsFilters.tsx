@@ -9,7 +9,7 @@ import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
 
 import { Badge } from "../../components/atoms/badge";
-import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "../../components/atoms/select";
+// import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "../../components/atoms/select";
 
 import {
   ArrowDownNarrowWide,
@@ -36,6 +36,9 @@ import {
   MessageCircle,
   AlertTriangle,
   Download,
+  FileText,
+  MessageSquareDiff,
+  MapPin,
 } from "lucide-react";
 import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
@@ -45,6 +48,7 @@ import {
 import type {
   IDetailedQuestion,
   IMyPreference,
+  IUser,
   QuestionSource,
   QuestionStatus,
   UserRole,
@@ -61,6 +65,7 @@ import {
 } from "./AddOrEditQuestionDialog";
 import { useReAllocateLessWorkload, useReAllocateExpertsSelectedQuestions } from "@/hooks/api/question/useReAllocateLessWorkload";
 import { DownloadReportButton } from "./DownloadReportButton";
+import { TatReportButton } from "./TatReportButton";
 import { DownloadOverallReportButton } from "./DownloadOverallReportButton";
 import { DownloadFilteredReportButton } from "./DownloadFilteredReportButton";
 import { DownloadDuplicateReportButton } from "./DownloadDuplicateReportButton";
@@ -73,16 +78,19 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
-import { QueueDetailsModal, GateKeeperAuditorQueueModal } from "./QueueDetailsModal";
+import { StateDistrictAliasModal } from "./StateDistrictAliasModal";
+import { QueueDetailsModal, GateKeeperAuditorQueueModal, FeedbackQueueModal, PaeValidationQueueModal } from "./QueueDetailsModal";
+import { canViewQueueDetails } from "@/lib/roles";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
-import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
+import { AnswerModeSwitcher, type DedicatedSubTab } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
-import { UserCheck } from "lucide-react";
+import { UserCheck, LayoutDashboard } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
 
 import { TopRightBadge } from "@/components/NewBadge";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
+import { EditPublicDashboardModal } from "./EditPublicDashboardModal";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -96,6 +104,7 @@ type QuestionsFiltersProps = {
   setIsBulkUpload: (val: boolean) => void;
   refetch: () => void;
   totalQuestions: number;
+  currentUser?: IUser;
   userRole: UserRole;
   isSelectionModeOn: boolean;
   bulkDeletingQuestions: boolean;
@@ -113,9 +122,11 @@ type QuestionsFiltersProps = {
   handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
   isBulkAllocatingPae: boolean;
   onAnswerModeChange?: (mode: string) => void;
+  dedicatedSubTab?: DedicatedSubTab;
+  onDedicatedSubTabChange?: (tab: DedicatedSubTab) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
@@ -125,6 +136,7 @@ const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.source === "AGRI_EXPERT") return "manual";
   if (filter.source === "WHATSAPP") return "whatsapp";
   if (filter.source === "OUTREACH") return "outreach";
+  if (filter.isTrainingQuestion === true) return "training";
   return "ajraskha";
 };
 
@@ -150,6 +162,7 @@ export const QuestionsFilters = ({
   onReset,
   refetch,
   totalQuestions,
+  currentUser,
   userRole,
   isSelectionModeOn,
   handleBulkDelete,
@@ -167,6 +180,8 @@ export const QuestionsFilters = ({
   handleBulkAllocateToPae,
   isBulkAllocatingPae,
   onAnswerModeChange,
+  dedicatedSubTab,
+  onDedicatedSubTabChange,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -189,6 +204,12 @@ export const QuestionsFilters = ({
     filterToAnswerMode(appliedFilters),
   );
   const prevAnswerModeRef = useRef<AnswerMode>(filterToAnswerMode(appliedFilters));
+  const isTrainingUser = currentUser?.isTrainingUser === true;
+
+  // ── Public dashboard editor (admin-only) ──
+  const isAdmin = userRole === "admin";
+  const [isEditPublicDashboardOpen, setIsEditPublicDashboardOpen] =
+    useState(false);
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -206,6 +227,7 @@ export const QuestionsFilters = ({
   const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [isChemicalModalOpen, setIsChemicalModalOpen] = useState(false);
+  const [isStateAliasModalOpen, setIsStateAliasModalOpen] = useState(false);
   const [isDownloadingCrops, setIsDownloadingCrops] = useState(false);
   const [isDownloadingChemicals, setIsDownloadingChemicals] = useState(false);
   const [isPaeAllocateModalOpen, setIsPaeAllocateModalOpen] = useState(false);
@@ -325,9 +347,12 @@ export const QuestionsFilters = ({
       if (mode !== "add") return;
       if (formData) {
         const isOutreach = formData.get("isOutreachQuestion") === "true";
+        const isTrainingQuestion = formData.get("isTrainingQuestion") === "true";
         await addQuestion(formData as any);
         // toast.success('File Uploaded succesfully')
-        handleAnswerModeChange(isOutreach ? "outreach" : "manual");
+        handleAnswerModeChange(
+          isTrainingQuestion ? "training" : isOutreach ? "outreach" : "manual",
+        );
         setAddQuestionErrors({});
         setAddOpen(false);
         return;
@@ -347,6 +372,7 @@ export const QuestionsFilters = ({
         details: updatedData.details,
         context: updatedData.context || "",
         aiInitialAnswer: updatedData.aiInitialAnswer || "",
+        isTrainingQuestion: updatedData.isTrainingQuestion ?? false,
       };
 
       const validationErrors: AddQuestionValidationErrors = {};
@@ -461,7 +487,7 @@ export const QuestionsFilters = ({
 
     if (nextAnswerMode === "search") {
       // Search Results tab → fetch all sources, reset client-side mode
-      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       prevAnswerModeRef.current = "search";
       setAnswerMode("search");
       setAdvanceFilterValues(nextFilters);
@@ -480,18 +506,22 @@ export const QuestionsFilters = ({
     }
 
     if (nextAnswerMode === "non_agri") {
-      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined };
+      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else if (nextAnswerMode === "draft") {
-      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
     } else if (nextAnswerMode === "dynamic") {
-      nextFilters = { ...advanceFilter, source: "all", status: "dynamic", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", status: "dynamic", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
     } else if (nextAnswerMode === "pae") {
-      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined, isTrainingQuestion: undefined };
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
+    } else if (nextAnswerMode === "training") {
+      nextFilters = { ...advanceFilter, source: "all", isTrainingQuestion: true, pae_review: undefined, is_non_agri: undefined, status: "all" };
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);
-      nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     }
 
@@ -500,6 +530,11 @@ export const QuestionsFilters = ({
     setAdvanceFilterValues(nextFilters);
     onChange(nextFilters);
   };
+
+  useEffect(() => {
+    if (!isTrainingUser || answerMode === "training") return;
+    handleAnswerModeChange("training");
+  }, [answerMode, isTrainingUser]);
 
   // Auto-switch to Search Results tab when user types; revert when cleared
   useEffect(() => {
@@ -549,6 +584,7 @@ export const QuestionsFilters = ({
       priority: advanceFilter.priority,
       domain: myPreference?.domain || advanceFilter.domain,
       user: advanceFilter.user,
+      assignedUser: advanceFilter.assignedUser,
       endTime: advanceFilter.endTime,
       startTime: advanceFilter.startTime,
       review_level: advanceFilter?.review_level,
@@ -558,10 +594,13 @@ export const QuestionsFilters = ({
       consecutiveApprovals: advanceFilter?.consecutiveApprovals,
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
       autoAllocateModeratorFilter: advanceFilter?.autoAllocateModeratorFilter,
+      feedbackFilter: advanceFilter?.feedbackFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,
       is_non_agri: advanceFilter?.is_non_agri,
+      is_testing: advanceFilter?.is_testing,
+      isTrainingQuestion: advanceFilter?.isTrainingQuestion,
       unallocatedQuestions: advanceFilter?.unallocatedQuestions,
     });
   };
@@ -642,6 +681,8 @@ export const QuestionsFilters = ({
     delayed: { bg: "bg-amber-500/10", text: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
     "in-review": { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", dot: "bg-blue-500" },
     closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
+    dynamic_closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
+    duplicate_closed: { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500" },
     pass: { bg: "bg-teal-500/10", text: "text-teal-600 dark:text-teal-400", dot: "bg-teal-500" },
     hold: { bg: "bg-orange-500/10", text: "text-orange-600 dark:text-orange-400", dot: "bg-orange-500" },
     duplicate: { bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400", dot: "bg-rose-500" },
@@ -651,7 +692,8 @@ export const QuestionsFilters = ({
     dynamic: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-600" },
     queue_progress: { bg: "bg-indigo-500/10", text: "text-indigo-600 dark:text-indigo-400", dot: "bg-indigo-500" },
     auditor_review: { bg: "bg-fuchsia-500/10", text: "text-fuchsia-600 dark:text-fuchsia-400", dot: "bg-fuchsia-500" },
-    dynamic_closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
+    // dynamic_closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
+    // duplicate_closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
   };
   const defaultColor = { bg: "bg-purple-500/10", text: "text-purple-600 dark:text-purple-400", dot: "bg-purple-500" };
 
@@ -710,6 +752,7 @@ export const QuestionsFilters = ({
         mode="add"
         validationErrors={addQuestionErrors}
         onFieldValidatedChange={clearAddQuestionError}
+        defaultIsTrainingQuestion={answerMode === "training"}
       />
 
       {/* ── ROW 1: Tabs (full width, scrollable on small screens) ── */}
@@ -719,6 +762,8 @@ export const QuestionsFilters = ({
           if (viewMode === "dedicated") setViewMode("all");
           handleAnswerModeChange(mode);
         }}
+        currentUserIsTrainingUser={isTrainingUser}
+        currentUserIsAdmin={userRole === "admin"}
         hasSearch={!!search}
         sourceCounts={statusSummary?.sourceCounts}
         totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
@@ -729,6 +774,8 @@ export const QuestionsFilters = ({
         }
         isDedicatedView={viewMode === "dedicated"}
         onDedicatedClick={() => setViewMode(viewMode === "dedicated" ? "all" : "dedicated")}
+        dedicatedSubTab={dedicatedSubTab}
+        onDedicatedSubTabChange={onDedicatedSubTabChange}
       />
 
       {/* ── ROW 2: Search + View + Filter + Add ── */}
@@ -756,6 +803,34 @@ export const QuestionsFilters = ({
             )}
           </div>
         </div>
+
+        {/* Sub-tabs for dedicated view: Questions and Feedbacks - shown right of search */}
+        {viewMode === "dedicated" && (
+          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border">
+            <button
+              onClick={() => onDedicatedSubTabChange?.("questions")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                dedicatedSubTab === "questions"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              }`}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Questions
+            </button>
+            <button
+              onClick={() => onDedicatedSubTabChange?.("feedbacks")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
+                dedicatedSubTab === "feedbacks"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+              }`}
+            >
+              <MessageSquareDiff className="h-3.5 w-3.5" />
+              Feedbacks
+            </button>
+          </div>
+        )}
 
         {/* Spacer pushes controls to the right */}
         <div className="flex-1" />
@@ -959,6 +1034,25 @@ export const QuestionsFilters = ({
               </button>
             </div>
           </section>
+
+          {/* Section: Public Dashboard (admin-only) */}
+          {isAdmin && (
+            <section>
+              <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+                Public Dashboard
+              </h3>
+              <button
+                onClick={() => {
+                  setIsSidebarOpen(false);
+                  setIsEditPublicDashboardOpen(true);
+                }}
+                className="w-full py-2.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all bg-gray-100 dark:bg-[#0d0d0d] border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
+              >
+                <LayoutDashboard size={14} /> Edit Public Dashboard
+              </button>
+            </section>
+          )}
+
           <section className="hidden md:block">
             <h3 className=" relative text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
               Hide Columns
@@ -1055,7 +1149,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* WhatsApp History */}
-              {userRole !== "expert" && userRole !== 'tester' && (
+              {userRole !== "expert" && userRole !== 'tester' && !isTrainingUser && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative"
                   onClick={() => {
@@ -1109,6 +1203,33 @@ export const QuestionsFilters = ({
                 </button>
               )}
 
+              {/* Edit State & District (aliases) — admin/moderator only */}
+              {(userRole === "admin" || userRole === "moderator") && (
+                <button
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-teal-50 dark:hover:bg-teal-500/5 border border-gray-200 dark:border-gray-800 hover:border-teal-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  onClick={() => {
+                    setIsStateAliasModalOpen(true);
+                    setIsSidebarOpen(false);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-teal-100 dark:bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-500">
+                      <MapPin size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
+                          Edit State &amp; District
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        Manage state / district aliases
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
               {/* update chemicals — commented out */}
               {/* {userRole !== "expert" && (
                 <button
@@ -1137,7 +1258,7 @@ export const QuestionsFilters = ({
               )} */}
 
               {/* reallocate */}
-              {userRole !== "expert" && userRole !== "tester" && (
+              {userRole !== "expert" && userRole !== "tester" && !isTrainingUser && (
                 <button
                   className="relative w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1173,7 +1294,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* send outreach rport */}
-              {userRole !== "expert" && userRole !== "tester" && (
+              {userRole !== "expert" && userRole !== "tester" && !isTrainingUser && (
                 <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
               {/* preferences */}
@@ -1189,14 +1310,24 @@ export const QuestionsFilters = ({
                 setIsSidebarOpen={setIsSidebarOpen}
               />
 
-              {/* queue details — moderators & admins only */}
-              {(userRole === "admin" || userRole === "moderator") && (
-                <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
+              {/* queue details — admins, moderators, gate keepers & auditors */}
+              {canViewQueueDetails(userRole) && (
+                <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} currentUserIsAdmin={userRole === "admin"} isTrainingUser={isTrainingUser} />
               )}
 
-              {/* gate keeper / auditor queue — moderators & admins only */}
-              {(userRole === "admin" || userRole === "moderator") && (
+              {/* gate keeper / auditor queue — admins, moderators, gate keepers & auditors */}
+              {canViewQueueDetails(userRole) && !isTrainingUser && (
                 <GateKeeperAuditorQueueModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
+
+              {/* feedback queue — admins, moderators, gate keepers & auditors */}
+              {canViewQueueDetails(userRole) && !isTrainingUser && (
+                <FeedbackQueueModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
+
+              {/* pae queue — admins, moderators */}
+              {canViewQueueDetails(userRole) && !isTrainingUser && (
+                <PaeValidationQueueModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
             </div>
           </section>
@@ -1247,6 +1378,13 @@ export const QuestionsFilters = ({
                   <DownloadShiftWiseReportButton
                     closeSideBar={() => setIsSidebarOpen(false)}
                     userRole={userRole}
+                    isTrainingUser={isTrainingUser}
+                  />
+                </div>
+
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-rose-50 dark:hover:bg-rose-500/5 border border-gray-200 dark:border-gray-800 hover:border-rose-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                  <TatReportButton
+                    onOpenDialog={() => setIsSidebarOpen(false)}
                   />
                 </div>
 
@@ -1495,9 +1633,19 @@ export const QuestionsFilters = ({
         open={isCropModalOpen}
         onOpenChange={setIsCropModalOpen}
       />
+      {isAdmin && (
+        <EditPublicDashboardModal
+          open={isEditPublicDashboardOpen}
+          onOpenChange={setIsEditPublicDashboardOpen}
+        />
+      )}
       <ChemicalManagementModal
         open={isChemicalModalOpen}
         onOpenChange={setIsChemicalModalOpen}
+      />
+      <StateDistrictAliasModal
+        open={isStateAliasModalOpen}
+        onOpenChange={setIsStateAliasModalOpen}
       />
       <BulkUploadAllocationModal
         open={isPaeAllocateModalOpen}

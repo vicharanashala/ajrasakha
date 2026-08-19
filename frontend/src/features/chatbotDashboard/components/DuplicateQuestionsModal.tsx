@@ -23,6 +23,7 @@ interface DuplicateQuestionsModalProps {
   onClose: () => void;
   source?: 'annam' | 'whatsapp';
   userType: string;
+  coordinatorId?: string;
 }
 
 const DEFAULT_FILTERS: UserDetailsFilters = {
@@ -41,15 +42,16 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   inactiveOnly: false,
   lowFeedbackOnly: false,
   userType: 'all',
-  isVerified: true,
+  verificationStatus: 'all',
+  loginStatus: 'all',
 };
 
-export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }: DuplicateQuestionsModalProps) {
+export function DuplicateQuestionsModal({ onClose, source = 'annam', userType, coordinatorId,
+}: DuplicateQuestionsModalProps) {
   const {
     setSelectedQuestionId,
-    setView,
   } = useSelectedQuestion();
-  const { data, isLoading, isError } = useDuplicateQuestions(true, source, userType);
+  const { data, isLoading, isError } = useDuplicateQuestions(true, source, userType, coordinatorId,);
   const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
 
   const filtered = useMemo(() => {
@@ -252,7 +254,7 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }:
             <UserDetailsPreferenceFilter
               filters={filters}
               onApply={setFilters}
-              hideFields={["crop", "inactive", "profile", "roles"]}
+              hideFields={["crop", "inactive", "profile", "roles", "loginStatus"]}
             />
             <button
               onClick={onClose}

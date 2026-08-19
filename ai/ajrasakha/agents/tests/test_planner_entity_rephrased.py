@@ -6,7 +6,12 @@ import pytest
 from langchain_core.messages import HumanMessage
 
 from ajrasakha.agents.plan_executor import build_tool_calls_from_plan
-from ajrasakha.agents.planner_rules import merge_entities_from_rephrased_query
+from ajrasakha.agents.domains import is_crop_placeholder
+from ajrasakha.agents.planner_rules import (
+    is_explicit_all_crop_request,
+    is_crop_output_question,
+    merge_entities_from_rephrased_query,
+)
 from ajrasakha.agents import crop_chemical_resolver as resolver
 
 
@@ -75,6 +80,73 @@ def test_merge_entities_crop_from_rephrased_on_new_query():
     entities = merge_entities_from_rephrased_query(plan, messages, None)
     assert entities["crop"] == "Onion"
     assert entities.get("state") == "Punjab"
+
+
+@pytest.mark.parametrize("crop_alias", ["multiple", "multiple crop", "Multiple Crops", "general"])
+def test_merge_entities_normalizes_non_specific_crop_alias_to_all(crop_alias):
+    plan = {
+        "rephrased_query": "General crop cultivation guidance",
+        "entities": {"crop": crop_alias},
+    }
+    messages = [HumanMessage(content="General crop cultivation guidance")]
+
+    entities = merge_entities_from_rephrased_query(plan, messages, None)
+
+    assert entities["crop"] == "all"
+    assert is_crop_placeholder(crop_alias)
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("Which crop should I grow in kharif season?", True),
+        ("What plant is best for the rainy season?", True),
+        ("Which crop can be grown with less water?", True),
+        ("Which crop can be cultivated with little water?", True),
+        ("What crop needs minimal irrigation?", True),
+        ("Could you recommend a crop for the rainy season?", True),
+        ("Which crops are available in Kathua mandi?", True),
+        ("What crops are being sold in this mandi?", True),
+        ("Which commodities are avaible in the market?", True),
+        ("Which crop are you growing?", False),
+        ("What crop do you currently grow?", False),
+        ("Which seed drill should I buy?", False),
+    ],
+)
+def test_crop_output_question_detection(query, expected):
+    assert is_crop_output_question(query) is expected
+
+
+@pytest.mark.parametrize(
+    "reply",
+    ["tell me about any general crop", "any crop is fine", "general crops"],
+)
+def test_explicit_non_specific_crop_reply_detection(reply):
+    assert is_explicit_all_crop_request(reply) is True
+
+
+def test_merge_entities_ignores_llm_inferred_kharif_crop_for_crop_output_question():
+    plan = {
+        "rephrased_query": "Which crop should I grow in kharif season?",
+        "entities": {"crop": "Kharif crops"},
+    }
+    messages = [HumanMessage(content="Which crop should I grow in kharif season?")]
+
+    entities = merge_entities_from_rephrased_query(plan, messages, None)
+
+    assert entities["crop"] == "all"
+
+
+def test_merge_entities_uses_all_for_explicit_multiple_crop_request():
+    plan = {
+        "rephrased_query": "Give general advice for multiple crops",
+        "entities": {"crop": "Sorghum"},
+    }
+    messages = [HumanMessage(content="Give general advice for multiple crops")]
+
+    entities = merge_entities_from_rephrased_query(plan, messages, None)
+
+    assert entities["crop"] == "all"
 
 
 @pytest.mark.asyncio

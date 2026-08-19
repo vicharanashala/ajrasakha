@@ -6,6 +6,7 @@ import pytest
 
 from ajrasakha.agents.plan_executor import (
     build_reviewer_upload_calls,
+    build_tool_calls_from_plan,
     extract_chemicals_from_text,
     reviewer_direct_answer,
 )
@@ -366,10 +367,84 @@ async def test_csv_onion_price_plan_builds_mandi_only():
         question_source="WHATSAPP",
     )
     names = [c["name"] for c in calls]
-    assert "market" in names
+    assert "daily_price" in names
     assert "gdb" not in names
+    daily = next(c for c in calls if c["name"] == "daily_price")
+    assert daily["args"]["crop"] == "onion"
+    assert "latitude" in daily["args"]
+    assert "longitude" in daily["args"]
     reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
     assert reviewer["args"]["source"] == "WHATSAPP"
+
+
+@pytest.mark.asyncio
+async def test_daily_price_uses_rephrased_query_not_location_followup():
+    """After a location follow-up, mandi must get the full price question, not the district reply."""
+    rephrased = (
+        "What was yesterday's price of wheat compared to today's price "
+        "in Khammam district, Telangana?"
+    )
+    plan = {
+        "weather": False,
+        "mandi": True,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": True,
+        "is_complete": True,
+        "rephrased_query": rephrased,
+        "original_query_en": (
+            "What was yesterday's price of wheat compared to today's price? "
+            "Telangana state Khammam district."
+        ),
+        "entities": {"crop": "Wheat", "state": "Telangana", "district": "Khammam"},
+    }
+    calls = await build_tool_calls_from_plan(
+        plan,
+        "Telangana state khammam district.",
+        {
+            "state": "Telangana",
+            "city": "Khammam",
+            "latitude": 17.1729189,
+            "longitude": 80.4057537,
+        },
+        location_tool_name="location_information_tool",
+        reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
+    )
+    daily = next(c for c in calls if c["name"] == "daily_price")
+    gdb = next(c for c in calls if c["name"] == "gdb")
+    assert daily["args"]["query"] == rephrased
+    assert gdb["args"]["rephrased_query"] == rephrased
+    assert daily["args"]["crop"] == "Wheat"
+    assert daily["args"]["state"] == "Telangana"
+
+
+@pytest.mark.asyncio
+async def test_daily_price_uses_rephrased_query_not_crop_followup():
+    rephrased = "nearby market for rice in Guwahati"
+    plan = {
+        "weather": False,
+        "mandi": True,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": False,
+        "is_complete": True,
+        "rephrased_query": rephrased,
+        "entities": {"crop": "Paddy", "state": "Assam", "district": "Guwahati"},
+    }
+    calls = await build_tool_calls_from_plan(
+        plan,
+        "rice",
+        {"state": "Assam", "city": "Guwahati", "latitude": 26.15, "longitude": 91.69},
+        location_tool_name="location_information_tool",
+        reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
+    )
+    daily = next(c for c in calls if c["name"] == "daily_price")
+    assert daily["args"]["query"] == rephrased
+    assert daily["args"]["crop"] == "Paddy"
 
 
 def test_format_tool_results_collects_after_tool_call_ai_message():

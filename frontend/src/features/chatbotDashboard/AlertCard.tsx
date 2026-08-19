@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TrendingUp, InfoIcon, RefreshCw } from "lucide-react";
 import { Badge } from "./components/shared/Badge";
 import { DomainSpikesModal } from "./components/DomainSpikesModal";
-// import { useDomainSpikes } from "./hooks/useDomainSpikes";
+import { useDomainSpikes } from "./hooks/useDomainSpikes";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import CountUp from "react-countup";
@@ -25,6 +25,8 @@ interface AlertCardProps {
   source: "vicharanashala" | "annam" | "whatsapp";
   onInactiveWhatsAppUsersClick?: () => void;
   isFetching?: boolean;
+  hideLowFeedback?: boolean;
+  coordinatorId?: string;
 }
 
 export function AlertCard({
@@ -38,16 +40,18 @@ export function AlertCard({
   source,
   onInactiveWhatsAppUsersClick,
   isFetching,
+  hideLowFeedback = false,
+  coordinatorId,
 }: AlertCardProps) {
-  // const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
+  const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
 
   // Fetch spikes independently — always enabled so the preview row is live
-  // const { data: spikes = [] } = useDomainSpikes(true, 60);
+  const { data: spikes = [] } = useDomainSpikes(true, 60);
 
   // Show the highest spike as the preview
-  // const topSpike = spikes.length > 0
-  //   ? spikes.reduce((a, b) => (b.spikePct > a.spikePct ? b : a))
-  //   : null;
+  const topSpike = spikes.length > 0
+    ? spikes.reduce((a, b) => (b.spikePct > a.spikePct ? b : a))
+    : null;
   const queryClient = useQueryClient();
   const handleRefresh = async ()=>{
     await queryClient.refetchQueries({ queryKey: ["dashboard-data"] });
@@ -184,7 +188,7 @@ export function AlertCard({
       </div>
 
       {/* Low Feedback Users Row */}
-      {source !== "whatsapp" && (
+      {source !== "whatsapp" && !hideLowFeedback && (
         <div
           className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-950/30 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
           onClick={() => onLowFeedbackClick?.()}
@@ -229,7 +233,7 @@ export function AlertCard({
       )}
 
       {/* Domain Spikes Row — always rendered, shows top spike or a placeholder */}
-      {/* {source !== "whatsapp" &&
+      {source !== "whatsapp" && (
       <div
         className="flex items-center justify-between rounded-lg p-3 mb-2.5 border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/30 cursor-pointer hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
         onClick={() => setIsSpikesModalOpen(true)}
@@ -279,13 +283,16 @@ export function AlertCard({
           </svg>
         </div>
       </div>
-      } */}
+      )}
 
       <div className="flex-1" />
 
-      {/* {isSpikesModalOpen && (
-        <DomainSpikesModal onClose={() => setIsSpikesModalOpen(false)} />
-      )} */}
+      {isSpikesModalOpen && (
+        <DomainSpikesModal
+          onClose={() => setIsSpikesModalOpen(false)}
+          coordinatorId={coordinatorId}
+        />
+      )}
     </div>
   );
 }

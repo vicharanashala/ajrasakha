@@ -19,8 +19,19 @@ export interface AuthUser {
 }
 export interface IMyPreference {
   state: string;
+  district?: string;
   crop: string;
   domain: string | string[];
+}
+export interface IKVKCovered {
+  number?: number;
+  name?: string[];
+}
+/** One KVK-covered entry: state, district and KVK name (all Title-Cased). */
+export interface IKVKCoveredItem {
+  state: string;
+  district: string;
+  name: string;
 }
 export type NotificationRetentionType = "3d" | "1w" | "2w" | "1m" | "never";
 export interface IUser {
@@ -51,11 +62,18 @@ export interface IUser {
   special_task_force_moderator?: boolean
   mobile?: string;
   university?: string;
+  /** KVKs this user covers — one { state, district, name } entry each.
+   *  (Legacy records may hold string[] or { number, name[] }.) */
+  kvkCovered?: IKVKCoveredItem[];
   isVerified?: boolean;
   isCallAgentActive?: boolean;
+  lastAgentActiveAt?: string | Date;
+  Call_centre_manager?: boolean;
   agent?: string; // "not_available" or "agent_1", "agent_2", etc.
   isBusy?: boolean; // true if agent is currently in a call
   currentCallUuid?: string | null; // UUID of the current call being handled
+  isTrainingUser?: boolean; // true if the user is assigned as a training user
+  feedbacksAssigned?: string[]; // question IDs assigned for feedback review
 }
 
 export interface IUnverifiedUser {
@@ -277,7 +295,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "dynamic" | "queue_progress" | "auditor_review" | "dynamic_closed"|"queue_duplicate" | "duplicate_confirmed";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" |"pending"| "dynamic" | "queue_progress" | "auditor_review" | "dynamic_closed"|"queue_duplicate" | "duplicate_confirmed" | "duplicate_closed";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -479,6 +497,7 @@ export interface IQuestionFullData {
   passingRemark?: string;
   isHidden?: boolean;
   isOnHold?: boolean;
+  isTesting?: boolean;
   holdAt?: string;
   accumulatedHoldMs?: number;
   aiInitialAnswer?: string;
@@ -531,6 +550,7 @@ export interface IQuestionFullData {
   auditorFinishedAt?: string | null;
   autoAllocateGateKeeper?: boolean;
   autoAllocateAuditor?: boolean;
+  isTrainingQuestion?: boolean;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
   isAssignedModerator?: boolean;
   /** True when the requesting user is the assigned gate keeper / auditor (server-computed). */
@@ -555,6 +575,7 @@ export interface IQuestionFullData {
     createdAt?: string;
     updatedAt?: string;
   } | null;
+  paeValidation?: "in-progress" | "completed" | "pending"
 }
 
 export interface QuestionFullDataResponse {
@@ -580,6 +601,25 @@ export interface QuestionMessageDetailsResponse {
   success: boolean;
   data: QuestionMessageDetail,
   message?: string;
+}
+
+export interface QuestionFeedbackResponse {
+  success: boolean;
+  data: {
+    feedback: {
+      _id?:string;
+      rating: string;
+      tag?: string;
+      text?: string;
+      status?:string;
+    } | null;
+    user?: {
+      username: string;
+      email: string;
+      avatar: string | null;
+    };
+    createdAt?: string;
+  };
 }
 
 
@@ -635,6 +675,7 @@ export interface IDetailedQuestion {
   };
   pae_review?: boolean;
   is_non_agri?: boolean;
+  isTesting?: boolean;
   similarityScore?: number;        // percentage (0–100)
   referenceQuestionId?: string;
   referenceQuestion?: string
@@ -643,15 +684,19 @@ export interface IDetailedQuestion {
   autoAllocateModerator?: boolean;
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   moderatorId?: string | null;
+  isTrainingQuestion?: boolean;
   isDuplicateCancelled?: boolean;
   duplicateCancelReason?: string;
   isAutoAllocate?: boolean;
+  autoAllocatePaeValidationExpert?: boolean;
 }
 
 export interface IDetailedQuestionResponse {
   totalPages: number;
   totalCount: number;
   questions: IDetailedQuestion[];
+  /** Questions from the user's feedbacksAssigned array (for feedback tab) */
+  feedbackQuestions?: IDetailedQuestion[];
 }
 
 export type RequestStatus = "pending" | "rejected" | "approved" | "in-review";
@@ -1046,6 +1091,10 @@ enum AuditAction {
   DELETE_AUDITOR = 'DELETE_AUDITOR',
   TOGGLE_GATE_KEEPER_ALLOCATION = 'TOGGLE_GATE_KEEPER_ALLOCATION',
   TOGGLE_AUDITOR_ALLOCATION = 'TOGGLE_AUDITOR_ALLOCATION',
+  SELECT_FEEDBACK_REVIEWER = 'SELECT_FEEDBACK_REVIEWER',
+  DELETE_FEEDBACK_REVIEWER = 'DELETE_FEEDBACK_REVIEWER',
+  TOGGLE_FEEDBACK_ALLOCATION = 'TOGGLE_FEEDBACK_ALLOCATION',
+  FEEDBACK_ACTION = 'FEEDBACK_ACTION',
   EXPERTS_ADD_COMMENT = 'EXPERTS_ADD_COMMENT',
 
   //EXPERTS_MANAGEMENT

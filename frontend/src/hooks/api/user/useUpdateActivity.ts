@@ -11,12 +11,12 @@ export const useUpdateActivity = () => {
     mutationKey: ['update_activity'],
     mutationFn: async ({ userId, status }: { userId: string, status: 'active' | 'in-active' }) => {
       const result = await userService.updateUserStatus(userId, status);
-      if (status === 'in-active') {
-        await userService.isBlockUser(userId, 'block');
-      }
-      if (status === 'active') {
-        await userService.isBlockUser(userId, 'unblock');
-      }
+      // if (status === 'in-active') {
+      //   await userService.isBlockUser(userId, 'block');
+      // }
+      // if (status === 'active') {
+      //   await userService.isBlockUser(userId, 'unblock');
+      // }
       
       return result;
     },

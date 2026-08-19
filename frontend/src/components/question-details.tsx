@@ -30,12 +30,16 @@ import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
 import MessageDetail from "./MessageDetail";
+import UserFeedbackDetail from "./UserFeedbackDetail";
+import OpenFeedback from "./OpenFeedback";
+import { FeedbackReviewTimeline } from "./FeedbackReviewTimeline";
 import { AiGeneratedAnswerCard } from "./AiGeneratedAnswerCard";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubmissionHistoryModal } from "./submission-history-model";
+import PaeValidationReviewTimeline from "./PaeValidationReviewTimeline";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -139,7 +143,45 @@ export const QuestionDetails = ({
   };
 
   useEffect(() => {
+    /** Arrow keys belong to the field the user is typing in, not to question navigation. */
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      const el = target as HTMLElement | null;
+      if (!el || typeof el.closest !== "function") return false;
+      const tag = el.tagName;
+      return (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        el.isContentEditable ||
+        !!el.closest('[contenteditable="true"]')
+      );
+    };
+
+    /**
+     * True while any modal (approve / view more / edit) or floating layer (select,
+     * dropdown, popover, combobox) is open. Radix marks open overlays with
+     * data-state="open" and portals floating content into a popper wrapper.
+     */
+    const hasOpenOverlay = (): boolean =>
+      !!document.querySelector(
+        '[role="dialog"][data-state="open"],' +
+          '[role="alertdialog"][data-state="open"],' +
+          "[data-radix-popper-content-wrapper]",
+      );
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      // Previously unguarded: a moderator pressing an arrow inside an open modal or
+      // while editing an answer was silently moved to the next/previous question,
+      // losing their work. Ignore the key in those contexts.
+      if (
+        e.defaultPrevented ||
+        isEditableTarget(e.target) ||
+        hasOpenOverlay()
+      ) {
+        return;
+      }
+
       if (e.key === "ArrowRight" && hasNext && onNext) {
         onNext();
       } else if (e.key === "ArrowLeft" && hasPrev && onPrev) {
@@ -154,6 +196,8 @@ export const QuestionDetails = ({
   useEffect(() => {
     console.log("Open is set to", open);
   }, [open]);
+
+  const closedStatus = ['closed', 'dynamic_closed', 'duplicate_closed'].includes(question?.status)
 
   return (
     <div className="relative w-full">
@@ -260,14 +304,46 @@ export const QuestionDetails = ({
             (question.source == "AJRASAKHA" || question.source == "WHATSAPP") &&
             currentUser &&
             currentUser.role != "expert" && (
-              <MessageDetail
-                question={question}
-                isQuestionAllocatedToExpert={
-                  question?.submission?.history?.length > 0
-                }
-                navigateToQuestionPage={navigateToQuestionPage}
-              />
+              <>
+                <MessageDetail
+                  question={question}
+                  isQuestionAllocatedToExpert={
+                    question?.submission?.history?.length > 0
+                  }
+                  navigateToQuestionPage={navigateToQuestionPage}
+                />
+                <UserFeedbackDetail questionId={question._id || null} currentUser={currentUser} />
+              </>
             )}
+
+          {/* Feedback-review panel — applies to questions of ANY source (feedback
+              can be raised on AGRI_EXPERT/OUTREACH etc. too). The component gates
+              itself via canViewFeedback (admin or assigned reviewer), so render it
+              independently of the chatbot-only MessageDetail block above. */}
+          {question && currentUser && currentUser.role != "expert" && (
+            <OpenFeedback questionId={question._id || null} currentUser={currentUser} />
+          )}
+
+          {/* Feedback-review timeline: rounds + reviewers, on/off toggle, manual assign. */}
+          
+          {question?._id && currentUser && currentUser.role != "expert" && (
+            <FeedbackReviewTimeline
+              questionId={question._id}
+              canManage={
+                currentUser.role === "admin" || currentUser.role === "moderator"||currentUser.role=="gate_keeper"||currentUser.role=="auditor"
+              }
+            />
+          )}
+
+           {/* pae-validation-review timeline: rounds + reviewers, on/off toggle, manual assign. */}
+          {question?._id && currentUser && currentUser.role != "expert" && closedStatus && (
+            <PaeValidationReviewTimeline
+              questionId={question._id}
+              canManage={
+                question?.paeValidation !== 'completed' && closedStatus &&(currentUser.role === "admin" || currentUser.role === "moderator")
+              }
+            />
+          )}
 
           {/* Queue order: Gate Keeper → Auditor → Expert → Moderator → Re-route */}
 

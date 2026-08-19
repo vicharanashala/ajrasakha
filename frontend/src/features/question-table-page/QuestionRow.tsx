@@ -363,13 +363,18 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                         {(q.tag === "dynamic" || q.auditorReviewType === "dynamic") && (
                           <span className='text-xs text-green-600 mr-1'>(DYNAMIC)</span>
                         )}
+                        {q.tag === "static_dynamic" && (
+                          <span className='text-xs text-blue-600 mr-1'>(STATIC_DYNAMIC)</span>
+                        )}
                         {
                         q?.similarityScore&&
                         q?.referenceQuestionId&&
                         q?.referenceQuestion&&
                         q?.referenceSource&&
                         (
-                          <span className='text-xs text-red-600 mr-1'>(DUPLICATE)</span>
+                          q?.isDuplicateCancelled
+                            ? <span className='text-xs text-amber-600 mr-1'>(DUPLICATE_CANCELED)</span>
+                            : <span className='text-xs text-red-600 mr-1'>(DUPLICATE)</span>
                         )
                         }
                         {truncate(q.question, 50)}

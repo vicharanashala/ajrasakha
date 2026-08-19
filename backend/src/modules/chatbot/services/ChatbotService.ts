@@ -8,6 +8,10 @@ import {CHATBOT_TYPES} from '../types.js';
 import type {
   IChatbotService,
   DashboardResponse,
+  DatasetListResponse,
+  DatasetQuestionListItem,
+  DatasetFeedbackListItem,
+  DatasetUserListItem,
 } from '../interfaces/IChatbotService.js';
 import type {
   IChatbotRepository,
@@ -26,8 +30,10 @@ import type {
   CoordinatorDuplicateQuestionHeatMapResponse,
   CoordinatorDuplicateQuestionLocationHierarchy,
   QueryCategoryQuestionType,
+  PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
+import {sendEmailWithAttachment} from '#root/utils/mailer.js';
 import {GrowthResponse} from '../types/chatbot.type.js';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -42,6 +48,12 @@ import {WhatsappUsers} from '#root/utils/dummyWhatsAppUsers.js';
 import {access} from 'node:fs';
 import {aiConfig} from '#root/config/ai.js';
 import {appConfig} from '#root/config/app.js';
+import {emailConfig} from '#root/config/mail.js';
+import {getISTStartOfToday} from '#root/utils/date.utils.js';
+import {
+  buildResponseAdherenceCsv,
+  buildResponseAdherenceHtmlTable,
+} from '../utils/responseAdherenceReport.js';
 import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
@@ -775,6 +787,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getFeedbackUsers(
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search?: string,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    rating?: string,
+    tag?: string,
+  ): Promise<PaginatedFeedbackMessages> {
+    return this.chatbotRepository.getFeedbackUsers(
+      source,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+      userType,
+      rating,
+      tag,
+    );
+  }
+
   async getDashboard(
     days = 30,
     source = 'annam',
@@ -782,11 +818,67 @@ export class ChatbotService extends BaseService implements IChatbotService {
     startTime?: string,
     endTime?: string,
     month?: string,
+    coordinatorId?: string,
   ): Promise<DashboardResponse> {
     const currentMonth =
       month ||
       `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     try {
+      if (coordinatorId) {
+        const stats = await this.chatbotRepository.getCoordinatorKpiSummary(coordinatorId);
+        const response: any = {
+          kpi: {
+            dau: stats.totalUsers,
+            dauLastMonthPct: 0,
+            dailyQueries: stats.todayQueries,
+            avgSessionDurationMin: stats.avgSessionDurationMin,
+            csatRating: 0,
+            repeatQueryRatePct: 0,
+            voiceUsageSharePct: 0,
+            totalAppInstalls: stats.totalAppInstalls,
+            inactiveUsersLast3Days: stats.inactiveUsersLast3Days,
+            duplicateQuestionsCount: stats.duplicateQuestionsCount,
+            lowFeedbackUsersCount: stats.lowFeedbackUsersCount,
+            dauValue: `${stats.dauActiveCount} / ${stats.dauTotalCount}`,
+            queriesValue: String(stats.todayQueries),
+            sessionValue: `${stats.avgSessionDurationMin.toFixed(1)} min`
+          },
+          dau: stats.dauTrend.map((t: any) => ({ day: t.date, count: t.count })),
+          weeklySessionDuration: [],
+          monthlySessionDuration: [],
+          dailyQueries: stats.queriesTrend.map((t: any) => ({ period: t.date, queryCount: t.count })),
+          weeklyQueries: [],
+          monthlyQueries: [],
+          channelSplit: [],
+          voiceAccuracy: [],
+          geo: [],
+          queryCategories: [],
+          ageGroups: [],
+          genderSplit: [],
+          farmingExperience: [],
+          kccAwareness: [],
+          agriAppUsage: [],
+          landHolding: [],
+          platformInstalls: [],
+          feedbackData: {
+            positiveFeedbacks: [],
+            negativeFeedbacks: [],
+            stats: {
+              _id: null,
+              positiveCount: 0,
+              negativeCount: 0,
+              averageRating: 0,
+              totalFeedbacks: 0
+            }
+          },
+          querySummaries: {
+            daily: { label: "Daily", totalQueries: stats.todayQueries },
+            weekly: { label: "Weekly", totalQueries: stats.todayQueries },
+            monthly: { label: "Monthly", totalQueries: stats.todayQueries }
+          }
+        };
+        return response;
+      }
       const [
         kpi,
         dau,
@@ -1050,12 +1142,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getQueryCategories(source = 'annam', userType = 'all') {
+  async getQueryCategories(source = 'annam', userType = 'all', coordinatorId?: string) {
     try {
       return await this.chatbotRepository.getQueryCategories(
         source,
         undefined,
         userType,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1072,6 +1165,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source = 'annam',
     userType = 'all',
     search?: string,
+    coordinatorId?: string,
   ) {
     try {
       return await this.chatbotRepository.getQueryCategoryQuestions(
@@ -1083,6 +1177,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         undefined,
         userType,
         search,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1182,12 +1277,26 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDistrictAnalyticsByState(
     state: string,
-    selectedStateCode: string,
+    selectedStateCode?: string,
     source = 'annam',
     userType = 'all',
+    startDate?: Date,
+    endDate?: Date,
+    coordinatorId?: string,
   ) {
     try {
-      const stateCode = Number(selectedStateCode);
+      let stateCode: number;
+       stateCode = Number(selectedStateCode);
+      if(!selectedStateCode){
+        const states = await this.lgdService.getStates();
+        const selectedState = states.find((s)=> this.normalizeLocationName(s.stateNameEnglish) === this.normalizeLocationName(state));
+        if(!selectedState){
+          throw new InternalServerError(`State not found: ${state}`);
+        }
+        console.log("Selected state from LGD service", selectedState)
+        stateCode = selectedState.stateCode;
+      }
+      console.log("derived state code", stateCode);
       const district = await this.lgdService.getDistricts(stateCode);
       return await this.chatbotRepository.getDistrictAnalyticsByState(
         state,
@@ -1195,6 +1304,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
         source,
         undefined,
         userType,
+        startDate,
+        endDate,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1212,6 +1324,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source = 'annam',
     userType = 'all',
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
     knownDistricts?: string[],
   ): Promise<any> {
     try {
@@ -1247,6 +1361,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         search,
         districtNames,
+        startDate,
+        endDate,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1255,9 +1371,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTopCrops(source?: string, userType?: string) {
+  async getTopCrops(source?: string, userType?: string, coordinatorId?: string) {
     try {
-      return await this.chatbotRepository.getTopCrops(source, userType);
+      return await this.chatbotRepository.getTopCrops(source, userType, undefined, coordinatorId);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top crops: ${error}`);
     }
@@ -1441,6 +1557,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     activeTodayByProfile = false,
     missingDemographicField?: string,
     isVerified?: boolean,
+    fromMap?:boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
@@ -1470,6 +1588,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         activeTodayByProfile,
         missingDemographicField,
         isVerified,
+        fromMap,
+        loginStatus,
       );
       return data;
     } catch (error) {
@@ -1508,6 +1628,39 @@ export class ChatbotService extends BaseService implements IChatbotService {
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch users by demographic: ${error}`,
+      );
+    }
+  }
+
+  async getUsersByPlatform(
+    platform: string,
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+  ): Promise<PaginatedUserDetails> {
+    try {
+      const data = await this.chatbotRepository.getUsersByPlatform(
+        platform,
+        source,
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+        userType,
+      );
+
+      return {
+        ...data,
+        currentPage: page,
+      } as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch users by platform: ${error}`,
       );
     }
   }
@@ -1590,6 +1743,20 @@ export class ChatbotService extends BaseService implements IChatbotService {
       questions,
       messages,
     };
+  }
+
+  async getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page = 1,
+    limit = 10,
+  ) {
+    return this.chatbotRepository.getUserMessageMetricDetails(
+      userId,
+      metric,
+      page,
+      limit,
+    );
   }
 
   async getAvgSessionDurationV2(source = 'annam', userType = 'all') {
@@ -2837,6 +3004,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     range: number,
     startDate?: Date,
     endDate?: Date,
+    coordinatorId?: string,
   ): Promise<GrowthResponse> {
     return await this._withTransaction(async session => {
       const resolvedEndDate = endDate ? new Date(endDate) : new Date();
@@ -2859,18 +3027,21 @@ export class ChatbotService extends BaseService implements IChatbotService {
           resolvedStartDate,
           resolvedEndDate,
           session,
+          coordinatorId,
         ),
         this.chatbotRepository.getInstalls(
           userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
+          coordinatorId,
         ),
         this.chatbotRepository.getActiveUsers(
           userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
+          coordinatorId,
         ),
       ]);
       return {
@@ -2884,9 +3055,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     });
   }
 
-  async getDuplicateQuestions(source = 'annam') {
+  async getDuplicateQuestions(source = 'annam', coordinatorId?: string) {
     try {
-      return await this.chatbotRepository.getDuplicateQuestions(source);
+      return await this.chatbotRepository.getDuplicateQuestions(source, coordinatorId);
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch duplicate questions: ${error}`,
@@ -2894,9 +3065,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDomainSpikes(days = 60) {
+  async getDomainSpikes(days = 60, coordinatorId?: string) {
     try {
-      return await this.chatbotRepository.getDomainSpikes(days);
+      return await this.chatbotRepository.getDomainSpikes(days, coordinatorId);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch domain spikes: ${error}`);
     }
@@ -2930,6 +3101,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ) {
     try {
       return await this.chatbotRepository.getTopFaqs(
@@ -2938,6 +3110,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startTime,
         endTime,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
@@ -3200,6 +3373,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType?: string,
     startDateStr?: string,
     endDateStr?: string,
+    userId?: string,
   ): Promise<any> {
     const startDate = startDateStr ? new Date(startDateStr) : undefined;
     const endDate = endDateStr ? new Date(endDateStr) : undefined;
@@ -3215,13 +3389,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startDate,
         endDate,
+        userId,
       ),
-      this.chatbotRepository.getNotifiedVsClosed(source, userType, startDate, endDate),
+      this.chatbotRepository.getNotifiedVsClosed(source, userType, startDate,endDate, userId,),
       this.chatbotRepository.getClosedInLastTwoHours(
         source,
         userType,
         startDate,
         endDate,
+        userId,
       ),
       this.chatbotRepository.getCarryForwardQuestions(source, userType),
     ]);
@@ -3264,6 +3440,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       return await this.chatbotRepository.getTopQuestionsFromCollection(
@@ -3272,9 +3449,37 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startTime,
         endTime,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top FAQs: ${error}`);
+    }
+  }
+
+  async getTopQuestionInstances(
+    questionId: string,
+    source = 'annam',
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+    page: number = 1,
+    limit: number = 10,
+    coordinatorId?: string,
+  ): Promise<any> {
+    try {
+      return await this.chatbotRepository.getTopQuestionInstances(
+        questionId,
+        source,
+        userType,
+        startTime,
+        endTime,
+        page,
+        limit,
+        undefined,
+        coordinatorId,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch top question instances: ${error}`);
     }
   }
 
@@ -3283,6 +3488,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType?: string,
     startTime?: string,
     endTime?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       return await this.chatbotRepository.getRepeatQueryCount(
@@ -3290,6 +3496,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startTime,
         endTime,
+        undefined,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -3301,6 +3509,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async getUsersMetrics(
     source?: string,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<{
     userDemographics: UserDemographics;
     platformInstalls: PlatformInstallEntry[];
@@ -3321,7 +3531,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
           undefined,
           userType,
         ),
-        this.chatbotRepository.getFeedbackData(source, undefined, userType),
+        this.chatbotRepository.getFeedbackData(source, undefined, userType, startDate, endDate),
       ]);
       return {
         userDemographics,
@@ -3517,11 +3727,379 @@ export class ChatbotService extends BaseService implements IChatbotService {
         ajrasakhaOpen: 0,
         whatsappDelayed: 0,
         ajrasakhaDelayed: 0,
+
+                  whatsappClosedCount: 0,
+        whatsappPendingCount: 0,
+        whatsappNonAgriCount: 0,
+        whatsappDynamicCount: 0,
+        whatsappDuplicateCount: 0,
+        whatsappHoldCount: 0,
+        whatsappPaeSubmitedCount: 0,
+        whatsappDynamicCLosedCount: 0,
+        whatsappReroutedCount: 0,
+        whatsappPassCount: 0,
+        whatsappDuplicateClosedCount: 0,
+
+      ajrasakhaClosedCount: 0,
+    ajrasakhaPendingCount: 0,
+    ajrasakhaNonAgriCount: 0,
+    ajrasakhaDynamicCount: 0,
+    ajrasakhaDuplicateCount: 0,
+    ajrasakhaHoldCount: 0,
+    ajrasakhaPaeSubmitedCount:0,
+    ajrasakhaDynamicCLosedCount: 0,
+    ajrasakhaReroutedCount: 0,
+    ajrasakhaPassCount: 0,
+    ajrasakhaDuplicateClosedCount:0,
+    
+      manualClosedCount: 0,
+    manualPendingCount: 0,
+    manualNonAgriCount:0,
+    manualDynamicCount: 0,
+    manualDuplicateCount: 0,
+    manualHoldCount: 0,
+    manualPaeSubmitedCount:0,
+    manualDynamicCLosedCount: 0,
+    manualReroutedCount: 0,
+    manualPassCount: 0,
+    manualDuplicateClosedCount:0,
+
+              manualAverageResponseGBDMinutes: 0,
+    manualAverageResponseNonGBDMinutes: 0,
+    whatsappAverageResponseGBDMinutes:0,
+        whatsappAverageResponseNonGBDMinutes: 0,
+            ajrasakhaAverageResponseGBDMinutes: 0,
+    ajrasakhaAverageResponseNonGBDMinutes: 0,
+
         whatsappAverageResponseMinutes: 0,
         ajrasakhaAverageResponseMinutes: 0,
         whatsappAdherencePct: 0,
         ajrasakhaAdherencePct: 0,
+        manualQueriesAsked: 0,
+        manualPushedToReviewer: 0,
+        manualAnsweredWithin120Min: 0,
+        manualPassedQuestions: 0,
+        manualMarkedDuplicate: 0,
+        manualDynamicWeather: 0,
+        manualDynamicMarket: 0,
+        manualDynamicSchemes: 0,
+        manualNonGdbWithin120: 0,
+        manualInReview: 0,
+        manualOpen: 0,
+        manualDelayed: 0,
+        manualAverageResponseMinutes: 0,
+        manualAdherencePct: 0,
+        answeredWithin120MinClosedwhatsapp: 0,
+        answeredWithin120MinPasswhatsapp: 0,
+        answeredWithin120MinDynamicClosedwhatsapp: 0,
+        answeredWithin120MinDuplicateClosedwhatsapp: 0,
+        answeredWithin120MinClosedajrasakha: 0,
+        answeredWithin120MinPassajrasakha: 0,
+        answeredWithin120MinDynamicClosedajrasakha: 0,
+        answeredWithin120MinDuplicateClosedajrasakha: 0,
+        answeredWithin120MinClosedmanual: 0,
+        answeredWithin120MinPassmanual: 0,
+        answeredWithin120MinDynamicClosedmanual: 0,
+        answeredWithin120MinDuplicateClosedmanual: 0,
+
+        whatsappdynamicWeatherDynamicCount: 0,
+        whatsappdynamicWeatherStaticDynamicCount: 0,
+        ajrasakhadynamicWeatherDynamicCount: 0,
+        ajrasakhadynamicWeatherStaticDynamicCount: 0,
+        manualdynamicWeatherDynamicCount: 0,
+        manualdynamicWeatherStaticDynamicCount: 0,
+
+        whatsappdynamicMarketDynamicCount: 0,
+        whatsappdynamicMarketStaticDynamicCount: 0,
+        ajrasakhadynamicMarketDynamicCount: 0,
+        ajrasakhadynamicMarketStaticDynamicCount: 0,
+        manualdynamicMarketDynamicCount: 0,
+        manualdynamicMarketStaticDynamicCount: 0,
+
+        whatsappdynamicSchemesDynamicCount: 0,
+        whatsappdynamicSchemesStaticDynamicCount: 0,
+        ajrasakhadynamicSchemesDynamicCount: 0,
+        ajrasakhadynamicSchemesStaticDynamicCount: 0,
+        manualdynamicSchemesDynamicCount: 0,
+        manualdynamicSchemesStaticDynamicCount: 0,
+
+        totalDynamicWhatsappCount: 0,
+        totalDynamicAjrasakhaCount: 0,
+        totalDynamicManualCount: 0,
+
+        totalStaticDynamicWhatsappCount: 0,
+        totalStaticDynamicAjrasakhaCount: 0,
+        totalStaticDynamicManualCount: 0,
+
+        whatsAppAnsweredAfter120Min: 0,
+        ajrasakhaAnsweredAfter120Min: 0,
+        manualAnsweredAfter120Min: 0,
+
+        whatsAppAnsweredAfter120MinClosed: 0,
+        whatsAppAnsweredAfter120MinPass: 0,
+        whatsAppAnsweredAfter120MinDynamicClosed: 0,
+        whatsAppAnsweredAfter120MinDuplicateClosed: 0,
+
+        ajrasakhaAnsweredAfter120MinClosed: 0,
+        ajrasakhaAnsweredAfter120MinPass: 0,
+        ajrasakhaAnsweredAfter120MinDynamicClosed: 0,
+        ajrasakhaAnsweredAfter120MinDuplicateClosed: 0,
+
+        manualAnsweredAfter120MinClosed: 0,
+        manualAnsweredAfter120MinPass: 0,
+        manualAnsweredAfter120MinDynamicClosed: 0,
+        manualAnsweredAfter120MinDuplicateClosed: 0,
+
+        whatsappSlaBreachedCount: 0,
+        ajrasakhaSlaBreachedCount: 0,
+        manualSlaBreachedCount: 0,
+
+        // WhatsApp
+        whatsappTatMinutes: 0,
+        whatsappAverageTimeToAuthorMinutes: 0,
+        whatsappAverageReviewAcceptMinutes: 0,
+        whatsappAverageReviewModifyMinutes: 0,
+        whatsappAverageReviewRejectReauthorMinutes: 0,
+        whatsappAverageModeratingMinutes: 0,
+        whatsappAverageGatekeepingMinutes: 0,
+        whatsappAverageAuditingMinutes: 0,
+        whatsappAverageReroutedCompletionMinutes: 0,
+
+        // Ajrasakha
+        ajrasakhaTatMinutes: 0,
+        ajrasakhaAverageTimeToAuthorMinutes: 0,
+        ajrasakhaAverageReviewAcceptMinutes: 0,
+        ajrasakhaAverageReviewModifyMinutes: 0,
+        ajrasakhaAverageReviewRejectReauthorMinutes: 0,
+        ajrasakhaAverageModeratingMinutes: 0,
+        ajrasakhaAverageGatekeepingMinutes: 0,
+        ajrasakhaAverageAuditingMinutes: 0,
+        ajrasakhaAverageReroutedCompletionMinutes: 0,
+
+        // Manual
+        manualTatMinutes: 0,
+        manualAverageTimeToAuthorMinutes: 0,
+        manualAverageReviewAcceptMinutes: 0,
+        manualAverageReviewModifyMinutes: 0,
+        manualAverageReviewRejectReauthorMinutes: 0,
+        manualAverageModeratingMinutes: 0,
+        manualAverageGatekeepingMinutes: 0,
+        manualAverageAuditingMinutes: 0,
+        manualAverageReroutedCompletionMinutes: 0,
+
+          whatsappAverageEndToEndQnaCompletionMinutes: 0,
+          ajrasakhaAverageEndToEndQnaCompletionMinutes: 0,
+          manualAverageEndToEndQnaCompletionMinutes: 0,
+
+          whatsappAverageEndToEndUniqueMinutes: 0,
+          ajrasakhaAverageEndToEndUniqueMinutes: 0,
+          manualAverageEndToEndUniqueMinutes: 0,
+
+          whatsappAverageEndToEndDynamicMinutes: 0,
+          ajrasakhaAverageEndToEndDynamicMinutes: 0,
+          manualAverageEndToEndDynamicMinutes: 0,
+
+          whatsappAverageEndToEndDuplicateMinutes: 0,
+          ajrasakhaAverageEndToEndDuplicateMinutes: 0,
+          manualAverageEndToEndDuplicateMinutes: 0,
+
+                whatsappPaeAssignedQuestions: 0,
+    ajrasakhaPaeAssignedQuestions: 0,
+    manualPaeAssignedQuestions: 0,
+    // PAE Contribution to GDB
+    whatsappPaeContributionToGDB: 0,
+    ajrasakhaPaeContributionToGDB: 0,
+    manualPaeContributionToGDB: 0,
+    // PAE Contribution to GDB %
+    whatsappPaeContributionToGDBPct: 0,
+    ajrasakhaPaeContributionToGDBPct: 0,
+    manualPaeContributionToGDBPct: 0,
       }));
+  }
+
+  async sendResponseAdherenceReportEmail(
+    emails: string[],
+    reportContent: string,
+    fileName: string,
+    context?: {
+      source?: string;
+      userType?: string;
+      startDate?: string;
+      endDate?: string;
+      timeWindow?: string;
+    },
+    reportHtml?: string,
+  ): Promise<{success: boolean; message: string}> {
+    try {
+      const formatDateStr = (d?: string) => {
+        if (!d) return '';
+        const parts = d.split(/[-/]/);
+        if (parts.length === 3 && parts[0].length === 4) {
+          return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return d;
+      };
+      
+      const formattedStartDate = formatDateStr(context?.startDate);
+      const formattedEndDate = formatDateStr(context?.endDate);
+
+      const dateRangeLabel =
+        formattedStartDate || formattedEndDate
+          ? ` (${formattedStartDate || ''}${
+              formattedEndDate && formattedEndDate !== formattedStartDate
+                ? ` to ${formattedEndDate}`
+                : ''
+            })`
+          : '';
+      const title = `AjraSakha Response Adherence Report${dateRangeLabel}`;
+      const platformUrl = appConfig.frontendUrl;
+
+      // Colors/typography lifted from the app's own theme (frontend/src/styles.css's :root
+      // OKLCH tokens, converted to hex since email clients don't support oklch()), so the
+      // report reads as part of the AjraSakha Review System rather than a generic spreadsheet
+      // dump. Keep in sync with the frontend/backend copies of this palette in
+      // responseAdherenceReport.ts if the app's theme colors change.
+      const FONT = "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+      const PAGE_BG = '#f3f6f4';
+      const CARD_BG = '#ffffff';
+      const BORDER = '#e5e7eb';
+      const PRIMARY = '#72e3ad';
+      const PRIMARY_SOFT = '#e8faf1';
+      const PRIMARY_BORDER = '#bdeed4';
+      const HEADING = '#14532d';
+      const TEXT = '#171717';
+      const MUTED = '#6b7280';
+
+      const chipEntries: {label: string; value: string}[] = [];
+      if (context?.source) chipEntries.push({label: 'Source', value: context.source});
+      if (context?.userType) {
+        chipEntries.push({
+          label: 'User Type',
+          value: context.userType.toLowerCase() === 'all' ? 'External & Internal' : context.userType,
+        });
+      }
+      if (formattedStartDate || formattedEndDate) {
+        chipEntries.push({
+          label: 'Date',
+          value: `${formattedStartDate || ''}${formattedEndDate && formattedEndDate !== formattedStartDate ? ` to ${formattedEndDate}` : ''}`,
+        });
+      }
+      if (context?.timeWindow) chipEntries.push({label: 'Time', value: context.timeWindow});
+
+      const chipsHtml = chipEntries.length
+        ? `
+            <div style="margin: 22px 0;">
+              ${chipEntries
+                .map(
+                  chip => `
+                <span style="display:inline-block; background:${PRIMARY_SOFT}; border:1px solid ${PRIMARY_BORDER}; border-radius:999px; padding:7px 16px; margin:0 8px 8px 0; font-family:${FONT}; font-size:12px; color:${HEADING};">
+                  <span style="font-weight:700; text-transform:uppercase; letter-spacing:.04em; font-size:10px;">${chip.label}</span>
+                  &nbsp;·&nbsp;<span style="font-weight:600;">${chip.value}</span>
+                </span>`,
+                )
+                .join('')}
+            </div>`
+        : '';
+
+      const html = `
+        <div style="background:${PAGE_BG}; padding: 32px 16px; font-family: ${FONT};">
+          <div style="max-width: 800px; margin: 0 auto; background: ${CARD_BG}; color: ${TEXT}; border: 1px solid ${BORDER}; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+            <div style="text-align: center; padding: 28px 20px 22px; background-color: ${CARD_BG}; border-bottom: 3px solid ${PRIMARY};">
+              <img src="${platformUrl}/annam-logo.png" alt="Annam.ai Logo" style="height: 56px;" />
+            </div>
+            <div style="padding: 30px 28px;">
+              <h2 style="color: ${HEADING}; margin-top: 0; margin-bottom: 16px; text-align: center; font-family: ${FONT}; font-size: 21px;">Response Adherence Report</h2>
+              <p style="font-size: 15px; line-height: 1.6; color: ${TEXT};">Hello,</p>
+              <p style="font-size: 15px; line-height: 1.6; color: ${TEXT};">Please find attached the <b>AjraSakha Response Adherence</b> report. A summary is also provided below for quick reference.</p>
+
+              ${chipsHtml}
+
+              ${reportHtml ? `<div style="overflow-x:auto; margin-top: 8px;">${reportHtml}</div>` : ''}
+
+              <div style="margin-top: 32px; text-align: center;">
+                <a href="${platformUrl}" style="display:inline-block; padding: 13px 28px; background-color: ${HEADING}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 14px; font-family: ${FONT};">
+                  Go to AjraSakha Platform
+                </a>
+              </div>
+
+              <p style="margin-top: 28px; font-size: 13px; color: ${MUTED}; line-height: 1.6; text-align: center;">
+                If you encounter any issues with the report or have any questions regarding the data, please contact the Developer Team for assistance.
+              </p>
+            </div>
+            <div style="background-color: ${PRIMARY_SOFT}; padding: 20px; text-align: center; font-size: 13px; color: ${MUTED}; border-top: 1px solid ${PRIMARY_BORDER};">
+              <p style="margin: 0; color: ${TEXT};">Regards,</p>
+              <p style="margin: 4px 0 0 0; color: ${HEADING}; font-weight: 700;">AjraSakha System</p>
+              <p style="margin: 14px 0 0 0; font-size: 11px; color: ${MUTED};">&copy; ${new Date().getFullYear()} Annam.ai. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      await sendEmailWithAttachment(
+        emails,
+        title,
+        html,
+        reportContent,
+        fileName || 'response-adherence-report.csv',
+        'text/csv',
+      );
+
+      return {
+        success: true,
+        message: 'Response adherence report sent via email',
+      };
+    } catch (error) {
+      console.error('Error in sendResponseAdherenceReportEmail:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cloud Run Job entrypoint for the daily 7 PM (Asia/Kolkata) Response Adherence Summary
+   * report — see backend/src/jobs/response-adherence-report/run.ts. 
+   */
+  async sendDailyResponseAdherenceReportEmail(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    const recipients = (emailConfig.RESPONSE_ADHERENCE_REPORT_EMAILS || '')
+      .split(',')
+      .map(email => email.trim())
+      .filter(Boolean);
+
+    if (!recipients.length) {
+      console.warn(
+        '[sendDailyResponseAdherenceReportEmail] RESPONSE_ADHERENCE_REPORT_EMAILS is not configured; skipping send.',
+      );
+      return {
+        success: false,
+        message: 'RESPONSE_ADHERENCE_REPORT_EMAILS is not configured; report was not sent',
+      };
+    }
+
+    const now = new Date();
+    const startOfDayIST = getISTStartOfToday(now);
+    const dateLabel = now.toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
+
+    // source is intentionally left undefined (all sources combined) — the report's three
+    // columns (Whatsapp / AjraSakha / Manual) are the breakdown, not the `source` filter.
+    const table = await this.getResponseAdherenceTable(
+      undefined,
+      'all',
+      startOfDayIST.toISOString(),
+      now.toISOString(),
+    );
+
+    const reportContent = buildResponseAdherenceCsv(table, dateLabel);
+    const reportHtml = buildResponseAdherenceHtmlTable(table, dateLabel);
+
+    return this.sendResponseAdherenceReportEmail(
+      recipients,
+      reportContent,
+      `response-adherence-report-${dateLabel}.csv`,
+      {userType: 'all', startDate: dateLabel, endDate: dateLabel, timeWindow: table.timeWindow},
+      reportHtml,
+    );
   }
 
   async getQuestionsByCrop(
@@ -3533,6 +4111,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source?: string,
     userType?: string,
     search?: string,
+    coordinatorId?: string,
   ): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionsByCrop(
@@ -3545,6 +4124,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         undefined,
         userType,
         search,
+        coordinatorId,
       );
     } catch (error) {
       throw new InternalServerError(`Internal server error ${error}`);
@@ -3560,6 +4140,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionsByStatus(
@@ -3572,13 +4153,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
         search,
         startDate,
         endDate,
+        userId,
       );
     } catch (error) {
       throw new InternalServerError(`Internal server error ${error}`);
     }
   }
 
-  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, isPassed?: string, tag?: string): Promise<any> {
+  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, isPassed?: string, tag?: string, userId?: string, state?: string, district?: string): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionsClosedWithinTwoHours(
         page,
@@ -3590,13 +4172,16 @@ export class ChatbotService extends BaseService implements IChatbotService {
         startDate,
         endDate,
         isPassed,
-        tag
+        tag,
+        userId,
+        state,
+        district,
       )
     }catch(error){
       throw new InternalServerError(`Internal server error ${error}`)
     }
   }
-  async getQuestionsByNotificationStatus(notificationType: string, page: number, limit: number, source: string, userType?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+  async getQuestionsByNotificationStatus(notificationType: string, page: number, limit: number, source: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, userId?: string): Promise<any> {
       try {
       return this.chatbotRepository.getQuestionsByNotificationStatus(
         notificationType,
@@ -3607,7 +4192,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         search,
         startDate,
-        endDate
+        endDate,
+        userId,
       )
     }catch(error){
       throw new InternalServerError(`Internal server error ${error}`)
@@ -3622,7 +4208,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getAllStatesQuestionsAndUsersData(source: string, userType: string): Promise<any> {
+  async getAllStatesQuestionsAndUsersData(source: string, userType: string, startDate?: Date, endDate?: Date): Promise<any> {
     try{
         // console.time("LGD");
 
@@ -3632,19 +4218,20 @@ export class ChatbotService extends BaseService implements IChatbotService {
     // console.timeEnd("LGD");
 
     //   console.log("All states", allStates);
-      return this.chatbotRepository.getAllStatesQuestionsAndUsersData(source, userType, allStates, undefined)
+      return this.chatbotRepository.getAllStatesQuestionsAndUsersData(source, userType, allStates, undefined, startDate, endDate)
     }catch(error){
       throw new InternalServerError(`Internal Server Error ${error}`)
     }
   }
   
-  async getUserProfile(userId: string){
+  async getUserProfile(userId: string, startDate?: string, endDate?: string){
     try{
-      return this.chatbotRepository.getUserProfile(userId)
+      return this.chatbotRepository.getUserProfile(userId, undefined, startDate, endDate)
     }catch(error){
       throw new InternalServerError(`Internal Server Error ${error}`)
     }
   }
+
 
   // async getStateQuestionsAndUsersData(state: string, source: string, userType: string): Promise<any> {
   //   try {
@@ -3690,6 +4277,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source = 'annam',
     userType = 'all',
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionFromState(
@@ -3700,15 +4289,18 @@ export class ChatbotService extends BaseService implements IChatbotService {
         source,
         undefined,
         userType,
-        search,)
+        search,
+        startDate,
+        endDate
+      )
     }catch(error){
       throw new InternalServerError(`Something whet wrong ${error}`)
     }
   }
 
-  async getActiveUsersDetails(page: number, limit: number, source: string, userType: string, state?: string, district?: string, search?: string): Promise<any> {
+  async getActiveUsersDetails(page: number, limit: number, source: string, userType: string, state?: string, district?: string, search?: string, startDate?: Date, endDate?: Date,): Promise<any> {
     try {
-      return this.chatbotRepository.getActiveUsersDetails(page, limit, source, userType, undefined, state, district, search)
+      return this.chatbotRepository.getActiveUsersDetails(page, limit, source, userType, undefined, state, district, search, startDate, endDate)
     } catch (error) {
       throw new InternalServerError(`Something whet wrong ${error}`)
     }
@@ -3730,6 +4322,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      userId?: string,
+      page?: number,
+      limit?: number,
+      manualSource?: string,
+      effectiveDate?: string,
     ): Promise<any>{
       return this.chatbotRepository.getLifeCycleSummary(
         status,
@@ -3740,6 +4337,300 @@ export class ChatbotService extends BaseService implements IChatbotService {
         isPassed,
         tag,
         notificationType,
+        userId,
+        page,
+        limit,
+        manualSource,
+        effectiveDate,
+      );
+  }
+  async getFeedbackByLocation(source: string, page: number, limit: number, sortBy: string, sortOrder: string, userType: string, rating?: string, state?: string, district?: string, search?: string, startDate?: Date,
+  endDate?: Date): Promise<any> {
+    try {
+      return this.chatbotRepository.getFeedbackByLocation(source, page, limit, sortBy, sortOrder, userType, rating, state, district, search, undefined, startDate, endDate);
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
+
+  async getClosedInLastTwoHoursByLocation(source?: string, userType?: string, state?: string, district?: string,startDate?: Date, endDate?: Date): Promise<any> {
+    try{
+      return this.chatbotRepository.getClosedInLastTwoHoursByLocation(source, userType, state, district, startDate, endDate);
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
+
+  async getActiveUsersDetailsByQuestions(page: number, limit: number, source: string, userType: string, state?: string, district?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+      try{
+      return this.chatbotRepository.getActiveUsersDetailsByQuestions(page, limit, source, userType, undefined, state, district, search, startDate, endDate);
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
+
+  async getQuestionByManualSource( manualSource: string, effectiveDate: string, userType: string, page: number, limit: number, search: string ) : Promise<any> {
+      try{
+      return this.chatbotRepository.getQuestionByManualSource( manualSource, effectiveDate, userType, page, limit, search );
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
+
+  async getReviewerLifecycle( userId: string, startDate?: Date, endDate?: Date ): Promise<any> {
+    try{
+      return this.chatbotRepository.getReviewerLifecycle( userId, startDate, endDate );
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
+
+  private async fetchDataReleaseTotalCount(resourcePath: string): Promise<number> {
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+
+    try {
+      const response = await fetch(
+        `${dataReleaseUrl}/${resourcePath}/total?page=1&pageSize=1`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authKey}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+
+      const res = (await response.json()) as {
+        total?: number;
+        totalCount?: number;
+      };
+
+      if (typeof res.total === 'number') {
+        return res.total;
+      }
+      if (typeof res.totalCount === 'number') {
+        return res.totalCount;
+      }
+      return 0;
+    } catch (error: any) {
+      console.error(
+        `[ChatbotService] fetchDataReleaseTotalCount(${resourcePath}): Failed to call data release service:`,
+        error,
+      );
+      throw new InternalServerError(
+        `Failed to get total count for ${resourcePath}: ` + error.message,
       );
     }
+  }
+
+  /**
+   * Total number of questions in the dataset application (external data
+   * release service).
+   */
+  async getTotalQuestionsFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('questions');
+  }
+
+  /**
+   * Total number of feedbacks in the dataset application (external data
+   * release service).
+   */
+  async getTotalFeedbacksFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('feedbacks');
+  }
+
+  /**
+   * Total number of users in the dataset application (external data
+   * release service).
+   */
+  async getTotalUsersFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('users');
+  }
+
+  /**
+   * Shared helper to fetch a paginated list from the external data release
+   * service (the dataset application — NOT the internal review system).
+   * Mirrors the DATA_RELEASE_URL/REVIEW_SYSTEM_AUTH_KEY fetch pattern used
+   * by QuestionService.getFeedbacks() and fetchDataReleaseTotalCount()
+   * above. `mapItem` normalizes each raw item from the external service
+   * into the shape this app displays.
+   */
+  private async fetchDataReleaseList<T>(
+    resourcePath: string,
+    page: number,
+    pageSize: number,
+    mapItem: (raw: any) => T,
+  ): Promise<DatasetListResponse<T>> {
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+
+    try {
+      const response = await fetch(
+        `${dataReleaseUrl}/${resourcePath}/list?page=${page}&pageSize=${pageSize}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authKey}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+
+      const res = (await response.json()) as {
+        data?: any[];
+        total?: number;
+        totalCount?: number;
+        page?: number;
+        limit?: number;
+        totalPages?: number;
+      };
+
+      const data = (Array.isArray(res.data) ? res.data : []).map(mapItem);
+      const total =
+        typeof res.total === 'number'
+          ? res.total
+          : typeof res.totalCount === 'number'
+            ? res.totalCount
+            : data.length;
+
+      return {
+        data,
+        total,
+        page: typeof res.page === 'number' ? res.page : page,
+        pageSize: typeof res.limit === 'number' ? res.limit : pageSize,
+        totalPages:
+          typeof res.totalPages === 'number'
+            ? res.totalPages
+            : Math.ceil(total / pageSize),
+      };
+    } catch (error: any) {
+      console.error(
+        `[ChatbotService] fetchDataReleaseList(${resourcePath}): Failed to call data release service:`,
+        error,
+      );
+      throw new InternalServerError(
+        `Failed to list ${resourcePath}: ` + error.message,
+      );
+    }
+  }
+
+  /** Normalizes a raw dataset-app question record into the display shape. */
+  private mapDatasetQuestionItem(raw: any): DatasetQuestionListItem {
+    return {
+      questionId: String(raw?.id ?? raw?._id?.$oid ?? raw?._id ?? ''),
+      question: raw?.question ?? '',
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  /** Normalizes a raw dataset-app feedback record into the display shape. */
+  private mapDatasetFeedbackItem(raw: any): DatasetFeedbackListItem {
+    return {
+      email: raw?.email ?? raw?.userId?.email ?? '',
+      questionId: String(raw?.questionId?.$oid ?? raw?.questionId ?? ''),
+      tag: raw?.tag ?? '',
+      type: raw?.type ?? '',
+      predefinedOption: raw?.predefinedOption ?? '',
+      comment: raw?.comment ?? '',
+      reviewNote: raw?.reviewNote ?? '',
+      status: raw?.status ?? '',
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  /** Normalizes a raw dataset-app user record into the display shape. */
+  private mapDatasetUserItem(raw: any): DatasetUserListItem {
+    return {
+      name:
+        raw?.name ??
+        [raw?.firstName, raw?.lastName].filter(Boolean).join(' ').trim(),
+      email: raw?.email ?? '',
+      phone: raw?.phone ?? raw?.phoneNumber ?? '',
+      age: typeof raw?.age === 'number' ? raw.age : null,
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  /**
+   * Paginated list of questions in the dataset application (external data
+   * release service).
+   */
+  async listQuestionsFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetQuestionListItem>> {
+    return this.fetchDataReleaseList(
+      'questions',
+      page,
+      pageSize,
+      this.mapDatasetQuestionItem,
+    );
+  }
+
+  /**
+   * Paginated list of feedbacks in the dataset application (external data
+   * release service).
+   */
+  async listFeedbacksFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetFeedbackListItem>> {
+    return this.fetchDataReleaseList(
+      'feedbacks',
+      page,
+      pageSize,
+      this.mapDatasetFeedbackItem,
+    );
+  }
+
+  /**
+   * Paginated list of users in the dataset application (external data
+   * release service).
+   */
+  async listUsersFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetUserListItem>> {
+    return this.fetchDataReleaseList(
+      'users',
+      page,
+      pageSize,
+      this.mapDatasetUserItem,
+    );
+  }
 }
+

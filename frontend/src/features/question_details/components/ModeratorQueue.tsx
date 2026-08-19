@@ -24,6 +24,7 @@ import {
   CalendarClock,
   CheckCheck,
   Clock,
+  GraduationCap,
   Info,
   Loader2,
   Trash2,
@@ -57,6 +58,7 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedModId, setSelectedModId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
+  const isTrainingQuestion = question.isTrainingQuestion === true;
 
   const { data: stfModerators, isLoading: stfModeratorsLoading } =
     useGetStfModerators(isModalOpen);
@@ -97,12 +99,15 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
         m.email?.toLowerCase().includes(term)
     );
   }, [stfModerators, searchTerm]);
-
   // The moderator queue is visible to everyone (including experts) as read-only;
   // only moderators/admins get the management controls (auto-allocate toggle,
   // Select Moderator, Remove Moderator).
+  // Gate keepers and auditors assign moderators alongside moderators/admins.
   const canManageModerator =
-    currentUser.role === "moderator" || currentUser.role === "admin";
+    currentUser.role === "moderator" ||
+    currentUser.role === "admin" ||
+    currentUser.role === "gate_keeper" ||
+    currentUser.role === "auditor";
 
   // Dynamic / duplicate questions and anything in auditor review go through the
   // Gate Keeper → Auditor flow, not normal moderator allocation — hide all
@@ -328,7 +333,7 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                     className="text-xs font-semibold text-foreground truncate"
                     title={assignedModerator.name}
                   >
-                    {assignedModerator.name?.slice(0, 15)}
+                    {assignedModerator.name?.slice(0, 15)}sdsdsd
                     {assignedModerator.name?.length > 15 ? "..." : ""}
                   </p>
                   <p
@@ -487,6 +492,8 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
               {!stfModeratorsLoading &&
                 filteredModerators.map((mod) => {
                   const isSelected = selectedModId === mod._id;
+                  const isTrainingModerator = mod.isTrainingUser === true;
+                  const isModeratorDisabled = isTrainingQuestion !== isTrainingModerator;
                   // Busy only if holding a question in a blocking status (in-review /
                   // duplicate). Re-routed (and other) held questions don't count.
                   const blockingCount =
@@ -498,7 +505,9 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                       key={mod._id}
                       htmlFor={`mod-${mod._id}`}
                       className={`flex items-start space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                        isSelected
+                        isModeratorDisabled
+                          ? "cursor-not-allowed opacity-60"
+                          : isSelected
                           ? "bg-primary/10 ring-1 ring-primary/40"
                           : "hover:bg-muted/50"
                       }`}
@@ -512,13 +521,22 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                         type="radio"
                         name="moderator"
                         checked={isSelected}
-                        onChange={() => setSelectedModId(mod._id)}
-                        className="mt-1 h-4 w-4 accent-primary cursor-pointer"
+                        disabled={isModeratorDisabled}
+                        onChange={() => {
+                          if (isModeratorDisabled) return;
+                          setSelectedModId(mod._id);
+                        }}
+                        className="mt-1 h-4 w-4 accent-primary cursor-pointer disabled:cursor-not-allowed"
                       />
 
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate" title={mod.name}>
+                        
+                        <div className="font-medium truncate flex gap-1" title={mod.name}>
                           {mod.name}
+                          {
+                            mod.isTrainingUser &&
+                            <GraduationCap className="w-3.5 h-5 fill-violet-500 pb-2" />
+                          }
                         </div>
                         <div
                           className="text-xs text-muted-foreground truncate"
@@ -526,6 +544,13 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                         >
                           {mod.email}
                         </div>
+                        {isModeratorDisabled && (
+                          <div className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                            {isTrainingQuestion
+                              ? "Disabled: training questions require a training user."
+                              : "Disabled: normal questions require a normal user."}
+                          </div>
+                        )}
                       </div>
 
                       {/* Availability — busy only when holding a blocking-status question */}

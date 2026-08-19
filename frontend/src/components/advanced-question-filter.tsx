@@ -110,6 +110,7 @@ export type AdvanceFilterValues = {
   answersCount: [number, number];
   dateRange: QuestionDateRangeFilter;
   user: string;
+  assignedUser?: string;
   domain: string;
   crop: string;
   crops?: string[]; // multi-select for expert Preferences filter
@@ -131,11 +132,14 @@ export type AdvanceFilterValues = {
   unallocatedQuestions?: boolean;
   pae_review?: boolean;
   is_non_agri?: boolean;
+  is_testing?: boolean;
   /** When set, filters to questions whose moderatorId matches this ID (dedicated tab). */
   moderatorId?: string;
+  isTrainingQuestion?: boolean; // New property for training questions
   /** Dedicated tab for gate keepers / auditors — filters by their assigned questions. */
   gateKeeperId?: string;
   auditorId?: string;
+  feedbackFilter?: "all" | "open" | "closed";
 };
 
 
@@ -495,6 +499,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
                   </Label>
+                  
                     <SearchableFilterSelect
                     value={advanceFilter.status}
                     onValueChange={(v) => {
@@ -887,6 +892,89 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2 min-w-0">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <UserIcon className="h-4 w-4 text-primary" />
+                  Assigned User
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-sm">
+                      <p>
+                        Shows questions currently pending an initial answer or active review from the selected user.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+
+                {isLoading ? (
+                  <Select value={advanceFilter.assignedUser} disabled>
+                    <SelectTrigger className="bg-background w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <div className="flex items-center justify-center p-3">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Loading users...
+                        </span>
+                      </div>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <SearchableFilterSelect
+                    value={advanceFilter.assignedUser}
+                    onValueChange={(v) => handleDialogChange("assignedUser", v)}
+                    options={userOptions}
+                  />
+                )}
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  Feedbacks
+                </Label>
+                <Select
+                  value={advanceFilter.feedbackFilter || "all"}
+                  onValueChange={(v) => handleDialogChange("feedbackFilter", v)}
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue placeholder="Select Feedbacks" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-primary" />
+                        <span>All</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="open">
+                      <div className="flex items-center gap-2">
+                        <Circle className="w-4 h-4 text-yellow-500 fill-yellow-500/20" />
+                        <span>Open</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="closed">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 fill-green-500/20" />
+                        <span>Closed</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <Separator />
@@ -984,6 +1072,18 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   <span className="text-sm">Show un-allocated questions</span>
                 </label>
 
+                {/* show testing questions */}
+                <label className="flex items-center gap-3">
+                  <Checkbox
+                    checked={advanceFilter.is_testing ?? false}
+                    onCheckedChange={(checked) =>
+                      handleDialogChange("is_testing", checked === true)
+                    }
+                    className="h-3.5 w-3.5 border-primary"
+                  />
+                  <span className="text-sm">Show testing questions</span>
+                </label>
+
               </div>
             </div>
 
@@ -1027,22 +1127,32 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                               ? "Show holded questions"
                               : key === "unallocatedQuestions"
                                 ? "Show un-allocated questions"
+                                : key === "is_testing"
+                                ? "Show testing questions"
                                 : key === "states"
                                 ? "state"
                                 : key === "normalisedCrops"
                                   ? "crop"
                                   : key === "closedInTwoHrs"
                                     ? "Question closed in 2 hrs"
-                                    : key;
+                                    : key === "assignedUser"
+                                      ? "Assigned User"
+                                      : key === "feedbackFilter"
+                                        ? "Feedbacks"
+                                        : key;
 
                       const displayValue =
-                        (key === "states" || key === "normalisedCrops") && Array.isArray(value)
-                          ? (value as string[]).join(", ")
-                          : Array.isArray(value)
-                            ? `${value[0]}-${value[1]}`
-                            : typeof value === "boolean"
-                              ? "Yes"
-                              : (value as string);
+                        key === "assignedUser"
+                          ? users.find((u) => u._id === value)?.userName || (value as string)
+                          : key === "user"
+                            ? users.find((u) => u._id === value)?.userName || (value as string)
+                            : (key === "states" || key === "normalisedCrops") && Array.isArray(value)
+                              ? (value as string[]).join(", ")
+                              : Array.isArray(value)
+                                ? `${value[0]}-${value[1]}`
+                                : typeof value === "boolean"
+                                  ? "Yes"
+                                  : (value as string);
 
                       return (
                         <Badge
@@ -1064,7 +1174,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                                       key === "duplicateQuestions" ||
                                       key === "closedInTwoHrs" ||
                                       key === "isOnHold" ||
-                                      key === "unallocatedQuestions"
+                                      key === "unallocatedQuestions" ||
+                                      key === "is_testing"
                                       ? false
                                       : "all",
                               )
@@ -1095,6 +1206,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   normalisedCrops: [],
                   priority: "all",
                   user: "all",
+                  assignedUser: "all",
                   domain: "all",
                   review_level: "all",
                   closedInTwoHrs: false,
@@ -1106,7 +1218,9 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   consecutiveApprovals: "all",
                   autoAllocateFilter: "all",
                   autoAllocateModeratorFilter: "all",
+                  feedbackFilter: "all",
                   unallocatedQuestions: false,
+                  is_testing: false,
                 });
                 onReset();
               }}

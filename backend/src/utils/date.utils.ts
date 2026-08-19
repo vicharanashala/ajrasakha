@@ -1,3 +1,20 @@
+// India Standard Time is a fixed UTC+05:30 offset (no DST).
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+/**
+ * Absolute instant of the most recent IST (Asia/Kolkata) midnight — i.e. the start
+ * of "today" as the team reads it. Use this instead of `new Date().setHours(0,0,0,0)`,
+ * which resolves to the *server's* local midnight (UTC on Cloud Run) and therefore
+ * drops rows timestamped between 00:00 and 05:30 IST.
+ */
+export function getISTStartOfToday(now: Date = new Date()): Date {
+  // Shift into IST so the UTC calendar fields read as IST wall-clock, zero the
+  // time, then shift back to a real UTC instant.
+  const istWall = new Date(now.getTime() + IST_OFFSET_MS);
+  istWall.setUTCHours(0, 0, 0, 0);
+  return new Date(istWall.getTime() - IST_OFFSET_MS);
+}
+
 export function isToday(date?: Date): boolean {
   if (!date) return false;
 

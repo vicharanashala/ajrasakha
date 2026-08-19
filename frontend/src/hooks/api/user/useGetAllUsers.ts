@@ -21,6 +21,8 @@ interface BasicUser {
   university?: string;
   /** Questions this user currently holds — used to show availability in select modals. */
   assignedQuestionIds?: AssignedQuestion[] | null;
+  /** Indicates if this user is a training model user */
+  isTrainingUser?: boolean;
 }
 export interface IUsersNameResponse {
   myPreference: IMyPreference;
@@ -31,11 +33,13 @@ export interface IUsersNameResponse {
 
 
 export const useGetAllUsers = (
-  options: { enabled?: boolean } = {}
+  options: { enabled?: boolean; includeSelf?: boolean } = {}
 ) => {
+  const includeSelf = options.includeSelf ?? false;
   const { data, isLoading, error } = useQuery<IUsersNameResponse| null>({
-    queryKey: ["users"],
-    queryFn:()=> userService.useGetAllUsers(),
+    // includeSelf is part of the key so the two variants don't share a cache entry.
+    queryKey: ["users", includeSelf],
+    queryFn:()=> userService.useGetAllUsers(includeSelf),
     enabled: options.enabled,
   });
 

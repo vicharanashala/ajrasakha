@@ -51,6 +51,7 @@ interface TopCropsCardProps {
     errorLoadingtopCrops: string | null | Error;
     source?: "vicharanashala" | "annam" | "whatsapp";
     userType?: string;
+    coordinatorId?: string;
 }
 
 export const TopCropsCard = ({
@@ -59,6 +60,7 @@ export const TopCropsCard = ({
     errorLoadingtopCrops,
     source = "annam",
     userType,
+    coordinatorId,
 }: TopCropsCardProps) => {
     const [isMaximized, setIsMaximized] = useState(false);
     const [topCrop, setTopCrop] = useState<string | null>(null);
@@ -218,7 +220,7 @@ export const TopCropsCard = ({
                                     tickFormatter={(value) => (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value)}
                                 />
                                 <Tooltip cursor={{ fill: "var(--color-muted, #f1f5f9)", opacity: 0.4 }} content={<CustomTooltip />} />
-                                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                                <Bar dataKey="count" radius={[4, 4, 0, 0]} cursor="pointer">
                                     {processedData.map((entry: any, index: null) => (
                                         <Cell
                                             key={`cell-${index}`}
@@ -279,7 +281,7 @@ export const TopCropsCard = ({
                                                 tickFormatter={(value) => (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value)}
                                             />
                                             <Tooltip cursor={{ fill: "var(--color-muted, #f1f5f9)", opacity: 0.4 }} content={<CustomTooltip />} />
-                                            <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                                            <Bar dataKey="count" radius={[6, 6, 0, 0]} cursor="pointer">
                                                 {processedData.map((entry: any, index: any) => (
                                                     <Cell key={`cell-${index}`} fill={entry.color} onClick={() => handleClick(entry.name, entry.subItems)} />
                                                 ))}
@@ -332,6 +334,7 @@ export const TopCropsCard = ({
                         setTopCrop(null);
                         setSelectedCrops([]);
                     }}
+                    coordinatorId={coordinatorId}
                 />
             )}
         </>

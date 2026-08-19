@@ -1,10 +1,17 @@
-import type { IUser, IUnverifiedUser, ReviewLevelCount } from "@/types";
+import type { IUser, IUnverifiedUser, ReviewLevelCount, UserRole } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 import { formatDateLocal } from "@/utils/formatDate";
 import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();
+
+
+export type TrendGranularity =
+  | "hour"
+  | "day"
+  | "week"
+  | "month";
 
 /** One question a moderator currently holds, with its denormalised status. */
 export interface AssignedQuestion {
@@ -19,9 +26,16 @@ export interface StfModerator {
   _id: string;
   name: string;
   email: string;
+  isTrainingUser?: boolean;
   /** The questions this moderator currently holds (empty when free). A moderator is
    *  busy only while holding an entry in a blocking status; re-routed entries don't count. */
   assignedQuestionIds?: AssignedQuestion[] | null;
+}
+
+export interface PaeValidationExpert {
+  _id: string;
+  name: string;
+  email: string;
 }
 
 export class UserService {
@@ -31,14 +45,35 @@ export class UserService {
     return apiFetch<IUser>(`${this._baseUrl}/me`);
   }
 
-  async useGetAllUsers(): Promise<IUsersNameResponse | null> {
-    return apiFetch<IUsersNameResponse>(`${this._baseUrl}/all`);
+  /** `includeSelf` keeps the caller in the list — for flows where you may pick yourself
+   *  (a gate keeper / auditor taking a question). Omitted, the caller is excluded. */
+  async useGetAllUsers(includeSelf = false): Promise<IUsersNameResponse | null> {
+    return apiFetch<IUsersNameResponse>(
+      `${this._baseUrl}/all${includeSelf ? "?includeSelf=true" : ""}`,
+    );
   }
 
   /** All moderators ({_id, name, email}) — used for the report's moderator filter. */
   async getModerators(): Promise<{ _id: string; name: string; email: string }[] | null> {
     return apiFetch<{ _id: string; name: string; email: string }[]>(
       `${this._baseUrl}/moderators`,
+    );
+  }
+
+  /**
+ * All users ({_id, name, email}) — based on the given roles.
+ */
+  async getUsersByRole(
+    roles: UserRole[],
+  ): Promise<{ _id: string; name: string; email: string }[] | null> {
+    const params = new URLSearchParams();
+    
+    roles.forEach((role) => {
+      params.append('role', role);
+    });
+
+    return apiFetch<{ _id: string; name: string; email: string }[]>(
+      `${this._baseUrl}/by-role?${params.toString()}`,
     );
   }
 
@@ -93,15 +128,14 @@ export class UserService {
     });
   }
 
-  async toggleUserRole(userId: string, currentRole: string, selectedRole?: string): Promise<IUser | null> {
-    if (currentRole === "admin") {
-      throw new Error("Admin role cannot be changed");
+  async toggleUserRole(userId: string, _currentRole: string, selectedRole?: string): Promise<IUser | null> {
+    // Admin targets can now be switched too — the backend (admin-only) is the source of truth.
+    if (!selectedRole) {
+      throw new Error("Please select a role");
     }
-
-    const newRole = selectedRole;
     return apiFetch<IUser>(`${this._baseUrl}/${userId}/role`, {
       method: "PATCH",
-      body: JSON.stringify({ role: newRole }),
+      body: JSON.stringify({ role: selectedRole }),
     });
   }
 
@@ -152,6 +186,26 @@ export class UserService {
     });
   }
 
+  async getUserHistory(userId: string, from?: string, to?: string): Promise<any> {
+    const params = new URLSearchParams({ userId });
+
+    if (from) {
+      const startDate = new Date(from);
+      if (!Number.isNaN(startDate.getTime())) {
+        params.append("startDateTime", startDate.toISOString());
+      }
+    }
+
+    if (to) {
+      const endDate = new Date(to);
+      if (!Number.isNaN(endDate.getTime())) {
+        params.append("endDateTime", endDate.toISOString());
+      }
+    }
+
+    return apiFetch<any>(`${this._baseUrl}/user-history?${params.toString()}`);
+  }
+
   async getCallAgents(): Promise<IUser[] | null> {
     return apiFetch<IUser[]>(`${this._baseUrl}/call-agents`);
   }
@@ -173,6 +227,12 @@ export class UserService {
     return apiFetch<IUser>(`${this._baseUrl}/call-agents/toggle-status`, {
       method: "POST",
       body: JSON.stringify({ online }),
+    });
+  }
+
+  async sendHeartbeat(): Promise<{ success: boolean } | null> {
+    return apiFetch<{ success: boolean }>(`${this._baseUrl}/call-agents/heartbeat`, {
+      method: "POST",
     });
   }
 
@@ -234,5 +294,69 @@ export class UserService {
         body: JSON.stringify({ isVerified }),
       }
     );
+  }
+
+  async toggleTrainingUserStatus(userId: string, action: string): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}/training-users`, {
+      body: JSON.stringify({ userId, action }),
+      method: "PATCH",
+    });
+  }
+
+  async getWorkingHours(
+    userId: string,
+    startDateTime: string,
+    endDateTime: string,
+  ): Promise<{ workingHours: number } | null> {
+    const params = new URLSearchParams({
+      userId,
+      startDateTime,
+      endDateTime,
+    });
+    return apiFetch<{ workingHours: number }>(
+      `${this._baseUrl}/working-hours?${params.toString()}`
+    );
+  }
+
+  async getReviewerLifecycle(
+    userId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<any> {
+    // console.log("getReviewerLifecycle---");
+
+    const params = new URLSearchParams();
+
+    params.append("userId", userId);
+    params.append("startDate", startDate);
+    params.append("endDate", endDate);
+
+    return apiFetch<any>(
+      `${this._baseUrl}/reviewer-lifecycle?${params.toString()}`,
+      {
+        method: "GET",
+      }
+    );
+  }
+
+    async getWorkingHoursTrends(
+      userId: string,
+      startDateTime: string,
+      endDateTime: string,
+      granularity: TrendGranularity,
+    ): Promise<any> {
+      const params = new URLSearchParams({
+        userId,
+        startDateTime,
+        endDateTime,
+        granularity
+      });
+      return apiFetch<any>(
+        `${this._baseUrl}/working-hours-trend?${params.toString()}`
+      );
+    }
+
+    async getPaeValidationExperts(): Promise<PaeValidationExpert[] | null> {
+    return apiFetch<PaeValidationExpert[]>(`${this._baseUrl}/pae-val-experts`);
   }
 }

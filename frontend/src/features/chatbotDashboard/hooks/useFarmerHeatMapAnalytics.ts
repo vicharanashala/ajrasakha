@@ -9,6 +9,7 @@ export type FarmerHeatMapMetric =
   | "totalQuestions"
   | "duplicateQuestions"
   | "closedQuestions"
+  | "nonGdbQuestions"
   | "notifiedQuestions"
   | "averageClosureTimeMinutes";
 
@@ -56,6 +57,7 @@ export interface FarmerHeatMapCell {
   totalQuestions: number;
   duplicateQuestions: number;
   closedQuestions: number;
+  nonGdbQuestions?: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
   statusDistribution: Record<string, number>;
@@ -99,6 +101,7 @@ const EMPTY_FARMER_HEAT_MAP_RESPONSE: FarmerHeatMapResponse = {
     totalQuestions: 0,
     duplicateQuestions: 0,
     closedQuestions: 0,
+    nonGdbQuestions: 0,
     notifiedQuestions: 0,
     averageClosureTimeMinutes: 0,
   },
@@ -107,6 +110,7 @@ const EMPTY_FARMER_HEAT_MAP_RESPONSE: FarmerHeatMapResponse = {
     totalQuestions: 0,
     duplicateQuestions: 0,
     closedQuestions: 0,
+    nonGdbQuestions: 0,
     notifiedQuestions: 0,
     averageClosureTimeMinutes: 0,
   },

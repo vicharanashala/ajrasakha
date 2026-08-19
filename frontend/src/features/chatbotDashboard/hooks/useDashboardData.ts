@@ -311,7 +311,7 @@ function transformApiResponse(
       };
     }
     return card;
-  });
+  }) as any;
 
   updatedData.inactiveUsersLast3Days = result.kpi.inactiveUsersLast3Days ?? 0;
   updatedData.duplicateQuestionsCount = result.kpi.duplicateQuestionsCount ?? 0;
@@ -321,7 +321,7 @@ function transformApiResponse(
     if (card.id === "dau") {
       return {
         ...card,
-        value: result.kpi.totalAppInstalls.toString(), // raw number, no formatting
+        value: String((result.kpi as any).dauValue ?? result.kpi.totalAppInstalls.toString()), // raw number, no formatting
         delta: delta.text,
         deltaDir: delta.dir,
         sparkPoints,
@@ -333,7 +333,7 @@ function transformApiResponse(
     if (card.id === "queries") {
       return {
         ...card,
-        value: formatIndian(result.kpi.dailyQueries),
+        value: String((result.kpi as any).queriesValue ?? formatIndian(result.kpi.dailyQueries)),
         delta: queryDelta.text,
         deltaDir: queryDelta.dir,
         monthlyDelta: queryMonthlyDelta.text,
@@ -362,7 +362,7 @@ function transformApiResponse(
     if (card.id === "session") {
       return {
         ...card,
-        value: `${result.kpi.avgSessionDurationMin.toFixed(1)} min`,
+        value: String((result.kpi as any).sessionValue ?? `${result.kpi.avgSessionDurationMin.toFixed(1)} min`),
         delta: sessionDelta.text,
         deltaDir: sessionDelta.dir,
         sparkPoints: sessionSparkPoints,
@@ -373,7 +373,7 @@ function transformApiResponse(
       };
     }
     return card;
-  });
+  }) as any;
 
   updatedData.queryCategories = result.queryCategories ?? [];
   updatedData.feedbackData = result.feedbackData ?? {
@@ -427,6 +427,7 @@ export function useDashboardData(
       "dashboard-data",
       source,
       userType,
+      filters?.coordinatorId,
     ],
     enabled,
     // Keep previous data while fetching new data (for filter changes)
@@ -447,6 +448,7 @@ export function useDashboardData(
       if (endISO) params.set("endTime", endISO);
       params.set("source", source);
       if (userType !== "all") params.set("userType", userType);
+      if (filters?.coordinatorId) params.set("coordinatorId", filters.coordinatorId);
       const queryString = params.toString();
 
       const result = await apiFetch<DashboardApiResponse>(
@@ -475,19 +477,22 @@ export const useTopFaqs = (
   startTime?: Date,
   endTime?: Date,
   enabled?: boolean,
+  coordinatorId?: string,
 ) => {
   const params = new URLSearchParams();
   params.append("source", source);
   params.append("userType", userType);
   if (startTime) params.append("startTime", startTime.toISOString());
   if (endTime) params.append("endTime", endTime.toISOString());
+  if (coordinatorId) params.append("coordinatorId", coordinatorId);
   return useQuery({
     queryKey: [
       "top-faqs",
       source,
       userType,
       startTime,
-      endTime
+      endTime,
+      coordinatorId,
     ],
     placeholderData: (prev) => prev,
     queryFn: async () => {
@@ -543,28 +548,166 @@ interface UsermetricsResponse {
 export const useUserMertices = (
   source: string = 'vicharanashala',
   userType: string = 'all',
+  startDate?: string,
+  endDate?: string,
   shouldLoadUserDemographics: boolean = false,
 ) => {
   const params = new URLSearchParams();
   params.append("source", source);
   params.append("userType", userType);
+  if (startDate) params.append("startDate", startDate);
+  if(endDate) params.append("endDate", endDate)
   return useQuery({
     queryKey: [
       "user-metrices",
       source,
       userType,
+      startDate,
+      endDate,
     ],
-    placeholderData: (prev) => prev,
+    // placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
       const result = await apiFetch(
         `${API_BASE_URL}/analytics/users-metrices?${params.toString()}`
       );
       return result as UsermetricsResponse;
-    }, 
-    enabled: shouldLoadUserDemographics,
+    },
+    enabled: true,
   });
 }
+
+export type DatasetTotals = {
+  totalQuestions: number;
+  totalFeedbacks: number;
+  totalUsers: number;
+};
+
+/**
+ * Total number of questions, feedbacks, and users in the dataset
+ * application. Fetched from the external data release service via the
+ * `/analytics/dataset/total-*` endpoints on ChatbotController (NOT the
+ * internal review system).
+ */
+export const useDatasetTotals = () => {
+  return useQuery<DatasetTotals>({
+    queryKey: ["dataset-totals"],
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const [totalQuestionsRes, totalFeedbacksRes, totalUsersRes] = await Promise.all([
+        apiFetch<{ total: number }>(`${API_BASE_URL}/analytics/dataset/total-questions`),
+        apiFetch<{ total: number }>(`${API_BASE_URL}/analytics/dataset/total-feedbacks`),
+        apiFetch<{ total: number }>(`${API_BASE_URL}/analytics/dataset/total-users`),
+      ]);
+      return {
+        totalQuestions: totalQuestionsRes?.total ?? 0,
+        totalFeedbacks: totalFeedbacksRes?.total ?? 0,
+        totalUsers: totalUsersRes?.total ?? 0,
+      };
+    },
+    enabled: true,
+  });
+};
+
+
+export type DatasetQuestionListItem = {
+  questionId: string;
+  question: string;
+  createdAt: string;
+};
+
+export type DatasetFeedbackListItem = {
+  email: string;
+  questionId: string;
+  tag: string;
+  type: string;
+  predefinedOption: string;
+  comment: string;
+  reviewNote: string;
+  status: string;
+  createdAt: string;
+};
+
+export type DatasetUserListItem = {
+  name: string;
+  email: string;
+  phone: string;
+  age: number | null;
+  createdAt: string;
+};
+
+export type DatasetListResponse<T> = {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+const EMPTY_DATASET_LIST = {
+  data: [],
+  total: 0,
+  page: 1,
+  pageSize: 10,
+  totalPages: 1,
+};
+
+export const useDatasetQuestionsList = (
+  page: number = 1,
+  pageSize: number = 10,
+  enabled: boolean = true,
+) => {
+  return useQuery<DatasetListResponse<DatasetQuestionListItem>>({
+    queryKey: ["dataset-questions-list", page, pageSize],
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DatasetListResponse<DatasetQuestionListItem>>(
+        `${API_BASE_URL}/analytics/dataset/questions?page=${page}&pageSize=${pageSize}`,
+      );
+      return result ?? EMPTY_DATASET_LIST;
+    },
+    enabled,
+    placeholderData: (prev) => prev,
+  });
+};
+
+export const useDatasetFeedbacksList = (
+  page: number = 1,
+  pageSize: number = 10,
+  enabled: boolean = true,
+) => {
+  return useQuery<DatasetListResponse<DatasetFeedbackListItem>>({
+    queryKey: ["dataset-feedbacks-list", page, pageSize],
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DatasetListResponse<DatasetFeedbackListItem>>(
+        `${API_BASE_URL}/analytics/dataset/feedbacks?page=${page}&pageSize=${pageSize}`,
+      );
+      return result ?? EMPTY_DATASET_LIST;
+    },
+    enabled,
+    placeholderData: (prev) => prev,
+  });
+};
+
+export const useDatasetUsersList = (
+  page: number = 1,
+  pageSize: number = 10,
+  enabled: boolean = true,
+) => {
+  return useQuery<DatasetListResponse<DatasetUserListItem>>({
+    queryKey: ["dataset-users-list", page, pageSize],
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+      const result = await apiFetch<DatasetListResponse<DatasetUserListItem>>(
+        `${API_BASE_URL}/analytics/dataset/users?page=${page}&pageSize=${pageSize}`,
+      );
+      return result ?? EMPTY_DATASET_LIST;
+    },
+    enabled,
+    placeholderData: (prev) => prev,
+  });
+};
 
 export const useResponseAdherenceTable = (source?: string, userType?: string, startTime?: Date, endTime?: Date, shouldLoad?: boolean) => {
   const params = new URLSearchParams();

@@ -22,6 +22,10 @@ import { AnswerContent } from "./answer_item/AnswerContent";
 import { AnswerActions } from "./answer_item/AnswerActions";
 import { CommentsSection } from "@/components/comments-section";
 import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRoutedQuestionFullData";
+import {
+  clearApproveAnswerDraft,
+  getApproveAnswerDrafts,
+} from "./answer_item/ApproveAnswerDialog";
 
 interface AnswerItemProps {
   answer: IAnswer;
@@ -77,14 +81,20 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const isEditingFinalRef = useRef(false);
   const [isEditingFinal, setIsEditingFinal] = useState(false);
 
-  // Always re-seed the edit dialog with the latest answer/sources when it opens,
-  // so the moderator never sees a stale draft from a prior cancelled edit.
+  // Re-seed the edit dialog when it opens, but preserve any per-question local
+  // draft recovered by ApproveAnswerDialog.
   useEffect(() => {
     if (editFinalOpen) {
-      setEditFinalAnswer(props.answer.answer);
-      setEditFinalSources(props.answer.sources);
+      try {
+        const draft = getApproveAnswerDrafts()[props.questionId];
+        setEditFinalAnswer(draft?.answer ?? props.answer.answer);
+        setEditFinalSources(draft?.sources ?? props.answer.sources);
+      } catch {
+        setEditFinalAnswer(props.answer.answer);
+        setEditFinalSources(props.answer.sources);
+      }
     }
-  }, [editFinalOpen, props.answer.answer, props.answer.sources]);
+  }, [editFinalOpen, props.answer.answer, props.answer.sources, props.questionId]);
 
   const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
     useUpdateAnswer();
@@ -133,6 +143,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       toast.success(
         "Answer approved successfully! The question is now closed. Thank you!"
       );
+      clearApproveAnswerDraft(props.questionId);
       setEditOpen(false);
     } catch (error: any) {
       console.error("Failed to edit answer:", error);
@@ -180,6 +191,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       });
 
       toast.success("Final answer updated successfully.");
+      clearApproveAnswerDraft(props.questionId);
       setEditFinalOpen(false);
     } catch (error: any) {
       console.error("Failed to edit final answer:", error);
@@ -337,6 +349,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   return (
     <Card className="p-6 grid gap-4">
       <AnswerItemHeader
+        questionId={props.questionId}
         answer={props.answer}
         isMine={isMine}
         isRejected={isRejected}
