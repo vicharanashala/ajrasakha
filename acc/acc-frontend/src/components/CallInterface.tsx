@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { IncomingCallBox } from "./IncomingCallBox";
 import type { CallTranscript } from "./IncomingCallBox";
+import { FarmerDetails } from "./FarmerDetails";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { toast } from "sonner";
 import { Button } from "./atoms/button";
@@ -24,8 +25,6 @@ import {
   Check,
   Sparkles,
   FlaskConical,
-  Maximize2,
-  Minimize2,
 } from "lucide-react";
 import WeatherWidget from "./WeatherWidget";
 import { plivoService } from "@/hooks/api/plivo/api";
@@ -1101,254 +1100,171 @@ export const CallInterface = () => {
   };
 
   return (
-    <div className="space-y-4 w-full max-w-full px-4 md:px-6 py-2 relative">
-      {/* Agent Status Toggle - Top Right Corner */}
-      {currentUser?.role === "call_agent" && (
-        <div className="absolute -top-6 right-4 md:right-6 z-10">
-          {currentUser?.agent && currentUser.agent !== "not_available" ? (
-            <Button
-              onClick={() => handleToggleAgentStatus(false)}
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs border-red-300 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/20 text-red-700 dark:text-red-400"
-            >
-              <PowerOff className="h-3 w-3 mr-1" />
-              Go Offline
-            </Button>
-          ) : (
-            <Button
-              onClick={() => handleToggleAgentStatus(true)}
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs border-green-300 hover:bg-green-50 dark:border-green-900 dark:hover:bg-green-950/20 text-green-700 dark:text-green-400"
-            >
-              <Power className="h-3 w-3 mr-1" />
-              Go Online
-            </Button>
-          )}
-        </div>
-      )}
-      {/* Incoming Call Box - Top Section */}
-      <IncomingCallBox
-        extractedFarmerProfile={extractedFarmerProfile}
-        onTranscriptChange={() => { }} // Not using direct strings anymore
-        onOriginalTranscriptChange={() => { }}
-        onTranscriptsListChange={(list) => setTranscriptsList(list)}
-        onCallStateChange={(isActive) => {
-          setIsCallActive(isActive);
-          if (isActive) {
-            // Clear transcripts, questions, summary, HITL and simulation states when a new call becomes active
-            setExtractedFarmerProfile(null);
-            setTranscriptsList([]);
-            setQuestions([]);
-            setTranslatedQuestions({});
-            setTranslatedAnswers({});
-            setTranslatingQuestions({});
-            setCopiedStates({});
-            setEditableTranslatedTranscript("");
-            lastTranscriptRef.current = "";
-            setIsSummaryOpen(false);
-            setEditableSummaryText("");
-            setExtractedState("");
-            setExtractedCrop("");
-            setHasGeneratedQuestions(false);
-            setThreadId(null);
-            setExtractedData(null);
-            setIsHumanVerificationMode(false);
-            setEditableQuery("");
-            setEditableCrop("");
-            setEditableState("");
-            setEditableDistrict("");
-            setEditableBlock("");
-            setEditableVillage("");
-            setEditableDomain([]);
-            setEditableSeason("");
+    <div className="space-y-3.5 w-full max-w-full px-1.5 sm:px-3 py-1.5 relative">
+      {/* Incoming Call Box - Top Sticky Bar */}
+      <div className="sticky top-0 z-40 bg-background/95 dark:bg-background/95 backdrop-blur-md pt-0.5 pb-2 -mt-1">
+        <IncomingCallBox
+          extractedFarmerProfile={extractedFarmerProfile}
+          onTranscriptChange={() => { }} // Not using direct strings anymore
+          onOriginalTranscriptChange={() => { }}
+          onTranscriptsListChange={(list) => setTranscriptsList(list)}
+          onCallStateChange={(isActive) => {
+            setIsCallActive(isActive);
+            if (isActive) {
+              // Clear transcripts, questions, summary, HITL and simulation states when a new call becomes active
+              setExtractedFarmerProfile(null);
+              setTranscriptsList([]);
+              setQuestions([]);
+              setTranslatedQuestions({});
+              setTranslatedAnswers({});
+              setTranslatingQuestions({});
+              setCopiedStates({});
+              setEditableTranslatedTranscript("");
+              lastTranscriptRef.current = "";
+              setIsSummaryOpen(false);
+              setEditableSummaryText("");
+              setExtractedState("");
+              setExtractedCrop("");
+              setHasGeneratedQuestions(false);
+              setThreadId(null);
+              setExtractedData(null);
+              setIsHumanVerificationMode(false);
+              setEditableQuery("");
+              setEditableCrop("");
+              setEditableState("");
+              setEditableDistrict("");
+              setEditableBlock("");
+              setEditableVillage("");
+              setEditableDomain([]);
+              setEditableSeason("");
 
-            setIsSimulatingMode(false);
-          }
-        }}
-        onCallUuidChange={(uuid) => {
-          if (uuid === callUuid) {
-            return;
-          }
-          setCallUuid(uuid);
-          // Preserve the last call's UUID when call ends for question generation
-          if (uuid === null && callUuid !== null) {
-            setLastCallUuid(callUuid);
-          }
-          // Reset lastCallUuid when a new call comes in
-          if (uuid !== null) {
-            setLastCallUuid(null);
-            if (isHumanVerificationMode) {
-              toast.info("New call connected. Resetting previous review draft.");
+              setIsSimulatingMode(false);
             }
-            // Clear transcripts, questions, summary and translation states for new calls
-            setTranscriptsList([]);
-            setQuestions([]);
-            setTranslatedQuestions({});
-            setTranslatedAnswers({});
-            setTranslatingQuestions({});
-            setCopiedStates({});
-            setEditableTranslatedTranscript("");
-            lastTranscriptRef.current = "";
-            setIsSummaryOpen(false);
-            setEditableSummaryText("");
-            setExtractedState("");
-            setExtractedCrop("");
-            setHasGeneratedQuestions(false);
-            // Reset HITL state
-            setThreadId(null);
-            setExtractedData(null);
-            setIsHumanVerificationMode(false);
-            setEditableQuery("");
-            setEditableCrop("");
-            setEditableState("");
-            setEditableDistrict("");
-            setEditableDomain([]);
-            setEditableSeason("");
-            setIsSimulatingMode(false);
-          }
-        }}
-        onPhoneNumberChange={(phone) => {
-          if (phone === callPhoneNumber) {
-            return;
-          }
-          setCallPhoneNumber(phone);
-          // Preserve the last call's phone number when call ends
-          if (phone === null && callPhoneNumber !== null) {
-            setLastCallPhoneNumber(callPhoneNumber);
-          }
-          if (phone !== null) {
-            setLastCallPhoneNumber(null);
-          }
-        }}
-      />
+          }}
+          onCallUuidChange={(uuid) => {
+            if (uuid === callUuid) {
+              return;
+            }
+            setCallUuid(uuid);
+            // Preserve the last call's UUID when call ends for question generation
+            if (uuid === null && callUuid !== null) {
+              setLastCallUuid(callUuid);
+            }
+            // Reset lastCallUuid when a new call comes in
+            if (uuid !== null) {
+              setLastCallUuid(null);
+              if (isHumanVerificationMode) {
+                toast.info("New call connected. Resetting previous review draft.");
+              }
+              // Clear transcripts, questions, summary and translation states for new calls
+              setTranscriptsList([]);
+              setQuestions([]);
+              setTranslatedQuestions({});
+              setTranslatedAnswers({});
+              setTranslatingQuestions({});
+              setCopiedStates({});
+              setEditableTranslatedTranscript("");
+              lastTranscriptRef.current = "";
+              setIsSummaryOpen(false);
+              setEditableSummaryText("");
+              setExtractedState("");
+              setExtractedCrop("");
+              setHasGeneratedQuestions(false);
+              // Reset HITL state
+              setThreadId(null);
+              setExtractedData(null);
+              setIsHumanVerificationMode(false);
+              setEditableQuery("");
+              setEditableCrop("");
+              setEditableState("");
+              setEditableDistrict("");
+              setEditableDomain([]);
+              setEditableSeason("");
+              setIsSimulatingMode(false);
+            }
+          }}
+          onPhoneNumberChange={(phone) => {
+            if (phone === callPhoneNumber) {
+              return;
+            }
+            setCallPhoneNumber(phone);
+            // Preserve the last call's phone number when call ends
+            if (phone === null && callPhoneNumber !== null) {
+              setLastCallPhoneNumber(callPhoneNumber);
+            }
+            if (phone !== null) {
+              setLastCallPhoneNumber(null);
+            }
+          }}
+        />
+      </div>
       {/* <button onClick={() => handleRedial("+919606751041")}>Redial</button> */}
 
-      {/* Premium Read-Only Chat-Bubble Conversation View (3-Stage Vertical Elastic Box) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column: Live Conversation Dialogue + Extracted Details below */}
-        <div className="space-y-6 flex flex-col">
+      {/* 3-Column Modern Call Interface Layout (Left 25%: Farmer Details, Center: 50% of rest, Right: 50% of rest) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[25%_1fr_1fr] gap-4 items-start">
+        {/* Left Column: Farmer Information Form (25%) */}
+        <div className="w-full flex flex-col space-y-4">
+          <FarmerDetails
+            phoneNo={callPhoneNumber || lastCallPhoneNumber || ""}
+            extractedProfile={extractedFarmerProfile}
+            defaultOpen={true}
+            className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300"
+          />
+        </div>
+
+        {/* Center Column: Live Conversation Dialogue + Extracted Query Details below (30%) */}
+        <div className="w-full space-y-4 flex flex-col">
           <Card className="col-span-1 h-fit border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
-            <CardHeader className="border border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2 sm:px-5 sm:py-2.5">
-              <div className="flex items-center justify-between gap-3">
-                {/* Left Side: Title on top, UUID & Status stacked underneath */}
-                <div className="flex flex-col gap-1 min-w-0">
+            <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2.5 sm:px-4 sm:py-3 space-y-2.5">
+              {/* Row 1: Title (Left) + Test & Reset (Center/Right) + Far Right Chevron */}
+              <div className="flex items-center justify-between gap-2">
+                {/* Left Side: Title and optional UUID */}
+                <div className="flex flex-col gap-0.5 min-w-0">
                   <div
                     className="flex items-center gap-2 cursor-pointer select-none"
                     onClick={() => setLiveConvState(liveConvState === "collapsed" ? "full" : "collapsed")}
                   >
-                    <MessageSquare className={`h-4 w-4 text-indigo-600 dark:text-indigo-400 ${isCallActive ? "animate-pulse" : ""}`} />
-                    <h3 className="font-bold text-lg sm:text-xl text-zinc-900 dark:text-zinc-100 tracking-tight">
-                      Live conversation Dialogue
+                    <MessageSquare className={`h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400 ${isCallActive ? "animate-pulse" : ""}`} />
+                    <h3 className="font-bold text-base sm:text-lg text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
+                      Live conversation
                     </h3>
                   </div>
 
-                  {/* Sub-details: UUID & Status stacked vertically */}
-                  <div className="flex flex-col gap-0.5 pl-6">
-                    {callUuid && (
-                      <span
-                        className="font-mono text-[11px] text-zinc-600 dark:text-zinc-400 font-medium truncate max-w-[200px] sm:max-w-[280px]"
-                        title={callUuid}
-                      >
-                        UUID: {callUuid}
-                      </span>
-                    )}
-
-                    <div>
-                      {isCallActive ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider animate-pulse">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                          Streaming Live
-                        </span>
-                      ) : isSimulatingMode ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-400 font-semibold uppercase tracking-wider">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                          Simulation Mode
-                        </span>
-                      ) : transcriptsList.length > 0 ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                          Call Concluded
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider">
-                          <span className="h-1.5 w-1.5 rounded-full bg-zinc-300 dark:bg-zinc-700" />
-                          Inactive
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  {callUuid && (
+                    <span
+                      className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 font-medium truncate max-w-[140px] sm:max-w-[200px] pl-6"
+                      title={callUuid}
+                    >
+                      UUID: {callUuid.slice(0, 8)}...
+                    </span>
+                  )}
                 </div>
 
-                {/* Right Side: Buttons in 2 rows + Far-Right Dropdown Arrow */}
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <div className="flex flex-col items-end gap-1.5">
-                    {/* Top Row: Test & Reset Buttons */}
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        onClick={handleLoadTestTranscript}
-                        disabled={isCallActive || isExtracting || isResuming}
-                        size="sm"
-                        variant="outline"
-                        className="h-6.5 w-22 px-2.5 text-[11px] font-semibold border-amber-300 dark:border-amber-700/60 bg-amber-50/80 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 shadow-sm rounded-md flex items-center gap-1 transition-all"
-                        title="Load sample farmer transcript for testing AI response without a real phone call"
-                      >
-                        <FlaskConical className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                        <span>Test</span>
-                      </Button>
+                {/* Right Side: [ Test ] [ Reset ] + [ ↓ Chevron Button ] */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button
+                    onClick={handleLoadTestTranscript}
+                    disabled={isCallActive || isExtracting || isResuming}
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2.5 text-xs font-semibold border-amber-300 dark:border-amber-700/60 bg-amber-50/80 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 shadow-sm rounded-lg flex items-center gap-1 transition-all"
+                    title="Load sample farmer transcript for testing AI response without a real phone call"
+                  >
+                    <FlaskConical className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                    <span>Test</span>
+                  </Button>
 
-                      <Button
-                        onClick={handleResetConversation}
-                        disabled={transcriptsList.length === 0}
-                        size="sm"
-                        variant="outline"
-                        className="h-6.5  w-23 px-2.5 text-[11px] border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900 rounded-md flex items-center gap-1 font-medium"
-                      >
-                        <RotateCcw className="h-3 w-3" />
-                        <span>Reset</span>
-                      </Button>
-                    </div>
-
-                    {/* Bottom Row: Extract and Verify Dropdown Menu */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          disabled={isExtracting || transcriptsList.length === 0}
-                          size="sm"
-                          className="h-9 px-3 text-sm sm:text-base font-extrabold btn-primary-emerald shadow-md rounded-lg flex items-center gap-1.5 transition-all w-full justify-center"
-                        >
-                          <Sparkles className="h-4 w-4 text-primary-accent-fg/80" />
-                          <span>
-                            {isExtracting
-                              ? currentExtractionType === "farmer_details"
-                                ? "Extracting Farmer..."
-                                : currentExtractionType === "query_details"
-                                  ? "Extracting Query..."
-                                  : "Extracting..."
-                              : "Extract and Verify"}
-                          </span>
-                          <ChevronDown className="h-4 w-4 ml-0.5 opacity-80" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-60 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl rounded-xl p-1 z-50">
-                        <DropdownMenuItem
-                          onClick={() => handleExtractWithHITL("farmer_details")}
-                          className="flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        >
-                          <User className="h-4 w-4 text-emerald-600" />
-                          <span>Extract Farmer Details</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleExtractWithHITL("query_details")}
-                          className="flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        >
-                          <FileText className="h-4 w-4 text-amber-600" />
-                          <span>Extract Query Details</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                  <Button
+                    onClick={handleResetConversation}
+                    disabled={transcriptsList.length === 0}
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2.5 text-xs border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900 rounded-lg flex items-center gap-1 font-medium"
+                    title="Reset conversation transcript"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    <span>Reset</span>
+                  </Button>
 
                   {/* Far Right: Dropdown Chevron Button */}
                   <Button
@@ -1356,17 +1272,56 @@ export const CallInterface = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setLiveConvState(liveConvState === "collapsed" ? "full" : "collapsed")}
-                    className="h-10 w-10 p-0 text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 border border-zinc-300/80 dark:border-zinc-700/80 rounded-xl shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95"
+                    className="h-7 w-7 p-0 text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 border border-zinc-300/80 dark:border-zinc-700/80 rounded-lg shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95"
                     title={liveConvState === "collapsed" ? "Expand Live Conversation" : "Collapse Live Conversation"}
                   >
                     {liveConvState === "collapsed" ? (
-                      <ChevronDown className="h-6.5 w-6.5 stroke-[2.5]" />
+                      <ChevronDown className="h-4 w-4" />
                     ) : (
-                      <ChevronUp className="h-6.5 w-6.5 stroke-[2.5]" />
+                      <ChevronUp className="h-4 w-4" />
                     )}
                   </Button>
                 </div>
               </div>
+
+              {/* Row 2: Full Width "Extract & Verify" Dropdown Button */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    disabled={isExtracting || transcriptsList.length === 0}
+                    size="sm"
+                    className="h-8.5 w-full text-xs sm:text-sm font-bold btn-primary-emerald shadow-sm rounded-lg flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-primary-accent-fg/80" />
+                    <span>
+                      {isExtracting
+                        ? currentExtractionType === "farmer_details"
+                          ? "Extracting Farmer..."
+                          : currentExtractionType === "query_details"
+                            ? "Extracting Query..."
+                            : "Extracting..."
+                        : "Extract and Verify"}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 ml-0.5 opacity-80" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-64 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl rounded-xl p-1 z-50">
+                  <DropdownMenuItem
+                    onClick={() => handleExtractWithHITL("farmer_details")}
+                    className="flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <User className="h-4 w-4 text-emerald-600" />
+                    <span>Extract Farmer Details</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleExtractWithHITL("query_details")}
+                    className="flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <FileText className="h-4 w-4 text-amber-600" />
+                    <span>Extract Query Details</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </CardHeader>
 
             <div
@@ -1378,8 +1333,7 @@ export const CallInterface = () => {
               <CardContent className="p-3 sm:p-4 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-2.5">
                 <div
                   ref={chatContainerRef}
-                  className={`space-y-3 overflow-y-auto pr-2 sm:pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col border-b border-zinc-100 dark:border-zinc-900 pb-2 transition-all duration-300 ${liveConvState === "full" ? "h-[420px]" : "h-[210px]"
-                    }`}
+                  className="space-y-3 overflow-y-auto pr-2 sm:pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col transition-all duration-300 h-[275px]"
                 >
                   {transcriptsList.length > 0 ? (
                     transcriptsList.map((msg, index) => {
@@ -1561,274 +1515,269 @@ export const CallInterface = () => {
                     </div>
                   </div>
                 )}
-                <div className="flex justify-end pt-0.5">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setLiveConvState(liveConvState === "full" ? "half" : "full")}
-                    className="h-6 w-6 p-0 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-md shrink-0 ml-auto"
-                    title={liveConvState === "full" ? "Compress height" : "Expand height"}
-                  >
-                    {liveConvState === "full" ? (
-                      <Minimize2 className="h-3.5 w-3.5" />
-                    ) : (
-                      <Maximize2 className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </div>
               </CardContent>
             </div>
           </Card>
 
-
-        </div>
-
-        {/* Right Column: Extracted Query Details & Generated Answers */}
-        <div className="space-y-6 flex flex-col h-full">
-          {/* Extracted Query Details & Summary Card (Right Column) */}
-          {isSummaryOpen && activeExtractionModes.has('query') && (
-            <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 animate-in fade-in-50 slide-in-from-top-2">
-              <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4 transition-colors">
-                <CardTitle className="flex items-center justify-between text-sm font-semibold">
-                  <span
-                    className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 cursor-pointer"
-                    onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
-                  >
-                    <FileText className="h-4 w-4" />
-                    Extracted Query Details & Summary
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 hover:bg-transparent"
-                    onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
-                  >
-                    {isSummaryExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-zinc-500" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-zinc-500" />
-                    )}
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <div
-                className={`transition-all duration-300 ease-in-out overflow-hidden ${isSummaryExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"}`}
-              >
-                <CardContent className="p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
-                  {isExtracting && currentExtractionType === 'query_details' ? (
-                    <div className="flex flex-col space-y-3">
-                      <Skeleton className="h-4 w-3/4 rounded-md" />
-                      <Skeleton className="h-4 w-full rounded-md" />
-                      <Skeleton className="h-4 w-5/6 rounded-md" />
-                    </div>
+          {/* Extracted Query Details & Summary Card (Center Column, below Live Conversation) */}
+          <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300 animate-in fade-in-50 slide-in-from-top-2">
+            <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4 transition-colors">
+              <CardTitle className="flex items-center justify-between text-sm font-semibold">
+                <span
+                  className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 cursor-pointer"
+                  onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                >
+                  <FileText className="h-4 w-4" />
+                  Extracted Query Details & Summary
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 hover:bg-transparent"
+                  onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                >
+                  {isSummaryExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-zinc-500" />
                   ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Edit3 className="h-4 w-4 text-indigo-600" />
-                        <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                          Review & Edit Extracted Query Data
-                        </span>
+                    <ChevronDown className="h-4 w-4 text-zinc-500" />
+                  )}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <div
+              className={`transition-all duration-300 ease-in-out overflow-hidden ${isSummaryExpanded ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"}`}
+            >
+              <CardContent className="p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
+                {isExtracting && currentExtractionType === 'query_details' ? (
+                  <div className="flex flex-col space-y-3">
+                    <Skeleton className="h-4 w-3/4 rounded-md" />
+                    <Skeleton className="h-4 w-full rounded-md" />
+                    <Skeleton className="h-4 w-5/6 rounded-md" />
+                  </div>
+                ) : !editableQuery.trim() && !editableCrop.trim() && !editableState.trim() && !isHumanVerificationMode ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center text-zinc-400 dark:text-zinc-500 space-y-2">
+                    <div className="p-3 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 dark:text-indigo-400 border border-indigo-200/40 dark:border-indigo-800/40 shadow-sm">
+                      <FileText className="h-6 w-6" />
+                    </div>
+                    <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                      Extracted details appear here
+                    </p>
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 max-w-[240px]">
+                      Query parameters will appear here when extracted from the live conversation.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Edit3 className="h-4 w-4 text-indigo-600" />
+                      <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                        Review & Edit Extracted Query Data
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <Label
+                          htmlFor="queryText"
+                          className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                        >
+                          Extracted Query
+                        </Label>
+                        <Textarea
+                          id="queryText"
+                          value={editableQuery}
+                          onChange={(e) => setEditableQuery(e.target.value)}
+                          className="min-h-[80px] text-sm"
+                          placeholder="Edit extracted query..."
+                        />
                       </div>
 
-                      <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
                           <Label
-                            htmlFor="queryText"
+                            htmlFor="cropName"
                             className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
                           >
-                            Extracted Query
+                            Crop
                           </Label>
-                          <Textarea
-                            id="queryText"
-                            value={editableQuery}
-                            onChange={(e) => setEditableQuery(e.target.value)}
-                            className="min-h-[80px] text-sm"
-                            placeholder="Edit extracted query..."
+                          <Input
+                            id="cropName"
+                            value={editableCrop}
+                            onChange={(e) => setEditableCrop(e.target.value)}
+                            className="text-sm"
+                            placeholder="Crop..."
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label
-                              htmlFor="cropName"
-                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
-                            >
-                              Crop
-                            </Label>
-                            <Input
-                              id="cropName"
-                              value={editableCrop}
-                              onChange={(e) => setEditableCrop(e.target.value)}
-                              className="text-sm"
-                              placeholder="Crop..."
-                            />
-                          </div>
-
-                          <div>
-                            <Label
-                              htmlFor="season"
-                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
-                            >
-                              Season
-                            </Label>
-                            <Select
-                              value={editableSeason}
-                              onValueChange={setEditableSeason}
-                            >
-                              <SelectTrigger id="season" className="text-sm">
-                                <SelectValue placeholder="Select Season" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Kharif">Kharif</SelectItem>
-                                <SelectItem value="Rabi">Rabi</SelectItem>
-                                <SelectItem value="Zaid">Zaid</SelectItem>
-                                <SelectItem value="Whole Year">
-                                  Whole Year
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <Label
-                              htmlFor="stateName"
-                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
-                            >
-                              State
-                            </Label>
-                            <Input
-                              id="stateName"
-                              value={editableState}
-                              onChange={(e) =>
-                                setEditableState(e.target.value)
-                              }
-                              className="text-sm"
-                              placeholder="State..."
-                            />
-                          </div>
-
-                          <div>
-                            <Label
-                              htmlFor="districtName"
-                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
-                            >
-                              District
-                            </Label>
-                            <Input
-                              id="districtName"
-                              value={editableDistrict}
-                              onChange={(e) =>
-                                setEditableDistrict(e.target.value)
-                              }
-                              className="text-sm"
-                              placeholder="District..."
-                            />
-                          </div>
-
-                          <div>
-                            <Label
-                              htmlFor="blockName"
-                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
-                            >
-                              Block
-                            </Label>
-                            <Input
-                              id="blockName"
-                              value={editableBlock}
-                              onChange={(e) =>
-                                setEditableBlock(e.target.value)
-                              }
-                              className="text-sm"
-                              placeholder="Block..."
-                            />
-                          </div>
-
-                          <div>
-                            <Label
-                              htmlFor="villageName"
-                              className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
-                            >
-                              Village
-                            </Label>
-                            <Input
-                              id="villageName"
-                              value={editableVillage}
-                              onChange={(e) =>
-                                setEditableVillage(e.target.value)
-                              }
-                              className="text-sm"
-                              placeholder="Village..."
-                            />
-                          </div>
+                        <div>
+                          <Label
+                            htmlFor="season"
+                            className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                          >
+                            Season
+                          </Label>
+                          <Select
+                            value={editableSeason}
+                            onValueChange={setEditableSeason}
+                          >
+                            <SelectTrigger id="season" className="text-sm">
+                              <SelectValue placeholder="Select Season" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Kharif">Kharif</SelectItem>
+                              <SelectItem value="Rabi">Rabi</SelectItem>
+                              <SelectItem value="Zaid">Zaid</SelectItem>
+                              <SelectItem value="Whole Year">
+                                Whole Year
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
 
-
-                        {/* Domain selection list with check icons */}
                         <div>
-                          <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 block">
-                            Domains (Select All That Apply)
+                          <Label
+                            htmlFor="stateName"
+                            className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                          >
+                            State
                           </Label>
-                          <div className="grid grid-cols-2 gap-1.5 p-2 bg-zinc-100/50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 max-h-48 overflow-y-auto">
-                            {DOMAIN_OPTIONS.map((domain) => {
-                              const isSelected =
-                                editableDomain.includes(domain);
-                              return (
-                                <div
-                                  key={domain}
-                                  onClick={() => handleToggleDomain(domain)}
-                                  className={`flex items-center justify-between p-2 rounded-lg text-xs font-medium cursor-pointer transition-all ${isSelected
-                                    ? "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-semibold border border-indigo-500/20"
-                                    : "hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400"
-                                    }`}
-                                >
-                                  <span className="truncate">{domain}</span>
-                                  {isSelected && (
-                                    <Check className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 ml-1" />
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                          <Input
+                            id="stateName"
+                            value={editableState}
+                            onChange={(e) =>
+                              setEditableState(e.target.value)
+                            }
+                            className="text-sm"
+                            placeholder="State..."
+                          />
+                        </div>
+
+                        <div>
+                          <Label
+                            htmlFor="districtName"
+                            className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                          >
+                            District
+                          </Label>
+                          <Input
+                            id="districtName"
+                            value={editableDistrict}
+                            onChange={(e) =>
+                              setEditableDistrict(e.target.value)
+                            }
+                            className="text-sm"
+                            placeholder="District..."
+                          />
+                        </div>
+
+                        <div>
+                          <Label
+                            htmlFor="blockName"
+                            className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                          >
+                            Block
+                          </Label>
+                          <Input
+                            id="blockName"
+                            value={editableBlock}
+                            onChange={(e) =>
+                              setEditableBlock(e.target.value)
+                            }
+                            className="text-sm"
+                            placeholder="Block..."
+                          />
+                        </div>
+
+                        <div>
+                          <Label
+                            htmlFor="villageName"
+                            className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
+                          >
+                            Village
+                          </Label>
+                          <Input
+                            id="villageName"
+                            value={editableVillage}
+                            onChange={(e) =>
+                              setEditableVillage(e.target.value)
+                            }
+                            className="text-sm"
+                            placeholder="Village..."
+                          />
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-end gap-3 mt-5 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
-                        <Button
-                          onClick={() => setIsHumanVerificationMode(false)}
-                          variant="outline"
-                          size="sm"
-                          className="h-10 px-4 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl transition-all"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleApproveAndResume}
-                          disabled={
-                            isResuming ||
-                            !editableQuery.trim() ||
-                            editableDomain.length === 0 ||
-                            !editableSeason
-                          }
-                          size="sm"
-                          className="h-10 px-5 text-xs md:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                          <CheckCircle2 className="h-4 w-4 text-indigo-200" />
-                          <span>
-                            {isResuming
-                              ? "Generating Answer..."
-                              : "Approve & Generate Answer"}
-                          </span>
-                        </Button>
+
+                      {/* Domain selection list with check icons */}
+                      <div>
+                        <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 block">
+                          Domains (Select All That Apply)
+                        </Label>
+                        <div className="grid grid-cols-2 gap-1.5 p-2 bg-zinc-100/50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 max-h-48 overflow-y-auto">
+                          {DOMAIN_OPTIONS.map((domain) => {
+                            const isSelected =
+                              editableDomain.includes(domain);
+                            return (
+                              <div
+                                key={domain}
+                                onClick={() => handleToggleDomain(domain)}
+                                className={`flex items-center justify-between p-2 rounded-lg text-xs font-medium cursor-pointer transition-all ${isSelected
+                                  ? "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-semibold border border-indigo-500/20"
+                                  : "hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400"
+                                  }`}
+                              >
+                                <span className="truncate">{domain}</span>
+                                {isSelected && (
+                                  <Check className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 ml-1" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </div>
-            </Card>
-          )}
 
-          {/* Right Column: Generated Questions & Answers List */}
+                    <div className="flex items-center justify-end gap-3 mt-5 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                      <Button
+                        onClick={() => setIsHumanVerificationMode(false)}
+                        variant="outline"
+                        size="sm"
+                        className="h-10 px-4 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl transition-all"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleApproveAndResume}
+                        disabled={
+                          isResuming ||
+                          !editableQuery.trim() ||
+                          editableDomain.length === 0 ||
+                          !editableSeason
+                        }
+                        size="sm"
+                        className="h-10 px-5 text-xs md:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        <CheckCircle2 className="h-4 w-4 text-indigo-200" />
+                        <span>
+                          {isResuming
+                            ? "Generating Answer..."
+                            : "Approve & Generate Answer"}
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </div>
+          </Card>
+        </div>
+
+        {/* Right Column: Weather Information (top) + Live Questions & Specialist Answers (bottom) (Rest: 45%) */}
+        <div className="w-full space-y-4 flex flex-col">
+          {/* Weather Widget */}
+          <WeatherWidget defaultState={editableState || extractedState || "Karnataka"} />
+
+          {/* Live Questions & AI Specialist Answers List */}
           <Card className="flex-1 min-h-[400px] md:h-auto border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
             <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4">
               <CardTitle className="flex items-center justify-between text-sm font-semibold">
@@ -2127,10 +2076,6 @@ export const CallInterface = () => {
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      <div className="w-full pt-4">
-        <WeatherWidget defaultState={editableState || extractedState || "Karnataka"} />
       </div>
     </div>
   );

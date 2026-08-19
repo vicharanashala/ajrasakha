@@ -13,13 +13,15 @@ import { ACCAnalyticsDashboard } from "@/components/ACCAnalyticsDashboard";
 import { ManageCallAgents } from "@/components/ManageCallAgents";
 import { Spinner } from "@/components/atoms/spinner";
 import { UserService } from "@/hooks/services/userService";
+import { cn } from "@/lib/utils";
 
 import {
   Phone,
   Clock,
   TrendingUp,
   BarChart3,
-  Users
+  Users,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -30,8 +32,9 @@ export const Route = createFileRoute("/call-agent-dashboard/")({
 function DashboardComponent() {
   const navigate = useNavigate();
   const { user: authUser } = useAuthStore();
-  const { data: user, isLoading } = useGetCurrentUser({ enabled: !!authUser });
+  const { data: user, isLoading, refetch: refetchUser } = useGetCurrentUser({ enabled: !!authUser });
   const [activeTab, setActiveTab] = useState("call_dashboard");
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
   useEffect(() => {
     if (!authUser) {
@@ -93,6 +96,29 @@ function DashboardComponent() {
   const hasActiveTab = menuItems.some((item) => item.id === activeTab);
   const currentTab = hasActiveTab ? activeTab : menuItems[0]?.id || "";
 
+  const isAgentOnline = Boolean(user?.isCallAgentActive) || (Boolean(user?.agent) && user?.agent !== "not_available");
+
+  const handleToggleAgentStatus = async () => {
+    if (isTogglingStatus) return;
+    setIsTogglingStatus(true);
+    const newStatus = !isAgentOnline;
+    try {
+      const userService = new UserService();
+      await userService.toggleAgentStatus(newStatus);
+      toast.success(
+        newStatus
+          ? "You are now online and ready to receive calls"
+          : "You are now offline",
+      );
+      await refetchUser();
+    } catch (error: any) {
+      console.error("Error toggling agent status:", error);
+      toast.error(error.message || "Failed to update agent status");
+    } finally {
+      setIsTogglingStatus(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans">
       <Tabs value={currentTab} onValueChange={setActiveTab} className="h-full flex flex-col w-full">
@@ -132,6 +158,35 @@ function DashboardComponent() {
 
             {/* Right Side Controls */}
             <div className="flex items-center gap-3 shrink-0">
+              {isCallAgent && (
+                <button
+                  type="button"
+                  onClick={handleToggleAgentStatus}
+                  disabled={isTogglingStatus}
+                  className={cn(
+                    "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide transition-all duration-200 border cursor-pointer select-none shadow-sm",
+                    isAgentOnline
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 shadow-emerald-500/5"
+                      : "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/60"
+                  )}
+                  title={isAgentOnline ? "Click to Go Offline" : "Click to Go Online"}
+                >
+                  {isTogglingStatus ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                  ) : (
+                    <span
+                      className={cn(
+                        "w-2 h-2 rounded-full",
+                        isAgentOnline
+                          ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"
+                          : "bg-zinc-400 dark:bg-zinc-500"
+                      )}
+                    />
+                  )}
+                  <span>{isAgentOnline ? "Online" : "Offline"}</span>
+                </button>
+              )}
+
               <ThemeToggleCompact />
               
               {/* User Dropdown Profile Actions */}

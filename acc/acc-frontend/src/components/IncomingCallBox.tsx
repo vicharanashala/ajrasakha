@@ -21,6 +21,9 @@ import {
   User,
   MessageSquare,
   Loader2,
+  Clock,
+  Activity,
+  ArrowDownLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlivoWebSocketService } from "@/hooks/services/plivoWebSocketService";
@@ -99,13 +102,6 @@ export const IncomingCallBox = ({
   const [messageText, setMessageText] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [lastCallNumber, setLastCallNumber] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (extractedFarmerProfile) {
-      setIsFarmerInfoExpanded(true);
-    }
-  }, [extractedFarmerProfile]);
-
   // Translation
   const [farmerDetectedLanguage, setFarmerDetectedLanguage] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<string>("hi-IN");
@@ -115,7 +111,6 @@ export const IncomingCallBox = ({
   const languageManuallyChangedRef = useRef(false);
 
   // Collapsible UI Section States (secondary during call)
-  const [isFarmerInfoExpanded, setIsFarmerInfoExpanded] = useState(true);
   const [isMessageExpanded, setIsMessageExpanded] = useState(false);
 
   // Voice-to-Text STT States
@@ -126,18 +121,22 @@ export const IncomingCallBox = ({
 
   // Active Call Timer & Scroll Floating Box States
   const [callTimerSeconds, setCallTimerSeconds] = useState(0);
+  const [lastCompletedCallDuration, setLastCompletedCallDuration] = useState<number | null>(null);
   const [isFloatingBoxVisible, setIsFloatingBoxVisible] = useState(false);
   const telephonyPanelRef = useRef<HTMLDivElement | null>(null);
 
   // Call duration timer effect
   useEffect(() => {
     let timerInterval: ReturnType<typeof setInterval> | null = null;
-    if (callStatus === "connected" || callStatus === "held") {
+    if (callStatus === "incoming") {
+      setCallTimerSeconds(0);
+      setLastCompletedCallDuration(null);
+    } else if (callStatus === "connected" || callStatus === "held") {
       timerInterval = setInterval(() => {
         setCallTimerSeconds((prev) => prev + 1);
       }, 1000);
-    } else {
-      setCallTimerSeconds(0);
+    } else if (callStatus === "ended") {
+      setLastCompletedCallDuration(callTimerSeconds);
     }
     return () => {
       if (timerInterval) clearInterval(timerInterval);
@@ -150,6 +149,11 @@ export const IncomingCallBox = ({
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
+
+  const displayTimerSeconds =
+    lastCompletedCallDuration !== null && (callStatus === "ended" || callStatus === "idle")
+      ? lastCompletedCallDuration
+      : callTimerSeconds;
 
   // Floating call controls observer on scroll away
   useEffect(() => {
@@ -992,557 +996,394 @@ export const IncomingCallBox = ({
     }
   };
 
+  const currentPhoneNumber = incomingCall?.number || lastCallNumber || null;
+  const farmerDisplayName = extractedFarmerProfile?.farmerName
+    ? `${extractedFarmerProfile.farmerName} (Farmer)`
+    : currentPhoneNumber
+      ? "Farmer"
+      : "No active caller";
+
   return (
     <div
       ref={telephonyPanelRef}
       className={cn(
-        "rounded-xl transition-all duration-300 relative",
-        callStatus === "incoming"
-          ? "p-[2px] from-white via-white to-white animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.4)]"
-          : "",
+        "rounded-xl transition-all duration-300 relative border border-zinc-200/60 dark:border-zinc-800/70 bg-white/90 dark:bg-zinc-950/80 backdrop-blur-md shadow-md overflow-hidden",
+        callStatus === "incoming" && "ring-2 ring-amber-500/50 shadow-amber-500/10 animate-pulse",
+        callStatus === "connected" && "ring-1 ring-emerald-500/40 shadow-emerald-500/5",
+        callStatus === "held" && "ring-1 ring-yellow-500/40",
       )}
     >
-      <Card
-        className={cn(
-          "transition-all duration-300 overflow-hidden",
-          callStatus === "incoming" ? "border-2 border-white" : "",
-          callStatus === "connected" ? "border-green-500/30" : "",
-          callStatus === "held"
-            ? "border-yellow-500/30 bg-yellow-500/5 dark:bg-yellow-950/5"
-            : "",
-        )}
-      >
-        <CardHeader className="px-4 border-b-0">
-          <CardTitle className="flex items-center justify-between gap-2 text-base">
-            <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "p-1 rounded-lg transition-colors",
-                  callStatus === "incoming"
-                    ? "bg-amber-100 dark:bg-amber-950/40"
-                    : callStatus === "connected"
-                      ? "bg-emerald-100 dark:bg-emerald-950/40"
-                      : callStatus === "held"
-                        ? "bg-yellow-100 dark:bg-yellow-950/40"
-                        : "bg-zinc-100 dark:bg-zinc-800",
-                )}
-              >
-                <Phone
-                  className={cn(
-                    "h-3.5 w-3.5 transition-colors",
-                    callStatus === "incoming"
-                      ? "text-amber-600 dark:text-amber-400"
-                      : callStatus === "connected"
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : callStatus === "held"
-                          ? "text-yellow-600 dark:text-yellow-400"
-                          : "text-zinc-500 dark:text-zinc-400",
-                  )}
-                />
-              </div>
-              <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                {callStatus === "incoming"
-                  ? "Incoming Call"
-                  : callStatus === "connected"
-                    ? "Active Call"
-                    : callStatus === "held"
-                      ? "Call On Hold"
-                      : callStatus === "ended"
-                        ? "Call Concluded"
-                        : "Telephony Panel"}
-              </span>
-              {(callStatus === "connected" || callStatus === "held") && (
-                <Badge variant="outline" className="font-mono text-xs text-primary-accent border-primary-accent/30">
-                  ⏱️ {formatTimer(callTimerSeconds)}
-                </Badge>
-              )}
-            </div>
-            <Badge
+      <div className="px-4 py-3 sm:px-5 sm:py-3.5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+          
+          {/* Left Section: Icon + Status + Phone + Farmer */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div
               className={cn(
-                "text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider",
+                "w-10 h-10 sm:w-11 sm:h-11 rounded-2xl shrink-0 flex items-center justify-center shadow-inner transition-all",
                 callStatus === "connected"
-                  ? "badge-status-online"
-                  : callStatus === "incoming" || callStatus === "held"
-                    ? "badge-status-busy animate-pulse"
-                    : "badge-status-offline",
+                  ? "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
+                  : callStatus === "incoming"
+                    ? "bg-amber-500/20 text-amber-500 border border-amber-500/40 animate-bounce"
+                    : callStatus === "held"
+                      ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/40"
+                      : "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-400 border border-zinc-200 dark:border-zinc-700/60",
               )}
             >
-              {callStatus}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
+              <Phone className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+            </div>
 
-        {(callStatus === "idle" || callStatus === "ended") &&
-          !incomingCall ? (
-          <CardContent className="p-4">
-            {lastCallNumber ? (
-              <div className="space-y-3 bg-gradient-to-r from-zinc-50/80 via-zinc-100/40 to-zinc-50/80 dark:from-zinc-900/50 dark:via-zinc-900/30 dark:to-zinc-900/50 border border-zinc-200/60 dark:border-zinc-800/60 p-4 rounded-xl shadow-sm animate-in fade-in duration-300">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200/50 dark:border-zinc-800/50 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500">
-                      <MessageSquare className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                        Post-Call Follow-up SMS
-                      </p>
-                      <p className="text-[11px] text-zinc-400 font-mono">
-                        Call ended with {lastCallNumber}
-                      </p>
-                    </div>
-                  </div>
-                  {translatedText && (
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id="show-translated-post-call"
-                        checked={sendTranslated}
-                        onCheckedChange={setSendTranslated}
-                      />
-                      <label
-                        htmlFor="show-translated-post-call"
-                        className="text-xs font-medium text-zinc-500 dark:text-zinc-400 cursor-pointer"
-                      >
-                        Show translated text
-                      </label>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-2 items-center pt-1">
-                  <input
-                    type="text"
-                    value={sendTranslated && translatedText ? translatedText : messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    placeholder="Type follow-up SMS message..."
-                    className="flex-1 px-3.5 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-inner"
-                    disabled={isSendingMessage || !!(sendTranslated && translatedText)}
-                    readOnly={!!(sendTranslated && translatedText)}
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleToggleSttRecording}
-                    disabled={isSttTranscribing}
-                    size="sm"
-                    variant="outline"
-                    className={cn(
-                      "px-3 h-9 border-zinc-300 dark:border-zinc-700 transition-all shrink-0 font-medium text-xs gap-1.5",
-                      isSttRecording && "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse"
-                    )}
-                    title={isSttRecording ? "Click to stop recording" : "Click to speak (Voice-to-Text)"}
-                  >
-                    {isSttTranscribing ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    ) : isSttRecording ? (
-                      <MicOff className="h-4 w-4 text-red-500 animate-bounce" />
-                    ) : (
-                      <Mic className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
-                    )}
-                  </Button>
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || isSendingMessage}
-                    size="sm"
-                    className="px-4 h-9 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md font-semibold shrink-0 gap-1.5"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                    <span>Send SMS</span>
-                  </Button>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Target Language:
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2">
+                {/* Status Indicator */}
+                {callStatus === "connected" ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-black tracking-widest uppercase text-emerald-600 dark:text-emerald-400">
+                    CALL ACTIVE
+                    <span className="flex items-end gap-0.5 h-2.5">
+                      <span className="w-0.5 h-1.5 bg-emerald-500 animate-pulse rounded-full" />
+                      <span className="w-0.5 h-2.5 bg-emerald-500 animate-pulse delay-75 rounded-full" />
+                      <span className="w-0.5 h-1 bg-emerald-500 animate-pulse delay-150 rounded-full" />
                     </span>
-                    <select
-                      value={selectedLanguage}
-                      onChange={(e) => {
-                        setSelectedLanguage(e.target.value);
-                        languageManuallyChangedRef.current = true;
-                      }}
-                      className="px-2.5 py-1 text-xs border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-primary/50"
-                    >
-                      {SARVAM_LANGUAGES.map((lang) => (
-                        <option key={lang.code} value={lang.code}>
-                          {lang.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleTranslate}
-                    disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || translating}
-                    className="gap-1.5 h-7 text-xs"
-                  >
-                    {translating && (
-                      <RefreshCw className="h-3 w-3 animate-spin" />
-                    )}
-                    <Languages className="h-3 w-3" />
-                    Translate Message
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between gap-2 p-1">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
-                  <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                    No active calls
                   </span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        ) : (
-          <CardContent className="p-4 space-y-4">
-            {/* Active / Connected Call Status Panel (Space Optimized) */}
-            <div className="bg-zinc-50/50 dark:bg-zinc-900/40 p-4 rounded-xl border border-zinc-200/40 dark:border-zinc-800/40 space-y-4">
-              {/* Top Row: Caller identity & Secondary Action Pills */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "p-2.5 rounded-full shrink-0 flex items-center justify-center shadow-inner transition-colors",
-                      callStatus === "incoming"
-                        ? "bg-amber-500/10 text-amber-500 dark:bg-amber-500/20"
-                        : callStatus === "connected"
-                          ? "bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20"
-                          : callStatus === "held"
-                            ? "bg-yellow-500/10 text-yellow-500 dark:bg-yellow-500/20"
-                            : "bg-zinc-500/10 text-zinc-500 dark:bg-zinc-500/20",
-                    )}
-                  >
-                    <Phone
-                      className={cn(
-                        "h-4 w-4",
-                        callStatus === "incoming" && "animate-bounce",
-                      )}
-                    />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                      {callStatus === "incoming"
-                        ? "Incoming Call From"
-                        : callStatus === "connected"
-                          ? "Connected Call"
-                          : callStatus === "held"
-                            ? "Call On Hold"
-                            : (incomingCall?.number || lastCallNumber)
-                              ? "Call Ended / Farmer Details"
-                              : "Call Status"}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight font-mono">
-                        {incomingCall?.number || lastCallNumber || "Waiting for call..."}
-                      </span>
-                      {incomingCall && (
-                        <span className="text-[11px] text-zinc-400 font-mono">
-                          Started:{" "}
-                          {new Date(incomingCall.timestamp).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit",
-                          })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Secondary Feature Pills (Farmer Info & Message) - Space Optimized Header Inline */}
-                {(callStatus === "connected" || callStatus === "held" || lastCallNumber || incomingCall || extractedFarmerProfile) && (
-                  <div className="flex items-center gap-2">
-
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={isFarmerInfoExpanded ? "default" : "outline"}
-                      onClick={() => setIsFarmerInfoExpanded((prev) => !prev)}
-                      className="h-8 text-xs gap-1.5 rounded-lg font-medium shadow-sm"
-                    >
-                      <User className="h-3.5 w-3.5" />
-                      <span>Farmer Info</span>
-                      {isFarmerInfoExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={isMessageExpanded ? "default" : "outline"}
-                      onClick={() => setIsMessageExpanded((prev) => !prev)}
-                      className="h-8 text-xs gap-1.5 rounded-lg font-medium shadow-sm"
-                    >
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      <span>Message</span>
-                      {isMessageExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                    </Button>
-                  </div>
+                ) : callStatus === "incoming" ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-black tracking-widest uppercase text-amber-600 dark:text-amber-400 animate-pulse">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                    INCOMING CALL
+                  </span>
+                ) : callStatus === "held" ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-black tracking-widest uppercase text-yellow-600 dark:text-yellow-400">
+                    <Pause className="w-2.5 h-2.5" />
+                    ON HOLD
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-extrabold tracking-widest uppercase text-zinc-400 dark:text-zinc-500">
+                    {lastCallNumber ? "CONCLUDED" : "STANDBY"}
+                  </span>
                 )}
+
+                {/* Farmer Subtitle inline */}
+                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium truncate max-w-[140px] sm:max-w-[200px]">
+                  • {farmerDisplayName}
+                </span>
               </div>
 
-              {/* Divider */}
-              <div className="border-t border-zinc-200/50 dark:border-zinc-800/50 my-1" />
+              {/* Main Phone Number */}
+              <h2 className="text-base sm:text-lg font-extrabold text-zinc-900 dark:text-white tracking-tight font-mono truncate leading-tight mt-0.5">
+                {currentPhoneNumber || "No Active Call"}
+              </h2>
+            </div>
+          </div>
 
-              {/* Call Controls Group - Optimized Single Row / Grid */}
-              <div className="flex flex-wrap gap-2 items-center">
-                {callStatus === "incoming" && (
-                  <div className="flex gap-2 w-full">
-                    <Button
-                      onClick={handleAnswer}
-                      size="sm"
-                      className="flex-1 flex items-center justify-center gap-2 btn-primary-emerald font-semibold shadow-md h-9 rounded-lg text-xs"
-                    >
-                      <Phone className="h-4 w-4" />
-                      <span>Answer</span>
-                    </Button>
-                    <Button
-                      onClick={handleReject}
-                      size="sm"
-                      variant="destructive"
-                      className="flex-1 flex items-center justify-center gap-2 h-9 rounded-lg text-xs"
-                    >
-                      <PhoneOff className="h-4 w-4" />
-                      <span>Reject</span>
-                    </Button>
-                  </div>
-                )}
-
-                {(callStatus === "connected" || callStatus === "held") && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 w-full">
-                    <Button
-                      onClick={handleToggleRecording}
-                      size="sm"
-                      variant="outline"
-                      className={cn(
-                        "flex items-center justify-center gap-2 h-10 rounded-xl text-base font-bold transition-all",
-                        isRecording
-                          ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 dark:bg-red-500/20 border-red-500/30 animate-pulse font-extrabold"
-                          : "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 dark:bg-emerald-500/20 border-emerald-500/30 border",
-                      )}
-                    >
-                      <FileText className="h-4.5 w-4.5" />
-                      <span>{isRecording ? "Stop Transcript" : "Start Transcript"}</span>
-                    </Button>
-
-                    <Button
-                      onClick={handleToggleHold}
-                      size="sm"
-                      variant="outline"
-                      className="flex items-center justify-center gap-2 h-10 rounded-xl text-base font-bold border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50"
-                    >
-                      {callStatus === "held" ? (
-                        <>
-                          <Play className="h-4.5 w-4.5 text-zinc-400 dark:text-zinc-500" />
-                          <span>Resume</span>
-                        </>
-                      ) : (
-                        <>
-                          <Pause className="h-4.5 w-4.5 text-zinc-400 dark:text-zinc-500" />
-                          <span>Hold</span>
-                        </>
-                      )}
-                    </Button>
-
-                    <Button
-                      onClick={handleToggleMute}
-                      size="sm"
-                      variant={isMuted ? "destructive" : "outline"}
-                      className={cn(
-                        "flex items-center justify-center gap-2 h-10 rounded-xl text-base font-bold border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50",
-                        isMuted &&
-                        "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 dark:bg-orange-500/20 border-orange-500/30 font-extrabold",
-                      )}
-                    >
-                      {isMuted ? (
-                        <>
-                          <VolumeX className="h-4.5 w-4.5" />
-                          <span>Unmute Agent</span>
-                        </>
-                      ) : (
-                        <>
-                          <Volume2 className="h-4.5 w-4.5 text-zinc-400 dark:text-zinc-500" />
-                          <span>Mute Agent</span>
-                        </>
-                      )}
-                    </Button>
-
-                    <Button
-                      onClick={handleHangup}
-                      size="sm"
-                      variant="destructive"
-                      className="flex items-center justify-center gap-2 h-10 rounded-xl shadow-md shadow-red-600/10 hover:shadow-lg hover:shadow-red-600/20 transition-all font-extrabold text-base bg-red-600 hover:bg-red-700 text-white"
-                    >
-                      <PhoneOff className="h-4.5 w-4.5" />
-                      <span>Hang Up</span>
-                    </Button>
-                  </div>
-                )}
+          {/* Middle Section: Stats Badges */}
+          <div className="flex items-center gap-4 sm:gap-6 py-1.5 md:py-0 md:px-5 border-t md:border-t-0 md:border-x border-zinc-200/50 dark:border-zinc-800/50">
+            {/* Stat 1: Duration */}
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 leading-none">Duration</span>
+                <span className="text-xs sm:text-sm font-bold font-mono text-zinc-800 dark:text-zinc-200 leading-tight mt-0.5">
+                  {formatTimer(displayTimerSeconds)}
+                </span>
               </div>
             </div>
 
-            {/* Expandable Sections (Only shown when explicitly expanded) */}
-            {(incomingCall || lastCallNumber || extractedFarmerProfile) && isFarmerInfoExpanded && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                <FarmerDetails
-                  phoneNo={incomingCall?.number || lastCallNumber || extractedFarmerProfile?.phoneNo || ""}
-                  defaultOpen={false}
-                  extractedProfile={extractedFarmerProfile}
-                  className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10"
-                />
+            {/* Stat 2: Status */}
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 leading-none">Status</span>
+                <span
+                  className={cn(
+                    "text-xs sm:text-sm font-bold capitalize leading-tight mt-0.5",
+                    callStatus === "connected" && "text-emerald-600 dark:text-emerald-400",
+                    callStatus === "incoming" && "text-amber-600 dark:text-amber-400 animate-pulse",
+                    callStatus === "held" && "text-yellow-600 dark:text-yellow-400",
+                    callStatus === "ended" && "text-zinc-500 dark:text-zinc-400",
+                    callStatus === "idle" && "text-zinc-400 dark:text-zinc-500",
+                  )}
+                >
+                  {callStatus === "connected"
+                    ? "Connected"
+                    : callStatus === "incoming"
+                      ? "Ringing"
+                      : callStatus === "held"
+                        ? "On Hold"
+                        : callStatus === "ended"
+                          ? "Ended"
+                          : "Idle"}
+                </span>
               </div>
+            </div>
+
+            {/* Stat 3: Direction */}
+            <div className="flex items-center gap-2">
+              <ArrowDownLeft className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400 dark:text-zinc-500 leading-none">Direction</span>
+                <span className="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300 leading-tight mt-0.5">
+                  Inbound
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Section: Action Buttons */}
+          <div className="flex items-center flex-wrap gap-2 shrink-0 justify-end">
+            {callStatus === "incoming" && (
+              <>
+                <Button
+                  onClick={handleAnswer}
+                  size="sm"
+                  className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <Phone className="h-4 w-4" />
+                  <span>Answer</span>
+                </Button>
+                <Button
+                  onClick={handleReject}
+                  size="sm"
+                  variant="destructive"
+                  className="h-9 px-4 font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-red-500/20 flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <PhoneOff className="h-4 w-4" />
+                  <span>Reject</span>
+                </Button>
+              </>
             )}
 
-            {incomingCall && isMessageExpanded && (
-              <div className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10 p-4 rounded-xl animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="flex items-center gap-2 justify-between mb-2">
-                  <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                    Send SMS to {incomingCall?.number}
-                  </p>
-                  {translatedText && (
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id="show-translated-active"
-                        checked={sendTranslated}
-                        onCheckedChange={setSendTranslated}
-                      />
-                      <label
-                        htmlFor="show-translated-active"
-                        className="text-xs font-medium text-zinc-500 dark:text-zinc-400 cursor-pointer"
-                      >
-                        Show translated text
-                      </label>
-                    </div>
+            {(callStatus === "connected" || callStatus === "held") && (
+              <>
+                <Button
+                  onClick={handleToggleRecording}
+                  size="sm"
+                  variant="outline"
+                  className={cn(
+                    "h-8.5 sm:h-9 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 border-zinc-300 dark:border-zinc-700 shadow-sm",
+                    isRecording
+                      ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/30 animate-pulse font-bold"
+                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
                   )}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={sendTranslated && translatedText ? translatedText : messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    placeholder="Type your SMS..."
-                    className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    disabled={isSendingMessage || !!(sendTranslated && translatedText)}
-                    readOnly={!!(sendTranslated && translatedText)}
-                  />
+                  title={isRecording ? "Stop live transcript" : "Start live transcript"}
+                >
+                  <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span>{isRecording ? "Stop Transcript" : "Transcript"}</span>
+                </Button>
+
+                <Button
+                  onClick={handleToggleMute}
+                  size="sm"
+                  variant={isMuted ? "destructive" : "outline"}
+                  className={cn(
+                    "h-8.5 sm:h-9 px-3 rounded-xl text-xs sm:text-sm font-semibold border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900/60 flex items-center gap-1.5 shadow-sm",
+                    isMuted && "bg-orange-500/10 text-orange-500 border-orange-500/30 font-bold",
+                  )}
+                >
+                  {isMuted ? <VolumeX className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Volume2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-zinc-500 dark:text-zinc-400" />}
+                  <span>{isMuted ? "Unmute" : "Mute"}</span>
+                </Button>
+
+                <Button
+                  onClick={handleToggleHold}
+                  size="sm"
+                  variant="outline"
+                  className="h-8.5 sm:h-9 px-3 rounded-xl text-xs sm:text-sm font-semibold border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900/60 flex items-center gap-1.5 shadow-sm"
+                >
+                  {callStatus === "held" ? <Play className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-zinc-500 dark:text-zinc-400" /> : <Pause className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-zinc-500 dark:text-zinc-400" />}
+                  <span>{callStatus === "held" ? "Resume" : "Hold"}</span>
+                </Button>
+
+                <Button
+                  onClick={handleHangup}
+                  size="sm"
+                  variant="destructive"
+                  className="h-8.5 sm:h-9 px-3.5 rounded-xl text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-500/20 flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <PhoneOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span>End Call</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={isMessageExpanded ? "default" : "outline"}
+                  onClick={() => setIsMessageExpanded((prev) => !prev)}
+                  className="h-8.5 sm:h-9 px-3 rounded-xl text-xs sm:text-sm font-semibold gap-1.5 border-zinc-300 dark:border-zinc-700 shadow-sm"
+                  title="Toggle SMS Follow-up"
+                >
+                  <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span>SMS</span>
+                  {isMessageExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </Button>
+              </>
+            )}
+
+            {(callStatus === "idle" || callStatus === "ended") && (
+              <div className="flex items-center gap-2">
+                {lastCallNumber && (
                   <Button
                     type="button"
-                    onClick={handleToggleSttRecording}
-                    disabled={isSttTranscribing}
                     size="sm"
-                    variant="outline"
-                    className={cn(
-                      "px-2.5 h-9 border-zinc-300 dark:border-zinc-700 transition-all",
-                      isSttRecording && "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse"
-                    )}
-                    title={isSttRecording ? "Click to stop recording" : "Click to speak (Voice-to-Text)"}
+                    variant={isMessageExpanded ? "default" : "outline"}
+                    onClick={() => setIsMessageExpanded((prev) => !prev)}
+                    className="h-8.5 sm:h-9 px-3.5 rounded-xl text-xs sm:text-sm font-semibold gap-1.5 shadow-sm"
                   >
-                    {isSttTranscribing ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    ) : isSttRecording ? (
-                      <MicOff className="h-4 w-4 text-red-500 animate-bounce" />
-                    ) : (
-                      <Mic className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
-                    )}
+                    <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span>{isMessageExpanded ? "Hide SMS" : "Follow-up SMS"}</span>
+                    {isMessageExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   </Button>
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || isSendingMessage}
-                    size="sm"
-                    className="px-3 h-9 bg-primary hover:bg-primary/90 text-white"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Target Language:
-                    </label>
-                    <select
-                      value={selectedLanguage}
-                      onChange={(e) => {
-                        setSelectedLanguage(e.target.value);
-                        languageManuallyChangedRef.current = true;
-                      }}
-                      className="px-2 py-1 text-xs border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    >
-                      {SARVAM_LANGUAGES.map((lang) => (
-                        <option key={lang.code} value={lang.code}>
-                          {lang.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleTranslate}
-                    disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || translating}
-                    className="gap-1.5 h-7 text-xs"
-                  >
-                    {translating && (
-                      <RefreshCw className="h-3 w-3 animate-spin" />
-                    )}
-                    <Languages className="h-3 w-3" />
-                    Translate
-                  </Button>
-                </div>
+                )}
               </div>
             )}
-          </CardContent>
-        )}
-      </Card>
+          </div>
 
-      {/* Floating Call Control Box when scrolled away from Telephony Panel (Moved to Bottom Left) */}
+        </div>
+
+        {/* Expandable SMS Follow-up Drawer */}
+        {isMessageExpanded && (
+          <div className="mt-2.5 pt-2.5 border-t border-zinc-200/60 dark:border-zinc-800/60 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                <MessageSquare className="h-3.5 w-3.5 text-indigo-500" />
+                <span>Follow-up SMS {currentPhoneNumber ? `to ${currentPhoneNumber}` : ""}</span>
+              </div>
+              {translatedText && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="show-translated-active"
+                    checked={sendTranslated}
+                    onCheckedChange={setSendTranslated}
+                  />
+                  <label
+                    htmlFor="show-translated-active"
+                    className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 cursor-pointer"
+                  >
+                    Show translated
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={sendTranslated && translatedText ? translatedText : messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                placeholder="Type your SMS message..."
+                className="flex-1 px-3 py-1.5 text-xs border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-primary/50 shadow-inner"
+                disabled={isSendingMessage || !!(sendTranslated && translatedText)}
+                readOnly={!!(sendTranslated && translatedText)}
+              />
+              <Button
+                type="button"
+                onClick={handleToggleSttRecording}
+                disabled={isSttTranscribing}
+                size="sm"
+                variant="outline"
+                className={cn(
+                  "px-2.5 h-8 rounded-lg border-zinc-300 dark:border-zinc-700 transition-all font-semibold text-xs gap-1",
+                  isSttRecording && "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse",
+                )}
+                title={isSttRecording ? "Stop recording" : "Voice-to-Text"}
+              >
+                {isSttTranscribing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                ) : isSttRecording ? (
+                  <MicOff className="h-3.5 w-3.5 text-red-500 animate-bounce" />
+                ) : (
+                  <Mic className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-400" />
+                )}
+              </Button>
+              <Button
+                onClick={handleSendMessage}
+                disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || isSendingMessage || !currentPhoneNumber}
+                size="sm"
+                className="px-3.5 h-8 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm font-bold text-xs rounded-lg shrink-0 gap-1 transition-all"
+              >
+                <Send className="h-3 w-3" />
+                <span>Send</span>
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+              <div className="flex items-center gap-1.5">
+                <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                  Target Language:
+                </label>
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => {
+                    setSelectedLanguage(e.target.value);
+                    languageManuallyChangedRef.current = true;
+                  }}
+                  className="px-2 py-0.5 text-xs border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                >
+                  {SARVAM_LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleTranslate}
+                disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || translating}
+                className="gap-1 h-6.5 text-[11px] rounded-md px-2"
+              >
+                {translating && (
+                  <RefreshCw className="h-2.5 w-2.5 animate-spin" />
+                )}
+                <Languages className="h-2.5 w-2.5" />
+                <span>Translate</span>
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Floating Call Control Box when scrolled away from Telephony Panel */}
       {isFloatingBoxVisible && (callStatus === "connected" || callStatus === "held") && (
         <div className="fixed bottom-6 left-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
-          <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 shadow-2xl rounded-2xl p-3 px-4 flex items-center gap-3">
+          <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 shadow-2xl rounded-2xl p-2.5 px-3.5 flex items-center gap-2.5">
             <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
+              <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
               <div className="flex flex-col">
                 <span className="text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                  {incomingCall?.number || lastCallNumber || "Active Call"}
+                  {currentPhoneNumber || "Active Call"}
                 </span>
-                <span className="text-[10px] text-zinc-400 font-mono">
+                <span className="text-[9px] text-zinc-400 font-mono">
                   {formatTimer(callTimerSeconds)} • {callStatus}
                 </span>
               </div>
             </div>
 
-            <div className="h-6 w-[1px] bg-zinc-200 dark:bg-zinc-800 mx-1" />
+            <div className="h-5 w-[1px] bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <Button
                 onClick={handleToggleRecording}
                 size="sm"
                 variant="outline"
                 className={cn(
-                  "h-8.5 text-xs font-semibold px-3 rounded-lg transition-all",
+                  "h-7 text-xs font-semibold px-2 rounded-md transition-all",
                   isRecording
                     ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/30 animate-pulse font-bold"
-                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
                 )}
                 title={isRecording ? "Stop Transcript" : "Start Transcript"}
               >
-                <FileText className="h-3.5 w-3.5 mr-1" />
-                <span>{isRecording ? "Stop Transcript" : "Start Transcript"}</span>
+                <FileText className="h-3 w-3 mr-1" />
+                <span>{isRecording ? "Stop" : "Transcript"}</span>
               </Button>
 
               <Button
@@ -1550,33 +1391,33 @@ export const IncomingCallBox = ({
                 size="sm"
                 variant={isMuted ? "destructive" : "outline"}
                 className={cn(
-                  "h-8.5 text-xs px-3 font-semibold rounded-lg",
-                  isMuted && "bg-orange-500/10 text-orange-500 border-orange-500/30"
+                  "h-7 text-xs px-2 font-semibold rounded-md",
+                  isMuted && "bg-orange-500/10 text-orange-500 border-orange-500/30",
                 )}
                 title={isMuted ? "Unmute Agent" : "Mute Agent"}
               >
-                {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                {isMuted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
               </Button>
 
               <Button
                 onClick={handleToggleHold}
                 size="sm"
                 variant="outline"
-                className="h-8.5 text-xs px-3 font-semibold rounded-lg border-zinc-300 dark:border-zinc-800"
+                className="h-7 text-xs px-2 font-semibold rounded-md border-zinc-300 dark:border-zinc-800"
                 title={callStatus === "held" ? "Resume Call" : "Hold Call"}
               >
-                {callStatus === "held" ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                {callStatus === "held" ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
               </Button>
 
               <Button
                 onClick={handleHangup}
                 size="sm"
                 variant="destructive"
-                className="h-8.5 text-xs px-3.5 rounded-lg font-bold bg-red-600 hover:bg-red-700 text-white"
+                className="h-7 text-xs px-2.5 rounded-md font-bold bg-red-600 hover:bg-red-700 text-white"
                 title="Hang Up Call"
               >
-                <PhoneOff className="h-3.5 w-3.5 mr-1" />
-                <span>Hang Up</span>
+                <PhoneOff className="h-3 w-3 mr-1" />
+                <span>End</span>
               </Button>
             </div>
           </div>

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./atoms/select";
 import { Button } from "./atoms/button";
-import { Badge } from "./atoms/badge";
 import {
   Cloud,
   Sun,
@@ -14,7 +13,8 @@ import {
   Thermometer,
   MapPin,
   RefreshCw,
-  Navigation,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 // List of Indian States & UTs with capital coordinates for weather fetching
@@ -78,15 +78,15 @@ interface WeatherData {
 }
 
 // Weather WMO Code mapping helper
-const getWeatherCondition = (code: number): { text: string; icon: React.ReactNode } => {
-  if (code === 0) return { text: "Sunny / Clear", icon: <Sun className="h-8 w-8 text-amber-400 animate-spin-slow" /> };
-  if (code === 1 || code === 2) return { text: "Partly Cloudy", icon: <Cloud className="h-8 w-8 text-sky-400" /> };
-  if (code === 3) return { text: "Cloudy", icon: <Cloud className="h-8 w-8 text-zinc-400" /> };
-  if (code >= 51 && code <= 67) return { text: "Rainy", icon: <CloudRain className="h-8 w-8 text-blue-400" /> };
-  if (code >= 80 && code <= 82) return { text: "Showers", icon: <CloudRain className="h-8 w-8 text-indigo-400" /> };
-  if (code >= 95 && code <= 99) return { text: "Thunderstorm", icon: <CloudLightning className="h-8 w-8 text-purple-400" /> };
-  if (code >= 71 && code <= 77) return { text: "Snowy", icon: <CloudSnow className="h-8 w-8 text-cyan-300" /> };
-  return { text: "Cloudy", icon: <Cloud className="h-8 w-8 text-zinc-400" /> };
+const getWeatherCondition = (code: number, sizeClass = "h-7 w-7"): { text: string; icon: React.ReactNode } => {
+  if (code === 0) return { text: "Sunny / Clear", icon: <Sun className={`${sizeClass} text-amber-400`} /> };
+  if (code === 1 || code === 2) return { text: "Partly Cloudy", icon: <Cloud className={`${sizeClass} text-sky-400`} /> };
+  if (code === 3) return { text: "Cloudy", icon: <Cloud className={`${sizeClass} text-zinc-400`} /> };
+  if (code >= 51 && code <= 67) return { text: "Rainy", icon: <CloudRain className={`${sizeClass} text-blue-400`} /> };
+  if (code >= 80 && code <= 82) return { text: "Showers", icon: <CloudRain className={`${sizeClass} text-indigo-400`} /> };
+  if (code >= 95 && code <= 99) return { text: "Thunderstorm", icon: <CloudLightning className={`${sizeClass} text-purple-400`} /> };
+  if (code >= 71 && code <= 77) return { text: "Snowy", icon: <CloudSnow className={`${sizeClass} text-cyan-300`} /> };
+  return { text: "Cloudy", icon: <Cloud className={`${sizeClass} text-zinc-400`} /> };
 };
 
 // Helper to normalize fuzzy/abbreviated Indian state names
@@ -149,6 +149,7 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
   useEffect(() => {
     if (defaultState) {
@@ -275,23 +276,24 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
 
   return (
     <Card className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg text-zinc-900 dark:text-zinc-100 overflow-hidden rounded-2xl transition-all duration-300">
-      <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-5 py-3.5">
-        <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+      <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2.5 sm:px-4 sm:py-3 space-y-2.5">
+        {/* Row 1: Location & Controls */}
+        <div className="flex items-center justify-between gap-2">
           {/* Location Header */}
-          <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-            <MapPin className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-            <span className="font-bold text-sm sm:text-base">
+          <div
+            className="flex items-center gap-1.5 text-zinc-900 dark:text-zinc-100 cursor-pointer select-none min-w-0"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+          >
+            <MapPin className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+            <span className="font-bold text-base sm:text-lg text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
               {stateInfo.city}, {selectedState}
             </span>
-            <Badge variant="outline" className="text-[10px] bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50 ml-1 font-mono">
-              {weather?.source || "IMD"} Weather
-            </Badge>
           </div>
 
-          {/* Controls: State Selector Dropdown & Refresh */}
-          <div className="flex items-center gap-2">
+          {/* Controls: State Selector Dropdown & Refresh & Accordion Toggle */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <Select value={selectedState} onValueChange={setSelectedState}>
-              <SelectTrigger className="h-8 text-xs bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 w-[180px] shadow-sm">
+              <SelectTrigger className="h-7 text-xs bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 w-[130px] sm:w-[155px] shadow-sm">
                 <SelectValue placeholder="Select State..." />
               </SelectTrigger>
               <SelectContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 max-h-60 z-50">
@@ -308,177 +310,217 @@ export const WeatherWidget: React.FC<{ defaultState?: string }> = ({ defaultStat
               disabled={isLoading}
               size="sm"
               variant="outline"
-              className="h-8 w-8 p-0 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-sm"
+              className="h-7 w-7 p-0 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-sm"
               title="Refresh Weather"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="h-7 w-7 p-0 text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 border border-zinc-300/80 dark:border-zinc-700/80 rounded-lg shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95"
+              title={isCollapsed ? "Expand Weather Card" : "Collapse Weather Card"}
+            >
+              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
             </Button>
           </div>
-        </CardTitle>
+        </div>
+
+        {/* Row 2: Full-width Weather Summary Bar matching Live Conversation Row 2 height */}
+        <div className="h-8.5 w-full flex items-center justify-between px-3 rounded-lg bg-zinc-100/80 dark:bg-zinc-900/60 border border-zinc-200/70 dark:border-zinc-800 text-xs font-semibold shadow-sm">
+          {weather ? (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-zinc-900 dark:text-zinc-100 font-mono text-xs sm:text-sm">
+                  {displayTemp(weather.currentTemp)}°{unit}
+                </span>
+                <span className="text-zinc-600 dark:text-zinc-300 font-medium truncate max-w-[120px] sm:max-w-[160px]">
+                  {weather.conditionText}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                <span className="flex items-center gap-1">
+                  <Droplets className="h-3 w-3 text-blue-500" />
+                  <span>Rain: <strong className="text-zinc-800 dark:text-zinc-200 font-mono">{weather.precipitationProb}%</strong></span>
+                </span>
+                <span className="hidden sm:flex items-center gap-1">
+                  <Wind className="h-3 w-3 text-emerald-500" />
+                  <span>Wind: <strong className="text-zinc-800 dark:text-zinc-200 font-mono">{weather.windSpeed} km/h</strong></span>
+                </span>
+              </div>
+            </>
+          ) : (
+            <span className="text-[11px] text-zinc-400 font-medium">Fetching weather summary...</span>
+          )}
+        </div>
       </CardHeader>
 
-      <CardContent className="p-5 space-y-6">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-12 space-y-3">
-            <RefreshCw className="h-8 w-8 text-indigo-600 dark:text-indigo-400 animate-spin" />
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium uppercase tracking-wider">Fetching live weather data...</p>
-          </div>
-        ) : error || !weather ? (
-          <div className="text-center py-8 text-zinc-500 dark:text-zinc-400 space-y-2">
-            <p className="text-sm font-semibold text-red-500 dark:text-red-400">Failed to load weather forecast.</p>
-            <Button onClick={fetchWeatherData} size="sm" variant="outline" className="text-xs border-zinc-200 dark:border-zinc-800">
-              Try Again
-            </Button>
-          </div>
-        ) : (
-          <>
-            {/* Top Weather Section: Temperature, Stats & Condition */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              {/* Left Column: Big Temp Display & Switcher */}
-              <div className="flex items-center gap-4">
-                <div className="shrink-0">{getWeatherCondition(weather.weatherCode).icon}</div>
-                <div className="flex items-start">
-                  <span className="text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-white font-mono">
-                    {displayTemp(weather.currentTemp)}
-                  </span>
-                  <div className="flex items-center text-sm font-semibold ml-2 text-zinc-400 pt-1">
-                    <button
-                      onClick={() => setUnit("C")}
-                      className={`hover:text-zinc-900 dark:hover:text-white transition-colors ${unit === "C" ? "text-zinc-900 dark:text-white font-bold underline" : "text-zinc-400"}`}
-                    >
-                      °C
-                    </button>
-                    <span className="mx-1">|</span>
-                    <button
-                      onClick={() => setUnit("F")}
-                      className={`hover:text-zinc-900 dark:hover:text-white transition-colors ${unit === "F" ? "text-zinc-900 dark:text-white font-bold underline" : "text-zinc-400"}`}
-                    >
-                      °F
-                    </button>
-                  </div>
-                </div>
-
-                {/* Additional Stats: Precipitation, Humidity, Wind */}
-                <div className="border-l border-zinc-200 dark:border-zinc-800 pl-4 space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-                  <div className="flex items-center gap-1.5">
-                    <Droplets className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
-                    <span>Precipitation: <strong className="text-zinc-900 dark:text-zinc-200">{weather.precipitationProb}%</strong></span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Thermometer className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
-                    <span>Humidity: <strong className="text-zinc-900 dark:text-zinc-200">{weather.humidity}%</strong></span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Wind className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
-                    <span>Wind: <strong className="text-zinc-900 dark:text-zinc-200">{weather.windSpeed} km/h</strong></span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Condition & Day/Time */}
-              <div className="text-left md:text-right space-y-1">
-                <h4 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{weather.conditionText}</h4>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">{dayTimeString}</p>
-              </div>
+      {!isCollapsed && (
+        <CardContent className="p-3 sm:p-3.5 space-y-3">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-6 space-y-2">
+              <RefreshCw className="h-5 w-5 text-indigo-600 dark:text-indigo-400 animate-spin" />
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium uppercase tracking-wider">Fetching live weather data...</p>
             </div>
-
-            {/* Interactive Tabs for Graph View */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-2 text-xs font-semibold">
-                {(["Temperature", "Precipitation", "Wind"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`transition-all pb-1.5 border-b-2 ${activeTab === tab
-                        ? "border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400 font-bold"
-                        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-                      }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-
-              {/* Hourly Temperature / Metric SVG Smooth Curve Chart */}
-              <div className="relative pt-6 pb-2 px-2 bg-zinc-100/50 dark:bg-zinc-900/40 border border-zinc-200/60 dark:border-zinc-800/50 rounded-xl overflow-hidden">
-                <svg className="w-full h-20 overflow-visible" viewBox="0 0 800 100" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.4" />
-                      <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
-                  {/* SVG Curve Line */}
-                  <path
-                    d={(() => {
-                      const points = weather.hourly.map((h, idx) => {
-                        const x = (idx / 7) * 800;
-                        let val = h.temp;
-                        if (activeTab === "Precipitation") val = h.precipitationProb;
-                        if (activeTab === "Wind") val = h.windSpeed;
-                        const min = Math.min(...weather.hourly.map((item) => (activeTab === "Temperature" ? item.temp : activeTab === "Precipitation" ? item.precipitationProb : item.windSpeed)));
-                        const max = Math.max(...weather.hourly.map((item) => (activeTab === "Temperature" ? item.temp : activeTab === "Precipitation" ? item.precipitationProb : item.windSpeed))) || min + 1;
-                        const y = 80 - ((val - min) / (max - min || 1)) * 50;
-                        return { x, y };
-                      });
-                      let pathD = `M ${points[0].x} ${points[0].y}`;
-                      for (let i = 1; i < points.length; i++) {
-                        pathD += ` L ${points[i].x} ${points[i].y}`;
-                      }
-                      return pathD;
-                    })()}
-                    fill="none"
-                    stroke="#f59e0b"
-                    strokeWidth="3"
-                  />
-                </svg>
-
-                {/* Hourly Time Slots Label Row */}
-                <div className="grid grid-cols-8 gap-1 text-center mt-2">
-                  {weather.hourly.map((item, idx) => (
-                    <div key={idx} className="flex flex-col items-center space-y-1">
-                      <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200">
-                        {activeTab === "Temperature"
-                          ? `${displayTemp(item.temp)}°`
-                          : activeTab === "Precipitation"
-                            ? `${item.precipitationProb}%`
-                            : `${item.windSpeed}k`}
-                      </span>
-                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{item.time}</span>
+          ) : error || !weather ? (
+            <div className="text-center py-4 text-zinc-500 dark:text-zinc-400 space-y-1.5">
+              <p className="text-xs font-semibold text-red-500 dark:text-red-400">Failed to load weather forecast.</p>
+              <Button onClick={fetchWeatherData} size="sm" variant="outline" className="h-7 text-xs border-zinc-200 dark:border-zinc-800">
+                Try Again
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* Top Weather Section: Temperature, Stats & Condition */}
+              <div className="flex items-center justify-between gap-3">
+                {/* Left: Big Temp Display & Switcher */}
+                <div className="flex items-center gap-2.5">
+                  <div className="shrink-0">{getWeatherCondition(weather.weatherCode, "h-7 w-7").icon}</div>
+                  <div className="flex items-start">
+                    <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white font-mono">
+                      {displayTemp(weather.currentTemp)}
+                    </span>
+                    <div className="flex items-center text-xs font-semibold ml-1.5 text-zinc-400 pt-0.5">
+                      <button
+                        onClick={() => setUnit("C")}
+                        className={`hover:text-zinc-900 dark:hover:text-white transition-colors ${unit === "C" ? "text-zinc-900 dark:text-white font-bold underline" : "text-zinc-400"}`}
+                      >
+                        °C
+                      </button>
+                      <span className="mx-0.5">|</span>
+                      <button
+                        onClick={() => setUnit("F")}
+                        className={`hover:text-zinc-900 dark:hover:text-white transition-colors ${unit === "F" ? "text-zinc-900 dark:text-white font-bold underline" : "text-zinc-400"}`}
+                      >
+                        °F
+                      </button>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Additional Stats: Precipitation, Humidity, Wind */}
+                  <div className="border-l border-zinc-200 dark:border-zinc-800 pl-2.5 space-y-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
+                    <div className="flex items-center gap-1">
+                      <Droplets className="h-3 w-3 text-blue-500 dark:text-blue-400" />
+                      <span>Rain: <strong className="text-zinc-900 dark:text-zinc-200">{weather.precipitationProb}%</strong></span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Thermometer className="h-3 w-3 text-amber-500 dark:text-amber-400" />
+                      <span>Humidity: <strong className="text-zinc-900 dark:text-zinc-200">{weather.humidity}%</strong></span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Wind className="h-3 w-3 text-emerald-500 dark:text-emerald-400" />
+                      <span>Wind: <strong className="text-zinc-900 dark:text-zinc-200">{weather.windSpeed} km/h</strong></span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Condition & Day/Time */}
+                <div className="text-right space-y-0.5">
+                  <h4 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">{weather.conditionText}</h4>
+                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">{dayTimeString}</p>
                 </div>
               </div>
-            </div>
 
-            {/* 7-Day Forecast Cards Strip */}
-            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
-              <h5 className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">7-Day Weather Forecast</h5>
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
-                {weather.daily.map((day, idx) => {
-                  const cond = getWeatherCondition(day.weatherCode);
-                  return (
-                    <div
-                      key={idx}
-                      className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${idx === 0
-                          ? "bg-indigo-50/80 dark:bg-zinc-800/80 border-indigo-500/50 shadow-md"
-                          : "bg-zinc-50/50 dark:bg-zinc-900/30 border-zinc-200/60 dark:border-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800/40"
+              {/* Interactive Tabs for Graph View */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-1 text-xs font-semibold">
+                  {(["Temperature", "Precipitation", "Wind"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`transition-all pb-1 border-b-2 text-[11px] ${activeTab === tab
+                          ? "border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400 font-bold"
+                          : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
                         }`}
                     >
-                      <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{idx === 0 ? "Today" : day.dayName}</span>
-                      <div className="my-1.5">{cond.icon}</div>
-                      <div className="flex items-center gap-1 text-xs font-bold font-mono">
-                        <span className="text-zinc-900 dark:text-zinc-100">{displayTemp(day.tempMax)}°</span>
-                        <span className="text-zinc-400 dark:text-zinc-500 text-[10px]">{displayTemp(day.tempMin)}°</span>
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Hourly Temperature / Metric SVG Smooth Curve Chart */}
+                <div className="relative pt-2.5 pb-1 px-2 bg-zinc-100/50 dark:bg-zinc-900/40 border border-zinc-200/60 dark:border-zinc-800/50 rounded-xl overflow-hidden">
+                  <svg className="w-full h-12 overflow-visible" viewBox="0 0 800 80" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d={(() => {
+                        const points = weather.hourly.map((h, idx) => {
+                          const x = (idx / 7) * 800;
+                          let val = h.temp;
+                          if (activeTab === "Precipitation") val = h.precipitationProb;
+                          if (activeTab === "Wind") val = h.windSpeed;
+                          const min = Math.min(...weather.hourly.map((item) => (activeTab === "Temperature" ? item.temp : activeTab === "Precipitation" ? item.precipitationProb : item.windSpeed)));
+                          const max = Math.max(...weather.hourly.map((item) => (activeTab === "Temperature" ? item.temp : activeTab === "Precipitation" ? item.precipitationProb : item.windSpeed))) || min + 1;
+                          const y = 65 - ((val - min) / (max - min || 1)) * 45;
+                          return { x, y };
+                        });
+                        let pathD = `M ${points[0].x} ${points[0].y}`;
+                        for (let i = 1; i < points.length; i++) {
+                          pathD += ` L ${points[i].x} ${points[i].y}`;
+                        }
+                        return pathD;
+                      })()}
+                      fill="none"
+                      stroke="#f59e0b"
+                      strokeWidth="2"
+                    />
+                  </svg>
+
+                  {/* Hourly Time Slots Label Row */}
+                  <div className="grid grid-cols-8 gap-0.5 text-center mt-1">
+                    {weather.hourly.map((item, idx) => (
+                      <div key={idx} className="flex flex-col items-center">
+                        <span className="text-[10px] font-bold text-zinc-800 dark:text-zinc-200">
+                          {activeTab === "Temperature"
+                            ? `${displayTemp(item.temp)}°`
+                            : activeTab === "Precipitation"
+                              ? `${item.precipitationProb}%`
+                              : `${item.windSpeed}k`}
+                        </span>
+                        <span className="text-[9px] text-zinc-500 dark:text-zinc-400">{item.time}</span>
                       </div>
-                    </div>
-                  );
-                })}
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </>
-        )}
-      </CardContent>
+
+              {/* 7-Day Forecast Cards Strip */}
+              <div className="pt-1 border-t border-zinc-200 dark:border-zinc-800">
+                <h5 className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">7-Day Forecast</h5>
+                <div className="grid grid-cols-7 gap-1">
+                  {weather.daily.map((day, idx) => {
+                    const cond = getWeatherCondition(day.weatherCode, "h-4 w-4");
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-1 sm:p-1.5 rounded-lg border flex flex-col items-center justify-between text-center transition-all ${idx === 0
+                            ? "bg-indigo-50/80 dark:bg-zinc-800/80 border-indigo-500/50 shadow-sm"
+                            : "bg-zinc-50/50 dark:bg-zinc-900/30 border-zinc-200/60 dark:border-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800/40"
+                          }`}
+                      >
+                        <span className="text-[9.5px] font-semibold text-zinc-700 dark:text-zinc-300 truncate w-full">{idx === 0 ? "Today" : day.dayName}</span>
+                        <div className="my-0.5">{cond.icon}</div>
+                        <div className="flex items-center gap-0.5 text-[9.5px] font-bold font-mono">
+                          <span className="text-zinc-900 dark:text-zinc-100">{displayTemp(day.tempMax)}°</span>
+                          <span className="text-zinc-400 dark:text-zinc-500 text-[8px]">{displayTemp(day.tempMin)}°</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 };
