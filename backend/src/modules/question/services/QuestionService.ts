@@ -9982,7 +9982,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
     }else if(source === 'WEB_APPLICATION'){
       response = await fetch(
-        `${dataReleaseUrl}/feedbacks/${feedbackId}/status`,
+        `${WEB_APP_Url}/feedbacks/${feedbackId}/status`,
         {
           method: 'PATCH',
           headers: {
@@ -9996,7 +9996,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       if (!response.ok) {
         throw new Error(
-          `Data release service returned status ${response.status}`,
+          `service returned status ${response.status}`,
         );
       }
 
