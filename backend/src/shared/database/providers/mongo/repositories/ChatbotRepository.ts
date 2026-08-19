@@ -807,7 +807,7 @@ export class ChatbotRepository implements IChatbotRepository {
     if (query && Object.keys(query).length > 0) {
       matchQuery.$and.push(query);
     }
-    console.log('matchquery---', matchQuery);
+    // console.log('matchquery---', matchQuery);
     const result = await this.QuestionCollection.aggregate(
       [
         {$match: matchQuery},
@@ -1158,8 +1158,8 @@ export class ChatbotRepository implements IChatbotRepository {
             totalResponded: [
               {
                 $match: {
-                  operationalCompletionAt: {$ne: null},
-                  normalizedStatus: {
+                  _operationalCompletionAt: {$ne: null},
+                  _normalizedStatus: {
                     $in: [
                       'closed',
                       'pass',
@@ -21647,7 +21647,7 @@ export class ChatbotRepository implements IChatbotRepository {
         matchQuery.$and.push(userTypeQuery);
       }
 
-      console.log('matchQuery----', matchQuery);
+      // console.log('matchQuery----', matchQuery);
 
       // --------------------------------------------------
       // Search by user name / email

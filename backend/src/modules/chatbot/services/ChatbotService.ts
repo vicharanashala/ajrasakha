@@ -34,6 +34,10 @@ import type {
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {sendEmailWithAttachment} from '#root/utils/mailer.js';
+import {
+  ANNAM_LOGO_CID,
+  annamLogoInlineAttachment,
+} from '#root/utils/emailAssets.js';
 import {GrowthResponse} from '../types/chatbot.type.js';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -3951,7 +3955,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
                 : ''
             })`
           : '';
-      const title = `AjraSakha Response Adherence Report${dateRangeLabel}`;
+      const title = `Ajrasakha - Daily Update on Application Testing, Backend Responses, and Response Time Compliance${dateRangeLabel}`;
       const platformUrl = appConfig.frontendUrl;
 
       // Colors/typography lifted from the app's own theme (frontend/src/styles.css's :root
@@ -4004,11 +4008,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const html = `
         <div style="background:${PAGE_BG}; padding: 32px 16px; font-family: ${FONT};">
           <div style="max-width: 800px; margin: 0 auto; background: ${CARD_BG}; color: ${TEXT}; border: 1px solid ${BORDER}; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
-            <div style="text-align: center; padding: 28px 20px 22px; background-color: ${CARD_BG}; border-bottom: 3px solid ${PRIMARY};">
-              <img src="${platformUrl}/annam-logo.png" alt="Annam.ai Logo" style="height: 56px;" />
+            <div style="text-align: center; padding: 14px 20px 11px; background-color: ${CARD_BG}; border-bottom: 3px solid ${PRIMARY};">
+              <img src="cid:${ANNAM_LOGO_CID}" alt="Annam.ai Logo" style="height: 108px; max-width: 100%;" />
             </div>
             <div style="padding: 30px 28px;">
-              <h2 style="color: ${HEADING}; margin-top: 0; margin-bottom: 16px; text-align: center; font-family: ${FONT}; font-size: 21px;">Response Adherence Report</h2>
+              <h2 style="color: ${HEADING}; margin-top: 0; margin-bottom: 16px; text-align: center; font-family: ${FONT}; font-size: 21px;">Ajrasakha - Daily Update on Application Testing, Backend Responses, and Response Time Compliance</h2>
               <p style="font-size: 15px; line-height: 1.6; color: ${TEXT};">Hello,</p>
               <p style="font-size: 15px; line-height: 1.6; color: ${TEXT};">Please find attached the <b>AjraSakha Response Adherence</b> report. A summary is also provided below for quick reference.</p>
 
@@ -4042,6 +4046,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         reportContent,
         fileName || 'response-adherence-report.csv',
         'text/csv',
+        [annamLogoInlineAttachment()],
       );
 
       return {
@@ -4081,8 +4086,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     const startOfDayIST = getISTStartOfToday(now);
     const dateLabel = now.toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
 
-    // source is intentionally left undefined (all sources combined) — the report's three
-    // columns (Whatsapp / AjraSakha / Manual) are the breakdown, not the `source` filter.
+    // source is intentionally left undefined (all sources combined) — the report's per-source
+    // columns (Whatsapp / AjraSakha) are the breakdown, not the `source` filter.
     const table = await this.getResponseAdherenceTable(
       undefined,
       'all',
