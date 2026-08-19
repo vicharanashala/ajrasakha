@@ -653,6 +653,10 @@ export interface IQuestionRepository {
   findQuestionsWithOpenFeedbacks(
     requireAutoAllocate?: boolean,
   ): Promise<IQuestion[]>;
+  closeFeedbackSourceAndCheckAll(
+    questionId: string,
+    source: string,
+  ): Promise<boolean>;
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 
   /** Gate-keeper / auditor role allocation helpers. */

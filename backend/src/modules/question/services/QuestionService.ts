@@ -7250,8 +7250,18 @@ export class QuestionService extends BaseService implements IQuestionService {
       // time-bound question). The claim + submission guards enforce one-at-a-time.
       const feedbackAssignedModeratorIds = new Set<string>();
       try {
-        const feedbackQuestions =
-          await this.questionRepo.findQuestionsWithOpenFeedbacks(true);
+        // Open-feedback questions (auto-allocation ON). A question qualifies only when
+        // it needs a (new) reviewer: no review round yet, OR its LAST round is finished.
+        // Questions whose last round is still open are actively being reviewed by
+        // someone — skip them (matches findOpenFeedbackReviews' last-round semantics).
+        const [allFeedbackQuestions, openReviews] = await Promise.all([
+          this.questionRepo.findQuestionsWithOpenFeedbacks(true),
+          this.questionSubmissionRepo.findOpenFeedbackReviews(),
+        ]);
+        const inProgressIds = new Set(openReviews.map(o => o.questionId));
+        const feedbackQuestions = allFeedbackQuestions.filter(
+          q => !inProgressIds.has(q._id?.toString()),
+        );
         if (feedbackQuestions.length) {
           const fbIds = feedbackQuestions
             .map(q => q._id?.toString())
@@ -9897,25 +9907,32 @@ export class QuestionService extends BaseService implements IQuestionService {
         new Date(),
       );
 
-      // Check if all feedbacks are processed (for PAE_Validation, we only have one feedback)
-      // Update the question's feedbacks array to mark this feedback as closed
-      await this.questionRepo.updateQuestion(questionId, {
-        'feedbacks.$[].status': 'closed',
-      } as any);
-
-      // Close the open feedback-review round on the submission (stamps finishedAt
-      // on the round that has no finishedAt yet).
-      await this.questionSubmissionRepo.finishOpenFeedbackReviews(
+      // Close ONLY this source's feedback entry, then check whether EVERY source is
+      // now closed. The reviewer's feedbacksAssigned id is removed AND the review
+      // round is finished only when all feedback statuses are closed — a still-open
+      // source keeps the question assigned and the round open.
+      const allClosed = await this.questionRepo.closeFeedbackSourceAndCheckAll(
         questionId,
-        new Date(),
+        source,
       );
 
-      // Remove the questionId from the processedBy user's feedbacksAssigned array
-      await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+      if (allClosed) {
+        // Close the open feedback-review round on the submission (stamps finishedAt
+        // on the round that has no finishedAt yet).
+        await this.questionSubmissionRepo.finishOpenFeedbackReviews(
+          questionId,
+          new Date(),
+        );
+
+        // Remove the questionId from the processedBy user's feedbacksAssigned array
+        await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+      }
 
       return {
         success: true,
-        message: `Feedback ${action}ed successfully. All feedbacks processed.`,
+        message: allClosed
+          ? `Feedback ${action}ed successfully. All feedbacks processed.`
+          : `Feedback ${action}ed successfully. Other feedback sources still open.`,
         data: {
           feedbackId,
           action,
@@ -10009,32 +10026,35 @@ export class QuestionService extends BaseService implements IQuestionService {
       new Date(),
     );
 
-    // Check if all feedbacks are processed
+    // This source's feedbacks are all processed once the data-release service reports
+    // no pending items for it. Close ONLY this source's entry on the question, then
+    // remove the reviewer's feedbacksAssigned id AND finish the round only when EVERY
+    // feedback status is closed (a still-open source keeps the question assigned).
     if (dataReleaseResponse.pendingFeedbackCount <= 0) {
       const now = new Date();
 
-      // Update the question's feedbacks.source to 'closed' and set feedbackReviewFinishedAt
-      await this.questionRepo.updateQuestion(questionId, {
-        'feedbacks.$[].status': 'closed',
-      } as any);
-
-      // await this.questionSubmissionRepo.(questionId, now);
-
-      //need to add the finished at when closing.
-
-      // Close the open feedback-review round on the submission (stamps finishedAt
-      // on the round that has no finishedAt yet).
-      await this.questionSubmissionRepo.finishOpenFeedbackReviews(
+      const allClosed = await this.questionRepo.closeFeedbackSourceAndCheckAll(
         questionId,
-        now,
+        source,
       );
 
-      // Remove the questionId from the processedBy user's feedbacksAssigned array
-      await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+      if (allClosed) {
+        // Close the open feedback-review round on the submission (stamps finishedAt
+        // on the round that has no finishedAt yet).
+        await this.questionSubmissionRepo.finishOpenFeedbackReviews(
+          questionId,
+          now,
+        );
+
+        // Remove the questionId from the processedBy user's feedbacksAssigned array
+        await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+      }
 
       return {
         success: true,
-        message: `Feedback ${action}ed successfully. All feedbacks processed.`,
+        message: allClosed
+          ? `Feedback ${action}ed successfully. All feedbacks processed.`
+          : `Feedback ${action}ed successfully. Other feedback sources still open.`,
         data: {
           feedbackId,
           action,
