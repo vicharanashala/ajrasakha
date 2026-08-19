@@ -33,9 +33,10 @@ app.use(loggingHandler);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  const allowAllOrigins = appConfig.origins.includes('*');
 
-  if (!origin || appConfig.origins.includes(origin as string)) {
-    res.header('Access-Control-Allow-Origin', (origin as string) || '*');
+  if (!origin || allowAllOrigins || appConfig.origins.includes(origin as string)) {
+    res.header('Access-Control-Allow-Origin', allowAllOrigins ? '*' : (origin as string));
   }
 
   res.header(
