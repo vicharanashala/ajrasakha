@@ -1,28 +1,29 @@
+import { createFileRoute } from "@tanstack/react-router"
 //To make public dashboard 
 
-import { createFileRoute } from "@tanstack/react-router";
-import { HomeDashboard } from "@/features/home-dashboard/HomeDashboard";
-
-export const Route = createFileRoute("/")({
-  component: HomeDashboard,
-});
-
-// // import { createFileRoute, useNavigate } from "@tanstack/react-router";
-// import { useAuthStore } from "@/stores/auth-store";
-// import { useEffect } from "react";
+// import { createFileRoute } from "@tanstack/react-router";
+// import { HomeDashboard } from "@/features/home-dashboard/HomeDashboard";
 
 // export const Route = createFileRoute("/")({
-//   component: App,
+//   component: HomeDashboard,
 // });
 
-// function App() {
-//   const { initAuthListener } = useAuthStore();
-//   const navigate = useNavigate();
+// import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useAuthStore } from "@/stores/auth-store";
+import { useEffect } from "react";
 
-//   useEffect(() => {
-//     initAuthListener();
-//     navigate({ to: "/home" });
-//   }, [initAuthListener]);
+export const Route = createFileRoute("/")({
+  component: App,
+});
 
-//   return <></>;
-// }
+function App() {
+  const { initAuthListener } = useAuthStore();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    initAuthListener();
+    navigate({ to: "/home" });
+  }, [initAuthListener]);
+
+  return <></>;
+}

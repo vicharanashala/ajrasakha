@@ -133,6 +133,14 @@ export class PublicDashboardService {
     );
   }
 
+  /** Admin-only: reorder public dashboard items. */
+  async reorderItems(orderedIds: string[]): Promise<PublicDashboardItem[] | null> {
+    return apiFetch<PublicDashboardItem[]>(
+      `${API_BASE_URL}/public-dashboard/items-reorder`,
+      { method: "PUT", body: JSON.stringify({ orderedIds }) },
+    );
+  }
+
   /** Admin-only: upload an image/video file to GCS; stores its URL as an item. */
   async uploadMedia(
     file: File,

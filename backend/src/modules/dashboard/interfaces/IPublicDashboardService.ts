@@ -43,4 +43,7 @@ export interface IPublicDashboardService {
     kind: 'image' | 'video',
     itemName?: string,
   ): Promise<PublicDashboardItem>;
+
+  /** Admin: reorder public dashboard items. */
+  reorderItems(orderedIds: string[]): Promise<PublicDashboardItem[]>;
 }

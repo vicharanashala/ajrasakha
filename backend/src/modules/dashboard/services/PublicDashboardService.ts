@@ -121,6 +121,27 @@ export class PublicDashboardService implements IPublicDashboardService {
     await this.repo.saveItems(next);
   }
 
+  /** Admin: reorder public dashboard items by array of ordered item IDs. */
+  async reorderItems(orderedIds: string[]): Promise<PublicDashboardItem[]> {
+    const items = await this.repo.getItems();
+    const map = new Map(items.map(i => [i.id, i]));
+    const next: PublicDashboardItem[] = [];
+
+    for (const id of orderedIds) {
+      const item = map.get(id);
+      if (item) {
+        next.push(item);
+        map.delete(id);
+      }
+    }
+    for (const item of map.values()) {
+      next.push(item);
+    }
+
+    await this.repo.saveItems(next);
+    return next;
+  }
+
   // ── helpers ──
 
   private requireName(name: string): string {

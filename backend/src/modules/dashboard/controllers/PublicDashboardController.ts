@@ -103,6 +103,18 @@ export class PublicDashboardController {
     return this.publicDashboardService.uploadMedia(file, kind, name);
   }
 
+  /** Admin-only: reorder public dashboard items. */
+  @Put('/items-reorder')
+  @Authorized(['admin'])
+  @OpenAPI({summary: 'Admin: reorder public dashboard items'})
+  async reorderItems(
+    @Body() body: {orderedIds: string[]},
+    @CurrentUser() user: IUser,
+  ) {
+    this.assertAdmin(user);
+    return this.publicDashboardService.reorderItems(body?.orderedIds ?? []);
+  }
+
   /** Admin-only: update an item's name/value by id. */
   @Put('/items/:id')
   @Authorized(['admin'])

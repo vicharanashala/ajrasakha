@@ -86,3 +86,15 @@ export const useUploadPublicDashboardMedia = () => {
     },
   });
 };
+
+/** Admin: reorder public dashboard items. */
+export const useReorderPublicDashboardItems = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["reorder-public-dashboard-items"],
+    mutationFn: (orderedIds: string[]) => service.reorderItems(orderedIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ITEMS_KEY });
+    },
+  });
+};
