@@ -15,12 +15,24 @@ Four allocation paths tested against the **real Atlas DB** (`.env`):
 
 | Path | Groups | Method / Function | Description |
 |------|--------|-------------------|-------------|
-| AGRI_EXPERT | G1–G2 | `POST /api/questions` (source=`AGRI_EXPERT`) | Creates question → `setImmediate` kicks off background expert assignment |
+| AGRI_EXPERT | G1–G2 | `POST /api/questions` (source=`AGRI_EXPERT`) → `questionService.reallocateManualQuestions()` | Creates question (queue empty at creation); the manual single-allocation cron assigns an STF expert on its next tick |
 | OUTREACH | G3 | `POST /api/questions` (source=`OUTREACH`) | Creates question — queue stays empty; no background allocation |
-| Toggle | G4 | `PATCH /api/questions/:id/toggle-auto-allocate` | Moderator flips flag; OFF→ON calls `autoAllocateExperts` synchronously |
+| Toggle | G4 | `PATCH /api/questions/:id/toggle-auto-allocate` → `questionService.reallocateManualQuestions()` | Moderator flips flag; `autoAllocateExperts` is a no-op for AGRI_EXPERT/OUTREACH now — the manual cron fills the queue on its next tick |
 | Time-bound cron | G5–G10 | `questionService.reallocateTimeBoundQuestions()` | Cron (every 2 min in prod) assigns STF experts to WHATSAPP/AJRASAKHA questions |
 | Reviewer-stage guard | G11 | `questionService.reallocateTimeBoundQuestions()` | Cron does not re-process a question already in the reviewer stage |
-| Toggle sequential | G12 | `PATCH /api/questions/:id/toggle-auto-allocate` | ON→OFF→ON on the same question — no duplicate experts, queue preserved on OFF |
+| Toggle sequential | G12 | `PATCH /api/questions/:id/toggle-auto-allocate` → `questionService.reallocateManualQuestions()` | ON→OFF→ON on the same question — no duplicate experts, queue preserved on OFF |
+
+> **2026-08-19 architecture change:** `main` extended the single-allocation model from
+> time-bound-only (WHATSAPP/AJRASAKHA) to also cover AGRI_EXPERT/OUTREACH
+> (`MANUAL_SOURCES` in `shared/interfaces/models.ts`). `autoAllocateExperts()` — the old
+> `findExpertsByPreference`-based bulk allocator — is now an unconditional no-op for
+> these two sources (see `isSingleAllocation` guard, `QuestionService.ts`). A new sibling
+> cron, `reallocateManualQuestions()`, mirrors `reallocateTimeBoundQuestions()` exactly
+> (STF-first initial allocation, reputation-ordered reviewer assignment, `MAX_TIME_BOUND=1`
+> per expert) but scoped to `MANUAL_SOURCES`. Both crons run from the same job
+> (`bootstrap/jobs/timeBoundReAllocateCron.ts`). G1, G2, and G4/G12's "OFF→ON" cases now
+> call `reallocateManualQuestions()` directly instead of relying on synchronous/background
+> `autoAllocateExperts` behavior.
 
 ---
 
@@ -45,19 +57,21 @@ flowchart TD
     source = 'AGRI_EXPERT'
     details: { state, district, crop, season, domain }"]:::entry
     A2["saved
-    status = 'open'  ·  isAutoAllocate = true  ·  queue = []"]:::ok
-    A3["setImmediate →
-    processQuestionInBackground()"]:::bg
-    A4["findExpertsByPreference(details)
-    state +3  ·  domain +2  ·  crop +1
-    sort: score DESC, workload ASC"]:::bg
-    A5["updateQueue([ top1Expert ])
-    DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT = 1"]:::ok
-    A6["reputationScore(queue[0]) +1
-    notify queue[0]  type='answer_creation'
+    status = 'open'  ·  isAutoAllocate = true  ·  queue = []
+    firstAllocationAt = null"]:::ok
+    A3["autoAllocateExperts() no longer fires at ingestion —
+    queue stays empty until the cron runs"]:::warn
+    A4["questionService.reallocateManualQuestions()
+    (called directly in tests; prod: same job as time-bound cron)"]:::bg
+    A4b["_runSingleAllocation({ sources: MANUAL_SOURCES })
+    'unallocated' branch — STF-only, reputation-ordered
+    same selection rules as time-bound P4/E1-E5"]:::bg
+    A5["updateQueue([ stfExpert ])
     firstAllocationAt = now()
-    BUG: notification not sent (test #4) — service bug"]:::warn
-    A1 --> A2 --> A3 --> A4 --> A5 --> A6
+    currentExpertAllocatedAt = now()"]:::ok
+    A6["reputationScore(queue[0]) +1
+    notify queue[0]  type='answer_creation'"]:::ok
+    A1 --> A2 --> A3 --> A4 --> A4b --> A5 --> A6
   end
 
   subgraph P2["② OUTREACH  ·  G3"]
@@ -79,17 +93,21 @@ flowchart TD
     C3["401 Unauthorized"]:::err
     C4{"isAutoAllocate
     current value?"}:::decide
-    C5["autoAllocateExperts(questionId)
-    synchronous
-    same preference algorithm as AGRI_EXPERT"]:::bg
+    C5["toggleAutoAllocate still awaits
+    autoAllocateExperts(questionId) —
+    but that's a no-op for AGRI_EXPERT/OUTREACH now
+    (isSingleAllocation guard)"]:::warn
+    C5b["reallocateManualQuestions()
+    called explicitly by the test after toggling
+    (prod: next cron tick fills it)"]:::bg
     C6["isAutoAllocate = true
-    queue populated"]:::ok
+    queue populated (via C5b, not C5)"]:::ok
     C7["isAutoAllocate = false
     queue unchanged"]:::warn
     C1 --> C2
     C2 -- no --> C3
     C2 -- yes --> C4
-    C4 -- "false (OFF to ON)" --> C5 --> C6
+    C4 -- "false (OFF to ON)" --> C5 --> C5b --> C6
     C4 -- "true (ON to OFF)" --> C7
   end
 
@@ -222,13 +240,14 @@ flowchart TD
 
   subgraph P6["⑥ Toggle sequential  ·  G12"]
     S1["PATCH toggle (OFF → ON)
-    autoAllocateExperts()
+    + reallocateManualQuestions()
     queue = [expert]"]:::ok
     S2["PATCH toggle (ON → OFF)
     queue preserved, flag=false"]:::warn
     S3["PATCH toggle (OFF → ON) again
-    autoAllocateExperts() re-runs
-    queue = [expert], no duplicates"]:::ok
+    queue already has an expert from S1 —
+    reallocateManualQuestions() is a no-op
+    (MAX_TIME_BOUND already satisfied), no duplicates"]:::ok
     S1 --> S2 --> S3
   end
 
@@ -259,13 +278,19 @@ flowchart TD
 | Dimension | AGRI_EXPERT | OUTREACH | Toggle | Time-bound cron |
 |-----------|-------------|----------|--------|----------------|
 | **Source** | `AGRI_EXPERT` | `OUTREACH` | Any | `WHATSAPP`, `AJRASAKHA` |
-| **Trigger** | `setImmediate` at creation | — | `PATCH` endpoint | Cron every 2 min |
-| **Expert selection** | `findExpertsByPreference` (score + workload) | N/A | Same as AGRI_EXPERT | `findExpertsByReputationScore` (workload only) |
-| **STF required?** | No | N/A | No | YES — initial only. No for reviewer |
-| **MAX active cap** | No | N/A | No | 1 per expert (`MAX_TIME_BOUND`) |
-| **Queue size** | 1 | 0 | 1 | 1 initially; grows as reviewers added |
-| **Async?** | Yes (`setImmediate`) — tests poll | N/A | No — synchronous | No — awaited directly |
+| **Trigger** | `reallocateManualQuestions()` (next cron tick; called directly in tests) | — | `PATCH` endpoint + `reallocateManualQuestions()` | Cron every 2 min |
+| **Expert selection** | `findExpertsByReputationScore`, STF-first (same engine as time-bound) | N/A | Same as AGRI_EXPERT | `findExpertsByReputationScore` (workload only) |
+| **STF required?** | YES — initial only. No for reviewer | N/A | Same as AGRI_EXPERT | YES — initial only. No for reviewer |
+| **MAX active cap** | 1 per expert (`MAX_TIME_BOUND`, shared engine) | N/A | Same as AGRI_EXPERT | 1 per expert (`MAX_TIME_BOUND`) |
+| **Queue size** | 1 initially; grows as reviewers added by the cron | 0 | 1 | 1 initially; grows as reviewers added |
+| **Async?** | No — `reallocateManualQuestions()` awaited directly | N/A | No — synchronous | No — awaited directly |
 | **Notification** | `answer_creation` | None | `answer_creation` | `answer_creation` / `peer_review` (reviewer) |
+
+> `autoAllocateExperts()` (the old `findExpertsByPreference`-based bulk allocator) is
+> unreachable for AGRI_EXPERT/OUTREACH now — it early-returns `{data: [], status: false}`
+> before ever calling `findExpertsByPreference`. Preference-based scoring (state/domain/crop
+> match) no longer applies to these sources; allocation is purely STF-first +
+> lowest-reputation, identical to the time-bound engine.
 
 ---
 
@@ -310,6 +335,12 @@ via a `$set` update so Groups 5–8 and 13–14 always have enough STF experts t
   1. Closes questions with STF expert already in queue (status `open`/`delayed`) — these make `getTimeBoundActiveCountPerExpert` count them as active even before our test seeds run.
   2. Closes unallocated (`queue=[]`) WHATSAPP/AJRASAKHA questions with `isAutoAllocate=true` from previous incomplete runs — these would consume the STF expert's capacity during the cron run before our question is processed.
   Both sets are tracked in `temporarilyClosedIds` and restored to `status='open'` in `afterAll`.
+- **G1's own leftover cleanup:** since `reallocateManualQuestions()` shares the same
+  `MAX_TIME_BOUND=1`-per-STF-expert cap with the time-bound cron, leftover
+  AGRI_EXPERT/OUTREACH questions from earlier runs can starve every MANUAL_SOURCES test in
+  this file the same way. G1's `beforeAll` runs the same close/restore pattern scoped to
+  `source IN [AGRI_EXPERT, OUTREACH]` before creating its own question, since it's the first
+  MANUAL_SOURCES cron call in the file.
 - **Per-group afterAlls (G5, G6, G8, G13):** After each time-bound group's tests complete, its seeded question is set to `status='closed'`, freeing the STF expert's capacity for the next group's cron run. G13's afterAll closes the stuck question so the same STF expert is free for G14.
 - STF experts fetched after promotion and cleanup:
   `users.find({ role: 'expert', isBlocked: false, special_task_force: true })`
@@ -332,20 +363,29 @@ Restores any questions that were temporarily closed in `beforeAll` to `status: '
 
 ## Test cases (54 total)
 
-### Group 1 — AGRI_EXPERT background allocation (4 tests)
+### Group 1 — AGRI_EXPERT initial allocation via reallocateManualQuestions() (4 tests)
+
+`beforeAll` creates the question, then calls `questionService.reallocateManualQuestions()`
+directly (queue is empty until then) — same pattern G5 uses for WHATSAPP.
 
 | # | What | Expected |
 |---|------|----------|
 | 1 | Question is immediately open with `isAutoAllocate=true` | `status='open'`, `isAutoAllocate=true` |
-| 2 | Background process populates queue with exactly 1 expert | `queue.length === 1` (after `pollUntil`) |
-| 3 | `firstAllocationAt` stamped after background runs | `instanceof Date` |
+| 2 | Cron populates queue with exactly 1 expert | `queue.length === 1` |
+| 3 | `firstAllocationAt` stamped after cron runs | `instanceof Date` |
 | 4 | `answer_creation` notification sent to `queue[0]` | notif found in DB |
 
-### Group 2 — AGRI_EXPERT preference scoring (1 test)
+### Group 2 — AGRI_EXPERT initial allocation requires an STF expert (1 test)
+
+Preference-based scoring (`findExpertsByPreference` — state/domain/crop match) is dead code
+for this source now; `autoAllocateExperts()` returns before ever calling it. Initial
+allocation goes through the same STF-first, reputation-ordered engine as time-bound
+allocation, so this test now documents the STF requirement instead of a specific expert's
+identity (which the pool-wide reputation ordering can't guarantee).
 
 | # | What | Expected |
 |---|------|----------|
-| 5 | `queue[0]` is `experttest1` (Punjab + Crop Protection + Brinjal = 6 pts) | `queue[0] === expertUser1._id` |
+| 5 | `queue[0]` has `special_task_force=true` | `allocatedUser.special_task_force === true` |
 
 ### Group 3 — OUTREACH: no background allocation (3 tests)
 
@@ -515,10 +555,12 @@ actual DB queue-swap and penalty writes are not re-exercised here.
 
 ---
 
-## Known assumption: preference test (#5)
+## Known assumption: G2 STF test (#5)
 
-Asserts `experttest1` is allocated for `state=Punjab, domain=Crop Protection, crop=Brinjal`
-(6-point score). Non-deterministic if another expert also scores 6 points — shuffle within tiers.
+Since initial AGRI_EXPERT/OUTREACH allocation now shares the time-bound engine's STF-first,
+lowest-reputation selection over the *whole* eligible expert pool (not a fixture-controlled
+queue), test #5 can no longer assert *which* expert gets picked — only that the one picked
+is STF. Self-skips (with a console warning) if no STF experts exist in the DB.
 
 ---
 
@@ -561,13 +603,13 @@ G1–G3 regressed due to a new bug in `addQuestion` (unrelated to this fix).
 
 ---
 
-## Known Service Bug (not a test bug)
+## Resolved: AGRI_EXPERT `answer_creation` notification (formerly a known service bug)
 
-### AGRI_EXPERT `answer_creation` notification not sent (test #4)
-
-Path: `A5 → A6`. `firstAllocationAt` IS stamped (test #3 passes) and queue IS populated (test #2 passes), but the `answer_creation` notification is not created in the DB.
-
-Root cause: `processQuestionInBackground` allocates the expert and stamps timestamps, but the notification write (`NotificationService.addNotification` or similar) is either silently throwing or the notification type/userId lookup is failing. This is a bug in the service, not in the test harness.
+Previously (pre single-allocation rewrite), `processQuestionInBackground`'s bulk allocator
+stamped `firstAllocationAt` and populated the queue but silently failed to write the
+`answer_creation` notification. Since AGRI_EXPERT moved onto the same
+`reallocateManualQuestions()` engine that time-bound sources already used (which notifies
+correctly), this is no longer reproducible — G1 test #4 now passes.
 
 ---
 
@@ -582,16 +624,18 @@ pnpm exec vitest run src/e2e/auto-allocation/AutoAllocation.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 55 passed &nbsp;|&nbsp; **Duration:** 14.5 s
+**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 55 passed &nbsp;|&nbsp; **Duration:** 41.7 s
 
-> ⚠ Vitest only printed 7 of 55 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 9 of 55 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Auto allocation — AGRI_EXPERT question: background allocates one expert > question is i... | ✅ | — |
+| 1 | Auto allocation — OUTREACH question: queue stays empty at creation > question is open w... | ✅ | — |
 | 2 | Auto allocation — OUTREACH question: queue stays empty at creation > queue remains empt... | ✅ | — |
 | 3 | Auto allocation — toggle-auto-allocate endpoint > OFF → ON: toggles flag to true and fi... | ✅ | — |
 | 4 | Auto allocation — toggle-auto-allocate endpoint > ON → OFF: toggles flag to false and l... | ✅ | — |
-| 5 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
-| 6 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 5 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > answer_cr... | ✅ | — |
+| 6 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > submissi... | ✅ | — |
 | 7 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 8 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 9 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |

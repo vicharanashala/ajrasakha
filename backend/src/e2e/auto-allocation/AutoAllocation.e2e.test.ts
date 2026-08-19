@@ -395,6 +395,59 @@ describe('Auto allocation — AGRI_EXPERT question: background allocates one exp
   let createStatus: number = 0;
 
   beforeAll(async () => {
+    // reallocateManualQuestions() (like reallocateTimeBoundQuestions in G5) caps
+    // each STF expert at 1 active MANUAL_SOURCES question. Leftover AGRI_EXPERT/
+    // OUTREACH questions from earlier runs compete for that same limited capacity
+    // and can starve every MANUAL_SOURCES test below in this file — close them out
+    // first, mirroring G5's pre-cron cleanup for TIME_BOUND_SOURCES.
+    if (stfExperts.length > 0) {
+      const qCol = await db.getCollection('questions');
+      const sCol = await db.getCollection('question_submissions');
+      const stfIds = stfExperts.map((e: any) => e._id);
+
+      const allocatedSubs = await sCol
+        .find({queue: {$elemMatch: {$in: stfIds}}})
+        .toArray();
+      const allocatedQIds = allocatedSubs.map((s: any) => s.questionId);
+      const allocatedActive = allocatedQIds.length
+        ? await qCol
+            .find({
+              _id: {$in: allocatedQIds},
+              source: {$in: ['AGRI_EXPERT', 'OUTREACH']},
+              status: {$in: ['open', 'delayed']},
+            })
+            .toArray()
+        : [];
+
+      const unallocSubs = await sCol.find({queue: {$size: 0}}).toArray();
+      const unallocQIds = unallocSubs.map((s: any) => s.questionId);
+      const unallocActive = unallocQIds.length
+        ? await qCol
+            .find({
+              _id: {$in: unallocQIds},
+              source: {$in: ['AGRI_EXPERT', 'OUTREACH']},
+              status: {$in: ['open', 'delayed']},
+              isAutoAllocate: {$eq: true},
+              isOnHold: {$ne: true},
+            })
+            .toArray()
+        : [];
+
+      const toClose = [...allocatedActive, ...unallocActive].map(
+        (q: any) => q._id,
+      );
+      if (toClose.length) {
+        await qCol.updateMany(
+          {_id: {$in: toClose}},
+          {$set: {status: 'closed'}},
+        );
+        temporarilyClosedIds.push(...toClose);
+        console.log(
+          `[G1] Pre-cron cleanup: closed ${toClose.length} leftover MANUAL_SOURCES question(s).`,
+        );
+      }
+    }
+
     as(moderatorUser);
     const res = await apiPost(`${ROUTE_PREFIX}/questions`).send({
       question: `${RUN_TAG} brinjal yellowing — auto-alloc basic test`,
@@ -412,6 +465,11 @@ describe('Auto allocation — AGRI_EXPERT question: background allocates one exp
     if (res.status === 201) {
       questionId = res.body.question_id;
       createdQuestionIds.push(new ObjectId(questionId));
+      // AGRI_EXPERT is now a MANUAL_SOURCES single-allocation source: initial
+      // expert assignment no longer happens inline at ingestion (autoAllocateExperts
+      // is a no-op for this source) — it's picked up by reallocateManualQuestions()
+      // on its next tick. Invoke the cron directly instead of waiting on it.
+      await questionService.reallocateManualQuestions();
     }
   }, 30000);
 
@@ -473,18 +531,23 @@ describe('Auto allocation — AGRI_EXPERT question: background allocates one exp
 // 2. AGRI_EXPERT — preference scoring selects the highest-ranked expert
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('Auto allocation — AGRI_EXPERT: preference scoring allocates the best expert', () => {
+describe('Auto allocation — AGRI_EXPERT: initial allocation requires an STF expert', () => {
   let questionId: string = '';
   let createStatus: number = 0;
 
+  // NOTE: findExpertsByPreference-based scoring (state/domain/crop match) lived
+  // inside autoAllocateExperts, which is now unconditionally a no-op for
+  // MANUAL_SOURCES (AGRI_EXPERT/OUTREACH) — see QuestionService#autoAllocateExperts'
+  // isSingleAllocation guard. Initial allocation for these sources now goes through
+  // reallocateManualQuestions() (QuestionService#_runSingleAllocation's 'unallocated'
+  // branch), which — like the time-bound cron — only assigns special_task_force=true
+  // experts, chosen from the whole eligible pool by lowest reputation score, not by
+  // preference match. This test now documents that STF requirement instead of the
+  // (no longer reachable) preference-scoring behavior.
   beforeAll(async () => {
-    // experttest1 (EXPERT_EMAIL) is expected to have preferences matching
-    // state=Punjab + domain=Crop Protection + crop=Brinjal, yielding the
-    // maximum preference score (6 pts) for this question and placing them
-    // first in findExpertsByPreference(). See UserRepository.findExpertsByPreference.
     as(moderatorUser);
     const res = await apiPost(`${ROUTE_PREFIX}/questions`).send({
-      question: `${RUN_TAG} brinjal stem borer — preference scoring test`,
+      question: `${RUN_TAG} brinjal stem borer — initial allocation test`,
       source: 'AGRI_EXPERT',
       priority: 'medium',
       details: AGRI_EXPERT_DETAILS,
@@ -494,11 +557,7 @@ describe('Auto allocation — AGRI_EXPERT: preference scoring allocates the best
     questionId = res.body.question_id;
     createdQuestionIds.push(new ObjectId(questionId));
 
-    // Wait for background allocation before the test assertion runs.
-    await pollUntil(async () => {
-      const sub = await getSubmission(questionId);
-      return (sub?.queue?.length ?? 0) > 0;
-    });
+    await questionService.reallocateManualQuestions();
   }, 30000);
 
   beforeEach(() => {
@@ -508,16 +567,19 @@ describe('Auto allocation — AGRI_EXPERT: preference scoring allocates the best
       );
   });
 
-  it('queue[0] is experttest1 (highest-scoring for Punjab / Crop Protection / Brinjal)', async () => {
+  it('queue[0] is an expert with special_task_force=true', async () => {
+    if (!stfExperts.length) {
+      console.warn('[G2] No STF experts in DB — self-skipping.');
+      return;
+    }
     const sub = await getSubmission(questionId);
+    console.log('[G2] queue:', sub?.queue?.map((q: any) => q.toString()));
+    expect(sub.queue).toHaveLength(1);
+
     const allocatedId = sub.queue[0].toString();
-    console.log(
-      '[G2] allocated:',
-      allocatedId,
-      'expertUser1._id:',
-      expertUser1._id.toString(),
-    );
-    expect(allocatedId).toBe(expertUser1._id.toString());
+    const users = await db.getCollection('users');
+    const allocatedUser = await users.findOne({ _id: new ObjectId(allocatedId) });
+    expect(allocatedUser?.special_task_force).toBe(true);
   });
 });
 
@@ -637,10 +699,13 @@ describe('Auto allocation — toggle-auto-allocate endpoint', () => {
     const q = await getQuestion(insertedId.toString());
     expect(q.isAutoAllocate).toBe(true);
 
-    // autoAllocateExperts was called synchronously inside toggleAutoAllocate,
-    // so the queue should already be populated by the time the response returns.
+    // toggleAutoAllocate still calls autoAllocateExperts synchronously, but for
+    // OUTREACH (a MANUAL_SOURCES source) that's now an unconditional no-op — actual
+    // allocation happens on reallocateManualQuestions()'s next tick. Invoke it
+    // directly rather than relying on toggle-on to fill the queue synchronously.
+    await questionService.reallocateManualQuestions();
     const sub = await getSubmission(insertedId.toString());
-    console.log('[G4] queue after toggle-on:', sub?.queue?.length);
+    console.log('[G4] queue after toggle-on + cron:', sub?.queue?.length);
     expect(sub.queue.length).toBeGreaterThanOrEqual(1);
   }, 15_000);
 
@@ -1712,8 +1777,11 @@ describe('Toggle auto-allocate — sequential ON → OFF → ON same question le
     const q = await getQuestion(toggleQId);
     expect(q.isAutoAllocate).toBe(true);
 
+    // See G4: autoAllocateExperts is a no-op for OUTREACH now — the cron does the
+    // actual allocation.
+    await questionService.reallocateManualQuestions();
     const sub = await getSubmission(toggleQId);
-    console.log('[G12] queue after ON:', sub?.queue?.length);
+    console.log('[G12] queue after ON + cron:', sub?.queue?.length);
     expect(sub.queue.length).toBeGreaterThanOrEqual(1);
   });
 

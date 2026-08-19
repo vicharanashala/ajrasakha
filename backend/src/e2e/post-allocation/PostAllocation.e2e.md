@@ -1,10 +1,29 @@
 # Post-Allocation Review Workflow — E2E Test Flow
 
-Covers `PostAllocation.e2e.test.ts` (**24 tests**). This suite begins where
+Covers `PostAllocation.e2e.test.ts` (**27 tests**). This suite begins where
 allocation ends — a question whose submission already has a populated `queue`
 (manual allocation → `ManualAllocation.e2e.test.ts`, auto allocation →
 `QuestionAutoAllocation.e2e.test.ts`) — and drives it through the full
 expert peer-review → moderator-approval state machine.
+
+> **2026-08-19 architecture change:** `main` extended the single-allocation model
+> (previously WHATSAPP/AJRASAKHA only) to also cover OUTREACH/AGRI_EXPERT. Both
+> `AnswerService.reviewAnswer`'s inline "assign next reviewer" logic and
+> `QuestionService.autoAllocateExperts()`'s bulk fill are now unconditional no-ops for
+> these sources (`isSingleAllocation` guard). The next reviewer in the chain is now
+> assigned **only** by `questionService.reallocateManualQuestions()` — a cron that mirrors
+> the time-bound engine (STF-first for the very first reviewer is not required here since
+> this cron's "unallocated" bucket only fires for `firstAllocationAt=null`, and this suite's
+> fixtures seed a single author directly; but the *reviewer* slots it fills come from the
+> whole eligible-expert pool ordered by lowest reputation, not a fixture-controlled queue).
+> Two consequences for this suite:
+> - The fixture (`seedAllocatedQuestion`) now seeds `queue: [experts[0]]` (author only) +
+>   `isAutoAllocate: true`, not a pre-filled 4-expert queue — the queue grows one member at
+>   a time as `reallocateManualQuestions()` is called between steps.
+> - Tests can no longer assert *which* expert (`experts[1]`/`[2]`/`[3]`) becomes the next
+>   reviewer — only *that* one gets assigned. Each chain test resolves the actual assignee
+>   from the DB after calling the cron and stores it in a `reviewer2`/`reviewer3`/`reviewer4`
+>   variable for the next step to use.
 
 > **To preview this diagram locally:** install the VS Code extension
 > **"Markdown Preview Mermaid Support"** then press `Ctrl+Shift+V`.
@@ -25,8 +44,8 @@ flowchart TD
   classDef fail    fill:#fdba74,stroke:#ea580c,color:#7c2d12,font-weight:bold
 
   START["✅ Question ALLOCATED
-  status = 'open'
-  submission.queue = [e1, e2, e3, e4]
+  status = 'open'  ·  isAutoAllocate = true
+  submission.queue = [e1]  (author only)
   history = []"]:::entry
 
   %% ── AUTHORIZATION GUARDS (POST /answers/review) ──────────────────────
@@ -50,8 +69,7 @@ flowchart TD
     ─────────────────────────
     answer.status = 'in-review'
     submission.history += e1 entry
-    totalAnswersCount += 1
-    ⚠ FAILING: timeout 5000ms (test #4)"]:::fail
+    totalAnswersCount += 1"]:::expert
 
     FIRST --> PAEQ{"e1 role =
     pae_expert ?"}:::decide
@@ -60,9 +78,16 @@ flowchart TD
     ⟶ peer cycle SKIPPED
     workload decremented"]:::warn
 
-    PAEQ -- "no (expert)" --> ASSIGN2["next in queue (e2) assigned
-    history += e2 'in-review' entry
-    e2 notified  type='peer_review'
+    PAEQ -- "no (expert)" --> CRON1["questionService.reallocateManualQuestions()
+    called explicitly by the test —
+    reviewAnswer no longer assigns inline
+    (isSingleAllocation guard)"]:::warn
+
+    CRON1 --> ASSIGN2["cron picks a reviewer from the WHOLE
+    eligible pool (lowest reputation first) —
+    NOT necessarily 'e2'
+    history += reviewer 'in-review' entry
+    reviewer notified  type='peer_review'
     question stays 'open'"]:::expert
 
     FIRST -. "e1 submits again
@@ -83,8 +108,10 @@ flowchart TD
     OR 10 reviews ?"}:::decide
     ACCQ -- "no (1 or 2 approvals)
     ⚠ must stay 'open'
-    tests #25–#27" --> NEXT["assign next queued expert
-    notify type='peer_review'
+    tests #20–#21" --> NEXTCRON["reallocateManualQuestions() called again —
+    assigns next reviewer from the pool
+    (not a fixed queue position)"]:::warn
+    NEXTCRON --> NEXT["notify type='peer_review'
     question stays 'open'
     answer stays 'in-review'"]:::expert
     NEXT --> REVIEW
@@ -96,8 +123,7 @@ flowchart TD
     REVIEW -- "rejected (+ new answer)" --> REJ["author penalised
     old answer.status='rejected'
     reviewer's new answer = live (in-review)
-    author notified type='review_rejected'
-    ⚠ FAILING: timeout 5000ms (test #13); notif null (test #14)"]:::fail
+    author notified type='review_rejected'"]:::expert
     REJ -. "identical answer
     ⚠ guard → 500 (KNOWN)" .-> RJ500["500"]:::err
     REJ --> REVIEW
@@ -183,11 +209,11 @@ These are pinned as expected results in the suite and flagged `KNOWN`.
 | 1 | No user logged in | `POST /answers/review` | 401 |
 | 2 | Moderator tries to author/review | `POST /answers/review` | 500 (KNOWN) |
 | 3 | Expert not at `queue[0]` submits first | `POST /answers/review` | 500 (KNOWN) |
-| 4 | `queue[0]` submits first answer → in-review, `queue[1]` assigned | `POST /answers/review` | 201 |
+| 4 | `queue[0]` (e1) submits first answer → in-review, cron assigns next reviewer¹ | `POST /answers/review` + `reallocateManualQuestions()` | 201 |
 | 5 | Same author submits twice | `POST /answers/review` | 500 (KNOWN) |
-| 6 | `queue[1]` accepts → approvalCount 1, `queue[2]` assigned | `POST /answers/review` | 201 |
-| 7 | `queue[2]` accepts → approvalCount 2, `queue[3]` assigned | `POST /answers/review` | 201 |
-| 8 | `queue[3]` accepts → 3 approvals → question `in-review` | `POST /answers/review` | 201 |
+| 6 | Assigned reviewer 2 accepts → approvalCount 1, cron assigns reviewer 3¹ | `POST /answers/review` + `reallocateManualQuestions()` | 201 |
+| 7 | Assigned reviewer 3 accepts → approvalCount 2, cron assigns reviewer 4¹ | `POST /answers/review` + `reallocateManualQuestions()` | 201 |
+| 8 | Assigned reviewer 4 accepts → 3 approvals → question `in-review` | `POST /answers/review` | 201 |
 | 9 | Expert attempts final approval | `PUT /answers` | 400 |
 | 10 | Moderator approves → `closed`, final answer, author incentivised | `PUT /answers` | 200 |
 | 11 | Add answer to a closed question | `POST /answers/review` | 500 (KNOWN) |
@@ -201,14 +227,16 @@ These are pinned as expected results in the suite and flagged `KNOWN`.
 | 19 | Approve when no `normalised_crop` | `PUT /answers` | 400 |
 | 20 | LLM approve with non AJRASAKHA/WHATSAPP source | `POST /answers/moderator/approve` | 400 |
 | 21 | Edit already-finalised answer on closed question | `PUT /answers` | 200 |
-| 22 | PAE expert submits → `pae_submitted` (peer skipped)¹ | `POST /answers/review` | 201 |
-| 23 | Moderator approves a `pae_submitted` question → `closed`¹ | `PUT /answers` | 200 |
+| 22 | PAE expert submits → `pae_submitted` (peer skipped)² | `POST /answers/review` | 201 |
+| 23 | Moderator approves a `pae_submitted` question → `closed`² | `PUT /answers` | 200 |
 | 24 | Delete non-final answer → removed, count decremented | `DELETE /answers/:qId/:aId` | 200 |
 | 25 | After approvalCount=1: `question.status` is still `'open'` | `POST /answers/review` | `status='open'` |
 | 26 | After approvalCount=2: `question.status` is STILL `'open'` (NOT `'in-review'`) | `POST /answers/review` | `status='open'` |
 | 27 | After approvalCount=2: no `moderator_approval` notification sent | (DB) | notif absent |
 
-¹ PAE cases self-`skip()` if no `pae_expert` user exists in the DB.
+¹ Reviewer identity is not asserted — only that `reallocateManualQuestions()` assigned
+*someone* from the eligible pool. See the architecture note at the top of this doc.
+² PAE cases self-`skip()` if no `pae_expert` user exists in the DB.
 
 ---
 
@@ -342,25 +370,31 @@ seeded questions, submissions, answers, reviews and notifications in `afterAll`.
 
 ## Last Run
 
-**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 20.8 s
+**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 56.1 s
 
-> ⚠ Vitest only printed 16 of 27 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 22 of 27 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Post-allocation — happy path (peer review → moderator approval) > e1 (queue[0]) submits... | ✅ | — |
-| 2 | Post-allocation — happy path (peer review → moderator approval) > e2 accepts → approval... | ✅ | — |
-| 3 | Post-allocation — happy path (peer review → moderator approval) > e3 accepts → approval... | ✅ | — |
-| 4 | Post-allocation — happy path (peer review → moderator approval) > e4 accepts → 3 approv... | ✅ | — |
-| 5 | Post-allocation — happy path (peer review → moderator approval) > expert cannot do the ... | ✅ | — |
-| 6 | Post-allocation — happy path (peer review → moderator approval) > moderator approves → ... | ✅ | — |
-| 7 | Post-allocation — reviewer rejects the author answer > e2 rejects with a new answer → a... | ✅ | — |
-| 8 | Post-allocation — reviewer modifies the author answer > e2 modifies → answer text updat... | ✅ | — |
-| 9 | Post-allocation — moderator approval edge cases > approve when question is still "open"... | ✅ | — |
-| 10 | Post-allocation — moderator approval edge cases > approve when question has no normalis... | ✅ | — |
-| 11 | Post-allocation — moderator approval edge cases > moderator can edit an already-finalis... | ✅ | — |
-| 12 | Post-allocation — PAE expert submission > pae_expert submits → question becomes pae_sub... | ✅ | — |
-| 13 | Post-allocation — PAE expert submission > moderator approves a pae_submitted question →... | ✅ | — |
-| 14 | Post-allocation — delete answer > deleting a non-final answer removes it and decrements... | ✅ | — |
-| 15 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 1 acceptance (... | ✅ | — |
-| 16 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 2 acceptances ... | ✅ | — |
+| 1 | Post-allocation — authorization guards > moderator cannot author/review an answer → 500... | ✅ | — |
+| 2 | Post-allocation — authorization guards > expert NOT at queue[0] cannot submit the first... | ✅ | — |
+| 3 | Post-allocation — happy path (peer review → moderator approval) > e1 (queue[0]) submits... | ✅ | — |
+| 4 | Post-allocation — happy path (peer review → moderator approval) > e1 cannot submit a se... | ✅ | — |
+| 5 | Post-allocation — happy path (peer review → moderator approval) > assigned reviewer 2 a... | ✅ | — |
+| 6 | Post-allocation — happy path (peer review → moderator approval) > assigned reviewer 3 a... | ✅ | — |
+| 7 | Post-allocation — happy path (peer review → moderator approval) > assigned reviewer 4 a... | ✅ | — |
+| 8 | Post-allocation — happy path (peer review → moderator approval) > expert cannot do the ... | ✅ | — |
+| 9 | Post-allocation — happy path (peer review → moderator approval) > moderator approves → ... | ✅ | — |
+| 10 | Post-allocation — happy path (peer review → moderator approval) > cannot add an answer ... | ✅ | — |
+| 11 | Post-allocation — reviewer rejects the author answer > rejecting with an identical answ... | ✅ | — |
+| 12 | Post-allocation — reviewer rejects the author answer > the assigned reviewer rejects wi... | ✅ | — |
+| 13 | Post-allocation — reviewer modifies the author answer > modifying with an identical ans... | ✅ | — |
+| 14 | Post-allocation — reviewer modifies the author answer > the assigned reviewer modifies ... | ✅ | — |
+| 15 | Post-allocation — moderator approval edge cases > approve when question is still "open"... | ✅ | — |
+| 16 | Post-allocation — moderator approval edge cases > approve when question has no normalis... | ✅ | — |
+| 17 | Post-allocation — moderator approval edge cases > moderator can edit an already-finalis... | ✅ | — |
+| 18 | Post-allocation — PAE expert submission > pae_expert submits → question becomes pae_sub... | ✅ | — |
+| 19 | Post-allocation — PAE expert submission > moderator approves a pae_submitted question →... | ✅ | — |
+| 20 | Post-allocation — delete answer > deleting a non-final answer removes it and decrements... | ✅ | — |
+| 21 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 1 acceptance (... | ✅ | — |
+| 22 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 2 acceptances ... | ✅ | — |

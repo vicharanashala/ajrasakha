@@ -72,19 +72,19 @@ preference-scoring test (#5) to be deterministic.
 
 ## Suites at a glance
 
-| Suite | File | Tests | Last run (2026-07-04) | What it covers |
+| Suite | File | Tests | Last run (2026-08-19) | What it covers |
 |-------|------|------:|----------------------|----------------|
 | Chemical CRUD | `chemical/ChemicalCrud.e2e.test.ts` | 15 | ✅ 15/15 | Auth smoke tests, admin + moderator CRUD, role guards (expert blocked) |
 | Question CRUD | `question/QuestionCreate.e2e.test.ts` | 15 | ✅ 15/15 | Moderator create / get / update / delete / bulk-delete (OUTREACH source) |
 | Reviewer queue | `reviewer-queue/ReviewerQueue.e2e.test.ts` | 14 | ❌ 13/14 | `POST /allocated` visibility: author slot, reviewer slot, exclusions, `review_level_number` |
-| WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 21 | ❌ 14/21 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
-| AjraSakha ingestion | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 11 | ❌ 8/11 | AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases |
+| WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 21 | ❌ 20/21 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
+| AjraSakha ingestion | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 11 | ❌ 10/11 | AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases |
 | Manual allocation | `manual-allocation/ManualAllocation.e2e.test.ts` | 10 | ✅ 10/10 | `POST /allocate-experts` + `DELETE /allocation` on an OUTREACH question |
 | Auto allocation | `auto-allocation/AutoAllocation.e2e.test.ts` | 55 | ✅ 55/55 | AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard |
 | Allocation ordering | `allocation-ordering/AllocationOrdering.e2e.test.ts` | 8 | ✅ 8/8 | Chronological ordering + history exclusion for `reallocateTimeBoundQuestions()` (Issues #3, #5) |
 | Post-allocation | `post-allocation/PostAllocation.e2e.test.ts` | 27 | ✅ 27/27 | Full expert peer-review → moderator-approval state machine |
-| Gatekeeper / Auditor | `gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts` | 36 | ✅ 36/36 | Push to auditor, finalize, cancel/confirm duplicate, close-propagation, single-allocation queue cron |
-| **Total** | | **212** | **201/212** | |
+| Gatekeeper / Auditor | `gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts` | 37 | ✅ 37/37 | Push to auditor, finalize, cancel/confirm duplicate, close-propagation, single-allocation queue cron |
+| **Total** | | **213** | **210/213** | |
 
 ---
 
@@ -93,19 +93,11 @@ preference-scoring test (#5) to be deterministic.
 **Reviewer queue** — 1 failing → see `reviewer-queue/ReviewerQueue.e2e.md`
 - Reviewer queue — author-slot question appears before reviewer-slot question for STF expert (Issue #2) > author-slot question appears before reviewer-slot question in the /allocated response → expected 2 to be less than 0
 
-**WhatsApp ingestion** — 7 failing → see `whatsapp/WhatsAppQuestion.e2e.md`
-- WhatsApp ingestion — question FOUND (GDB duplicate, reference answer linked) > marks the question as duplicate and records the reference question → expected "spy" to be called at least once
-- WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the question isTesting=true and drops it before the duplicate pipeline → Timed out waiting for question 6a48fb005783fd449d698904. Last status='open', isTesting=undefined
-- WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question when the non-agri classifier throws → Timed out waiting for question 6a48fb4b5783fd449d69890b. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting > flags the question isTesting after exhausting all retry attempts → Timed out waiting for question 6a48fb745783fd449d698910. Last status='open', isTesting=undefined
-- WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > proceeds to open (not isTesting) when the thread API throws non-not-found errors → expected "spy" to be called at least once
-- WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds to open when the thread API fails on first attempt but succeeds on retry → expected "spy" to be called at least once
-- WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open > ignores the invalid selected_match and reaches open via LLM classification → Timed out waiting for question 6a48fbb25783fd449d698929. Last status='pending', isTesting=undefined
+**WhatsApp ingestion** — 1 failing → see `whatsapp/WhatsAppQuestion.e2e.md`
+- WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > proceeds to open (not isTesting) when the thread API throws non-not-found errors → Timed out waiting for question 6a8576e87462083549efe5ba. Last status='pending', isTesting=undefined
 
-**AjraSakha ingestion** — 3 failing → see `ajrasakha/AjrasakhaQuestion.e2e.md`
-- Ajrasakha ingestion — happy path (open, agri, thread valid) > creates an open question attributed to the authenticated user with AJRASAKHA-specific fields → expected "spy" to be called at least once
-- Ajrasakha ingestion — pending-duplicate-queue check throws → degrades gracefully to open > still opens the question when checkPendingDuplicate throws → Timed out waiting for question 6a48fbe28b3494025fa96212. Last status='pending', isTesting=undefined
-- Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question isTesting=true when threadId is empty, before any pipeline step → Timed out waiting for question 6a48fc0b8b3494025fa9621b. Last status='open', isTesting=undefined
+**AjraSakha ingestion** — 1 failing → see `ajrasakha/AjrasakhaQuestion.e2e.md`
+- Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question isTesting=true when threadId is empty, before any pipeline step → Timed out waiting for question 6a85784a83704b0430187db9. Last status='pending', isTesting=undefined
 ---
 
 ## The in-process harness — boilerplate every suite shares
@@ -308,6 +300,7 @@ demonstrates it — open that file for the exact test and assertion.
 | BUG-010 | An existing `answerId` can never finalize an `auditor_review` question via `PUT /answers` — the fast-path reroutes past it. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
 | BUG-011 | Close-propagation hardcodes child status to `closed` regardless of the parent's actual `closeStatus` — a `dynamic` parent closing as `dynamic_closed` still produces plain-`closed` children. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
 | BUG-012 | `AnswerService.approveAnswer`'s role check is a blacklist of only `role==='expert'` — a `call_agent` user can also finalize via `PUT /answers`, bypassing the intended moderator/admin-only gate. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
+| BUG-013 | The new `closeIntent` field on `PUT /answers` broke backward compatibility: before it existed, `isDynamicClose` alone (`question.status === 'dynamic'`) was enough to close as `dynamic_closed`. Now a caller that omits `closeIntent` (any client not yet updated to send it) gets plain `closed` instead, even for a genuinely dynamic/duplicate question. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
 
 ---
 
@@ -354,19 +347,19 @@ WHATSAPP / AJRASAKHA ingestion
   ├─ auth failures                                    [WA ✓] [AJ ✓]
   ├─ invalid payload (missing field → 400)            [WA ✓] [AJ ✓]
   ├─ invalid payload (empty text → 500)               [WA ✓] [AJ ✓] BUG-001 documented
-  ├─ thread: empty → isTesting                        [WA ✗] [AJ ✗]
-  ├─ thread: not found after retries → isTesting      [WA ✗]
+  ├─ thread: empty → isTesting                        [WA ✓] [AJ ✗]
+  ├─ thread: not found after retries → isTesting      [WA ✓]
   ├─ thread: API down → open                          [WA ✗]
-  ├─ thread: transient fail → retry → open            [WA ✗]
-  ├─ GDB exact_match → duplicate                      [WA ✗] [AJ ✓]
+  ├─ thread: transient fail → retry → open            [WA ✓]
+  ├─ GDB exact_match → duplicate                      [WA ✓] [AJ ✓]
   ├─ GDB selected_match → duplicate                   [WA ✓]
   ├─ GDB both → exact wins                            [WA ✓]
   ├─ GDB invalid ObjectId → LLM fallthrough           [WA ✓]
   ├─ GDB $oid format → duplicate                      [WA ✓]
   ├─ GDB throws → open                                [WA ✓]
   ├─ LLM non-agri → non_agri                         [WA ✓] [AJ ✓]
-  ├─ LLM agri → open (common pipeline → open)         [WA ✓] [AJ ✗]
-  └─ LLM throws → open (degrade)                      [WA ✗] [AJ ✓]
+  ├─ LLM agri → open (common pipeline → open)         [WA ✓] [AJ ✓]
+  └─ LLM throws → open (degrade)                      [WA ✓] [AJ ✓]
 
 AGRI_EXPERT auto-allocation
   ├─ background fills queue (1 expert)                [AA ✓]

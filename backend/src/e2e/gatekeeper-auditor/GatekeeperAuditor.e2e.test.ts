@@ -439,10 +439,14 @@ describe('Auditor — Notify User (dynamic close) / Push to GDB (duplicate close
     });
 
     as(auditorUser);
+    // closeIntent: 'notify' is what the "Notify User" button sends — without it,
+    // approveAnswer now closes as plain 'closed' regardless of dynamic/duplicate
+    // (see closeStatus in AnswerService.approveAnswer).
     const res = await apiPut(`${ROUTE_PREFIX}/answers`).send({
       questionId: qId,
       answer: `${RUN_TAG} apply nitrogen and monitor for zinc deficiency`,
       sources: [{ source: 'https://icar.org.in', page: '3' }],
+      closeIntent: 'notify',
     });
     expect(res.status).toBe(200);
 
@@ -482,10 +486,14 @@ describe('Auditor — Notify User (dynamic close) / Push to GDB (duplicate close
     });
 
     as(auditorUser);
+    // closeIntent: 'gdb' is what the "Push to GDB" button sends. Functionally
+    // identical to omitting it (both resolve to 'closed'), sent explicitly here
+    // to document the real UI's actual request shape.
     const res = await apiPut(`${ROUTE_PREFIX}/answers`).send({
       questionId: qId,
       answer: `${RUN_TAG} side-dress nitrogen; verify zinc levels`,
       sources: [],
+      closeIntent: 'gdb',
     });
     expect(res.status).toBe(200);
 
@@ -523,11 +531,34 @@ describe('Auditor — Notify User (dynamic close) / Push to GDB (duplicate close
     expect(q.status).toBe('closed');
   });
 
-  // Symmetric to the plain-duplicate back-compat test above: `isDynamicClose` in
-  // AnswerService.approveAnswer checks `question.status === 'dynamic'` directly,
-  // independent of ever having gone through auditor_review — so a dynamic question
-  // closed WITHOUT being pushed to the Auditor first still closes dynamic_closed.
-  it('back-compat: a plain dynamic question (never pushed to the Auditor) still closes as dynamic_closed via PUT /answers', async () => {
+  // FINDING-008 (BACKWARD-COMPAT REGRESSION, diagnosed not fixed — testers only):
+  // closeStatus in AnswerService.approveAnswer now requires closeIntent === 'notify'
+  // to produce 'dynamic_closed'/'duplicate_closed' — any caller that doesn't send it
+  // (e.g. an older frontend build, or a direct API call) now closes a 'dynamic'
+  // question as plain 'closed' instead. Before this field was introduced,
+  // `isDynamicClose` alone (question.status === 'dynamic') was sufficient to get
+  // dynamic_closed — this is a real behavior change for anyone not yet sending
+  // closeIntent, not just a test-fixture staleness issue.
+  it('[FINDING-008] a legacy caller that omits closeIntent now closes a plain "dynamic" question as "closed", not "dynamic_closed"', async () => {
+    const qId = await seedQuestion({ status: 'dynamic', source: 'WHATSAPP', label: 'legacy-dynamic-no-intent' });
+
+    as(auditorUser);
+    const res = await apiPut(`${ROUTE_PREFIX}/answers`).send({
+      questionId: qId,
+      answer: `${RUN_TAG} legacy direct-dynamic close, no closeIntent`,
+      sources: [],
+    });
+    expect(res.status).toBe(200);
+
+    const q = await getQuestion(qId);
+    expect(q.status).toBe('closed'); // NOT 'dynamic_closed' — see FINDING-008
+  });
+
+  // Symmetric to the plain-duplicate back-compat test above, updated for the new
+  // closeIntent field: a dynamic question closed WITHOUT ever being pushed to the
+  // Auditor still closes dynamic_closed, provided the caller sends the same
+  // closeIntent: 'notify' the "Notify User" button sends.
+  it('a plain dynamic question (never pushed to the Auditor) closes as dynamic_closed via PUT /answers with closeIntent=notify', async () => {
     const qId = await seedQuestion({ status: 'dynamic', source: 'WHATSAPP', label: 'legacy-dynamic' });
 
     as(auditorUser);
@@ -535,6 +566,7 @@ describe('Auditor — Notify User (dynamic close) / Push to GDB (duplicate close
       questionId: qId,
       answer: `${RUN_TAG} legacy direct-dynamic close`,
       sources: [],
+      closeIntent: 'notify',
     });
     expect(res.status).toBe(200);
 
@@ -977,6 +1009,7 @@ describe('Close-propagation — approving a question closes its duplicate_confir
       questionId: parentId,
       answer: `${RUN_TAG} dynamic parent final answer`,
       sources: [],
+      closeIntent: 'notify',
     });
     expect(res.status).toBe(200);
 

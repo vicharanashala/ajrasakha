@@ -9,7 +9,7 @@
 | Step | Endpoint | What it does |
 |------|----------|---------------|
 | 1. Push to Auditor | `PUT /api/questions/:questionId` `{status:'auditor_review'}` | Gate Keeper hand-off for a `dynamic`/`duplicate` question. Stamps `auditorReviewType`, audit trail `PUSH_TO_AUDITOR` (comment audit-only). |
-| 2. Auditor finalize | `PUT /api/answers` `{questionId, answer, sources}` | Same endpoint as the legacy moderator-closes-a-duplicate flow. `auditorReviewType='dynamic'` → closes `dynamic_closed` ("Notify User"); `'duplicate'` → closes `closed` ("Push to GDB"). A plain `duplicate` question (never routed through the Auditor) still works the same way (back-compat). |
+| 2. Auditor finalize | `PUT /api/answers` `{questionId, answer, sources, closeIntent?}` | Same endpoint as the legacy moderator-closes-a-duplicate flow. **2026-08-19:** requires `closeIntent: 'notify'` to close as `dynamic_closed`/`duplicate_closed` ("Notify User"); `closeIntent: 'gdb'` or omitted always closes plain `closed` ("Push to GDB") — see FINDING-008 for the backward-compat regression this introduced. |
 | 3. Cancel Duplicate | `PUT /api/questions/:questionId` `{isDuplicateCancelled:true}` | Gate Keeper reopens a `queue_duplicate` question to `open`; reason/auto-allocate choice recorded in the audit trail only, `CANCEL_DUPLICATE`. |
 | 4. Close-propagation | (side-effect of step 2) | Approving/closing any question auto-closes every `queue_duplicate` question referencing it: replicates the final answer, stamps `closedBy:'System'`, clears the moderator assignment, fires each child's own customer webhook. |
 
@@ -79,11 +79,20 @@ flowchart TD
     result -> TypeError -> re-wrapped as
     InternalServerError -> 500 instead of a
     clean 400 'answer not found' - FINDING-005"]:::fail
-    A6{"auditorReviewType?"}:::decide
+    A5b{"closeIntent
+    in request body?
+    (2026-08-19: new field)"}:::decide
+    A6{"auditorReviewType?
+    (only reached when closeIntent='notify')"}:::decide
     A7["'dynamic' -> closes 'dynamic_closed'
     webhook status='dynamic_closed'
     'Notify User' - isCustomerNotified=true"]:::ok
-    A8["'duplicate' -> closes 'closed'
+    A7b["'duplicate' -> closes 'duplicate_closed'
+    webhook status='duplicate_closed'
+    'Notify User' for a duplicate question"]:::ok
+    A8["closeIntent='gdb' (or omitted)
+    -> ALWAYS closes 'closed', regardless of
+    auditorReviewType
     webhook status='closed' via Browser channel
     'Push to GDB'"]:::ok
     A9["BUG: closes via questionRepo.updateQuestion
@@ -93,7 +102,13 @@ flowchart TD
     - FINDING-001"]:::fail
     A10["plain 'duplicate'/'dynamic' question
     (never pushed through Gate Keeper)
-    -> same closing behaviour (back-compat)"]:::ok
+    -> same closing behaviour (back-compat),
+    PROVIDED the caller also sends closeIntent='notify'"]:::ok
+    A10b["FINDING-008 (backward-compat regression):
+    a caller that omits closeIntent now gets plain
+    'closed' for a genuinely dynamic/duplicate question
+    - before this field existed, status alone
+    (question.status==='dynamic') was sufficient"]:::fail
     A11["KNOWN GAP: role check is a BLACKLIST of
     role==='expert' only - 'call_agent' (no business
     reason to finalize) also passes - extends
@@ -102,11 +117,14 @@ flowchart TD
     AUDIT_REVIEW --> A1
     A1 -- no --> A2 --> A4
     A1 -- "yes (existing)" --> A3
-    A4 -- "exists" --> A6
+    A4 -- "exists" --> A5b
     A4 -- "missing" --> A5
+    A5b -- "'notify'" --> A6
+    A5b -- "'gdb' or omitted" --> A8
     A6 -- dynamic --> A7 --> A9
-    A6 -- duplicate --> A8
-    A10 -.-> A6
+    A6 -- duplicate --> A7b
+    A10 -.-> A5b
+    A8 -.-> A10b
     A2 -.-> A11
   end
 
@@ -142,6 +160,7 @@ flowchart TD
     P4["unrelated queue_duplicate questions
     (different parent) are left untouched"]:::ok
     A7 -.-> P1
+    A7b -.-> P1
     A8 -.-> P1
     A9 -.-> P1
     P1 --> P2 --> P3
@@ -218,6 +237,14 @@ Pinned in `Close-propagation ... > [FINDING] when the parent closes as dynamic_c
 
 `AnswerService.approveAnswer`'s role check (line ~1797) is a **blacklist of only `role==='expert'`** — every other role, including `call_agent` (a role with no obvious business reason to finalize/close questions), is let through `PUT /answers` too. Confirmed directly rather than just inferred from the code. Pinned in `[KNOWN GAP] no backend role guard ... > [KNOWN GAP] a call_agent user (not auditor/moderator/admin) can also finalize via PUT /answers`.
 
+### FINDING-008 (BACKWARD-COMPAT REGRESSION, diagnosed not fixed) — omitting `closeIntent` silently changes close behavior
+
+**2026-08-19:** `main` added a `closeIntent: 'gdb' | 'notify'` field to `UpdateAnswerBody` and gated `closeStatus` in `AnswerService.approveAnswer` on it: `dynamic_closed`/`duplicate_closed` now only happen when `closeIntent === 'notify'` is explicitly sent; anything else — including simply not sending the field at all — closes as plain `closed`, even for a genuinely `dynamic`/`duplicate` question.
+
+Before this field existed, `isDynamicClose` alone (`question.status === 'dynamic'`, or `auditorReviewType === 'dynamic'`) was sufficient. Any caller not yet updated to send `closeIntent` — an older frontend build, a script, a direct API call — silently gets different (and arguably wrong) behavior with no error, no deprecation warning, nothing.
+
+Pinned in `Auditor — Notify User ... > [FINDING-008] a legacy caller that omits closeIntent now closes a plain "dynamic" question as "closed", not "dynamic_closed"`.
+
 ## Test cases (17 total, all passing)
 
 | # | Group | What | Expected |
@@ -225,10 +252,11 @@ Pinned in `Close-propagation ... > [FINDING] when the parent closes as dynamic_c
 | 1 | Push to Auditor | `dynamic` → `auditor_review` | `auditorReviewType='dynamic'`, `PUSH_TO_AUDITOR` audit trail, comment not persisted on the question |
 | 2 | Push to Auditor | `duplicate` → `auditor_review` | `auditorReviewType='duplicate'` |
 | 3 | Push to Auditor | `[KNOWN GAP]` `open` → `auditor_review` | 200, silently mislabeled `auditorReviewType='duplicate'` (FINDING-004) |
-| 4 | Auditor finalize | `auditor_review`+dynamic → `PUT /answers` | `dynamic_closed`, `closedAt` set, webhook `status='dynamic_closed'`, `isCustomerNotified=true`; `isClosed` **undefined** (FINDING-001) |
-| 5 | Auditor finalize | `auditor_review`+duplicate → `PUT /answers` | `closed`, webhook `status='closed'` via Browser channel |
-| 6 | Auditor finalize | plain `duplicate` (never pushed) → `PUT /answers` | `closed` (back-compat) |
-| 7 | Auditor finalize | plain `dynamic` (never pushed) → `PUT /answers` | `dynamic_closed`, webhook `status='dynamic_closed'` (back-compat, symmetric to #6) |
+| 4 | Auditor finalize | `auditor_review`+dynamic + `closeIntent='notify'` → `PUT /answers` | `dynamic_closed`, `closedAt` set, webhook `status='dynamic_closed'`, `isCustomerNotified=true`; `isClosed` **undefined** (FINDING-001) |
+| 4b | Auditor finalize | `[FINDING-008]` plain `dynamic`, `closeIntent` omitted → `PUT /answers` | `closed`, NOT `dynamic_closed` — backward-compat regression (FINDING-008) |
+| 5 | Auditor finalize | `auditor_review`+duplicate + `closeIntent='gdb'` → `PUT /answers` | `closed`, webhook `status='closed'` via Browser channel |
+| 6 | Auditor finalize | plain `duplicate` (never pushed), `closeIntent` omitted → `PUT /answers` | `closed` (matches default; not a meaningful back-compat guarantee post-FINDING-008) |
+| 7 | Auditor finalize | plain `dynamic` (never pushed) + `closeIntent='notify'` → `PUT /answers` | `dynamic_closed`, webhook `status='dynamic_closed'` |
 | 8 | Auditor finalize | `[BUG]` `auditor_review` + non-existent `answerId` → `PUT /answers` | 500 `InternalServerError` instead of 400 (FINDING-005) |
 | 9 | Auditor finalize | `[documented]` `auditor_review` + an *existing* `answerId` → `PUT /answers` | 400, unchanged (FINDING-006) |
 | 10 | Cancel Duplicate | `queue_duplicate` → cancel | `open`, `isDuplicateCancelled=true`, `isAutoAllocate` per body, `CANCEL_DUPLICATE` audit trail |
@@ -248,9 +276,9 @@ Pinned in `Close-propagation ... > [FINDING] when the parent closes as dynamic_c
 
 ## Last Run
 
-**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 36 passed &nbsp;|&nbsp; **Duration:** 29.1 s
+**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 37 passed &nbsp;|&nbsp; **Duration:** 1.2 min
 
-> ⚠ Vitest only printed 26 of 36 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 35 of 37 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
@@ -260,23 +288,32 @@ Pinned in `Close-propagation ... > [FINDING] when the parent closes as dynamic_c
 | 4 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > closes a dynami... | ✅ | — |
 | 5 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > closes a duplic... | ✅ | — |
 | 6 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > back-compat: a ... | ✅ | — |
-| 7 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > back-compat: a ... | ✅ | — |
-| 8 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > [documented] re... | ✅ | — |
-| 9 | Gate Keeper — Cancel Duplicate > reopens a queue_duplicate question to open, stamps isD... | ✅ | — |
-| 10 | Gate Keeper — Cancel Duplicate > [KNOWN GAP] accepts isDuplicateCancelled on a question... | ✅ | — |
-| 11 | Gate Keeper — Confirm Duplicate > CASE A: reference question already closed — replicate... | ✅ | — |
-| 12 | Gate Keeper — Confirm Duplicate > CASE B: reference question still open — moves the que... | ✅ | — |
-| 13 | Gate Keeper — Confirm Duplicate > frees the assigned gate keeper (assignedQuestionIds c... | ✅ | — |
-| 14 | Gate Keeper — Confirm Duplicate > [KNOWN GAP] an expert user can confirm-duplicate dire... | ✅ | — |
-| 15 | Close-propagation — approving a question closes its duplicate_confirmed children > repl... | ✅ | — |
-| 16 | Close-propagation — approving a question closes its duplicate_confirmed children > [FIN... | ✅ | — |
-| 17 | Close-propagation — approving a question closes its duplicate_confirmed children > leav... | ✅ | — |
-| 18 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > assigns a free gate kee... | ✅ | — |
-| 19 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > assigns a free auditor ... | ✅ | — |
-| 20 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
-| 21 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
-| 22 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
-| 23 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user can... | ✅ | — |
-| 24 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user can... | ✅ | — |
-| 25 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user is ... | ✅ | — |
-| 26 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > [KNOWN GAP] a call... | ✅ | — |
+| 7 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > [FINDING-008] a... | ✅ | — |
+| 8 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > a plain dynamic... | ✅ | — |
+| 9 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > [BUG] PUT /answ... | ✅ | — |
+| 10 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > [documented] re... | ✅ | — |
+| 11 | Gate Keeper — Cancel Duplicate > reopens a queue_duplicate question to open, stamps isD... | ✅ | — |
+| 12 | Gate Keeper — Cancel Duplicate > [KNOWN GAP] accepts isDuplicateCancelled on a question... | ✅ | — |
+| 13 | Gate Keeper — Confirm Duplicate > CASE A: reference question already closed — replicate... | ✅ | — |
+| 14 | Gate Keeper — Confirm Duplicate > CASE B: reference question still open — moves the que... | ✅ | — |
+| 15 | Gate Keeper — Confirm Duplicate > frees the assigned gate keeper (assignedQuestionIds c... | ✅ | — |
+| 16 | Gate Keeper — Confirm Duplicate > rejects confirm-duplicate on a question that is not q... | ✅ | — |
+| 17 | Gate Keeper — Confirm Duplicate > rejects confirm-duplicate when the question has no re... | ✅ | — |
+| 18 | Gate Keeper — Confirm Duplicate > [KNOWN GAP] an expert user can confirm-duplicate dire... | ✅ | — |
+| 19 | Close-propagation — approving a question closes its duplicate_confirmed children > repl... | ✅ | — |
+| 20 | Close-propagation — approving a question closes its duplicate_confirmed children > [FIN... | ✅ | — |
+| 21 | Close-propagation — approving a question closes its duplicate_confirmed children > leav... | ✅ | — |
+| 22 | Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsers... | ✅ | — |
+| 23 | Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsers... | ✅ | — |
+| 24 | Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsers... | ✅ | — |
+| 25 | Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsers... | ✅ | — |
+| 26 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > assigns a free gate kee... | ✅ | — |
+| 27 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > assigns a free auditor ... | ✅ | — |
+| 28 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > does not touch a busy g... | ✅ | — |
+| 29 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
+| 30 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
+| 31 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
+| 32 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user can... | ✅ | — |
+| 33 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user can... | ✅ | — |
+| 34 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user is ... | ✅ | — |
+| 35 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > [KNOWN GAP] a call... | ✅ | — |

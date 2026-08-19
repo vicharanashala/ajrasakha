@@ -93,6 +93,7 @@ let moderatorUser: any;
 let adminUser: any;
 let paeExpertUser: any; // may be null if no pae_expert seeded
 let experts: any[] = []; // e1..e4 (EXPERT_EMAIL .. EXPERT_EMAIL_4)
+let questionService: any;
 
 // Swapped per request — currentUserChecker returns this.
 let currentTestUser: any = null;
@@ -116,6 +117,7 @@ beforeAll(async () => {
   const { controllers } = await loadAppModules('all');
   const container = getContainer();
   db = container.get(GLOBAL_TYPES.Database);
+  questionService = container.get(CORE_TYPES.QuestionService);
 
   // Dummy the single external seam (AiService). Not strictly needed in this env
   // but keeps the suite hermetic if config flips.
@@ -360,12 +362,22 @@ describe('Post-allocation — authorization guards', () => {
 describe('Post-allocation — happy path (peer review → moderator approval)', () => {
   let qId: string;
   let answerId: string;
+  // Next-reviewer assignment now runs through reallocateManualQuestions() (a
+  // shared-DB-pool, reputation-ordered cron), not the inline "queue[N+1]" logic
+  // this fixture used to control — so each reviewer in the chain can be any
+  // eligible expert, not necessarily experts[1]/[2]/[3]. Resolve each one from
+  // the submission after the cron runs instead of assuming a fixed identity.
+  let reviewer2: any, reviewer3: any, reviewer4: any;
 
   beforeAll(async () => {
-    qId = await seedAllocatedQuestion({ queue: experts, label: 'happy' });
+    qId = await seedAllocatedQuestion({
+      queue: [experts[0]],
+      isAutoAllocate: true,
+      label: 'happy',
+    });
   });
 
-  it('e1 (queue[0]) submits the first answer → answer in-review, e2 assigned', async () => {
+  it('e1 (queue[0]) submits the first answer → answer in-review, next reviewer assigned', async () => {
     as(experts[0]);
     const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
@@ -379,14 +391,17 @@ describe('Post-allocation — happy path (peer review → moderator approval)', 
     expect(ans.status).toBe('in-review');
     answerId = ans._id.toString();
 
-    // Question stays open until 3 approvals; submission has e1 + freshly-assigned e2.
+    // Question stays open until 3 approvals.
     const q = await getQuestion(qId);
     expect(q.status).toBe('open');
 
+    await questionService.reallocateManualQuestions();
     const sub = await getSubmission(qId);
     expect(sub.history).toHaveLength(2);
     expect(sub.history[0].updatedBy.toString()).toBe(experts[0]._id.toString());
-    expect(sub.history[1].updatedBy.toString()).toBe(experts[1]._id.toString());
+    const usersCol = await db.getCollection('users');
+    reviewer2 = await usersCol.findOne({ _id: sub.history[1].updatedBy });
+    expect(reviewer2).not.toBeNull();
   }, 15_000);
 
   it('e1 cannot submit a second answer → 500 (KNOWN: "already submitted" wrapped)', async () => {
@@ -399,8 +414,8 @@ describe('Post-allocation — happy path (peer review → moderator approval)', 
     expect(res.status).toBe(500);
   });
 
-  it('e2 accepts → approvalCount 1, e3 assigned', async () => {
-    as(experts[1]);
+  it('assigned reviewer 2 accepts → approvalCount 1, next reviewer assigned', async () => {
+    as(reviewer2);
     const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
       status: 'accepted',
@@ -413,12 +428,16 @@ describe('Post-allocation — happy path (peer review → moderator approval)', 
     const ans = await answers.findOne({ _id: new ObjectId(answerId) });
     expect(ans.approvalCount).toBe(1);
 
+    await questionService.reallocateManualQuestions();
     const sub = await getSubmission(qId);
-    expect(sub.history.some((h: any) => h.updatedBy.toString() === experts[2]._id.toString())).toBe(true);
+    expect(sub.history.length).toBeGreaterThanOrEqual(3);
+    const usersCol = await db.getCollection('users');
+    reviewer3 = await usersCol.findOne({ _id: sub.history[2].updatedBy });
+    expect(reviewer3).not.toBeNull();
   }, 15_000);
 
-  it('e3 accepts → approvalCount 2, e4 assigned', async () => {
-    as(experts[2]);
+  it('assigned reviewer 3 accepts → approvalCount 2, next reviewer assigned', async () => {
+    as(reviewer3);
     const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
       status: 'accepted',
@@ -431,12 +450,16 @@ describe('Post-allocation — happy path (peer review → moderator approval)', 
     const ans = await answers.findOne({ _id: new ObjectId(answerId) });
     expect(ans.approvalCount).toBe(2);
 
+    await questionService.reallocateManualQuestions();
     const sub = await getSubmission(qId);
-    expect(sub.history.some((h: any) => h.updatedBy.toString() === experts[3]._id.toString())).toBe(true);
-  });
+    expect(sub.history.length).toBeGreaterThanOrEqual(4);
+    const usersCol = await db.getCollection('users');
+    reviewer4 = await usersCol.findOne({ _id: sub.history[3].updatedBy });
+    expect(reviewer4).not.toBeNull();
+  }, 15_000);
 
-  it('e4 accepts → 3 approvals → question in-review, answer pending-with-moderator', async () => {
-    as(experts[3]);
+  it('assigned reviewer 4 accepts → 3 approvals → question in-review, answer pending-with-moderator', async () => {
+    as(reviewer4);
     const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
       status: 'accepted',
@@ -452,7 +475,7 @@ describe('Post-allocation — happy path (peer review → moderator approval)', 
 
     const q = await getQuestion(qId);
     expect(q.status).toBe('in-review');
-  });
+  }, 15_000);
 
   it('expert cannot do the final approval → 400 (role gate in approveAnswer)', async () => {
     // approveAnswer throws UnauthorizedError for role 'expert'; the controller
@@ -513,9 +536,19 @@ describe('Post-allocation — happy path (peer review → moderator approval)', 
 describe('Post-allocation — reviewer rejects the author answer', () => {
   let qId: string;
   let authorAnswerId: string;
+  // Next-reviewer assignment now runs through reallocateManualQuestions() (a
+  // shared-DB-pool, reputation-ordered cron), not the inline "queue[1]" logic
+  // this fixture used to control — so the reviewer for this block can be any
+  // eligible expert, not necessarily experts[1]. Resolve it after the cron runs
+  // instead of assuming a fixed identity.
+  let reviewerUser: any;
 
   beforeAll(async () => {
-    qId = await seedAllocatedQuestion({ queue: experts, label: 'reject' });
+    qId = await seedAllocatedQuestion({
+      queue: [experts[0]],
+      isAutoAllocate: true,
+      label: 'reject',
+    });
     as(experts[0]);
     await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
@@ -524,10 +557,15 @@ describe('Post-allocation — reviewer rejects the author answer', () => {
     });
     const ans = await getAuthorAnswer(qId, experts[0]);
     authorAnswerId = ans._id.toString();
+
+    await questionService.reallocateManualQuestions();
+    const sub = await getSubmission(qId);
+    const usersCol = await db.getCollection('users');
+    reviewerUser = await usersCol.findOne({ _id: sub.queue[1] });
   });
 
   it('rejecting with an identical answer is blocked → 500 (KNOWN: guard wrapped)', async () => {
-    as(experts[1]);
+    as(reviewerUser);
     const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
       status: 'rejected',
@@ -540,12 +578,12 @@ describe('Post-allocation — reviewer rejects the author answer', () => {
     expect(res.status).toBe(500);
   });
 
-  it('e2 rejects with a new answer → author answer rejected, author penalised', async () => {
+  it('the assigned reviewer rejects with a new answer → author answer rejected, author penalised', async () => {
     const usersCol = await db.getCollection('users');
     const before = await usersCol.findOne({ _id: experts[0]._id });
     const penaltyBefore = before.penalty ?? 0;
 
-    as(experts[1]);
+    as(reviewerUser);
     const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
       status: 'rejected',
@@ -563,7 +601,7 @@ describe('Post-allocation — reviewer rejects the author answer', () => {
     expect(rejected.status).toBe('rejected');
 
     // Reviewer's replacement answer now exists and is live (in-review).
-    const replacement = await getAuthorAnswer(qId, experts[1]);
+    const replacement = await getAuthorAnswer(qId, reviewerUser);
     expect(replacement).not.toBeNull();
     expect(replacement.status).toBe('in-review');
 
@@ -589,9 +627,17 @@ describe('Post-allocation — reviewer rejects the author answer', () => {
 describe('Post-allocation — reviewer modifies the author answer', () => {
   let qId: string;
   let authorAnswerId: string;
+  // See "reviewer rejects" block above — the reviewer is now assigned by
+  // reallocateManualQuestions() from the whole eligible pool, not a fixed
+  // experts[1].
+  let reviewerUser: any;
 
   beforeAll(async () => {
-    qId = await seedAllocatedQuestion({ queue: experts, label: 'modify' });
+    qId = await seedAllocatedQuestion({
+      queue: [experts[0]],
+      isAutoAllocate: true,
+      label: 'modify',
+    });
     as(experts[0]);
     await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
@@ -601,10 +647,15 @@ describe('Post-allocation — reviewer modifies the author answer', () => {
     // bump approvalCount so we can prove modify resets it
     const ans = await getAuthorAnswer(qId, experts[0]);
     authorAnswerId = ans._id.toString();
+
+    await questionService.reallocateManualQuestions();
+    const sub = await getSubmission(qId);
+    const usersCol = await db.getCollection('users');
+    reviewerUser = await usersCol.findOne({ _id: sub.queue[1] });
   });
 
   it('modifying with an identical answer is blocked → 500 (KNOWN: guard wrapped)', async () => {
-    as(experts[1]);
+    as(reviewerUser);
     const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
       status: 'modified',
@@ -617,8 +668,8 @@ describe('Post-allocation — reviewer modifies the author answer', () => {
     expect(res.status).toBe(500);
   });
 
-  it('e2 modifies → answer text updated in place, approvalCount reset to 0', async () => {
-    as(experts[1]);
+  it('the assigned reviewer modifies → answer text updated in place, approvalCount reset to 0', async () => {
+    as(reviewerUser);
     const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
       status: 'modified',
@@ -844,11 +895,15 @@ describe('Post-allocation — delete answer', () => {
 describe('Post-allocation — approvalCount=2 does NOT escalate to moderator', () => {
   let qId: string;
   let answerId: string;
+  // See "happy path" block — reviewers are now assigned by
+  // reallocateManualQuestions() from the whole eligible pool, not fixed
+  // experts[1]/[2].
+  let reviewer2: any, reviewer3: any;
 
   beforeAll(async () => {
-    // 3 experts in queue so we can drive approvalCount to 2 and stop there.
     qId = await seedAllocatedQuestion({
-      queue: experts.slice(0, 3),
+      queue: [experts[0]],
+      isAutoAllocate: true,
       label: 'approval-threshold',
     });
 
@@ -861,10 +916,15 @@ describe('Post-allocation — approvalCount=2 does NOT escalate to moderator', (
     });
     const ans = await getAuthorAnswer(qId, experts[0]);
     answerId = ans._id.toString();
+
+    await questionService.reallocateManualQuestions();
+    const sub = await getSubmission(qId);
+    const usersCol = await db.getCollection('users');
+    reviewer2 = await usersCol.findOne({ _id: sub.history[1]?.updatedBy });
   });
 
   it('after 1 acceptance (approvalCount=1): question.status is still "open"', async () => {
-    as(experts[1]);
+    as(reviewer2);
     const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
       status: 'accepted',
@@ -876,10 +936,16 @@ describe('Post-allocation — approvalCount=2 does NOT escalate to moderator', (
     const q = await getQuestion(qId);
     console.log('[G8-1] status after approvalCount=1:', q?.status);
     expect(q.status).toBe('open');
+
+    await questionService.reallocateManualQuestions();
+    const sub = await getSubmission(qId);
+    const usersCol = await db.getCollection('users');
+    reviewer3 = await usersCol.findOne({ _id: sub.history[2]?.updatedBy });
+    expect(reviewer3).not.toBeNull();
   });
 
   it('after 2 acceptances (approvalCount=2): question.status is STILL "open" (not "in-review")', async () => {
-    as(experts[2]);
+    as(reviewer3);
     const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
       questionId: qId,
       status: 'accepted',
