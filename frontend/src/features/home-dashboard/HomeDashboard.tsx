@@ -857,8 +857,8 @@ export const HomeDashboard: React.FC = () => {
                     onClick={() => scrollToStage(Math.min(4, reviewStage + 1))}
                     aria-label="Next stage"
                   >
-                    <span>Next</span>
-                    <ChevronRight size={18} />
+                    <span style={{ color: "#ffffff", fontWeight: 700 }}>Next</span>
+                    <ChevronRight size={18} style={{ color: "#ffffff" }} />
                   </button>
                 </div>
               </div>

@@ -2776,12 +2776,34 @@ body.home-dashboard-active a:focus-visible {
 
 .evo-ctrl-next {
   margin-left: auto;
-  background: var(--forest);
-  border-color: var(--forest);
-  color: #ffffff;
+  background: var(--forest) !important;
+  border-color: var(--forest) !important;
+  color: #ffffff !important;
   box-shadow: 0 4px 14px rgba(12, 58, 42, 0.18);
 }
-.evo-ctrl-next:hover:not(:disabled) { background: #1b5a3f; border-color: #1b5a3f; }
+.evo-ctrl-next span,
+.evo-ctrl-next svg {
+  color: #ffffff !important;
+}
+.evo-ctrl-next:hover:not(:disabled) {
+  background: #1b5a3f !important;
+  border-color: #1b5a3f !important;
+  color: #ffffff !important;
+}
+.evo-ctrl-next:hover:not(:disabled) span,
+.evo-ctrl-next:hover:not(:disabled) svg {
+  color: #ffffff !important;
+}
+
+.state-card button,
+.state-card button span {
+  color: #ffffff !important;
+}
+.state-card button:hover,
+.state-card button:hover span {
+  background: #18523b !important;
+  color: #ffffff !important;
+}
 
 /* SCENE PANE - Rich visual right panel */
 .evo-scene-pane {
