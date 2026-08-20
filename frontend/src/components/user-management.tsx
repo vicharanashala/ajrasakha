@@ -9,7 +9,11 @@ import {
   X,
   Eye,
   EyeOff,
+  Download,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
+import { AdminUserService } from "@/hooks/services/adminService";
 import { Input } from "./atoms/input";
 import { Badge } from "./atoms/badge";
 import { UsersTable } from "./user-table";
@@ -46,7 +50,39 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(12);
   const [showSensitive, setShowSensitive] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const isAdmin = currentUser?.role === "admin";
+
+  const handleExportUsers = async () => {
+    try {
+      setIsExporting(true);
+      toast.info("Preparing users export...");
+      const blob = await new AdminUserService().exportUsers({
+        search,
+        sort,
+        filter,
+        role: roleFilter,
+        isBlocked: statusFilter,
+        isVerified: verifiedFilter,
+        isSTF: stfFilter,
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `users-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Users exported successfully");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to export users",
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
   // Every non-admin role with management access (moderator, tester, gate keeper, auditor)
   // gets the same Expert Management view, so this can't drift from the tab's allowlist.
   const isModerator = !isAdmin && canManageUsers(currentUser?.role);
@@ -289,6 +325,24 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                   {showSensitive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   {showSensitive ? "Hide Info" : "Show Info"}
                 </button>
+              )}
+
+              {/* Download users (respects current filters) — admin only */}
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportUsers}
+                  disabled={isExporting}
+                  className="gap-1.5 whitespace-nowrap"
+                >
+                  {isExporting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  {isExporting ? "Exporting..." : "Download"}
+                </Button>
               )}
 
               {/* Filter */}

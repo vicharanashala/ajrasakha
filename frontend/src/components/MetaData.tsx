@@ -343,16 +343,21 @@ export const SOURCES = [
 
 export const pae_domains=[
   "Agricultural Schemes & Subsidies",
+  "Allied Agricultural Activities",
+  "Animal Husbandry & Livestock",
+  "Capacity Building, Extension and Communication",
   "Climate, Weather & Stress Management",
   "Credit, Loan & Insurance",
   "Cultural and Crop Management Practices",
   "Disease Management",
   "Farm Tools & Mechanisation",
-  "Insect–Pest Management",
+  "Fisheries & Aquaculture",
+  "Insect - Pest Management",
   "Irrigation and Water Management",
   "Market Prices, MSP & Marketing",
   "Organic and Natural Farming",
   "Post-Harvest Management & Storage",
+  "Rural Infrastructure",
   "Seed and Variety Selection",
   "Soil Health and Nutrient Management",
   "Weed Management"

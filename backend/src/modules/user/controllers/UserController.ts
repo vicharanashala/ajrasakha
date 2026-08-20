@@ -16,7 +16,9 @@ import {
   BadRequestError,
   InternalServerError,
   ForbiddenError,
-  QueryParam
+  QueryParam,
+  ContentType,
+  Res,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -226,6 +228,44 @@ export class UserController {
       isVerified,
       isSTF,
     );
+  }
+
+  @OpenAPI({ summary: 'Export all users (matching the current filters) as an Excel sheet' })
+  @Get('/admin/all/export')
+  @Authorized(['admin'])
+  @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportAllUsers(
+    @QueryParams()
+    query: {
+      search?: string;
+      sort?: string;
+      filter?: string;
+      role?: string;
+      isBlocked?: string;
+      isVerified?: string;
+      isSTF?: string;
+    },
+    @Res() response: any,
+  ) {
+    const isBlocked = query.isBlocked === 'true' ? true : query.isBlocked === 'false' ? false : undefined;
+    const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
+    const isSTF = query.isSTF === 'true' ? true : query.isSTF === 'false' ? false : undefined;
+
+    const data = await this.userService.exportUsersToXlsx({
+      search: query.search || '',
+      sort: query.sort || '',
+      filter: query.filter || '',
+      role: query.role || 'ALL',
+      isBlocked,
+      isVerified,
+      isSTF,
+    });
+
+    response.setHeader(
+      'Content-Disposition',
+      'attachment; filename="users.xlsx"',
+    );
+    return Buffer.from(data);
   }
 
   @OpenAPI({
