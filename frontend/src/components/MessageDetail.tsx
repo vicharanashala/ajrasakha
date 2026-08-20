@@ -1008,10 +1008,14 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">
                             {isDynamicQuestion
-                                ? "As Auditor you can notify the user, allocate experts, or close this dynamic question."
-                                : "As Auditor you can push this duplicate question to the GDB, allocate experts, or notify the user."}
+                                ? "As Auditor you can pass this question, notify the user, allocate experts, or close this dynamic question."
+                                : "As Auditor you can pass this question, push it to the GDB, allocate experts, or notify the user."}
                         </p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+                            <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>
+                                {updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}
+                                {updatingQuestion ? "Passing..." : "Pass"}
+                            </Button>
                             {isDuplicateQuestion && (
                                 <Button type="button" variant="destructive" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4">
                                     {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
