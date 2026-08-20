@@ -60,6 +60,10 @@ export interface DailyStats {
   // Daily approval % = (questions pushed to GDB in the period / questions pushed to the
   // reviewer system, i.e. created, in the period) × 100.
   dailyApprovalRate?: number;
+  // Non-golden entries in the period (today) — pass + dynamic_closed + duplicate_closed.
+  todayPass?: number;
+  todayDynamicClosed?: number;
+  todayDuplicateClosed?: number;
   // Questions entered into the system today (by createdAt), broken down by source.
   todayAddedWebAppCount?: number;
   todayAddedWhatSappCount?: number;
@@ -184,7 +188,10 @@ export const getDailyStats = async (
     todayAddedAgriExpertCount,
     gdbTotal,
     gdbByModerator,
-    gdbByAuditor
+    gdbByAuditor,
+    todayPass,
+    todayDynamicClosed,
+    todayDuplicateClosed
   ] = await Promise.all([
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
@@ -253,7 +260,7 @@ export const getDailyStats = async (
     // duplicate_closed) by closedAt — the numerator of the daily approval %.
     questionRepository.count({
       isTesting: { $ne: true },
-      status: { $in: ['closed', 'dynamic_closed', 'duplicate_closed'] },
+      status: { $in: ['closed'] },
       closedAt: dateRange,
     }),
     // GDB contribution split straight off the question: a closed question that still
@@ -271,6 +278,24 @@ export const getDailyStats = async (
       status: { $in: ['closed'] },
       closedAt: dateRange,
       moderatorId: null,
+    }),
+    // ── Non-golden entries in the period (Pass by passedAt; the auditor-close
+    //    variants by closedAt) — the "today" counterpart of the all-time
+    //    "Total Non-Golden Dataset Questions" (pass + dynamic_closed + duplicate_closed).
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'pass',
+      passedAt: dateRange,
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'dynamic_closed',
+      closedAt: dateRange,
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: 'duplicate_closed',
+      closedAt: dateRange,
     }),
   ]);
 
@@ -336,6 +361,9 @@ export const getDailyStats = async (
     gdbByModerator,
     gdbByAuditor,
     dailyApprovalRate,
+    todayPass,
+    todayDynamicClosed,
+    todayDuplicateClosed,
     todayAddedWebAppCount,
     todayAddedWhatSappCount,
     todayAddedOutReachCount,

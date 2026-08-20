@@ -859,50 +859,6 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
           </tr>
 
           <!-- ========================================= -->
-          <!-- GDB CONTRIBUTION BY ROLE (Moderator / Auditor) -->
-          <!-- ========================================= -->
-          <tr>
-            <td
-              colspan="2"
-              style="
-                padding: 14px 20px 8px;
-                font-size: 11px;
-                font-weight: 700;
-                color: #9ca3af;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-              "
-            >
-              Today's Golden Entries by Approver
-            </td>
-          </tr>
-          <tr style="border-bottom: 1px solid #f3f4f6;">
-            <td style="
-              padding: 11px 20px 11px 32px;
-              font-size: 13px;
-              color: #4b5563;
-            ">
-              By Moderators
-            </td>
-            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #374151;">
-              ${(stats.gdbByModerator ?? 0).toLocaleString()}
-            </td>
-          </tr>
-          <tr style="border-bottom: 1px solid #f3f4f6;">
-            <td style="
-              padding: 11px 20px 11px 32px;
-              font-size: 13px;
-              color: #4b5563;
-            ">
-              By Auditors
-            </td>
-            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #374151;">
-              ${(stats.gdbByAuditor ?? 0).toLocaleString()}
-            </td>
-          </tr>
-
-
-          <!-- ========================================= -->
           <!-- TODAY'S GOLDEN DATASET SOURCE BREAKDOWN -->
           <!-- ========================================= -->
 
@@ -1059,6 +1015,49 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
           }
 
           <!-- ========================================= -->
+          <!-- GDB CONTRIBUTION BY ROLE (Moderator / Auditor) -->
+          <!-- ========================================= -->
+          <tr>
+            <td
+              colspan="2"
+              style="
+                padding: 14px 20px 8px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #9ca3af;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              "
+            >
+              Today's Golden Entries by Approver
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="
+              padding: 11px 20px 11px 32px;
+              font-size: 13px;
+              color: #4b5563;
+            ">
+              By Moderators
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #374151;">
+              ${(stats.gdbByModerator ?? 0).toLocaleString()}
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="
+              padding: 11px 20px 11px 32px;
+              font-size: 13px;
+              color: #4b5563;
+            ">
+              By Auditors
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #374151;">
+              ${(stats.gdbByAuditor ?? 0).toLocaleString()}
+            </td>
+          </tr>
+
+          <!-- ========================================= -->
           <!-- TOTAL QUESTIONS ENTERED IN SYSTEM TODAY -->
           <!-- ========================================= -->
 
@@ -1152,6 +1151,44 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
             </td>
             <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
               ${(stats.todayAddedAgriExpertCount ?? 0).toLocaleString()}
+            </td>
+          </tr>
+
+          <!-- ========================================= -->
+          <!-- NON-GOLDEN DATASET ENTRIES TODAY -->
+          <!-- ========================================= -->
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 18px 20px;">
+              <div style="font-size: 14px; font-weight: 600; color: #374151;">
+                Non-Golden Dataset Entries Today
+              </div>
+              <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+                Pass:
+                <strong>${(stats.todayPass ?? 0).toLocaleString()}</strong>
+                &nbsp;&nbsp;•&nbsp;&nbsp;
+                Dynamic Closed:
+                <strong>${(stats.todayDynamicClosed ?? 0).toLocaleString()}</strong>
+                &nbsp;&nbsp;•&nbsp;&nbsp;
+                Duplicate Closed:
+                <strong>${(stats.todayDuplicateClosed ?? 0).toLocaleString()}</strong>
+              </div>
+            </td>
+            <td style="padding: 18px 20px; text-align: right;">
+              <span style="
+                display: inline-block;
+                background-color: #f3f4f6;
+                color: #111827;
+                padding: 7px 12px;
+                border-radius: 6px;
+                font-size: 15px;
+                font-weight: 700;
+              ">
+                ${(
+                  (stats.todayPass ?? 0) +
+                  (stats.todayDynamicClosed ?? 0) +
+                  (stats.todayDuplicateClosed ?? 0)
+                ).toLocaleString()}
+              </span>
             </td>
           </tr>
 
