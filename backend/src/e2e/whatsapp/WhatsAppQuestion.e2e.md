@@ -569,7 +569,7 @@ The controller (QuestionController.ts:332-354) catches service errors and re-thr
 
 ## Last Run
 
-**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 20 passed &nbsp;|&nbsp; **Duration:** 2.3 min
+**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 20 passed &nbsp;|&nbsp; **Duration:** 2.3 min
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
@@ -583,7 +583,7 @@ The controller (QuestionController.ts:332-354) catches service errors and re-thr
 | 8 | WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the qu... | ✅ | — |
 | 9 | WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question... | ✅ | — |
 | 10 | WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting... | ✅ | — |
-| 11 | WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > ... | ❌ | Timed out waiting for question 6a85885eb288fcb1d703e12f. Last status='pending', isTesting=undefined |
+| 11 | WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > ... | ❌ | Timed out waiting for question 6a867d2eccf5170caa666222. Last status='pending', isTesting=undefined |
 | 12 | WhatsApp ingestion — GDB service throws → degrades gracefully to open > still opens the... | ✅ | — |
 | 13 | WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds... | ✅ | — |
 | 14 | WhatsApp ingestion — GDB exact_match has invalid question_id → falls through to open > ... | ✅ | — |

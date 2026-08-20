@@ -362,6 +362,12 @@ async function setFeedbacksAssigned(userId: any, qId: string) {
     { $set: { feedbacksAssigned: [new ObjectId(qId)] } },
   );
 }
+/** await-safe raw update — db.getCollection(...) returns a Promise, so it can't be
+ *  chained with .updateOne(...) directly without awaiting it first. */
+async function updateOne(collectionName: string, filter: any, update: any) {
+  const col = await db.getCollection(collectionName);
+  await col.updateOne(filter, update);
+}
 function mockFetchOnce(body: any, ok = true) {
   return vi.spyOn(global, 'fetch').mockResolvedValueOnce({
     ok,
@@ -449,6 +455,308 @@ describe('Feedback — Group 1: PAE_Validation (internal)', () => {
     const expertAfter = await getUserDoc(assignedExpert._id);
     expect((expertAfter.paeValidationAssigned ?? []).map(String)).not.toContain(qId);
   });
+
+  it('PAE expert submitting status=approve completes validation, creates no feedback, and frees the expert', async () => {
+    const approver = await makeUser('moderator');
+    await makeUser('pae_expert');
+    const qId = await seedClosedQuestion({
+      approver,
+      label: 'pae-approve',
+      ancient: true,
+      paeValidation: 'pending',
+      autoAllocatePaeValidationExpert: true,
+    });
+
+    await questionService.runPaeValidationQueueCron();
+    const submissionAfterCron = await getSubmission(qId);
+    const entry = submissionAfterCron.paeValidation[submissionAfterCron.paeValidation.length - 1];
+    const assignedExpert = await getUserDoc(entry.paeId);
+
+    as(assignedExpert);
+    const res = await apiPost('/api/questions/pae/validations/process').send({
+      questionId: qId,
+      status: 'approve',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const q = await getQuestion(qId);
+    expect(q.paeValidation).toBe('completed');
+    expect((q.feedbacks ?? []).some((f: any) => f.source === 'PAE_Validation')).toBe(false);
+
+    const feedbacksCol = await db.getCollection('feedbacks');
+    expect(await feedbacksCol.findOne({ questionId: new ObjectId(qId) })).toBeNull();
+
+    const submission = await getSubmission(qId);
+    const finalEntry = submission.paeValidation[submission.paeValidation.length - 1];
+    expect(finalEntry.paeStatus).toBe('completed');
+    expect(finalEntry.paeFinishedAt).toBeTruthy();
+
+    const expertAfter = await getUserDoc(assignedExpert._id);
+    expect((expertAfter.paeValidationAssigned ?? []).map(String)).not.toContain(qId);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Group 1b — PAE Validation queue/reviewer management (queue-details, timeline,
+// manual assign/reassign/remove, assigned-questions list, toggle)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Feedback — Group 1b: PAE Validation queue & reviewer management', () => {
+  it('GET /pae-val/queue-details and GET /pae/validations/assigned respond for a non-expert / the PAE expert', async () => {
+    const admin = await makeUser('admin');
+    as(admin);
+    const queueRes = await apiGet('/api/questions/pae-val/queue-details');
+    expect(queueRes.status).toBe(200);
+    expect(queueRes.body.success).toBe(true);
+    expect(queueRes.body.data).toHaveProperty('waitingAuto');
+    expect(queueRes.body.data).toHaveProperty('waitingManual');
+    expect(queueRes.body.data).toHaveProperty('assigned');
+    expect(queueRes.body.data).toHaveProperty('availablePaeExperts');
+
+    const paeExpert = await makeUser('pae_expert');
+    as(paeExpert);
+    const assignedRes = await apiGet('/api/questions/pae/validations/assigned');
+    expect(assignedRes.status).toBe(200);
+    expect(assignedRes.body).toHaveProperty('questions');
+    expect(assignedRes.body).toHaveProperty('totalCount');
+    expect(Array.isArray(assignedRes.body.questions)).toBe(true);
+  });
+
+  it('an expert is forbidden from viewing the PAE validation queue', async () => {
+    const expert = await makeUser('expert');
+    as(expert);
+    const res = await apiGet('/api/questions/pae-val/queue-details');
+    expect(res.status).toBe(403);
+  });
+
+  it('GET /:questionId/pae-validation-timeline reflects the cron-assigned round', async () => {
+    const approver = await makeUser('moderator');
+    await makeUser('pae_expert');
+    const qId = await seedClosedQuestion({
+      approver,
+      label: 'pae-timeline',
+      ancient: true,
+      paeValidation: 'pending',
+      autoAllocatePaeValidationExpert: true,
+    });
+    await questionService.runPaeValidationQueueCron();
+
+    const admin = await makeUser('admin');
+    as(admin);
+    const res = await apiGet(`/api/questions/${qId}/pae-validation-timeline`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.autoAllocatePaeValidationExpert).toBe(true);
+    expect(res.body.data.hasOpenRound).toBe(true);
+    expect(res.body.data.reviews).toHaveLength(1);
+    expect(res.body.data.reviews[0].paeStatus).toBe('in-progress');
+  });
+
+  it('admin manually assigns a PAE validation reviewer to a pending (unassigned) question', async () => {
+    const approver = await makeUser('moderator');
+    const admin = await makeUser('admin');
+    const paeExpert = await makeUser('pae_expert');
+    const qId = await seedClosedQuestion({
+      approver,
+      label: 'pae-manual-assign',
+      paeValidation: 'pending',
+      autoAllocatePaeValidationExpert: false,
+    });
+
+    as(admin);
+    const res = await apiPost(`/api/questions/${qId}/pae-val-reviewer`).send({
+      userId: paeExpert._id.toString(),
+    });
+    expect(res.status).toBe(200);
+
+    const submission = await getSubmission(qId);
+    expect(submission.paeValidation).toHaveLength(1);
+    expect(submission.paeValidation[0].paeId.toString()).toBe(paeExpert._id.toString());
+    const q = await getQuestion(qId);
+    expect(q.paeValidation).toBe('in-progress');
+    const expertAfter = await getUserDoc(paeExpert._id);
+    expect((expertAfter.paeValidationAssigned ?? []).map(String)).toContain(qId);
+  });
+
+  it('assigning a reviewer once paeValidation is already completed is rejected', async () => {
+    const approver = await makeUser('moderator');
+    const admin = await makeUser('admin');
+    const paeExpert = await makeUser('pae_expert');
+    const qId = await seedClosedQuestion({
+      approver,
+      label: 'pae-manual-completed',
+      paeValidation: 'completed',
+    });
+
+    as(admin);
+    const res = await apiPost(`/api/questions/${qId}/pae-val-reviewer`).send({
+      userId: paeExpert._id.toString(),
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/already completed pae validation/i);
+  });
+
+  it('[BUG-015] reassigning an open round by index does not repoint that round — it wipes the whole paeValidation history and replaces it with one fresh round', async () => {
+    // SubmissionRepository.assignPaeValidationReviewer does an unconditional
+    // `$set: {paeValidation: [...]}` (QuestionService.ts / SubmissionRepository.ts
+    // ~5065-5090) instead of a guarded $push like its feedback sibling
+    // (assignFeedbackReviewer). assignPaeValidationReviewerManually calls it
+    // unconditionally for BOTH fresh-assign and reassign-by-index, so any manual
+    // (re)assignment destroys prior round history instead of repointing the
+    // targeted round.
+    const approver = await makeUser('moderator');
+    const admin = await makeUser('admin');
+    const reviewer1 = await makeUser('pae_expert');
+    const reviewer2 = await makeUser('pae_expert');
+    const qId = await seedClosedQuestion({
+      approver,
+      label: 'pae-bug015',
+      paeValidation: 'in-progress',
+    });
+    // Seed TWO rounds directly: one already completed, one open — history that a
+    // correct reassign-by-index should preserve (only repointing the open one).
+    await updateOne(
+      'question_submissions',
+      { questionId: new ObjectId(qId) },
+      {
+        $set: {
+          paeValidation: [
+            { paeId: reviewer1._id, paeAssignedAt: new Date(0), paeStatus: 'completed', paeFinishedAt: new Date(0) },
+            { paeId: reviewer1._id, paeAssignedAt: new Date(), paeStatus: 'in-progress', paeFinishedAt: null },
+          ],
+        },
+      },
+    );
+    await updateOne('users', { _id: reviewer1._id }, { $set: { paeValidationAssigned: [new ObjectId(qId)] } });
+
+    as(admin);
+    const res = await apiPost(`/api/questions/${qId}/pae-val-reviewer`).send({
+      userId: reviewer2._id.toString(),
+      index: 1, // reassign the open (index-1) round to reviewer2
+    });
+    expect(res.status).toBe(200);
+
+    const submission = await getSubmission(qId);
+    // Expected (correct) behavior would be: 2 rounds, index 1 repointed to reviewer2.
+    // Actual behavior: the completed round at index 0 is gone entirely.
+    expect(submission.paeValidation).toHaveLength(1);
+    expect(submission.paeValidation[0].paeId.toString()).toBe(reviewer2._id.toString());
+    expect(submission.paeValidation[0].paeStatus).toBe('in-progress');
+  });
+
+  it('[BUG-016] a PAE expert already holding one paeValidation can be manually assigned a second one — no availability guard on the claim', async () => {
+    // UserRepository.addPaeValidationAssigned's updateOne filter is
+    // `{ _id: new ObjectId(paeExpertId) }` only (UserRepository.ts ~3021-3051) — no
+    // isBlocked / status / "paeValidationAssigned empty" condition, unlike its
+    // feedback sibling claimFeedbackAllocationManual. So
+    // assignPaeValidationReviewerManually's "Selected user is not available"
+    // BadRequestError branch can never actually trigger.
+    const approver = await makeUser('moderator');
+    const admin = await makeUser('admin');
+    const busyPaeExpert = await makeUser('pae_expert');
+    const existingQId = await seedClosedQuestion({ approver, label: 'pae-bug016-existing', paeValidation: 'in-progress' });
+    await updateOne('users', { _id: busyPaeExpert._id }, { $set: { paeValidationAssigned: [new ObjectId(existingQId)] } });
+
+    const qId = await seedClosedQuestion({
+      approver,
+      label: 'pae-bug016-new',
+      paeValidation: 'pending',
+      autoAllocatePaeValidationExpert: false,
+    });
+
+    as(admin);
+    const res = await apiPost(`/api/questions/${qId}/pae-val-reviewer`).send({
+      userId: busyPaeExpert._id.toString(),
+    });
+    // Expected (correct) behavior would be 400 "Selected user is not available".
+    // Actual: 200 — the already-busy expert is double-booked.
+    expect(res.status).toBe(200);
+
+    const expertAfter = await getUserDoc(busyPaeExpert._id);
+    const assignedIds = (expertAfter.paeValidationAssigned ?? []).map(String);
+    expect(assignedIds).toContain(existingQId);
+    expect(assignedIds).toContain(qId);
+    expect(assignedIds.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('admin removes an open PAE validation round and releases the reviewer, resetting paeValidation to pending', async () => {
+    const approver = await makeUser('moderator');
+    const admin = await makeUser('admin');
+    const paeExpert = await makeUser('pae_expert');
+    const qId = await seedClosedQuestion({ approver, label: 'pae-remove', paeValidation: 'in-progress' });
+    await updateOne(
+      'question_submissions',
+      { questionId: new ObjectId(qId) },
+      { $set: { paeValidation: [{ paeId: paeExpert._id, paeAssignedAt: new Date(), paeStatus: 'in-progress', paeFinishedAt: null }] } },
+    );
+    await updateOne('users', { _id: paeExpert._id }, { $set: { paeValidationAssigned: [new ObjectId(qId)] } });
+
+    as(admin);
+    const res = await apiDelete(`/api/questions/${qId}/pae-val-reviewer`).send({ index: 0 });
+    expect(res.status).toBe(200);
+
+    const submission = await getSubmission(qId);
+    expect(submission.paeValidation).toHaveLength(0);
+    const q = await getQuestion(qId);
+    expect(q.paeValidation).toBe('pending');
+    const expertAfter = await getUserDoc(paeExpert._id);
+    expect((expertAfter.paeValidationAssigned ?? []).map(String)).not.toContain(qId);
+  });
+
+  it('removing a COMPLETED PAE validation round is rejected', async () => {
+    const approver = await makeUser('moderator');
+    const admin = await makeUser('admin');
+    const paeExpert = await makeUser('pae_expert');
+    const qId = await seedClosedQuestion({ approver, label: 'pae-remove-completed', paeValidation: 'completed' });
+    await updateOne(
+      'question_submissions',
+      { questionId: new ObjectId(qId) },
+      { $set: { paeValidation: [{ paeId: paeExpert._id, paeAssignedAt: new Date(), paeStatus: 'completed', paeFinishedAt: new Date() }] } },
+    );
+
+    as(admin);
+    const res = await apiDelete(`/api/questions/${qId}/pae-val-reviewer`).send({ index: 0 });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/completed pae validation review cannot be removed/i);
+  });
+
+  it('toggling autoAllocatePaeValidationExpert OFF then ON (role=pae_validator) gates cron pickup accordingly', async () => {
+    const approver = await makeUser('moderator');
+    const admin = await makeUser('admin');
+    await makeUser('pae_expert');
+    const qId = await seedClosedQuestion({
+      approver,
+      label: 'pae-toggle',
+      ancient: true,
+      paeValidation: 'pending',
+      autoAllocatePaeValidationExpert: true,
+    });
+
+    as(admin);
+    let res = await apiPatch(`/api/questions/${qId}/role-allocation`).send({
+      role: 'pae_validator',
+      enabled: false,
+    });
+    expect(res.status).toBe(200);
+    let q = await getQuestion(qId);
+    expect(q.autoAllocatePaeValidationExpert).toBe(false);
+
+    await questionService.runPaeValidationQueueCron();
+    let submission = await getSubmission(qId);
+    expect(submission.paeValidation ?? []).toHaveLength(0);
+
+    res = await apiPatch(`/api/questions/${qId}/role-allocation`).send({
+      role: 'pae_validator',
+      enabled: true,
+    });
+    expect(res.status).toBe(200);
+    q = await getQuestion(qId);
+    expect(q.autoAllocatePaeValidationExpert).toBe(true);
+
+    await questionService.runPaeValidationQueueCron();
+    submission = await getSubmission(qId);
+    expect(submission.paeValidation?.[0]?.paeId).toBeTruthy();
+  }, 15000);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

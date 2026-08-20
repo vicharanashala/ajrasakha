@@ -303,17 +303,15 @@ Because expert1 was never in the queue, `getExprtIdByIndex(questionId, 0)` retur
 
 ## Last Run
 
-**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 9 passed &nbsp;|&nbsp; **Duration:** 19.6 s
+**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 17.4 s
+
+> ⚠ Vitest only printed 6 of 10 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Manual allocation — authentication > returns 401 when no user is logged in (allocate-ex... | ✅ | — |
-| 2 | Manual allocation — authentication > returns 400 when an expert tries to allocate (role... | ✅ | — |
-| 3 | Manual allocation — moderator allocates experts > moderator allocates expert1 → 200 | ✅ | — |
-| 4 | Manual allocation — moderator allocates experts > DB: submission queue contains expert1... | ✅ | — |
-| 5 | Manual allocation — moderator allocates experts > DB: question has firstAllocationAt se... | ✅ | — |
-| 6 | Manual allocation — moderator allocates experts > moderator allocates expert2 to same q... | ✅ | — |
-| 7 | Manual allocation — validation > duplicate expert check (known bug: guard silently pass... | ✅ | — |
-| 8 | Manual allocation — validation > non-existent questionId returns 500 (known behavior: g... | ✅ | — |
-| 9 | Manual allocation — moderator removes an expert > moderator removes expert at index 0 →... | ❌ | Test timed out in 5000ms. |
-| 10 | Manual allocation — moderator removes an expert > DB: queue shrinks to 1, expert1 remov... | ✅ | — |
+| 1 | Manual allocation — authentication > returns 400 when an expert tries to allocate (role... | ✅ | — |
+| 2 | Manual allocation — moderator allocates experts > moderator allocates expert1 → 200 | ✅ | — |
+| 3 | Manual allocation — moderator allocates experts > moderator allocates expert2 to same q... | ✅ | — |
+| 4 | Manual allocation — validation > duplicate expert check (known bug: guard silently pass... | ✅ | — |
+| 5 | Manual allocation — validation > non-existent questionId returns 500 (known behavior: g... | ✅ | — |
+| 6 | Manual allocation — moderator removes an expert > moderator removes expert at index 0 →... | ✅ | — |

@@ -32,14 +32,37 @@ source is closed — a question can have all 3 sources open at once.
 time claim rules mirroring the cron) and the `autoAllocateFeedback` toggle
 (`PATCH /:questionId/role-allocation {role:'feedback'}`).
 
-**Not covered here:** the paginated feedback DISPLAY endpoint (`GET /:questionId/feedbacks`,
-merging local PAE feedbacks with the external data-release service's DATASET/WEB_APPLICATION
-feedback content) and the chatbot-side feedback analytics/report endpoints
-(`ChatbotService.getFeedbackUsers`, `getFeedbackByLocation`, dataset listings) — those are
-read/reporting surfaces layered on top of this mechanism, not part of the routing/settlement logic
-itself. Also not covered: PAE expert domain/state preference MATCHING
-(`isQuestionMatchForPaeExpert`) — exercised only incidentally (fixtures carry no preference, so
-match-anything).
+**PAE Validation queue/reviewer management** (Group 1b — a sibling system to the feedback-source
+above, and the only OTHER e2e-untested surface of the `pae_expert` role besides the answer-
+authoring skip-review flow already covered by `PostAllocation.e2e.test.ts`): the `paeValidation`
+status field (`pending`/`in-progress`/`completed`) and its own `GET /pae-val/queue-details`,
+`GET /:questionId/pae-validation-timeline`, `POST`/`DELETE /:questionId/pae-val-reviewer` (manual
+assign/reassign/remove), `GET /pae/validations/assigned` (a PAE expert's own dashboard), and the
+`autoAllocatePaeValidationExpert` toggle (`role:'pae_validator'`). This is a **separate** object
+from the `PAE_Validation` feedback *source* above — a question always goes through `paeValidation`
+first (every close path stamps it `'pending'`), and only reaching `status:'feedback'` on
+`POST /pae/validations/process` additionally opens the feedback source.
+
+**Not covered here:**
+- The paginated feedback DISPLAY endpoint (`GET /:questionId/feedbacks`, merging local PAE
+  feedbacks with the external data-release service's DATASET/WEB_APPLICATION feedback content) and
+  the chatbot-side feedback analytics/report endpoints (`ChatbotService.getFeedbackUsers`,
+  `getFeedbackByLocation`, dataset listings) — those are read/reporting surfaces layered on top of
+  this mechanism, not part of the routing/settlement logic itself.
+- PAE expert domain/state preference MATCHING (`isQuestionMatchForPaeExpert`) — exercised only
+  incidentally (fixtures carry no preference, so match-anything).
+- **`POST /bulk-pae-allocate`** (`QuestionService.bulkAllocatePaeExperts` — the real mechanism that
+  puts a `pae_expert` into a draft question's answer-authoring queue in the first place, upstream
+  of `PostAllocation.e2e.test.ts`'s PAE describe block, which seeds the queue directly instead).
+  Confirmed **unreachable in this harness**: it hands off to a `worker_threads` worker
+  (`paeAllocation.worker.ts`) via a hardcoded `path.join(__dirname, 'paeAllocation.worker.js')` —
+  under vitest/ts-node `__dirname` resolves to the TS source directory, which has no compiled
+  `.js` file (only `pnpm run build`'s `build/` output does). Verified directly: calling
+  `startPaeAllocationWorker` produces `❌ Worker error: Cannot find module
+  '.../src/workers/paeAllocation.worker.js'` and the job status flips to `'failed'` — the exact
+  same failure mode already observed for `balanceWorkload.worker.js` in this session's full e2e
+  runs. Parked as a known, environment-level gap (same category as the OUTREACH duplicate-detection
+  engine), not attempted here.
 
 ## Flow diagram
 
@@ -75,6 +98,32 @@ flowchart TD
     START --> P1 --> P2
     P2 -- approve --> P3
     P2 -- feedback --> P4
+  end
+
+  subgraph PAEMGMT["PAE Validation queue &amp; reviewer management (Group 1b)"]
+    M1["Read: GET /pae-val/queue-details,
+    GET /:id/pae-validation-timeline,
+    GET /pae/validations/assigned"]:::ok
+    M2["POST /:id/pae-val-reviewer
+    manual assign / reassign by index"]:::ok
+    M3["BUG-015: reassign-by-index calls
+    assignPaeValidationReviewer, which
+    unconditionally $set-overwrites the
+    WHOLE paeValidation array instead of
+    a guarded $push -> destroys round
+    history instead of repointing"]:::fail
+    M4["BUG-016: addPaeValidationAssigned's
+    claim filter is {_id} only - no
+    isBlocked/status/empty-array check -
+    'not available' error can never fire,
+    a PAE expert can be double-booked"]:::fail
+    M5["DELETE /:id/pae-val-reviewer -
+    open round only, completed rejected"]:::ok
+    M6["toggle autoAllocatePaeValidationExpert
+    (role='pae_validator') gates the cron"]:::ok
+    P1 -.-> M1
+    M2 -.-> M3
+    M2 -.-> M4
   end
 
   subgraph EXT["DATASET (chat app, dummied) / WEB_APPLICATION (public site, dummied)"]
@@ -186,33 +235,70 @@ data-release service instead of the intended web app backend. Pinned in Group 4'
 test, which asserts the actual (buggy) URL so the suite documents current behavior rather than
 silently passing on a wrong assumption. Not fixed here — QA-only role.
 
-## Test cases (23 total, all passing)
+### BUG-015 — manually reassigning a PAE validation round wipes its round history instead of repointing it
+
+`assignPaeValidationReviewerManually` (`QuestionService.ts:10965`) calls
+`SubmissionRepository.assignPaeValidationReviewer` unconditionally for **both** a fresh assignment
+and an index-targeted reassignment. That repository method (`SubmissionRepository.ts:5065-5090`)
+does `$set: {paeValidation: [singleElementArray]}` matched only on `questionId` — an unconditional
+overwrite, not a guarded `$push` like its feedback sibling (`assignFeedbackReviewer`, which pushes
+only when no round is currently open). So a reassignment doesn't repoint the targeted round — it
+**deletes every other round in the array** (including completed ones) and replaces the whole thing
+with one fresh round for the new reviewer. As a side effect, the "This question already has an
+open pae validation review" guard error can never trigger either, since the underlying update
+always succeeds. Pinned in Group 1b's `[BUG-015]` test: seeds a completed round + an open round,
+reassigns the open one by index, and shows the completed round vanished entirely.
+
+### BUG-016 — a PAE expert can be manually double-booked; the "not available" guard never fires
+
+`UserRepository.addPaeValidationAssigned` (`UserRepository.ts:3021-3052`), used as the "claim" step
+in `assignPaeValidationReviewerManually`, matches only `{_id: new ObjectId(paeExpertId)}` — no
+`isBlocked`, `status`, or "`paeValidationAssigned` empty" condition, unlike its feedback sibling
+`claimFeedbackAllocationManual`. The service method's own `if (!claimed) throw new
+BadRequestError('Selected user is not available (already holds a pae validation, or is
+inactive/blocked).')` branch is therefore dead code — the claim always succeeds. An admin can
+manually assign a PAE expert who is already mid-validation on a different question to a second one,
+bypassing the one-at-a-time invariant the cron (`findAvailablePaeExperts`) otherwise enforces.
+Pinned in Group 1b's `[BUG-016]` test.
+
+## Test cases (34 total, all passing)
 
 | # | Group | What | Expected |
 |---|-------|------|----------|
 | 1 | PAE_Validation | `runPaeValidationQueueCron` assigns an ancient pending question | question `paeValidation='in-progress'`, submission gets a `paeValidation[]` entry, expert's `paeValidationAssigned` contains the question |
 | 2 | PAE_Validation | `[FINDING-009]` PAE expert submits `status='feedback'` | `feedbacks` doc created (`type:'PAE_VALIDATION'`, `status:'open'`), `question.feedbacks[PAE_Validation]` open, `autoAllocateFeedback=true`, `paeValidation='completed'`, expert freed despite the docstring |
-| 3 | Routing | active, free approver-moderator | gets the feedback assigned directly (`feedbackReviews[0].reviewerId === approver`) |
-| 4 | Routing | `isBlocked=true` approver-moderator | falls back to an available auditor |
-| 5 | Routing | approver-moderator already holding another feedback (`feedbacksAssigned` non-empty) | falls back to an available auditor |
-| 6 | Routing | approver-moderator `status='in-active'` | falls back to an available auditor |
-| 7 | DATASET/WEB_APPLICATION | missing/invalid `x-internal-api-key` on the intake webhook | 401 |
-| 8 | DATASET/WEB_APPLICATION | `PATCH /feedbacks/question/:id {source:'DATASET'}` (simulated chat-app feedback) | opens the source, `autoAllocateFeedback=true`, `recentFeedback` stamped, routes to approver-moderator via the cron |
-| 9 | DATASET/WEB_APPLICATION | same webhook with `{source:'WEB_APPLICATION'}` (simulated public-site feedback) | opens the source the same way |
-| 10 | DATASET/WEB_APPLICATION | re-notifying an already-open DATASET source | idempotent — reopens the same entry, never duplicates it |
-| 11 | Settlement | PAE_Validation accept (single source) | local `feedbacks` doc → `status:'accept'`, question source entry `closed`, review round `finishedAt` set, reviewer freed |
-| 12 | Settlement | DATASET accept, external service reports `pendingFeedbackCount:0` | source closed, round finished, `fetch` called with `DATA_RELEASE_URL` + `Bearer REVIEW_SYSTEM_AUTH_KEY` |
-| 13 | Settlement | DATASET reject, external service reports `pendingFeedbackCount:3` | source stays `open`, round stays open, reviewer still assigned |
-| 14 | Settlement | `[BUG-014]` WEB_APPLICATION accept | `fetch` called with `DATA_RELEASE_URL` (not `WEB_APP_URL`) + `Bearer WEB_WEBHOOK_API_KEY` |
-| 15 | Settlement | question with `PAE_Validation` AND `DATASET` both open | closing one alone leaves the round open (other source still open); closing both finishes the round and frees the reviewer |
-| 16 | Manual admin | assign a reviewer to a waiting (unassigned) feedback | round opened, reviewer's `feedbacksAssigned` updated |
-| 17 | Manual admin | reassign an open round to a different reviewer by index | round repointed, old reviewer released |
-| 18 | Manual admin | assign a reviewer once the feedback is already fully closed | 400 "This feedback is already closed." |
-| 19 | Manual admin | remove an open round | round removed, reviewer released |
-| 20 | Manual admin | remove a COMPLETED round | 400 "A completed feedback review cannot be removed." |
-| 21 | Manual admin | toggle `autoAllocateFeedback` OFF then ON (`role='feedback'`) | OFF: cron's auto-only pass skips the question; ON: cron picks it up |
-| 22 | Read endpoints | `GET /feedback/queue-details` + `/feedback/reviewers` for a non-expert | 200, expected `FeedbackQueueDetails` shape (`waitingAuto`, `assigned`, ...) |
-| 23 | Read endpoints | expert calls `/feedback/queue-details` | 403 |
+| 3 | PAE_Validation | PAE expert submits `status='approve'` | `paeValidation='completed'`, no `feedbacks` doc, no feedback source opened, round's `paeFinishedAt` set, expert freed |
+| 4 | PAE queue/reviewer mgmt | `GET /pae-val/queue-details` (non-expert) + `GET /pae/validations/assigned` (PAE expert) | 200, expected `PaeValidationQueueDetails`/paginated-assigned shapes |
+| 5 | PAE queue/reviewer mgmt | expert calls `/pae-val/queue-details` | 403 |
+| 6 | PAE queue/reviewer mgmt | `GET /:id/pae-validation-timeline` after cron assignment | `hasOpenRound=true`, `reviews[0].paeStatus='in-progress'` |
+| 7 | PAE queue/reviewer mgmt | admin manually assigns a PAE reviewer to a pending, unassigned question | round opened, `paeValidation='in-progress'`, expert's `paeValidationAssigned` updated |
+| 8 | PAE queue/reviewer mgmt | assign a reviewer once `paeValidation='completed'` | 400 "This question has already completed PAE validation." |
+| 9 | PAE queue/reviewer mgmt | `[BUG-015]` reassign an open round by index (2 rounds seeded: 1 completed, 1 open) | expected: 2 rounds, only index 1 repointed; actual: 1 round total — completed round destroyed |
+| 10 | PAE queue/reviewer mgmt | `[BUG-016]` manually assign a PAE expert already holding one validation | expected: 400 "not available"; actual: 200 — expert now holds 2 concurrent `paeValidationAssigned` entries |
+| 11 | PAE queue/reviewer mgmt | admin removes an open round | round removed, `paeValidation` reset to `'pending'`, reviewer released |
+| 12 | PAE queue/reviewer mgmt | remove a COMPLETED round | 400 "A completed pae validation review cannot be removed." |
+| 13 | PAE queue/reviewer mgmt | toggle `autoAllocatePaeValidationExpert` OFF then ON (`role='pae_validator'`) | OFF: `runPaeValidationQueueCron` skips the question; ON: cron picks it up |
+| 14 | Routing | active, free approver-moderator | gets the feedback assigned directly (`feedbackReviews[0].reviewerId === approver`) |
+| 15 | Routing | `isBlocked=true` approver-moderator | falls back to an available auditor |
+| 16 | Routing | approver-moderator already holding another feedback (`feedbacksAssigned` non-empty) | falls back to an available auditor |
+| 17 | Routing | approver-moderator `status='in-active'` | falls back to an available auditor |
+| 18 | DATASET/WEB_APPLICATION | missing/invalid `x-internal-api-key` on the intake webhook | 401 |
+| 19 | DATASET/WEB_APPLICATION | `PATCH /feedbacks/question/:id {source:'DATASET'}` (simulated chat-app feedback) | opens the source, `autoAllocateFeedback=true`, `recentFeedback` stamped, routes to approver-moderator via the cron |
+| 20 | DATASET/WEB_APPLICATION | same webhook with `{source:'WEB_APPLICATION'}` (simulated public-site feedback) | opens the source the same way |
+| 21 | DATASET/WEB_APPLICATION | re-notifying an already-open DATASET source | idempotent — reopens the same entry, never duplicates it |
+| 22 | Settlement | PAE_Validation accept (single source) | local `feedbacks` doc → `status:'accept'`, question source entry `closed`, review round `finishedAt` set, reviewer freed |
+| 23 | Settlement | DATASET accept, external service reports `pendingFeedbackCount:0` | source closed, round finished, `fetch` called with `DATA_RELEASE_URL` + `Bearer REVIEW_SYSTEM_AUTH_KEY` |
+| 24 | Settlement | DATASET reject, external service reports `pendingFeedbackCount:3` | source stays `open`, round stays open, reviewer still assigned |
+| 25 | Settlement | `[BUG-014]` WEB_APPLICATION accept | `fetch` called with `DATA_RELEASE_URL` (not `WEB_APP_URL`) + `Bearer WEB_WEBHOOK_API_KEY` |
+| 26 | Settlement | question with `PAE_Validation` AND `DATASET` both open | closing one alone leaves the round open (other source still open); closing both finishes the round and frees the reviewer |
+| 27 | Manual admin (feedback) | assign a reviewer to a waiting (unassigned) feedback | round opened, reviewer's `feedbacksAssigned` updated |
+| 28 | Manual admin (feedback) | reassign an open round to a different reviewer by index | round repointed, old reviewer released |
+| 29 | Manual admin (feedback) | assign a reviewer once the feedback is already fully closed | 400 "This feedback is already closed." |
+| 30 | Manual admin (feedback) | remove an open round | round removed, reviewer released |
+| 31 | Manual admin (feedback) | remove a COMPLETED round | 400 "A completed feedback review cannot be removed." |
+| 32 | Manual admin (feedback) | toggle `autoAllocateFeedback` OFF then ON (`role='feedback'`) | OFF: cron's auto-only pass skips the question; ON: cron picks it up |
+| 33 | Read endpoints | `GET /feedback/queue-details` + `/feedback/reviewers` for a non-expert | 200, expected `FeedbackQueueDetails` shape (`waitingAuto`, `assigned`, ...) |
+| 34 | Read endpoints | expert calls `/feedback/queue-details` | 403 |
 
 ## Coverage notes
 
@@ -234,36 +320,58 @@ silently passing on a wrong assumption. Not fixed here — QA-only role.
 - **Not exhaustively covering** the paginated feedback DISPLAY endpoint or chatbot-side feedback
   analytics — those are read/reporting surfaces, not part of the routing/settlement mechanism this
   suite exists to verify (see "What this covers" above).
+- **Group 1b (PAE Validation queue/reviewer management) was added after a follow-up survey** of
+  every `pae_expert`-related route in the codebase, prompted by the question "does any suite cover
+  all PAE routes?". Answer at the time: no — besides this suite's `PAE_Validation` feedback-source
+  tests and `PostAllocation.e2e.test.ts`'s answer-authoring skip-review tests, the `paeValidation`
+  queue/reviewer/toggle system (7 endpoints) had zero coverage. Extended here rather than as a new
+  file, since it's structurally the same object Group 1 already drives (same harness, same
+  `makeUser('pae_expert')`/`seedClosedQuestion` fixtures) — matches this repo's convention of
+  splitting suites by workflow stage, not by role.
+- **`POST /bulk-pae-allocate`** — the actual entry point that assigns a `pae_expert` into a
+  question's answer-authoring queue — was investigated but confirmed unreachable in this harness
+  (worker-thread module resolution; see "What this covers" above) and is not attempted here.
 
 ---
 
 ## Last Run
 
-**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 23 passed &nbsp;|&nbsp; **Duration:** 52.3 s
+**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 34 passed &nbsp;|&nbsp; **Duration:** 1.2 min
 
-> ⚠ Vitest only printed 22 of 23 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 33 of 34 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
 | 1 | Feedback — Group 1: PAE_Validation (internal) > runPaeValidationQueueCron assigns an an... | ✅ | — |
 | 2 | Feedback — Group 1: PAE_Validation (internal) > [FINDING-009] PAE expert submitting sta... | ✅ | — |
-| 3 | Feedback — Group 2: routing (runModeratorQueueCron feedback pass) > an active, free app... | ✅ | — |
-| 4 | Feedback — Group 2: routing (runModeratorQueueCron feedback pass) > a BLOCKED approver-... | ✅ | — |
-| 5 | Feedback — Group 2: routing (runModeratorQueueCron feedback pass) > an approver-moderat... | ✅ | — |
-| 6 | Feedback — Group 2: routing (runModeratorQueueCron feedback pass) > an INACTIVE approve... | ✅ | — |
-| 7 | Feedback — Group 3: DATASET / WEB_APPLICATION intake webhook > rejects the internal fee... | ✅ | — |
-| 8 | Feedback — Group 3: DATASET / WEB_APPLICATION intake webhook > DATASET webhook (simulat... | ✅ | — |
-| 9 | Feedback — Group 3: DATASET / WEB_APPLICATION intake webhook > WEB_APPLICATION webhook ... | ✅ | — |
-| 10 | Feedback — Group 3: DATASET / WEB_APPLICATION intake webhook > re-notifying an already-... | ✅ | — |
-| 11 | Feedback — Group 4: accept/reject settlement > PAE_Validation accept closes the source,... | ✅ | — |
-| 12 | Feedback — Group 4: accept/reject settlement > DATASET accept (external service reports... | ✅ | — |
-| 13 | Feedback — Group 4: accept/reject settlement > DATASET reject with pendingFeedbackCount... | ✅ | — |
-| 14 | Feedback — Group 4: accept/reject settlement > [BUG-014] WEB_APPLICATION accept still c... | ✅ | — |
-| 15 | Feedback — Group 4: accept/reject settlement > a question with PAE_Validation AND DATAS... | ✅ | — |
-| 16 | Feedback — Group 5: manual admin controls > admin manually assigns a feedback reviewer ... | ✅ | — |
-| 17 | Feedback — Group 5: manual admin controls > admin reassigns an already-open round to a ... | ✅ | — |
-| 18 | Feedback — Group 5: manual admin controls > assigning a reviewer is rejected once the f... | ✅ | — |
-| 19 | Feedback — Group 5: manual admin controls > admin removes an open feedback-review round... | ✅ | — |
-| 20 | Feedback — Group 5: manual admin controls > removing a COMPLETED round is rejected | ✅ | — |
-| 21 | Feedback — Group 5: manual admin controls > toggling autoAllocateFeedback OFF then ON (... | ✅ | — |
-| 22 | Feedback — Group 6: feedback-tab read endpoints > GET /feedback/queue-details and /feed... | ✅ | — |
+| 3 | Feedback — Group 1: PAE_Validation (internal) > PAE expert submitting status=approve co... | ✅ | — |
+| 4 | Feedback — Group 1b: PAE Validation queue & reviewer management > GET /pae-val/queue-de... | ✅ | — |
+| 5 | Feedback — Group 1b: PAE Validation queue & reviewer management > an expert is forbidde... | ✅ | — |
+| 6 | Feedback — Group 1b: PAE Validation queue & reviewer management > GET /:questionId/pae-... | ✅ | — |
+| 7 | Feedback — Group 1b: PAE Validation queue & reviewer management > admin manually assign... | ✅ | — |
+| 8 | Feedback — Group 1b: PAE Validation queue & reviewer management > assigning a reviewer ... | ✅ | — |
+| 9 | Feedback — Group 1b: PAE Validation queue & reviewer management > [BUG-015] reassigning... | ✅ | — |
+| 10 | Feedback — Group 1b: PAE Validation queue & reviewer management > [BUG-016] a PAE exper... | ✅ | — |
+| 11 | Feedback — Group 1b: PAE Validation queue & reviewer management > admin removes an open... | ✅ | — |
+| 12 | Feedback — Group 1b: PAE Validation queue & reviewer management > removing a COMPLETED ... | ✅ | — |
+| 13 | Feedback — Group 1b: PAE Validation queue & reviewer management > toggling autoAllocate... | ✅ | — |
+| 14 | Feedback — Group 2: routing (runModeratorQueueCron feedback pass) > an active, free app... | ✅ | — |
+| 15 | Feedback — Group 2: routing (runModeratorQueueCron feedback pass) > a BLOCKED approver-... | ✅ | — |
+| 16 | Feedback — Group 2: routing (runModeratorQueueCron feedback pass) > an approver-moderat... | ✅ | — |
+| 17 | Feedback — Group 2: routing (runModeratorQueueCron feedback pass) > an INACTIVE approve... | ✅ | — |
+| 18 | Feedback — Group 3: DATASET / WEB_APPLICATION intake webhook > rejects the internal fee... | ✅ | — |
+| 19 | Feedback — Group 3: DATASET / WEB_APPLICATION intake webhook > DATASET webhook (simulat... | ✅ | — |
+| 20 | Feedback — Group 3: DATASET / WEB_APPLICATION intake webhook > WEB_APPLICATION webhook ... | ✅ | — |
+| 21 | Feedback — Group 3: DATASET / WEB_APPLICATION intake webhook > re-notifying an already-... | ✅ | — |
+| 22 | Feedback — Group 4: accept/reject settlement > PAE_Validation accept closes the source,... | ✅ | — |
+| 23 | Feedback — Group 4: accept/reject settlement > DATASET accept (external service reports... | ✅ | — |
+| 24 | Feedback — Group 4: accept/reject settlement > DATASET reject with pendingFeedbackCount... | ✅ | — |
+| 25 | Feedback — Group 4: accept/reject settlement > [BUG-014] WEB_APPLICATION accept still c... | ✅ | — |
+| 26 | Feedback — Group 4: accept/reject settlement > a question with PAE_Validation AND DATAS... | ✅ | — |
+| 27 | Feedback — Group 5: manual admin controls > admin manually assigns a feedback reviewer ... | ✅ | — |
+| 28 | Feedback — Group 5: manual admin controls > admin reassigns an already-open round to a ... | ✅ | — |
+| 29 | Feedback — Group 5: manual admin controls > assigning a reviewer is rejected once the f... | ✅ | — |
+| 30 | Feedback — Group 5: manual admin controls > admin removes an open feedback-review round... | ✅ | — |
+| 31 | Feedback — Group 5: manual admin controls > removing a COMPLETED round is rejected | ✅ | — |
+| 32 | Feedback — Group 5: manual admin controls > toggling autoAllocateFeedback OFF then ON (... | ✅ | — |
+| 33 | Feedback — Group 6: feedback-tab read endpoints > GET /feedback/queue-details and /feed... | ✅ | — |

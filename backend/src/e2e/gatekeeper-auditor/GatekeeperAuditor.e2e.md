@@ -276,7 +276,7 @@ Pinned in `Auditor — Notify User ... > [FINDING-008] a legacy caller that omit
 
 ## Last Run
 
-**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 36 passed &nbsp;|&nbsp; **Duration:** 1.3 min
+**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 37 passed &nbsp;|&nbsp; **Duration:** 1.3 min
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
@@ -298,7 +298,7 @@ Pinned in `Auditor — Notify User ... > [FINDING-008] a legacy caller that omit
 | 16 | Gate Keeper — Confirm Duplicate > rejects confirm-duplicate on a question that is not q... | ✅ | — |
 | 17 | Gate Keeper — Confirm Duplicate > rejects confirm-duplicate when the question has no re... | ✅ | — |
 | 18 | Gate Keeper — Confirm Duplicate > [KNOWN GAP] an expert user can confirm-duplicate dire... | ✅ | — |
-| 19 | Close-propagation — approving a question closes its duplicate_confirmed children > repl... | ❌ | Test timed out in 5000ms. |
+| 19 | Close-propagation — approving a question closes its duplicate_confirmed children > repl... | ✅ | — |
 | 20 | Close-propagation — approving a question closes its duplicate_confirmed children > [FIN... | ✅ | — |
 | 21 | Close-propagation — approving a question closes its duplicate_confirmed children > leav... | ✅ | — |
 | 22 | Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsers... | ✅ | — |

@@ -624,9 +624,9 @@ pnpm exec vitest run src/e2e/auto-allocation/AutoAllocation.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 55 passed &nbsp;|&nbsp; **Duration:** 47.2 s
+**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 55 passed &nbsp;|&nbsp; **Duration:** 38.1 s
 
-> ⚠ Vitest only printed 10 of 55 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 8 of 55 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
@@ -635,8 +635,6 @@ pnpm exec vitest run src/e2e/auto-allocation/AutoAllocation.e2e.test.ts
 | 3 | Auto allocation — OUTREACH question: queue stays empty at creation > queue remains empt... | ✅ | — |
 | 4 | Auto allocation — toggle-auto-allocate endpoint > OFF → ON: toggles flag to true and fi... | ✅ | — |
 | 5 | Auto allocation — toggle-auto-allocate endpoint > ON → OFF: toggles flag to false and l... | ✅ | — |
-| 6 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > allocated... | ✅ | — |
-| 7 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > submissi... | ✅ | — |
+| 6 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 7 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
 | 8 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
-| 9 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
-| 10 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |

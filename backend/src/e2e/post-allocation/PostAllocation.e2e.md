@@ -370,31 +370,30 @@ seeded questions, submissions, answers, reviews and notifications in `afterAll`.
 
 ## Last Run
 
-**Date:** 2026-08-19 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 1.1 min
+**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 55.2 s
 
-> ⚠ Vitest only printed 22 of 27 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 21 of 27 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Post-allocation — authorization guards > moderator cannot author/review an answer → 500... | ✅ | — |
-| 2 | Post-allocation — authorization guards > expert NOT at queue[0] cannot submit the first... | ✅ | — |
-| 3 | Post-allocation — happy path (peer review → moderator approval) > e1 (queue[0]) submits... | ✅ | — |
-| 4 | Post-allocation — happy path (peer review → moderator approval) > e1 cannot submit a se... | ✅ | — |
-| 5 | Post-allocation — happy path (peer review → moderator approval) > assigned reviewer 2 a... | ✅ | — |
-| 6 | Post-allocation — happy path (peer review → moderator approval) > assigned reviewer 3 a... | ✅ | — |
-| 7 | Post-allocation — happy path (peer review → moderator approval) > assigned reviewer 4 a... | ✅ | — |
-| 8 | Post-allocation — happy path (peer review → moderator approval) > expert cannot do the ... | ✅ | — |
-| 9 | Post-allocation — happy path (peer review → moderator approval) > moderator approves → ... | ✅ | — |
-| 10 | Post-allocation — happy path (peer review → moderator approval) > cannot add an answer ... | ✅ | — |
-| 11 | Post-allocation — reviewer rejects the author answer > rejecting with an identical answ... | ✅ | — |
-| 12 | Post-allocation — reviewer rejects the author answer > the assigned reviewer rejects wi... | ✅ | — |
-| 13 | Post-allocation — reviewer modifies the author answer > modifying with an identical ans... | ✅ | — |
-| 14 | Post-allocation — reviewer modifies the author answer > the assigned reviewer modifies ... | ✅ | — |
-| 15 | Post-allocation — moderator approval edge cases > approve when question is still "open"... | ✅ | — |
-| 16 | Post-allocation — moderator approval edge cases > approve when question has no normalis... | ✅ | — |
-| 17 | Post-allocation — moderator approval edge cases > moderator can edit an already-finalis... | ✅ | — |
-| 18 | Post-allocation — PAE expert submission > pae_expert submits → question becomes pae_sub... | ✅ | — |
-| 19 | Post-allocation — PAE expert submission > moderator approves a pae_submitted question →... | ✅ | — |
-| 20 | Post-allocation — delete answer > deleting a non-final answer removes it and decrements... | ✅ | — |
-| 21 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 1 acceptance (... | ✅ | — |
-| 22 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 2 acceptances ... | ✅ | — |
+| 1 | Post-allocation — authorization guards > expert NOT at queue[0] cannot submit the first... | ✅ | — |
+| 2 | Post-allocation — happy path (peer review → moderator approval) > e1 (queue[0]) submits... | ✅ | — |
+| 3 | Post-allocation — happy path (peer review → moderator approval) > e1 cannot submit a se... | ✅ | — |
+| 4 | Post-allocation — happy path (peer review → moderator approval) > assigned reviewer 2 a... | ✅ | — |
+| 5 | Post-allocation — happy path (peer review → moderator approval) > assigned reviewer 3 a... | ✅ | — |
+| 6 | Post-allocation — happy path (peer review → moderator approval) > assigned reviewer 4 a... | ✅ | — |
+| 7 | Post-allocation — happy path (peer review → moderator approval) > expert cannot do the ... | ✅ | — |
+| 8 | Post-allocation — happy path (peer review → moderator approval) > moderator approves → ... | ✅ | — |
+| 9 | Post-allocation — happy path (peer review → moderator approval) > cannot add an answer ... | ✅ | — |
+| 10 | Post-allocation — reviewer rejects the author answer > rejecting with an identical answ... | ✅ | — |
+| 11 | Post-allocation — reviewer rejects the author answer > the assigned reviewer rejects wi... | ✅ | — |
+| 12 | Post-allocation — reviewer modifies the author answer > modifying with an identical ans... | ✅ | — |
+| 13 | Post-allocation — reviewer modifies the author answer > the assigned reviewer modifies ... | ✅ | — |
+| 14 | Post-allocation — moderator approval edge cases > approve when question is still "open"... | ✅ | — |
+| 15 | Post-allocation — moderator approval edge cases > approve when question has no normalis... | ✅ | — |
+| 16 | Post-allocation — moderator approval edge cases > moderator can edit an already-finalis... | ✅ | — |
+| 17 | Post-allocation — PAE expert submission > pae_expert submits → question becomes pae_sub... | ✅ | — |
+| 18 | Post-allocation — PAE expert submission > moderator approves a pae_submitted question →... | ✅ | — |
+| 19 | Post-allocation — delete answer > deleting a non-final answer removes it and decrements... | ✅ | — |
+| 20 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 1 acceptance (... | ✅ | — |
+| 21 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 2 acceptances ... | ✅ | — |

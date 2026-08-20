@@ -233,6 +233,16 @@ const PIPELINE_TESTS = [
   // ── Feedback (PAE_Validation / DATASET / WEB_APPLICATION) ─────────────────
   { suite: 'feedback/Feedback.e2e.test.ts', test: 'runPaeValidationQueueCron assigns an ancient pending question',                lineAnchor: 'PAE validation cron assigns pending question to pae_expert' },
   { suite: 'feedback/Feedback.e2e.test.ts', test: 'PAE expert submitting status=feedback opens a PAE_Validation feedback',        lineAnchor: 'PAE expert feedback opens PAE_Validation source, frees expert' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'PAE expert submitting status=approve completes validation',                    lineAnchor: 'PAE expert approve completes validation, no feedback opened' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'GET /pae-val/queue-details and GET /pae/validations/assigned',                 lineAnchor: 'PAE queue-details/timeline/assigned-list read endpoints' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'GET /:questionId/pae-validation-timeline reflects the cron-assigned round',    lineAnchor: 'PAE queue-details/timeline/assigned-list read endpoints' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'admin manually assigns a PAE validation reviewer to a pending',                lineAnchor: 'manual assign/reassign PAE reviewer, reject once completed' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'assigning a reviewer once paeValidation is already completed',                 lineAnchor: 'manual assign/reassign PAE reviewer, reject once completed' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'BUG-015] reassigning an open round by index',                                  lineAnchor: 'BUG-015: PAE reassign-by-index wipes round history' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'BUG-016] a PAE expert already holding one paeValidation',                       lineAnchor: 'BUG-016: PAE expert can be manually double-booked' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'admin removes an open PAE validation round',                                   lineAnchor: 'remove open PAE round / reject removing a completed one' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'removing a COMPLETED PAE validation round is rejected',                        lineAnchor: 'remove open PAE round / reject removing a completed one' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'toggling autoAllocatePaeValidationExpert OFF then ON',                         lineAnchor: 'toggle autoAllocatePaeValidationExpert gates the cron' },
   { suite: 'feedback/Feedback.e2e.test.ts', test: 'an active, free approver-moderator gets the feedback assigned directly',       lineAnchor: 'active free approver-moderator gets feedback directly' },
   { suite: 'feedback/Feedback.e2e.test.ts', test: 'a BLOCKED approver-moderator falls back to an available auditor',              lineAnchor: 'blocked/busy/inactive approver-moderator falls back to auditor' },
   { suite: 'feedback/Feedback.e2e.test.ts', test: 'already holding another feedback falls back to an auditor',                    lineAnchor: 'blocked/busy/inactive approver-moderator falls back to auditor' },
@@ -240,7 +250,7 @@ const PIPELINE_TESTS = [
   { suite: 'feedback/Feedback.e2e.test.ts', test: 'rejects the internal feedback-status webhook without a valid x-internal-api-key', lineAnchor: 'DATASET/WEB_APPLICATION intake webhook (InternalApiAuth)' },
   { suite: 'feedback/Feedback.e2e.test.ts', test: 'a question with PAE_Validation AND DATASET both open is not released',         lineAnchor: 'accept/reject settlement, multi-source not released early' },
   { suite: 'feedback/Feedback.e2e.test.ts', test: 'WEB_APPLICATION accept still calls DATA_RELEASE_URL',                          lineAnchor: "BUG-014: WEB_APPLICATION settlement calls DATASET's URL" },
-  { suite: 'feedback/Feedback.e2e.test.ts', test: 'admin manually assigns a feedback reviewer to a waiting',                      lineAnchor: 'manual admin assign/reassign/remove reviewer, toggle' },
+  { suite: 'feedback/Feedback.e2e.test.ts', test: 'admin manually assigns a feedback reviewer to a waiting',                      lineAnchor: 'manual admin assign/reassign/remove feedback reviewer, toggle' },
 ];
 
 // Returns true if the test passed, false if failed, null if the suite has no log data.
