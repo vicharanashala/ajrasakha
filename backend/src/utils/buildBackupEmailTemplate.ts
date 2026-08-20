@@ -853,8 +853,51 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
                 font-size: 16px;
                 font-weight: 700;
               ">
-                +${stats.todayGolden.toLocaleString()}
+                +${(stats.gdbTotal ?? stats.todayGolden).toLocaleString()}
               </span>
+            </td>
+          </tr>
+
+          <!-- ========================================= -->
+          <!-- GDB CONTRIBUTION BY ROLE (Moderator / Auditor) -->
+          <!-- ========================================= -->
+          <tr>
+            <td
+              colspan="2"
+              style="
+                padding: 14px 20px 8px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #9ca3af;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              "
+            >
+              Today's Golden Entries by Approver
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="
+              padding: 11px 20px 11px 32px;
+              font-size: 13px;
+              color: #4b5563;
+            ">
+              By Moderators
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #374151;">
+              ${(stats.gdbByModerator ?? 0).toLocaleString()}
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="
+              padding: 11px 20px 11px 32px;
+              font-size: 13px;
+              color: #4b5563;
+            ">
+              By Auditors
+            </td>
+            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 600; color: #374151;">
+              ${(stats.gdbByAuditor ?? 0).toLocaleString()}
             </td>
           </tr>
 
@@ -1112,7 +1155,7 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
             </td>
           </tr>
 
-                  <!-- Approval Rate -->
+                  <!-- Daily Approval Rate -->
         <tr style="border-bottom: 1px solid #e5e7eb;">
           <td style="
             padding: 18px 20px;
@@ -1120,7 +1163,8 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
             font-weight: 600;
             color: #374151;
           ">
-            Moderator Approval Rate
+            Daily Approval Rate
+            
           </td>
 
           <td style="padding: 18px 20px; text-align: right;">
@@ -1133,7 +1177,7 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
               font-weight: 700;
               color: #111827;
             ">
-              ${stats.newModeratorApprovalRate.toFixed(2)}%
+              ${(stats.dailyApprovalRate ?? 0).toFixed(2)}%
             </span>
           </td>
         </tr>

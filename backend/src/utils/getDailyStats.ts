@@ -51,6 +51,15 @@ export interface DailyStats {
   agriExpertCount?: number;
   outReachCount?: number;
   newModeratorApprovalRate?: number;
+  // GDB (golden dataset) entries added in the period — all closure types
+  // (closed / dynamic_closed / duplicate_closed) by closedAt — plus the split by the
+  // role of whoever pushed each one to the GDB.
+  gdbTotal?: number;
+  gdbByModerator?: number;
+  gdbByAuditor?: number;
+  // Daily approval % = (questions pushed to GDB in the period / questions pushed to the
+  // reviewer system, i.e. created, in the period) × 100.
+  dailyApprovalRate?: number;
   // Questions entered into the system today (by createdAt), broken down by source.
   todayAddedWebAppCount?: number;
   todayAddedWhatSappCount?: number;
@@ -172,7 +181,10 @@ export const getDailyStats = async (
     todayAddedWebAppCount,
     todayAddedWhatSappCount,
     todayAddedOutReachCount,
-    todayAddedAgriExpertCount
+    todayAddedAgriExpertCount,
+    gdbTotal,
+    gdbByModerator,
+    gdbByAuditor
   ] = await Promise.all([
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
@@ -236,7 +248,30 @@ export const getDailyStats = async (
       isTesting: { $ne: true },
       source: 'AGRI_EXPERT',
       createdAt: dateRange
-    })
+    }),
+    // GDB entries in the period = ALL closure types (closed / dynamic_closed /
+    // duplicate_closed) by closedAt — the numerator of the daily approval %.
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: { $in: ['closed', 'dynamic_closed', 'duplicate_closed'] },
+      closedAt: dateRange,
+    }),
+    // GDB contribution split straight off the question: a closed question that still
+    // carries a moderatorId was closed by a moderator; a closed question with no
+    // moderatorId was closed by an auditor. These two are mutually exclusive and
+    // together add up to gdbTotal.
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: { $in: ['closed'] },
+      closedAt: dateRange,
+      moderatorId: { $ne: null },
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      status: { $in: ['closed'] },
+      closedAt: dateRange,
+      moderatorId: null,
+    }),
   ]);
 
   const nonAgriCount = statusCount.find(s => s._id === 'non_agri')?.count ?? 0;
@@ -256,6 +291,10 @@ export const getDailyStats = async (
   const pass = statusCount.find(s => s._id === 'pass')?.count ?? 0;
   const duplicateClosed = statusCount.find(s => s._id === 'duplicate_closed')?.count ?? 0;
   const newModeratorApprovalRate = agriCount == 0 ? 0 : (closed / agriCount) * 100;
+  // Daily approval % = questions pushed to GDB in the period ÷ questions pushed to the
+  // reviewer system (created) in the period.
+  const dailyApprovalRate =
+    todayAdded === 0 ? 0 : (gdbTotal / todayAdded) * 100;
   const totalQuestionsUnderExpertReview =
     totalQuestions - (totalClosedQuestions + totalInReviewQuestions);
 
@@ -293,6 +332,10 @@ export const getDailyStats = async (
     agriExpertCount,
     outReachCount,
     newModeratorApprovalRate,
+    gdbTotal,
+    gdbByModerator,
+    gdbByAuditor,
+    dailyApprovalRate,
     todayAddedWebAppCount,
     todayAddedWhatSappCount,
     todayAddedOutReachCount,
