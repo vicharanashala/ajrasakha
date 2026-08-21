@@ -16,6 +16,7 @@
  *   • Author name   ← users(question_submissions.history[0].updatedBy)
  *   • Reviewer names ← users(question_submissions.history[1..].updatedBy) — one column each
  *   • Moderator name ← users(answers.approvedBy) — the final answer's approver
+ *   • Answer         ← the final (approved) answer's text
  *   • Initial Status ← question.referenceQuestionId present ? "Duplicate" : "Unique"
  *
  * OUTPUT: an .xlsx with one "Report" sheet.
@@ -99,7 +100,7 @@ try {
     .find(
       {
         question: { $regex: escapeRegex(KEYWORD), $options: 'i' },
-        status: { $in: CLOSED_STATUSES },
+      //  status: { $in: CLOSED_STATUSES },
       },
       { projection: { embedding: 0 } },
     )
@@ -116,7 +117,10 @@ try {
   // Pass 2: bulk-fetch answers + submissions + users for all matched questions.
   const qIds = qDocs.map(q => q._id);
   const [ans, subs] = await Promise.all([
-    answers.find({ questionId: { $in: qIds } }).toArray(),
+    // Skip the heavy answer embedding vector — we only need the answer text/meta.
+    answers
+      .find({ questionId: { $in: qIds } }, { projection: { embedding: 0 } })
+      .toArray(),
     submissions.find({ questionId: { $in: qIds } }).toArray(),
   ]);
 
@@ -183,6 +187,8 @@ try {
       'Author Name': nameOf(userById, authorId),
       ...reviewerCols,
       'Moderator Name': nameOf(userById, primary?.approvedBy),
+      // The final (approved) answer's text.
+      Answer: primary?.answer ?? '',
       'Initial Status': q.referenceQuestionId ? 'Duplicate' : 'Unique',
     };
   });
@@ -211,13 +217,14 @@ try {
     'Author Name',
     ...reviewerHeaders,
     'Moderator Name',
+    'Answer',
     'Initial Status',
   ];
 
   const ws = wb.addWorksheet('Report');
   ws.columns = headers.map(h => ({
     key: h,
-    width: /Question$/i.test(h)
+    width: /Question$|^Answer$/i.test(h)
       ? 60
       : /At \(IST\)$/.test(h)
         ? 20
@@ -242,7 +249,7 @@ try {
   console.log('\n========== Keyword closed-question report ==========');
   console.log(`DB       : ${DB_NAME}`);
   console.log(`Keyword  : "${KEYWORD}"`);
-  console.log(`Statuses : ${CLOSED_STATUSES.join(', ')}`);
+ // console.log(`Statuses : ${CLOSED_STATUSES.join(', ')}`);
   console.log(`Matched  : ${rows.length} closed question(s)`);
   console.log(`\n✅ Wrote ${outPath}`);
 } finally {
