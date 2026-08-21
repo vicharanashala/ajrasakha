@@ -9075,14 +9075,26 @@ export class QuestionRepository implements IQuestionRepository {
   /** Find all questions with paeValidation status of 'pending' that are ready for
    *  PAE expert validation. Questions are sorted by createdAt in ascending order
    *  (oldest first).
+   *
+   *  Uses a lean projection to only retrieve fields needed by the PAE assignment
+   *  algorithm (domain/state matching via isQuestionMatchForPaeExpert).
    */
   async findQuestionsPendingPaeValidation(
     session?: ClientSession,
   ): Promise<IQuestion[]> {
     await this.init();
+
+    // Lean projection: only fields needed for domain/state matching
+    // isQuestionMatchForPaeExpert needs: details.domain, details.state, _id
+    const leanProjection = {
+      _id: 1,
+      'details.domain': 1,
+      'details.state': 1,
+    };
+
     return this.QuestionCollection.find(
-      { paeValidation: 'pending',autoAllocatePaeValidationExpert:true },
-      { session },
+      { paeValidation: 'pending', autoAllocatePaeValidationExpert: true },
+      { session, projection: leanProjection },
     )
       .sort({ createdAt: 1 })
       .toArray();
@@ -9404,21 +9416,32 @@ export class QuestionRepository implements IQuestionRepository {
       filter.autoAllocatePaeValidationExpert = true;
     }
 
+    // INCLUSION projection: retrieve ONLY the fields actually consumed by submissionToQueueItem()
+    // and the PAE queue service logic. This dramatically reduces memory usage compared to the
+    // previous exclusion projection which still loaded unnecessary large fields like metrics,
+    // feedbacks, authors_history, etc.
+    //
+    // Fields required by submissionToQueueItem(q):
+    //   _id, question, status, source, isTrainingQuestion, priority, createdAt,
+    //   details.state, details.district, details.crop
+    // Additional fields needed by PaeValidationService.getPaeValidationQueueDetails():
+    //   autoAllocatePaeValidationExpert
+    const leanProjection = {
+      _id: 1,
+      question: 1,
+      status: 1,
+      source: 1,
+      isTrainingQuestion: 1,
+      priority: 1,
+      createdAt: 1,
+      'details.state': 1,
+      'details.district': 1,
+      'details.crop': 1,
+      autoAllocatePaeValidationExpert: 1,
+    };
+
     return this.QuestionCollection.find(filter as any, {
-      // Exclude the heavy per-document fields — above all the `embedding` vector.
-      // This query is unbounded (every closed question pending PAE validation), so
-      // loading full docs (thousands, each with an embedding array) OOM-crashes the
-      // Cloud Run instance → 503. The PAE queue only needs lightweight fields
-      // (question/details/status), so drop the big ones.
-      projection: {
-        embedding: 0,
-        text: 0,
-        aiInitialAnswer: 0,
-        aiApprovedSources: 0,
-        aiApprovedAnswer: 0,
-        popContext: 0,
-        referenceQuestionDetails: 0,
-      },
+      projection: leanProjection,
     } as any)
       .sort({ createdAt: 1 })
       .toArray();

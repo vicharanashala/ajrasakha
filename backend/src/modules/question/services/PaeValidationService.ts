@@ -619,122 +619,142 @@ export class PaeValidationService extends BaseService {
   async getPaeValidationQueueDetails(): Promise<PaeValidationQueueDetails> {
     // All questions with an open pae validaiton (auto ON and OFF).
     const startedAt = Date.now();
-    try{
-      console.log('[PAE QUEUE] Starting queue details');
-
-    console.log('[PAE QUEUE] Fetching open validation questions...');
-    const questionsStartedAt = Date.now();
-    const openPaeValidationQuestions =
-      await this.questionRepo.findQuestionsWithOpenPaeValidation(false);
-     console.log(
-      `[PAE QUEUE] Open validation questions fetched: ${openPaeValidationQuestions.length} (${Date.now() - questionsStartedAt}ms)`
-    );
-
-    console.log('[PAE QUEUE] Fetching open reviews...');
-    const reviewsStartedAt = Date.now();
-
-    // Questions already assigned a reviewer .
-    const openReviews =
-      await this.questionSubmissionRepo.findOpenPaeValidationReviews();
+    const logMem = (label: string) => {
+      const mem = process.memoryUsage();
       console.log(
-      `[PAE QUEUE] Open reviews fetched: ${openReviews.length} (${Date.now() - reviewsStartedAt}ms)`
-    );
-    const reviewerByQuestion = new Map<string, string>();
-    for (const o of openReviews) {
-      if (o.questionId && !reviewerByQuestion.has(o.questionId)) {
-        reviewerByQuestion.set(o.questionId, o.reviewerId);
-      }
-    }
-    const assignedIds = new Set(reviewerByQuestion.keys());
-    console.log(
-      `[PAE QUEUE] Assigned questions: ${assignedIds.size}`
-    );
-
-    console.log('[PAE QUEUE] Resolving reviewer metadata...');
-    const metaStartedAt = Date.now();
-    // Names of reviewers.
-    const meta = await resolveExpertMeta(this.userRepo, [
-      ...reviewerByQuestion.values()
-    ]);
-    console.log(
-      `[PAE QUEUE] Reviewer metadata resolved (${Date.now() - metaStartedAt}ms)`
-    );
-    const waitingAuto: QueueQuestionItem[] = [];
-    const waitingManual: QueueQuestionItem[] = [];
-    const assigned: QueueQuestionItem[] = [];
-
-    for (const q of openPaeValidationQuestions) {
-
-      const id = q._id?.toString();
-      if (!id) continue;
-      const base = submissionToQueueItem({ question: q });
-
-      if (assignedIds.has(id)) {
-        const reviewerId = reviewerByQuestion.get(id);
-        assigned.push({
-          ...base,
-          assigneeName:
-            (reviewerId && meta.get(reviewerId)?.name) || 'Unknown',
-        });
-      } else if ((q as any).autoAllocatePaeValidationExpert === true && (q as any).paeValidation === 'pending') {
-        // Auto-allocation ON only when explicitly true; missing/false = manual.
-        waitingAuto.push(base);
-      } else if ((q as any).autoAllocatePaeValidationExpert === false && (q as any).paeValidation === 'pending') {
-        waitingManual.push(base);
-      }
-    }
-    console.log(
-      `[PAE QUEUE] Categorized questions: auto=${waitingAuto.length}, manual=${waitingManual.length}, assigned=${assigned.length}`
-    );
-
-    console.log('[PAE QUEUE] Fetching available PAE experts...');
-    const expertsStartedAt = Date.now();
-    // Reviewers free for pae validaiton.
-    const availablePaeExperts = await this.userRepo.findAvailablePaeExperts();
-    console.log(
-      `[PAE QUEUE] Available experts fetched: ${availablePaeExperts.length} (${Date.now() - expertsStartedAt}ms)`
-    );
-    const toExpertItem = (u: any): QueueExpertItem => ({
-      _id: u._id.toString(),
-      name:
-        `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
-        u.email ||
-        'Unknown',
-      email: u.email,
-      reputationScore: u.reputation_score,
-      role: u.role,
-      isSpecialTaskForce: u.special_task_force === true,
-      isTrainingUser: u.isTrainingUser === true,
-    });
-
-    const availablePaeExpertItems = availablePaeExperts.map(toExpertItem);
-
-    const wrap = <T>(items: T[]) => ({ count: items.length, items });
-    // return {
-    //   waitingAuto: wrap(waitingAuto),
-    //   waitingManual: wrap(waitingManual),
-    //   assigned: wrap(assigned),
-    //   availablePaeExperts: wrap(availablePaeExpertItems),
-    // };
-    const result = {
-      waitingAuto: wrap(waitingAuto),
-      waitingManual: wrap(waitingManual),
-      assigned: wrap(assigned),
-      availablePaeExperts: wrap(availablePaeExpertItems),
+        `[PAE QUEUE] Memory [${label}]: heapUsed=${Math.round(mem.heapUsed/1024/1024)}MB, heapTotal=${Math.round(mem.heapTotal/1024/1024)}MB, rss=${Math.round(mem.rss/1024/1024)}MB`
+      );
     };
 
-    console.log(
-      `[PAE QUEUE] Completed successfully in ${Date.now() - startedAt}ms`
-    );
+    try {
+      logMem('start');
+      console.log('[PAE QUEUE] Starting queue details');
 
-    return result;
+      console.log('[PAE QUEUE] Fetching open validation questions...');
+      const questionsStartedAt = Date.now();
+      const openPaeValidationQuestions =
+        await this.questionRepo.findQuestionsWithOpenPaeValidation(false);
+      console.log(
+        `[PAE QUEUE] Open validation questions fetched: ${openPaeValidationQuestions.length} (${Date.now() - questionsStartedAt}ms)`
+      );
+      logMem('after-questions-query');
+
+      console.log('[PAE QUEUE] Fetching open reviews...');
+      const reviewsStartedAt = Date.now();
+
+      // Questions already assigned a reviewer.
+      const openReviews =
+        await this.questionSubmissionRepo.findOpenPaeValidationReviews();
+      console.log(
+        `[PAE QUEUE] Open reviews fetched: ${openReviews.length} (${Date.now() - reviewsStartedAt}ms)`
+      );
+      logMem('after-reviews-query');
+
+      const reviewerByQuestion = new Map<string, string>();
+      for (const o of openReviews) {
+        if (o.questionId && !reviewerByQuestion.has(o.questionId)) {
+          reviewerByQuestion.set(o.questionId, o.reviewerId);
+        }
+      }
+      const assignedIds = new Set(reviewerByQuestion.keys());
+      console.log(
+        `[PAE QUEUE] Assigned questions: ${assignedIds.size}`
+      );
+
+      console.log('[PAE QUEUE] Resolving reviewer metadata...');
+      const metaStartedAt = Date.now();
+      // Names of reviewers.
+      const reviewerIds = [...reviewerByQuestion.values()];
+      const meta = await resolveExpertMeta(
+        this.userRepo,
+        reviewerIds.length > 0 ? reviewerIds : ['__no_reviewers__'],
+      );
+      console.log(
+        `[PAE QUEUE] Reviewer metadata resolved (${Date.now() - metaStartedAt}ms)`
+      );
+      logMem('after-meta-resolve');
+
+      // Pre-build assigned items first (avoids double iteration)
+      const assigned: QueueQuestionItem[] = [];
+      const waitingAuto: QueueQuestionItem[] = [];
+      const waitingManual: QueueQuestionItem[] = [];
+
+      for (const q of openPaeValidationQuestions) {
+        const id = q._id?.toString();
+        if (!id) continue;
+
+        if (assignedIds.has(id)) {
+          // This question is already assigned to a reviewer
+          const reviewerId = reviewerByQuestion.get(id);
+          const base = submissionToQueueItem({ question: q });
+          assigned.push({
+            ...base,
+            assigneeName:
+              (reviewerId && meta.get(reviewerId)?.name) || 'Unknown',
+          });
+        }
+        // NOTE: We no longer check paeValidation === 'pending' here because
+        // the query already filters to non-'completed' status.
+        // Check autoAllocatePaeValidationExpert for categorization.
+        else if ((q as any).autoAllocatePaeValidationExpert === true) {
+          // Auto-allocation ON only when explicitly true; missing/false = manual.
+          waitingAuto.push(submissionToQueueItem({ question: q }));
+        } else {
+          // autoAllocatePaeValidationExpert is false or undefined → manual
+          waitingManual.push(submissionToQueueItem({ question: q }));
+        }
+      }
+      logMem('after-categorization');
+      console.log(
+        `[PAE QUEUE] Categorized questions: auto=${waitingAuto.length}, manual=${waitingManual.length}, assigned=${assigned.length}`
+      );
+
+      console.log('[PAE QUEUE] Fetching available PAE experts...');
+      const expertsStartedAt = Date.now();
+      // Reviewers free for pae validation.
+      const availablePaeExperts = await this.userRepo.findAvailablePaeExperts();
+      console.log(
+        `[PAE QUEUE] Available experts fetched: ${availablePaeExperts.length} (${Date.now() - expertsStartedAt}ms)`
+      );
+      logMem('after-experts-query');
+
+      const toExpertItem = (u: any): QueueExpertItem => ({
+        _id: u._id.toString(),
+        name:
+          `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+          u.email ||
+          'Unknown',
+        email: u.email,
+        reputationScore: u.reputation_score,
+        role: u.role,
+        isSpecialTaskForce: u.special_task_force === true,
+        isTrainingUser: u.isTrainingUser === true,
+      });
+
+      const availablePaeExpertItems = availablePaeExperts.map(toExpertItem);
+
+      const wrap = <T>(items: T[]) => ({ count: items.length, items });
+
+      const result = {
+        waitingAuto: wrap(waitingAuto),
+        waitingManual: wrap(waitingManual),
+        assigned: wrap(assigned),
+        availablePaeExperts: wrap(availablePaeExpertItems),
+      };
+
+      console.log(
+        `[PAE QUEUE] Completed successfully in ${Date.now() - startedAt}ms`
+      );
+      logMem('end');
+
+      return result;
     } catch (error) {
-    console.error(
-      `[PAE QUEUE] FAILED after ${Date.now() - startedAt}ms`,
-      error
-    );
+      console.error(
+        `[PAE QUEUE] FAILED after ${Date.now() - startedAt}ms`,
+        error
+      );
 
-    throw error;
-  }
+      throw error;
+    }
   }
 }

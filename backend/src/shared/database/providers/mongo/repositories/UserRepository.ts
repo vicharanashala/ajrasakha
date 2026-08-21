@@ -2998,9 +2998,26 @@ export class UserRepository implements IUserRepository {
    *  - isBlocked must NOT be true
    *  - status must NOT be 'in-active'
    *  - paeValidationAssigned must be empty or null (not currently holding any question)
+   *
+   *  Uses a lean projection to only retrieve fields needed for PAE queue display
+   *  and domain/state matching (isQuestionMatchForPaeExpert).
    */
   async findAvailablePaeExperts(session?: ClientSession): Promise<IUser[]> {
     await this.init();
+
+    // Lean projection: only fields needed for PAE queue display and domain/state matching
+    const leanProjection = {
+      _id: 1,
+      firstName: 1,
+      lastName: 1,
+      email: 1,
+      role: 1,
+      reputation_score: 1,
+      special_task_force: 1,
+      isTrainingUser: 1,
+      preference: 1,
+    };
+
     return this.usersCollection
       .find({
         role: 'pae_expert',
@@ -3012,7 +3029,8 @@ export class UserRepository implements IUserRepository {
           { paeValidationAssigned: { $size: 0 } },
         ],
       })
-      .toArray();
+      .project(leanProjection)
+      .toArray() as Promise<IUser[]>;
   }
 
   /** Add a question ID to the user's paeValidationAssigned array.
