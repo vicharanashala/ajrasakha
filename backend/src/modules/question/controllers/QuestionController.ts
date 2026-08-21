@@ -3633,10 +3633,31 @@ export class QuestionController {
   @Authorized()
   @OpenAPI({ summary: 'PAE Validation queue details — waiting/assigned questions + available reviewers' })
   async getPaeValidationQueueDetails(@CurrentUser() user: IUser) {
+    console.log('[QuestionController] getPaeValidationQueueDetails: user role:', user.role);
+    const startedAt = Date.now();
+    try {
+    console.log(
+      `[PAE QUEUE API] Request started. user=${user._id}, role=${user.role}`
+    );
     if (user.role === 'expert') {
       throw new ForbiddenError('Experts cannot view the PAE Validation queue');
     }
     const data = await this.questionService.getPaeValidationQueueDetails();
+    console.log(
+      `[PAE QUEUE API] Request completed in ${Date.now() - startedAt}ms`
+    );
     return { success: true, data };
+  } catch (error) {
+    console.error(
+      `[PAE QUEUE API] Request FAILED after ${Date.now() - startedAt}ms`,
+      {
+        userId: user?._id,
+        role: user?.role,
+        error,
+      }
+    );
+
+    throw error;
   }
+}
 }
