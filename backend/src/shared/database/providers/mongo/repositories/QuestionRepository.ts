@@ -8987,7 +8987,16 @@ export class QuestionRepository implements IQuestionRepository {
               autoAllocateFeedback: true,
               // Feedback (re)opened now — stamp recency so the moderator queue can
               // order feedback questions by when feedback arrived, not question age.
-              recentFeedback: '$$NOW',
+              // Only stamp it when there is no existing value (null / missing): the first
+              // feedback sets the clock; a later feedback arriving while one is still open
+              // must NOT reset it. It's cleared back to null once all feedbacks close.
+              recentFeedback: {
+                $cond: [
+                  { $eq: [{ $ifNull: ['$recentFeedback', null] }, null] },
+                  '$$NOW',
+                  '$recentFeedback',
+                ],
+              },
               feedbacks: {
                 $let: {
                   vars: {

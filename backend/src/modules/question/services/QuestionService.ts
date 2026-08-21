@@ -9926,6 +9926,12 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         // Remove the questionId from the processedBy user's feedbacksAssigned array
         await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+
+        // All feedback sources are closed — clear the feedback-arrival time so the
+        // question no longer counts as having recent feedback (queue ordering / timeline).
+        await this.questionRepo.updateQuestion(questionId, {
+          recentFeedback: null,
+        } as any);
       }
 
       return {
@@ -10048,6 +10054,12 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         // Remove the questionId from the processedBy user's feedbacksAssigned array
         await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+
+        // All feedback sources are closed — clear the feedback-arrival time so the
+        // question no longer counts as having recent feedback (queue ordering / timeline).
+        await this.questionRepo.updateQuestion(questionId, {
+          recentFeedback: null,
+        } as any);
       }
 
       return {
