@@ -9404,7 +9404,22 @@ export class QuestionRepository implements IQuestionRepository {
       filter.autoAllocatePaeValidationExpert = true;
     }
 
-    return this.QuestionCollection.find(filter as any)
+    return this.QuestionCollection.find(filter as any, {
+      // Exclude the heavy per-document fields — above all the `embedding` vector.
+      // This query is unbounded (every closed question pending PAE validation), so
+      // loading full docs (thousands, each with an embedding array) OOM-crashes the
+      // Cloud Run instance → 503. The PAE queue only needs lightweight fields
+      // (question/details/status), so drop the big ones.
+      projection: {
+        embedding: 0,
+        text: 0,
+        aiInitialAnswer: 0,
+        aiApprovedSources: 0,
+        aiApprovedAnswer: 0,
+        popContext: 0,
+        referenceQuestionDetails: 0,
+      },
+    } as any)
       .sort({ createdAt: 1 })
       .toArray();
   }
