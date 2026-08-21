@@ -1,0 +1,4 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,/api/answers/review [accept],HTTPError('500 Server Error: Internal Server Error for url: /api/answers/review [accept]'),93,2026-08-20T16:26:11Z,2026-08-20T16:27:32Z
+POST,/api/answers/review [submit answer],HTTPError('500 Server Error: Internal Server Error for url: /api/answers/review [submit answer]'),22,2026-08-20T16:26:11Z,2026-08-20T16:27:35Z
+VERIFY,pipeline:verify 3-approval promotion,AssertionError('approvalCount=2 status=in-review'),93,2026-08-20T16:26:11Z,2026-08-20T16:27:32Z
