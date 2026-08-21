@@ -22,17 +22,18 @@ export interface DistrictAnalyticsResponse {
 
 export function useStateWiseAnalytics(
   state?: string,
-  selectedStateCode: number,
-  source: "vicharanashala" | "annam" | "whatsapp"= "annam",
+  selectedStateCode?: number,
+  source: "vicharanashala" | "annam" | "whatsapp" = "annam",
   userType: "all" | "external" | "internal" = "all",
   startDate?: string,
   endDate?: string,
   coordinatorId?: string,
 ) {
-  const { data, isLoading,  isFetching, error } = useQuery<
-    DistrictAnalyticsResponse,
+  const { data, isLoading, isFetching, error } = useQuery<
+    DistrictAnalyticsResponse | null,
     Error
   >({
+
     queryKey: [
       "state-wise-analytics",
       state,

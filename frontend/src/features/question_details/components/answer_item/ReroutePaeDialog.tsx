@@ -145,8 +145,9 @@ export const ReroutePaeDialog = ({
               filteredExperts.map((expert) => (
                 <div
                   key={expert._id}
-                  onClick={() => setSelectedExpertId(expert._id)}
+                  onClick={() => setSelectedExpertId(expert._id || null)}
                   className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
+
                     selectedExpertId === expert._id
                       ? "bg-amber-100 border-2 border-amber-500"
                       : "hover:bg-muted/50 border-2 border-transparent"
@@ -158,8 +159,9 @@ export const ReroutePaeDialog = ({
                   <div className="flex flex-col flex-1">
                     <div className="font-medium truncate" title={expert.userName}>
                       {expert?.userName?.slice(0, 48)}
-                      {expert?.userName?.length > 48 ? "..." : ""}
+                      {expert?.userName && expert.userName.length > 48 ? "..." : ""}
                     </div>
+
                     <div
                       className="text-xs text-muted-foreground truncate"
                       title={expert.email}

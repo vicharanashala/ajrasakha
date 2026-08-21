@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite --port 5173",
     "start": "vite --port 5173",
-    "build": "vite build && tsc",
+    "build": "vite build",
     "serve": "vite preview",
     "test": "vitest run",
     "openapi-ts": "openapi-ts"

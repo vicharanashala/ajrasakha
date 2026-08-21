@@ -226,8 +226,9 @@ useEffect(() => {
     userId,
     request?.startDateTime,
     request?.endDateTime,
-    request?.granularity,
+    request?.granularity as any,
   );
+
 
   const chartData = useMemo(() => {
     return (

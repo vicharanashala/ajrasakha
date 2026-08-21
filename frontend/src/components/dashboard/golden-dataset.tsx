@@ -75,6 +75,7 @@ export interface GoldenDataset {
   moderatorBreakdown?: { moderatorName: string; count: number, closedCount?: number, dynamicClosedCount?: number, duplicateClosedCount?: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number }[];
   questionSourceBreakdown?: { whatsapp: number; ajrasakha: number };
   questionsAnsweredWithin120Min?: { whatsapp: number; ajrasakha: number };
+  questionsAnsweredAfter120Min?: { whatsapp: number; ajrasakha: number };
   averageResponseTime?: { whatsapp: number; ajrasakha: number };
    questionStateBreakdown?: {
     whatsapp: { status: string; count: number }[];

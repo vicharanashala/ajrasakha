@@ -165,10 +165,11 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
     q?.referenceQuestion &&
     q?.referenceSource
   );
-  const domainValues = Array.isArray(q.details?.domain)
-    ? q.details.domain
-    : typeof q.details?.domain === "string" && q.details.domain.trim()
-      ? [q.details.domain]
+  const rawDomain = q.details?.domain as unknown;
+  const domainValues = Array.isArray(rawDomain)
+    ? rawDomain
+    : typeof rawDomain === "string" && (rawDomain as string).trim()
+      ? [rawDomain]
       : [];
 
   return (

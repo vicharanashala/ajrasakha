@@ -49,8 +49,10 @@ describe('CropRepository integration (prod_copy_db)', () => {
       ],
     );
 
+    const expectedName = TEST_CROP_NAME.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+
     expect(crop._id).toBeDefined();
-    expect(crop.name).toBe(TEST_CROP_NAME_LOWER);
+    expect(crop.name).toBe(expectedName);
     expect(crop.aliases.some(a => typeof a !== 'string' && a.english_representation === TEST_ALIAS_1.toLowerCase())).toBe(true);
 
     createdDocId = crop._id!.toString();
@@ -63,17 +65,18 @@ describe('CropRepository integration (prod_copy_db)', () => {
   }, 30000);
 
   it('getAllCrops — returns list including the created crop', async () => {
-    const {crops, totalCount} = await repo.getAllCrops({search: TEST_CROP_NAME_LOWER});
+    const {crops, totalCount} = await repo.getAllCrops({search: TEST_CROP_NAME});
 
     expect(totalCount).toBeGreaterThanOrEqual(1);
-    expect(crops.some(c => c.name === TEST_CROP_NAME_LOWER)).toBe(true);
+    expect(crops.some(c => c._id?.toString() === createdDocId)).toBe(true);
   }, 30000);
 
   it('getCropById — returns the correct crop', async () => {
+    const expectedName = TEST_CROP_NAME.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
     const crop = await repo.getCropById(createdDocId);
 
     expect(crop).not.toBeNull();
-    expect(crop!.name).toBe(TEST_CROP_NAME_LOWER);
+    expect(crop!.name).toBe(expectedName);
   }, 30000);
 
   it('getCropById — returns null for unknown id', async () => {

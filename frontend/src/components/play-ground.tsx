@@ -222,6 +222,11 @@ export const PlaygroundPage = () => {
       return;
     }
 
+    if (value === "farmer_feedback") {
+      navigate({ to: "/farmer-feedback" });
+      return;
+    }
+
     const storageKey = getStorageKey(user);
     if (!storageKey) return;
     setActiveTab(value);

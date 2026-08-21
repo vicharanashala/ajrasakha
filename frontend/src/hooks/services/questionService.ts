@@ -648,8 +648,8 @@ export class QuestionService {
   async bulkAllocatePaeExperts(
     questionIds: string[],
     paeExpertId: string,
-  ): Promise<{ jobId: string; message: string }> {
-    return apiFetch(`${this._baseUrl}/bulk-pae-allocate`, {
+  ): Promise<{ jobId: string; message: string } | null> {
+    return apiFetch<{ jobId: string; message: string }>(`${this._baseUrl}/bulk-pae-allocate`, {
       method: "POST",
       body: JSON.stringify({ questionIds, paeExpertId }),
     });

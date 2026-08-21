@@ -18,9 +18,21 @@ export function ensureFirebaseAdminInitialized(): void {
     return;
   }
 
-  admin.initializeApp({
-    credential: admin.credential.cert(getServiceAccount()),
-  });
+  try {
+    const serviceAccount = getServiceAccount();
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+  } catch (error: any) {
+    console.warn('⚠️ Firebase Admin initialization warning:', error?.message || error);
+    if (!admin.apps.length) {
+      try {
+        admin.initializeApp();
+      } catch {
+        // ignore fallback error
+      }
+    }
+  }
 }
 
 export function getFirebaseAuth(): admin.auth.Auth {

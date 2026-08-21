@@ -1393,8 +1393,9 @@ export const CropManagementModal = ({
                 const MAX = 5;
                 let start = cropPage > MAX ? cropPage : 1;
                 let end = Math.min(start + MAX - 1, cropTotalPages);
-                const pages = [];
+                const pages: number[] = [];
                 for (let i = start; i <= end; i++) pages.push(i);
+
                 return (
                   <>
                     {pages.map((p) => (
@@ -1462,8 +1463,9 @@ export const CropManagementModal = ({
                 const MAX = 5;
                 let start = chemPage > MAX ? chemPage : 1;
                 let end = Math.min(start + MAX - 1, chemTotalPages);
-                const pages = [];
+                const pages: number[] = [];
                 for (let i = start; i <= end; i++) pages.push(i);
+
                 return (
                   <>
                     {pages.map((p) => (
@@ -1531,8 +1533,9 @@ export const CropManagementModal = ({
                 const MAX = 5;
                 let start = otherPage > MAX ? otherPage : 1;
                 let end = Math.min(start + MAX - 1, otherTotalPages);
-                const pages = [];
+                const pages: number[] = [];
                 for (let i = start; i <= end; i++) pages.push(i);
+
                 return (
                   <>
                     {pages.map((p) => (

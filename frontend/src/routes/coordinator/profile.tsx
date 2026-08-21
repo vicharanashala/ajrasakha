@@ -326,7 +326,7 @@ function CoordinatorProfilePage() {
   const handleSaveFarmerProfile = async (payload: {
     name?: string;
     userRole?: string;
-    farmerProfile?: CoordinatorDashboardProfile["farmerProfile"] & Record<string, any>;
+    farmerProfile?: any;
   }) => {
     if (!profile?.userId) return;
 

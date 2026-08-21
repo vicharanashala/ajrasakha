@@ -327,7 +327,7 @@ export const TopCropsCard = ({
                 <QueryCategoryQuestionsModal
                     crop={topCrop}
                     crops={selectedCrops}
-                    source={source}
+                    source={source as any}
                     userType={userType}
                     isQueryCategory={false}
                     onClose={() => {
@@ -336,6 +336,7 @@ export const TopCropsCard = ({
                     }}
                     coordinatorId={coordinatorId}
                 />
+
             )}
         </>
     );

@@ -12,19 +12,15 @@ import {
   reauthenticateWithCredential,
   updatePassword,
 } from "firebase/auth";
-import { firebaseConfig } from "@/config/firebase";
+import { app, auth, googleProvider as provider } from "@/config/firebase";
 import { useAuthStore } from "@/stores/auth-store";
 import { UserService } from "@/hooks/services/userService";
 import { AuthService } from "@/hooks/services/authService";
 import { isDevelopment } from "@/shared/app";
 const authService = new AuthService();
 
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const provider = new GoogleAuthProvider();
-const userService = new UserService()
+export { app, auth, provider };
+const userService = new UserService();
 export const loginWithEmail = async (email: string, password: string) => {
   try {
     const user = await userService.Getuser(email)

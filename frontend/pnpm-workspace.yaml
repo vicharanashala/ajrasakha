@@ -4,6 +4,7 @@ packages:
 allowBuilds:
   '@firebase/util': false
   '@tailwindcss/oxide': false
+  core-js: set this to true or false
   esbuild: false
   msw: false
   protobufjs: false

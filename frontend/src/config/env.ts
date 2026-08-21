@@ -48,12 +48,12 @@ function getEnv(key: EnvKey, required = true, fallback = ""): string {
     const value = resolveEnv(key, import.meta.env[key]);
 
     if (!value && required) {
-      alert(`Missing required environment variable: ${key}`);
+      console.warn(`[Env] Missing required environment variable: ${key}, using fallback.`);
     }
 
     return value || fallback;
   } catch (e) {
-    alert(`Missing required environment variable: ${key}`);
+    console.warn(`[Env] Error resolving environment variable: ${key}`, e);
     return fallback;
   }
 }

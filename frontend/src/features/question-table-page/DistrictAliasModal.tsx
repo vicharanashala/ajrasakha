@@ -231,23 +231,6 @@ export const DistrictAliasModal = ({
     }
   };
 
-  const handleDownloadStateReport = async () => {
-    setIsDownloadingCrops(true);
-    try {
-      const blob = await cropService.downloadList('crop');
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "crops_list.xlsx";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Failed to download crops list.");
-    } finally {
-      setIsDownloadingCrops(false);
-    }
-  };
-
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>

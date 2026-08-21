@@ -568,11 +568,12 @@ export function QuestionActivityModal({
                             ? CircleHelp
                             : MessageSquareText,
                       },
-                    ].map(({ label, value, icon: Icon }) => (
+                    ].map(({ label, value, icon: Icon }, index) => (
                       <div
-                        key={label}
+                        key={String(label) || index}
                         className="rounded-lg border bg-muted/40 px-3 py-3"
                       >
+
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5 rounded-md bg-primary/10 p-2">
                             <Icon className="h-4 w-4 text-primary" />

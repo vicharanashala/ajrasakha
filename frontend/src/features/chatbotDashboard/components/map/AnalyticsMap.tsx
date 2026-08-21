@@ -31,7 +31,6 @@ import { DetailSidebar } from "./components/DetailSidebar";
 import { useAllStatesandUserData } from "./hooks/useMapAnalytics";
 import { useStateWiseAnalytics } from "../../hooks/useStateQueryData";
 import { useClosedAndNotifedData } from "../../hooks/useActiveUsersAnalytics";
-import { se } from "date-fns/locale";
 
 /* ============================================================
    MAIN COMPONENT

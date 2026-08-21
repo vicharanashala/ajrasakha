@@ -582,7 +582,7 @@ export const QuestionsFilters = ({
       answersCount: advanceFilter.answersCount,
       dateRange: advanceFilter.dateRange,
       priority: advanceFilter.priority,
-      domain: myPreference?.domain || advanceFilter.domain,
+      domain: (Array.isArray(myPreference?.domain) ? myPreference.domain[0] : myPreference?.domain) || advanceFilter.domain,
       user: advanceFilter.user,
       assignedUser: advanceFilter.assignedUser,
       endTime: advanceFilter.endTime,

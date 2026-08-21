@@ -191,7 +191,7 @@ export function CustomerNotificationsCard({
                               size="sm"
                               className="h-7 w-full justify-start text-xs flex items-center gap-2"
                               onClick={() => {
-                                let newSources = [];
+                                let newSources: string[] = [];
                                 if (isSelected) {
                                   newSources = currentSources.filter(s => s !== item.value);
                                 } else {
@@ -199,6 +199,7 @@ export function CustomerNotificationsCard({
                                 }
                                 onSourceChange?.(newSources.join(','));
                               }}
+
                             >
                               <div
                                 className={cn(
@@ -400,16 +401,17 @@ export function CustomerNotificationsCard({
       </div>
       {notificationType && (
         <QueryCategoryQuestionsModal
-          source={source}
+          source={source as any}
           userType={userType}
           notificationType={notificationType}
-          startDate={dateRange?.from}
-          endDate={dateRange?.to}
+          startDate={dateRange?.from ? dateRange.from.toISOString() : undefined}
+          endDate={dateRange?.to ? dateRange.to.toISOString() : undefined}
           onClose={() => setNotificationType(null)}
           tag="notify"
           userId={userId}
         />
       )}
+
     </div>
   );
 }

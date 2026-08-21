@@ -104,6 +104,9 @@ describe('CropService', () => {
         dto.name,
         userId,
         dto.aliases,
+        undefined,
+        undefined,
+        undefined,
       );
       expect(result).toEqual(mockCrop);
     });

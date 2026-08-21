@@ -170,7 +170,6 @@ export const AnswerActions = ({
             handleCancel={handleCancel}
             lastReroutedTo={lastReroutedTo}
             isAllocatingExperts={isAllocatingExperts}
-            assignedModerator={assignedModerator}
           />
 
           {lastReroutedTo?.status === "pending" && (
@@ -190,7 +189,7 @@ export const AnswerActions = ({
       <ViewMoreDialog
         answer={answer}
         submissionData={submissionData}
-        isRejected={isRejected}
+        isRejected={Boolean(isRejected)}
         questionStatus={questionStatus}
         lastAnswerId={lastAnswerId}
         reviews={reviews}

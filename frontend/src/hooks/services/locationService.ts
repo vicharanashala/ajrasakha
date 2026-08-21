@@ -307,7 +307,9 @@ async function fallbackBlocks(districtCode: number): Promise<ILocationBlock[]> {
   return (districtName ? BLOCKS[districtName] || [] : []).map(
     (blockNameEnglish, index) => {
       const blockCode = districtCode * 1000 + index + 1;
-      blockDistrictByCode.set(blockCode, districtName);
+      if (districtName) {
+        blockDistrictByCode.set(blockCode, districtName);
+      }
 
       return {
         blockCode,

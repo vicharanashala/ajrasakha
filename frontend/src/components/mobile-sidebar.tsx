@@ -9,6 +9,7 @@ import {
   List,
   Menu,
   MessageSquare,
+  MessageSquareHeart,
   Phone,
   TrendingUp,
   Upload,
@@ -81,6 +82,8 @@ export const MobileSidebar = ({
     if (value === "chatbotanalytics") {
       // ChatBot Analytics is now its own route rather than an in-page tab.
       navigate({ to: "/chatbot" });
+    } else if (value === "farmer_feedback") {
+      navigate({ to: "/farmer-feedback" });
     } else if (value === "whatsapp_history") {
       navigate({ to: "/whatsapp-history" });
     } else {
@@ -155,9 +158,20 @@ export const MobileSidebar = ({
         ]
       : []),
 
+    ...(user && (user.role === "admin" || user.role === "moderator")
+      ? [
+          {
+            id: "farmer_feedback",
+            label: "Farmer Feedback Loop",
+            icon: MessageSquareHeart,
+          },
+        ]
+      : []),
+
     ...(user && user.role === "admin"
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
+
 
     ...(user && !isCoordinator && user.role !== "call_agent"
       ? [{ id: "history", label: "History", icon: History }]

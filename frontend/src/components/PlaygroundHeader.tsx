@@ -165,6 +165,16 @@ export function PlaygroundHeader({
                   <span>ChatBot Analytics</span>
                 </TabsTrigger>
               )}
+            {user &&
+              (user.role === "admin" ||
+              user.role === "moderator") && (
+                <TabsTrigger
+                  value="farmer_feedback"
+                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                >
+                  <span>Farmer Feedback</span>
+                </TabsTrigger>
+              )}
             {user && user.role === "admin" && (
               <TabsTrigger
                 value="data_processing"

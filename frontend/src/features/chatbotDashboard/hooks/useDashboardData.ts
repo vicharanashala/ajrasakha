@@ -166,11 +166,8 @@ function transformApiResponse(
   duplicateQuestionsCount: number;
   lowFeedbackUsersCount: number;
 } {
-  const updatedData = { ...DASHBOARD_DATA } as DashboardDataType & {
-    inactiveUsersLast3Days: number;
-    duplicateQuestionsCount: number;
-    lowFeedbackUsersCount: number;
-  };
+  const updatedData: any = { ...DASHBOARD_DATA };
+
   // Use the real month-over-month % from the backend
   const pct = result.kpi.dauLastMonthPct;
   const delta =

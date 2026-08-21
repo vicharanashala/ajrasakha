@@ -335,23 +335,24 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
                   Domain
                 </span>
                 <span className="truncate max-w-[150px] text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {(Array.isArray(q.details?.domain)
-                    ? q.details.domain
-                    : typeof q.details?.domain === "string" && q.details.domain.trim()
-                      ? [q.details.domain]
-                      : []
-                  ).length > 0
-                  ? (Array.isArray(q.details?.domain)
-                    ? q.details.domain
-                    : [q.details.domain]
-                  )
-                    .map((item) =>
-                      item.length > 12 ? `${item.substring(0, 12)}...` : item
-                    )
-                    .join(", ")
-                  : typeof q.details?.domain === "string" && q.details.domain
-                  ? q.details.domain
-                  : "NIL"}
+                  {(() => {
+                    const rawDomain = q.details?.domain as unknown;
+                    const domainList = Array.isArray(rawDomain)
+                      ? rawDomain
+                      : typeof rawDomain === "string" && (rawDomain as string).trim()
+                        ? [rawDomain]
+                        : [];
+                    if (domainList.length > 0) {
+                      return domainList
+                        .map((item: any) =>
+                          typeof item === "string" && item.length > 12
+                            ? `${item.substring(0, 12)}...`
+                            : String(item)
+                        )
+                        .join(", ");
+                    }
+                    return typeof rawDomain === "string" && rawDomain ? rawDomain : "NIL";
+                  })()}
                 </span>
               </div>
             )}

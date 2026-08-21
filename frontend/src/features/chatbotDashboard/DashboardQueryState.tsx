@@ -237,11 +237,12 @@ export const DashboardStateWiseAnalytics = ({
   );
 
 
-  const districts = data ?? [];
+  const districts = data?.data ?? [];
 
   const maxTotal = useMemo(() => {
     return Math.max(...districts.map((d) => d.totalQuestions), 1);
   }, [districts]);
+
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -443,7 +444,7 @@ export const DashboardStateWiseAnalytics = ({
             <QueryCategoryQuestionsModal
               district={selectedDistrict}
               state= {selectedState}
-              source={source}
+              source={source as any}
               userType={userType}
               isQueryCategory = {false}
               onClose={() => setSelectedDistrict(null)}

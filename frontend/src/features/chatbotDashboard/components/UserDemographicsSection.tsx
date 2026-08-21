@@ -510,7 +510,8 @@ function DemographicCard({
 }
 
  function UserDemographicsSection({ source, userType, shouldLoadUserDemographics }: Props) {
-    const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, userType, shouldLoadUserDemographics);
+    const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, userType, undefined, undefined, shouldLoadUserDemographics);
+
   const [selectedMissingField, setSelectedMissingField] = useState<{ title: string; key: string } | null>(null);
   const [selectedDemographicUsers, setSelectedDemographicUsers] = useState<{
     title: string;

@@ -1,20 +1,39 @@
 import 'reflect-metadata';
 import request from 'supertest';
 import Express from 'express';
-import {useExpressServer} from 'routing-controllers';
+import {useExpressServer, useContainer} from 'routing-controllers';
 import {faker} from '@faker-js/faker';
 import {SignUpBody} from '#auth/classes/validators/AuthValidators.js';
-import {setupAuthContainer} from '#auth/index.js';
-import {describe, it, expect, beforeAll, beforeEach} from 'vitest';
+import {describe, it, expect, beforeAll, vi} from 'vitest';
 import {HttpErrorHandler} from '#shared/index.js';
 import {AuthController} from '../controllers/AuthController.js';
+import {AUTH_TYPES} from '#auth/types.js';
+import {Container} from 'inversify';
+import {InversifyAdapter} from '#root/inversify-adapter.js';
+
+const mockAuthService = {
+  signup: vi.fn().mockImplementation(async (body: any) => ({
+    user: {
+      uid: 'mock-firebase-uid',
+      email: body.email,
+      displayName: `${body.firstName} ${body.lastName || ''}`,
+      photoURL: '',
+    },
+  })),
+};
 
 describe('Auth Controller Integration Tests', () => {
   const appInstance = Express();
-  let app;
+  let app: any;
 
   beforeAll(async () => {
-    await setupAuthContainer();
+    const container = new Container();
+    container.bind(AuthController).toSelf().inSingletonScope();
+    container.bind(AUTH_TYPES.AuthService).toConstantValue(mockAuthService as any);
+    container.bind(HttpErrorHandler).toSelf().inSingletonScope();
+
+    useContainer(new InversifyAdapter(container));
+
     app = useExpressServer(appInstance, {
       controllers: [AuthController],
       validation: true,

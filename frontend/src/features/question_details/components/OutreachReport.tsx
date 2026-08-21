@@ -190,7 +190,7 @@ export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:
                     mode="single"
                     selected={startDate}
                     onSelect={(date) => {
-                      setStartDate(date);
+                      if (date) setStartDate(date);
                       setStartOpen(false);
                     }}
                     disabled={(date) => endDate ? date > endDate : false}
@@ -217,11 +217,12 @@ export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:
                     mode="single"
                     selected={endDate}
                     onSelect={(date) => {
-                      setEndDate(date);
+                      if (date) setEndDate(date);
                       setEndOpen(false);
                     }}
                     disabled={(date) => startDate ? date < startDate : false}
                   />
+
                 </PopoverContent>
               </Popover>
             </div>

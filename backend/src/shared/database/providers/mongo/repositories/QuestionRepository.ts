@@ -9185,12 +9185,13 @@ export class QuestionRepository implements IQuestionRepository {
       },
     };
 
-    // Add $set operation if we need to update recentFeedback
-    if (shouldUpdateRecentFeedback) {
-      updateOps.$set = {
-        recentFeedback: feedbackEntry.recentFeedback || now,
-      };
-    }
+    // Add $set operation if we need to update recentFeedback and autoAllocateFeedback
+    updateOps.$set = {
+      autoAllocateFeedback: true,
+      ...(shouldUpdateRecentFeedback
+        ? { recentFeedback: feedbackEntry.recentFeedback || now }
+        : {}),
+    };
 
     const result = await this.QuestionCollection.updateOne(
       { _id: qid },
@@ -9199,6 +9200,7 @@ export class QuestionRepository implements IQuestionRepository {
     );
 
     return { modifiedCount: result.modifiedCount };
+
   }
 
   /** Find questions by their IDs with pagination, joining final answers in a single aggregation pipeline.

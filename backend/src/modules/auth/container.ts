@@ -6,6 +6,7 @@ import {UserRepository} from '#root/shared/database/providers/mongo/repositories
 import { GLOBAL_TYPES } from '#root/types.js';
 import { InternalApiAuth, FlexibleAuth } from '#root/shared/index.js';
 
+
 export const authContainerModule = new ContainerModule(options => {
   // Controllers
   options.bind(AuthController).toSelf().inSingletonScope();
@@ -16,9 +17,10 @@ export const authContainerModule = new ContainerModule(options => {
     .to(FirebaseAuthService)
     .inSingletonScope();
 
-  // Reponsitory
+// Reponsitory
   options.bind(GLOBAL_TYPES.UserRepository).to(UserRepository).inSingletonScope();
   options.bind(InternalApiAuth).toSelf().inSingletonScope();
   options.bind(FlexibleAuth).toSelf().inSingletonScope();
 });
+
  

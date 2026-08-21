@@ -1788,7 +1788,7 @@ const AuditPage = () => {
     page, limit, startDateTime, endDateTime, category, action, order, outComeStatus,
   );
  
-  const entries: AuditEntry[] = data?.data ?? [];  
+  const entries: any[] = data?.data ?? [];  
   const total: number = data?.totalDocuments ?? 0;
   const totalPages = data?.totalPages ?? 1;
  

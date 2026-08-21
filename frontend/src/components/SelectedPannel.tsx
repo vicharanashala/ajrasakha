@@ -15,6 +15,15 @@ import { useReRouteRejectQuestion } from "@/hooks/api/question/useReRouteRejectQ
 import { RejectReRouteDialog } from "@/features/question_details/components/answer_item/RejectReRouteDialog";
 import { CommentsSection } from "./comments-section";
 
+interface SelectedAnswerPanelProps {
+  answer: any;
+  question: any;
+  rerouteQuestion?: any[];
+  currentUser?: any;
+  lastAnswerId?: string;
+  userRole?: string;
+}
+
 export default function SelectedAnswerPanel({
   answer,
   question,
@@ -22,7 +31,7 @@ export default function SelectedAnswerPanel({
   currentUser,
   lastAnswerId,
   userRole,
-}) {
+}: SelectedAnswerPanelProps) {
   console.log("question ->", question);
   console.log("Answer ->", answer);
   const [editOpen, setEditOpen] = useState(false);

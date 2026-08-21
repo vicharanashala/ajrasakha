@@ -11,19 +11,20 @@ export function useNotifyUser() {
       message,
     }: {
       userEmail: string;
-      messageId: string;
-      message: string | null ;
+      messageId: string | null;
+      message: string | null;
     }) => {
       const result = await apiFetch<any>(
         `${env.apiBaseUrl()}/analytics/notify-user?userEmail=${encodeURIComponent(
           userEmail,
         )}&messageId=${encodeURIComponent(
-          messageId,
-        )}&message=${encodeURIComponent(message)}`,
+          messageId || '',
+        )}&message=${encodeURIComponent(message || '')}`,
         {
           method: 'POST',
         },
       );
+
 
       return result;
     },

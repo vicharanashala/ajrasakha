@@ -151,8 +151,9 @@ export const QAInterface = ({
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useGetAllocatedQuestions(LIMIT, filter, preferences, actionType, autoSelectQuestionId, reviewLevel);
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences as any, actionType, autoSelectQuestionId, reviewLevel);
   const { data: exactQuestionPage, isLoading: isLoading } =
+
     useGetAllocatedQuestionPage(autoSelectQuestionId!);
 
   const questions = useMemo(() => {

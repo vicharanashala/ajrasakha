@@ -3,11 +3,20 @@ import webPush from 'web-push';
 import {ISubscription} from '#root/shared/index.js';
 // import { CORE_TYPES, NotificationService } from '#root/modules/core/index.js';
 // import { getContainer } from '#root/bootstrap/loadModules.js';
-webPush.setVapidDetails(
-  `mailto:${process.env.VAPID_EMAIL}`,
-  process.env.VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
+try {
+  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.VAPID_PUBLIC_KEY !== 'your-vapid-public-key') {
+    const email = process.env.VAPID_EMAIL?.startsWith('mailto:')
+      ? process.env.VAPID_EMAIL
+      : `mailto:${process.env.VAPID_EMAIL || 'admin@example.com'}`;
+    webPush.setVapidDetails(
+      email,
+      process.env.VAPID_PUBLIC_KEY,
+      process.env.VAPID_PRIVATE_KEY,
+    );
+  }
+} catch (err) {
+  console.warn('[Push Notification] Failed to initialize VAPID details:', err);
+}
 
 export const sendPushNotification = async (
   subscription: any,

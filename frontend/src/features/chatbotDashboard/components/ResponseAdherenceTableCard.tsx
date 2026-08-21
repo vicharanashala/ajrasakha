@@ -1438,9 +1438,10 @@ export function ResponseAdherenceTableCard({
         values.push(row.manual);
       }
 
-      values.push(row.notes);
+      values.push((row as any).notes || "");
 
       return values
+
         .map((value) => csvEscape(value))
         .join(",");
     });
@@ -1505,18 +1506,19 @@ export function ResponseAdherenceTableCard({
   // HTML tables for the email body: a small highlights table with the 4 headline metrics,
   // followed by the remaining rows.
   const buildReportHtmlTable = (): string | null => {
-    const selectedRows = rowExportData.filter((row) => EMAIL_ROW_IDS.includes(row.id));
+    const selectedRows = rowExportData.filter((row: any) => (EMAIL_ROW_IDS as any).includes(row.id));
     if (!selectedRows.length) return null;
 
-    const highlightRows = selectedRows.filter((row) => HIGHLIGHT_ROW_IDS.includes(row.id));
-    const mainRows = selectedRows.filter((row) => !HIGHLIGHT_ROW_IDS.includes(row.id));
+    const highlightRows = selectedRows.filter((row: any) => (HIGHLIGHT_ROW_IDS as any).includes(row.id));
+    const mainRows = selectedRows.filter((row: any) => !(HIGHLIGHT_ROW_IDS as any).includes(row.id));
 
     const sectionLabel =
       `<div style="margin:4px 0 10px 2px;font-family:${EMAIL_THEME.font};font-size:13px;font-weight:700;` +
       `color:${EMAIL_THEME.heading};text-transform:uppercase;letter-spacing:.04em;">Additional Breakdowns</div>`;
 
-    return `${renderTableCard(highlightRows)}${mainRows.length ? sectionLabel : ""}${renderTableCard(mainRows)}`;
+    return `${renderTableCard(highlightRows as any)}${mainRows.length ? sectionLabel : ""}${renderTableCard(mainRows as any)}`;
   };
+
 
   const handleDownloadSelectedFields = () => {
     const csvContent = buildCsvContent();

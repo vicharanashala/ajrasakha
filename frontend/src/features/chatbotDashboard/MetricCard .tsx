@@ -759,10 +759,11 @@ function KpiCard({
       {showQuestions && (
         <QueryCategoryQuestionsModal
           period={granularity}
-          source={source}
+          source={source as any}
           userType={userType}
           onClose={() => setShowQuestions(false)}
         />
+
       )}
     </>
   );

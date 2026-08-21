@@ -2,7 +2,7 @@ export function diffWords(oldText: string, newText: string) {
   const oldWords = oldText.split(/(\s+)/);
   const newWords = newText.split(/(\s+)/);
   
-  const matrix = [];
+  const matrix: number[][] = [];
   
   // Build matrix for LCS
   for (let i = 0; i <= oldWords.length; i++) {
@@ -19,7 +19,7 @@ export function diffWords(oldText: string, newText: string) {
   }
   
   // Backtrack to find differences
-  const diffs = [];
+  const diffs: { value: string; type: "same" | "added" | "removed" }[] = [];
   let i = oldWords.length;
   let j = newWords.length;
   
@@ -38,7 +38,7 @@ export function diffWords(oldText: string, newText: string) {
   }
   
   // Merge consecutive same-type items
-  const mergedDiffs = [];
+  const mergedDiffs: { value: string; type: "same" | "added" | "removed" }[] = [];
   for (const diff of diffs) {
     const last = mergedDiffs[mergedDiffs.length - 1];
     if (last && last.type === diff.type) {

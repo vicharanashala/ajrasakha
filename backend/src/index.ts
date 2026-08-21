@@ -1,4 +1,10 @@
 import 'reflect-metadata';
+import dns from 'dns';
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch {
+  // ignore if restricted
+}
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 console.log(`Loading Sentry for ${NODE_ENV} environment`);

@@ -128,29 +128,19 @@ export const QuestionDetailsCard = ({
           <Layers className="w-4 h-4 text-primary shrink-0 mt-0.5" />
           <div className="flex flex-col min-w-0">
             <span className="text-muted-foreground">Domain</span>
-            <span
-              className="truncate"
-              title={
-                (Array.isArray(question.details?.domain)
-                  ? question.details.domain
-                  : typeof question.details?.domain === "string" && question.details.domain.trim()
-                    ? [question.details.domain]
-                    : []
-                ).join(", ")
-              }
-            >
-              {(Array.isArray(question.details?.domain)
-                ? question.details.domain
-                : typeof question.details?.domain === "string" && question.details.domain.trim()
-                  ? [question.details.domain]
-                  : []
-              ).length > 0
-                ? (Array.isArray(question.details?.domain)
-                  ? question.details.domain
-                  : [question.details.domain]
-                ).join(", ")
-                : "-"}
-            </span>
+            {(() => {
+              const rawDomain = question.details?.domain as unknown;
+              const domains = Array.isArray(rawDomain)
+                ? rawDomain
+                : typeof rawDomain === "string" && (rawDomain as string).trim()
+                  ? [rawDomain]
+                  : [];
+              return (
+                <span className="truncate" title={domains.join(", ")}>
+                  {domains.length > 0 ? domains.join(", ") : "-"}
+                </span>
+              );
+            })()}
           </div>
         </div>
       </div>

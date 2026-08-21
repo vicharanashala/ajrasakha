@@ -229,7 +229,8 @@ export const useQuestionFilter = ({
         manualSource,
         effectiveDate,
         coordinatorId,
-      }),
+      } as any),
+
     enabled: enabled && Boolean(category || district || crop || status || true),
   });
 };

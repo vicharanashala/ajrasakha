@@ -58,6 +58,8 @@ export interface IUser {
   status?: 'active' | 'in-active';
   lastCheckInAt?: string | Date;
   avatar?: string;
+  userName?: string;
+
   special_task_force?: boolean;
   special_task_force_moderator?: boolean
   mobile?: string;
@@ -423,7 +425,9 @@ export interface IUserRef {
   _id: string;
   name: string;
   email: string;
+  avatar?: string;
 }
+
 
 export interface IPreviousAllocation {
   reviewerId: string;

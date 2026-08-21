@@ -307,7 +307,7 @@ export function QuestionLifecycleSummary({
       {/* Top KPIs */}
       <div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {topMetricValues.map((item) => (
+          {topMetricValues.map((item: any) => (
             <Card key={item.title}>
               <CardContent className="p-4">
                 <MetricTitle title={item.title} tooltip={item.tooltip} />
@@ -323,7 +323,7 @@ export function QuestionLifecycleSummary({
         {/* Primary Metrics */}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {primaryMetrics.map((item) => (
+          {primaryMetrics.map((item: any) => (
             <Card key={item.title}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-1 mb-2">
@@ -361,7 +361,7 @@ export function QuestionLifecycleSummary({
 
             <AccordionContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-                {secondaryMetrics.map((item) => (
+                {secondaryMetrics.map((item: any) => (
                   <Card key={item.title}>
                     <CardContent className="p-4">
                       <MetricTitle
@@ -378,6 +378,7 @@ export function QuestionLifecycleSummary({
                     </CardContent>
                   </Card>
                 ))}
+
               </div>
             </AccordionContent>
           </AccordionItem>

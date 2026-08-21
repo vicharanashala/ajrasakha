@@ -297,10 +297,11 @@ export const PAEExpertPage = () => {
   // Select first question on initial load, or if saved question is no longer in the list
   useEffect(() => {
     if (!isLoaded || !questionPages?.pages || questions.length === 0) return;
-    if (selectedQuestion && questions.some((q) => q.id === selectedQuestion)) return;
+    if (selectedQuestion && questions.some((q) => q?.id === selectedQuestion)) return;
     const firstId = questions[0]?.id ?? null;
     setSelectedQuestion(firstId);
   }, [isLoaded, questions, questionPages]);
+
 
   // Mark validation as loaded when tab is first viewed
   useEffect(() => {
@@ -748,7 +749,8 @@ export const PAEExpertPage = () => {
             </div>
             <CardTitle className="text-sm md:text-base font-semibold">Validation Response</CardTitle>
           </div>
-          <QuestionDetailsDialog question={selectedValidationQuestionData as IQuestion} />
+          <QuestionDetailsDialog question={selectedValidationQuestionData as unknown as IQuestion} />
+
         </CardHeader>
         <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-auto">
           {isSelectedValidationQuestionLoading ? (

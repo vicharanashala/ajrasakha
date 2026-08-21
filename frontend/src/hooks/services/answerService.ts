@@ -1,5 +1,4 @@
 import type {
-  ISubmissions,
   SubmitAnswerResponse,
   FinalizedAnswersResponse,
   SourceItem,
@@ -183,5 +182,19 @@ export class AnswerService {
       console.error(`Error in fetchAiInitialAnswer:`, error);
       throw error;
     }
+  }
+
+  async paeModeratorAction(payload: {
+    questionId: string;
+    action: 'accept' | 'reroute_experts' | 'reroute_pae';
+    answerId?: string;
+    comment?: string;
+    paeExpertId?: string;
+  }): Promise<{ message: string }> {
+    const res = await apiFetch<{ message: string }>(`${this._baseUrl}/pae-moderator-action`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return res || { message: "Success" };
   }
 }

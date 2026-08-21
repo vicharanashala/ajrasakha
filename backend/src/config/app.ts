@@ -17,7 +17,7 @@ export const appConfig = {
   isDevelopment: env('NODE_ENV') === 'development',
   port: Number(env('PORT')) || Number(env('APP_PORT')) || 8080,
   url: env('APP_URL'),
-  origins: env('APP_ORIGINS')?.split(',') || ['http://localhost:5173, http://localhost:5174'],
+  origins: env('APP_ORIGINS')?.split(',').map(o => o.trim()).filter(Boolean) || ['http://localhost:5173', 'http://localhost:5174'],
   module: env('APP_MODULE') || 'all',
   routePrefix: env('APP_ROUTE_PREFIX') || '/api',
   frontendUrl: env('FRONTEND_URL') || 'http://localhost:5173',

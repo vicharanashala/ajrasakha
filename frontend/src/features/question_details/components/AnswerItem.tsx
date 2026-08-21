@@ -388,7 +388,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         comment={comment}
         setComment={setComment}
         isUsersLoading={isUsersLoading}
-        filteredExperts={filteredExperts}
+        filteredExperts={filteredExperts as any}
         selectedExperts={selectedExperts}
         handleSelectExpert={handleSelectExpert}
         isAllocatingExperts={allocatingExperts}

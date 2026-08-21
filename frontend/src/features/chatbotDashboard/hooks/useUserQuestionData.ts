@@ -21,7 +21,9 @@ export interface UserMessage {
 }
 
 export interface PaginatedResponse<T> {
-  total: number;
+  total?: number;
+  totalQuestions?: number;
+  totalMessages?: number;
   totalPages: number;
   currentPage: number;
   limit: number;
@@ -30,7 +32,6 @@ export interface PaginatedResponse<T> {
 
 export interface UserActivityResponse {
   questions: PaginatedResponse<UserQuestion>;
-
   messages: PaginatedResponse<UserMessage>;
 }
 
@@ -66,6 +67,7 @@ export function useUserQuestionsData(
       return (
         result ?? {
           questions: {
+            total: 0,
             totalQuestions: 0,
             totalPages: 1,
             currentPage: 1,
@@ -73,6 +75,7 @@ export function useUserQuestionsData(
             items: [],
           },
           messages: {
+            total: 0,
             totalMessages: 0,
             totalPages: 1,
             currentPage: 1,
@@ -87,6 +90,7 @@ export function useUserQuestionsData(
   return {
     data: data ?? {
       questions: {
+        total: 0,
         totalQuestions: 0,
         totalPages: 1,
         currentPage: 1,
@@ -95,6 +99,7 @@ export function useUserQuestionsData(
       },
 
       messages: {
+        total: 0,
         totalMessages: 0,
         totalPages: 1,
         currentPage: 1,
@@ -108,3 +113,4 @@ export function useUserQuestionsData(
     error,
   };
 }
+

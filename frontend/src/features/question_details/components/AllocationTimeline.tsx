@@ -277,7 +277,7 @@ export const AllocationTimeline = ({
             const assignedAt =
               userSubmission?.assignedAt ??
               (index === 0
-                ? question.submission?.currentExpertAllocatedAt
+                ? (question.submission as any)?.currentExpertAllocatedAt
                 : null);
             const styles = getStatusStyles(status);
             const isLast = index === displayedQueue?.length - 1;

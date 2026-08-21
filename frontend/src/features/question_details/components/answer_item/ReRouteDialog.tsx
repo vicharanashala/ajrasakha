@@ -161,15 +161,16 @@ export const ReRouteDialog = ({
 
                   <Checkbox
                     id={`expert-${expert._id}`}
-                    checked={selectedExperts.includes(expert._id)}
-                    onCheckedChange={() => handleSelectExpert(expert._id)}
+                    checked={expert._id ? selectedExperts.includes(expert._id) : false}
+                    onCheckedChange={() => expert._id && handleSelectExpert(expert._id)}
                     disabled={
                       expert.isBlocked ||
                       (selectedExperts.length > 0 &&
-                        !selectedExperts.includes(expert._id))
+                        !selectedExperts.includes(expert._id || ""))
                     }
                     className="mt-1"
                   />
+
 
                   <Label
                     htmlFor={`expert-${expert._id}`}
@@ -182,8 +183,9 @@ export const ReRouteDialog = ({
                           title={expert.userName}
                         >
                           {expert?.userName?.slice(0, 48)}
-                          {expert?.userName?.length > 48 ? "..." : ""}
+                          {expert?.userName && expert.userName.length > 48 ? "..." : ""}
                         </div>
+
                         <div
                           className="text-xs text-muted-foreground truncate"
                           title={expert.email}

@@ -141,9 +141,10 @@ export function ReallocateModal({
     const lastHistoryEntry = question.submission.history[question.submission.history.length - 1];
     
     if (lastHistoryEntry?.updatedBy?._id) {
-      const recentIndex = queue.findIndex(expert => expert._id === lastHistoryEntry.updatedBy._id);
+      const recentIndex = queue.findIndex(expert => expert._id === lastHistoryEntry.updatedBy?._id);
       return recentIndex >= 0 ? recentIndex : 0;
     }
+
     
     return 0;
   }, [queue, question?.submission?.history]);
@@ -263,7 +264,7 @@ export function ReallocateModal({
                         >
                           <div className="flex items-center gap-1.5">
                             <span className="font-medium">{idx + 1}.</span>
-                            <span>{expert.name?.slice(0, 15) || expert?.userName?.slice(0, 15)}</span>
+                            <span>{expert.name?.slice(0, 15) || (expert as any)?.userName?.slice(0, 15)}</span>
                           </div>
                         </Badge>
                         

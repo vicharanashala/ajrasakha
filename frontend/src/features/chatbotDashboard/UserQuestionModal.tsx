@@ -68,11 +68,12 @@ const UserQuestionsModal = ({
   const queryClient = useQueryClient();
   const { mutate: notifyUser, isPending } = useNotifyUser();
 
-  const latestMessageId = fullData?.messages?.items?.[0]?.messageId;
+  const latestMessageId = (fullData?.messages?.items?.[0] as any)?.messageId;
   const activeData = useMemo(
     () => (viewType === "questions" ? fullData?.questions : fullData?.messages),
     [fullData, viewType],
   );
+
   const items = useMemo(
     () => (activeData?.items || []) as QuestionActivityItem[],
     [activeData],

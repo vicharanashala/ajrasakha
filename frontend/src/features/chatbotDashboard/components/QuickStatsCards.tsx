@@ -107,7 +107,7 @@ export function QuickStatsCards({
       {/* WhatsApp Unique Users Card - Only for WhatsApp */}
       {isWhatsApp && (
         <WhatsAppUniqueUsersCard
-          totalUsers={data.unqueWhatsAppUsers}
+          totalUsers={data.unqueWhatsAppUsers?.totalUsers ?? 0}
           onClick={onWhatsAppUsersClick}
           isLoading={isUniqueWhatsAppUsersLoading || isUniqueWhatsAppUsersFetching}
         />
@@ -117,8 +117,8 @@ export function QuickStatsCards({
       <ClosedInLastTwoHoursCard
         source={source as "annam" | "whatsapp"}
         userType={userType}
-        count={data.closed2hData?.closedInLastTwoHours}
-        totalClosed={data.closed2hData?.closedVsTotalQuestions?.closedQuestions}
+        count={data.closed2hData?.closedInLastTwoHours ?? 0}
+        totalClosed={data.closed2hData?.closedVsTotalQuestions?.closedQuestions ?? 0}
         dateRange={closed2hDateRange}
         onDateRangeChange={onClosed2hDateRangeChange}
         isLoading={isClosed2hFetching || isLoading}
@@ -126,9 +126,9 @@ export function QuickStatsCards({
 
       {/* Closed Questions */}
       <ClosedQuestionsCard
-        closedQuestions={data.questionStatusData?.closedVsTotalQuestions?.closedQuestions}
-        totalQuestions={data.questionStatusData?.closedVsTotalQuestions?.totalQuestions}
-        passedQuestions={data.questionStatusData?.closedVsTotalQuestions?.pass}
+        closedQuestions={data.questionStatusData?.closedVsTotalQuestions?.closedQuestions ?? 0}
+        totalQuestions={data.questionStatusData?.closedVsTotalQuestions?.totalQuestions ?? 0}
+        passedQuestions={data.questionStatusData?.closedVsTotalQuestions?.pass ?? 0}
         dateRange={questionStatusDateRange}
         onDateRangeChange={onQuestionStatusDateRangeChange}
         isLoading={isQuestionStatusFetching || isLoading}
@@ -144,10 +144,10 @@ export function QuickStatsCards({
 
       {/* Customer Notifications */}
       <CustomerNotificationsCard
-        notified={data.customerNotificationsData?.notifiedVsClosed?.notified}
-        notNotified={data.customerNotificationsData?.notifiedVsClosed?.notNotified}
+        notified={data.customerNotificationsData?.notifiedVsClosed?.notified ?? 0}
+        notNotified={data.customerNotificationsData?.notifiedVsClosed?.notNotified ?? 0}
         untrackedClosedQuestions={
-          data.customerNotificationsData?.notifiedVsClosed?.untrackedClosedQuestions
+          data.customerNotificationsData?.notifiedVsClosed?.untrackedClosedQuestions ?? 0
         }
         dateRange={customerNotificationsDateRange}
         onDateRangeChange={onCustomerNotificationsDateRangeChange}
@@ -155,6 +155,7 @@ export function QuickStatsCards({
         source={source as "annam" | "whatsapp"}
         userType={userType}
       />
+
     </div>
   );
 }
@@ -198,7 +199,7 @@ export function WhatsAppAnalyticsRow({
       <motion.div variants={itemVariants}>
         <WhatsAppAnalyticsCard
           title="Daily Queries"
-          analytics={dailyAnalytics}
+          analytics={dailyAnalytics as any}
           granularity="daily"
           isLoading={isFetching || isLoading}
         />
@@ -207,7 +208,7 @@ export function WhatsAppAnalyticsRow({
       <motion.div variants={itemVariants}>
         <WhatsAppAnalyticsCard
           title="Weekly Queries"
-          analytics={weeklyAnalytics}
+          analytics={weeklyAnalytics as any}
           granularity="weekly"
           isLoading={isFetching || isLoading}
         />
@@ -216,11 +217,12 @@ export function WhatsAppAnalyticsRow({
       <motion.div variants={itemVariants}>
         <WhatsAppAnalyticsCard
           title="Monthly Queries"
-          analytics={monthlyAnalytics}
+          analytics={monthlyAnalytics as any}
           granularity="monthly"
           isLoading={isFetching || isLoading}
         />
       </motion.div>
+
     </motion.div>
   );
 }

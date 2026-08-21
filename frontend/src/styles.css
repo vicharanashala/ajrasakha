@@ -384,3 +384,70 @@ code {
 .animate-badgePulse {
   animation: badgePulse 2.4s ease-in-out infinite;
 }
+
+/* ========================================================
+   Ajrasakha Enterprise Protection & Ultra-Modern UI System
+   ======================================================== */
+
+/* Anti-Copy & Anti-Select Protection */
+.ajrasakha-protected {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Allow selection inside inputs and textareas only */
+input, textarea {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Ultra-Smooth Transitions */
+.ajrasakha-tab-enter {
+  animation: tabSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes tabSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Glassmorphic Neon Cards */
+.ajrasakha-glass-card {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 25px -5px rgba(16, 185, 129, 0.08);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ajrasakha-glass-card:hover {
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 35px -5px rgba(16, 185, 129, 0.15);
+  transform: translateY(-2px);
+}
+
+/* Sleek Emerald Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(2, 6, 23, 0.8);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.8);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.7);
+}
