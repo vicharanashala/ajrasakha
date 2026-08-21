@@ -18,8 +18,8 @@ RUN apk add --no-cache git bash mongodb-tools wget curl \
   && corepack enable \
   && corepack prepare pnpm@10.4.1 --activate
 
-# Install Tailscale
-RUN curl -fsSL https://tailscale.com/install.sh | sh
+# Install Tailscale (use apk since it's available as Alpine package)
+RUN apk add --no-cache tailscale
 
 WORKDIR /app
 
