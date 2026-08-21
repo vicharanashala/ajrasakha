@@ -92,8 +92,80 @@ def test_normalize_intent_extracts_named_apmc_from_query():
         {"action": "get_today_price", "nearest_market": True},
         "price of wheat in karapa apmc",
     )
-    assert intent["action"] == "get_today_price"
+    assert intent["action"] == "get_price_with_nearby"
     assert intent["market_name"] == "karapa apmc"
+
+
+def test_extract_source_systems_from_payload():
+    from ajrasakha.agents.daily_price_agent import _extract_source_systems_from_payload
+
+    payload = {
+        "action": "get_price_with_nearby",
+        "named_market": {
+            "price_records": [{"source_system": "Agmarknet", "modal_price": 3000}]
+        },
+        "nearby_markets": {
+            "price_records": [
+                {"source_system": "Agmarknet", "modal_price": 4000},
+                {"source_system": "eNAM", "modal_price": 4200},
+            ]
+        },
+    }
+    sources = _extract_source_systems_from_payload(payload)
+    assert sources == ["Agmarknet", "eNAM"]
+
+
+def test_ensure_source_line_appends_when_missing():
+    from ajrasakha.agents.daily_price_agent import _ensure_source_line
+
+    payload = {
+        "price_records": [{"source_system": "Agmarknet", "modal_price": 3000}]
+    }
+    ans = "Potato price in Aluva is Rs 3000/quintal."
+    res = _ensure_source_line(ans, payload)
+    assert res.endswith("This information is fetched from the following source: Agmarknet.")
+
+
+def test_ensure_source_line_does_not_duplicate():
+    from ajrasakha.agents.daily_price_agent import _ensure_source_line
+
+    payload = {
+        "price_records": [{"source_system": "Agmarknet", "modal_price": 3000}]
+    }
+    ans = "Potato price in Aluva is Rs 3000/quintal.\n\nThis information is fetched from the following source: Agmarknet."
+    res = _ensure_source_line(ans, payload)
+    assert res == ans
+
+
+def test_extract_date_from_query_and_fix_year():
+    from datetime import datetime
+    from ajrasakha.agents.daily_price_agent import _extract_date_from_query, _fix_date_year
+
+    cur_year = str(datetime.now().year)
+
+    d1 = _extract_date_from_query("13 august potato price in Aluva Market, Kerala")
+    assert d1 == f"13-Aug-{cur_year}"
+
+    d2 = _extract_date_from_query("20 august potato price in Aluva")
+    assert d2 == f"20-Aug-{cur_year}"
+
+    # If Gemma produced 2024 but query didn't mention 2024
+    fixed = _fix_date_year("13-Aug-2024", "13 august potato price in Aluva")
+    assert fixed == f"13-Aug-{cur_year}"
+
+
+def test_normalize_intent_specific_date_sets_from_to_date():
+    from datetime import datetime
+    cur_year = str(datetime.now().year)
+
+    intent = _normalize_intent(
+        None,
+        "13 august potato price in Aluva Market, Kerala"
+    )
+    assert intent["from_date"] == f"13-Aug-{cur_year}"
+    assert intent["to_date"] == f"13-Aug-{cur_year}"
+    assert intent["action"] == "get_price_with_nearby"
+    assert intent["market_name"] == "Aluva Market"
 
 
 def test_fallback_unavailable_uses_tool_error_message():

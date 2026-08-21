@@ -1029,17 +1029,20 @@ Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
   "get_today_arrival", "get_arrival_history", "get_extreme_arrival", "search_markets"
 - nearest_market: boolean (true = several nearby markets; false = single nearest)
 - radius_km: number or null
-- lookback_days: integer or null (past N days; preferred over from_date/to_date)
-- from_date: string or null (e.g. "01-Jun-2025")
-- to_date: string or null
+- lookback_days: integer or null (past N days; preferred for past durations like 'last 7 days')
+- from_date: string or null (e.g. "13-Aug-2026")
+- to_date: string or null (e.g. "13-Aug-2026")
 - market_name: string or null
 - state: string or null (only if the farmer named a state)
 - sort_order: "highest" or "lowest" or null (only for get_extreme_arrival)
 
 Rules:
 - Default single price question: action="get_today_price", nearest_market=true
-- If the farmer names a SPECIFIC mandi/APMC and asks for today's/current/latest price → use action="get_price_with_nearby".
+- If the farmer names a SPECIFIC mandi/APMC and asks for today's/current/latest/specific date price → use action="get_price_with_nearby".
   This returns the named mandi's price AND prices from nearby markets.
+- If the farmer specifies a PARTICULAR DATE (e.g. "13 august", "20 august", "13-Aug"):
+  Set BOTH from_date and to_date to that date using the current year from Today's Date (e.g. "13-Aug-2026").
+  If a specific mandi is named, keep action="get_price_with_nearby" (or "get_today_price" if no mandi is named, or "get_price_history" if a date range).
 - Use action as an ARRAY only when the farmer clearly asks for two different things in one query
   (max 3 actions). Examples: today's price AND list nearby mandis; today vs last week prices.
 - Do NOT add search_markets together with get_today_price unless the farmer explicitly asks
@@ -1061,6 +1064,12 @@ Rules:
 Examples:
 Query: What is wheat price near me today?
 {"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+
+Query: 13 august potato price in Aluva Market, Kerala
+{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"13-Aug-2026","to_date":"13-Aug-2026","market_name":"Aluva","state":"Kerala","sort_order":null}
+
+Query: 20 august potato price in Aluva
+{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"20-Aug-2026","to_date":"20-Aug-2026","market_name":"Aluva","state":null,"sort_order":null}
 
 Query: Onion prices in Maharashtra last 15 days
 {"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":15,"from_date":null,"to_date":null,"market_name":null,"state":"Maharashtra","sort_order":null}
@@ -1113,6 +1122,8 @@ Composite response (get_price_with_nearby):
   Then list each nearby market as a numbered item using the same format as multiple markets.
 - If "nearby_markets" is null or empty, do NOT mention nearby markets at all — just show the named mandi's price.
 - If "named_market" has an error, show that error and still show nearby_markets if available.
+- Always include the source closing line at the very end of the composite response:
+  "This information is fetched from the following source: <source_system>."
 
 Multiple markets (2 or more price_records):
 - Start with one short intro sentence (crop, place, date if known).
@@ -1131,7 +1142,9 @@ Multiple markets (2 or more price_records):
   2) Kanjirappally (big, faq)
      Modal: Rs 3800/quintal | Min: Rs 3500 | Max: Rs 4000
 
-Single market: one short paragraph is fine (market, date, modal/min/max).
+  This information is fetched from the following source: Agmarknet.
+
+Single market: one short paragraph is fine (market, date, modal/min/max), followed by the source closing line.
 
 - Put sources at the END only (never inline with prices). After the price/arrival answer, add one short closing line:
   "This information is fetched from the following source: <source_system>."

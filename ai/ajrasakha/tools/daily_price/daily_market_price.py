@@ -972,12 +972,16 @@ def mandi_price_tool(
         if not commodity_name:
             return {"error": "commodity_name is required for action='get_today_price'."}
         c_list = [commodity_name] if isinstance(commodity_name, str) else commodity_name
+        eff_lookback = lookback_days if (from_date or to_date) is None else None
+        if eff_lookback is None and not from_date and not to_date:
+            eff_lookback = 1
         result = _fetch_price_data(
             commodity_list=c_list,
             market_name=market_name, state=state,
             lat=lat, long=long,
             nearest_market=nearest_market, radius_km=radius_km,
-            lookback_days=1,
+            from_date=from_date, to_date=to_date,
+            lookback_days=eff_lookback,
             latest_price_fallback=True,
         )
         if not result.get("error"):
@@ -1083,12 +1087,16 @@ def mandi_price_tool(
         if not commodity_name:
             return {"error": "commodity_name is required for action='get_today_arrival'."}
         c_list = [commodity_name] if isinstance(commodity_name, str) else commodity_name
+        eff_lookback = lookback_days if (from_date or to_date) is None else None
+        if eff_lookback is None and not from_date and not to_date:
+            eff_lookback = 1
         result = _fetch_price_data(
             commodity_list=c_list,
             market_name=market_name, state=state,
             lat=lat, long=long,
             nearest_market=nearest_market, radius_km=radius_km,
-            lookback_days=1,
+            from_date=from_date, to_date=to_date,
+            lookback_days=eff_lookback,
         )
         if result.get("error"):
             return result
@@ -1103,6 +1111,7 @@ def mandi_price_tool(
                 "commodity_name":   r.get("commodity_name"),
                 "variety":          r.get("variety"),
                 "arrival_quantity": r.get("arrival_quantity"),
+                "source_system":    r.get("source_system"),
             }
             for r in records
         ]
@@ -1143,6 +1152,7 @@ def mandi_price_tool(
                 "commodity_name":   r.get("commodity_name"),
                 "variety":          r.get("variety"),
                 "arrival_quantity": r.get("arrival_quantity"),
+                "source_system":    r.get("source_system"),
             }
             for r in records
         ]
@@ -1209,7 +1219,7 @@ def mandi_price_tool(
     NEARBY_RADIUS_KM = 100
 
     def _get_price_with_nearby() -> dict:
-        """Composite: named mandi latest price + nearby markets' today/date prices."""
+        """Composite: named mandi latest/date price + nearby markets' today/date prices."""
         if not commodity_name:
             return {"error": "commodity_name is required for action='get_price_with_nearby'."}
         if not market_name:
@@ -1218,20 +1228,25 @@ def mandi_price_tool(
 
         c_list = [commodity_name] if isinstance(commodity_name, str) else commodity_name
 
-        # ── Part 1: Named mandi's latest price ─────────────────────────
+        eff_lookback = lookback_days if (from_date or to_date) is None else None
+        if eff_lookback is None and not from_date and not to_date:
+            eff_lookback = 1
+
+        # ── Part 1: Named mandi's latest/date price ─────────────────────────
         named_result = _fetch_price_data(
             commodity_list=c_list,
             market_name=market_name, state=state,
             lat=lat, long=long,
             nearest_market=False, radius_km=radius_km,
-            lookback_days=1,
+            from_date=from_date, to_date=to_date,
+            lookback_days=eff_lookback,
             latest_price_fallback=True,
         )
         if not named_result.get("error"):
             named_result["action"] = "get_today_price"
             named_result.pop("stats", None)
 
-        # ── Part 2: Nearby markets' prices on today / requested date ───
+        # ── Part 2: Nearby markets' prices on requested date / today ───
         nearby_result: dict = {}
 
         # Resolve the named mandi to get its coordinates
@@ -1261,7 +1276,7 @@ def mandi_price_tool(
                 "get_price_with_nearby: using named mandi coords (%s, %s) for nearby search",
                 nearby_lat, nearby_lon,
             )
-            # Fetch today's prices for nearby markets using mandi's coordinates
+            # Fetch prices for nearby markets using mandi's coordinates
             nearby_raw = _fetch_price_data(
                 commodity_list=c_list,
                 market_name=None,  # no market_name — search by geo
@@ -1270,8 +1285,10 @@ def mandi_price_tool(
                 long=nearby_lon,
                 nearest_market=True,
                 radius_km=NEARBY_RADIUS_KM,
-                lookback_days=1,
-                latest_price_fallback=False,  # only today's prices for nearby
+                from_date=from_date,
+                to_date=to_date,
+                lookback_days=eff_lookback,
+                latest_price_fallback=False,  # only requested date's prices for nearby
             )
 
             if (
@@ -1285,15 +1302,17 @@ def mandi_price_tool(
                     if (r.get("market_name") or "").strip().lower() not in named_mandi_names
                 ]
                 if filtered_records:
+                    top_nearby = filtered_records[:DEFAULT_TOP_N_NEAREST]
                     nearby_result = {
                         "action": "nearby_markets_price",
-                        "price_records": filtered_records,
-                        "total_records_returned": len(filtered_records),
+                        "price_records": top_nearby,
+                        "total_records_returned": len(top_nearby),
                         "resolution": nearby_raw.get("resolution"),
                     }
                     logger.info(
-                        "get_price_with_nearby: %d nearby price records (after excluding named mandi)",
-                        len(filtered_records),
+                        "get_price_with_nearby: %d nearby price records (after excluding named mandi and capping to %d)",
+                        len(top_nearby),
+                        DEFAULT_TOP_N_NEAREST,
                     )
                 else:
                     logger.info(
