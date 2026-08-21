@@ -211,10 +211,78 @@ def _extract_market_name_from_query(query: str) -> str | None:
     return None
 
 
+_MONTH_NAME_MAP = {
+    "jan": "Jan", "january": "Jan",
+    "feb": "Feb", "february": "Feb",
+    "mar": "Mar", "march": "Mar",
+    "apr": "Apr", "april": "Apr",
+    "may": "May",
+    "jun": "Jun", "june": "Jun",
+    "jul": "Jul", "july": "Jul",
+    "aug": "Aug", "august": "Aug",
+    "sep": "Sep", "sept": "Sep", "september": "Sep",
+    "oct": "Oct", "october": "Oct",
+    "nov": "Nov", "november": "Nov",
+    "dec": "Dec", "december": "Dec",
+}
+
+_SPECIFIC_DATE_REGEX_1 = re.compile(
+    r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+(\d{4}))?\b",
+    re.IGNORECASE,
+)
+_SPECIFIC_DATE_REGEX_2 = re.compile(
+    r"\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s+(\d{4}))?\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_date_from_query(query: str) -> str | None:
+    if not query:
+        return None
+    from datetime import datetime
+    current_year = datetime.now().year
+
+    m1 = _SPECIFIC_DATE_REGEX_1.search(query)
+    if m1:
+        day = int(m1.group(1))
+        mon = _MONTH_NAME_MAP.get(m1.group(2).lower())
+        year = int(m1.group(3)) if m1.group(3) else current_year
+        if mon and 1 <= day <= 31:
+            return f"{day:02d}-{mon}-{year}"
+
+    m2 = _SPECIFIC_DATE_REGEX_2.search(query)
+    if m2:
+        mon = _MONTH_NAME_MAP.get(m2.group(1).lower())
+        day = int(m2.group(2))
+        year = int(m2.group(3)) if m2.group(3) else current_year
+        if mon and 1 <= day <= 31:
+            return f"{day:02d}-{mon}-{year}"
+
+    return None
+
+
+def _fix_date_year(date_str: str | None, query: str) -> str | None:
+    if not date_str:
+        return None
+    from datetime import datetime
+    current_year = str(datetime.now().year)
+    m = re.search(r"[-/\s](\d{4})$", date_str.strip())
+    if m:
+        year_found = m.group(1)
+        if year_found not in query:
+            return date_str.strip()[: m.start(1)] + current_year
+    return date_str.strip()
+
+
 def _heuristic_intent(query: str) -> dict[str, Any]:
     """Fallback intent when Gemma is unavailable."""
     q = (query or "").lower()
     base = _empty_intent_fields()
+
+    specific_date = _extract_date_from_query(query)
+    if specific_date:
+        base["from_date"] = specific_date
+        base["to_date"] = specific_date
 
     if _is_market_discovery_query(query):
         return {**base, "action": "search_markets", "nearest_market": True, "radius_km": 50}
@@ -306,20 +374,17 @@ def _normalize_action_list(raw_action: Any, fallback: str) -> list[str]:
 
 def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
     base = _heuristic_intent(query)
-    if not raw:
-        actions = _normalize_action_list(None, base["action"])
-        return {**base, "action": actions[0], "actions": actions}
-    raw_actions = raw.get("actions")
-    raw_action = raw.get("action")
+    raw_dict = raw if isinstance(raw, dict) else {}
+    raw_actions = raw_dict.get("actions")
+    raw_action = raw_dict.get("action")
     actions = _normalize_action_list(
         raw_actions if raw_actions is not None else raw_action,
         base["action"],
     )
     action = actions[0]
-    # Legacy get_prices with an explicit lookback/range should become history.
     raw_action_str = str(raw_action or "").strip().lower() if not isinstance(raw_action, list) else ""
     if raw_action_str in {"get_prices", "lookup_commodity"} and (
-        raw.get("lookback_days") or raw.get("from_date") or raw.get("to_date")
+        raw_dict.get("lookback_days") or raw_dict.get("from_date") or raw_dict.get("to_date")
     ):
         action = "get_price_history"
         actions = ["get_price_history"] + [a for a in actions if a != "get_price_history"]
@@ -327,14 +392,14 @@ def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
     out = {
         "action": action,
         "actions": actions,
-        "nearest_market": bool(raw.get("nearest_market", base.get("nearest_market", True))),
-        "radius_km": raw.get("radius_km", base.get("radius_km")),
-        "lookback_days": raw.get("lookback_days", base.get("lookback_days")),
-        "from_date": raw.get("from_date", base.get("from_date")),
-        "to_date": raw.get("to_date", base.get("to_date")),
-        "market_name": raw.get("market_name", base.get("market_name")),
-        "state": raw.get("state", base.get("state")),
-        "sort_order": raw.get("sort_order", base.get("sort_order")),
+        "nearest_market": bool(raw_dict.get("nearest_market", base.get("nearest_market", True))),
+        "radius_km": raw_dict.get("radius_km", base.get("radius_km")),
+        "lookback_days": raw_dict.get("lookback_days", base.get("lookback_days")),
+        "from_date": raw_dict.get("from_date", base.get("from_date")),
+        "to_date": raw_dict.get("to_date", base.get("to_date")),
+        "market_name": raw_dict.get("market_name", base.get("market_name")),
+        "state": raw_dict.get("state", base.get("state")),
+        "sort_order": raw_dict.get("sort_order", base.get("sort_order")),
     }
     for key in ("radius_km", "lookback_days"):
         val = out.get(key)
@@ -351,6 +416,19 @@ def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
             out[key] = None
         else:
             out[key] = str(val).strip().lower() if key == "sort_order" else str(val).strip()
+
+    # Fix or backfill specific dates with current year
+    if out.get("from_date"):
+        out["from_date"] = _fix_date_year(out["from_date"], query)
+    if out.get("to_date"):
+        out["to_date"] = _fix_date_year(out["to_date"], query)
+
+    if not out.get("from_date") and not out.get("to_date"):
+        extracted_date = _extract_date_from_query(query)
+        if extracted_date:
+            out["from_date"] = extracted_date
+            out["to_date"] = extracted_date
+
     if out["action"] == "get_extreme_arrival" and out["sort_order"] not in {"highest", "lowest"}:
         out["sort_order"] = "highest"
     if _is_market_discovery_query(query):
@@ -363,6 +441,7 @@ def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
     if (
         _should_use_today_price_for_query(query)
         and out["action"] in {"get_price_summary", "get_price_history"}
+        and not out.get("from_date") and not out.get("to_date")
     ):
         out["action"] = "get_today_price"
         out["actions"] = ["get_today_price"]
@@ -374,9 +453,12 @@ def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
         if extracted_market:
             out["market_name"] = extracted_market
 
-    # Auto-upgrade: when a specific mandi is named and action is today's price,
+    # Auto-upgrade: when a specific mandi is named and action is today's price (or single date),
     # enrich the response with nearby markets' prices.
-    if out.get("market_name") and out["action"] == "get_today_price":
+    if out.get("market_name") and (
+        out["action"] == "get_today_price"
+        or (out["action"] == "get_price_history" and out.get("from_date") == out.get("to_date"))
+    ):
         out["action"] = "get_price_with_nearby"
         out["actions"] = ["get_price_with_nearby"]
 
@@ -427,7 +509,9 @@ async def _gemma_chat(
 
 async def extract_daily_price_intent(query: str) -> dict[str, Any]:
     """Ask Gemma for mandi_price_tool params; fall back to heuristics."""
-    user_content = f"{DAILY_PRICE_INTENT_PROMPT}\n\nQuery: {query}\nJSON:"
+    from datetime import datetime
+    today_str = datetime.now().strftime("%d-%b-%Y")
+    user_content = f"{DAILY_PRICE_INTENT_PROMPT}\n\nToday's Date: {today_str}\nQuery: {query}\nJSON:"
     raw_text = await _gemma_chat(
         trace_name="daily_price_intent",
         user_content=user_content,
@@ -552,14 +636,13 @@ def _build_tool_args(
     if mn and cr and (mn == cr or mn in {"rice", "paddy"} and cr in {"rice", "paddy"}):
         args.pop("market_name", None)
 
-    if any(a in _HISTORY_ACTIONS for a in actions):
-        if intent.get("lookback_days") is not None:
-            args["lookback_days"] = intent["lookback_days"]
-        else:
-            if intent.get("from_date"):
-                args["from_date"] = intent["from_date"]
-            if intent.get("to_date"):
-                args["to_date"] = intent["to_date"]
+    if intent.get("lookback_days") is not None:
+        args["lookback_days"] = intent["lookback_days"]
+    else:
+        if intent.get("from_date"):
+            args["from_date"] = intent["from_date"]
+        if intent.get("to_date"):
+            args["to_date"] = intent["to_date"]
 
     if "get_extreme_arrival" in actions and intent.get("sort_order"):
         args["sort_order"] = intent["sort_order"]
@@ -595,6 +678,54 @@ def _fallback_unavailable_answer(
     return " ".join(parts)
 
 
+def _extract_source_systems_from_payload(payload: Any) -> list[str]:
+    """Find all unique non-empty source_system strings in tool payload."""
+    sources: list[str] = []
+    seen: set[str] = set()
+
+    def _traverse(obj: Any):
+        if isinstance(obj, dict):
+            val = obj.get("source_system")
+            if val:
+                val_str = str(val).strip()
+                if val_str and val_str.lower() not in {"none", "null", "unknown"}:
+                    for s in [x.strip() for x in val_str.split(",") if x.strip()]:
+                        if s and s not in seen:
+                            seen.add(s)
+                            sources.append(s)
+            for v in obj.values():
+                _traverse(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                _traverse(item)
+
+    _traverse(payload)
+    return sources
+
+
+def _ensure_source_line(answer: str, payload: Any) -> str:
+    """Ensure the answer ends with source attribution when data is available."""
+    ans = (answer or "").strip()
+    if not ans or _tool_result_is_empty(payload):
+        return ans
+
+    sources = _extract_source_systems_from_payload(payload)
+    if not sources:
+        return ans
+
+    ans_lower = ans.lower()
+    if any(s.lower() in ans_lower for s in sources) or "fetched from the following source" in ans_lower:
+        return ans
+
+    source_text = ", ".join(sources)
+    if len(sources) > 1:
+        source_line = f"This information is fetched from the following sources: {source_text}."
+    else:
+        source_line = f"This information is fetched from the following source: {source_text}."
+
+    return f"{ans}\n\n{source_line}"
+
+
 async def synthesize_daily_price_answer(
     query: str,
     tool_result: Any,
@@ -618,12 +749,12 @@ async def synthesize_daily_price_answer(
     answer = await _gemma_chat(
         trace_name="daily_price_answer",
         user_content=user_content,
-        max_tokens=800,
+        max_tokens=1500,
         temperature=0.2,
         query=query,
     )
     if answer and answer.strip():
-        return answer.strip()
+        return _ensure_source_line(answer.strip(), payload)
     if _tool_result_is_empty(payload):
         return _fallback_unavailable_answer(
             payload,
