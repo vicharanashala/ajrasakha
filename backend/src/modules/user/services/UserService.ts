@@ -1,4 +1,5 @@
 import { inject, injectable } from 'inversify';
+import ExcelJS from 'exceljs';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
@@ -276,6 +277,98 @@ export class UserService extends BaseService {
         `Failed to update role for user ID ${userId}`,
       );
     }
+  }
+
+  /**
+   * Build an .xlsx of all users matching the SAME filters the admin user-management
+   * list uses (search / sort / state filter / role / blocked / verified / STF), with
+   * one row per user. Only human/personal details are included — preference is split
+   * into its own columns (state / district / crop / domain) — and work/system fields
+   * (assigned questions, reputation, penalty, incentive, etc.), the password and the
+   * firebase id are excluded. Returns the workbook as a Buffer.
+   */
+  async exportUsersToXlsx(opts: {
+    search?: string;
+    sort?: string;
+    filter?: string;
+    role?: string;
+    isBlocked?: boolean;
+    isVerified?: boolean;
+    isSTF?: boolean;
+  }): Promise<ArrayBuffer> {
+    // Fetch every matching user (no pagination) via the same query the list uses.
+    // 1_000_000 is an effective "no limit" cap — far above the total user count.
+    const { users } = await this.userRepo.findAllUsers(
+      1,
+      1_000_000,
+      opts.search || '',
+      opts.sort || '',
+      opts.filter || '',
+      opts.role || 'ALL',
+      opts.isBlocked,
+      opts.isVerified,
+      opts.isSTF,
+    );
+
+    const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+    const asIST = (v: any): string => {
+      if (!v) return '';
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return '';
+      return new Date(d.getTime() + IST_OFFSET_MS)
+        .toISOString()
+        .replace('T', ' ')
+        .slice(0, 16);
+    };
+    const yesNo = (v: any): string => (v === true ? 'Yes' : v === false ? 'No' : '');
+    const joinArr = (v: any): string =>
+      Array.isArray(v) ? v.filter(Boolean).join(', ') : (v ?? '');
+    // KVKs → "State / District — Name; …" (each entry may be partial).
+    const fmtKvk = (v: any): string =>
+      Array.isArray(v)
+        ? v
+            .map((k: any) =>
+              [k?.state, k?.district].filter(Boolean).join(' / ') +
+              (k?.name ? ` — ${k.name}` : ''),
+            )
+            .filter(s => s.trim())
+            .join('; ')
+        : '';
+
+    // Curated, human-readable columns only.
+    const columns: { header: string; value: (u: any) => any }[] = [
+      { header: 'ID', value: u => u._id?.toString() ?? '' },
+      { header: 'First Name', value: u => u.firstName ?? '' },
+      { header: 'Last Name', value: u => u.lastName ?? '' },
+      { header: 'Email', value: u => u.email ?? '' },
+      { header: 'Mobile', value: u => u.mobile ?? '' },
+      { header: 'Role', value: u => u.role ?? '' },
+      { header: 'Status', value: u => u.status ?? '' },
+      { header: 'Blocked', value: u => yesNo(u.isBlocked) },
+      { header: 'Verified', value: u => yesNo(u.isVerified) },
+      { header: 'University', value: u => u.university ?? '' },
+      { header: 'Preferred State', value: u => u.preference?.state ?? '' },
+      { header: 'Preferred District', value: u => u.preference?.district ?? '' },
+      { header: 'Preferred Crop', value: u => u.preference?.crop ?? '' },
+      { header: 'Preferred Domain', value: u => joinArr(u.preference?.domain) },
+      { header: 'KVK Covered', value: u => fmtKvk(u.kvkCovered) },
+      { header: 'Last Check-In', value: u => asIST(u.lastCheckInAt) },
+      { header: 'Created At', value: u => asIST(u.createdAt) },
+      { header: 'Updated At', value: u => asIST(u.updatedAt) },
+    ];
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Users');
+    sheet.columns = columns.map(c => ({ header: c.header, key: c.header, width: 22 }));
+    sheet.getRow(1).font = { bold: true };
+
+    for (const u of users as any[]) {
+      const row: Record<string, any> = {};
+      for (const c of columns) row[c.header] = c.value(u);
+      sheet.addRow(row);
+    }
+
+    return (await workbook.xlsx.writeBuffer()) as unknown as ArrayBuffer;
   }
 
   async getAllUsers(
