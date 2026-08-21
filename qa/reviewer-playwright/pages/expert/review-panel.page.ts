@@ -495,7 +495,10 @@ export class ReviewPanelPage {
 
     await expect(toggle).toBeVisible();
 
-    await toggle.click();
+    // await toggle.click();
+    if ((await toggle.getAttribute("aria-checked")) !== "true") {
+      await toggle.click();
+    }
 
     await expect(toggle).toHaveAttribute("aria-checked", "true");
   }
@@ -511,7 +514,10 @@ export class ReviewPanelPage {
   ): Promise<void> {
     const toggle = this.rejectCriteriaToggles[criterion];
 
-    await toggle.click();
+    // await toggle.click();
+    if ((await toggle.getAttribute("aria-checked")) !== "false") {
+      await toggle.click();
+    }
 
     await expect(toggle).toHaveAttribute("aria-checked", "false");
   }
@@ -630,7 +636,10 @@ export class ReviewPanelPage {
 
     await expect(toggle).toBeVisible();
 
-    await toggle.click();
+    // await toggle.click();
+    if ((await toggle.getAttribute("aria-checked")) !== "true") {
+      await toggle.click();
+    }
 
     await expect(toggle).toHaveAttribute("aria-checked", "true");
   }
@@ -646,7 +655,11 @@ export class ReviewPanelPage {
   ): Promise<void> {
     const toggle = this.modifyCriteriaToggles[criterion];
 
-    await toggle.click();
+    await expect(toggle).toBeVisible();
+    // await toggle.click();
+    if ((await toggle.getAttribute("aria-checked")) !== "false") {
+      await toggle.click();
+    }
 
     await expect(toggle).toHaveAttribute("aria-checked", "false");
   }

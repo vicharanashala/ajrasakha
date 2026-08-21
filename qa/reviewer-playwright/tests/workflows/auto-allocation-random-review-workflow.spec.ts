@@ -28,9 +28,9 @@ import { ModeratorAllocationQueuePage } from "../../pages/moderator/allocation-q
 type ReviewAction = "accept" | "reject" | "modify";
 
 const ACTION_WEIGHTS: Record<ReviewAction, number> = {
-  accept: 0.7,
-  reject: 0.15,
-  modify: 0.15,
+  accept: 0.7, //0.7
+  reject: 0.15, //0.15
+  modify: 0.15, //0.15
 };
 
 const TOTAL_EXPERTS = 10;
@@ -266,32 +266,37 @@ async function performRandomReview(
     } else if (action === "reject") {
       await reviewPanel.openRejectDialog();
 
-      await reviewPanel.fillRejectReason(
-        "Playwright automated random-review rejection.",
-      );
+      // Required criterion state for rejection.
+      await reviewPanel.disableRejectCriterion("valueAddition");
 
-      await reviewPanel.disableRejectCriterion("technicalAccuracy");
+      // Required validation: reason must be > 10 characters.
+      await reviewPanel.fillRejectReason(
+        "Playwright automated rejection reason.",
+      );
 
       await reviewPanel.expectSubmitRejectEnabled();
 
       await reviewPanel.submitRejection(
-        `Playwright automated random-review replacement answer ` +
-          `(round for ${email}).`,
+        `Playwright automated random-review replacement answer for ${email}.`,
       );
 
       console.log(`[AAR] ${email}: rejected with a replacement answer.`);
     } else {
       await reviewPanel.openModifyDialog();
 
+      await reviewPanel.enableModifyCriterion("valueAddition");
+
+      await reviewPanel.fillModifyReason(
+        "Playwright automated modification reason.",
+      );
+
       await reviewPanel.submitModification(
-        `Playwright automated random-review modified answer ` +
-          `(round for ${email}).`,
-        "Playwright automated random-review modification reason.",
+        `Playwright automated random-review modified answer for ${email}.`,
+        "Playwright automated modification reason.",
       );
 
       console.log(`[AAR] ${email}: modified the answer.`);
     }
-
     return action;
   } finally {
     await page.close();
