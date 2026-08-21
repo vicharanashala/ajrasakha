@@ -618,12 +618,27 @@ export class PaeValidationService extends BaseService {
 
   async getPaeValidationQueueDetails(): Promise<PaeValidationQueueDetails> {
     // All questions with an open pae validaiton (auto ON and OFF).
+    const startedAt = Date.now();
+    try{
+      console.log('[PAE QUEUE] Starting queue details');
+
+    console.log('[PAE QUEUE] Fetching open validation questions...');
+    const questionsStartedAt = Date.now();
     const openPaeValidationQuestions =
       await this.questionRepo.findQuestionsWithOpenPaeValidation(false);
+     console.log(
+      `[PAE QUEUE] Open validation questions fetched: ${openPaeValidationQuestions.length} (${Date.now() - questionsStartedAt}ms)`
+    );
+
+    console.log('[PAE QUEUE] Fetching open reviews...');
+    const reviewsStartedAt = Date.now();
 
     // Questions already assigned a reviewer .
     const openReviews =
       await this.questionSubmissionRepo.findOpenPaeValidationReviews();
+      console.log(
+      `[PAE QUEUE] Open reviews fetched: ${openReviews.length} (${Date.now() - reviewsStartedAt}ms)`
+    );
     const reviewerByQuestion = new Map<string, string>();
     for (const o of openReviews) {
       if (o.questionId && !reviewerByQuestion.has(o.questionId)) {
@@ -631,12 +646,19 @@ export class PaeValidationService extends BaseService {
       }
     }
     const assignedIds = new Set(reviewerByQuestion.keys());
+    console.log(
+      `[PAE QUEUE] Assigned questions: ${assignedIds.size}`
+    );
 
+    console.log('[PAE QUEUE] Resolving reviewer metadata...');
+    const metaStartedAt = Date.now();
     // Names of reviewers.
     const meta = await resolveExpertMeta(this.userRepo, [
       ...reviewerByQuestion.values()
     ]);
-
+    console.log(
+      `[PAE QUEUE] Reviewer metadata resolved (${Date.now() - metaStartedAt}ms)`
+    );
     const waitingAuto: QueueQuestionItem[] = [];
     const waitingManual: QueueQuestionItem[] = [];
     const assigned: QueueQuestionItem[] = [];
@@ -661,8 +683,17 @@ export class PaeValidationService extends BaseService {
         waitingManual.push(base);
       }
     }
+    console.log(
+      `[PAE QUEUE] Categorized questions: auto=${waitingAuto.length}, manual=${waitingManual.length}, assigned=${assigned.length}`
+    );
+
+    console.log('[PAE QUEUE] Fetching available PAE experts...');
+    const expertsStartedAt = Date.now();
     // Reviewers free for pae validaiton.
     const availablePaeExperts = await this.userRepo.findAvailablePaeExperts();
+    console.log(
+      `[PAE QUEUE] Available experts fetched: ${availablePaeExperts.length} (${Date.now() - expertsStartedAt}ms)`
+    );
     const toExpertItem = (u: any): QueueExpertItem => ({
       _id: u._id.toString(),
       name:
@@ -679,11 +710,31 @@ export class PaeValidationService extends BaseService {
     const availablePaeExpertItems = availablePaeExperts.map(toExpertItem);
 
     const wrap = <T>(items: T[]) => ({ count: items.length, items });
-    return {
+    // return {
+    //   waitingAuto: wrap(waitingAuto),
+    //   waitingManual: wrap(waitingManual),
+    //   assigned: wrap(assigned),
+    //   availablePaeExperts: wrap(availablePaeExpertItems),
+    // };
+    const result = {
       waitingAuto: wrap(waitingAuto),
       waitingManual: wrap(waitingManual),
       assigned: wrap(assigned),
       availablePaeExperts: wrap(availablePaeExpertItems),
     };
+
+    console.log(
+      `[PAE QUEUE] Completed successfully in ${Date.now() - startedAt}ms`
+    );
+
+    return result;
+    } catch (error) {
+    console.error(
+      `[PAE QUEUE] FAILED after ${Date.now() - startedAt}ms`,
+      error
+    );
+
+    throw error;
+  }
   }
 }
