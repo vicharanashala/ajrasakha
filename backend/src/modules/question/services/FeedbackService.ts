@@ -377,6 +377,12 @@ export class FeedbackService extends BaseService {
 
         // Remove the questionId from the processedBy user's feedbacksAssigned array
         await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+
+        // All feedback sources are closed — clear the feedback-arrival time so the
+        // question no longer counts as having recent feedback (queue ordering / timeline).
+        await this.questionRepo.updateQuestion(questionId, {
+          recentFeedback: null,
+        } as any);
       }
 
       return {
@@ -434,7 +440,7 @@ export class FeedbackService extends BaseService {
         );
       } else if (source === 'WEB_APPLICATION') {
         response = await fetch(
-          `${dataReleaseUrl}/feedbacks/${feedbackId}/status`,
+          `${WEB_APP_Url}/feedbacks/${feedbackId}/status`,
           {
             method: 'PATCH',
             headers: {
@@ -500,6 +506,12 @@ export class FeedbackService extends BaseService {
 
         // Remove the questionId from the processedBy user's feedbacksAssigned array
         await this.userRepo.removeFeedbacksAssigned(processedBy, questionId);
+
+        // All feedback sources are closed — clear the feedback-arrival time so the
+        // question no longer counts as having recent feedback (queue ordering / timeline).
+        await this.questionRepo.updateQuestion(questionId, {
+          recentFeedback: null,
+        } as any);
       }
 
       return {
