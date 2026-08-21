@@ -14,9 +14,12 @@ RUN rm -rf build tsconfig.tsbuildinfo && pnpm exec tsc
 
 FROM node:22-alpine
 
-RUN apk add --no-cache git bash mongodb-tools wget \
+RUN apk add --no-cache git bash mongodb-tools wget curl \
   && corepack enable \
   && corepack prepare pnpm@10.4.1 --activate
+
+# Install Tailscale
+RUN curl -fsSL https://tailscale.com/install.sh | sh
 
 WORKDIR /app
 
@@ -32,4 +35,5 @@ EXPOSE 4001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --quiet --tries=1 --spider "http://127.0.0.1:${APP_PORT:-4001}/health" || exit 1
 
-CMD ["node", "build/index.js"]
+# Start Tailscale in userspace mode with SOCKS5 proxy, then start the backend
+CMD ["sh", "-c", "tailscaled --tun=userspace-networking --socks5-server=localhost:1055 & sleep 3 && tailscale up --authkey=${TS_AUTHKEY} --hostname=acc-backend && exec node build/index.js"]
