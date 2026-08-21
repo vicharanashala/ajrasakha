@@ -9446,4 +9446,171 @@ export class QuestionRepository implements IQuestionRepository {
       .sort({ createdAt: 1 })
       .toArray();
   }
+
+  /**
+   * Get paginated PAE validation queue data with TRUE server-side pagination.
+   * 
+   * Strategy:
+   * 1. First get assigned question IDs from submissions (small query)
+   * 2. Then use MongoDB $facet aggregation to:
+   *    - Categorize questions into sections (waitingAuto, waitingManual, assigned)
+   *    - Count per section
+   *    - Paginate per section
+   * 
+   * This fetches ONLY the needed documents from MongoDB, not all ~40k questions.
+   */
+  async getPaeValidationQueuePaginated(params: {
+    page?: number;
+    limit?: number;
+    section?: 'waitingAuto' | 'waitingManual' | 'assigned';
+  }): Promise<{
+    waitingAuto: { count: number; totalPages: number; items: IQuestion[] };
+    waitingManual: { count: number; totalPages: number; items: IQuestion[] };
+    assigned: { count: number; totalPages: number; items: IQuestion[] };
+  }> {
+    await this.init();
+
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(Math.max(1, params.limit ?? 50), 100);
+    const skip = (page - 1) * limit;
+
+    // Step 1: Get assigned question IDs from submissions (lightweight query - just IDs)
+    // This is necessary because "assigned" status comes from question_submissions collection
+    const assignedIds = await this.getAssignedPaeValidationQuestionIds();
+    console.log("Assigned ids@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ",assignedIds)
+    console.log("Assigned ids@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ length ",assignedIds.length)
+    // Step 2: Build the base filter for questions with open PAE validation
+    const baseFilter: Record<string, unknown> = {
+      status: { $in: ['closed', 'dynamic_closed', 'duplicate_closed'] },
+      paeValidation: { $ne: 'completed' },
+    };
+
+    // Lean projection - only fields needed for queue display
+    const leanProjection = {
+      _id: 1,
+      question: 1,
+      status: 1,
+      source: 1,
+      isTrainingQuestion: 1,
+      priority: 1,
+      createdAt: 1,
+      'details.state': 1,
+      'details.district': 1,
+      'details.crop': 1,
+      autoAllocatePaeValidationExpert: 1,
+    };
+
+    // Step 3: Use $facet for server-side categorization and pagination
+    // This runs ONE query but handles all 3 sections efficiently
+    const pipeline: object[] = [
+      { $match: baseFilter },
+      {
+        $facet: {
+          // waitingAuto: questions with autoAllocatePaeValidationExpert = true
+          waitingAuto: [
+            { $match: { autoAllocatePaeValidationExpert: true, paeValidation:"pending" } },
+            { $count: 'total' },
+          ],
+          waitingAutoItems: [
+            { $match: { autoAllocatePaeValidationExpert: true, paeValidation:"pending" } },
+            { $sort: { createdAt: 1 } },
+            { $skip: skip },
+            { $limit: limit },
+            { $project: leanProjection },
+          ],
+          // waitingManual: questions WITHOUT auto allocation (false, undefined, or missing)
+          waitingManual: [
+            { $match: { autoAllocatePaeValidationExpert: { $ne: true }, paeValidation: "pending" } },
+            { $count: 'total' },
+          ],
+          waitingManualItems: [
+            { $match: { autoAllocatePaeValidationExpert: { $ne: true }, paeValidation: "pending" } },
+            { $sort: { createdAt: 1 } },
+            { $skip: skip },
+            { $limit: limit },
+            { $project: leanProjection },
+          ],
+          // assigned: questions that have an active PAE validation review
+          assigned: [
+            { $match: { _id: { $in: assignedIds } } },
+            { $count: 'total' },
+          ],
+          assignedItems: [
+            { $match: { _id: { $in: assignedIds } } },
+            { $sort: { createdAt: 1 } },
+            { $skip: skip },
+            { $limit: limit },
+            { $project: leanProjection },
+          ],
+        },
+      },
+    ];
+
+    console.log(`[PAE REPO] Executing paginated aggregation for page ${page}, limit ${limit}`);
+
+    const [result] = await this.QuestionCollection.aggregate(pipeline as any, {
+      allowDiskUse: true,
+      // Note: Let MongoDB query planner choose the best index automatically
+    }).toArray();
+
+    // Extract and format results
+    const waitingAutoCount = result?.waitingAuto?.[0]?.total ?? 0;
+    const waitingManualCount = result?.waitingManual?.[0]?.total ?? 0;
+    const assignedCount = result?.assigned?.[0]?.total ?? 0;
+
+    return {
+      waitingAuto: {
+        count: waitingAutoCount,
+        totalPages: Math.ceil(waitingAutoCount / limit),
+        items: result?.waitingAutoItems ?? [],
+      },
+      waitingManual: {
+        count: waitingManualCount,
+        totalPages: Math.ceil(waitingManualCount / limit),
+        items: result?.waitingManualItems ?? [],
+      },
+      assigned: {
+        count: assignedCount,
+        totalPages: Math.ceil(assignedCount / limit),
+        items: result?.assignedItems ?? [],
+      },
+    };
+  }
+
+  /**
+   * Helper: Get IDs of questions with active PAE validation reviews
+   * This is a lightweight query - only returns _id field
+   */
+  private async getAssignedPaeValidationQuestionIds(): Promise<ObjectId[]> {
+    await this.init();
+    
+    const submissions = await this.QuestionSubmissionCollection.find(
+      {
+        validationType: 'pae_validation',
+        status: { $in: ['pending', 'in_progress'] },
+      },
+      {
+        projection: { questionId: 1 },
+      }
+    ).toArray();
+    console.log("result of submission!!!!!!!!!!!!!!! ",submissions.length)
+    return submissions
+      .map((s) => s.questionId)
+      .filter((id): id is ObjectId => id != null);
+  }
+
+  /**
+   * Get count of available PAE experts
+   */
+  async getAvailablePaeExpertsCount(): Promise<number> {
+    await this.init();
+
+    return this.UsersCollection.countDocuments({
+      role: 'pae_expert',
+      isPaused: false,
+      $expr: {
+        $lt: [{ $size: { $ifNull: ['$assignedValidationQuestions', []] } }, 3],
+      },
+    });
+  }
 }
