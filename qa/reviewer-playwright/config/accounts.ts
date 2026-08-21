@@ -5,7 +5,7 @@ export type Account = {
 
 export const expertAccounts: Record<string, Account> = {};
 
-for (let i = 1; i <= 8; i++) {
+for (let i = 1; i <= 10; i++) {
   const suffix = i === 1 ? "" : `_${i}`;
 
   const email = process.env[`EXPERT_EMAIL${suffix}`];

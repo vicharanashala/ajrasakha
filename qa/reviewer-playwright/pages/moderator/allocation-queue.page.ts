@@ -1,4 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { ModeratorQuestionDetailsPage } from "./question-details.page.js";
+import { ModeratorDashboardPage } from "./dashboard.page.js";
 
 export class ModeratorAllocationQueuePage {
   readonly heading: Locator;
@@ -71,8 +73,16 @@ export class ModeratorAllocationQueuePage {
 
     this.allocationSection = this.heading.locator("xpath=ancestor::section[1]");
 
+    // Case-insensitive deliberately: auto-allocated cards render the
+    // generic label as lowercase "expert" (confirmed via real DOM:
+    // `<p title="expert">expert</p>`), while manually-allocated cards
+    // (via "Select Experts") render it capitalized ("Expert"). An
+    // exact-match "Expert" filter silently matches zero auto-allocated
+    // cards — this was the actual cause of AAR-001..004 timing out
+    // waiting for an allocation card that was already on the page the
+    // whole time.
     this.allocationCards = this.page.locator(".group").filter({
-      has: this.page.getByText("Expert", { exact: true }),
+      has: this.page.getByText(/^expert$/i),
     });
     // Expert email displayed on the card
     this.expertNames = page.locator('p[title*="@"]');
@@ -235,6 +245,31 @@ export class ModeratorAllocationQueuePage {
 
   async expectAllocationCards(): Promise<void> {
     await expect(this.allocationCards.first()).toBeVisible();
+  }
+
+  /**
+   * Waits for auto-allocation to actually assign an initial reviewer
+   * after a question is created.
+   *
+   * Observed to sometimes take noticeably longer than the project's
+   * default ~10s expect timeout on the very FIRST load of a freshly
+   * created question — this is a real async backend delay before the
+   * allocation card appears at all, not the HTTP-caching staleness
+   * documented on the expert side (ExpertDashboardPage.reload()): this
+   * is an initial load, not a repeated reload of an already-stale page,
+   * so there's nothing to bypass here — just genuinely needs more time
+   * on occasion. A single generous `expect(...).toBeVisible({timeout})`
+   * is enough (Playwright's built-in polling already re-checks the DOM
+   * continuously within that window); no manual reload loop needed.
+   *
+   * Use this instead of the plain expectAllocationCards() /
+   * getFirstAllocatedExpertEmail() right after opening a freshly
+   * created question when auto-allocation is expected to assign
+   * someone automatically (i.e. whenever auto-allocate is left ON,
+   * as in the auto-allocation random-review workflow).
+   */
+  async waitForAutoAllocatedExpert(timeout = 45_000): Promise<void> {
+    await expect(this.allocationCards.first()).toBeVisible({ timeout });
   }
 
   async expectExpertsVisible(): Promise<void> {
@@ -446,6 +481,204 @@ export class ModeratorAllocationQueuePage {
 
     throw new Error(`No expert status found for ${email}`);
   }
+
+  /**
+   * Returns the email of whichever allocated expert currently has the
+   * active turn (status "Waiting" or "Your Turn" — confirmed via real
+   * DOM inspection that "Waiting" specifically means "action needed
+   * from this person now", not merely queued; its tooltip reads
+   * "Expert is currently reviewing Expert's answer").
+   *
+   * Needed for auto-allocation-driven flows, where the backend — not
+   * the test — decides which expert gets the next turn. Unlike the
+   * manual-allocation triple-acceptance workflow (which always knows
+   * the reviewer order up front: EXPERT_EMAIL_2, then _3, then _4),
+   * this has to ask the moderator's own view who's active right now
+   * and dynamically log in as that person via the generic
+   * `loginAsExpert(email)` fixture.
+   */
+  async getActiveExpertEmail(): Promise<string> {
+    const count = await this.allocationCards.count();
+
+    for (let i = 0; i < count; i++) {
+      const card = this.allocationCards.nth(i);
+      const text = (await card.innerText()).trim();
+
+      if (/\b(Waiting|Your Turn)\b/.test(text)) {
+        const match = text.match(/[\w.+-]+@annam\.ai/);
+
+        if (match) {
+          return match[0];
+        }
+      }
+    }
+
+    throw new Error(
+      "getActiveExpertEmail: no card in the allocation queue is " +
+        'currently "Waiting" / "Your Turn" (i.e. active). Either the ' +
+        "queue hasn't caught up yet (try reloading the moderator page " +
+        "first) or every allocated expert has already acted.",
+    );
+  }
+
+  /**
+   * All expert emails currently shown in the Allocation Queue, in
+   * display order. Used to count how many distinct experts have
+   * participated in an auto-allocation review chain so far.
+   */
+  async getAllocatedExpertEmails(): Promise<string[]> {
+    const count = await this.expertNames.count();
+    const emails: string[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const email = (await this.expertNames.nth(i).textContent())?.trim();
+
+      if (email) {
+        emails.push(email);
+      }
+    }
+
+    return emails;
+  }
+
+  /**
+   * Logs email + status for every card currently in the queue.
+   * Purely diagnostic — call this whenever waitForNextActiveExpert()
+   * is about to give up, so a failed run's console output shows
+   * exactly what the queue looked like instead of just "not found".
+   */
+  async logAllocationSnapshot(label: string): Promise<void> {
+    const emails = await this.getAllocatedExpertEmails();
+
+    console.log(
+      `[AAR] Allocation snapshot (${label}): ${emails.length} card(s)`,
+    );
+
+    for (const email of emails) {
+      try {
+        const status = await this.getExpertStatus(email);
+        console.log(`[AAR]   - ${email}: ${status}`);
+      } catch {
+        console.log(`[AAR]   - ${email}: <status not found>`);
+      }
+    }
+  }
+
+  // Lazily-initialized CDP session used to force real cache bypass on
+  // reload() — same fix, same reasoning as
+  // ExpertDashboardPage.ensureCacheDisabled(): a plain page.reload()
+  // still honors normal browser HTTP caching, which can make an
+  // already-updated queue look permanently stale to a tight poll loop.
+  private cacheDisabled = false;
+
+  private async ensureCacheDisabled(): Promise<void> {
+    if (this.cacheDisabled) {
+      return;
+    }
+
+    try {
+      const client = await this.page.context().newCDPSession(this.page);
+      await client.send("Network.setCacheDisabled", { cacheDisabled: true });
+      this.cacheDisabled = true;
+    } catch (error) {
+      console.log(
+        `ModeratorAllocationQueuePage: could not disable cache via CDP ` +
+          `(${(error as Error).message}); reload() may see cached responses.`,
+      );
+    }
+  }
+
+  /**
+   * Force a genuine (cache-bypassed) refetch of the current question's
+   * Allocation Queue view.
+   */
+  async reload(): Promise<void> {
+    await this.ensureCacheDisabled();
+    await this.page.reload();
+    await this.expectOpened();
+  }
+
+  /**
+   * Polls (reloading, cache bypassed) until a DIFFERENT expert than
+   * `previousExpert` becomes the active ("Waiting"/"Your Turn") reviewer.
+   *
+   * This is the moderator-side equivalent of
+   * ExpertDashboardPage.waitForQuestionEnabled(): after any action
+   * (initial answer submitted, or a review accepted/rejected/modified),
+   * the backend needs a moment to hand the turn to the next expert, and
+   * a single one-shot getActiveExpertEmail() call can either be too
+   * early (queue hasn't caught up) or read a stale cached response
+   * forever. Bounded and logged so a stall is diagnosable in seconds,
+   * not indistinguishable from a 15-minute hang.
+   */
+  async waitForNextActiveExpert(
+    page: Page,
+    moderatorQuestionDetailsPage: ModeratorQuestionDetailsPage,
+    moderatorDashboard: ModeratorDashboardPage,
+    moderatorAllocationQueuePage: ModeratorAllocationQueuePage,
+    question: string,
+    previousExpert: string | null,
+    timeout = 60_000,
+    pollInterval = 3_000,
+  ): Promise<string> {
+    const deadline = Date.now() + timeout;
+    let attempt = 0;
+
+    while (Date.now() < deadline) {
+      attempt++;
+
+      try {
+        console.log(
+          `[AAR] Checking for next active expert — attempt ${attempt}`,
+        );
+
+        // If the question is currently open, exit it.
+        await moderatorQuestionDetailsPage.exit();
+
+        // Re-open the SAME question to get fresh allocation state.
+        await moderatorDashboard.openQuestion(question);
+
+        // Wait for the allocation details to load.
+        await moderatorAllocationQueuePage.expectOpened();
+
+        const activeExpert =
+          await moderatorAllocationQueuePage.getActiveExpertEmail();
+
+        console.log(
+          `[AAR] Attempt ${attempt}: active="${activeExpert}", ` +
+            `previous="${previousExpert}"`,
+        );
+
+        if (activeExpert && activeExpert !== previousExpert) {
+          console.log(`[AAR] Found next active expert: ${activeExpert}`);
+
+          return activeExpert;
+        }
+
+        console.log(`[AAR] No new active expert yet on attempt ${attempt}`);
+
+        // We are currently inside the question after checking it.
+        // Exit so the next iteration starts cleanly.
+        await moderatorQuestionDetailsPage.exit();
+      } catch (error) {
+        console.log(
+          `[AAR] Attempt ${attempt} failed: ${(error as Error).message}`,
+        );
+      }
+
+      await page.waitForTimeout(pollInterval);
+    }
+
+    await moderatorAllocationQueuePage.logAllocationSnapshot(
+      "waitForNextActiveExpert timeout",
+    );
+
+    throw new Error(
+      `No new active expert different from "${previousExpert}" ` +
+        `appeared within ${timeout}ms.`,
+    );
+  }
+
   async expectRejectionReason(reason: string): Promise<void> {
     await expect(this.page.getByText(reason, { exact: true })).toBeVisible();
   }
