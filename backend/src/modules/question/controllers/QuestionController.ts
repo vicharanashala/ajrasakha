@@ -3632,17 +3632,33 @@ export class QuestionController {
   @HttpCode(200)
   @Authorized()
   @OpenAPI({ summary: 'PAE Validation queue details — waiting/assigned questions + available reviewers' })
-  async getPaeValidationQueueDetails(@CurrentUser() user: IUser) {
+  async getPaeValidationQueueDetails(
+    @CurrentUser() user: IUser,
+    @QueryParams() query: { section?: string; page?: number; limit?: number }
+  ) {
     console.log('[QuestionController] getPaeValidationQueueDetails: user role:', user.role);
     const startedAt = Date.now();
     try {
     console.log(
-      `[PAE QUEUE API] Request started. user=${user._id}, role=${user.role}`
+      `[PAE QUEUE API] Request started. user=${user._id}, role=${user.role}, query=${JSON.stringify(query)}`
     );
     if (user.role === 'expert') {
       throw new ForbiddenError('Experts cannot view the PAE Validation queue');
     }
-    const data = await this.questionService.getPaeValidationQueueDetails();
+    
+    // Parse and validate params
+    const params: { section?: 'waitingAuto' | 'waitingManual' | 'assigned'; page?: number; limit?: number } = {};
+    if (query.section && ['waitingAuto', 'waitingManual', 'assigned'].includes(query.section)) {
+      params.section = query.section as 'waitingAuto' | 'waitingManual' | 'assigned';
+    }
+    if (query.page) {
+      params.page = Math.max(1, parseInt(String(query.page), 10) || 1);
+    }
+    if (query.limit) {
+      params.limit = Math.min(100, Math.max(1, parseInt(String(query.limit), 10) || 50));
+    }
+    
+    const data = await this.questionService.getPaeValidationQueueDetails(params);
     console.log(
       `[PAE QUEUE API] Request completed in ${Date.now() - startedAt}ms`
     );

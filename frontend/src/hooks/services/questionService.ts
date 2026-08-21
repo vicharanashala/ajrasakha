@@ -79,9 +79,9 @@ export type FeedbackQueueDetailsResponse = {
 
 /** Data for the dedicated Pae tab. */
 export type PaeValidationQueueDetailsResponse = {
-  waitingAuto: { count: number; items: QueueQuestionItem[] };
-  waitingManual: { count: number; items: QueueQuestionItem[] };
-  assigned: { count: number; items: QueueQuestionItem[] };
+  waitingAuto: { count: number; items: QueueQuestionItem[]; page?: number; totalPages?: number };
+  waitingManual: { count: number; items: QueueQuestionItem[]; page?: number; totalPages?: number };
+  assigned: { count: number; items: QueueQuestionItem[]; page?: number; totalPages?: number };
   availablePaeExperts: { count: number; items: QueueExpertItem[] };
 };
 
@@ -1406,11 +1406,29 @@ export class QuestionService {
     return res?.data ?? null;
   }
 
-  async getPaeValidaitonQueueDetails(): Promise<PaeValidationQueueDetailsResponse | null> {
+  async getPaeValidaitonQueueDetails(params?: {
+    section?: 'waitingAuto' | 'waitingManual' | 'assigned';
+    page?: number;
+    limit?: number;
+  }): Promise<PaeValidationQueueDetailsResponse | null> {
+    const searchParams = new URLSearchParams();
+    if (params?.section) {
+      searchParams.set('section', params.section);
+    }
+    if (params?.page) {
+      searchParams.set('page', String(params.page));
+    }
+    if (params?.limit) {
+      searchParams.set('limit', String(params.limit));
+    }
+    
+    const queryString = searchParams.toString();
+    const url = `${this._baseUrl}/pae-val/queue-details${queryString ? `?${queryString}` : ''}`;
+    
     const res = await apiFetch<{
       success: boolean;
       data: PaeValidationQueueDetailsResponse;
-    }>(`${this._baseUrl}/pae-val/queue-details`, {
+    }>(url, {
       method: "GET",
     });
     return res?.data ?? null;
