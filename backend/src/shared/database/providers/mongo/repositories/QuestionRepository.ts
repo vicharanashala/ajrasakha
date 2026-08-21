@@ -9580,20 +9580,15 @@ export class QuestionRepository implements IQuestionRepository {
   /**
    * Helper: Get IDs of questions with active PAE validation reviews
    * This is a lightweight query - only returns _id field
+   * Uses paeValidation array with paeFinishedAt = null (matching findOpenPaeValidationReviews logic)
    */
   private async getAssignedPaeValidationQuestionIds(): Promise<ObjectId[]> {
     await this.init();
     
-    const submissions = await this.QuestionSubmissionCollection.find(
-      {
-        validationType: 'pae_validation',
-        status: { $in: ['pending', 'in_progress'] },
-      },
-      {
-        projection: { questionId: 1 },
-      }
-    ).toArray();
-    console.log("result of submission!!!!!!!!!!!!!!! ",submissions.length)
+    const submissions = await this.QuestionSubmissionCollection.aggregate([
+      { $match: { paeValidation: { $elemMatch: { paeFinishedAt: null } } } },
+      { $project: { questionId: 1 } },
+    ]).toArray();
     return submissions
       .map((s) => s.questionId)
       .filter((id): id is ObjectId => id != null);
