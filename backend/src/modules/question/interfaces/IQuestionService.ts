@@ -885,4 +885,20 @@ export interface IQuestionService {
   ): Promise<{ success: boolean; message: string }>;
 
   getPaeValidationQueueDetails(): Promise<PaeValidationQueueDetails>;
+
+  ensureNormalisedCrop(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<string | null>;
+
+  ensureNormalisedLocation(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<{valid: true}>;
+
+  freeRoleAssigneeOnStatusChange(
+    questionId: string,
+    newStatus?: string,
+    session?: ClientSession,
+  ): Promise<void>;
 }

@@ -11,6 +11,11 @@ import { NotificationRepository } from '#root/shared/database/providers/mongo/re
 import { RequestRepository } from '#root/shared/database/providers/mongo/repositories/RequestRepository.js';
 import { ReviewRepository } from '#root/shared/database/providers/mongo/repositories/ReviewRepository.js';
 import { AnswerService } from '../answer/services/AnswerService.js';
+import { AnswerReviewService } from '../answer/services/AnswerReviewService.js';
+import { AnswerApprovalService } from '../answer/services/AnswerApprovalService.js';
+import { AnswerSubmissionService } from '../answer/services/AnswerSubmissionService.js';
+import { AnswerAiService } from '../answer/services/AnswerAiService.js';
+import { AnswerFaqService } from '../answer/services/AnswerFaqService.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
 import { QuestionController } from '../question/controllers/QuestionController.js';
 import { QuestionService } from '../question/services/QuestionService.js';
@@ -92,6 +97,26 @@ export const coreContainerModule = new ContainerModule(options => {
     .to(QuestionMaintenanceService)
     .inSingletonScope();
   options.bind(CORE_TYPES.AnswerService).to(AnswerService).inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AnswerReviewService)
+    .to(AnswerReviewService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AnswerApprovalService)
+    .to(AnswerApprovalService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AnswerSubmissionService)
+    .to(AnswerSubmissionService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AnswerAiService)
+    .to(AnswerAiService)
+    .inSingletonScope();
+  options
+    .bind(GLOBAL_TYPES.AnswerFaqService)
+    .to(AnswerFaqService)
+    .inSingletonScope();
   options.bind(CORE_TYPES.ContextService).to(ContextService).inSingletonScope();
   options.bind(CORE_TYPES.CommentService).to(CommentService).inSingletonScope();
   options.bind(CORE_TYPES.RequestService).to(RequestService).inSingletonScope();
