@@ -982,6 +982,49 @@ Query: nearby market for rice in Guwahati
 
 Query: What is wheat price today and which mandis are near me?
 {"action":["get_today_price","search_markets"],"nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+
+Query: yesterday's onion price near me
+{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"21-Aug-2026","to_date":"21-Aug-2026","market_name":null,"state":null,"sort_order":null}
+
+Query: day before yesterday rice price
+{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"20-Aug-2026","to_date":"20-Aug-2026","market_name":null,"state":null,"sort_order":null}
+
+Query: highest arrival quantity for cotton
+{"action":"get_extreme_arrival","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":"highest"}
+
+Query: lowest modal price of onion last week
+{"action":"get_extreme_arrival","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":"lowest"}
+
+Relative date rules:
+- "yesterday" → set from_date and to_date to yesterday's date (Today's Date minus 1 day), use action="get_price_history"
+- "day before yesterday" / "2 days ago" → from_date = to_date = Today's Date minus 2 days, use action="get_price_history"
+- "kal" (Hindi for yesterday) → same as "yesterday"
+- "parso" (Hindi for day before yesterday) → same as "day before yesterday"
+- For highest/lowest arrival or price with no time period → use lookback_days=7
+
+Date range rules (CRITICAL):
+- "from X to Y" / "between X and Y" / "X se Y tak" → set from_date=X and to_date=Y (DIFFERENT values)
+  Example: "from 1st august to 22 august" → from_date="01-Aug-2026", to_date="22-Aug-2026"
+  Example: "between 5 july and 15 july" → from_date="05-Jul-2026", to_date="15-Jul-2026"
+- NEVER set from_date == to_date for a date range query with two different dates
+- Date format: always DD-Mon-YYYY using the current year from Today's Date
+  e.g. "1st august" → "01-Aug-2026", "22 august" → "22-Aug-2026", "5th july" → "05-Jul-2026"
+  Ordinal suffixes (st, nd, rd, th) should be stripped: "1st" → "01", "22nd" → "22", "3rd" → "03"
+- When from_date and to_date are both set, always set lookback_days=null
+- Single date: from_date == to_date (e.g. "price on 13 august")
+- Date range: from_date != to_date (e.g. "from 1 august to 22 august")
+
+Query: tomato price in Assam from 1st august to 22 august
+{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"01-Aug-2026","to_date":"22-Aug-2026","market_name":null,"state":"Assam","sort_order":null}
+
+Query: wheat price from 5 july to 15 july in Maharashtra
+{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"05-Jul-2026","to_date":"15-Jul-2026","market_name":null,"state":"Maharashtra","sort_order":null}
+
+Query: rice price between 1st and 10th august in Kottayam mandi
+{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"01-Aug-2026","to_date":"10-Aug-2026","market_name":"Kottayam","state":null,"sort_order":null}
+
+Query: onion price from 10 august to 20 august near me
+{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Aug-2026","to_date":"20-Aug-2026","market_name":null,"state":null,"sort_order":null}
 """
 
 DAILY_PRICE_ANSWER_PROMPT = """You are AjraSakha helping an Indian farmer with mandi/commodity prices.

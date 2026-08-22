@@ -25,6 +25,8 @@ SANITIZER_MODEL = MINIMAX_MODEL       # Relevance scoring
 TRANSLATE_MODEL = CLAUDE_MODEL        # Translation uses Claude Sonnet (avoid crop substitution)
 FOLLOW_UP_MODEL = CLAUDE_MODEL        # Translation/transformation - Sonnet for quality
 CROP_CLASSIFY_MODEL = MINIMAX_MODEL   # Binary classification
+DAILY_PRICE_MODEL = os.getenv("DAILY_PRICE_MODEL", CLAUDE_MODEL)  # Intent & synthesis use Anthropic Claude
+
 
 
 def get_minimax_chat_model(**overrides):

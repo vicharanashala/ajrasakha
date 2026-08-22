@@ -840,9 +840,15 @@ def mandi_price_tool(
                 if _has_price_rows(latest):
                     records = latest.get("price_records") or []
                     latest_date = records[0].get("date") if records else None
+                    # Use the requested date in the notice (not always "Today's")
+                    requested_date_str = from_date or to_date
+                    if requested_date_str:
+                        unavail_msg = f"Price data for {requested_date_str} is not available."
+                    else:
+                        unavail_msg = "Today's price, modal rate, or arrival quantity is not available."
                     latest.setdefault("resolution", {})["latest_price_notice"] = (
-                        "Today's price, modal rate, or arrival quantity is not available. "
-                        "Showing the latest available data"
+                        unavail_msg
+                        + " Showing the latest available data"
                         + (f" (as of {latest_date})" if latest_date else "") + "."
                     )
                     if latest_date:
@@ -1059,7 +1065,7 @@ def mandi_price_tool(
         c_list = [commodity_name] if isinstance(commodity_name, str) else commodity_name
         effective_lookback = lookback_days
         if effective_lookback is None and from_date is None and to_date is None:
-            effective_lookback = 1
+            effective_lookback = 7  # search last 7 days by default for highest/lowest queries
         result = _fetch_price_data(
             commodity_list=c_list,
             market_name=market_name, state=state,
@@ -1213,7 +1219,7 @@ def mandi_price_tool(
         c_list = [commodity_name] if isinstance(commodity_name, str) else commodity_name
         effective_lookback = lookback_days
         if effective_lookback is None and from_date is None and to_date is None:
-            effective_lookback = 1
+            effective_lookback = 7  # search last 7 days by default for highest/lowest queries
         result = _fetch_price_data(
             commodity_list=c_list,
             market_name=market_name, state=state,
