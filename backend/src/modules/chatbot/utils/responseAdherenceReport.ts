@@ -234,11 +234,14 @@ export function buildResponseAdherenceHtmlTable(
 ): string {
   const rows = buildRowExportData(d, fallbackDate);
   const highlightRows = rows.filter(row => HIGHLIGHT_ROW_IDS.includes(row.id));
-  const mainRows = rows.filter(row => !HIGHLIGHT_ROW_IDS.includes(row.id));
+  // const mainRows = rows.filter(row => !HIGHLIGHT_ROW_IDS.includes(row.id));
 
-  const sectionLabel =
-    `<div style="margin:4px 0 10px 2px;font-family:${THEME.font};font-size:13px;font-weight:700;` +
-    `color:${THEME.heading};text-transform:uppercase;letter-spacing:.04em;">Additional Breakdowns</div>`;
+  // const sectionLabel =
+  //   `<div style="margin:4px 0 10px 2px;font-family:${THEME.font};font-size:13px;font-weight:700;` +
+  //   `color:${THEME.heading};text-transform:uppercase;letter-spacing:.04em;">Additional Breakdowns</div>`;
 
-  return `${renderTableCard(highlightRows, false)}${mainRows.length ? sectionLabel : ''}${renderTableCard(mainRows, true)}`;
+  // Additional Breakdowns table temporarily disabled in the email body (2026-08-20, per request).
+  // To restore: uncomment mainRows/sectionLabel above and swap back to the return below.
+  // return `${renderTableCard(highlightRows, false)}${mainRows.length ? sectionLabel : ''}${renderTableCard(mainRows, true)}`;
+  return `${renderTableCard(highlightRows, false)}`;
 }
