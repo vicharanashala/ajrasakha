@@ -21,6 +21,7 @@ RUN apk add --no-cache git bash mongodb-tools wget curl dumb-init \
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml* ./
+COPY scripts ./scripts
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/node_modules ./node_modules
 
