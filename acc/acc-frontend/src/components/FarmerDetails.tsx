@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Input } from "./atoms/input";
 import { Label } from "./atoms/label";
 import {
-  FileText,
   Info,
   CheckCircle2,
   Clock,
@@ -106,43 +105,41 @@ export const FarmerDetails = ({
   const activeProfile: FarmerProfile = farmer || {};
 
   const inputClass =
-    "h-8 sm:h-8.5 w-full rounded-lg px-2.5 py-1 text-xs border border-zinc-200/80 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/70 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/60 transition-all font-medium";
+    "h-7 w-full rounded-md px-2 py-0.5 text-xs border border-zinc-200/80 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/70 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/60 transition-all font-medium";
 
   return (
     <Card
       className={cn(
-        "border border-zinc-200/50 dark:border-zinc-800/50 bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg shadow-2xl rounded-2xl overflow-hidden transition-all duration-300",
+        "border border-zinc-200/50 dark:border-zinc-800/50 bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg shadow-2xl rounded-xl overflow-hidden transition-all duration-300 flex flex-col !gap-0 !p-0 !py-0",
         className,
       )}
     >
-      <CardHeader className="!py-3 !px-4 border-b border-zinc-200/50 dark:border-zinc-800/60 bg-zinc-50/40 dark:bg-zinc-900/30">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-indigo-500/10 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200/30 dark:border-indigo-800/30 shadow-sm">
-            <FileText className="h-4 w-4" />
-          </div>
-          <div>
-            <CardTitle className="text-xs sm:text-sm font-black tracking-wider uppercase text-zinc-900 dark:text-zinc-100">
+      <CardHeader className="!py-1.5 !px-3.5 !pb-1.5 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0 !gap-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+            <CardTitle className="text-xs font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">
               Farmer Details
             </CardTitle>
-            <p className="text-[10px] text-amber-600 dark:text-amber-400/90 flex items-center gap-1 font-medium mt-0.5">
-              <Info className="h-3 w-3 shrink-0" />
-              <span>Fill / Ask during call</span>
-            </p>
           </div>
+          <span className="text-[10px] text-amber-600 dark:text-amber-400/90 font-medium flex items-center gap-1">
+            <Info className="h-3 w-3 shrink-0" />
+            Fill / Ask during call
+          </span>
         </div>
       </CardHeader>
 
-      <CardContent className="p-3 sm:p-3.5 space-y-3">
+      <CardContent className="!p-2.5 !px-3 space-y-1.5 flex-1 flex flex-col min-h-0 overflow-hidden">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center text-zinc-400">
-            <Loader2 className="h-5 w-5 animate-spin text-indigo-500 mb-2" />
+          <div className="flex flex-col items-center justify-center py-8 text-center text-zinc-400">
+            <Loader2 className="h-5 w-5 animate-spin text-indigo-500 mb-1.5" />
             <span className="text-xs">Loading farmer profile...</span>
           </div>
         ) : (
-          <div className="space-y-2.5 max-h-[calc(100vh-230px)] overflow-y-auto pr-1 custom-scrollbar">
+          <div className="space-y-1.5 flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
             {/* 1. Farmer Name */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
                 <span>Farmer Name</span>
                 <span className="text-red-500 font-bold">*</span>
               </Label>
@@ -155,8 +152,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 2. Farmer Phone */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
                 <span>Farmer Phone</span>
                 <span className="text-red-500 font-bold">*</span>
               </Label>
@@ -172,8 +169,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 3. Village / Location */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
                 <span>Village / Location</span>
                 <span className="text-red-500 font-bold">*</span>
               </Label>
@@ -186,8 +183,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 4. District */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 District
               </Label>
               <Input
@@ -199,8 +196,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 5. State */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 State
               </Label>
               <Input
@@ -212,8 +209,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 6. Age */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Age
               </Label>
               <Input
@@ -225,8 +222,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 7. Gender */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Gender
               </Label>
               <Input
@@ -238,8 +235,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 8. Language Preference */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Language Preference
               </Label>
               <Input
@@ -251,8 +248,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 9. Primary Crop */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
                 <span>Primary Crop</span>
                 <span className="text-red-500 font-bold">*</span>
               </Label>
@@ -265,8 +262,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 10. Secondary Crop */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Secondary Crop
               </Label>
               <Input
@@ -278,8 +275,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 11. Block */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Block
               </Label>
               <Input
@@ -291,8 +288,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 12. Years of Experience */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Years of Experience
               </Label>
               <Input
@@ -308,8 +305,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 13. Crops Cultivated */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Crops Cultivated
               </Label>
               <Input
@@ -325,8 +322,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 14. Highest Educated */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Highest Educated
               </Label>
               <Input
@@ -338,8 +335,8 @@ export const FarmerDetails = ({
             </div>
 
             {/* 15. Smartphones */}
-            <div className="space-y-1">
-              <Label className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Smartphones in Household
               </Label>
               <Input
@@ -356,11 +353,11 @@ export const FarmerDetails = ({
           </div>
         )}
 
-        <div className="pt-2.5 flex items-center justify-between gap-2 border-t border-zinc-200/50 dark:border-zinc-800/60">
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold">
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+        <div className="pt-1.5 flex items-center justify-between gap-2 border-t border-zinc-200/50 dark:border-zinc-800/60 shrink-0">
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+            <CheckCircle2 className="h-3 w-3 shrink-0" />
             <span>Form Auto-Save ON</span>
-            <Clock className="h-3 w-3 ml-0.5 opacity-70 shrink-0" />
+            <Clock className="h-2.5 w-2.5 ml-0.5 opacity-70 shrink-0" />
           </div>
         </div>
       </CardContent>

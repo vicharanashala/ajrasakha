@@ -81,6 +81,7 @@ export interface CallHistoryItem {
     caller?: { transcript: string; translation: string; detectedLanguage: string };
     agent?: { transcript: string; translation: string; detectedLanguage: string; userid?: string; username?: string; email?: string };
     recording?: CallRecordingItem;
+    recordings?: CallRecordingItem[];
     queries?: CallQuery[];
     QA_pairs?: QAPairs;
   };
@@ -362,6 +363,7 @@ export class PlivoService {
     domain?: string;
     state?: string;
     district?: string;
+    block?: string;
     crop?: string;
     season?: string;
     limit?: number;
@@ -375,6 +377,7 @@ export class PlivoService {
     if (params?.domain) queryParams.append('domain', params.domain);
     if (params?.state) queryParams.append('state', params.state);
     if (params?.district) queryParams.append('district', params.district);
+    if (params?.block) queryParams.append('block', params.block);
     if (params?.crop) queryParams.append('crop', params.crop);
     if (params?.season) queryParams.append('season', params.season);
     if (params?.limit) queryParams.append('limit', params.limit.toString());

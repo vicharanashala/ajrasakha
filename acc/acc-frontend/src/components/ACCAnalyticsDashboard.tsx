@@ -15,8 +15,6 @@ import {
   Filter, 
   BarChart3, 
   LineChart as LineChartIcon,
-  Download,
-  Search,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -26,20 +24,10 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import CountUp from "react-countup";
 import { useQuery } from "@tanstack/react-query";
 import { plivoService } from "../hooks/api/plivo/api";
-import { getCurrentUser } from "../hooks/api/api-fetch";
-import { getIdToken } from "firebase/auth";
-
-import { env } from "../config/env";
 import { QueryFilterBar } from "./QueryFilterBar";
 import { renderMarkdown, stripMarkdown } from "../utils/markdownRenderer";
 
 const COLORS = ["#0F5132", "#D97706", "#2E7D32", "#3B82F6", "#7C3AED"];
-
-// Add custom styles for chart labels
-const chartLabelStyle = {
-  fill: "currentColor",
-  color: "inherit",
-};
 
 const StatCard = ({ title, value, icon: Icon, description, color }: { title: string; value: number; icon: any; description?: string; color?: string }) => {
   return (
@@ -162,7 +150,6 @@ export const ACCAnalyticsDashboard = () => {
   const [selectedSeason, setSelectedSeason] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [isDownloading, setIsDownloading] = useState(false);
 
   // Debounce text inputs (search, crop, district, block)
   useEffect(() => {
@@ -202,7 +189,7 @@ export const ACCAnalyticsDashboard = () => {
     endDate: customEndDate ? new Date(customEndDate).toISOString() : undefined,
   });
 
-  const { data: queriesData, isLoading: isLoadingQueries, isFetching: isFetchingQueries, error: queriesError, refetch: refetchQueries } = useQuery({
+  const { data: queriesData, isLoading: isLoadingQueries, isFetching: _isFetchingQueries, error: queriesError, refetch: refetchQueries } = useQuery({
     queryKey: [
       "acc-queries",
       customStartDate,
@@ -252,74 +239,6 @@ export const ACCAnalyticsDashboard = () => {
       queriesLength: queriesData?.queries?.length
     });
   }, [user, isLoadingQueries, queriesError, queriesData]);
-
-  const handleDownloadQueries = async () => {
-    setIsDownloading(true);
-    try {
-      const params = new URLSearchParams();
-      if (customStartDate) {
-        params.append("startDate", new Date(customStartDate).toISOString());
-      }
-      if (customEndDate) {
-        params.append("endDate", new Date(customEndDate).toISOString());
-      }
-      if (debouncedSearch) {
-        params.append("search", debouncedSearch);
-      }
-      if (selectedDomain && selectedDomain !== "All") {
-        params.append("domain", selectedDomain);
-      }
-      if (selectedState && selectedState !== "All") {
-        params.append("state", selectedState);
-      }
-      if (debouncedDistrict) {
-        params.append("district", debouncedDistrict);
-      }
-      if (debouncedBlock) {
-        params.append("block", debouncedBlock);
-      }
-      if (debouncedCrop) {
-        params.append("crop", debouncedCrop);
-      }
-      if (selectedSeason && selectedSeason !== "All") {
-        params.append("season", selectedSeason);
-      }
-
-      const firebaseUser = await getCurrentUser();
-      let token = "";
-      if (firebaseUser) {
-        token = await getIdToken(firebaseUser);
-      }
-
-      const baseApi = env.apiBaseUrl();
-      const rawUrl = `${baseApi}/plivo/download-acc-queries?${params.toString()}`;
-      const url = rawUrl.includes('localhost:4000') ? rawUrl.replace('localhost:4000', 'localhost:4001') : rawUrl;
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const response = await fetch(url, { headers });
-      if (!response.ok) {
-        throw new Error(`Failed to download queries: ${response.statusText}`);
-      }
-
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.setAttribute("download", `acc_queries_${Date.now()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (err: any) {
-      console.error("Failed to download queries:", err);
-      alert(err.message || "Failed to download queries");
-    } finally {
-      setIsDownloading(false);
-    }
-  };
 
   const handleRefreshAll = () => {
     refetch();

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader } from "./atoms/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./atoms/select";
 import { Button } from "./atoms/button";
 import {

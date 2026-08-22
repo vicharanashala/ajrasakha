@@ -105,4 +105,19 @@ export class AccAgentService {
     }
     return result;
   }
+
+  async generateQuestionsFromCallContext(
+    query: string,
+    state?: string,
+    crop?: string,
+    district?: string,
+    domain?: string | string[],
+    season?: string
+  ): Promise<GeneratedQuestion[] | null> {
+    const result = await apiFetch<{ QnA: GeneratedQuestion[] }>(`${this.baseUrl}/generate-from-call`, {
+      method: 'POST',
+      body: JSON.stringify({ query, state, crop, district, domain, season }),
+    });
+    return result?.QnA || null;
+  }
 }

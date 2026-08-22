@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { appConfig } from '../../../config/app.js';
 import { WebSocket } from 'ws';
 import plivo from 'plivo';
+import axios from 'axios';
 import { ObjectId } from 'mongodb';
 import { PLIVO_TYPES } from '../types.js';
 import type { ICallDetailsRepository } from '#shared/database/interfaces/ICallDetailsRepository.js';
@@ -14,7 +15,6 @@ interface WsSession {
 
 interface SarvamStreamSession {
   transcribeWsSession: WsSession;
-  translateWsSession: WsSession;
   onTranscript: (result: {
     track: 'inbound' | 'outbound';
     originalText: string;
@@ -22,10 +22,8 @@ interface SarvamStreamSession {
     detectedLanguage: string;
   }) => void;
   lastOriginal: string;
-  lastTranslate: string;
   detectedLanguage: string;
   pendingOriginal: string;
-  pendingTranslate: string;
   debounceTimer: NodeJS.Timeout | null;
 }
 
@@ -65,6 +63,53 @@ export class PlivoService {
     }
   }
 
+  /**
+   * Fast text translation using Sarvam AI's sarvam-translate:v1 model.
+   * Auto-detects English / ASCII and returns instantly (0ms).
+   * Gracefully falls back to original text on timeout / error so stream never hangs.
+   */
+  async translateText(text: string, sourceLang?: string): Promise<string> {
+    const cleanText = text.trim();
+    if (!cleanText) return '';
+
+    // Instant bypass for English / ASCII text (0ms)
+    const isEnglish = (sourceLang && sourceLang.startsWith('en')) || /^[\x00-\x7F]*$/.test(cleanText);
+    if (isEnglish) {
+      return cleanText;
+    }
+
+    if (!this.sarvamApiKey) {
+      return cleanText;
+    }
+
+    try {
+      const sourceLangCode = sourceLang && sourceLang !== 'unknown' ? sourceLang : 'auto';
+      const response = await axios.post(
+        'https://api.sarvam.ai/translate',
+        {
+          input: cleanText,
+          source_language_code: sourceLangCode,
+          target_language_code: 'en-IN',
+          model: 'sarvam-translate:v1',
+          mode: 'formal',
+        },
+        {
+          headers: {
+            'api-subscription-key': this.sarvamApiKey,
+            'Content-Type': 'application/json',
+          },
+          timeout: 2500,
+        }
+      );
+
+      const translated = response.data?.translated_text?.trim();
+      return translated || cleanText;
+    } catch (err: any) {
+      console.warn(`⚠️ [PLIVO-SERVICE] Translation API warning (${err.message}). Falling back to original text.`);
+      return cleanText;
+    }
+  }
+
   initializeStreams(
     callId: string,
     onTranscript: (result: { track: 'inbound' | 'outbound'; originalText: string; translatedText: string; detectedLanguage: string }) => void
@@ -80,17 +125,15 @@ export class PlivoService {
     onTranscript: (result: { track: 'inbound' | 'outbound'; originalText: string; translatedText: string; detectedLanguage: string }) => void
   ): void {
     const key = `${callId}_${track}`;
-    console.log(`🔌 [PLIVO-SERVICE] Initializing Sarvam WebSocket streams for call ${callId} (${track})`);
+    console.log(`🔌 [PLIVO-SERVICE] Initializing Sarvam STT WebSocket stream for call ${callId} (${track})`);
 
     const transcribeUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=transcribe&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
-    const translateUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=translate&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
 
     const headers = {
       'Api-Subscription-Key': this.sarvamApiKey,
     };
 
     const transcribeWs = new WebSocket(transcribeUrl, { headers });
-    const translateWs = new WebSocket(translateUrl, { headers });
 
     const transcribeWsSession: WsSession = {
       ws: transcribeWs,
@@ -98,21 +141,12 @@ export class PlivoService {
       isOpen: false,
     };
 
-    const translateWsSession: WsSession = {
-      ws: translateWs,
-      queue: [],
-      isOpen: false,
-    };
-
     const session: SarvamStreamSession = {
       transcribeWsSession,
-      translateWsSession,
       onTranscript,
       lastOriginal: '',
-      lastTranslate: '',
       detectedLanguage: 'unknown',
       pendingOriginal: '',
-      pendingTranslate: '',
       debounceTimer: null,
     };
 
@@ -166,79 +200,30 @@ export class PlivoService {
         console.warn(`[PLIVO-SERVICE] Reconnecting Sarvam transcribe WS for ${key}...`);
         setTimeout(() => {
           if (this.activeStreams.has(key)) {
-            this.reconnectTrackWs(callId, track, 'transcribe');
-          }
-        }, 2000);
-      }
-    });
-
-    translateWs.on('open', () => {
-      translateWsSession.isOpen = true;
-      this.flushQueue(translateWsSession);
-    });
-
-    translateWs.on('message', (data) => {
-      try {
-        const response = JSON.parse(data.toString());
-        if (response.type === 'data') {
-          const current = response.data.transcript || '';
-          const prev = session.lastTranslate;
-          let delta = '';
-          if (current.startsWith(prev)) {
-            delta = current.substring(prev.length).trim();
-          } else {
-            delta = current.trim();
-          }
-
-          if (delta) {
-            session.lastTranslate = current;
-            session.pendingTranslate = (session.pendingTranslate + ' ' + delta).trim();
-            this.triggerDebounce(callId, track);
-          }
-        } else if (response.type === 'error') {
-          console.error(`❌ [PLIVO-SERVICE] Translate WS error response for call ${callId} (${track}):`, response.data);
-        }
-      } catch (err) {
-        console.error(`❌ [PLIVO-SERVICE] Error parsing translate WS message for call ${callId} (${track}):`, err);
-      }
-    });
-
-    translateWs.on('error', (err) => {
-      console.error(`❌ [PLIVO-SERVICE] Translate WS socket error for call ${callId} (${track}):`, err);
-    });
-
-    translateWs.on('close', (code, reason) => {
-      console.log(`🔌 [PLIVO-SERVICE] Translate WS closed for call ${callId} (${track}). Code: ${code}, Reason: ${reason}`);
-      translateWsSession.isOpen = false;
-      // Auto-reconnect if call stream session is still active
-      if (this.activeStreams.has(key)) {
-        console.warn(`[PLIVO-SERVICE] Reconnecting Sarvam translate WS for ${key}...`);
-        setTimeout(() => {
-          if (this.activeStreams.has(key)) {
-            this.reconnectTrackWs(callId, track, 'translate');
+            this.reconnectTrackWs(callId, track);
           }
         }, 2000);
       }
     });
   }
 
-  private reconnectTrackWs(callId: string, track: 'inbound' | 'outbound', mode: 'transcribe' | 'translate'): void {
+  private reconnectTrackWs(callId: string, track: 'inbound' | 'outbound'): void {
     const key = `${callId}_${track}`;
     const session = this.activeStreams.get(key);
     if (!session) return;
 
-    const url = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=${mode}&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
+    const url = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=transcribe&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
     const headers = { 'Api-Subscription-Key': this.sarvamApiKey };
     const newWs = new WebSocket(url, { headers });
 
-    const wsSession = mode === 'transcribe' ? session.transcribeWsSession : session.translateWsSession;
+    const wsSession = session.transcribeWsSession;
     wsSession.ws = newWs;
     wsSession.isOpen = false;
 
     newWs.on('open', () => {
       wsSession.isOpen = true;
       this.flushQueue(wsSession);
-      console.log(`[PLIVO-SERVICE] Reconnected Sarvam ${mode} WS for ${key}`);
+      console.log(`[PLIVO-SERVICE] Reconnected Sarvam transcribe WS for ${key}`);
     });
 
     newWs.on('message', (data) => {
@@ -246,7 +231,7 @@ export class PlivoService {
         const response = JSON.parse(data.toString());
         if (response.type === 'data') {
           const current = response.data.transcript || '';
-          const prev = mode === 'transcribe' ? session.lastOriginal : session.lastTranslate;
+          const prev = session.lastOriginal;
           let delta = '';
           if (current.startsWith(prev)) {
             delta = current.substring(prev.length).trim();
@@ -254,24 +239,19 @@ export class PlivoService {
             delta = current.trim();
           }
 
-          if (mode === 'transcribe' && response.data.language_code) {
+          if (response.data.language_code) {
             session.detectedLanguage = response.data.language_code;
             this.detectedLanguages.set(key, response.data.language_code);
           }
 
           if (delta) {
-            if (mode === 'transcribe') {
-              session.lastOriginal = current;
-              session.pendingOriginal = (session.pendingOriginal + ' ' + delta).trim();
-            } else {
-              session.lastTranslate = current;
-              session.pendingTranslate = (session.pendingTranslate + ' ' + delta).trim();
-            }
+            session.lastOriginal = current;
+            session.pendingOriginal = (session.pendingOriginal + ' ' + delta).trim();
             this.triggerDebounce(callId, track);
           }
         }
       } catch (err) {
-        console.error(`[PLIVO-SERVICE] Error parsing reconnected ${mode} WS message for ${key}:`, err);
+        console.error(`[PLIVO-SERVICE] Error parsing reconnected transcribe WS message for ${key}:`, err);
       }
     });
   }
@@ -314,23 +294,22 @@ export class PlivoService {
       clearTimeout(session.debounceTimer);
     }
 
-    session.debounceTimer = setTimeout(() => {
+    session.debounceTimer = setTimeout(async () => {
       const originalText = session.pendingOriginal.trim();
-      const translatedText = session.pendingTranslate.trim();
+      session.pendingOriginal = '';
 
-      if (originalText || translatedText) {
-        if (originalText) {
-          const current = this.activeTranscriptions.get(key) || '';
-          this.activeTranscriptions.set(key, (current + ' ' + originalText).trim());
-        }
-        const isEnglish = (session.detectedLanguage && session.detectedLanguage.startsWith('en')) ||
-          /^[\x00-\x7F]*$/.test(originalText);
+      if (originalText) {
+        // Accumulate original transcript
+        const currentOrig = this.activeTranscriptions.get(key) || '';
+        this.activeTranscriptions.set(key, (currentOrig + ' ' + originalText).trim());
 
-        const finalTranslatedText = translatedText || (isEnglish ? originalText : '');
+        // Fast text translation using Sarvam sarvam-translate:v1
+        const finalTranslatedText = await this.translateText(originalText, session.detectedLanguage);
 
+        // Accumulate translated transcript
         if (finalTranslatedText) {
-          const current = this.activeTranslations.get(key) || '';
-          this.activeTranslations.set(key, (current + ' ' + finalTranslatedText).trim());
+          const currentTrans = this.activeTranslations.get(key) || '';
+          this.activeTranslations.set(key, (currentTrans + ' ' + finalTranslatedText).trim());
         }
 
         session.onTranscript({
@@ -339,9 +318,6 @@ export class PlivoService {
           translatedText: finalTranslatedText,
           detectedLanguage: session.detectedLanguage,
         });
-
-        session.pendingOriginal = '';
-        session.pendingTranslate = '';
       }
       session.debounceTimer = null;
     }, 1000);
@@ -357,9 +333,6 @@ export class PlivoService {
       if (session.transcribeWsSession.isOpen && session.transcribeWsSession.ws.readyState === WebSocket.OPEN) {
         session.transcribeWsSession.ws.send(flushMsg);
       }
-      if (session.translateWsSession.isOpen && session.translateWsSession.ws.readyState === WebSocket.OPEN) {
-        session.translateWsSession.ws.send(flushMsg);
-      }
     } catch (err) {
       console.error(`Error sending flush signal for ${track}:`, err);
     }
@@ -371,32 +344,35 @@ export class PlivoService {
       session.debounceTimer = null;
     }
 
-    const originalText = session.pendingOriginal.trim();
-    const translatedText = session.pendingTranslate.trim();
+    const remainingOriginal = session.pendingOriginal.trim();
+    session.pendingOriginal = '';
+    let remainingTranslated = '';
+
+    if (remainingOriginal) {
+      const currentOrig = this.activeTranscriptions.get(key) || '';
+      this.activeTranscriptions.set(key, (currentOrig + ' ' + remainingOriginal).trim());
+
+      remainingTranslated = await this.translateText(remainingOriginal, session.detectedLanguage);
+      if (remainingTranslated) {
+        const currentTrans = this.activeTranslations.get(key) || '';
+        this.activeTranslations.set(key, (currentTrans + ' ' + remainingTranslated).trim());
+      }
+    }
 
     try {
       if (session.transcribeWsSession.ws.readyState !== WebSocket.CLOSED) {
         session.transcribeWsSession.ws.close();
       }
-      if (session.translateWsSession.ws.readyState !== WebSocket.CLOSED) {
-        session.translateWsSession.ws.close();
-      }
     } catch (e) {
-      console.error(`Error closing Sarvam WebSockets for ${track}:`, e);
+      console.error(`Error closing Sarvam WebSocket for ${track}:`, e);
     }
 
     this.activeStreams.delete(key);
 
-    if (originalText) {
-      const current = this.activeTranscriptions.get(key) || '';
-      this.activeTranscriptions.set(key, (current + ' ' + originalText).trim());
-    }
-    if (translatedText) {
-      const current = this.activeTranslations.get(key) || '';
-      this.activeTranslations.set(key, (current + ' ' + translatedText).trim());
-    }
-
-    return { originalText, translatedText };
+    return {
+      originalText: remainingOriginal,
+      translatedText: remainingTranslated
+    };
   }
 
   async finalizeStreams(callId: string): Promise<{ originalText: string; translatedText: string }> {
@@ -414,7 +390,6 @@ export class PlivoService {
     const session = this.activeStreams.get(key);
     if (session) {
       this.sendAudio(session.transcribeWsSession, audioBuffer);
-      this.sendAudio(session.translateWsSession, audioBuffer);
     }
     return { originalText: '', translatedText: '' };
   }
@@ -450,9 +425,6 @@ export class PlivoService {
         try {
           if (session.transcribeWsSession.ws.readyState !== WebSocket.CLOSED) {
             session.transcribeWsSession.ws.close();
-          }
-          if (session.translateWsSession.ws.readyState !== WebSocket.CLOSED) {
-            session.translateWsSession.ws.close();
           }
         } catch (e) {
           // ignore

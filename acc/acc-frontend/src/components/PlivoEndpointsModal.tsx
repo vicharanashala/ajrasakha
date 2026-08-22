@@ -161,13 +161,6 @@ export const PlivoEndpointsModal = ({ isOpen, onClose }: PlivoEndpointsModalProp
     }
   };
 
-  const toggleHidePassword = (agentNumber: string) => {
-    setHidePasswords((prev) => ({
-      ...prev,
-      [agentNumber]: !prev[agentNumber],
-    }));
-  };
-
   if (!isOpen) return null;
 
   return (

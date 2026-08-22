@@ -36,14 +36,9 @@ import {
 } from "@radix-ui/react-accordion";
 import { translateService } from "@/hooks/services/translateService";
 import { transcribeAudioWithSarvam } from "@/hooks/services/sarvamSttService";
+import { QuestionMetadataPopover } from "./QuestionMetadataPopover";
 
-const formatDomainField = (domainVal: any): string => {
-  if (!domainVal) return "N/A";
-  if (Array.isArray(domainVal)) {
-    return domainVal.filter(Boolean).join(", ");
-  }
-  return String(domainVal);
-};
+
 
 const getQueryMetadata = (qItem: any, callDetails?: any, farmerProfile?: any) => {
   const meta = qItem?.metadata || {};
@@ -79,7 +74,7 @@ const renderMarkdown = (text: string) => {
           return (
             <code
               key={`c-${bIdx}-${cIdx}`}
-              className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono text-[11px] border border-zinc-200/50 dark:border-zinc-700/50"
+              className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono text-xs border border-zinc-200/50 dark:border-zinc-700/50"
             >
               {codePart}
             </code>
@@ -188,7 +183,7 @@ const renderMarkdown = (text: string) => {
           return (
             <h1
               key={idx}
-              className="text-[13.5px] font-extrabold text-zinc-950 dark:text-zinc-50 mt-4 mb-2 pb-1 border-b border-zinc-100 dark:border-zinc-800"
+              className="text-[17px] font-extrabold text-zinc-950 dark:text-zinc-50 mt-3 mb-1.5 pb-1 border-b border-zinc-100 dark:border-zinc-800"
             >
               {parseInlineMarkdown(block.text)}
             </h1>
@@ -198,7 +193,7 @@ const renderMarkdown = (text: string) => {
           return (
             <h2
               key={idx}
-              className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mt-3.5 mb-1.5"
+              className="text-[16px] font-bold text-zinc-900 dark:text-zinc-100 mt-2.5 mb-1"
             >
               {parseInlineMarkdown(block.text)}
             </h2>
@@ -207,7 +202,7 @@ const renderMarkdown = (text: string) => {
         return (
           <h3
             key={idx}
-            className="text-[11.5px] font-semibold text-zinc-800 dark:text-zinc-200 mt-3 mb-1"
+            className="text-[15px] font-semibold text-zinc-800 dark:text-zinc-200 mt-2 mb-0.5"
           >
             {parseInlineMarkdown(block.text)}
           </h3>
@@ -215,13 +210,13 @@ const renderMarkdown = (text: string) => {
       }
       case "unordered-list":
         return (
-          <ul key={idx} className="space-y-1.5 my-2.5 pl-1.5">
+          <ul key={idx} className="space-y-1.5 my-1.5 pl-1">
             {block.items.map((item: string, itemIdx: number) => (
               <li
                 key={itemIdx}
-                className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 flex items-start gap-2"
+                className="text-[15px] sm:text-[15.5px] leading-relaxed text-zinc-850 dark:text-zinc-100 flex items-start gap-2.5"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 mt-1.5 shrink-0" />
+                <span className="h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400 mt-2 shrink-0" />
                 <span className="flex-1">{parseInlineMarkdown(item)}</span>
               </li>
             ))}
@@ -229,13 +224,13 @@ const renderMarkdown = (text: string) => {
         );
       case "ordered-list":
         return (
-          <ol key={idx} className="space-y-1.5 my-2.5 pl-1.5">
+          <ol key={idx} className="space-y-1.5 my-1.5 pl-1">
             {block.items.map((item: string, itemIdx: number) => (
               <li
                 key={itemIdx}
-                className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 flex items-start gap-2"
+                className="text-[15px] sm:text-[15.5px] leading-relaxed text-zinc-850 dark:text-zinc-100 flex items-start gap-2.5"
               >
-                <span className="flex-shrink-0 w-4 h-4 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-[9px] font-bold mt-0.5">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold mt-0.5 border border-emerald-200/50 dark:border-emerald-800/50">
                   {itemIdx + 1}
                 </span>
                 <span className="flex-1 pt-0.5">
@@ -249,13 +244,13 @@ const renderMarkdown = (text: string) => {
         return (
           <p
             key={idx}
-            className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 mb-2 last:mb-0"
+            className="text-[15px] sm:text-[15.5px] leading-relaxed text-zinc-850 dark:text-zinc-100 mb-1.5 last:mb-0 font-normal"
           >
             {parseInlineMarkdown(block.text)}
           </p>
         );
       case "empty-line":
-        return <div key={idx} className="h-1.5" />;
+        return <div key={idx} className="h-1" />;
       default:
         return null;
     }
@@ -266,7 +261,7 @@ interface CallHistoryProps {
   onRedial?: (phoneNumber: string) => void;
 }
 
-export const CallHistory = ({ onRedial }: CallHistoryProps) => {
+export const CallHistory = ({ onRedial: _onRedial }: CallHistoryProps) => {
   const [calls, setCalls] = useState<CallHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -619,7 +614,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
     }
   };
 
-  const handleRedial = async (CallHistoryItem: any) => {
+  const handleRedial = async (_CallHistoryItem?: any) => {
     // const { from, to } = CallHistoryItem;
 
     // // Designated numbers to check
@@ -960,53 +955,53 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                   )}
 
                                   {/* Top Row: Farmer Details (40%) & Call Transcripts (60%) Side-by-Side */}
-                                  <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-start w-full">
-                                    <div className="lg:col-span-4 w-full flex flex-col">
+                                  <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 items-stretch w-full">
+                                    <div className="lg:col-span-4 w-full flex flex-col h-[280px]">
                                       <FarmerDetails
                                         phoneNo={call.from}
                                         defaultOpen={false}
                                         extractedProfile={call.farmerProfile}
-                                        className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl w-full"
+                                        className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl w-full h-full"
                                       />
                                     </div>
 
                                     {/* Call Transcripts / Conversation Box (60%) - Matches Default Farmer Details Height */}
-                                    <div className="lg:col-span-6 w-full flex flex-col min-h-0">
-                                      <Card className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl flex flex-col h-[310px] max-h-[310px] w-full overflow-hidden">
-                                        <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 !py-2 !px-3.5 flex-shrink-0">
+                                    <div className="lg:col-span-6 w-full flex flex-col h-[280px]">
+                                      <Card className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl flex flex-col h-full w-full overflow-hidden !gap-0 !p-0 !py-0">
+                                        <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 !py-1.5 !px-3.5 !pb-1.5 flex-shrink-0 !gap-0">
                                           <CardTitle className="text-xs font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-2">
                                             <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
                                             Call Conversation
                                           </CardTitle>
                                         </CardHeader>
-                                        <CardContent className="p-3 flex-1 flex flex-col min-h-0 overflow-hidden">
+                                        <CardContent className="!p-2.5 !px-3 flex-1 flex flex-col min-h-0 overflow-hidden">
                                           {call.callDetails ? (
-                                            <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col w-full">
+                                            <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col w-full custom-scrollbar">
                                               {/* Farmer bubble (Inbound) */}
                                               {call.callDetails.caller &&
                                                 (call.callDetails.caller.transcript ||
                                                   call.callDetails.caller.translation) && (
-                                                  <div className="flex flex-col items-start space-y-1 animate-in fade-in duration-200">
-                                                    <div className="flex items-center gap-2 px-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold tracking-wider uppercase">
+                                                  <div className="flex flex-col items-start space-y-0.5 animate-in fade-in duration-200">
+                                                    <div className="flex items-center gap-1 px-1 text-[9px] text-zinc-400 dark:text-zinc-500 font-bold tracking-wider uppercase">
                                                       <span>Farmer</span>
                                                     </div>
-                                                    <div className="max-w-[90%] px-3.5 py-2.5 rounded-2xl shadow-sm border chat-bubble-farmer rounded-tl-none">
-                                                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap font-medium">
+                                                    <div className="max-w-[90%] px-3 py-2 rounded-xl shadow-sm border chat-bubble-farmer rounded-tl-none">
+                                                      <p className="text-xs leading-relaxed whitespace-pre-wrap font-medium">
                                                         {call.callDetails.caller.translation || "N/A"}
                                                       </p>
                                                       {call.callDetails.caller.transcript &&
                                                         call.callDetails.caller.transcript !==
                                                         call.callDetails.caller.translation && (
-                                                          <div className="mt-2 pt-2 border-t border-farmer-border/30 text-xs text-farmer-text/80">
-                                                            <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-zinc-400">
-                                                              <Globe className="h-3 w-3" />
+                                                          <div className="mt-1 pt-1 border-t border-farmer-border/30 text-[11px] text-farmer-text/80">
+                                                            <div className="flex items-center gap-1 mb-0.5 text-[8.5px] uppercase tracking-wider font-bold text-zinc-400">
+                                                              <Globe className="h-2.5 w-2.5" />
                                                               <span>
                                                                 Original (
                                                                 {call.callDetails.caller.detectedLanguage || "unknown"}
                                                                 )
                                                               </span>
                                                             </div>
-                                                            <p className="italic leading-relaxed text-xs">
+                                                            <p className="italic leading-relaxed text-[11px]">
                                                               {call.callDetails.caller.transcript}
                                                             </p>
                                                           </div>
@@ -1019,27 +1014,27 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                               {call.callDetails.agent &&
                                                 (call.callDetails.agent.transcript ||
                                                   call.callDetails.agent.translation) && (
-                                                  <div className="flex flex-col items-end space-y-1 animate-in fade-in duration-200">
-                                                    <div className="flex items-center gap-2 px-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold tracking-wider uppercase">
+                                                  <div className="flex flex-col items-end space-y-0.5 animate-in fade-in duration-200">
+                                                    <div className="flex items-center gap-1 px-1 text-[9px] text-zinc-400 dark:text-zinc-500 font-bold tracking-wider uppercase">
                                                       <span>Expert</span>
                                                     </div>
-                                                    <div className="max-w-[90%] px-3.5 py-2.5 rounded-2xl shadow-sm border chat-bubble-agent rounded-tr-none">
-                                                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap font-medium">
+                                                    <div className="max-w-[90%] px-3 py-2 rounded-xl shadow-sm border chat-bubble-agent rounded-tr-none">
+                                                      <p className="text-xs leading-relaxed whitespace-pre-wrap font-medium">
                                                         {call.callDetails.agent.translation || "N/A"}
                                                       </p>
                                                       {call.callDetails.agent.transcript &&
                                                         call.callDetails.agent.transcript !==
                                                         call.callDetails.agent.translation && (
-                                                          <div className="mt-2 pt-2 border-t border-agent-border/30 text-xs text-agent-text/80">
-                                                            <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-white/75">
-                                                              <Globe className="h-3 w-3" />
+                                                          <div className="mt-1 pt-1 border-t border-agent-border/30 text-[11px] text-agent-text/80">
+                                                            <div className="flex items-center gap-1 mb-0.5 text-[8.5px] uppercase tracking-wider font-bold text-white/75">
+                                                              <Globe className="h-2.5 w-2.5" />
                                                               <span>
                                                                 Original (
                                                                 {call.callDetails.agent.detectedLanguage || "unknown"}
                                                                 )
                                                               </span>
                                                             </div>
-                                                            <p className="italic leading-relaxed text-xs">
+                                                            <p className="italic leading-relaxed text-[11px]">
                                                               {call.callDetails.agent.transcript}
                                                             </p>
                                                           </div>
@@ -1071,13 +1066,13 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
 
                                   {/* QnA Pairs (Full Width) */}
                                   {((call.callDetails?.queries && call.callDetails.queries.length > 0) || call.callDetails?.QA_pairs) && (
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                       <h3 className="text-xs font-bold tracking-wider uppercase flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                         Question & Answer Pairs
                                       </h3>
 
-                                      <div className="bg-white dark:bg-zinc-900 rounded-xl p-5 border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm">
+                                      <div className="bg-white dark:bg-zinc-900 rounded-xl p-3 sm:p-4 border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm">
                                         <Accordion
                                           type="single"
                                           collapsible
@@ -1092,74 +1087,32 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                   value={`query-${index}`}
                                                   className="border-b border-zinc-100 dark:border-zinc-800/80 last:border-b-0"
                                                 >
-                                                  <AccordionTrigger className="text-left hover:no-underline py-3.5 w-full flex items-center justify-between group gap-2">
-                                                    <div className="flex items-start gap-3 flex-1 min-w-0 pr-4">
-                                                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-55 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold mt-0.5">
+                                                  <div className="flex items-center justify-between py-2 sm:py-2.5 w-full gap-2 group">
+                                                    <AccordionTrigger className="text-left hover:no-underline flex items-start gap-2.5 flex-1 min-w-0 pr-1.5 group/trigger cursor-pointer">
+                                                      <span className="flex-shrink-0 w-6.5 h-6.5 rounded-full bg-emerald-55 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold mt-0.5 border border-emerald-200/50 dark:border-emerald-800/50">
                                                         {index + 1}
                                                       </span>
-                                                      <div className="flex-1 min-w-0 space-y-1.5">
-                                                        <div className="font-semibold text-[13.5px] text-zinc-800 dark:text-zinc-100 leading-normal">
-                                                          {renderMarkdown(qItem.question)}
-                                                        </div>
-                                                        {/* All Metadata Badges visible directly under question */}
-                                                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                                                          {qMeta.specialist && (
-                                                            <Badge
-                                                              variant="outline"
-                                                              className="text-xs px-2.5 py-0.5 border-emerald-200/50 dark:border-emerald-900/40 text-emerald-650 dark:text-emerald-400 font-bold bg-emerald-50/20 dark:bg-emerald-950/20"
-                                                            >
-                                                              {qMeta.specialist}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.crop && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-indigo-200/50 text-indigo-600 dark:text-indigo-400 bg-indigo-50/20 font-medium">
-                                                              🌾 {qMeta.crop}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.season && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-amber-200/50 text-amber-600 dark:text-amber-400 bg-amber-50/20 font-medium">
-                                                              ☀️ {qMeta.season}
-                                                            </Badge>
-                                                          )}
-                                                          {(qMeta.state || qMeta.district) && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-blue-200/50 text-blue-600 dark:text-blue-400 bg-blue-50/20 font-medium">
-                                                              📍 {[qMeta.state, qMeta.district].filter(Boolean).join(', ')}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.block && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-teal-200/50 text-teal-600 dark:text-teal-400 bg-teal-50/20 font-medium">
-                                                              🏛️ Block: {qMeta.block}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.domain && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-purple-200/50 text-purple-600 dark:text-purple-400 bg-purple-50/20 font-medium">
-                                                              🏷️ {formatDomainField(qMeta.domain)}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.weather && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-sky-200/50 text-sky-600 dark:text-sky-400 bg-sky-50/20 font-medium">
-                                                              🌤️ {qMeta.weather.temperature ? `${qMeta.weather.temperature}°C` : ''} {qMeta.weather.condition || qMeta.weather.description || ''}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.reference && (
-                                                            <span className="text-zinc-500 dark:text-zinc-400 text-xs font-semibold">
-                                                              • {qMeta.reference}
-                                                            </span>
-                                                          )}
-                                                        </div>
+                                                      <div className="font-bold text-[16px] text-zinc-950 dark:text-zinc-50 leading-snug flex-1 min-w-0">
+                                                        {renderMarkdown(qItem.question)}
                                                       </div>
+                                                    </AccordionTrigger>
+
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                      <QuestionMetadataPopover qMeta={qMeta} />
+                                                      <AccordionTrigger className="hover:no-underline p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors cursor-pointer group/icon">
+                                                        <ChevronDown className="h-4 w-4 transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0" />
+                                                      </AccordionTrigger>
                                                     </div>
-                                                    <ChevronDown className="h-4 w-4 text-zinc-400 dark:text-zinc-550 transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0 group-hover:text-zinc-600 dark:group-hover:text-zinc-350" />
-                                                  </AccordionTrigger>
-                                                  <AccordionContent className="pt-1 pb-4">
-                                                    <div className="pl-9 space-y-2.5">
-                                                      <div className="bg-emerald-50/15 dark:bg-emerald-950/10 rounded-xl p-4 border border-emerald-100/50 dark:border-emerald-900/30 shadow-inner">
-                                                        <div className="space-y-1 font-medium">
+                                                  </div>
+                                                  <AccordionContent className="pt-0.5 pb-2.5">
+                                                    <div className="pl-7 sm:pl-8 space-y-2">
+                                                      <div className="bg-emerald-50/15 dark:bg-emerald-950/10 rounded-xl p-3 sm:p-3.5 border border-emerald-100/50 dark:border-emerald-900/30 shadow-inner">
+                                                        <div className="space-y-1 font-normal text-[15px] sm:text-[15.5px] leading-relaxed text-zinc-850 dark:text-zinc-100">
                                                           {renderMarkdown(qItem.answer)}
                                                         </div>
                                                       </div>
                                                       {(qItem.sourceName || qItem.sourceLink) && (
-                                                        <div className="flex items-center gap-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider pl-1 mt-1">
+                                                        <div className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider pl-1 mt-1">
                                                           <span>Source:</span>
                                                           {qItem.sourceLink ? (
                                                             <a
@@ -1169,7 +1122,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                               className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                                                             >
                                                               {qItem.sourceName || "Reference Link"}
-                                                              <ExternalLink className="h-2.5 w-2.5" />
+                                                              <ExternalLink className="h-3 w-3" />
                                                             </a>
                                                           ) : (
                                                             <span>{qItem.sourceName}</span>
@@ -1189,75 +1142,27 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                   value={`qa-${index}`}
                                                   className="border-b border-zinc-100 dark:border-zinc-800/80 last:border-b-0"
                                                 >
-                                                  <AccordionTrigger className="text-left hover:no-underline py-3.5 w-full flex items-center justify-between group gap-2">
-                                                    <div className="flex items-start gap-3 flex-1 min-w-0 pr-4">
-                                                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-55 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold mt-0.5">
+                                                  <div className="flex items-center justify-between py-2 sm:py-2.5 w-full gap-2 group">
+                                                    <AccordionTrigger className="text-left hover:no-underline flex items-start gap-2.5 flex-1 min-w-0 pr-1.5 group/trigger cursor-pointer">
+                                                      <span className="flex-shrink-0 w-6.5 h-6.5 rounded-full bg-emerald-55 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold mt-0.5 border border-emerald-200/50 dark:border-emerald-800/50">
                                                         {index + 1}
                                                       </span>
-                                                      <div className="flex-1 min-w-0 space-y-1.5">
-                                                        <div className="font-semibold text-[13.5px] text-zinc-800 dark:text-zinc-100 leading-normal">
-                                                          {renderMarkdown(qa.question)}
-                                                        </div>
-                                                        {/* All Metadata Badges visible directly under question */}
-                                                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                                                          {qMeta.specialist && (
-                                                            <Badge
-                                                              variant="outline"
-                                                              className="text-xs px-2.5 py-0.5 border-emerald-200/50 dark:border-emerald-900/40 text-emerald-650 dark:text-emerald-400 font-bold bg-emerald-50/20 dark:bg-emerald-950/20"
-                                                            >
-                                                              {qMeta.specialist}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.crop && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-indigo-200/50 text-indigo-600 dark:text-indigo-400 bg-indigo-50/20 font-medium">
-                                                              🌾 {qMeta.crop}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.season && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-amber-200/50 text-amber-600 dark:text-amber-400 bg-amber-50/20 font-medium">
-                                                              ☀️ {qMeta.season}
-                                                            </Badge>
-                                                          )}
-                                                          {(qMeta.state || qMeta.district) && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-blue-200/50 text-blue-600 dark:text-blue-400 bg-blue-50/20 font-medium">
-                                                              📍 {[qMeta.state, qMeta.district].filter(Boolean).join(', ')}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.block && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-teal-200/50 text-teal-600 dark:text-teal-400 bg-teal-50/20 font-medium">
-                                                              🏛️ Block: {qMeta.block}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.village && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-teal-200/50 text-teal-600 dark:text-teal-400 bg-teal-50/20 font-medium">
-                                                              Village: {qMeta.village}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.domain && (
-
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-purple-200/50 text-purple-600 dark:text-purple-400 bg-purple-50/20 font-medium">
-                                                              🏷️ {formatDomainField(qMeta.domain)}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.weather && (
-                                                            <Badge variant="outline" className="text-xs px-2.5 py-0.5 border-sky-200/50 text-sky-600 dark:text-sky-400 bg-sky-50/20 font-medium">
-                                                              🌤️ {qMeta.weather.temperature ? `${qMeta.weather.temperature}°C` : ''} {qMeta.weather.condition || qMeta.weather.description || ''}
-                                                            </Badge>
-                                                          )}
-                                                          {qMeta.reference && (
-                                                            <span className="text-zinc-500 dark:text-zinc-400 text-xs font-semibold">
-                                                              • {qMeta.reference}
-                                                            </span>
-                                                          )}
-                                                        </div>
+                                                      <div className="font-bold text-[16px] text-zinc-950 dark:text-zinc-50 leading-snug flex-1 min-w-0">
+                                                        {renderMarkdown(qa.question)}
                                                       </div>
+                                                    </AccordionTrigger>
+
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                      <QuestionMetadataPopover qMeta={qMeta} />
+                                                      <AccordionTrigger className="hover:no-underline p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors cursor-pointer group/icon">
+                                                        <ChevronDown className="h-4 w-4 transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0" />
+                                                      </AccordionTrigger>
                                                     </div>
-                                                    <ChevronDown className="h-4 w-4 text-zinc-400 dark:text-zinc-550 transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0 group-hover:text-zinc-600 dark:group-hover:text-zinc-350" />
-                                                  </AccordionTrigger>
-                                                  <AccordionContent className="pt-1 pb-4">
-                                                    <div className="pl-9 space-y-2.5">
-                                                      <div className="bg-emerald-50/15 dark:bg-emerald-950/10 rounded-xl p-4 border border-emerald-100/50 dark:border-emerald-900/30 shadow-inner">
-                                                        <div className="space-y-1 font-medium">
+                                                  </div>
+                                                  <AccordionContent className="pt-0.5 pb-2.5">
+                                                    <div className="pl-7 sm:pl-8 space-y-2">
+                                                      <div className="bg-emerald-50/15 dark:bg-emerald-950/10 rounded-xl p-3 sm:p-3.5 border border-emerald-100/50 dark:border-emerald-900/30 shadow-inner">
+                                                        <div className="space-y-1 font-normal text-[15px] sm:text-[15.5px] leading-relaxed text-zinc-850 dark:text-zinc-100">
                                                           {renderMarkdown(qa.answer)}
                                                         </div>
                                                       </div>

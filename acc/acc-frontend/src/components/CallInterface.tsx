@@ -11,7 +11,6 @@ import {
   MessageSquare,
   Globe,
   CheckCircle2,
-  AlertCircle,
   HelpCircle,
   Lightbulb,
   User,
@@ -19,22 +18,18 @@ import {
   ChevronDown,
   ChevronUp,
   Edit3,
-  Power,
-  PowerOff,
   Copy,
   Check,
   Sparkles,
   FlaskConical,
 } from "lucide-react";
 import WeatherWidget from "./WeatherWidget";
-import { plivoService } from "@/hooks/api/plivo/api";
-import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
 import { useAccAgentThread } from "@/hooks/api/acc-agent/useAccAgentThread";
 import { useAccAgentExtract } from "@/hooks/api/acc-agent/useAccAgentExtract";
 import { useAccAgentUpdateState } from "@/hooks/api/acc-agent/useAccAgentUpdateState";
 import { useAccAgentResume } from "@/hooks/api/acc-agent/useAccAgentResume";
-import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import SarvamTranslatePairDropdown from "@/components/SarvamTranslatePairDropdown";
+import { renderMarkdown } from "@/utils/markdownRenderer";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import {
@@ -51,7 +46,6 @@ import {
   AccordionTrigger,
 } from "./atoms/accordion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
-import { Checkbox } from "./atoms/checkbox";
 import { Input } from "./atoms/input";
 import { Textarea } from "./atoms/textarea";
 import { Label } from "./atoms/label";
@@ -63,11 +57,7 @@ import {
   SelectValue,
 } from "./atoms/select";
 import type { GeneratedQuestion } from "@/hooks/services/questionService";
-import Plivo from "plivo-browser-sdk";
 import type { ExtractDataResponse } from "@/hooks/services/accAgentService";
-import { UserService } from "@/hooks/services/userService";
-
-const userService = new UserService();
 
 const DOMAIN_OPTIONS = [
   "Soil Health and Nutrient Management",
@@ -94,28 +84,16 @@ const DOMAIN_OPTIONS = [
   "NA / Invalid Data",
 ];
 
-const SEASON_OPTIONS = ["Kharif", "Rabi", "Zaid"];
-
 // Auto-select season based on current month
 const getAutoSelectedSeason = (): string => {
   const currentMonth = new Date().getMonth() + 1; // 1-12
-
-  // Season mapping based on Indian agricultural calendar:
-  // Kharif → Sow: Apr–Aug | Harvest: Aug–Dec
-  // Rabi → Sow: Sep–Dec | Harvest: Feb–May
-  // Zaid [Summer] → Sow: Jan–Apr | Harvest: Apr–Jul
-
   if (currentMonth >= 4 && currentMonth <= 8) {
-    // April to August: Kharif sowing season
     return "Kharif";
   } else if (currentMonth >= 9 && currentMonth <= 12) {
-    // September to December: Kharif harvest / Rabi sowing
     return "Rabi";
   } else if (currentMonth >= 1 && currentMonth <= 3) {
-    // January to March: Rabi harvest / Zaid sowing
     return "Rabi";
   } else {
-    // Default fallback
     return "Kharif";
   }
 };
@@ -131,204 +109,6 @@ export const stripMarkdown = (text: string): string => {
     .replace(/^[\s]*[-*+]\s+/gm, "")
     .replace(/^[\s]*\d+\.\s+/gm, "")
     .trim();
-};
-
-const renderMarkdown = (text: string) => {
-  if (!text) return null;
-
-  const parseInlineMarkdown = (textVal: string) => {
-    if (!textVal) return "";
-    const boldParts = textVal.split(/\*\*([^*]+)\*\*/g);
-    return boldParts.flatMap((boldPart, bIdx) => {
-      const isBold = bIdx % 2 === 1;
-      const codeParts = boldPart.split(/`([^`]+)`/g);
-      const elements = codeParts.flatMap((codePart, cIdx) => {
-        const isCode = cIdx % 2 === 1;
-        if (isCode) {
-          return (
-            <code
-              key={`c-${bIdx}-${cIdx}`}
-              className="px-1.5 py-0.5 rounded bg-zinc-150 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono text-[11px] border border-zinc-200/50 dark:border-zinc-700/50"
-            >
-              {codePart}
-            </code>
-          );
-        }
-        const italicParts = codePart.split(/\*([^*]+)\*/g);
-        return italicParts.map((italicPart, iIdx) => {
-          const isItalic = iIdx % 2 === 1;
-          if (isItalic) {
-            return (
-              <em
-                key={`i-${bIdx}-${cIdx}-${iIdx}`}
-                className="italic text-zinc-800 dark:text-zinc-200"
-              >
-                {italicPart}
-              </em>
-            );
-          }
-          return italicPart;
-        });
-      });
-
-      if (isBold) {
-        return (
-          <strong
-            key={`b-${bIdx}`}
-            className="font-bold text-zinc-950 dark:text-zinc-50"
-          >
-            {elements}
-          </strong>
-        );
-      }
-      return elements;
-    });
-  };
-
-  const lines = text.split("\n");
-  const blocks: any[] = [];
-  let currentList: { type: "bullet" | "number"; items: string[] } | null = null;
-
-  const pushCurrentList = () => {
-    if (currentList) {
-      blocks.push({
-        type: currentList.type === "bullet" ? "unordered-list" : "ordered-list",
-        items: currentList.items,
-      });
-      currentList = null;
-    }
-  };
-
-  lines.forEach((line) => {
-    const trimmed = line.trim();
-
-    // Check if it's a bullet list item
-    const isBullet = trimmed.startsWith("-") || trimmed.startsWith("*");
-    // Check if it's a numbered list item
-    const numberMatch = trimmed.match(/^\d+\.\s+(.*)$/);
-
-    if (isBullet) {
-      const itemText = trimmed.replace(/^[-*]\s*/, "");
-      if (currentList && currentList.type === "bullet") {
-        currentList.items.push(itemText);
-      } else {
-        pushCurrentList();
-        currentList = { type: "bullet", items: [itemText] };
-      }
-    } else if (numberMatch) {
-      const itemText = numberMatch[1];
-      if (currentList && currentList.type === "number") {
-        currentList.items.push(itemText);
-      } else {
-        pushCurrentList();
-        currentList = { type: "number", items: [itemText] };
-      }
-    } else {
-      pushCurrentList();
-
-      // Parse header or paragraph
-      const headerMatch = line.match(/^(#{1,6})\s+(.*)$/);
-      if (headerMatch) {
-        blocks.push({
-          type: "header",
-          level: headerMatch[1].length,
-          text: headerMatch[2],
-        });
-      } else if (trimmed.length > 0) {
-        blocks.push({
-          type: "paragraph",
-          text: line,
-        });
-      } else {
-        blocks.push({
-          type: "empty-line",
-        });
-      }
-    }
-  });
-
-  pushCurrentList();
-
-  return blocks.map((block, idx) => {
-    switch (block.type) {
-      case "header": {
-        const level = block.level;
-        if (level === 1) {
-          return (
-            <h1
-              key={idx}
-              className="text-[14px] font-extrabold text-zinc-950 dark:text-zinc-50 mt-4 mb-2 pb-1 border-b border-zinc-100 dark:border-zinc-800"
-            >
-              {parseInlineMarkdown(block.text)}
-            </h1>
-          );
-        }
-        if (level === 2) {
-          return (
-            <h2
-              key={idx}
-              className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mt-3.5 mb-1.5"
-            >
-              {parseInlineMarkdown(block.text)}
-            </h2>
-          );
-        }
-        return (
-          <h3
-            key={idx}
-            className="text-[11.5px] font-semibold text-zinc-800 dark:text-zinc-200 mt-3 mb-1"
-          >
-            {parseInlineMarkdown(block.text)}
-          </h3>
-        );
-      }
-      case "unordered-list":
-        return (
-          <ul key={idx} className="space-y-1.5 my-2.5 pl-1.5">
-            {block.items.map((item: string, itemIdx: number) => (
-              <li
-                key={itemIdx}
-                className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 flex items-start gap-2"
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 mt-1.5 shrink-0" />
-                <span className="flex-1">{parseInlineMarkdown(item)}</span>
-              </li>
-            ))}
-          </ul>
-        );
-      case "ordered-list":
-        return (
-          <ol key={idx} className="space-y-1.5 my-2.5 pl-1.5">
-            {block.items.map((item: string, itemIdx: number) => (
-              <li
-                key={itemIdx}
-                className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 flex items-start gap-2"
-              >
-                <span className="flex-shrink-0 w-4 h-4 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-[9px] font-bold mt-0.5">
-                  {itemIdx + 1}
-                </span>
-                <span className="flex-1 pt-0.5">
-                  {parseInlineMarkdown(item)}
-                </span>
-              </li>
-            ))}
-          </ol>
-        );
-      case "paragraph":
-        return (
-          <p
-            key={idx}
-            className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 mb-2 last:mb-0"
-          >
-            {parseInlineMarkdown(block.text)}
-          </p>
-        );
-      case "empty-line":
-        return <div key={idx} className="h-1.5" />;
-      default:
-        return null;
-    }
-  });
 };
 
 const renderWeatherInsights = (weather: any) => {
@@ -495,11 +275,6 @@ const renderWeatherInsights = (weather: any) => {
 };
 
 export const CallInterface = () => {
-  const { data: currentUser, refetch: refetchCurrentUser } =
-    useGetCurrentUser();
-  const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
-  const [editableTranslatedTranscript, setEditableTranslatedTranscript] =
-    useState("");
   const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([]);
   const [isCallActive, setIsCallActive] = useState(false);
   const [callUuid, setCallUuid] = useState<string | null>(null);
@@ -545,12 +320,12 @@ export const CallInterface = () => {
   // Live conversation box 3-stage elastic state ("collapsed" | "half" | "full")
   const [liveConvState, setLiveConvState] = useState<"collapsed" | "half" | "full">("collapsed");
 
-  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [_isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
-  const [editableSummaryText, setEditableSummaryText] = useState("");
+  const [_editableSummaryText, setEditableSummaryText] = useState("");
   const [extractedState, setExtractedState] = useState("");
-  const [extractedCrop, setExtractedCrop] = useState("");
-  const [hasGeneratedQuestions, setHasGeneratedQuestions] = useState(false);
+  const [_extractedCrop, setExtractedCrop] = useState("");
+  const [_hasGeneratedQuestions, setHasGeneratedQuestions] = useState(false);
 
   // Phone number state tracking
   const [callPhoneNumber, setCallPhoneNumber] = useState<string | null>(null);
@@ -581,7 +356,7 @@ export const CallInterface = () => {
 
   // Farmer Details HITL state
   const [extractedFarmerProfile, setExtractedFarmerProfile] = useState<any>(null);
-  const [activeExtractionModes, setActiveExtractionModes] = useState<Set<'farmer' | 'query'>>(new Set(['farmer', 'query']));
+  const [_activeExtractionModes, setActiveExtractionModes] = useState<Set<'farmer' | 'query'>>(new Set(['farmer', 'query']));
   const [currentExtractionType, setCurrentExtractionType] = useState<'farmer_details' | 'query_details' | null>(null);
 
   // Live conversation simulation state
@@ -600,77 +375,6 @@ export const CallInterface = () => {
       });
     }
   }, [transcriptsList]);
-
-  // Sync the editable translation draft when call ends
-  useEffect(() => {
-    if (!isCallActive && transcriptsList.length > 0) {
-      const draft = transcriptsList
-        .map((t) => {
-          if (!t.translatedText?.trim()) return null;
-          const speaker = t.track === "inbound" ? "Farmer" : "Expert";
-          return `${speaker}: ${t.translatedText}`;
-        })
-        .filter(Boolean)
-        .join("\n");
-      setEditableTranslatedTranscript(draft);
-    }
-  }, [isCallActive, transcriptsList]);
-
-  const handleSubmit = async () => {
-    if (!editableTranslatedTranscript.trim()) {
-      toast.error("Transcript is empty!");
-      return;
-    }
-
-    try {
-      await submitTranscript(editableTranslatedTranscript);
-      setEditableTranslatedTranscript("");
-      setTranscriptsList([]); // Clear the conversation view
-      setQuestions([]);
-      setTranslatedQuestions({});
-      setTranslatedAnswers({});
-      setTranslatingQuestions({});
-      setCopiedStates({});
-      lastTranscriptRef.current = "";
-      setIsSummaryOpen(false);
-      setEditableSummaryText("");
-      setExtractedState("");
-      setExtractedCrop("");
-      setHasGeneratedQuestions(false);
-      toast.success("Transcript submitted successfully!");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to submit transcript. Try again!");
-    }
-  };
-
-  const handleResetTranscript = () => {
-    setEditableTranslatedTranscript("");
-    setTranscriptsList([]);
-    setQuestions([]);
-    setTranslatedQuestions({});
-    setTranslatedAnswers({});
-    setTranslatingQuestions({});
-    setCopiedStates({});
-    lastTranscriptRef.current = "";
-    setIsSummaryOpen(false);
-    setEditableSummaryText("");
-    setExtractedState("");
-    setExtractedCrop("");
-    setHasGeneratedQuestions(false);
-    // Reset HITL state
-    setThreadId(null);
-    setExtractedData(null);
-    setIsHumanVerificationMode(false);
-    setEditableQuery("");
-    setEditableCrop("");
-    setEditableState("");
-    setEditableDistrict("");
-    setEditableBlock("");
-    setEditableVillage("");
-    setEditableDomain([]);
-    setEditableSeason("");
-  };
 
   const handleResetConversation = () => {
     setCallUuid(null);
@@ -788,7 +492,7 @@ export const CallInterface = () => {
     const newMsg: CallTranscript = {
       track: simRole,
       text: simText.trim(),
-      originalText: simOriginalText.trim() || undefined,
+      originalText: simOriginalText.trim() || "",
       translatedText: simText.trim(),
       detectedLanguage: simOriginalText.trim() ? "custom" : "en-IN",
       timestamp: new Date().toISOString(),
@@ -822,14 +526,6 @@ export const CallInterface = () => {
     setQuestions([]);
     setHasGeneratedQuestions(false);
     toast.success("Questions cleared");
-  };
-
-  const handleGenerateQuestions = async () => {
-    if (isHumanVerificationMode && threadId) {
-      await handleApproveAndResume();
-    } else {
-      await handleExtractWithHITL("query_details");
-    }
   };
 
   const handleExtractWithHITL = async (extractionType: 'farmer_details' | 'query_details') => {
@@ -954,7 +650,6 @@ export const CallInterface = () => {
       return;
     }
 
-    let toastId;
     try {
       const finalDomain = editableDomain;
 
@@ -1061,17 +756,18 @@ export const CallInterface = () => {
     }
   };
 
-  let plivoClientRef;
+  /*
+  // Preserved for redial hook implementation
+  let plivoClientRef: any;
 
   const handleRedial = async (phoneNumber: string) => {
-    // Preserved for redial hook implementation
     const options = {
       debug: "DEBUG" as const,
       permOnClick: true,
       enableTracking: true,
     };
 
-    const client = new Plivo(options);
+    const client = new (Plivo as any)(options);
     plivoClientRef = client;
     try {
       const extraHeaders = {
@@ -1098,6 +794,7 @@ export const CallInterface = () => {
       toast.error(error.message || "Failed to update status");
     }
   };
+  */
 
   return (
     <div className="space-y-3.5 w-full max-w-full px-1.5 sm:px-3 py-1.5 relative">
@@ -1119,7 +816,6 @@ export const CallInterface = () => {
               setTranslatedAnswers({});
               setTranslatingQuestions({});
               setCopiedStates({});
-              setEditableTranslatedTranscript("");
               lastTranscriptRef.current = "";
               setIsSummaryOpen(false);
               setEditableSummaryText("");
@@ -1163,7 +859,6 @@ export const CallInterface = () => {
               setTranslatedAnswers({});
               setTranslatingQuestions({});
               setCopiedStates({});
-              setEditableTranslatedTranscript("");
               lastTranscriptRef.current = "";
               setIsSummaryOpen(false);
               setEditableSummaryText("");
@@ -1829,31 +1524,61 @@ export const CallInterface = () => {
                     <div className="space-y-4 pb-10">
                       {questions?.map((qn, index) => {
                         const qnKey = qn.id || `${qn.question}-${index}`;
+
                         return (
                           <div
                             key={`${qn.question}-${qn.id + index}`}
                             className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:shadow-md transition-all duration-300 overflow-hidden"
                           >
-                            <div className="p-4">
-                              <div className="flex items-start gap-3 mb-3">
-                                <div className="text-indigo-600 dark:text-indigo-400 mt-1">
+                            <div className="p-3.5 sm:p-4">
+                              <div className="flex items-start gap-2.5 sm:gap-3 mb-3">
+                                <div className="text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0">
                                   <HelpCircle className="h-4 w-4" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                                    <div className="flex-1">
-                                      {translatingQuestions[qnKey] ? (
-                                        <div className="space-y-2 py-1 animate-pulse">
-                                          <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-3/4"></div>
-                                        </div>
-                                      ) : (
-                                        <p className="text-sm font-medium text-foreground leading-relaxed">
-                                          {translatedQuestions[qnKey] || qn.question}
-                                        </p>
-                                      )}
+                                  {translatingQuestions[qnKey] ? (
+                                    <div className="space-y-1.5 py-1 animate-pulse">
+                                      <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-3/4"></div>
                                     </div>
-                                    <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-                                      {(qn.question?.trim() || qn.answer?.trim()) && (
+                                  ) : (
+                                    <p className="text-[15px] font-bold text-zinc-950 dark:text-zinc-50 leading-snug break-words">
+                                      {translatedQuestions[qnKey] || qn.question}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <Accordion
+                                type="single"
+                                collapsible
+                                className="w-full"
+                              >
+                                <AccordionItem
+                                  value="answer"
+                                  className="border-none"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <AccordionTrigger className="py-2 px-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-xs font-semibold tracking-wide uppercase hover:no-underline flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                                        <svg
+                                          className="w-3.5 h-3.5"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                          />
+                                        </svg>
+                                        <span>View Answer & Details</span>
+                                      </div>
+                                    </AccordionTrigger>
+
+                                    {(qn.question?.trim() || qn.answer?.trim()) && (
+                                      <div className="shrink-0">
                                         <SarvamTranslatePairDropdown
                                           query1={qn.question || ""}
                                           query2={qn.answer || ""}
@@ -1880,51 +1605,13 @@ export const CallInterface = () => {
                                             }));
                                           }}
                                         />
-                                      )}
-                                      {qn.agri_specialist &&
-                                        qn.agri_specialist !== "Unknown" &&
-                                        qn.agri_specialist !== "AGRI_EXPERT" && (
-                                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider whitespace-nowrap">
-                                            <User className="w-3 h-3" />
-                                            {qn.agri_specialist}
-                                          </div>
-                                        )}
-                                    </div>
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
-                              </div>
-
-                              <Accordion
-                                type="single"
-                                collapsible
-                                className="w-full"
-                              >
-                                <AccordionItem
-                                  value="answer"
-                                  className="border-none"
-                                >
-                                  <AccordionTrigger className="py-2 px-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-xs font-semibold tracking-wide uppercase hover:no-underline">
-                                    <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                                      <svg
-                                        className="w-3.5 h-3.5"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                        />
-                                      </svg>
-                                      View Details
-                                    </div>
-                                  </AccordionTrigger>
 
                                   {qn.weather && (
                                     <AccordionContent className="pt-0 pb-1">
-                                      <div className="bg-sky-50 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-900/50 rounded-lg p-3 space-y-2 mb-3">
+                                      <div className="bg-sky-50/40 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-900/50 rounded-xl p-3 space-y-2 mb-3">
                                         <div className="flex justify-between items-center w-full px-1">
                                           <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-semibold text-xs tracking-wider uppercase">
                                             <svg
@@ -1943,7 +1630,7 @@ export const CallInterface = () => {
                                             <span>Weather Insights</span>
                                           </div>
                                         </div>
-                                        <div className="text-[13px] text-sky-850 dark:text-sky-300 leading-relaxed px-1">
+                                        <div className="text-xs text-sky-900 dark:text-sky-300 leading-relaxed px-1">
                                           {renderWeatherInsights(qn.weather)}
                                         </div>
                                       </div>
@@ -1952,7 +1639,7 @@ export const CallInterface = () => {
 
                                   {(qn.authorName || qn.sourceName) && (
                                     <AccordionContent className="pt-0 pb-1">
-                                      <div className="bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50 rounded-lg p-3 space-y-2 mb-3">
+                                      <div className="bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50 rounded-xl p-3 space-y-2 mb-3">
                                         <div className="flex justify-between items-center w-full px-1">
                                           <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-400 font-semibold text-xs tracking-wider uppercase">
                                             <User className="w-3.5 h-3.5" />
@@ -1961,7 +1648,7 @@ export const CallInterface = () => {
                                             </span>
                                           </div>
                                         </div>
-                                        <div className="text-[13px] text-zinc-805 dark:text-zinc-305 leading-relaxed px-1 space-y-1">
+                                        <div className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed px-1 space-y-1">
                                           {qn.authorName && (
                                             <p>
                                               <span className="font-semibold text-zinc-900 dark:text-zinc-400">
@@ -2008,9 +1695,9 @@ export const CallInterface = () => {
                                   )}
 
                                   <AccordionContent className="pt-0 pb-1">
-                                    <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-900/50 rounded-lg p-3 space-y-2">
+                                    <div className="bg-emerald-50/20 dark:bg-emerald-950/15 border border-emerald-200/50 dark:border-emerald-900/40 rounded-xl p-3.5 space-y-2.5">
                                       <div className="flex justify-between items-center w-full px-1">
-                                        <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 font-semibold text-xs tracking-wider uppercase">
+                                        <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold text-xs tracking-wider uppercase">
                                           <MessageSquare className="w-3.5 h-3.5" />
                                           <span>Specialist Answer</span>
                                           <button
@@ -2018,7 +1705,7 @@ export const CallInterface = () => {
                                               e.stopPropagation();
                                               handleCopyAnswer(qnKey, translatedAnswers[qnKey] || qn.answer || "");
                                             }}
-                                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 transition-all text-[10px] font-semibold uppercase tracking-wider border border-indigo-100/50 dark:border-indigo-900/30 ml-2 active:scale-95"
+                                            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-100/70 dark:bg-emerald-900/30 hover:bg-emerald-200/70 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 transition-all text-[10px] font-bold uppercase tracking-wider border border-emerald-200/60 dark:border-emerald-800/50 ml-2 active:scale-95 cursor-pointer"
                                             title="Copy Answer"
                                           >
                                             {copiedStates[qnKey] ? (
@@ -2034,24 +1721,22 @@ export const CallInterface = () => {
                                             )}
                                           </button>
                                         </div>
-                                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                        <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">
                                           <User className="w-3 h-3" />
                                           <span>
-                                            {qn.agri_specialist || "Unknown"}
+                                            {qn.agri_specialist || "ACC_AGENT"}
                                           </span>
                                         </div>
                                       </div>
-                                      <div className="text-[13px] text-indigo-800 dark:text-indigo-300 leading-relaxed px-1">
+                                      <div className="text-[14.5px] leading-relaxed px-1 text-zinc-900 dark:text-zinc-100">
                                         {translatingQuestions[qnKey] ? (
                                           <div className="space-y-2 py-1 animate-pulse">
-                                            <div className="h-3 bg-indigo-200 dark:bg-indigo-900/50 rounded w-5/6"></div>
-                                            <div className="h-3 bg-indigo-200 dark:bg-indigo-900/50 rounded w-full"></div>
-                                            <div className="h-3 bg-indigo-200 dark:bg-indigo-900/50 rounded w-2/3"></div>
+                                            <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-5/6"></div>
+                                            <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-full"></div>
+                                            <div className="h-3 bg-emerald-200/60 dark:bg-emerald-900/40 rounded w-2/3"></div>
                                           </div>
                                         ) : (
-                                          <p className="whitespace-pre-wrap leading-relaxed">
-                                            {stripMarkdown(translatedAnswers[qnKey] || qn.answer || "Nil")}
-                                          </p>
+                                          renderMarkdown(translatedAnswers[qnKey] || qn.answer || "Nil", { baseFontSize: "text-[14px]" })
                                         )}
                                       </div>
                                     </div>

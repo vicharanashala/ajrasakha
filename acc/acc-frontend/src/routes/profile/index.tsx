@@ -1,14 +1,13 @@
-import React, { useCallback, useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
-import { Separator } from "@/components/atoms/separator";
 import { useEditUser } from "@/hooks/api/user/useEditUser";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useAuthStore } from "@/stores/auth-store";
 import type { IUser } from "@/types";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   Edit2,
   ArrowLeft,
@@ -39,7 +38,6 @@ export const Route = createFileRoute("/profile/")({
 
 function ProfilePage() {
   const { data: user, isLoading } = useGetCurrentUser({});
-  const navigate = useNavigate();
   const { mutateAsync: updateUser, isPending: isUpdating } = useEditUser();
 
   const handleSubmit = async (data: IUser, showToast: boolean = true) => {

@@ -1,4 +1,3 @@
-import React, { useEffect, useState } from "react";
 import {
   Home,
   Tractor,
@@ -7,16 +6,6 @@ import {
 } from "lucide-react";
 
 export const NotFound = () => {
-  const [timestamp, setTimestamp] = useState(new Date().toISOString());
-
-  useEffect(() => {
-    const timer = setInterval(
-      () => setTimestamp(new Date().toISOString()),
-      1000
-    );
-    return () => clearInterval(timer);
-  }, []);
-
   return (
     <div className="min-h-screen bg-background dark:bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6 text-center overflow-hidden transition-colors duration-500 relative font-sans">
       

@@ -65,32 +65,9 @@ export class ContextService extends BaseService {
     if (text.length > MAX_TOTAL_CHARS)
       throw new BadRequestError(`Text exceeds maximum allowed length of ${MAX_TOTAL_CHARS} characters`);
 
-    const SARVAM_ONLY_LANGS = new Set([
-      'en-IN', 'hi-IN', 'bn-IN',
-      'gu-IN', 'kn-IN', 'ml-IN',
-      'mr-IN', 'od-IN', 'pa-IN',
-      'ta-IN', 'te-IN', 'as-IN',
-      'doi-IN', 'kok-IN', 'ks-IN',
-      'mai-IN', 'mni-IN', 'ne-IN',
-      'sa-IN', 'sat-IN', 'sd-IN',
-      'ur-IN', 'brx-IN',
-    ]);
-
-    const useSarvamModel = SARVAM_ONLY_LANGS.has(targetLang);
-    const model = useSarvamModel ? 'sarvam-translate:v1' : 'mayura:v1';
-
-    if (useSarvamModel && !sourceLang) {
-      const enChunks = this._splitIntoChunks(text, 900);
-      const enResults = await this._translateInBatches(enChunks, 'auto', 'en-IN', 'mayura:v1', apiKey);
-      const enText = enResults.join(' ');
-      if (targetLang === 'en-IN') return { translated_text: enText };
-      const targetChunks = this._splitIntoChunks(enText, 1900);
-      const targetResults = await this._translateInBatches(targetChunks, 'en-IN', targetLang, model, apiKey);
-      return { translated_text: targetResults.join(' ') };
-    }
-
+    const model = 'sarvam-translate:v1';
     const source_language_code = sourceLang ?? 'auto';
-    const maxChars = useSarvamModel ? 1900 : 900;
+    const maxChars = 1900;
     const chunks = this._splitIntoChunks(text, maxChars);
     const translatedChunks = await this._translateInBatches(chunks, source_language_code, targetLang, model, apiKey);
     return { translated_text: translatedChunks.join(' ') };

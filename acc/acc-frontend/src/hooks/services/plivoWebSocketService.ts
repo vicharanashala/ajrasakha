@@ -30,10 +30,10 @@ export class PlivoWebSocketService {
   }
 
   private setupEventHandlers() {
-    this.messageHandlers.set('transcript', [(message: PlivoTranscriptMessage) => {}]);
-    this.messageHandlers.set('call_start', [(message: PlivoTranscriptMessage) => {}]);
-    this.messageHandlers.set('call_end', [(message: PlivoTranscriptMessage) => {}]);
-    this.messageHandlers.set('transcription_error', [(message: PlivoTranscriptMessage) => {}]);
+    this.messageHandlers.set('transcript', [(_message: PlivoTranscriptMessage) => {}]);
+    this.messageHandlers.set('call_start', [(_message: PlivoTranscriptMessage) => {}]);
+    this.messageHandlers.set('call_end', [(_message: PlivoTranscriptMessage) => {}]);
+    this.messageHandlers.set('transcription_error', [(_message: PlivoTranscriptMessage) => {}]);
   }
 
   connect(token?: string): Promise<void> {

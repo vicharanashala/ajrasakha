@@ -12,6 +12,11 @@ export const stripMarkdown = (text: string): string => {
     .trim();
 };
 
+export interface RenderMarkdownOptions {
+  className?: string;
+  baseFontSize?: string;
+}
+
 export const renderMarkdown = (text: string, options: RenderMarkdownOptions = {}) => {
   if (!text) return null;
 

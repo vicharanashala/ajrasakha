@@ -1,6 +1,4 @@
 import { useEffect, useState, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
-import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
 import { Switch } from "./atoms/switch";
 import {
@@ -18,7 +16,6 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
-  User,
   MessageSquare,
   Loader2,
   Clock,
@@ -31,7 +28,6 @@ import type { PlivoTranscriptMessage } from "@/hooks/services/plivoWebSocketServ
 import { env } from "@/config/env";
 import Plivo from "plivo-browser-sdk";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { FarmerDetails } from "./FarmerDetails";
 import { plivoApi } from "@/hooks/api/plivo/api";
 import { toast } from "sonner";
 import { translateService } from "@/hooks/services/translateService";
@@ -495,7 +491,7 @@ export const IncomingCallBox = ({
       enableTracking: true,
     };
 
-    const client = new Plivo(options);
+    const client: any = new Plivo(options);
     plivoClientRef.current = client;
 
     console.log("🔑 Attempting Plivo login with username:", endpointUsername);
@@ -530,7 +526,7 @@ export const IncomingCallBox = ({
 
     client.client.on(
       "onIncomingCall",
-      (callerID, extraHeaders, callInfo: any, callerName: string) => {
+      (callerID: string, _extraHeaders: any, callInfo: any, callerName: string) => {
         // console.log('📞 Incoming call from:', callerName);
         alert("Incoming call from " + callerName);
 

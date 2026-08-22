@@ -678,52 +678,52 @@ export const CallLog = () => {
                                   )}
 
                                   {/* Top Row: Farmer Details (40%) & Call Transcripts (60%) Side-by-Side */}
-                                  <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-start w-full">
-                                    <div className="lg:col-span-4 w-full flex flex-col">
+                                  <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 items-stretch w-full">
+                                    <div className="lg:col-span-4 w-full flex flex-col h-[280px]">
                                       <FarmerDetails
                                         phoneNo={call.from}
                                         defaultOpen={false}
                                         extractedProfile={call.farmerProfile}
-                                        className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl w-full"
+                                        className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl w-full h-full"
                                       />
                                     </div>
                                     {/* Call Transcripts / Conversation Box (60%) - Matches Default Farmer Details Height */}
-                                    <div className="lg:col-span-6 w-full flex flex-col min-h-0">
-                                      <Card className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl flex flex-col h-[298px] max-h-[298px] w-full overflow-hidden">
-                                        <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 !py-2 !px-3.5 flex-shrink-0">
+                                    <div className="lg:col-span-6 w-full flex flex-col h-[280px]">
+                                      <Card className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl flex flex-col h-full w-full overflow-hidden !gap-0 !p-0 !py-0">
+                                        <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 !py-1.5 !px-3.5 !pb-1.5 flex-shrink-0 !gap-0">
                                           <CardTitle className="text-xs font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-2">
                                             <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
                                             Call Conversation
                                           </CardTitle>
                                         </CardHeader>
-                                        <CardContent className="p-3 flex-1 flex flex-col min-h-0 overflow-hidden">
+                                        <CardContent className="!p-2.5 !px-3 flex-1 flex flex-col min-h-0 overflow-hidden">
                                           {call.callDetails ? (
-                                            <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col w-full">
+                                            <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col w-full custom-scrollbar">
                                               {/* Farmer bubble (Inbound) */}
                                               {call.callDetails.caller &&
                                                 (call.callDetails.caller.transcript ||
                                                   call.callDetails.caller.translation) && (
-                                                  <div className="flex flex-col items-start space-y-1 animate-in fade-in duration-200">
-                                                    <div className="flex items-center gap-2 px-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold tracking-wider uppercase">
+                                                  <div className="flex flex-col items-start space-y-0.5 animate-in fade-in duration-200">
+                                                    <div className="flex items-center gap-1 px-1 text-[9px] text-zinc-400 dark:text-zinc-500 font-bold tracking-wider uppercase">
                                                       <span>Farmer</span>
                                                     </div>
-                                                    <div className="max-w-[90%] px-3.5 py-2.5 rounded-2xl shadow-sm border bg-zinc-50 dark:bg-zinc-800/30 border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none">
-                                                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap font-medium">
+                                                    <div className="max-w-[90%] px-3 py-2 rounded-xl shadow-sm border bg-zinc-50 dark:bg-zinc-800/30 border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none">
+                                                      <p className="text-xs leading-relaxed whitespace-pre-wrap font-medium">
                                                         {call.callDetails.caller.translation || "N/A"}
                                                       </p>
                                                       {call.callDetails.caller.transcript &&
                                                         call.callDetails.caller.transcript !==
                                                         call.callDetails.caller.translation && (
-                                                          <div className="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
-                                                            <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-zinc-400">
-                                                              <Globe className="h-3 w-3" />
+                                                          <div className="mt-1 pt-1 border-t border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                                            <div className="flex items-center gap-1 mb-0.5 text-[8.5px] uppercase tracking-wider font-bold text-zinc-400">
+                                                              <Globe className="h-2.5 w-2.5" />
                                                               <span>
                                                                 Original (
                                                                 {call.callDetails.caller.detectedLanguage || "unknown"}
                                                                 )
                                                               </span>
                                                             </div>
-                                                            <p className="italic leading-relaxed text-xs">
+                                                            <p className="italic leading-relaxed text-[11px]">
                                                               {call.callDetails.caller.transcript}
                                                             </p>
                                                           </div>
@@ -736,27 +736,27 @@ export const CallLog = () => {
                                               {call.callDetails.agent &&
                                                 (call.callDetails.agent.transcript ||
                                                   call.callDetails.agent.translation) && (
-                                                  <div className="flex flex-col items-end space-y-1 animate-in fade-in duration-200">
-                                                    <div className="flex items-center gap-2 px-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold tracking-wider uppercase">
+                                                  <div className="flex flex-col items-end space-y-0.5 animate-in fade-in duration-200">
+                                                    <div className="flex items-center gap-1 px-1 text-[9px] text-zinc-400 dark:text-zinc-500 font-bold tracking-wider uppercase">
                                                       <span>Expert</span>
                                                     </div>
-                                                    <div className="max-w-[90%] px-3.5 py-2.5 rounded-2xl shadow-sm border bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 border-indigo-500 text-white rounded-tr-none shadow-indigo-500/10">
-                                                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap font-medium">
+                                                    <div className="max-w-[90%] px-3 py-2 rounded-xl shadow-sm border bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 border-indigo-500 text-white rounded-tr-none shadow-indigo-500/10">
+                                                      <p className="text-xs leading-relaxed whitespace-pre-wrap font-medium">
                                                         {call.callDetails.agent.translation || "N/A"}
                                                       </p>
                                                       {call.callDetails.agent.transcript &&
                                                         call.callDetails.agent.transcript !==
                                                         call.callDetails.agent.translation && (
-                                                          <div className="mt-2 pt-2 border-t border-white/20 text-xs text-white/80">
-                                                            <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-white/75">
-                                                              <Globe className="h-3 w-3" />
+                                                          <div className="mt-1 pt-1 border-t border-white/20 text-[11px] text-white/80">
+                                                            <div className="flex items-center gap-1 mb-0.5 text-[8.5px] uppercase tracking-wider font-bold text-white/75">
+                                                              <Globe className="h-2.5 w-2.5" />
                                                               <span>
                                                                 Original (
                                                                 {call.callDetails.agent.detectedLanguage || "unknown"}
                                                                 )
                                                               </span>
                                                             </div>
-                                                            <p className="italic leading-relaxed text-xs">
+                                                            <p className="italic leading-relaxed text-[11px]">
                                                               {call.callDetails.agent.transcript}
                                                             </p>
                                                           </div>

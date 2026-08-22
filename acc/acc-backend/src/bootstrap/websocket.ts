@@ -14,6 +14,21 @@ export const initWebSocket = (server: Server) => {
     path: '/plivo-stream',
   });
 
+  // 30-second ping/pong heartbeat to prevent idle proxy/Cloud Run terminations
+  const heartbeatInterval = setInterval(() => {
+    wss.clients.forEach((client: any) => {
+      if (client.isAlive === false) {
+        return client.terminate();
+      }
+      client.isAlive = false;
+      client.ping();
+    });
+  }, 30000);
+
+  wss.on('close', () => {
+    clearInterval(heartbeatInterval);
+  });
+
   const plivoService = getContainer().get<PlivoService>(PLIVO_TYPES.PlivoService);
   const userService = getContainer().get<UserService>(GLOBAL_TYPES.UserService);
 
@@ -38,6 +53,11 @@ export const initWebSocket = (server: Server) => {
 
   wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
     console.log('🔌 Plivo stream connected');
+
+    (ws as any).isAlive = true;
+    ws.on('pong', () => {
+      (ws as any).isAlive = true;
+    });
 
     let callId = Date.now().toString();
     let isMediaStream = false;

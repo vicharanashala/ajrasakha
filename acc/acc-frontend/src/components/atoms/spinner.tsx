@@ -3,13 +3,17 @@ import React from "react";
 interface SpinnerProps {
   text?: string;
   offsetTop?: boolean;
-  fullScreen?: boolean;  // <--- new Line
+  fullScreen?: boolean;
+  size?: "sm" | "md" | "lg" | string;
+  className?: string;
 }
 
 export const Spinner: React.FC<SpinnerProps> = ({
   offsetTop = true,
   text = "Loading",
-   fullScreen = true, // <--- new Line
+  fullScreen = true,
+  size: _size,
+  className = "",
 }) => {
 
   const positionClass = fullScreen 
@@ -17,7 +21,7 @@ export const Spinner: React.FC<SpinnerProps> = ({
     : "absolute inset-0 z-10 w-full h-full";
   return (
     <div
-      className={`${positionClass} flex items-center justify-center bg-background/60 backdrop-blur-sm`}
+      className={`${positionClass} flex items-center justify-center bg-background/60 backdrop-blur-sm ${className}`}
     >
       <div className="flex flex-col items-center gap-4">
         {/* Agriculture-themed spinner with wheat stalks */}
