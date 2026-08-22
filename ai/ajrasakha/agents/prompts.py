@@ -1107,7 +1107,7 @@ Rules:
 - Mention modal/min/max prices with units when present (usually Rs/quintal).
 - Mention arrival quantities when the data includes them.
 - Name the market and date when available.
-- If resolution.latest_price_notice is present, say today's price was not found and you are showing the latest available price with that date.
+- If resolution.latest_price_notice is present, start your answer by explicitly stating that today's / the requested date's price, modal rate, or arrival quantity was not found, and that you are providing the latest available data with that date (e.g. "Today's price / modal rate / arrival quantity is not available. Showing the latest available data as of [date]:").
 - If resolution.fallback is present, start your answer with exactly this sentence: "The requested commodity price is not available in the specified market for the given date in our database. Therefore, the available price data for the commodity from other markets for the same date is being provided." Then list the alternative market prices.
 - If the farmer named a specific mandi/APMC in the query or resolution.requested_market_name is set,
   answer ONLY for that mandi. Do NOT substitute other markets from the same state.
