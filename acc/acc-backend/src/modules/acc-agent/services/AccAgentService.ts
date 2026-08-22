@@ -1,6 +1,7 @@
 import { injectable } from 'inversify';
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { InternalServerError } from 'routing-controllers';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 import { aiConfig } from '../../../config/ai.js';
 
 @injectable()
@@ -10,13 +11,24 @@ export class AccAgentService {
   private readonly TIMEOUT = aiConfig.accAgentTimeout;
   private readonly checkpointCache = new Map<string, string>();
 
+  // SOCKS5 proxy agent for Tailscale network (localhost:1055)
+  private readonly httpAgent = new SocksProxyAgent('socks5://localhost:1055');
+
+  private createAxiosInstance(): AxiosInstance {
+    return axios.create({
+      httpAgent: this.httpAgent,
+      httpsAgent: this.httpAgent,
+    });
+  }
+
   /**
    * Step 1: Create a new thread/session
    */
   async createThread(): Promise<{ thread_id: string }> {
     const startTime = Date.now();
+    const api = this.createAxiosInstance();
     try {
-      const response = await axios.post(
+      const response = await api.post(
         `${this.BASE_URL}/threads`,
         {},
         {
@@ -59,9 +71,10 @@ export class AccAgentService {
     extracted_primary_crop?: string;
   }> {
     const startTime = Date.now();
+    const api = this.createAxiosInstance();
     try {
       console.log(`[AccAgentService] Extracting data (${extractionType || 'all'}) from transcript for thread ${threadId} (transcript length: ${transcript.length})`);
-      const response = await axios.post(
+      const response = await api.post(
         `${this.BASE_URL}/threads/${threadId}/runs/wait`,
         {
           assistant_id: this.ASSISTANT_ID,
@@ -133,6 +146,7 @@ export class AccAgentService {
   ): Promise<void> {
 
     const startTime = Date.now();
+    const api = this.createAxiosInstance();
     try {
       console.log(`🔄 [AccAgentService] Updating state for thread ${threadId}: query="${correctedData.query}", crop="${correctedData.crop}", domain="${JSON.stringify(correctedData.domain)}"`);
       const domainsArray = Array.isArray(correctedData.domain)
@@ -141,7 +155,7 @@ export class AccAgentService {
           ? [correctedData.domain]
           : [];
 
-      const response = await axios.post(
+      const response = await api.post(
         `${this.BASE_URL}/threads/${threadId}/state`,
         {
           as_node: 'extract',
@@ -188,9 +202,10 @@ export class AccAgentService {
       return cached;
     }
 
+    const api = this.createAxiosInstance();
     try {
       // Try GET request first (standard LangGraph API for getting state)
-      const response = await axios.get(
+      const response = await api.get(
         `${this.BASE_URL}/threads/${threadId}/state`,
         {
           headers: { 'Content-Type': 'application/json' },
@@ -205,7 +220,7 @@ export class AccAgentService {
 
     try {
       // Fallback POST request with an empty body to retrieve the state
-      const response = await axios.post(
+      const response = await api.post(
         `${this.BASE_URL}/threads/${threadId}/state`,
         {},
         {
@@ -226,9 +241,10 @@ export class AccAgentService {
   async resumeAndGetAnswer(threadId: string): Promise<{ final_answer: string }> {
     const startTime = Date.now();
     const checkpointId = await this.checkpointId(threadId);
+    const api = this.createAxiosInstance();
     try {
       console.log(`[AccAgentService] Resuming thread ${threadId} (checkpoint: ${checkpointId})`);
-      const response = await axios.post(
+      const response = await api.post(
         `${this.BASE_URL}/threads/${threadId}/runs/wait`,
         {
           assistant_id: this.ASSISTANT_ID,
@@ -270,9 +286,10 @@ export class AccAgentService {
    */
   async getThreadState(threadId: string): Promise<any> {
     const startTime = Date.now();
+    const api = this.createAxiosInstance();
     try {
       console.log(`🔄 [AccAgentService] Getting thread state for ${threadId}`);
-      const response = await axios.get(
+      const response = await api.get(
         `${this.BASE_URL}/threads/${threadId}/state`,
         {
           headers: { 'Content-Type': 'application/json' },

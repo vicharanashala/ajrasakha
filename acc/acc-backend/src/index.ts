@@ -20,22 +20,13 @@ import './bootstrap/jobs/plivoRecordingCleanupJob.js';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const app = express();
 
-app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-    environment: NODE_ENV,
-  });
-});
-
-app.use(loggingHandler);
-
+// CORS middleware - MUST be first to apply to ALL routes
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  const allowAllOrigins = appConfig.origins.includes('*');
 
-  if (!origin || appConfig.origins.includes(origin as string)) {
-    res.header('Access-Control-Allow-Origin', (origin as string) || '*');
+  if (!origin || allowAllOrigins || appConfig.origins.includes(origin as string)) {
+    res.header('Access-Control-Allow-Origin', allowAllOrigins ? '*' : (origin as string));
   }
 
   res.header(
@@ -55,6 +46,17 @@ app.use((req, res, next) => {
   }
 
   next();
+});
+
+app.use(loggingHandler);
+
+app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    environment: NODE_ENV,
+  });
 });
 
 const { controllers, validators } = await loadAppModules(
