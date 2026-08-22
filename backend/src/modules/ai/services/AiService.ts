@@ -127,6 +127,7 @@ export class AiService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(3000), // Enforce 3-second timeout so the API doesn't hang if AI server is down
       })
 
       if (!response.ok) {

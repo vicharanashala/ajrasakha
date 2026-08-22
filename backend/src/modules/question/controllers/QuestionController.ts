@@ -3627,7 +3627,6 @@ export class QuestionController {
       suggestionSourceName,
     );
   }
-
   @Get('/pae-val/queue-details')
   @HttpCode(200)
   @Authorized()
@@ -3674,6 +3673,65 @@ export class QuestionController {
     );
 
     throw error;
+  }
+  
+  @Post('/escalate-from-personalizer')
+  @HttpCode(201)
+  @OpenAPI({ summary: 'Internal route for personalizer to escalate questions' })
+  async escalateFromPersonalizer(
+    @Body() body: any,
+  ) {
+    try {
+      // Find a PAE expert user to act as the assignee and creator
+      const paeExperts = await this.userService.getAllUsers(1, 10, '', '', 'pae_expert');
+      let adminUser = paeExperts.users && paeExperts.users.length > 0 ? paeExperts.users[0] : null;
+      
+      // Fallback to any user if no PAE expert found (unlikely in prod, good for safety)
+      if (!adminUser) {
+         const anyUsers = await this.userService.getAllUsers(1, 1, '', '', '');
+         adminUser = anyUsers.users[0];
+      }
+      
+      if (!adminUser || !adminUser._id) {
+        throw new InternalServerError('No user found in database to act as escalation creator');
+      }
+      
+      const adminId = adminUser._id.toString();
+      
+      const result = await this.questionService.addQuestion(adminId, {
+        question: body.question,
+        priority: 'critical',
+        source: 'AJRASAKHA',
+        details: {
+          state: body.details?.state || 'Maharashtra',
+          district: body.details?.district || 'Pune',
+          crop: body.details?.crop || 'Rice',
+          season: body.details?.season || 'Kharif',
+          domain: body.details?.domain || ['Crop Protection']
+        },
+        isAutoAllocate: false,
+      } as unknown as AddQuestionBodyDto);
+
+      if (result && result.data && result.data._id) {
+        console.log(`[QuestionController] Escalated Question ID: ${result.data._id}`);
+        // Force this question to be 'open' and 'isAutoAllocate: true' so it appears in allocated queue
+        await this.questionService.updateQuestion(result.data._id.toString(), {
+          status: 'open',
+          isAutoAllocate: true,
+        } as any);
+
+        // Allocate the question directly to the PAE expert so they can answer it
+        const updateRes = await this.questionService.allocateExperts(adminId, result.data._id.toString(), [adminId]);
+        console.log(`[QuestionController] Allocated Escalation to Expert ${adminId}:`, updateRes);
+      } else {
+        console.log(`[QuestionController] No valid result _id found! Result:`, result);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('[QuestionController] escalateFromPersonalizer error:', error);
+      throw error;
+    }
   }
 }
 }
