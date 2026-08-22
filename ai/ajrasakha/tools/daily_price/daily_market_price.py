@@ -841,8 +841,8 @@ def mandi_price_tool(
                     records = latest.get("price_records") or []
                     latest_date = records[0].get("date") if records else None
                     latest.setdefault("resolution", {})["latest_price_notice"] = (
-                        "No price data found for the requested date. "
-                        "Showing the latest available price"
+                        "Today's price, modal rate, or arrival quantity is not available. "
+                        "Showing the latest available data"
                         + (f" (as of {latest_date})" if latest_date else "") + "."
                     )
                     if latest_date:
@@ -987,6 +987,14 @@ def mandi_price_tool(
         if not result.get("error"):
             result["action"] = "get_today_price"
             result.pop("stats", None)
+            records = result.get("price_records") or []
+            today_str = datetime.now(timezone.utc).date().isoformat()
+            if records and not from_date and not to_date and (lookback_days is None or lookback_days == 1):
+                rec_date = records[0].get("date")
+                if rec_date and rec_date != today_str:
+                    result.setdefault("resolution", {})["latest_price_notice"] = (
+                        f"Today's price / modal rate is not available. Showing the latest available price (as of {rec_date})."
+                    )
         return result
 
     # ======================================================================
@@ -1049,9 +1057,6 @@ def mandi_price_tool(
         if not commodity_name:
             return {"error": "commodity_name is required for action='get_highest_price'."}
         c_list = [commodity_name] if isinstance(commodity_name, str) else commodity_name
-        # When no explicit date range is provided, scope to today's data only
-        # (with latest-price fallback so the farmer always sees something).
-        # This prevents returning a stale historical high as the "best price".
         effective_lookback = lookback_days
         if effective_lookback is None and from_date is None and to_date is None:
             effective_lookback = 1
@@ -1067,7 +1072,13 @@ def mandi_price_tool(
         if result.get("error"):
             return result
         records = result.get("price_records") or []
-        # Sort by max_price descending, then modal_price
+        today_str = datetime.now(timezone.utc).date().isoformat()
+        if records and not from_date and not to_date and (effective_lookback is None or effective_lookback == 1):
+            rec_date = records[0].get("date")
+            if rec_date and rec_date != today_str:
+                result.setdefault("resolution", {})["latest_price_notice"] = (
+                    f"Today's price / modal rate is not available. Showing the latest available price (as of {rec_date})."
+                )
         sorted_records = sorted(
             records,
             key=lambda r: (r.get("max_price") or 0, r.get("modal_price") or 0),
@@ -1097,11 +1108,38 @@ def mandi_price_tool(
             nearest_market=nearest_market, radius_km=radius_km,
             from_date=from_date, to_date=to_date,
             lookback_days=eff_lookback,
+            latest_price_fallback=True,
         )
         if result.get("error"):
             return result
-        # Focus on arrival data
         records = result.get("price_records") or []
+        valid_arrivals = [r for r in records if r.get("arrival_quantity") is not None]
+        today_str = datetime.now(timezone.utc).date().isoformat()
+        if not valid_arrivals and eff_lookback == 1:
+            # If today had no arrival quantities recorded, query latest available
+            latest_result = _fetch_price_data(
+                commodity_list=c_list,
+                market_name=market_name, state=state,
+                lat=lat, long=long,
+                nearest_market=nearest_market, radius_km=radius_km,
+                latest_price_fallback=True,
+            )
+            all_recs = latest_result.get("price_records") or []
+            valid_arrivals = [r for r in all_recs if r.get("arrival_quantity") is not None]
+            if valid_arrivals:
+                latest_date = valid_arrivals[0].get("date")
+                records = [r for r in valid_arrivals if r.get("date") == latest_date]
+                result = latest_result
+                result.setdefault("resolution", {})["latest_price_notice"] = (
+                    f"Today's arrival quantity is not available. Showing the latest available arrival data (as of {latest_date})."
+                )
+        elif records and not from_date and not to_date and eff_lookback == 1:
+            rec_date = records[0].get("date")
+            if rec_date and rec_date != today_str:
+                result.setdefault("resolution", {})["latest_price_notice"] = (
+                    f"Today's arrival quantity is not available. Showing the latest available arrival data (as of {rec_date})."
+                )
+
         arrival_records = [
             {
                 "date":             r.get("date"),
@@ -1122,7 +1160,7 @@ def mandi_price_tool(
             "total_arrival_qty": stats.get("overall", {}).get("total_arrival_qty"),
             "avg_arrival_qty":   stats.get("overall", {}).get("avg_arrival_qty"),
             "resolution":        result.get("resolution"),
-            "total_records_returned": result.get("total_records_returned"),
+            "total_records_returned": len(arrival_records),
         }
 
     # ======================================================================
@@ -1173,17 +1211,47 @@ def mandi_price_tool(
         if not commodity_name:
             return {"error": "commodity_name is required for action='get_extreme_arrival'."}
         c_list = [commodity_name] if isinstance(commodity_name, str) else commodity_name
+        effective_lookback = lookback_days
+        if effective_lookback is None and from_date is None and to_date is None:
+            effective_lookback = 1
         result = _fetch_price_data(
             commodity_list=c_list,
             market_name=market_name, state=state,
             lat=lat, long=long,
             nearest_market=nearest_market, radius_km=radius_km,
             from_date=from_date, to_date=to_date,
-            lookback_days=lookback_days,
+            lookback_days=effective_lookback,
+            latest_price_fallback=True,
         )
         if result.get("error"):
             return result
         records = result.get("price_records") or []
+        today_str = datetime.now(timezone.utc).date().isoformat()
+        valid_arrivals = [r for r in records if r.get("arrival_quantity") is not None]
+        if not valid_arrivals and effective_lookback == 1:
+            latest_result = _fetch_price_data(
+                commodity_list=c_list,
+                market_name=market_name, state=state,
+                lat=lat, long=long,
+                nearest_market=nearest_market, radius_km=radius_km,
+                latest_price_fallback=True,
+            )
+            all_recs = latest_result.get("price_records") or []
+            valid_arrivals = [r for r in all_recs if r.get("arrival_quantity") is not None]
+            if valid_arrivals:
+                latest_date = valid_arrivals[0].get("date")
+                records = [r for r in valid_arrivals if r.get("date") == latest_date]
+                result = latest_result
+                result.setdefault("resolution", {})["latest_price_notice"] = (
+                    f"Today's arrival quantity is not available. Showing the latest available arrival data (as of {latest_date})."
+                )
+        elif records and not from_date and not to_date and effective_lookback == 1:
+            rec_date = records[0].get("date")
+            if rec_date and rec_date != today_str:
+                result.setdefault("resolution", {})["latest_price_notice"] = (
+                    f"Today's arrival quantity is not available. Showing the latest available arrival data (as of {rec_date})."
+                )
+
         order = (sort_order or "highest").strip().lower()
         descending = order != "lowest"
         sorted_records = sorted(
@@ -1197,7 +1265,7 @@ def mandi_price_tool(
             "sort_order":          label,
             f"{label}_arrivals":   sorted_records[:5],
             "resolution":          result.get("resolution"),
-            "total_records_analysed": result.get("total_records_returned"),
+            "total_records_analysed": len(sorted_records),
         }
 
     # ======================================================================

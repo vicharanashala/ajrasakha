@@ -137,6 +137,33 @@ def test_ensure_source_line_does_not_duplicate():
     assert res == ans
 
 
+def test_ensure_latest_notice_prepends_when_missing():
+    from ajrasakha.agents.daily_price_agent import _ensure_latest_notice
+
+    payload = {
+        "resolution": {
+            "latest_price_notice": "Today's arrival quantity is not available. Showing the latest available data as of 20-Aug-2026."
+        }
+    }
+    ans = "The highest arrivals for tomato on 20-Aug-2026 were at Mulakalacheruvu APMC with 775.0 quintals."
+    res = _ensure_latest_notice(ans, payload)
+    assert res.startswith("Today's arrival quantity is not available. Showing the latest available data as of 20-Aug-2026.")
+    assert "Mulakalacheruvu APMC" in res
+
+
+def test_ensure_latest_notice_does_not_duplicate():
+    from ajrasakha.agents.daily_price_agent import _ensure_latest_notice
+
+    payload = {
+        "resolution": {
+            "latest_price_notice": "Today's arrival quantity is not available. Showing the latest available data as of 20-Aug-2026."
+        }
+    }
+    ans = "Today's arrival quantity is not available. The highest arrivals for tomato on 20-Aug-2026 were at Mulakalacheruvu APMC."
+    res = _ensure_latest_notice(ans, payload)
+    assert res == ans
+
+
 def test_extract_date_from_query_and_fix_year():
     from datetime import datetime
     from ajrasakha.agents.daily_price_agent import _extract_date_from_query, _fix_date_year
@@ -195,6 +222,26 @@ def test_heuristic_intent_price_history():
 def test_heuristic_intent_search_markets():
     intent = _heuristic_intent("Which mandis are nearest market near me?")
     assert intent["action"] == "search_markets"
+
+
+def test_heuristic_intent_which_mandi_highest_arrivals():
+    intent = _heuristic_intent("Which mandi has the highest arrivals for tomatoes today in anantapur district, andhra pradesh?")
+    assert intent["action"] == "get_extreme_arrival"
+    assert intent["sort_order"] == "highest"
+
+
+def test_normalize_intent_which_mandi_highest_arrivals():
+    intent = _normalize_intent(
+        {
+            "action": "get_extreme_arrival",
+            "sort_order": "highest",
+            "state": "Andhra Pradesh",
+        },
+        "Which mandi has the highest arrivals for tomatoes today in anantapur district, andhra pradesh?",
+    )
+    assert intent["action"] == "get_extreme_arrival"
+    assert intent["sort_order"] == "highest"
+    assert intent["state"] == "Andhra Pradesh"
 
 
 def test_heuristic_intent_nearby_market_phrase():

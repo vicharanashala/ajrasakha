@@ -183,6 +183,8 @@ _NAMED_MARKET_QUERY_SHORT = re.compile(
 
 def _is_market_discovery_query(query: str) -> bool:
     q = (query or "").lower()
+    if any(k in q for k in ("arrival", "arrivals", "price", "rate", "modal", "highest", "lowest", "cost", "average", "avg")):
+        return False
     return any(phrase in q for phrase in _MARKET_DISCOVERY_PHRASES)
 
 
@@ -285,9 +287,6 @@ def _heuristic_intent(query: str) -> dict[str, Any]:
         base["to_date"] = specific_date
 
     if _is_market_discovery_query(query):
-        return {**base, "action": "search_markets", "nearest_market": True, "radius_km": 50}
-
-    if "which market" in q or "nearest market" in q or "mandi near" in q or "find market" in q or "find mandi" in q:
         return {**base, "action": "search_markets", "nearest_market": True, "radius_km": 50}
 
     if "arrival" in q:
@@ -726,6 +725,57 @@ def _ensure_source_line(answer: str, payload: Any) -> str:
     return f"{ans}\n\n{source_line}"
 
 
+def _ensure_latest_notice(answer: str, payload: Any) -> str:
+    """If the tool payload indicates today's data was not found and shows latest data,
+    ensure the answer starts with that notice."""
+    ans = (answer or "").strip()
+    if not ans or not isinstance(payload, dict):
+        return ans
+
+    notice = None
+    if isinstance(payload.get("resolution"), dict):
+        notice = payload["resolution"].get("latest_price_notice")
+    elif isinstance(payload.get("named_market"), dict) and isinstance(payload["named_market"].get("resolution"), dict):
+        notice = payload["named_market"]["resolution"].get("latest_price_notice")
+    elif isinstance(payload.get("results"), dict):
+        for sub in payload["results"].values():
+            if isinstance(sub, dict) and isinstance(sub.get("resolution"), dict):
+                n = sub["resolution"].get("latest_price_notice")
+                if n:
+                    notice = n
+                    break
+
+    # If tool payload did not have latest_price_notice, detect if records are from a past date
+    if not notice:
+        from datetime import datetime, timezone
+        today_str = datetime.now(timezone.utc).date().isoformat()
+        records = (
+            payload.get("highest_arrivals")
+            or payload.get("price_records")
+            or payload.get("arrival_records")
+            or payload.get("highest_records")
+            or []
+        )
+        if records and isinstance(records, list) and isinstance(records[0], dict):
+            rec_date = records[0].get("date")
+            if rec_date and str(rec_date) != today_str:
+                notice = f"Today's price / arrival quantity is not available. Showing the latest available data (as of {rec_date}):"
+
+    if notice:
+        notice_str = str(notice).strip()
+        ans_lower = ans.lower()
+        first_line = ans_lower.split("\n")[0]
+        if (
+            "today's price" not in first_line
+            and "today's arrival" not in first_line
+            and "latest available" not in first_line
+            and "no price data found" not in first_line
+        ):
+            return f"{notice_str}\n\n{ans}"
+
+    return ans
+
+
 async def synthesize_daily_price_answer(
     query: str,
     tool_result: Any,
@@ -754,7 +804,8 @@ async def synthesize_daily_price_answer(
         query=query,
     )
     if answer and answer.strip():
-        return _ensure_source_line(answer.strip(), payload)
+        ans_with_source = _ensure_source_line(answer.strip(), payload)
+        return _ensure_latest_notice(ans_with_source, payload)
     if _tool_result_is_empty(payload):
         return _fallback_unavailable_answer(
             payload,
