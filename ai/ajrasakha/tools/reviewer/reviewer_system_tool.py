@@ -139,7 +139,7 @@ def upload_question_to_reviewer_system(
             CREATE_QUESTION_URL,
             json=payload,
             headers=headers,
-            timeout=10
+            timeout=20
         )
         response.raise_for_status()
 
