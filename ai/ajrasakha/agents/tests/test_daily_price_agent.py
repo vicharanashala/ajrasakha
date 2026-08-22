@@ -21,6 +21,25 @@ def test_heuristic_intent_modal_price_defaults_to_today():
     assert intent["lookback_days"] is None
 
 
+def test_heuristic_intent_minimum_price_extracts_get_lowest_price():
+    intent = _normalize_intent(None, "Minimum price of Potato in Perumbavoor market")
+    assert intent["action"] == "get_lowest_price"
+    assert intent["lookback_days"] == 7
+    assert intent["market_name"] == "Perumbavoor market"
+
+
+def test_highest_modal_price_specific_date_state():
+    intent = _normalize_intent(None, "highest modal price of onion in bihar on 19th august")
+    assert intent["action"] == "get_highest_price"
+    assert intent["state"] == "Bihar"
+    assert "19-Aug" in intent["from_date"]
+    assert "19-Aug" in intent["to_date"]
+    assert intent["lookback_days"] is None
+
+
+
+
+
 def test_normalize_intent_modal_price_overrides_gemma_summary():
     intent = _normalize_intent(
         {
@@ -162,6 +181,31 @@ def test_ensure_latest_notice_does_not_duplicate():
     ans = "Today's arrival quantity is not available. The highest arrivals for tomato on 20-Aug-2026 were at Mulakalacheruvu APMC."
     res = _ensure_latest_notice(ans, payload)
     assert res == ans
+
+
+def test_ensure_latest_notice_not_added_for_historical_query():
+    from ajrasakha.agents.daily_price_agent import _ensure_latest_notice
+
+    payload = {
+        "action": "get_highest_price",
+        "highest_records": [
+            {
+                "market_name": "Fancy Bazaar APMC",
+                "modal_price": 7600,
+                "min_price": 6600,
+                "max_price": 9200,
+                "commodity_name": "Wheat",
+                "date": "2026-08-19",
+                "source_system": "Agmarknet",
+            }
+        ],
+    }
+    ans = "The highest modal price of wheat (atta) in Assam over the last 30 days was recorded at Fancy Bazaar APMC."
+    res = _ensure_latest_notice(ans, payload)
+    assert res == ans
+    assert "Today's price" not in res
+    assert "not available" not in res
+
 
 
 def test_extract_date_from_query_and_fix_year():
@@ -593,3 +637,93 @@ async def test_daily_price_returns_gemma_answer():
     assert "2500" in data["answer"]
     assert "Ludhiana" in data["answer"]
     assert data["tool_data"] == tool_payload
+
+
+def test_fmt_price_and_dedupe_nearby():
+    from ajrasakha.agents.daily_price_agent import (
+        _fmt_price,
+        _dedupe_and_sort_nearby_records,
+        _format_price_fallback,
+    )
+
+    assert _fmt_price(3700.0) == "Rs 3700"
+    assert _fmt_price(3750.5) == "Rs 3750.5"
+    assert _fmt_price(None) is None
+
+    records = [
+        {"market_name": "Perumbavoor APMC", "modal_price": 5200.0, "min_price": 4800.0, "max_price": 6000.0},
+        {"market_name": "Aroor Market", "variety": "small", "modal_price": 8600.0, "min_price": 8500.0, "max_price": 8700.0},
+        {"market_name": "Aroor Market", "variety": "big", "modal_price": 5900.0, "min_price": 5800.0, "max_price": 6000.0},
+        {"market_name": "North Paravur Market", "modal_price": 8500.0, "min_price": 8000.0, "max_price": 9000.0},
+    ]
+    top = _dedupe_and_sort_nearby_records(records, top_n=3)
+    assert len(top) == 3
+    assert top[0]["market_name"] == "Aroor Market"
+    assert top[0]["modal_price"] == 8600.0
+    assert top[1]["market_name"] == "North Paravur Market"
+    assert top[2]["market_name"] == "Perumbavoor APMC"
+
+    payload = {
+        "action": "get_price_with_nearby",
+        "named_market": {
+            "market_name": "Aluva",
+            "price_records": [{
+                "market_name": "Aluva",
+                "modal_price": 3700.0,
+                "min_price": 3300.0,
+                "max_price": 4000.0,
+                "commodity_name": "Onion",
+                "date": "2026-08-13",
+                "source_system": "Agmarknet",
+            }],
+            "resolution": {
+                "latest_price_notice": "Today's price is not available. Showing the latest available data (as of 2026-08-13)."
+            },
+        },
+        "nearby_markets": {
+            "price_records": records,
+        },
+    }
+    ans = _format_price_fallback(payload, crop="onion")
+    assert "Today's price is not available" in ans
+    assert "Highest prices in nearby markets" in ans
+    assert "Aroor Market" in ans
+    assert "Rs 8600" in ans
+    assert ans.count("This information is fetched from the following source") == 1
+
+
+def test_get_lowest_price_fallback():
+    from ajrasakha.agents.daily_price_agent import _format_price_fallback
+
+    payload = {
+        "action": "get_lowest_price",
+        "lowest_records": [
+            {
+                "market_name": "Anchal APMC",
+                "modal_price": 3700.0,
+                "min_price": 3700.0,
+                "max_price": 3800.0,
+                "commodity_name": "Onion",
+                "date": "2026-08-22",
+                "source_system": "Agmarknet",
+            },
+            {
+                "market_name": "Kuruppanthura APMC",
+                "modal_price": 4200.0,
+                "min_price": 4000.0,
+                "max_price": 4500.0,
+                "commodity_name": "Onion",
+                "date": "2026-08-22",
+                "source_system": "Agmarknet",
+            },
+        ],
+    }
+    ans = _format_price_fallback(payload, crop="onion")
+    assert "Lowest Onion prices on 2026-08-22:" in ans
+    assert "1) Anchal Apmc" in ans
+    assert "Rs 3700" in ans
+    assert "2) Kuruppanthura Apmc" in ans
+    assert "Rs 4200" in ans
+    assert "Agmarknet" in ans
+
+

@@ -30,6 +30,7 @@ _FARMER_ACTIONS = frozenset({
     "get_price_history",
     "get_price_summary",
     "get_highest_price",
+    "get_lowest_price",
     "get_today_arrival",
     "get_arrival_history",
     "get_extreme_arrival",
@@ -42,6 +43,7 @@ _COMMODITY_ACTIONS = frozenset({
     "get_price_history",
     "get_price_summary",
     "get_highest_price",
+    "get_lowest_price",
     "get_today_arrival",
     "get_arrival_history",
     "get_extreme_arrival",
@@ -53,6 +55,7 @@ _GEO_ACTIONS = frozenset({
     "get_price_history",
     "get_price_summary",
     "get_highest_price",
+    "get_lowest_price",
     "get_today_arrival",
     "get_arrival_history",
     "get_extreme_arrival",
@@ -64,6 +67,7 @@ _HISTORY_ACTIONS = frozenset({
     "get_price_history",
     "get_price_summary",
     "get_highest_price",
+    "get_lowest_price",
     "get_arrival_history",
     "get_extreme_arrival",
 })
@@ -379,6 +383,28 @@ def _fix_date_year(date_str: str | None, query: str) -> str | None:
     return date_str.strip()
 
 
+_INDIAN_STATES = (
+    "andaman and nicobar", "andhra pradesh", "arunachal pradesh", "assam",
+    "bihar", "chandigarh", "chhattisgarh", "dadra and nagar haveli",
+    "daman and diu", "delhi", "goa", "gujarat", "haryana", "himachal pradesh",
+    "jammu and kashmir", "jharkhand", "karnataka", "kerala", "ladakh",
+    "lakshadweep", "madhya pradesh", "maharashtra", "manipur", "meghalaya",
+    "mizoram", "nagaland", "odisha", "puducherry", "punjab", "rajasthan",
+    "sikkim", "tamil nadu", "telangana", "tripura", "uttar pradesh",
+    "uttarakhand", "west bengal",
+)
+
+
+def _extract_state_from_query(query: str) -> str | None:
+    if not query:
+        return None
+    q = f" {query.lower()} "
+    for st in _INDIAN_STATES:
+        if f" {st} " in q or f" in {st}" in q or f" {st}," in q or f" of {st}" in q or f" from {st}" in q:
+            return st.title()
+    return None
+
+
 def _heuristic_intent(query: str) -> dict[str, Any]:
     """Fallback intent when Anthropic is unavailable."""
     q = (query or "").lower()
@@ -388,6 +414,10 @@ def _heuristic_intent(query: str) -> dict[str, Any]:
     if specific_date:
         base["from_date"] = specific_date
         base["to_date"] = specific_date
+
+    state = _extract_state_from_query(query)
+    if state:
+        base["state"] = state
 
     if _is_market_discovery_query(query):
         return {**base, "action": "search_markets", "nearest_market": True, "radius_km": 50}
@@ -402,18 +432,17 @@ def _heuristic_intent(query: str) -> dict[str, Any]:
             return {**base, "action": "get_arrival_history", "lookback_days": lookback}
         return {**base, "action": "get_today_arrival"}
 
+    if any(k in q for k in ("highest", "maximum", "max", "best price", "best rate", "peak price", "highest modal")):
+        lookback = 30 if "month" in q else (None if specific_date else 7)
+        return {**base, "action": "get_highest_price", "lookback_days": lookback}
+
+    if any(k in q for k in ("lowest", "minimum", "min", "cheapest", "least price", "bottom price", "lowest modal")):
+        lookback = 30 if "month" in q else (None if specific_date else 7)
+        return {**base, "action": "get_lowest_price", "lookback_days": lookback}
+
     if any(k in q for k in ("average", "avg", "summary", "min max", "statistics", "stats")):
         lookback = 30 if "month" in q else 7
         return {**base, "action": "get_price_summary", "lookback_days": lookback}
-
-    # get_highest_price only when the query clearly refers to a historical period,
-    # e.g. "highest price last week", "maximum price last month".
-    # A bare "best price" / "where to sell" without a past-period keyword means today's price.
-    _historical_keywords = ("last ", "past ", "week", "month", "days", "history")
-    _highest_price_keywords = ("highest price", "maximum price", "max price", "highest rate")
-    if any(k in q for k in _highest_price_keywords) and any(hk in q for hk in _historical_keywords):
-        lookback = 30 if "month" in q else 7
-        return {**base, "action": "get_highest_price", "lookback_days": lookback}
 
     if any(k in q for k in ("history", "week", "month", "days", "last ", "past ", "from ", "between")):
         if "month" in q or "30 day" in q:
@@ -568,7 +597,7 @@ def _normalize_intent(
 
     # ── Bug 3 Fix: Default 7-day lookback for highest/lowest queries with no date given ──
     if (
-        out["action"] in {"get_extreme_arrival", "get_highest_price"}
+        out["action"] in {"get_extreme_arrival", "get_highest_price", "get_lowest_price"}
         and out.get("lookback_days") is None
         and not out.get("from_date")
         and not out.get("to_date")
@@ -955,29 +984,8 @@ def _ensure_latest_notice(answer: str, payload: Any) -> str:
                     notice = n
                     break
 
-    # Auto-detect: records are from a past date compared to today.
-    # Only fire when NO explicit date was requested (i.e. this is a true "today" request
-    # that fell back). If from_date/to_date were set, the data IS for the requested date.
-    if not notice:
-        resolution = payload.get("resolution") or {}
-        date_filter = resolution.get("date_filter") or {} if isinstance(resolution, dict) else {}
-        explicit_date = date_filter.get("from_date") or date_filter.get("to_date")
-        if not explicit_date:
-            from datetime import datetime, timezone
-            today_str = datetime.now(timezone.utc).date().isoformat()
-            records = (
-                payload.get("highest_arrivals")
-                or payload.get("price_records")
-                or payload.get("arrival_records")
-                or payload.get("highest_records")
-                or []
-            )
-            if records and isinstance(records, list) and isinstance(records[0], dict):
-                rec_date = records[0].get("date")
-                if rec_date and str(rec_date) != today_str:
-                    notice = f"Today's price / arrival quantity is not available. Showing the latest available data (as of {rec_date}):"
-
     return _apply_notice(ans, notice)
+
 
 
 def _apply_notice(ans: str, notice: Any) -> str:
@@ -996,6 +1004,60 @@ def _apply_notice(ans: str, notice: Any) -> str:
     ):
         return f"{notice_str}\n\n{ans}"
     return ans
+
+
+def _fmt_price(val: Any) -> str | None:
+    if val is None:
+        return None
+    try:
+        f = float(val)
+        if f.is_integer():
+            return f"Rs {int(f)}"
+        return f"Rs {f:.2f}".rstrip("0").rstrip(".")
+    except (ValueError, TypeError):
+        return f"Rs {val}"
+
+
+def _dedupe_and_sort_nearby_records(records: list[dict], top_n: int = 3) -> list[dict]:
+    """Deduplicate records by market name (keeping highest price) and sort descending."""
+    by_market: dict[str, dict] = {}
+    for r in records:
+        if not isinstance(r, dict):
+            continue
+        mkt = (r.get("market_name") or "").strip().lower()
+        if not mkt:
+            continue
+        cur_modal = float(r.get("modal_price") or 0)
+        cur_max = float(r.get("max_price") or 0)
+        if mkt not in by_market:
+            by_market[mkt] = r
+        else:
+            prev = by_market[mkt]
+            prev_modal = float(prev.get("modal_price") or 0)
+            prev_max = float(prev.get("max_price") or 0)
+            if (cur_modal, cur_max) > (prev_modal, prev_max):
+                by_market[mkt] = r
+    sorted_unique = sorted(
+        by_market.values(),
+        key=lambda r: (float(r.get("modal_price") or 0), float(r.get("max_price") or 0)),
+        reverse=True,
+    )
+    return sorted_unique[:top_n]
+
+
+def _sanitize_payload_for_synthesis(payload: Any) -> Any:
+    """Preprocess tool payload before LLM prompt & fallback to ensure concise, highest-first nearby records."""
+    if not isinstance(payload, dict):
+        return payload
+    data = dict(payload)
+    if "nearby_markets" in data and isinstance(data["nearby_markets"], dict):
+        nearby = dict(data["nearby_markets"])
+        records = nearby.get("price_records") or []
+        if isinstance(records, list):
+            nearby["price_records"] = _dedupe_and_sort_nearby_records(records, top_n=3)
+            nearby["total_records_returned"] = len(nearby["price_records"])
+        data["nearby_markets"] = nearby
+    return data
 
 
 def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
@@ -1020,17 +1082,41 @@ def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
                 named_part = str(notice).strip()
             elif requested_mkt:
                 named_part = f"Price data is not available for {crop.title() if crop else 'this commodity'} at {requested_mkt.title()}."
+
+        # Strip any redundant source line from named_part so source is only printed once at the end
+        if named_part and "This information is fetched from the following source" in named_part:
+            named_part = re.sub(r"\n\nThis information is fetched from the following source.*", "", named_part).strip()
+
         nearby_part = ""
         if isinstance(nearby, dict) and nearby.get("price_records"):
-            nearby_records = nearby.get("price_records") or []
+            nearby_records = _dedupe_and_sort_nearby_records(nearby.get("price_records") or [], top_n=3)
             if nearby_records:
                 date_val = nearby_records[0].get("date") or ""
-                commodity = (crop or nearby_records[0].get("commodity_name") or "commodity").title()
-                nearby_inner = _format_price_fallback(nearby, crop=crop)
-                # Add "nearby markets" header
-                if nearby_inner:
-                    nearby_part = f"Nearby markets' {commodity} prices on {date_val}:\n{nearby_inner}"
-        return "\n\n".join(p for p in [named_part, nearby_part] if p)
+                lines = [f"Highest prices in nearby markets on {date_val}:"]
+                for i, r in enumerate(nearby_records, 1):
+                    mkt = (r.get("market_name") or f"Market {i}").title()
+                    variety = r.get("variety") or ""
+                    grade = r.get("grade") or ""
+                    label = mkt
+                    suffix = ", ".join(filter(None, [variety, grade]))
+                    if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
+                        label = f"{mkt} ({suffix})"
+                    modal = _fmt_price(r.get("modal_price"))
+                    mn = _fmt_price(r.get("min_price"))
+                    mx = _fmt_price(r.get("max_price"))
+                    aq = r.get("arrival_quantity")
+                    price_str = " | ".join(filter(None, [
+                        f"Modal: {modal}/quintal" if modal else None,
+                        f"Min: {mn}" if mn else None,
+                        f"Max: {mx}" if mx else None,
+                        f"Arrival: {aq} tonnes" if aq is not None else None,
+                    ]))
+                    lines.append(f"{i}) {label}")
+                    lines.append(f"   {price_str}")
+                nearby_part = "\n".join(lines)
+
+        ans = "\n\n".join(p for p in [named_part, nearby_part] if p)
+        return _ensure_source_line(ans, payload)
 
     # Handle multi-action response
     if "results" in payload:
@@ -1050,6 +1136,7 @@ def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
     records = (
         payload.get("price_records")
         or payload.get("highest_records")
+        or payload.get("lowest_records")
         or payload.get("arrival_records")
         or payload.get("highest_arrivals")
         or payload.get("lowest_arrivals")
@@ -1068,37 +1155,46 @@ def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
 
     if len(records) == 1:
         r = records[0]
-        mkt = r.get("market_name") or ""
-        modal = r.get("modal_price")
-        mn = r.get("min_price")
-        mx = r.get("max_price")
+        mkt = (r.get("market_name") or "").title()
+        modal = _fmt_price(r.get("modal_price"))
+        mn = _fmt_price(r.get("min_price"))
+        mx = _fmt_price(r.get("max_price"))
         aq = r.get("arrival_quantity")
         price_str = " | ".join(filter(None, [
-            f"Modal: Rs {modal}/quintal" if modal is not None else None,
-            f"Min: Rs {mn}" if mn is not None else None,
-            f"Max: Rs {mx}" if mx is not None else None,
+            f"Modal: {modal}/quintal" if modal is not None else None,
+            f"Min: {mn}" if mn is not None else None,
+            f"Max: {mx}" if mx is not None else None,
             f"Arrival: {aq} tonnes" if aq is not None else None,
         ]))
-        lines.append(f"{commodity} price at {mkt} on {date_val}:")
+        if not notice:
+            if payload.get("action") == "get_lowest_price":
+                lines.append(f"Lowest {commodity} price at {mkt} on {date_val}:")
+            else:
+                lines.append(f"{commodity} price at {mkt} on {date_val}:")
         lines.append(price_str)
     else:
-        lines.append(f"{commodity} prices on {date_val}:")
-        for i, r in enumerate(records, 1):
-            mkt = r.get("market_name") or f"Market {i}"
+        if payload.get("action") == "get_lowest_price":
+            sorted_records = records[:5]
+            lines.append(f"Lowest {commodity} prices on {date_val}:")
+        else:
+            sorted_records = _dedupe_and_sort_nearby_records(records, top_n=5)
+            lines.append(f"{commodity} prices on {date_val}:")
+        for i, r in enumerate(sorted_records, 1):
+            mkt = (r.get("market_name") or f"Market {i}").title()
             variety = r.get("variety") or ""
             grade = r.get("grade") or ""
             label = mkt
             suffix = ", ".join(filter(None, [variety, grade]))
             if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
                 label = f"{mkt} ({suffix})"
-            modal = r.get("modal_price")
-            mn = r.get("min_price")
-            mx = r.get("max_price")
+            modal = _fmt_price(r.get("modal_price"))
+            mn = _fmt_price(r.get("min_price"))
+            mx = _fmt_price(r.get("max_price"))
             aq = r.get("arrival_quantity")
             price_str = " | ".join(filter(None, [
-                f"Modal: Rs {modal}/quintal" if modal is not None else None,
-                f"Min: Rs {mn}" if mn is not None else None,
-                f"Max: Rs {mx}" if mx is not None else None,
+                f"Modal: {modal}/quintal" if modal is not None else None,
+                f"Min: {mn}" if mn is not None else None,
+                f"Max: {mx}" if mx is not None else None,
                 f"Arrival: {aq} tonnes" if aq is not None else None,
             ]))
             lines.append(f"{i}) {label}")
@@ -1122,6 +1218,7 @@ async def synthesize_daily_price_answer(
 ) -> str:
     """Ask Anthropic to turn tool JSON into a farmer-facing English answer."""
     payload = _unwrap_tool_payload(tool_result)
+    payload = _sanitize_payload_for_synthesis(payload)
     if isinstance(payload, (dict, list)):
         tool_text = json.dumps(payload, ensure_ascii=False, default=str, separators=(",", ":"))
     else:
@@ -1159,6 +1256,7 @@ async def synthesize_daily_price_answer(
     if fallback:
         return _ensure_latest_notice(fallback, payload)
     return ""
+
 
 
 
