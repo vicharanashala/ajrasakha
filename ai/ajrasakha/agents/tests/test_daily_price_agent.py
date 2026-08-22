@@ -435,21 +435,16 @@ def test_tool_result_unwraps_mcp_text_envelope():
 
 
 @pytest.mark.asyncio
-async def test_extract_daily_price_intent_uses_gemma_json():
-    gemma_json = (
+async def test_extract_daily_price_intent_uses_anthropic_json():
+    anthropic_json = (
         '{"action":"get_price_history","nearest_market":true,"radius_km":null,'
         '"lookback_days":15,"from_date":null,"to_date":null,'
         '"market_name":null,"state":"Maharashtra","sort_order":null}'
     )
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "choices": [{"message": {"content": gemma_json}}],
-    }
-    mock_client = AsyncMock()
-    mock_client.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-
-    with patch("ajrasakha.agents.daily_price_agent.httpx.AsyncClient", return_value=mock_client):
+    fake_msg = MagicMock()
+    fake_msg.content = anthropic_json
+    with patch("ajrasakha.agents.daily_price_agent.ChatAnthropic") as mock_chat:
+        mock_chat.return_value.ainvoke = AsyncMock(return_value=fake_msg)
         intent = await extract_daily_price_intent("Onion prices in Maharashtra last 15 days")
 
     assert intent["action"] == "get_price_history"
@@ -458,14 +453,13 @@ async def test_extract_daily_price_intent_uses_gemma_json():
 
 
 @pytest.mark.asyncio
-async def test_extract_daily_price_intent_heuristic_on_gemma_failure():
-    mock_client = AsyncMock()
-    mock_client.__aenter__.return_value.post = AsyncMock(side_effect=RuntimeError("down"))
-
-    with patch("ajrasakha.agents.daily_price_agent.httpx.AsyncClient", return_value=mock_client):
+async def test_extract_daily_price_intent_heuristic_on_anthropic_failure():
+    with patch("ajrasakha.agents.daily_price_agent.ChatAnthropic") as mock_chat:
+        mock_chat.return_value.ainvoke = AsyncMock(side_effect=RuntimeError("down"))
         intent = await extract_daily_price_intent("Find nearest market near me")
 
     assert intent["action"] == "search_markets"
+
 
 
 @pytest.mark.asyncio

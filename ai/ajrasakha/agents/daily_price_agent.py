@@ -1,4 +1,4 @@
-"""Daily mandi price agent: Gemma intent → programmatic mandi_price_tool → Gemma answer."""
+"""Daily mandi price agent: Anthropic intent → programmatic mandi_price_tool → Anthropic answer."""
 
 from __future__ import annotations
 
@@ -8,15 +8,15 @@ import os
 import re
 from typing import Any, Optional
 
-import httpx
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage
+from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from pydantic import BaseModel
 
-from ajrasakha.agents.config import MCP_URLS
+from ajrasakha.agents.config import DAILY_PRICE_MODEL, MCP_URLS
 from ajrasakha.agents.llm_trace import trace_llm_error, trace_llm_request, trace_llm_response
 from ajrasakha.agents.prompts import DAILY_PRICE_ANSWER_PROMPT, DAILY_PRICE_INTENT_PROMPT
 
@@ -24,8 +24,6 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-DAILY_PRICE_GEMMA_BASE_URL = os.getenv("GEMMA_BASE_URL", "http://100.100.108.44:8013/v1")
-DAILY_PRICE_GEMMA_MODEL = os.getenv("GEMMA_MODEL", "google/gemma-4-26B-A4B-it")
 
 _FARMER_ACTIONS = frozenset({
     "get_today_price",
@@ -263,6 +261,111 @@ def _extract_date_from_query(query: str) -> str | None:
     return None
 
 
+# Matches "from <date1> to <date2>" and "between <date1> and <date2>" patterns
+_DATE_RANGE_PATTERNS = [
+    re.compile(
+        r"\bfrom\s+"
+        r"(\d{1,2})(?:st|nd|rd|th)?\s+"
+        r"(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+        r"(?:\s+(\d{4}))?"
+        r"\s+to\s+"
+        r"(\d{1,2})(?:st|nd|rd|th)?\s+"
+        r"(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+        r"(?:\s+(\d{4}))?",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bbetween\s+"
+        r"(\d{1,2})(?:st|nd|rd|th)?\s+"
+        r"(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+        r"(?:\s+(\d{4}))?"
+        r"\s+and\s+"
+        r"(\d{1,2})(?:st|nd|rd|th)?\s+"
+        r"(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+        r"(?:\s+(\d{4}))?",
+        re.IGNORECASE,
+    ),
+    # "between 1st and 10th august" — shared month at the end
+    re.compile(
+        r"\bbetween\s+"
+        r"(\d{1,2})(?:st|nd|rd|th)?"
+        r"\s+and\s+"
+        r"(\d{1,2})(?:st|nd|rd|th)?\s+"
+        r"(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+        r"(?:\s+(\d{4}))?",
+        re.IGNORECASE,
+    ),
+]
+
+
+def _extract_date_range_from_query(query: str) -> tuple[str | None, str | None]:
+    """Extract (from_date, to_date) from 'from X to Y' / 'between X and Y' patterns.
+    Returns (None, None) if no range found.
+    """
+    if not query:
+        return None, None
+    from datetime import datetime
+    current_year = datetime.now().year
+
+    # First two patterns: 6 capture groups (day1, mon1, yr1, day2, mon2, yr2)
+    for pattern in _DATE_RANGE_PATTERNS[:2]:
+        m = pattern.search(query)
+        if m:
+            day1 = int(m.group(1))
+            mon1_str = m.group(2)
+            yr1 = int(m.group(3)) if m.group(3) else current_year
+            day2 = int(m.group(4))
+            mon2_str = m.group(5)
+            yr2 = int(m.group(6)) if m.group(6) else current_year
+            mon1 = _MONTH_NAME_MAP.get(mon1_str.lower())
+            mon2 = _MONTH_NAME_MAP.get(mon2_str.lower())
+            if mon1 and mon2 and 1 <= day1 <= 31 and 1 <= day2 <= 31:
+                return f"{day1:02d}-{mon1}-{yr1}", f"{day2:02d}-{mon2}-{yr2}"
+
+    # Third pattern: "between D1 and D2 Mon" — 4 groups (day1, day2, mon, yr)
+    m = _DATE_RANGE_PATTERNS[2].search(query)
+    if m:
+        day1 = int(m.group(1))
+        day2 = int(m.group(2))
+        mon_str = m.group(3)
+        yr = int(m.group(4)) if m.group(4) else current_year
+        mon = _MONTH_NAME_MAP.get(mon_str.lower())
+        if mon and 1 <= day1 <= 31 and 1 <= day2 <= 31:
+            return f"{day1:02d}-{mon}-{yr}", f"{day2:02d}-{mon}-{yr}"
+
+    return None, None
+
+
+_RELATIVE_DAY_PATTERNS = [
+    # (compiled regex, days_back)
+    (re.compile(r"\b(day before yesterday|2 days ago|two days ago|parso|परसों)\b", re.IGNORECASE), 2),
+    (re.compile(r"\b(yesterday|kal|कल)\b", re.IGNORECASE), 1),
+]
+
+
+def _resolve_relative_dates(
+    query: str,
+    from_date: str | None,
+    to_date: str | None,
+) -> tuple[str | None, str | None, bool]:
+    """Detect relative day references in query and return (from_date, to_date, was_resolved).
+
+    Returns original dates unchanged if no relative keyword found.
+    was_resolved=True means the query explicitly named a past relative date.
+    """
+    if not query:
+        return from_date, to_date, False
+    from datetime import datetime, timezone, timedelta
+    today = datetime.now(timezone.utc).date()
+    for pattern, days_back in _RELATIVE_DAY_PATTERNS:
+        if pattern.search(query):
+            target = today - timedelta(days=days_back)
+            # Format as DD-Mon-YYYY to match existing date helpers
+            date_str = target.strftime("%d-%b-%Y")
+            return date_str, date_str, True
+    return from_date, to_date, False
+
+
 def _fix_date_year(date_str: str | None, query: str) -> str | None:
     if not date_str:
         return None
@@ -277,7 +380,7 @@ def _fix_date_year(date_str: str | None, query: str) -> str | None:
 
 
 def _heuristic_intent(query: str) -> dict[str, Any]:
-    """Fallback intent when Gemma is unavailable."""
+    """Fallback intent when Anthropic is unavailable."""
     q = (query or "").lower()
     base = _empty_intent_fields()
 
@@ -349,7 +452,7 @@ def _map_action(action: str) -> str:
 
 
 def _normalize_action_list(raw_action: Any, fallback: str) -> list[str]:
-    """Map Gemma/heuristic action(s) to a deduped list (max MAX_INTENT_ACTIONS)."""
+    """Map LLM/heuristic action(s) to a deduped list (max MAX_INTENT_ACTIONS)."""
     candidates: list[Any] = []
     if isinstance(raw_action, list):
         candidates = raw_action
@@ -371,7 +474,12 @@ def _normalize_action_list(raw_action: Any, fallback: str) -> list[str]:
     return out or [_map_action(fallback)]
 
 
-def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
+def _normalize_intent(
+    raw: dict[str, Any] | None,
+    query: str,
+    *,
+    llm_succeeded: bool = False,
+) -> dict[str, Any]:
     base = _heuristic_intent(query)
     raw_dict = raw if isinstance(raw, dict) else {}
     raw_actions = raw_dict.get("actions")
@@ -428,25 +536,86 @@ def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
             out["from_date"] = extracted_date
             out["to_date"] = extracted_date
 
+    # ── Date range correction: if LLM set from_date == to_date but the query
+    # has a "from X to Y" / "between X and Y" pattern, extract the real range. ──
+    range_fd, range_td = _extract_date_range_from_query(query)
+    if range_fd and range_td and range_fd != range_td:
+        # Always trust the heuristic range if LLM misses the second date
+        out["from_date"] = range_fd
+        out["to_date"] = range_td
+        out["lookback_days"] = None
+        if out["action"] in {"get_today_price", "get_price_with_nearby"}:
+            out["action"] = "get_price_history"
+            out["actions"] = ["get_price_history"]
+
+    # ── Bug 2 Fix: Resolve relative day references (yesterday, day before yesterday, etc.) ──
+    # This runs after LLM/heuristic dates are loaded so it can override them correctly.
+    resolved_from, resolved_to, relative_was_resolved = _resolve_relative_dates(
+        query, out.get("from_date"), out.get("to_date")
+    )
+    if relative_was_resolved:
+        out["from_date"] = resolved_from
+        out["to_date"] = resolved_to
+        out["lookback_days"] = None  # specific date takes priority over lookback
+        # If LLM guessed get_today_price for a past relative date, correct it.
+        if out["action"] in {"get_today_price", "get_price_with_nearby"}:
+            if out.get("market_name"):
+                out["action"] = "get_price_with_nearby"
+                out["actions"] = ["get_price_with_nearby"]
+            else:
+                out["action"] = "get_price_history"
+                out["actions"] = ["get_price_history"]
+
+    # ── Bug 3 Fix: Default 7-day lookback for highest/lowest queries with no date given ──
+    if (
+        out["action"] in {"get_extreme_arrival", "get_highest_price"}
+        and out.get("lookback_days") is None
+        and not out.get("from_date")
+        and not out.get("to_date")
+    ):
+        out["lookback_days"] = 7
+
     if out["action"] == "get_extreme_arrival" and out["sort_order"] not in {"highest", "lowest"}:
         out["sort_order"] = "highest"
-    if _is_market_discovery_query(query):
-        out["action"] = "search_markets"
-        out["actions"] = ["search_markets"]
-        out["market_name"] = None
-        out["nearest_market"] = True
-        if out.get("radius_km") is None:
-            out["radius_km"] = 50
-    if (
-        _should_use_today_price_for_query(query)
-        and out["action"] in {"get_price_summary", "get_price_history"}
-        and not out.get("from_date") and not out.get("to_date")
-    ):
-        out["action"] = "get_today_price"
-        out["actions"] = ["get_today_price"]
-        out["lookback_days"] = None
-        out["from_date"] = None
-        out["to_date"] = None
+
+    # ── Bug 1 Fix: Only apply heuristic overrides when LLM did NOT succeed ──
+    # If LLM successfully extracted intent, trust it; only apply safety-critical corrections.
+    if not llm_succeeded:
+        # Heuristic: market discovery query override
+        if _is_market_discovery_query(query):
+            out["action"] = "search_markets"
+            out["actions"] = ["search_markets"]
+            out["market_name"] = None
+            out["nearest_market"] = True
+            if out.get("radius_km") is None:
+                out["radius_km"] = 50
+        # Heuristic: modal/min/max without a period → today's price
+        if (
+            _should_use_today_price_for_query(query)
+            and out["action"] in {"get_price_summary", "get_price_history"}
+            and not out.get("from_date") and not out.get("to_date")
+        ):
+            out["action"] = "get_today_price"
+            out["actions"] = ["get_today_price"]
+            out["lookback_days"] = None
+            out["from_date"] = None
+            out["to_date"] = None
+    else:
+        # Even when LLM succeeded, apply the market-discovery override only when LLM
+        # itself chose a price action for a pure discovery query (LLM can mis-classify).
+        if _is_market_discovery_query(query) and out["action"] not in {
+            "search_markets",
+            "get_today_price",
+            "get_price_with_nearby",
+        }:
+            out["action"] = "search_markets"
+            out["actions"] = ["search_markets"]
+            out["market_name"] = None
+            out["nearest_market"] = True
+            if out.get("radius_km") is None:
+                out["radius_km"] = 50
+
+
     if not out.get("market_name"):
         extracted_market = _extract_market_name_from_query(query)
         if extracted_market:
@@ -456,76 +625,97 @@ def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
     # enrich the response with nearby markets' prices.
     if out.get("market_name") and (
         out["action"] == "get_today_price"
-        or (out["action"] == "get_price_history" and out.get("from_date") == out.get("to_date"))
+        or (
+            out["action"] in {"get_price_history", "get_price_with_nearby"}
+            and out.get("from_date") == out.get("to_date")
+            and out.get("from_date") is not None
+        )
     ):
         out["action"] = "get_price_with_nearby"
         out["actions"] = ["get_price_with_nearby"]
+    # ── Date priority: explicit from_date/to_date always wins over lookback_days ──
+    # The tool gives lookback_days priority in _date_query; if the user specified an
+    # explicit date range, we must clear lookback_days so it is not sent to the tool.
+    if out.get("from_date") or out.get("to_date"):
+        out["lookback_days"] = None
 
     return out
 
 
-async def _gemma_chat(
+async def _anthropic_chat(
     *,
     trace_name: str,
+    system_prompt: str | None = None,
     user_content: str,
-    max_tokens: int,
+    max_tokens: int = 512,
     temperature: float = 0.0,
     query: str | None = None,
+    config: RunnableConfig | None = None,
 ) -> str | None:
+    messages: list[BaseMessage] = []
+    if system_prompt:
+        messages.append(SystemMessage(content=system_prompt))
+    messages.append(HumanMessage(content=user_content))
+
     trace_llm_request(
         trace_name,
-        model=DAILY_PRICE_GEMMA_MODEL,
-        messages=[HumanMessage(content=user_content)],
+        model=DAILY_PRICE_MODEL,
+        messages=messages,
         query=query,
-        api_base=DAILY_PRICE_GEMMA_BASE_URL,
     )
-    url = f"{DAILY_PRICE_GEMMA_BASE_URL.rstrip('/')}/chat/completions"
-    payload = {
-        "model": DAILY_PRICE_GEMMA_MODEL,
-        "messages": [{"role": "user", "content": user_content}],
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-    headers = {"Content-Type": "application/json"}
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        logger.warning("ANTHROPIC_API_KEY not set; skipping Anthropic %s", trace_name)
+        trace_llm_error(trace_name, error="ANTHROPIC_API_KEY not set")
+        return None
+
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=30.0)
-            if response.status_code != 200:
-                trace_llm_error(trace_name, error=f"HTTP {response.status_code}")
-                return None
-            result = response.json()
-            message = result["choices"][0]["message"]
-            content = (message.get("content") or "").strip()
-            reasoning = (message.get("reasoning") or "").strip()
-            raw = content or reasoning
-            trace_llm_response(trace_name, output=raw, source="gemma")
-            return raw
+        timeout_s = float(os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "30"))
+        max_retries = int(os.getenv("ANTHROPIC_MAX_RETRIES", "2"))
+        llm = ChatAnthropic(
+            model=DAILY_PRICE_MODEL,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=timeout_s,
+            max_retries=max_retries,
+        )
+        response = await llm.ainvoke(messages, config=config)
+        content = response.content if isinstance(response.content, str) else str(response.content or "")
+        content = content.strip()
+        trace_llm_response(trace_name, output=content, source="anthropic")
+        return content
     except Exception as exc:
-        logger.warning("Gemma %s failed: %s", trace_name, exc)
+        logger.warning("Anthropic %s failed: %s", trace_name, exc)
         trace_llm_error(trace_name, error=f"{type(exc).__name__}: {exc}")
         return None
 
 
-async def extract_daily_price_intent(query: str) -> dict[str, Any]:
-    """Ask Gemma for mandi_price_tool params; fall back to heuristics."""
+async def extract_daily_price_intent(query: str, config: RunnableConfig | None = None) -> dict[str, Any]:
+    """Ask Anthropic for mandi_price_tool params; fall back to heuristics."""
     from datetime import datetime
     today_str = datetime.now().strftime("%d-%b-%Y")
-    user_content = f"{DAILY_PRICE_INTENT_PROMPT}\n\nToday's Date: {today_str}\nQuery: {query}\nJSON:"
-    raw_text = await _gemma_chat(
+    user_content = f"Today's Date: {today_str}\nQuery: {query}\nJSON:"
+    raw_text = await _anthropic_chat(
         trace_name="daily_price_intent",
+        system_prompt=DAILY_PRICE_INTENT_PROMPT,
         user_content=user_content,
-        max_tokens=300,
+        max_tokens=256,
+        temperature=0.0,
         query=query,
+        config=config,
     )
     parsed = _extract_json_object(raw_text or "")
-    intent = _normalize_intent(parsed, query)
-    if parsed is None:
+    anthropic_succeeded = parsed is not None
+    intent = _normalize_intent(parsed, query, llm_succeeded=anthropic_succeeded)
+    if not anthropic_succeeded:
         trace_llm_response(
             "daily_price_intent",
             output=json.dumps(intent),
             source="heuristic_fallback",
         )
     return intent
+
 
 
 def _unwrap_tool_payload(result: Any) -> Any:
@@ -629,7 +819,7 @@ def _build_tool_args(
         if intent.get("market_name"):
             args["market_name"] = intent["market_name"]
 
-    # Gemma sometimes puts the crop name in market_name (e.g. rice) — never treat crop as mandi name.
+    # LLM sometimes puts the crop name in market_name (e.g. rice) — never treat crop as mandi name.
     mn = (args.get("market_name") or "").strip().lower()
     cr = (crop or "").strip().lower()
     if mn and cr and (mn == cr or mn in {"rice", "paddy"} and cr in {"rice", "paddy"}):
@@ -659,7 +849,7 @@ def _fallback_unavailable_answer(
     state: str | None = None,
     market_name: str | None = None,
 ) -> str:
-    """Deterministic English reply when Gemma cannot phrase an unavailable result."""
+    """Deterministic English reply when Anthropic cannot phrase an unavailable result."""
     if isinstance(payload, dict) and payload.get("error"):
         return str(payload["error"]).strip()
 
@@ -733,10 +923,30 @@ def _ensure_latest_notice(answer: str, payload: Any) -> str:
         return ans
 
     notice = None
+
+    # get_price_with_nearby composite response: only propagate named_market's notice
+    # when nearby_markets has NO records for the requested date. If nearby markets
+    # successfully returned data, the named market's fallback notice is irrelevant
+    # to the main body of the answer (which is about nearby markets).
+    if payload.get("action") == "get_price_with_nearby" or (
+        isinstance(payload.get("named_market"), dict)
+        and payload.get("nearby_markets") is not None
+    ):
+        nearby = payload.get("nearby_markets")
+        nearby_has_records = (
+            isinstance(nearby, dict)
+            and int(nearby.get("total_records_returned") or 0) > 0
+        )
+        if not nearby_has_records:
+            # Named market is the primary answer — propagate its notice
+            named = payload.get("named_market") or {}
+            if isinstance(named.get("resolution"), dict):
+                notice = named["resolution"].get("latest_price_notice")
+        # If nearby HAS records, don't show Pampady's fallback notice as a header
+        return _apply_notice(ans, notice)
+
     if isinstance(payload.get("resolution"), dict):
         notice = payload["resolution"].get("latest_price_notice")
-    elif isinstance(payload.get("named_market"), dict) and isinstance(payload["named_market"].get("resolution"), dict):
-        notice = payload["named_market"]["resolution"].get("latest_price_notice")
     elif isinstance(payload.get("results"), dict):
         for sub in payload["results"].values():
             if isinstance(sub, dict) and isinstance(sub.get("resolution"), dict):
@@ -745,35 +955,160 @@ def _ensure_latest_notice(answer: str, payload: Any) -> str:
                     notice = n
                     break
 
-    # If tool payload did not have latest_price_notice, detect if records are from a past date
+    # Auto-detect: records are from a past date compared to today.
+    # Only fire when NO explicit date was requested (i.e. this is a true "today" request
+    # that fell back). If from_date/to_date were set, the data IS for the requested date.
     if not notice:
-        from datetime import datetime, timezone
-        today_str = datetime.now(timezone.utc).date().isoformat()
-        records = (
-            payload.get("highest_arrivals")
-            or payload.get("price_records")
-            or payload.get("arrival_records")
-            or payload.get("highest_records")
-            or []
-        )
-        if records and isinstance(records, list) and isinstance(records[0], dict):
-            rec_date = records[0].get("date")
-            if rec_date and str(rec_date) != today_str:
-                notice = f"Today's price / arrival quantity is not available. Showing the latest available data (as of {rec_date}):"
+        resolution = payload.get("resolution") or {}
+        date_filter = resolution.get("date_filter") or {} if isinstance(resolution, dict) else {}
+        explicit_date = date_filter.get("from_date") or date_filter.get("to_date")
+        if not explicit_date:
+            from datetime import datetime, timezone
+            today_str = datetime.now(timezone.utc).date().isoformat()
+            records = (
+                payload.get("highest_arrivals")
+                or payload.get("price_records")
+                or payload.get("arrival_records")
+                or payload.get("highest_records")
+                or []
+            )
+            if records and isinstance(records, list) and isinstance(records[0], dict):
+                rec_date = records[0].get("date")
+                if rec_date and str(rec_date) != today_str:
+                    notice = f"Today's price / arrival quantity is not available. Showing the latest available data (as of {rec_date}):"
 
-    if notice:
-        notice_str = str(notice).strip()
-        ans_lower = ans.lower()
-        first_line = ans_lower.split("\n")[0]
-        if (
-            "today's price" not in first_line
-            and "today's arrival" not in first_line
-            and "latest available" not in first_line
-            and "no price data found" not in first_line
-        ):
-            return f"{notice_str}\n\n{ans}"
+    return _apply_notice(ans, notice)
 
+
+def _apply_notice(ans: str, notice: Any) -> str:
+    """Prepend notice to answer if not already present."""
+    if not notice:
+        return ans
+    notice_str = str(notice).strip()
+    ans_lower = ans.lower()
+    first_line = ans_lower.split("\n")[0]
+    if (
+        "today's price" not in first_line
+        and "today's arrival" not in first_line
+        and "latest available" not in first_line
+        and "no price data found" not in first_line
+        and "price data for" not in first_line
+    ):
+        return f"{notice_str}\n\n{ans}"
     return ans
+
+
+def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
+    """Deterministic price answer from tool JSON when LLM is unavailable."""
+    if not isinstance(payload, dict):
+        return ""
+
+    # Handle get_price_with_nearby composite response
+    named = payload.get("named_market")
+    nearby = payload.get("nearby_markets")
+    if named is not None:
+        named_part = _format_price_fallback(named, crop=crop)
+        # If named market has an error or no data, show a clear explanation
+        if not named_part and isinstance(named, dict):
+            err = named.get("error") or ""
+            resolution = named.get("resolution") or {}
+            requested_mkt = resolution.get("requested_market_name") or ""
+            notice = (named.get("resolution") or {}).get("latest_price_notice") or ""
+            if err:
+                named_part = str(err).strip()
+            elif notice:
+                named_part = str(notice).strip()
+            elif requested_mkt:
+                named_part = f"Price data is not available for {crop.title() if crop else 'this commodity'} at {requested_mkt.title()}."
+        nearby_part = ""
+        if isinstance(nearby, dict) and nearby.get("price_records"):
+            nearby_records = nearby.get("price_records") or []
+            if nearby_records:
+                date_val = nearby_records[0].get("date") or ""
+                commodity = (crop or nearby_records[0].get("commodity_name") or "commodity").title()
+                nearby_inner = _format_price_fallback(nearby, crop=crop)
+                # Add "nearby markets" header
+                if nearby_inner:
+                    nearby_part = f"Nearby markets' {commodity} prices on {date_val}:\n{nearby_inner}"
+        return "\n\n".join(p for p in [named_part, nearby_part] if p)
+
+    # Handle multi-action response
+    if "results" in payload:
+        parts = []
+        for sub in payload["results"].values():
+            p = _format_price_fallback(sub, crop=crop)
+            if p:
+                parts.append(p)
+        return "\n\n".join(parts)
+
+    # Resolution notice (latest price / fallback market)
+    notice = ""
+    resolution = payload.get("resolution") or {}
+    if isinstance(resolution, dict):
+        notice = resolution.get("latest_price_notice") or ""
+
+    records = (
+        payload.get("price_records")
+        or payload.get("highest_records")
+        or payload.get("arrival_records")
+        or payload.get("highest_arrivals")
+        or payload.get("lowest_arrivals")
+        or []
+    )
+    if not records:
+        return ""
+
+    commodity = (crop or records[0].get("commodity_name") or "commodity").title()
+    date_val = records[0].get("date") or ""
+    sources = list({r.get("source_system") for r in records if r.get("source_system")})
+
+    lines: list[str] = []
+    if notice:
+        lines.append(notice)
+
+    if len(records) == 1:
+        r = records[0]
+        mkt = r.get("market_name") or ""
+        modal = r.get("modal_price")
+        mn = r.get("min_price")
+        mx = r.get("max_price")
+        aq = r.get("arrival_quantity")
+        price_str = " | ".join(filter(None, [
+            f"Modal: Rs {modal}/quintal" if modal is not None else None,
+            f"Min: Rs {mn}" if mn is not None else None,
+            f"Max: Rs {mx}" if mx is not None else None,
+            f"Arrival: {aq} tonnes" if aq is not None else None,
+        ]))
+        lines.append(f"{commodity} price at {mkt} on {date_val}:")
+        lines.append(price_str)
+    else:
+        lines.append(f"{commodity} prices on {date_val}:")
+        for i, r in enumerate(records, 1):
+            mkt = r.get("market_name") or f"Market {i}"
+            variety = r.get("variety") or ""
+            grade = r.get("grade") or ""
+            label = mkt
+            suffix = ", ".join(filter(None, [variety, grade]))
+            if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
+                label = f"{mkt} ({suffix})"
+            modal = r.get("modal_price")
+            mn = r.get("min_price")
+            mx = r.get("max_price")
+            aq = r.get("arrival_quantity")
+            price_str = " | ".join(filter(None, [
+                f"Modal: Rs {modal}/quintal" if modal is not None else None,
+                f"Min: Rs {mn}" if mn is not None else None,
+                f"Max: Rs {mx}" if mx is not None else None,
+                f"Arrival: {aq} tonnes" if aq is not None else None,
+            ]))
+            lines.append(f"{i}) {label}")
+            lines.append(f"   {price_str}")
+
+    if sources:
+        src_str = ", ".join(sources)
+        lines.append(f"\nThis information is fetched from the following source: {src_str}.")
+
+    return "\n".join(lines)
 
 
 async def synthesize_daily_price_answer(
@@ -783,25 +1118,27 @@ async def synthesize_daily_price_answer(
     crop: str | None = None,
     state: str | None = None,
     market_name: str | None = None,
+    config: RunnableConfig | None = None,
 ) -> str:
-    """Ask Gemma to turn tool JSON into a farmer-facing English answer."""
+    """Ask Anthropic to turn tool JSON into a farmer-facing English answer."""
     payload = _unwrap_tool_payload(tool_result)
     if isinstance(payload, (dict, list)):
-        tool_text = json.dumps(payload, ensure_ascii=False, default=str)
+        tool_text = json.dumps(payload, ensure_ascii=False, default=str, separators=(",", ":"))
     else:
         tool_text = str(payload)
     user_content = (
-        f"{DAILY_PRICE_ANSWER_PROMPT}\n\n"
         f"Farmer query: {query}\n\n"
         f"Tool response JSON:\n{tool_text}\n\n"
         "Answer:"
     )
-    answer = await _gemma_chat(
+    answer = await _anthropic_chat(
         trace_name="daily_price_answer",
+        system_prompt=DAILY_PRICE_ANSWER_PROMPT,
         user_content=user_content,
-        max_tokens=1500,
+        max_tokens=700,
         temperature=0.2,
         query=query,
+        config=config,
     )
     if answer and answer.strip():
         ans_with_source = _ensure_source_line(answer.strip(), payload)
@@ -813,7 +1150,16 @@ async def synthesize_daily_price_answer(
             state=state,
             market_name=market_name,
         )
+    # LLM unavailable but data exists — build a deterministic answer so the farmer
+    # always sees prices instead of triggering the "2-hour" fallback upstream.
+    logger.warning(
+        "synthesize_daily_price_answer: Anthropic returned empty — using deterministic fallback formatter"
+    )
+    fallback = _format_price_fallback(payload, crop=crop)
+    if fallback:
+        return _ensure_latest_notice(fallback, payload)
     return ""
+
 
 
 class DailyPriceInput(BaseModel):
@@ -855,7 +1201,7 @@ async def daily_price(
                     lon,
                 )
 
-        intent = await extract_daily_price_intent(query)
+        intent = await extract_daily_price_intent(query, config=config)
         logger.info("Daily price intent: %s", intent)
 
         tool_args = _build_tool_args(
@@ -886,13 +1232,14 @@ async def daily_price(
             json.dumps(tool_payload, ensure_ascii=False, default=str)[:8000],
         )
 
-        # Always ask Gemma — including error/empty payloads — so farmers get a clear "not available".
+        # Always ask Anthropic — including error/empty payloads — so farmers get a clear "not available".
         answer = await synthesize_daily_price_answer(
             query,
             tool_result,
             crop=crop,
             state=tool_args.get("state") or state,
             market_name=tool_args.get("market_name"),
+            config=config,
         )
         return json.dumps(
             {"answer": answer or "", "tool_data": tool_payload},
