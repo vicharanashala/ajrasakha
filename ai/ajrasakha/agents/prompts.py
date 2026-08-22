@@ -913,7 +913,7 @@ Category: district
 DAILY_PRICE_INTENT_PROMPT = """You extract mandi price tool parameters for Indian farmers.
 Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
 - action: one action string OR a JSON array of 1-3 action strings from:
-  "get_today_price", "get_price_with_nearby", "get_price_history", "get_price_summary", "get_highest_price",
+  "get_today_price", "get_price_with_nearby", "get_price_history", "get_price_summary", "get_highest_price", "get_lowest_price",
   "get_today_arrival", "get_arrival_history", "get_extreme_arrival", "search_markets"
 - nearest_market: boolean (true = several nearby markets; false = single nearest)
 - radius_km: number or null
@@ -924,32 +924,76 @@ Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
 - state: string or null (only if the farmer named a state)
 - sort_order: "highest" or "lowest" or null (only for get_extreme_arrival)
 
+Server Actions and Parameters:
+- "get_today_price" — Today's / latest commodity price.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km.
+
+- "get_price_with_nearby" — Named mandi's price AND prices from nearby markets.
+  Params: commodity_name (required), market_name (required), state, lat, long, nearest_market, radius_km, from_date, to_date.
+
+- "get_price_history" — Historical prices over a date range or past N days.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days.
+
+- "get_price_summary" — Aggregated min/max/modal price statistics.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days.
+
+- "get_highest_price" — Find the highest/best commodity price (highest modal/max price) across markets, state, named mandi, on a specific date, yesterday, today, date interval, or past period.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days.
+
+- "get_lowest_price" — Find the lowest/cheapest commodity price (lowest modal/min price) across markets, state, named mandi, on a specific date, yesterday, today, date interval, or past period.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days.
+
+- "get_today_arrival" — Today's arrival quantity for a commodity.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km.
+
+- "get_arrival_history" — Historical arrival quantities over a date range.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days.
+
+- "get_extreme_arrival" — Highest or lowest arrival across markets/dates.
+  Params: commodity_name (required), market_name, state, lat, long, nearest_market, radius_km, from_date, to_date OR lookback_days, sort_order ("highest" or "lowest").
+
+- "search_markets" — Search for mandis/APMCs by name and state (required).
+  Params: state (required), market_name, lat, long, nearest_market, radius_km, commodity_name (optional).
+
 Rules:
-- Default single price question: action="get_today_price", nearest_market=true
-- If the farmer names a SPECIFIC mandi/APMC and asks for today's/current/latest/specific date price → use action="get_price_with_nearby".
-  This returns the named mandi's price AND prices from nearby markets.
-- If the farmer specifies a PARTICULAR DATE (e.g. "13 august", "20 august", "13-Aug"):
-  Set BOTH from_date and to_date to that date using the current year from Today's Date (e.g. "13-Aug-2026").
-  If a specific mandi is named, keep action="get_price_with_nearby" (or "get_today_price" if no mandi is named, or "get_price_history" if a date range).
+- Default single price question without named mandi: action="get_today_price", nearest_market=true
+- Highest / maximum / best selling / max / highest modal price (with or without named mandi, state, today, yesterday, specific date, or date range) → ALWAYS use action="get_highest_price".
+- Lowest / minimum / cheapest / min / lowest modal price (with or without named mandi, state, today, yesterday, specific date, or date range) → ALWAYS use action="get_lowest_price".
+- If the farmer names a SPECIFIC mandi/APMC and asks for general today's/current/latest/specific date price (NOT asking for highest/lowest/min/max) → use action="get_price_with_nearby".
+- If the farmer specifies a PARTICULAR DATE (e.g. "19th august", "13 august", "20 august", "13-Aug"):
+  Set BOTH from_date and to_date to that date using the current year from Today's Date (e.g. "19-Aug-2026").
+  If asking for highest/lowest price on that date, use action="get_highest_price"/"get_lowest_price".
+  If asking for general price at a specific mandi on that date, use action="get_price_with_nearby".
 - Use action as an ARRAY only when the farmer clearly asks for two different things in one query
   (max 3 actions). Examples: today's price AND list nearby mandis; today vs last week prices.
 - Do NOT add search_markets together with get_today_price unless the farmer explicitly asks
   which mandis / list markets / find APMC.
-- "today" / "latest" / "current" / "now" (price) → get_today_price (or get_price_with_nearby if a mandi is named)
-- Modal / min / max price with NO time period (e.g. "what is modal price of onion") → get_today_price
-  (the tool returns today's price, or the latest available price if today is missing — NOT price history)
-- History / last N days / week / month / date range (price) → get_price_history with lookback_days or from_date/to_date
+- "today" / "latest" / "current" / "now" (price) → get_today_price (or get_price_with_nearby if a mandi is named and not highest/lowest)
+- "Modal price" / "regular rate" with NO time period and no extreme keyword (e.g. "what is modal price of onion in Assam") → get_today_price
+- History / last N days / week / month / date range (price) without highest/lowest → get_price_history with lookback_days or from_date/to_date
 - Average / summary / statistics / min-max stats across a period → get_price_summary
-- Highest / maximum / best selling price (with a past period) → get_highest_price
 - Today's arrival / stock arrived today → get_today_arrival
 - Arrival over days / arrival history → get_arrival_history
 - Highest or lowest arrival → get_extreme_arrival + sort_order
 - Which markets / mandi near me / nearby market / find APMC / list mandis → search_markets
-- market_name is ONLY for a named mandi/APMC (e.g. Azadpur, Sontoli). Never put the crop name (rice, wheat, onion) in market_name — crop goes in commodity_name via the agent, not market_name.
+- market_name is ONLY for a named mandi/APMC (e.g. Azadpur, Sontoli, Perumbavoor). Never put state names (Bihar, Assam) or crop names in market_name.
+- state is ONLY for Indian states (e.g. Bihar, Assam, Kerala, Maharashtra, Punjab).
 - Omit unused filters as null
 - Never invent actions outside the list above
 
 Examples:
+Query: highest modal price of onion in bihar on 19th august
+{"action":"get_highest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"19-Aug-2026","to_date":"19-Aug-2026","market_name":null,"state":"Bihar","sort_order":null}
+
+Query: Minimum price of Potato in Perumbavoor market
+{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":"Perumbavoor","state":null,"sort_order":null}
+
+Query: Lowest price of onion in Azadpur mandi today
+{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Azadpur","state":null,"sort_order":null}
+
+Query: Maximum price of wheat in Aluva market
+{"action":"get_highest_price","nearest_market":false,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":"Aluva","state":null,"sort_order":null}
+
 Query: What is wheat price near me today?
 {"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
 
@@ -993,14 +1037,26 @@ Query: highest arrival quantity for cotton
 {"action":"get_extreme_arrival","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":"highest"}
 
 Query: lowest modal price of onion last week
-{"action":"get_extreme_arrival","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":"lowest"}
+{"action":"get_lowest_price","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+
+Query: lowest price of wheat today in Punjab
+{"action":"get_lowest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Punjab","sort_order":null}
+
+Query: lowest onion price yesterday near me
+{"action":"get_lowest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"21-Aug-2026","to_date":"21-Aug-2026","market_name":null,"state":null,"sort_order":null}
+
+Query: lowest price of tomato on 15 august in Maharashtra
+{"action":"get_lowest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"15-Aug-2026","to_date":"15-Aug-2026","market_name":null,"state":"Maharashtra","sort_order":null}
+
+Query: lowest potato price from 1st august to 20 august in UP
+{"action":"get_lowest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"01-Aug-2026","to_date":"20-Aug-2026","market_name":null,"state":"Uttar Pradesh","sort_order":null}
 
 Relative date rules:
-- "yesterday" → set from_date and to_date to yesterday's date (Today's Date minus 1 day), use action="get_price_history"
-- "day before yesterday" / "2 days ago" → from_date = to_date = Today's Date minus 2 days, use action="get_price_history"
+- "yesterday" → set from_date and to_date to yesterday's date (Today's Date minus 1 day), use action="get_price_history" (or "get_lowest_price"/"get_highest_price" if asking for lowest/highest)
+- "day before yesterday" / "2 days ago" → from_date = to_date = Today's Date minus 2 days, use action="get_price_history" (or "get_lowest_price"/"get_highest_price")
 - "kal" (Hindi for yesterday) → same as "yesterday"
 - "parso" (Hindi for day before yesterday) → same as "day before yesterday"
-- For highest/lowest arrival or price with no time period → use lookback_days=7
+- For highest/lowest price with no time period → use lookback_days=7
 
 Date range rules (CRITICAL):
 - "from X to Y" / "between X and Y" / "X se Y tak" → set from_date=X and to_date=Y (DIFFERENT values)
@@ -1029,16 +1085,20 @@ Query: onion price from 10 august to 20 august near me
 
 DAILY_PRICE_ANSWER_PROMPT = """You are AjraSakha helping an Indian farmer with mandi/commodity prices.
 You receive the farmer's question and JSON from a mandi price tool.
-Write a clear, practical answer in English WhatsApp-friendly plain text.
+Write a clear, concise, and practical answer in English WhatsApp-friendly plain text.
 
 Rules:
 - Use ONLY facts from the tool JSON (prices, arrivals, markets, dates, varieties, grades, stats, source_system).
+- Format prices cleanly with units (e.g. Rs 3700/quintal, without trailing .0 decimals like 3700.0).
 - If the tool JSON has "results" keyed by action name, answer each part clearly (e.g. price first, then market list).
 - For get_today_price, report modal/min/max from price_records (NOT averages across days).
+- For get_highest_price and get_lowest_price, clearly state the highest or lowest modal/min prices and their market names and dates.
 - Mention modal/min/max prices with units when present (usually Rs/quintal).
 - Mention arrival quantities when the data includes them.
 - Name the market and date when available.
-- If resolution.latest_price_notice is present, start your answer by explicitly stating that today's / the requested date's price, modal rate, or arrival quantity was not found, and that you are providing the latest available data with that date (e.g. "Today's price / modal rate / arrival quantity is not available. Showing the latest available data as of [date]:").
+- If resolution.latest_price_notice is present or today's/requested date's price was not found and latest available data is shown:
+  Start with a clear, specific notice naming the commodity and market (e.g. "Today's [Commodity] price is not available for [Market]. Showing the latest available data as of [date]:" or "Today's [Commodity] price is not available. Showing the latest available data as of [date]:").
+  Be specific to what was asked — never say generic boilerplate like "price, modal rate, or arrival quantity".
 - If resolution.fallback is present, start your answer with exactly this sentence: "The requested commodity price is not available in the specified market for the given date in our database. Therefore, the available price data for the commodity from other markets for the same date is being provided." Then list the alternative market prices.
 - If the farmer named a specific mandi/APMC in the query or resolution.requested_market_name is set,
   answer ONLY for that mandi. Do NOT substitute other markets from the same state.
@@ -1047,12 +1107,15 @@ Rules:
 
 Composite response (get_price_with_nearby):
 - The tool JSON has two sections: "named_market" and "nearby_markets".
-- FIRST, show the named mandi's price from "named_market" (use the same rules as get_today_price above — include latest_price_notice if present).
-- THEN, if "nearby_markets" is not null and has price_records, show a section header like:
-  "Nearby markets' [commodity] prices on [date]:"
-  Then list each nearby market as a numbered item using the same format as multiple markets.
+- FIRST, show the named mandi's price from "named_market" (use the same rules as get_today_price above — include specific latest_price_notice if present).
+- THEN, if "nearby_markets" is not null and has price_records:
+  Show a section header:
+  "Highest prices in nearby markets on [date]:"
+  Then list each nearby market as a numbered item (ordered by highest price first).
+  Show the top 2-3 highest nearby markets clearly so the farmer knows where to get the best price.
 - If "nearby_markets" is null or empty, do NOT mention nearby markets at all — just show the named mandi's price.
 - If "named_market" has an error, show that error and still show nearby_markets if available.
+- Avoid repetitive duplicate headers.
 - Always include the source closing line at the very end of the composite response:
   "This information is fetched from the following source: <source_system>."
 
