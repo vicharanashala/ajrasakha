@@ -17,6 +17,7 @@ import { FarmerProfileHeaderBadge } from "@/features/farmerProfile/components/Fa
 import { farmerProfileService } from "@/features/farmerProfile/services/farmerProfileService";
 import { OwnerDashboard } from "@/features/ownerDashboard/OwnerDashboard";
 import { OwnerNotificationBell } from "@/features/ownerDashboard/components/OwnerNotificationBell";
+import { OwnerAuthModal, OWNER_AUTH_STORAGE_KEY } from "@/features/ownerDashboard/components/OwnerAuthModal";
 import { ownerApprovalService } from "@/features/ownerDashboard/services/ownerApprovalService";
 import type { IFarmerProfile } from "@/features/farmerProfile/types";
 import {
@@ -70,6 +71,7 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
   // Modals
   const [showDigitalCard, setShowDigitalCard] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [showOwnerAuth, setShowOwnerAuth] = useState(false);
 
   // Enable Anti-Inspection & Copy-Protection Security Guard
   useSecurityGuard();
@@ -82,6 +84,22 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
     setShowSplash(true);
   };
 
+  const handleOpenOwnerHub = () => {
+    const isOwnerAuth = localStorage.getItem(OWNER_AUTH_STORAGE_KEY) === "true";
+    if (isOwnerAuth || farmerProfileService.isOwner()) {
+      setActiveTab("owner-admin");
+    } else {
+      setShowOwnerAuth(true);
+    }
+  };
+
+  const handleOwnerAuthSuccess = (masterProfile: IFarmerProfile) => {
+    setFarmerProfile(masterProfile);
+    setShowOwnerAuth(false);
+    setShowOnboarding(false);
+    setActiveTab("owner-admin");
+  };
+
   const handleSwitchProfile = () => {
     setShowDigitalCard(false);
     setIsEditingProfile(false);
@@ -90,6 +108,7 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
 
   const handleFullResetAndFreshLogin = () => {
     farmerProfileService.clearProfile();
+    localStorage.removeItem(OWNER_AUTH_STORAGE_KEY);
     setFarmerProfile(null);
     setShowDigitalCard(false);
     setIsEditingProfile(false);
@@ -310,7 +329,13 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    if (tab.id === "owner-admin") {
+                      handleOpenOwnerHub();
+                    } else {
+                      setActiveTab(tab.id);
+                    }
+                  }}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 shadow-sm active:scale-95 flex-shrink-0 border ${
                     isActive
                       ? isOwnerTab
@@ -369,6 +394,13 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
           <span>All Rights Reserved © 2026 tomarjii • Ajrasakha National Agricultural AI Ecosystem</span>
         </div>
       </footer>
+
+      {/* Owner Master Auth Password Modal */}
+      <OwnerAuthModal
+        isOpen={showOwnerAuth}
+        onClose={() => setShowOwnerAuth(false)}
+        onSuccess={handleOwnerAuthSuccess}
+      />
     </div>
   );
 };

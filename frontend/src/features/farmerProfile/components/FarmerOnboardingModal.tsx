@@ -16,6 +16,7 @@ import {
   farmerProfileService,
 } from "../services/farmerProfileService";
 import { ownerApprovalService } from "@/features/ownerDashboard/services/ownerApprovalService";
+import { OwnerAuthModal } from "@/features/ownerDashboard/components/OwnerAuthModal";
 import { useLanguage } from "@/features/ajrasakhaHub/context/LanguageContext";
 import { toast } from "@/shared/components/toast";
 import {
@@ -82,6 +83,7 @@ export const FarmerOnboardingModal: React.FC<Props> = ({
   const [machineryOwned, setMachineryOwned] = useState<string[]>(
     existingProfile?.machineryOwned || ["Tractor 40-50 HP (ट्रैक्टर)"]
   );
+  const [showOwnerAuth, setShowOwnerAuth] = useState(false);
 
   if (!isOpen) return null;
 
@@ -90,16 +92,11 @@ export const FarmerOnboardingModal: React.FC<Props> = ({
   const availableDistricts = stateObj.districts;
 
   const handleEnterAsOwner = () => {
-    farmerProfileService.setRole("owner");
-    const masterProfile = getOwnerMasterProfile();
-    farmerProfileService.saveProfile(masterProfile);
-    toast.success(
-      t(
-        "👑 मालिक (tomarjii) मोड सक्रिय! आपके लिए पूर्ण व स्थायी एक्सेस खुला है।",
-        "👑 Owner (tomarjii) Mode Active! Unrestricted Master Access.",
-        "👑 Owner Access Granted!"
-      )
-    );
+    setShowOwnerAuth(true);
+  };
+
+  const handleOwnerAuthSuccess = (masterProfile: any) => {
+    setShowOwnerAuth(false);
     onProfileCreated(masterProfile);
   };
 
@@ -711,6 +708,13 @@ export const FarmerOnboardingModal: React.FC<Props> = ({
           </div>
         </form>
       </div>
+
+      {/* Owner Master Auth Password Modal */}
+      <OwnerAuthModal
+        isOpen={showOwnerAuth}
+        onClose={() => setShowOwnerAuth(false)}
+        onSuccess={handleOwnerAuthSuccess}
+      />
     </div>
   );
 };
