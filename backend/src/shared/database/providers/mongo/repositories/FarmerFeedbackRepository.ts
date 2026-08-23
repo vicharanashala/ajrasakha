@@ -168,6 +168,7 @@ function generateInitialFeedbacks(): IFarmerFeedback[] {
 export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
   private collection: Collection<IFarmerFeedback> | null = null;
   private inMemoryStore: IFarmerFeedback[] = generateInitialFeedbacks();
+  private hasSeededMongo = false;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -178,6 +179,15 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
     try {
       if (!this.collection) {
         this.collection = await this.db.getCollection<IFarmerFeedback>('farmer_feedbacks');
+        // Auto-seed collection if empty on first startup
+        if (this.collection && !this.hasSeededMongo) {
+          this.hasSeededMongo = true;
+          const count = await this.collection.countDocuments();
+          if (count === 0 && this.inMemoryStore.length > 0) {
+            console.log('[FarmerFeedbackRepository] Auto-seeding initial GDB feedback dataset to MongoDB...');
+            await this.collection.insertMany(this.inMemoryStore as any);
+          }
+        }
       }
       return this.collection;
     } catch {
@@ -187,20 +197,55 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
 
   private filterMatches(item: IFarmerFeedback, query?: IFarmerFeedbackFilterQuery): boolean {
     if (!query) return true;
-    if (query.domain && query.domain !== 'all' && item.domain !== query.domain) return false;
-    if (query.state && query.state !== 'all' && item.state !== query.state) return false;
-    if (query.crop && query.crop !== 'all' && item.crop !== query.crop) return false;
-    if (query.language && query.language !== 'all' && item.language !== query.language) return false;
-    if (query.source && query.source !== 'all' && item.source !== query.source) return false;
+    const norm = (s?: string) => (s || '').trim().toLowerCase();
+
+    if (query.domain && query.domain !== 'all' && query.domain !== 'All Domains') {
+      const qDomain = norm(query.domain);
+      const iDomain = norm(item.domain);
+      if (iDomain !== qDomain && !iDomain.includes(qDomain) && !qDomain.includes(iDomain)) {
+        return false;
+      }
+    }
+
+    if (query.state && query.state !== 'all' && query.state !== 'All States') {
+      if (norm(item.state) !== norm(query.state)) return false;
+    }
+
+    if (query.crop && query.crop !== 'all' && query.crop !== 'All Crops') {
+      if (norm(item.crop) !== norm(query.crop)) return false;
+    }
+
+    if (query.language && query.language !== 'all' && query.language !== 'All Languages') {
+      if (norm(item.language) !== norm(query.language)) return false;
+    }
+
+    if (query.source && query.source !== 'all' && query.source !== 'All Sources') {
+      if (norm(item.source) !== norm(query.source)) return false;
+    }
+
     if (typeof query.isHelpful === 'boolean' && item.isHelpful !== query.isHelpful) return false;
     if (query.startDate && new Date(item.createdAt) < new Date(query.startDate)) return false;
     if (query.endDate && new Date(item.createdAt) > new Date(query.endDate)) return false;
+
     if (query.search) {
-      const q = query.search.toLowerCase();
-      const matchText = (item.queryText || '').toLowerCase();
-      const matchAns = (item.deliveredAnswer || '').toLowerCase();
-      const matchCrop = (item.crop || '').toLowerCase();
-      if (!matchText.includes(q) && !matchAns.includes(q) && !matchCrop.includes(q)) return false;
+      const q = norm(query.search);
+      const matchText = norm(item.queryText);
+      const matchAns = norm(item.deliveredAnswer);
+      const matchCrop = norm(item.crop);
+      const matchDomain = norm(item.domain);
+      const matchState = norm(item.state);
+      const matchQId = norm(item.questionId ? item.questionId.toString() : '');
+
+      if (
+        !matchText.includes(q) &&
+        !matchAns.includes(q) &&
+        !matchCrop.includes(q) &&
+        !matchDomain.includes(q) &&
+        !matchState.includes(q) &&
+        !matchQId.includes(q)
+      ) {
+        return false;
+      }
     }
     return true;
   }
@@ -240,10 +285,18 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
     if (col) {
       try {
         const match: any = {};
-        if (query?.domain && query.domain !== 'all') match.domain = query.domain;
-        if (query?.state && query.state !== 'all') match.state = query.state;
-        if (query?.crop && query.crop !== 'all') match.crop = query.crop;
-        if (query?.language && query.language !== 'all') match.language = query.language;
+        if (query?.domain && query.domain !== 'all' && query.domain !== 'All Domains') {
+          match.domain = { $regex: new RegExp(query.domain.trim(), 'i') };
+        }
+        if (query?.state && query.state !== 'all' && query.state !== 'All States') {
+          match.state = { $regex: new RegExp(`^${query.state.trim()}$`, 'i') };
+        }
+        if (query?.crop && query.crop !== 'all' && query.crop !== 'All Crops') {
+          match.crop = { $regex: new RegExp(`^${query.crop.trim()}$`, 'i') };
+        }
+        if (query?.language && query.language !== 'all') {
+          match.language = { $regex: new RegExp(`^${query.language.trim()}$`, 'i') };
+        }
 
         const results = await col.aggregate([
           { $match: match },
@@ -317,7 +370,7 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
 
         if (results.length > 0) {
           return results.map((r: any) => ({
-            domain: r._id || 'General',
+            domain: r._id || 'General Agriculture',
             total: r.total,
             positive: r.positive,
             negative: r.negative,
@@ -333,7 +386,7 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
     const domainMap = new Map<string, { total: number; positive: number; negative: number }>();
 
     for (const item of filtered) {
-      const d = item.domain || 'General';
+      const d = item.domain || 'General Agriculture';
       const cur = domainMap.get(d) || { total: 0, positive: 0, negative: 0 };
       cur.total += 1;
       if (item.rating === 1) cur.positive += 1;
@@ -354,6 +407,36 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
     query?: IFarmerFeedbackFilterQuery,
     session?: ClientSession,
   ): Promise<ILanguageBreakdown[]> {
+    const col = await this.getActiveCollection();
+    if (col) {
+      try {
+        const results = await col.aggregate([
+          { $match: { language: { $exists: true, $ne: null } } },
+          {
+            $group: {
+              _id: '$language',
+              total: { $sum: 1 },
+              positive: { $sum: { $cond: [{ $eq: ['$rating', 1] }, 1, 0] } },
+              negative: { $sum: { $cond: [{ $eq: ['$rating', 2] }, 1, 0] } },
+            },
+          },
+          { $sort: { total: -1 } },
+        ], { session }).toArray();
+
+        if (results.length > 0) {
+          return results.map((r: any) => ({
+            language: r._id || 'hi',
+            total: r.total,
+            positive: r.positive,
+            negative: r.negative,
+            helpfulnessPercentage: r.total > 0 ? Number(((r.positive / r.total) * 100).toFixed(1)) : 0,
+          }));
+        }
+      } catch {
+        // Fallback to in-memory
+      }
+    }
+
     const filtered = this.inMemoryStore.filter((item) => this.filterMatches(item, query));
     const langMap = new Map<string, { total: number; positive: number; negative: number }>();
 
@@ -379,6 +462,36 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
     query?: IFarmerFeedbackFilterQuery,
     session?: ClientSession,
   ): Promise<IStateBreakdown[]> {
+    const col = await this.getActiveCollection();
+    if (col) {
+      try {
+        const results = await col.aggregate([
+          { $match: { state: { $exists: true, $ne: null } } },
+          {
+            $group: {
+              _id: '$state',
+              total: { $sum: 1 },
+              positive: { $sum: { $cond: [{ $eq: ['$rating', 1] }, 1, 0] } },
+              negative: { $sum: { $cond: [{ $eq: ['$rating', 2] }, 1, 0] } },
+            },
+          },
+          { $sort: { total: -1 } },
+        ], { session }).toArray();
+
+        if (results.length > 0) {
+          return results.map((r: any) => ({
+            state: r._id || 'Punjab',
+            total: r.total,
+            positive: r.positive,
+            negative: r.negative,
+            helpfulnessPercentage: r.total > 0 ? Number(((r.positive / r.total) * 100).toFixed(1)) : 0,
+          }));
+        }
+      } catch {
+        // Fallback to in-memory
+      }
+    }
+
     const filtered = this.inMemoryStore.filter((item) => this.filterMatches(item, query));
     const stateMap = new Map<string, { total: number; positive: number; negative: number }>();
 
@@ -404,6 +517,95 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
     query?: IFarmerFeedbackFilterQuery,
     session?: ClientSession,
   ): Promise<{ summaries: IGDBFeedbackSummary[]; total: number }> {
+    const col = await this.getActiveCollection();
+    if (col) {
+      try {
+        const match: any = {};
+        if (query?.domain && query.domain !== 'all' && query.domain !== 'All Domains') {
+          match.domain = { $regex: new RegExp(query.domain.trim(), 'i') };
+        }
+        if (query?.state && query.state !== 'all' && query.state !== 'All States') {
+          match.state = { $regex: new RegExp(`^${query.state.trim()}$`, 'i') };
+        }
+        if (query?.crop && query.crop !== 'all' && query.crop !== 'All Crops') {
+          match.crop = { $regex: new RegExp(`^${query.crop.trim()}$`, 'i') };
+        }
+        if (query?.language && query.language !== 'all') {
+          match.language = { $regex: new RegExp(`^${query.language.trim()}$`, 'i') };
+        }
+        if (query?.search) {
+          const s = query.search.trim();
+          match.$or = [
+            { queryText: { $regex: new RegExp(s, 'i') } },
+            { deliveredAnswer: { $regex: new RegExp(s, 'i') } },
+            { crop: { $regex: new RegExp(s, 'i') } },
+            { domain: { $regex: new RegExp(s, 'i') } },
+            { state: { $regex: new RegExp(s, 'i') } },
+          ];
+        }
+
+        const groupedResults = await col.aggregate([
+          { $match: match },
+          {
+            $group: {
+              _id: '$questionId',
+              questionText: { $first: '$queryText' },
+              domain: { $first: '$domain' },
+              crop: { $first: '$crop' },
+              state: { $first: '$state' },
+              totalFeedbacks: { $sum: 1 },
+              positiveCount: { $sum: { $cond: [{ $eq: ['$rating', 1] }, 1, 0] } },
+              negativeCount: { $sum: { $cond: [{ $eq: ['$rating', 2] }, 1, 0] } },
+              flaggedForReview: { $max: '$flaggedForReview' },
+              lastFeedbackAt: { $max: '$createdAt' },
+            },
+          },
+        ], { session }).toArray();
+
+        if (groupedResults.length > 0) {
+          const allSummaries: IGDBFeedbackSummary[] = groupedResults.map((val: any) => {
+            const score = val.totalFeedbacks > 0
+              ? Number(((val.positiveCount / val.totalFeedbacks) * 100).toFixed(1))
+              : 0;
+            let status: 'healthy' | 'at_risk' | 'flagged' = 'healthy';
+            if (val.flaggedForReview || score < 60) {
+              status = 'flagged';
+            } else if (score < 75) {
+              status = 'at_risk';
+            }
+
+            return {
+              questionId: val._id ? val._id.toString() : '',
+              questionText: val.questionText,
+              domain: val.domain,
+              crop: val.crop,
+              state: val.state,
+              totalFeedbacks: val.totalFeedbacks,
+              positiveCount: val.positiveCount,
+              negativeCount: val.negativeCount,
+              helpfulnessPercentage: score,
+              status,
+              flaggedForReview: Boolean(val.flaggedForReview),
+              lastFeedbackAt: val.lastFeedbackAt || new Date(),
+            };
+          }).sort((a, b) => a.helpfulnessPercentage - b.helpfulnessPercentage);
+
+          const page = Number(query?.page) || 1;
+          const limit = Number(query?.limit) || 15;
+          const start = (page - 1) * limit;
+          const paginated = allSummaries.slice(start, start + limit);
+
+          return {
+            summaries: paginated,
+            total: allSummaries.length,
+          };
+        }
+      } catch (err) {
+        console.warn('[FarmerFeedbackRepository] MongoDB aggregate failed, falling back to memory store:', err);
+      }
+    }
+
+    // In-memory calculation
     const filtered = this.inMemoryStore.filter((item) => this.filterMatches(item, query));
     const gdbMap = new Map<string, {
       questionId: string;
@@ -419,7 +621,8 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
     }>();
 
     for (const item of filtered) {
-      const qId = item.questionId.toString();
+      const qId = item.questionId ? item.questionId.toString() : '';
+      if (!qId) continue;
       const cur = gdbMap.get(qId) || {
         questionId: qId,
         questionText: item.queryText,
@@ -467,8 +670,8 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
       };
     }).sort((a, b) => a.helpfulnessPercentage - b.helpfulnessPercentage);
 
-    const page = query?.page || 1;
-    const limit = query?.limit || 15;
+    const page = Number(query?.page) || 1;
+    const limit = Number(query?.limit) || 15;
     const start = (page - 1) * limit;
     const paginated = summaries.slice(start, start + limit);
 
@@ -490,6 +693,20 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
   }
 
   async markAsFlagged(questionId: string, session?: ClientSession): Promise<void> {
+    const col = await this.getActiveCollection();
+    if (col) {
+      try {
+        const qObjId = ObjectId.isValid(questionId) ? new ObjectId(questionId) : questionId;
+        await col.updateMany(
+          { $or: [{ questionId: qObjId }, { questionId: questionId }] } as any,
+          { $set: { flaggedForReview: true } },
+          { session }
+        );
+      } catch (err) {
+        console.warn('[FarmerFeedbackRepository] MongoDB markAsFlagged failed:', err);
+      }
+    }
+
     for (const item of this.inMemoryStore) {
       if (item.questionId.toString() === questionId) {
         item.flaggedForReview = true;
@@ -501,6 +718,14 @@ export class FarmerFeedbackRepository implements IFarmerFeedbackRepository {
     limit: number = 20,
     session?: ClientSession,
   ): Promise<IFarmerFeedback[]> {
+    const col = await this.getActiveCollection();
+    if (col) {
+      try {
+        return await col.find({}, { session }).sort({ createdAt: -1 }).limit(limit).toArray();
+      } catch {
+        // Fallback
+      }
+    }
     return this.inMemoryStore.slice(0, limit);
   }
 }

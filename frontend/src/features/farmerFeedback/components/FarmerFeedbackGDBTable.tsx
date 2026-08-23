@@ -1,20 +1,22 @@
+import React from "react";
 import type {
   IGDBFeedbackSummary,
-  IFeedbackFilterState,
 } from "../types";
-
 import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  ExternalLink,
   Flag,
   HelpCircle,
   ThumbsUp,
   ThumbsDown,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
+  Sparkles,
 } from "lucide-react";
+import { FarmerFeedbackApiService } from "../services/farmerFeedbackService";
+import { toast } from "@/shared/components/toast";
 
 interface Props {
   summaries: IGDBFeedbackSummary[];
@@ -30,6 +32,7 @@ interface Props {
   onPageChange: (page: number) => void;
   onFlagEntry: (questionId: string) => void;
   onQuickSimulate: (questionId: string) => void;
+  onRefetch?: () => void;
 }
 
 export const FarmerFeedbackGDBTable: React.FC<Props> = ({
@@ -39,20 +42,43 @@ export const FarmerFeedbackGDBTable: React.FC<Props> = ({
   onPageChange,
   onFlagEntry,
   onQuickSimulate,
+  onRefetch,
 }) => {
+  const handleResetData = () => {
+    FarmerFeedbackApiService.resetLocalGDBData();
+    toast.success("GDB sample dataset refreshed successfully!");
+    if (onRefetch) onRefetch();
+  };
+
   return (
     <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 shadow-lg backdrop-blur-xl flex flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <div>
-          <h3 className="text-base font-semibold text-white">
-            Golden Database (GDB) Quality Leaderboard
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold text-white">
+              Golden Database (GDB) Quality Leaderboard
+            </h3>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-medium border border-emerald-500/30">
+              Live Synchronized
+            </span>
+          </div>
           <p className="text-xs text-slate-400">
             Real farmer helpfulness ratings mapped directly to expert-verified Q&A pairs
           </p>
         </div>
-        <div className="text-xs text-slate-400">
-          Showing {summaries.length} of {pagination.total} entries
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleResetData}
+            title="Reset & restore standard agricultural GDB sample dataset"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 text-xs transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Reset / Re-seed GDB</span>
+          </button>
+          <div className="text-xs text-slate-400">
+            Showing <strong className="text-slate-200">{summaries.length}</strong> of{" "}
+            <strong className="text-slate-200">{pagination.total}</strong> entries
+          </div>
         </div>
       </div>
 
@@ -73,13 +99,28 @@ export const FarmerFeedbackGDBTable: React.FC<Props> = ({
             {isLoading ? (
               <tr>
                 <td colSpan={7} className="py-12 text-center text-slate-500 animate-pulse">
-                  Loading GDB feedback summaries...
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <Sparkles className="w-5 h-5 text-emerald-400 animate-spin" />
+                    <span>Loading Golden Database feedback summaries...</span>
+                  </div>
                 </td>
               </tr>
             ) : summaries.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-slate-500">
-                  No GDB feedback records match the current filter criteria.
+                <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                    <AlertTriangle className="w-6 h-6 text-amber-400" />
+                    <span className="font-medium text-slate-300">No GDB records found for the active filter</span>
+                    <p className="text-xs text-slate-500">
+                      Try clearing filters or click below to restore default verified agricultural records.
+                    </p>
+                    <button
+                      onClick={handleResetData}
+                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors"
+                    >
+                      Restore Default Records
+                    </button>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -164,7 +205,7 @@ export const FarmerFeedbackGDBTable: React.FC<Props> = ({
                               ? "bg-amber-500"
                               : "bg-rose-500"
                           }`}
-                          style={{ width: `${score}%` }}
+                          style={{ width: `${Math.min(100, Math.max(0, score))}%` }}
                         />
                       </div>
                     </td>
@@ -194,7 +235,7 @@ export const FarmerFeedbackGDBTable: React.FC<Props> = ({
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => onQuickSimulate(item.questionId)}
-                          title="Simulate WhatsApp rating on this GDB entry"
+                          title="Simulate farmer rating on this GDB entry"
                           className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
                         >
                           <ThumbsUp className="w-3.5 h-3.5 text-blue-400" />

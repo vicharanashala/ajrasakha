@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { FarmerFeedbackApiService } from "../services/farmerFeedbackService";
 import type { IFeedbackFilterState } from "../types";
-import { toast } from "react-hot-toast";
-
+import { toast } from "@/shared/components/toast";
 
 export const FEEDBACK_QUERY_KEYS = {
   metrics: (filters: Partial<IFeedbackFilterState>) => ["farmer-feedback-metrics", filters],
@@ -16,6 +15,7 @@ export function useFarmerFeedbackMetrics(filters: Partial<IFeedbackFilterState>)
     queryKey: FEEDBACK_QUERY_KEYS.metrics(filters),
     queryFn: () => FarmerFeedbackApiService.getMetrics(filters),
     staleTime: 30000,
+    retry: 1,
   });
 }
 
@@ -24,6 +24,7 @@ export function useFarmerFeedbackBreakdowns(filters: Partial<IFeedbackFilterStat
     queryKey: FEEDBACK_QUERY_KEYS.breakdowns(filters),
     queryFn: () => FarmerFeedbackApiService.getBreakdowns(filters),
     staleTime: 30000,
+    retry: 1,
   });
 }
 
@@ -32,6 +33,7 @@ export function useFarmerFeedbackGDBTable(filters: Partial<IFeedbackFilterState>
     queryKey: FEEDBACK_QUERY_KEYS.gdbTable(filters),
     queryFn: () => FarmerFeedbackApiService.getGDBSummaries(filters),
     staleTime: 30000,
+    retry: 1,
   });
 }
 
@@ -40,6 +42,7 @@ export function useFarmerFeedbackWeeklyDigest() {
     queryKey: FEEDBACK_QUERY_KEYS.weeklyDigest,
     queryFn: () => FarmerFeedbackApiService.getWeeklyDigest(),
     staleTime: 60000,
+    retry: 1,
   });
 }
 

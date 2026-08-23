@@ -143,6 +143,7 @@ export const FarmerFeedbackDashboard: React.FC = () => {
         onPageChange={(page) => handleFilterChange({ page })}
         onFlagEntry={handleFlagEntry}
         onQuickSimulate={handleQuickSimulate}
+        onRefetch={handleRefresh}
       />
 
       {/* Weekly Digest Modal */}

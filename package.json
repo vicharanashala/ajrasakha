@@ -1,4 +1,18 @@
 {
+  "name": "ajrasakha-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm -C backend dev\" \"pnpm -C frontend dev\"",
+    "dev:all": "concurrently \"pnpm -C backend dev\" \"pnpm -C frontend dev\"",
+    "dev:frontend": "pnpm -C frontend dev",
+    "dev:backend": "pnpm -C backend dev",
+    "build": "pnpm -C backend build && pnpm -C frontend build",
+    "build:frontend": "pnpm -C frontend build",
+    "build:backend": "pnpm -C backend build",
+    "test:frontend": "pnpm -C frontend test",
+    "test:backend": "pnpm -C backend test"
+  },
   "dependencies": {
     "pdfkit": "^0.18.0",
     "plivo": "^4.77.1",
@@ -7,7 +21,9 @@
   "devDependencies": {
     "@types/ws": "^8.18.1",
     "bcryptjs": "^3.0.3",
+    "concurrently": "^9.1.2",
     "http-proxy-middleware": "^4.0.0",
     "pdfkit": "^0.18.0"
   }
 }
+
