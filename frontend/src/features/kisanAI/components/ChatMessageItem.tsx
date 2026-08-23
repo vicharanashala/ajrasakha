@@ -16,7 +16,7 @@ import { toast } from "react-hot-toast";
 
 interface Props {
   message: IChatMessage;
-  onFeedbackGiven: (messageId: string, rating: 1 | 2, text?: string) => void;
+  onFeedbackGiven?: (messageId: string, rating: 1 | 2, text?: string) => void;
 }
 
 export const ChatMessageItem: React.FC<Props> = ({ message, onFeedbackGiven }) => {
@@ -26,20 +26,27 @@ export const ChatMessageItem: React.FC<Props> = ({ message, onFeedbackGiven }) =
   const isUser = message.sender === "user";
 
   const handleToggleAudio = () => {
+    if (!("speechSynthesis" in window)) return;
     if (isPlaying) {
-      KisanAIService.stopSpeaking();
+      window.speechSynthesis.cancel();
       setIsPlaying(false);
     } else {
+      window.speechSynthesis.cancel();
+      const cleanText = message.text.replace(/[*#_`\[\]()]/g, "").substring(0, 400);
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = "hi-IN";
+      utterance.onend = () => setIsPlaying(false);
+      utterance.onerror = () => setIsPlaying(false);
       setIsPlaying(true);
-      KisanAIService.speakText(message.text, () => {
-        setIsPlaying(false);
-      });
+      window.speechSynthesis.speak(utterance);
     }
   };
 
   const handlePositiveRating = () => {
     if (message.feedbackSubmitted) return;
-    onFeedbackGiven(message.id, 1);
+    if (onFeedbackGiven) {
+      onFeedbackGiven(message.id, 1);
+    }
     toast.success("धन्यवाद! आपकी प्रतिक्रिया दर्ज कर ली गई है। 👍", {
       icon: "🌾",
       style: { borderRadius: "12px", background: "#0f172a", color: "#10b981", border: "1px solid #10b981" },
@@ -48,7 +55,9 @@ export const ChatMessageItem: React.FC<Props> = ({ message, onFeedbackGiven }) =
 
   const handleNegativeSubmit = (reasonText?: string) => {
     const finalReason = reasonText || feedbackReason || "उत्तर संतोषजनक नहीं था";
-    onFeedbackGiven(message.id, 2, finalReason);
+    if (onFeedbackGiven) {
+      onFeedbackGiven(message.id, 2, finalReason);
+    }
     setShowNegativeModal(false);
     toast("फीडबैक एक्सपर्ट रिव्यूअर डेस्क को भेज दिया गया है। 👨‍🌾", {
       icon: "📋",
