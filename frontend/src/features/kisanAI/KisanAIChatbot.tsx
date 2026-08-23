@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import type { IChatMessage, IAgroQuickPrompt } from "./types";
-import { KisanAIService, AgroAnswer } from "./services/kisanAIService";
+import { KisanAIService } from "./services/kisanAIService";
+import type { AgroAnswer } from "./services/kisanAIService";
 import { ChatMessageItem } from "./components/ChatMessageItem";
 import { useLanguage } from "@/features/ajrasakhaHub/context/LanguageContext";
 import { toast } from "@/shared/components/toast";
