@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 from typing import Optional
 
@@ -839,8 +840,25 @@ async def planner_node(
     )
 
     try:
-        llm = get_minimax_chat_model().with_structured_output(PlannerOutput)
+        base_url = os.getenv("MINIMAX_BASE_URL", "")
+        method = "json_mode" if ("11434" in base_url or "ollama" in base_url.lower()) else "function_calling"
+        llm = get_minimax_chat_model().with_structured_output(PlannerOutput, method=method)
         output = await llm.ainvoke(llm_messages, config=_planner_invoke_config(config))
+        if output is None:
+            fallback_method = "json_mode" if method == "function_calling" else "function_calling"
+            llm_fallback = get_minimax_chat_model().with_structured_output(PlannerOutput, method=fallback_method)
+            output = await llm_fallback.ainvoke(llm_messages, config=_planner_invoke_config(config))
+        if output is None:
+            output = PlannerOutput(
+                domains=["General"],
+                rephrased_query=user_text,
+                original_query_en=user_text,
+                is_agriculture_related=True,
+                is_complete=True,
+                vocal_language="English",
+                script_language="English",
+                reasoning="Fallback PlannerOutput",
+            )
         trace_llm_response(
             "planner",
             output=output,

@@ -1,4 +1,6 @@
 import argparse
+import logging
+import time
 
 from ajrasakha.evaluation.questions import TEST_CASES
 from ajrasakha.evaluation.executors import run_mock_case, run_live_case
@@ -17,6 +19,8 @@ from ajrasakha.evaluation.validators.source_check import evaluate_source_attribu
 from ajrasakha.evaluation.validators.disclaimer_language import evaluate_disclaimer_language
 from ajrasakha.evaluation.langsmith_trace import build_langsmith_trace_url
 
+logger = logging.getLogger(__name__)
+
 
 def run_case(case: dict, mode: str) -> dict:
     if mode == "mock":
@@ -33,7 +37,7 @@ def run_case(case: dict, mode: str) -> dict:
     source_result = evaluate_source_attribution(result, case)
     node_result = evaluate_nodes(result, case)
     plan_result = evaluate_plan(result, case)
-    trace_result = build_langsmith_trace_url(result)
+    langsmith_trace_result = build_langsmith_trace_url(result)
     disclaimer_language_result = evaluate_disclaimer_language(result, case)
 
     quality_result = evaluate_response_quality(
@@ -51,7 +55,7 @@ def run_case(case: dict, mode: str) -> dict:
         **plan_result,
         **quality_result,
         **source_result,
-        **trace_result,
+        **langsmith_trace_result,
         **disclaimer_language_result,
     }
 
@@ -70,6 +74,11 @@ def run_case(case: dict, mode: str) -> dict:
 
 
 def main():
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -85,6 +94,12 @@ def main():
         help="Run only stable test cases.",
     )
 
+    parser.add_argument(
+        "--single",
+        action="store_true",
+        help="Run only the first test case as a single-case smoke test.",
+    )
+
     args = parser.parse_args()
 
     selected_cases = TEST_CASES
@@ -95,16 +110,31 @@ def main():
             if case.get("stable") is True
         ]
 
-    results = []
+    if args.single and selected_cases:
+        selected_cases = [selected_cases[0]]
 
-    for case in selected_cases:
-        print(f"Running [{args.mode}]: {case.get('name')}")
-        results.append(run_case(case, args.mode))
+    results = []
+    total_cases = len(selected_cases)
+
+    for idx, case in enumerate(selected_cases):
+        case_name = case.get("name")
+        print(f"\n=======================================================")
+        print(f"Running [{args.mode}] ({idx + 1}/{total_cases}): {case_name}")
+        print(f"Query: \"{case.get('query')}\"")
+        print(f"=======================================================")
+
+        res = run_case(case, args.mode)
+        results.append(res)
+
+        # 10s cooldown between live cases to respect RPM limits across all roles
+        if args.mode == "live" and idx < total_cases - 1:
+            print("Cooldown: sleeping 10s before next case...")
+            time.sleep(10)
 
     output_file = f"evaluation_report_{args.mode}.csv"
     write_csv_report(results, output_file=output_file)
     summary = build_summary(results)
-    print("Summary:", summary)
+    print("\nSummary:", summary)
 
 
 if __name__ == "__main__":

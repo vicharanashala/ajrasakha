@@ -1,14 +1,15 @@
+import os
 from urllib.parse import quote_plus
 from llama_index.core.prompts import PromptTemplate
 
 # Vector Database
-USERNAME = quote_plus("agriai")
-PASSWORD = quote_plus("agriai1224")
-MONGODB_URI = f"mongodb+srv://{USERNAME}:{PASSWORD}@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging"
+USERNAME = quote_plus(os.getenv("MONGODB_USERNAME", ""))
+PASSWORD = quote_plus(os.getenv("MONGODB_PASSWORD", ""))
+MONGODB_URI = os.getenv("MONGODB_URI", f"mongodb+srv://{USERNAME}:{PASSWORD}@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging")
 DB_NAME = "golden_db"
 INDEX_NAME = "vector_index"
 SARVAM_URL = "https://api.sarvam.ai/speech-to-text"
-API_KEY = "sk_s2j7cwtf_frU76CJMmVQi3Y4jwBfY3M3m"
+API_KEY = os.getenv("SARVAM_API_KEY", "")
 
 
 # Database Collections

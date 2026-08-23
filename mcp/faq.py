@@ -50,8 +50,8 @@ load_dotenv()
 # Initialize FastMCP server
 mcp = FastMCP("faq-video")
 
-user = "agriai"
-password = "agriai1224"
+user = os.getenv("MONGODB_USERNAME", "")
+password = os.getenv("MONGODB_PASSWORD", "")
 
 # MongoDB connection settings
 MONGODB_URI = os.getenv("MONGODB_URI", f"mongodb+srv://{user}:{password}@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging")

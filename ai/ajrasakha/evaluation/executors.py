@@ -102,6 +102,32 @@ def extract_plan_from_response(response_text: str) -> dict:
 
     return {}
 
+def extract_final_answer_from_response(response_text: str) -> str:
+    """Extract clean final AI response text from LangGraph stream values payload."""
+    try:
+        data = json.loads(response_text)
+        if isinstance(data, dict):
+            messages = data.get("messages", [])
+            for msg in reversed(messages):
+                if isinstance(msg, dict):
+                    role = msg.get("type") or msg.get("role")
+                    if role in ("ai", "assistant") and not msg.get("tool_calls"):
+                        content = msg.get("content")
+                        if isinstance(content, str):
+                            return content.strip()
+                        elif isinstance(content, list):
+                            parts = []
+                            for block in content:
+                                if isinstance(block, str):
+                                    parts.append(block)
+                                elif isinstance(block, dict) and block.get("type") == "text":
+                                    parts.append(block.get("text", ""))
+                            return " ".join(parts).strip()
+    except Exception:
+        pass
+    return response_text
+
+
 def run_mock_case(case: dict) -> dict:
     start_time = time.time()
     expected_tools = case.get("expected_tools", [])
@@ -127,6 +153,7 @@ def run_mock_case(case: dict) -> dict:
         "graph_status": "success",
         "latency_seconds": round(time.time() - start_time, 2),
         "response_text": response_text,
+        "final_answer": response_text,
         "error": "",
         "trace": trace,
     }
@@ -258,6 +285,7 @@ def run_live_case(case: dict) -> dict:
     observed_tools_list = extract_tools_from_response(extraction_source)
     observed_nodes = extract_nodes_from_response(events, full_stream_text)  
     observed_plan = extract_plan_from_response(extraction_source)
+    final_answer = extract_final_answer_from_response(extraction_source)
 
     return {
         "name": case.get("name"),
@@ -268,6 +296,7 @@ def run_live_case(case: dict) -> dict:
         "graph_status": graph_status,
         "latency_seconds": round(time.time() - start_time, 2),
         "response_text": extraction_source[:500],
+        "final_answer": final_answer,
         "error": error[:500],
         "trace": {
             "nodes": observed_nodes,

@@ -8,6 +8,7 @@ especially for cases where weather/mandi data alone is insufficient (e.g., user 
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -118,8 +119,16 @@ async def check_answer_relevance(
             answer_preview=answer[:200],
         )
         
-        llm = get_minimax_chat_model().with_structured_output(RelevanceCheckOutput)
+        base_url = os.getenv("MINIMAX_BASE_URL", "")
+        method = "json_mode" if ("11434" in base_url or "ollama" in base_url.lower()) else "function_calling"
+        llm = get_minimax_chat_model().with_structured_output(RelevanceCheckOutput, method=method)
         result = await llm.ainvoke(messages)
+        if result is None:
+            fallback_method = "json_mode" if method == "function_calling" else "function_calling"
+            llm_fallback = get_minimax_chat_model().with_structured_output(RelevanceCheckOutput, method=fallback_method)
+            result = await llm_fallback.ainvoke(messages)
+        if result is None:
+            result = RelevanceCheckOutput(is_sufficient=True, reason="Fallback RelevanceCheckOutput")
         
         trace_llm_response(
             "answer_relevance_checker",

@@ -45,3 +45,17 @@ backend_routes.txt
 endpoints.txt
 .clinerules/
 
+# AI evaluation local-only files (not part of production)
+ai/.env
+ai/.deepeval/
+.deepeval/
+ai/ajrasakha/evaluation/eval_key_override.py
+ai/ajrasakha/evaluation/llm_factory.py
+ai/ajrasakha/evaluation/healthcheck.py
+
+# Evaluation reports (generated)
+evaluation_report_*.csv
+
+# AI agent logs (personal)
+@ai-logs.md
+agent.md

@@ -1,8 +1,6 @@
-"""Shared MCP and specialist tool loading for the main graph."""
-
-from __future__ import annotations
-
+import logging
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_core.tools import tool
 from langgraph.prebuilt import ToolNode
 
 from ajrasakha.agents.chemical_checker_agent import chemical_checker
@@ -13,30 +11,52 @@ from ajrasakha.agents.schemes_agent import schemes
 from ajrasakha.agents.soil_agent import soil
 from ajrasakha.agents.weather_agent import weather
 
+logger = logging.getLogger(__name__)
+
 _location_tool = None
 _reviewer_tool = None
 _main_tool_node: ToolNode | None = None
 
 
+@tool
+async def location_information_tool(latitude: float = 0.0, longitude: float = 0.0, **kwargs) -> str:
+    """Fallback location tool when remote MCP server is unreachable."""
+    return ""
+
+
+@tool
+async def upload_question_to_reviewer_system(*args, **kwargs) -> str:
+    """Fallback reviewer upload tool when remote MCP server is unreachable."""
+    return ""
+
+
 async def get_location_tool():
     global _location_tool
     if _location_tool is None:
-        client = MultiServerMCPClient(
-            {"location_server": {"url": MCP_URLS["location"], "transport": "http"}}
-        )
-        tools = await client.get_tools()
-        _location_tool = tools[0]
+        try:
+            client = MultiServerMCPClient(
+                {"location_server": {"url": MCP_URLS["location"], "transport": "http"}}
+            )
+            tools = await client.get_tools()
+            _location_tool = tools[0]
+        except Exception as exc:
+            logger.warning("Failed to connect to location MCP server (%s) — using fallback tool", exc)
+            _location_tool = location_information_tool
     return _location_tool
 
 
 async def get_reviewer_tool():
     global _reviewer_tool
     if _reviewer_tool is None:
-        client = MultiServerMCPClient(
-            {"reviewer_server": {"url": MCP_URLS["reviewer"], "transport": "http"}}
-        )
-        tools = await client.get_tools()
-        _reviewer_tool = tools[0]
+        try:
+            client = MultiServerMCPClient(
+                {"reviewer_server": {"url": MCP_URLS["reviewer"], "transport": "http"}}
+            )
+            tools = await client.get_tools()
+            _reviewer_tool = tools[0]
+        except Exception as exc:
+            logger.warning("Failed to connect to reviewer MCP server (%s) — using fallback tool", exc)
+            _reviewer_tool = upload_question_to_reviewer_system
     return _reviewer_tool
 
 

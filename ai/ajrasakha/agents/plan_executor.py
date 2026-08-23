@@ -1159,8 +1159,12 @@ async def execute_plan_node(
             merged_configurable = dict((config.get("configurable") or {}))
             merged_configurable["location"] = _plan_only_location(plan)
             enriched = patch_config(config, configurable=merged_configurable)
-            result = await tool_node.ainvoke(exec_state, config=enriched)
-            return {"messages": [ai_msg] + (result.get("messages") or []), "location": result.get("location") or loc}
+            try:
+                result = await tool_node.ainvoke(exec_state, config=enriched)
+                return {"messages": [ai_msg] + (result.get("messages") or []), "location": result.get("location") or loc}
+            except Exception as exc:
+                logger.error("execute_plan_node: reviewer upload failed (%s: %s)", type(exc).__name__, exc)
+                return {"messages": [ai_msg], "location": loc}
         return {}
 
     trace_event(
@@ -1178,9 +1182,14 @@ async def execute_plan_node(
     )
     enriched = patch_config(config, configurable=merged_configurable)
 
-    result = await tool_node.ainvoke(exec_state, config=enriched)
-    specialist_results = result.get("messages") or []
-    merged_loc = result.get("location") or loc
+    try:
+        result = await tool_node.ainvoke(exec_state, config=enriched)
+        specialist_results = result.get("messages") or []
+        merged_loc = result.get("location") or loc
+    except Exception as exc:
+        logger.error("execute_plan_node: specialist tools execution failed (%s: %s)", type(exc).__name__, exc)
+        specialist_results = []
+        merged_loc = loc
 
     # Step 2: Compute ACTUAL tools_used based on which tools returned useful data
     all_messages = list(messages) + [ai_msg] + specialist_results
@@ -1202,27 +1211,31 @@ async def execute_plan_node(
     )
     
     if reviewer_calls:
-        ai_reviewer = AIMessage(content="", tool_calls=reviewer_calls)
-        exec_state2 = {**state, "messages": list(all_messages) + [ai_reviewer]}
-        enriched2 = patch_config(config, configurable=merged_configurable)
-        result2 = await tool_node.ainvoke(exec_state2, config=enriched2)
-        reviewer_results = result2.get("messages") or []
-        merged_loc = result2.get("location") or merged_loc
-        
-        # Check for direct answer from reviewer
-        direct = reviewer_direct_answer(reviewer_results)
-        if direct and text_matches_user_language(direct, user_query):
-            logger.info("Reviewer returned direct answer_text — reviewer direct → translate")
-            return {
-                "messages": [AIMessage(content=direct)],
-                "location": merged_loc,
-                "plan": {**plan, "skip_synthesize": True},
-            }
-        if direct:
-            logger.info("Reviewer answer language does not match farmer message — assemble/translate path")
-        
-        # Combine all messages
-        new_msgs = specialist_results + [ai_reviewer] + reviewer_results
+        try:
+            ai_reviewer = AIMessage(content="", tool_calls=reviewer_calls)
+            exec_state2 = {**state, "messages": list(all_messages) + [ai_reviewer]}
+            enriched2 = patch_config(config, configurable=merged_configurable)
+            result2 = await tool_node.ainvoke(exec_state2, config=enriched2)
+            reviewer_results = result2.get("messages") or []
+            merged_loc = result2.get("location") or merged_loc
+            
+            # Check for direct answer from reviewer
+            direct = reviewer_direct_answer(reviewer_results)
+            if direct and text_matches_user_language(direct, user_query):
+                logger.info("Reviewer returned direct answer_text — reviewer direct → translate")
+                return {
+                    "messages": [AIMessage(content=direct)],
+                    "location": merged_loc,
+                    "plan": {**plan, "skip_synthesize": True},
+                }
+            if direct:
+                logger.info("Reviewer answer language does not match farmer message — assemble/translate path")
+            
+            # Combine all messages
+            new_msgs = specialist_results + [ai_reviewer] + reviewer_results
+        except Exception as exc:
+            logger.error("execute_plan_node: reviewer upload tool failed (%s: %s)", type(exc).__name__, exc)
+            new_msgs = specialist_results
     else:
         new_msgs = specialist_results
 

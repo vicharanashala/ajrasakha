@@ -2,6 +2,10 @@ import os
 import re
 from typing import Any, Optional
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 _WHATSAPP_THREAD_ID_RE = re.compile(r"^(\d+)-\d{4}-\d{2}-\d{2}$")
 
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
