@@ -18,6 +18,7 @@ import { farmerProfileService } from "@/features/farmerProfile/services/farmerPr
 import { OwnerDashboard } from "@/features/ownerDashboard/OwnerDashboard";
 import { OwnerNotificationBell } from "@/features/ownerDashboard/components/OwnerNotificationBell";
 import { OwnerAuthModal, OWNER_AUTH_STORAGE_KEY } from "@/features/ownerDashboard/components/OwnerAuthModal";
+import { MasterSecurityGatekeeper } from "@/features/ownerDashboard/components/MasterSecurityGatekeeper";
 import { ownerApprovalService } from "@/features/ownerDashboard/services/ownerApprovalService";
 import type { IFarmerProfile } from "@/features/farmerProfile/types";
 import {
@@ -35,6 +36,7 @@ import {
   UserPlus,
   Crown,
   Lock,
+  LogOut,
 } from "lucide-react";
 import { toast } from "@/shared/components/toast";
 
@@ -57,18 +59,23 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
   const [activeTab, setActiveTab] = useState<AjrasakhaTab>(initialTab);
   const { language, setLanguage, t } = useLanguage();
 
-  // Load existing farmer profile
+  // App Unlock State (Requires Owner Master Pass or Approved Farmer)
+  const [isAppUnlocked, setIsAppUnlocked] = useState<boolean>(() => {
+    const isOwnerAuth = localStorage.getItem(OWNER_AUTH_STORAGE_KEY) === "true";
+    const profile = farmerProfileService.getProfile();
+    return isOwnerAuth || (profile !== null && profile.isVerified === true);
+  });
+
+  // Farmer / Owner Profile State
   const [farmerProfile, setFarmerProfile] = useState<IFarmerProfile | null>(() => {
     return farmerProfileService.getProfile();
   });
 
-  // Onboarding & Splash Flow
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
-    return !farmerProfileService.getProfile();
-  });
+  // Splash animation state
   const [showSplash, setShowSplash] = useState<boolean>(false);
 
   // Modals
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [showDigitalCard, setShowDigitalCard] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showOwnerAuth, setShowOwnerAuth] = useState(false);
@@ -80,7 +87,6 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
     setFarmerProfile(profile);
     setShowOnboarding(false);
     setIsEditingProfile(false);
-    // Trigger splash intro animation with tractor right after onboarding
     setShowSplash(true);
   };
 
@@ -97,6 +103,7 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
     setFarmerProfile(masterProfile);
     setShowOwnerAuth(false);
     setShowOnboarding(false);
+    setIsAppUnlocked(true);
     setActiveTab("owner-admin");
   };
 
@@ -106,16 +113,49 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
     setShowOnboarding(true);
   };
 
+  const handleLockApp = () => {
+    localStorage.removeItem(OWNER_AUTH_STORAGE_KEY);
+    setIsAppUnlocked(false);
+    setShowSplash(false);
+    toast.success(
+      t(
+        "🔒 ऐप लॉक कर दिया गया है। पुनः प्रवेश के लिए मालिक पासवर्ड आवश्यक है।",
+        "🔒 App Locked. Owner password required to re-enter.",
+        "🔒 App Locked."
+      )
+    );
+  };
+
   const handleFullResetAndFreshLogin = () => {
     farmerProfileService.clearProfile();
     localStorage.removeItem(OWNER_AUTH_STORAGE_KEY);
+    localStorage.removeItem("ajrasakha_pending_farmer_req_id");
+    localStorage.removeItem("ajrasakha_pending_farmer_profile");
     setFarmerProfile(null);
     setShowDigitalCard(false);
     setIsEditingProfile(false);
     setShowSplash(false);
-    setShowOnboarding(true);
-    toast.success(t("सत्र रीसेट हो गया! कृपया नया किसान विवरण भरें।", "Session reset! Please enter new farmer details.", "Reset complete."));
+    setIsAppUnlocked(false);
+    toast.success(t("सत्र रीसेट हो गया! सुरक्षा गेटवे पर वापस जा रहे हैं...", "Session reset! Returning to Master Gatekeeper...", "Reset complete."));
   };
+
+  // If App is Locked, show the Master Security Gatekeeper
+  if (!isAppUnlocked) {
+    return (
+      <MasterSecurityGatekeeper
+        onUnlockOwner={(masterProf) => {
+          setFarmerProfile(masterProf);
+          setIsAppUnlocked(true);
+          setShowSplash(true);
+        }}
+        onUnlockApprovedFarmer={(farmerProf) => {
+          setFarmerProfile(farmerProf);
+          setIsAppUnlocked(true);
+          setShowSplash(true);
+        }}
+      />
+    );
+  }
 
   const TABS = [
     {
@@ -197,7 +237,7 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
       {/* Background Stylized Farmer Friend & Tractor Canvas */}
       <FarmerFriendTractorBackground />
 
-      {/* 1. Mandatory Farmer Onboarding Gatekeeper Modal */}
+      {/* 1. Farmer Onboarding Gatekeeper Modal (if manually requested) */}
       {(showOnboarding || isEditingProfile) && (
         <FarmerOnboardingModal
           isOpen={showOnboarding || isEditingProfile}
@@ -258,7 +298,7 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
               </div>
             </div>
 
-            {/* Farmer Profile Badge + Owner Bell + Language Toggle */}
+            {/* Farmer Profile Badge + Owner Bell + Language Toggle + Lock Button */}
             <div className="flex items-center gap-2 sm:gap-2.5">
               {/* Owner Notification Bell */}
               <OwnerNotificationBell onOpenOwnerDashboard={() => setActiveTab("owner-admin")} />
@@ -277,6 +317,15 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
                   <span>{t("प्रोफाइल बनाएं", "Create Profile", "Profile")}</span>
                 </button>
               )}
+
+              {/* Lock / Logout App Button */}
+              <button
+                onClick={handleLockApp}
+                className="p-2 rounded-xl bg-slate-900/90 hover:bg-red-950/80 border border-slate-700/80 hover:border-red-500/50 text-slate-400 hover:text-red-300 transition-colors shadow-md cursor-pointer"
+                title="Lock Application (ऐप लॉक करें)"
+              >
+                <Lock className="w-4 h-4" />
+              </button>
 
               {/* Global Language Toggle */}
               <div className="flex items-center bg-slate-900/90 border border-slate-700/80 rounded-xl p-1 text-xs shadow-lg backdrop-blur-md">
