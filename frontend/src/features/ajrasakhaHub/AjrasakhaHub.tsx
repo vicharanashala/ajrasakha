@@ -59,12 +59,8 @@ const AjrasakhaHubContent: React.FC<Props> = ({ initialTab = "kisan-ai" }) => {
   const [activeTab, setActiveTab] = useState<AjrasakhaTab>(initialTab);
   const { language, setLanguage, t } = useLanguage();
 
-  // App Unlock State (Requires Owner Master Pass or Approved Farmer)
-  const [isAppUnlocked, setIsAppUnlocked] = useState<boolean>(() => {
-    const isOwnerAuth = localStorage.getItem(OWNER_AUTH_STORAGE_KEY) === "true";
-    const profile = farmerProfileService.getProfile();
-    return isOwnerAuth || (profile !== null && profile.isVerified === true);
-  });
+  // App Unlock State (Always starts LOCKED on every page reload/visit to enforce Master Password Gatekeeper)
+  const [isAppUnlocked, setIsAppUnlocked] = useState<boolean>(false);
 
   // Farmer / Owner Profile State
   const [farmerProfile, setFarmerProfile] = useState<IFarmerProfile | null>(() => {

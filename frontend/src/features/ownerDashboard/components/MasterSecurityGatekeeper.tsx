@@ -128,8 +128,8 @@ export const MasterSecurityGatekeeper: React.FC<Props> = ({
         setIsOwnerLoading(false);
         toast.error(
           t(
-            "❌ गलत मालिक पासवर्ड! कृपया सही पासवर्ड (tomar2005) दर्ज करें।",
-            "❌ Incorrect Owner Password! Please enter valid password (tomar2005).",
+            "❌ गलत मालिक पासवर्ड! केवल वैध मालिक सुरक्षा कोड मान्य है।",
+            "❌ Incorrect Owner Password! Please enter valid owner key.",
             "❌ Incorrect Password!"
           )
         );
@@ -325,8 +325,8 @@ export const MasterSecurityGatekeeper: React.FC<Props> = ({
                 </p>
                 <p className="text-slate-300 mt-1 leading-relaxed">
                   {t(
-                    "यह ऐप केवल मालिक (tomarjii) के पासवर्ड दर्ज करने के बाद ही पूरी तरह खुलेगा। कृपया अपना गुप्त मास्टर पासवर्ड दर्ज करें।",
-                    "This system requires the owner master password (tomar2005) to unlock sovereign access.",
+                    "यह ऐप केवल मालिक (tomarjii) के गुप्त सुरक्षा पासवर्ड दर्ज करने के बाद ही खुलेगा। कृपया अपना गुप्त मास्टर पासवर्ड दर्ज करें।",
+                    "This system requires the owner secret master security key to unlock sovereign access.",
                     "Enter owner master password to unlock platform."
                   )}
                 </p>
@@ -338,9 +338,12 @@ export const MasterSecurityGatekeeper: React.FC<Props> = ({
               <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <KeyRound className="w-4 h-4 text-amber-400" />
-                  <span>{t("मालिक मास्टर पासवर्ड (Master Password)", "Owner Master Password", "Password")}</span>
+                  <span>{t("मालिक मास्टर पासवर्ड (Master Key)", "Owner Master Security Key", "Security Key")}</span>
                 </span>
-                <span className="text-[10px] font-mono text-amber-400/80">Default: tomar2005</span>
+                <span className="text-[10px] font-mono text-emerald-400/80 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                  <span>256-Bit Encrypted</span>
+                </span>
               </label>
 
               <div className="relative">
@@ -353,8 +356,8 @@ export const MasterSecurityGatekeeper: React.FC<Props> = ({
                     setOwnerPassword(e.target.value);
                     setIsOwnerError(false);
                   }}
-                  placeholder={t("मालिक पासवर्ड दर्ज करें...", "Enter owner master password...", "Enter password")}
-                  className={`w-full pl-4 pr-12 py-3.5 rounded-2xl bg-slate-950 border text-sm text-white font-mono placeholder-slate-600 focus:outline-none transition-all ${
+                  placeholder="••••••••••••"
+                  className={`w-full pl-4 pr-12 py-3.5 rounded-2xl bg-slate-950 border text-sm text-white font-mono placeholder-slate-600 focus:outline-none tracking-widest transition-all ${
                     isOwnerError
                       ? "border-red-500 ring-2 ring-red-500/20"
                       : "border-slate-700 focus:border-amber-400"
@@ -373,7 +376,7 @@ export const MasterSecurityGatekeeper: React.FC<Props> = ({
               {isOwnerError && (
                 <p className="text-xs text-red-400 flex items-center gap-1 mt-1.5 font-medium animate-in fade-in">
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>{t("गलत पासवर्ड! केवल मालिक पासवर्ड (tomar2005) मान्य है।", "Incorrect password! Enter valid owner password (tomar2005).", "Incorrect password!")}</span>
+                  <span>{t("गलत पासवर्ड! केवल वैध मालिक सुरक्षा कोड मान्य है।", "Incorrect password! Only valid owner key accepted.", "Incorrect password!")}</span>
                 </p>
               )}
             </div>

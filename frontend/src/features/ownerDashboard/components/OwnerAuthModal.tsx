@@ -51,9 +51,9 @@ export const OwnerAuthModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) 
 
         toast.success(
           t(
-            "👑 स्वागत है tomarjii! मालिक सुरक्षा कोड (tomar2005) सत्यापित। पूर्ण एक्सेस सक्रिय।",
-            "👑 Welcome tomarjii! Owner Master Password Verified. Full Access Granted.",
-            "👑 Owner Password Verified! Welcome tomarjii."
+            "👑 स्वागत है tomarjii! मालिक सुरक्षा कोड सत्यापित। पूर्ण एक्सेस सक्रिय।",
+            "👑 Welcome tomarjii! Owner Master Security Key Verified. Full Access Granted.",
+            "👑 Owner Verified! Welcome tomarjii."
           )
         );
         setPassword("");
@@ -138,8 +138,8 @@ export const OwnerAuthModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) 
                   setPassword(e.target.value);
                   setIsError(false);
                 }}
-                placeholder={t("मालिक पासवर्ड दर्ज करें (उदा. tomar2005)", "Enter owner password (e.g. tomar2005)", "Enter password")}
-                className={`w-full pl-4 pr-11 py-3 rounded-2xl bg-slate-950 border text-sm text-white focus:outline-none transition-colors ${
+                placeholder="••••••••••••"
+                className={`w-full pl-4 pr-11 py-3 rounded-2xl bg-slate-950 border text-sm text-white font-mono tracking-widest focus:outline-none transition-colors ${
                   isError
                     ? "border-red-500 ring-2 ring-red-500/20"
                     : "border-slate-700 focus:border-amber-400"
@@ -158,7 +158,7 @@ export const OwnerAuthModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) 
             {isError && (
               <p className="text-[11px] text-red-400 flex items-center gap-1 mt-1 font-medium animate-in fade-in duration-200">
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span>{t("गलत पासवर्ड! कृपया सही पासवर्ड (tomar2005) दर्ज करें।", "Incorrect password! Enter valid password.", "Incorrect password!")}</span>
+                <span>{t("गलत पासवर्ड! केवल अधिकृत मालिक कोड मान्य है।", "Incorrect password! Only authorized key accepted.", "Incorrect password!")}</span>
               </p>
             )}
           </div>
