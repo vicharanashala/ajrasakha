@@ -46,7 +46,7 @@ jobs:
           VITE_API_BASE_URL: ${{ secrets.ACC_VITE_API_BASE_URL }}
           VITE_FIREBASE_API_KEY: ${{ secrets.ACC_VITE_FIREBASE_API_KEY_STAGING }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.ACC_VITE_FIREBASE_AUTH_DOMAIN_STAGING }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID_STAGING }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.ACC_VITE_FIREBASE_PROJECT_ID }}
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.ACC_VITE_FIREBASE_STORAGE_BUCKET_STAGING }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.ACC_VITE_FIREBASE_MESSAGING_SENDER_ID_STAGING }}
           VITE_FIREBASE_APP_ID: ${{ secrets.ACC_VITE_FIREBASE_APP_ID_STAGING }}
@@ -87,20 +87,14 @@ jobs:
           {
             "hosting": {
               "site": "acc-staging",
-              "public": "dist",
-              "rewrites": [
-                {
-                  "source": "**",
-                  "destination": "/index.html"
-                }
-              ]
+              "public": "dist"
             }
           }
           JSON
           cat > deploy/acc-staging/.firebaserc <<'JSON'
           {
             "projects": {
-              "default": "${{ secrets.FIREBASE_PROJECT_ID_STAGING }}"
+              "default": "${{ secrets.FIREBASE_PROJECT_ID }}"
             }
           }
           JSON
