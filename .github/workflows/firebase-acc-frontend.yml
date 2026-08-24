@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting
+name: ACC Frontend Staging Deployment
 
 on:
   push:
@@ -8,28 +8,39 @@ on:
       - 'acc/acc-frontend/**'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  NODE_VERSION: "22"
+
 jobs:
-  deploy:
+  build:
+    name: Build ACC Frontend (staging)
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
 
-      - name: Install pnpm
-        run: npm install -g pnpm@10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+          run_install: false
 
       - name: Install dependencies
-        working-directory: ./acc/acc-frontend
-        run: pnpm install --frozen-lockfile
+        run: |
+          cd acc/acc-frontend
+          pnpm install
 
-      - name: Build
-        working-directory: ./acc/acc-frontend
-        run: pnpm exec vite build
+      - name: Build frontend
         env:
           VITE_API_BASE_URL: ${{ secrets.ACC_VITE_API_BASE_URL }}
           VITE_FIREBASE_API_KEY: ${{ secrets.ACC_VITE_FIREBASE_API_KEY }}
@@ -43,12 +54,66 @@ jobs:
           VITE_PLIVO_ENDPOINT_USERNAME: ${{ secrets.ACC_VITE_PLIVO_ENDPOINT_USERNAME }}
           VITE_PLIVO_ENDPOINT_PASSWORD: ${{ secrets.ACC_VITE_PLIVO_ENDPOINT_PASSWORD }}
           VITE_PLIVO_STREAM_URL: ${{ secrets.ACC_VITE_PLIVO_STREAM_URL }}
-          FAST2SMS_API_KEY: ${{ secrets.ACC_FAST2SMS_API_KEY }}
-          
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
+          VITE_FAST2SMS_API_KEY: ${{ secrets.ACC_VITE_FAST2SMS_API_KEY }}
+        run: |
+          cd acc/acc-frontend
+          pnpm exec vite build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: acc-frontend-build-staging
+          path: ./acc/acc-frontend/dist
+          retention-days: 1
+
+  deploy_staging:
+    name: Deploy to Firebase Hosting (ACC Staging)
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Generate Firebase config
+        run: |
+          mkdir -p deploy/acc-staging
+          cat > deploy/acc-staging/firebase.json <<'JSON'
+          {
+            "hosting": {
+              "site": "acc-staging",
+              "public": "dist",
+              "rewrites": [
+                {
+                  "source": "**",
+                  "destination": "/index.html"
+                }
+              ]
+            }
+          }
+          JSON
+          cat > deploy/acc-staging/.firebaserc <<'JSON'
+          {
+            "projects": {
+              "default": "${{ secrets.ACC_FIREBASE_PROJECT_ID }}"
+            }
+          }
+          JSON
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: acc-frontend-build-staging
+          path: ./deploy/acc-staging/dist
 
       - name: Deploy to Firebase Hosting
-        run: firebase deploy --only hosting --project ${{ secrets.FIREBASE_PROJECT_ID }}
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.GCP_GH_SA_KEY }}
+          projectId: ${{ secrets.ACC_FIREBASE_PROJECT_ID }}
+          channelId: live
+          entryPoint: ./deploy/acc-staging
