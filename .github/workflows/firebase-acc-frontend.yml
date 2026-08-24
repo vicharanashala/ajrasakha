@@ -1,12 +1,13 @@
 name: ACC Frontend Staging Deployment
 
 on:
-  push:
-    branches:
-      - refactor/ACC-microservice
-    paths:
-      - 'acc/acc-frontend/**'
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Ref to deploy (branch / tag / SHA). Leave blank to use the branch selected above."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -114,6 +115,6 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.GCP_GH_SA_KEY }}
-          projectId: ${{ secrets.FIREBASE_PROJECT_ID_STAGING }}
+          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
           channelId: live
           entryPoint: ./deploy/acc-staging
