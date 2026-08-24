@@ -755,12 +755,6 @@ def merge_entities_from_rephrased_query(
         state_source = "unresolved (no_text_no_llm_no_prev)"
         district_source = "unresolved (no_text_no_llm_no_prev)"
 
-    chems = merged.get("chemicals")
-    if chems:
-        merged["chemicals"] = canonicalize_chemical_names(list(chems))
-    elif prev_entities and prev_entities.get("chemicals"):
-        merged["chemicals"] = canonicalize_chemical_names(list(prev_entities["chemicals"]))
-
     trace_resolution(
         "planner_entities_merge",
         state=merged.get("state"),
@@ -777,32 +771,6 @@ def merge_entities_from_rephrased_query(
         sources_out["district_source"] = district_source
 
     return merged
-
-
-def canonicalize_chemical_names(names: list[str]) -> list[str]:
-    """Map farmer/alias chemical tokens to crop_master canonical names when possible."""
-    from ajrasakha.agents.crop_chemical_resolver import (
-        ensure_crop_master_loaded,
-        find_crop_fuzzy_matches,
-    )
-
-    ensure_crop_master_loaded()
-    out: list[str] = []
-    seen: set[str] = set()
-    for raw in names:
-        token = (raw or "").strip()
-        if not token:
-            continue
-        hits = find_crop_fuzzy_matches(token, limit=1)
-        if hits and hits[0].entry.type == "chemical":
-            canonical = hits[0].entry.name
-        else:
-            canonical = token
-        key = canonical.casefold()
-        if key not in seen:
-            seen.add(key)
-            out.append(canonical)
-    return out
 
 
 def _extract_state_from_history(

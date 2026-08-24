@@ -26,7 +26,6 @@ from ajrasakha.agents.thread_logging import (
     begin_conversation_turn,
     end_conversation_turn,
 )
-from ajrasakha.agents.crop_chemical_resolver import format_planner_crop_hints
 from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.crop_requirement import (
     CropRequirementDecision,
@@ -69,7 +68,6 @@ from ajrasakha.agents.planner_rules import (
     is_explicit_all_crop_request,
     merge_entities_from_rephrased_query,
     normalize_crop_value,
-    resolve_crop_for_turn,
     resolve_crop_for_turn_with_source,
     is_crop_output_question,
 )
@@ -500,12 +498,18 @@ async def _apply_domain_and_crop_async(
         messages,
         prev_plan=prev_plan,
     )
-    # Prefer the deterministic resolution of the current farmer turn over an
-    # LLM entity. The LLM may copy a seasonal term (for example, ``kharif``)
-    # into entities.crop even though the farmer did not name that crop.
-    crop = normalize_crop_value(
-        resolved_turn_crop or crop_prefilled or entities.get("crop")
-    )
+    # ``unresolved_default_all`` is only the system's fallback scope, not
+    # evidence that the farmer omitted a crop. Let the planner's entity win in
+    # that case, as it did before the August crop-scope change. Explicit crop
+    # choices and clarification answers still take deterministic precedence.
+    if resolved_turn_source == "unresolved_default_all":
+        crop = normalize_crop_value(
+            crop_prefilled or entities.get("crop") or resolved_turn_crop
+        )
+    else:
+        crop = normalize_crop_value(
+            resolved_turn_crop or crop_prefilled or entities.get("crop")
+        )
     if deterministic_crop_output:
         # A crop-output question asks the system to recommend the crop. Any
         # crop entity inferred by the LLM (for example, "Kharif crops" or
@@ -755,7 +759,18 @@ async def planner_node(
     )
 
     state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
-    crop_resolved = resolve_crop_for_turn(messages, prev_plan=prev_plan)
+    crop_resolved, crop_resolution_source = resolve_crop_for_turn_with_source(
+        messages,
+        prev_plan=prev_plan,
+    )
+    # Do not feed the generic unresolved ``all`` fallback to the LLM as if it
+    # were a detected crop. The planner must be free to identify a crop from
+    # the full query (for example, "tomatoes" or "chillies").
+    crop_hint = (
+        None
+        if crop_resolution_source == "unresolved_default_all"
+        else crop_resolved
+    )
     clarification_query = merge_clarification_reply_into_query(prev_plan, user_text)
     previous_vocal_language = (prev_plan.get("vocal_language") or "").strip()
     previous_script_language = (prev_plan.get("script_language") or "").strip()
@@ -774,13 +789,7 @@ async def planner_node(
             f"{clarification_query}"
         )
 
-    crop_hints = format_planner_crop_hints(user_text)
     prev_plan_context = format_prev_plan_context(prev_plan)
-    trace_event(
-        "crop_fuzzy_hints",
-        user_text=user_text,
-        hints=crop_hints or "(no fuzzy crop alias matches above 80%)",
-    )
 
     # Heuristic follow-up pre-check (only meaningful when there is a previous AI turn).
     heuristic_follow_up_type = classify_follow_up_heuristic(user_text)
@@ -797,12 +806,10 @@ async def planner_node(
     deterministic_context = (
         f"PRE-EXTRACTED HINTS from latest raw message (server will re-merge from rephrased_query):\n"
         f"- state hint: {state_resolved or 'NOT RESOLVED'}\n"
-        f"- crop hint: {crop_resolved or 'NOT RESOLVED'}\n"
+        f"- crop hint: {crop_hint or 'NOT RESOLVED'}\n"
     )
     if prev_plan_context:
         deterministic_context = f"{deterministic_context}\n{prev_plan_context}"
-    if crop_hints:
-        deterministic_context = f"{deterministic_context}\n{crop_hints}\n"
     if clarification_query:
         deterministic_context = (
             f"{deterministic_context}\n"
@@ -843,7 +850,7 @@ async def planner_node(
         model=PLANNER_MODEL,
         messages=llm_messages,
         state_hint=state_resolved,
-        crop_hint=crop_resolved,
+        crop_hint=crop_hint,
         prev_plan_context=prev_plan_context or None,
     )
 
