@@ -260,7 +260,19 @@ def test_heuristic_intent_defaults_to_today_price():
 def test_heuristic_intent_price_history():
     intent = _heuristic_intent("Onion prices last 15 days")
     assert intent["action"] == "get_price_history"
-    assert intent["lookback_days"] == 7
+    assert intent["lookback_days"] == 15
+
+    intent_10d = _heuristic_intent("Cotton rate past 10 days")
+    assert intent_10d["lookback_days"] == 10
+
+    intent_2w = _heuristic_intent("Wheat price last 2 weeks")
+    assert intent_2w["lookback_days"] == 14
+
+    intent_month = _heuristic_intent("Tomato prices in last month")
+    assert intent_month["lookback_days"] == 30
+
+    intent_default = _heuristic_intent("Price history of potato")
+    assert intent_default["lookback_days"] == 7
 
 
 def test_heuristic_intent_search_markets():
@@ -479,15 +491,15 @@ def test_tool_result_unwraps_mcp_text_envelope():
 
 
 @pytest.mark.asyncio
-async def test_extract_daily_price_intent_uses_anthropic_json():
-    anthropic_json = (
+async def test_extract_daily_price_intent_uses_minimax_json():
+    minimax_json = (
         '{"action":"get_price_history","nearest_market":true,"radius_km":null,'
         '"lookback_days":15,"from_date":null,"to_date":null,'
         '"market_name":null,"state":"Maharashtra","sort_order":null}'
     )
     fake_msg = MagicMock()
-    fake_msg.content = anthropic_json
-    with patch("ajrasakha.agents.daily_price_agent.ChatAnthropic") as mock_chat:
+    fake_msg.content = minimax_json
+    with patch("ajrasakha.agents.daily_price_agent.get_minimax_chat_model") as mock_chat:
         mock_chat.return_value.ainvoke = AsyncMock(return_value=fake_msg)
         intent = await extract_daily_price_intent("Onion prices in Maharashtra last 15 days")
 
@@ -497,8 +509,8 @@ async def test_extract_daily_price_intent_uses_anthropic_json():
 
 
 @pytest.mark.asyncio
-async def test_extract_daily_price_intent_heuristic_on_anthropic_failure():
-    with patch("ajrasakha.agents.daily_price_agent.ChatAnthropic") as mock_chat:
+async def test_extract_daily_price_intent_heuristic_on_minimax_failure():
+    with patch("ajrasakha.agents.daily_price_agent.get_minimax_chat_model") as mock_chat:
         mock_chat.return_value.ainvoke = AsyncMock(side_effect=RuntimeError("down"))
         intent = await extract_daily_price_intent("Find nearest market near me")
 
@@ -725,5 +737,62 @@ def test_get_lowest_price_fallback():
     assert "2) Kuruppanthura Apmc" in ans
     assert "Rs 4200" in ans
     assert "Agmarknet" in ans
+
+
+def test_get_price_with_nearby_with_latest_prices_and_notice():
+    from ajrasakha.agents.daily_price_agent import _format_price_fallback
+
+    payload = {
+        "action": "get_price_with_nearby",
+        "named_market": {
+            "market_name": "Adoni",
+            "price_records": [{
+                "market_name": "Adoni",
+                "modal_price": 7200.0,
+                "min_price": 6800.0,
+                "max_price": 7500.0,
+                "commodity_name": "Cotton",
+                "date": "2026-08-22",
+                "source_system": "Agmarknet",
+            }],
+            "resolution": {
+                "latest_price_notice": "Today's price is not available. Showing the latest available price (as of 2026-08-22)."
+            },
+        },
+        "nearby_markets": {
+            "action": "nearby_markets_price",
+            "price_records": [
+                {
+                    "market_name": "Yemmiganur",
+                    "modal_price": 7400.0,
+                    "min_price": 7000.0,
+                    "max_price": 7600.0,
+                    "commodity_name": "Cotton",
+                    "date": "2026-08-22",
+                    "source_system": "Agmarknet",
+                },
+                {
+                    "market_name": "Alur",
+                    "modal_price": 7100.0,
+                    "min_price": 6900.0,
+                    "max_price": 7300.0,
+                    "commodity_name": "Cotton",
+                    "date": "2026-08-22",
+                    "source_system": "Agmarknet",
+                },
+            ],
+            "total_records_returned": 2,
+        },
+    }
+    ans = _format_price_fallback(payload, crop="cotton")
+    assert "Today's price is not available. Showing the latest available price (as of 2026-08-22)." in ans
+    assert "Modal: Rs 7200/quintal" in ans
+    assert "Highest prices in nearby markets on 2026-08-22:" in ans
+    assert "1) Yemmiganur" in ans
+    assert "Rs 7400" in ans
+    assert "2) Alur" in ans
+    assert "Rs 7100" in ans
+    assert ans.count("This information is fetched from the following source") == 1
+
 
 

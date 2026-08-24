@@ -212,6 +212,10 @@ def mandi_price_tool(
                              commodity_name is optional (filters mandis that
                              trade that commodity).
 
+      "get_price_with_nearby" — Named mandi's latest/date price AND prices from nearby markets.
+                             Params: commodity_name (required), market_name (required),
+                             state, lat, long, radius_km, from_date, to_date OR lookback_days.
+
     Args:
         action        : One action string, or a list of up to 3 action strings from the list above.
                         Single string → legacy single-action response shape.
@@ -447,25 +451,46 @@ def mandi_price_tool(
             },
         }
 
-    def _resolve_commodity_aliases(names: list[str]) -> dict[str, Optional[dict]]:
-        """Exact alias/canonical match first (indexed); avoid slow regex scans."""
+    def _resolve_commodity_aliases(names: list[str]) -> dict[str, list[dict]]:
+        """Exact alias/canonical match + whitespace/newline-tolerant alias match."""
         logger.info("Resolving commodity aliases for input names: %s", names)
         coll = commodity_alias_col()
-        results: dict[str, Optional[dict]] = {}
+        results: dict[str, list[dict]] = {}
         for raw in names:
             norm = _norm(raw)
             if not norm:
-                results[raw] = None
+                results[raw] = []
                 continue
-            doc = coll.find_one(
-                {"active": True, "$or": [{"canonical_name": norm}, {"aliases": norm}]},
+            cursor = coll.find(
+                {
+                    "active": True,
+                    "$or": [
+                        {"canonical_name": norm},
+                        {"aliases": norm},
+                        {"aliases": {"$regex": f"^{re.escape(norm)}\\s*$", "$options": "i"}},
+                    ],
+                },
                 max_time_ms=MONGO_MAX_TIME_MS,
             )
-            results[raw] = doc
-            if doc:
+            docs = list(cursor)
+            if not docs:
+                # Word-boundary fallback match
+                cursor = coll.find(
+                    {
+                        "active": True,
+                        "$or": [
+                            {"canonical_name": {"$regex": f"\\b{re.escape(norm)}\\b", "$options": "i"}},
+                            {"aliases": {"$regex": f"\\b{re.escape(norm)}\\b", "$options": "i"}},
+                        ],
+                    },
+                    max_time_ms=MONGO_MAX_TIME_MS,
+                )
+                docs = list(cursor)
+            results[raw] = docs
+            if docs:
                 logger.info(
-                    "Resolved commodity '%s' to canonical name: '%s' (_id: %s)",
-                    raw, doc.get("canonical_name"), doc.get("_id"),
+                    "Resolved commodity '%s' to canonical names: %s",
+                    raw, [d.get("canonical_name") for d in docs],
                 )
             else:
                 logger.warning("Could not resolve commodity alias for input name: '%s'", raw)
@@ -618,8 +643,8 @@ def mandi_price_tool(
 
         # ── Step 1: resolve commodity ───────────────────────────────────
         resolved = _resolve_commodity_aliases(commodity_list)
-        alias_ids = [doc["_id"] for doc in resolved.values() if doc]
-        unmatched = [name for name, doc in resolved.items() if not doc]
+        alias_ids = [doc["_id"] for docs in resolved.values() for doc in docs if doc]
+        unmatched = [name for name, docs in resolved.items() if not docs]
         if not alias_ids:
             return {
                 "error": f"We do not have {', '.join(commodity_list)} available in {state}.",
@@ -1092,12 +1117,12 @@ def mandi_price_tool(
                 )
         sorted_records = sorted(
             records,
-            key=lambda r: (r.get("max_price") or 0, r.get("modal_price") or 0),
+            key=lambda r: (r.get("modal_price") or 0, r.get("max_price") or 0),
             reverse=True,
         )
         return {
             "action":            "get_highest_price",
-            "highest_records":   sorted_records[:5],
+            "highest_records":   sorted_records[:1],
             "resolution":        result.get("resolution"),
             "total_records_analysed": result.get("total_records_returned"),
         }
@@ -1146,7 +1171,7 @@ def mandi_price_tool(
         )
         return {
             "action":            "get_lowest_price",
-            "lowest_records":    sorted_records[:5],
+            "lowest_records":    sorted_records[:1],
             "resolution":        result.get("resolution"),
             "total_records_analysed": result.get("total_records_returned"),
         }
@@ -1347,7 +1372,7 @@ def mandi_price_tool(
     NEARBY_RADIUS_KM = 100
 
     def _get_price_with_nearby() -> dict:
-        """Composite: named mandi latest/date price + nearby markets' today/date prices."""
+        """Composite: named mandi latest/date price + nearby markets' latest/date prices."""
         if not commodity_name:
             return {"error": "commodity_name is required for action='get_price_with_nearby'."}
         if not market_name:
@@ -1373,8 +1398,16 @@ def mandi_price_tool(
         if not named_result.get("error"):
             named_result["action"] = "get_today_price"
             named_result.pop("stats", None)
+            records = named_result.get("price_records") or []
+            today_str = datetime.now(timezone.utc).date().isoformat()
+            if records and not from_date and not to_date and (lookback_days is None or lookback_days == 1):
+                rec_date = records[0].get("date")
+                if rec_date and rec_date != today_str:
+                    named_result.setdefault("resolution", {})["latest_price_notice"] = (
+                        f"Today's price is not available. Showing the latest available price (as of {rec_date})."
+                    )
 
-        # ── Part 2: Nearby markets' prices on requested date / today ───
+        # ── Part 2: Nearby markets' prices on requested date / latest available ───
         nearby_result: dict = {}
 
         # Resolve the named mandi to get its coordinates
@@ -1404,7 +1437,7 @@ def mandi_price_tool(
                 "get_price_with_nearby: using named mandi coords (%s, %s) for nearby search",
                 nearby_lat, nearby_lon,
             )
-            # Fetch prices for nearby markets using mandi's coordinates
+            # Fetch prices for nearby markets using mandi's coordinates (with latest price fallback)
             nearby_raw = _fetch_price_data(
                 commodity_list=c_list,
                 market_name=None,  # no market_name — search by geo
@@ -1416,7 +1449,7 @@ def mandi_price_tool(
                 from_date=from_date,
                 to_date=to_date,
                 lookback_days=eff_lookback,
-                latest_price_fallback=False,  # only requested date's prices for nearby
+                latest_price_fallback=True,  # fallback to latest prices for nearby markets
             )
 
             if (
@@ -1448,7 +1481,7 @@ def mandi_price_tool(
                     )
             else:
                 logger.info(
-                    "get_price_with_nearby: no today's prices at nearby markets"
+                    "get_price_with_nearby: no prices found at nearby markets"
                 )
 
         return {

@@ -1203,8 +1203,6 @@ Rules:
 - Use ONLY facts from the tool JSON (prices, arrivals, markets, dates, varieties, grades, stats, source_system).
 - Format prices cleanly with units (e.g. Rs 3700/quintal, without trailing .0 decimals like 3700.0).
 - If the tool JSON has "results" keyed by action name, answer each part clearly (e.g. price first, then market list).
-- For get_today_price, report modal/min/max from price_records (NOT averages across days).
-- For get_highest_price and get_lowest_price, clearly state the highest or lowest modal/min prices and their market names and dates.
 - Mention modal/min/max prices with units when present (usually Rs/quintal).
 - Mention arrival quantities when the data includes them.
 - Name the market and date when available.
@@ -1217,50 +1215,86 @@ Rules:
 - If the tool JSON has an "error" field, repeat that error message clearly (it already names crop and mandi when relevant).
 - If records are limited, say so briefly.
 
-Composite response (get_price_with_nearby):
-- The tool JSON has two sections: "named_market" and "nearby_markets".
-- FIRST, show the named mandi's price from "named_market" (use the same rules as get_today_price above — include specific latest_price_notice if present).
-- THEN, if "nearby_markets" is not null and has price_records:
-  Show a section header:
-  "Highest prices in nearby markets on [date]:"
-  Then list each nearby market as a numbered item (ordered by highest price first).
-  Show the top 2-3 highest nearby markets clearly so the farmer knows where to get the best price.
-- If "nearby_markets" is null or empty, do NOT mention nearby markets at all — just show the named mandi's price.
-- If "named_market" has an error, show that error and still show nearby_markets if available.
-- Avoid repetitive duplicate headers.
-- Always include the source closing line at the very end of the composite response:
-  "This information is fetched from the following source: <source_system>."
+ACTION-SPECIFIC OUTPUT FORMATS:
 
-Multiple markets (2 or more price_records):
-- Start with one short intro sentence (crop, place, date if known).
-- Then list each market as a numbered item (1), 2), 3), ...).
-- Use this structure for every item:
-  1) Market name (variety, grade if present)
-     Modal: Rs X/quintal | Min: Rs Y | Max: Rs Z
-- Put each market on its own lines (blank line between items is OK).
-- Do NOT cram all markets into one long comma-separated sentence.
+1. For get_price_history:
+- The farmer asked for price history over a time period or date range.
+- Start with: "Here is the [Commodity] price history for [Market]:" (or "Here is the [Commodity] price history:")
+- List ALL price_records from the tool JSON — one entry per date in chronological or reverse-chronological order.
+- Do NOT summarize, merge, or collapse records. Show every single date.
+- Format each record on its own line:
+  1) [Date] (variety, grade if present)
+     Modal: Rs X/quintal | Min: Rs Y | Max: Rs Z | Arrival: A tonnes
 - Example:
-  Onion prices from other markets in Kerala for 12-Aug-2026:
+  Here is the Maize price history for Rayadurg APMC:
 
-  1) Kattappana (small, grade b)
-     Modal: Rs 7000/quintal | Min: Rs 6500 | Max: Rs 7000
+  1) 2026-08-24 (local, grade range-1)
+     Modal: Rs 2400/quintal | Min: Rs 2200 | Max: Rs 2700
 
-  2) Kanjirappally (big, faq)
-     Modal: Rs 3800/quintal | Min: Rs 3500 | Max: Rs 4000
+  2) 2026-08-22 (local, grade range-1)
+     Modal: Rs 2350/quintal | Min: Rs 2150 | Max: Rs 2650
+
+  3) 2026-08-19 (local, grade range-1)
+     Modal: Rs 2300/quintal | Min: Rs 2100 | Max: Rs 2600
 
   This information is fetched from the following source: Agmarknet.
 
-Single market: one short paragraph is fine (market, date, modal/min/max), followed by the source closing line.
+2. For get_highest_price:
+- The farmer asked for the highest/best/peak price.
+- Start with: "Here is the highest [Commodity] price at [Market] on [Date]:" (or "Here is the highest [Commodity] price on [Date]:")
+- Report ONLY the single record from highest_records — its modal price, min/max, market name, and date.
+- Example:
+  Here is the highest Cotton price at Adoni APMC on 2026-08-17:
+  Modal: Rs 9999/quintal | Min: Rs 9999 | Max: Rs 9999 | Arrival: 77 tonnes
 
-- Put sources at the END only (never inline with prices). After the price/arrival answer, add one short closing line:
-  "This information is fetched from the following source: <source_system>."
-  If multiple distinct source_system values appear, list them once in that closing line (comma-separated).
-  Copy source_system exactly from the tool JSON (e.g. Agmarknet, eNAM) — do not shorten or rename it.
-  Do not invent a source if source_system is missing or null; omit the closing line in that case.
-- If the tool JSON has an "error" field, empty price/arrival lists, or otherwise no usable data,
-  clearly tell the farmer that mandi price data is not available for that crop/location/date.
-  Do not invent prices. You may briefly restate crop and place from the error/query.
-  Do not add a source line when there is no usable data.
+  This information is fetched from the following source: agriculture.ap.gov.in.
+
+3. For get_lowest_price:
+- The farmer asked for the lowest/cheapest price.
+- Start with: "Here is the lowest [Commodity] price at [Market] on [Date]:" (or "Here is the lowest [Commodity] price on [Date]:")
+- Report ONLY the single record from lowest_records — its modal price, min/max, market name, and date.
+- Example:
+  Here is the lowest Cotton price at Adoni APMC on 2026-08-17:
+  Modal: Rs 7880/quintal | Min: Rs 4419 | Max: Rs 9999
+
+  This information is fetched from the following source: Agmarknet.
+
+4. For get_price_summary:
+- The farmer asked for price statistics, averages, or summary.
+- Start with: "Here is the [Commodity] price summary for [Market]:"
+- Report the aggregated metrics:
+  Average Modal Price: Rs X/quintal
+  Highest Max Price: Rs Y
+  Lowest Min Price: Rs Z
+  Price Spread: Rs W
+  Total Records Analysed: N
+
+5. For get_today_price (single market):
+- Start with: "[Commodity] price at [Market] on [Date]:"
+- Report modal, min, max, arrival:
+  Modal: Rs X/quintal | Min: Rs Y | Max: Rs Z | Arrival: A tonnes
+
+6. For get_today_price (multiple markets across a state/area):
+- Start with: "[Commodity] prices on [Date]:"
+- List each market as a numbered item (1), 2), 3), ...):
+  1) Market Name (variety, grade)
+     Modal: Rs X/quintal | Min: Rs Y | Max: Rs Z
+
+7. For get_today_arrival / get_arrival_history / get_extreme_arrival:
+- get_today_arrival: "[Commodity] arrival at [Market] on [Date]: Arrival: X tonnes"
+- get_arrival_history: "Here is the [Commodity] arrival history for [Market]:" followed by each date's arrival quantity.
+- get_extreme_arrival: "Here is the highest/lowest [Commodity] arrival recorded at [Market] on [Date]: Arrival: X tonnes"
+
+8. Composite response (get_price_with_nearby):
+- FIRST, show the named mandi's price from "named_market".
+- THEN, if "nearby_markets" is not null and has price_records:
+  Show header: "Highest prices in nearby markets on [date]:"
+  Then list each nearby market as a numbered item (top 2-3 highest nearby markets).
+
+Closing line:
+- Put sources at the END only (never inline with prices):
+  "This information is fetched from the following source: <source_system>." (or "sources: <source1>, <source2>.")
+- If tool JSON has an "error" field or no usable data, clearly tell the farmer that data is not available.
 - No markdown (** ##), no emojis, no disclaimers, no extra footnotes beyond the final source line.
 - Return ONLY the answer body.
 """

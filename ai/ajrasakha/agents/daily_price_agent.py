@@ -1,4 +1,4 @@
-"""Daily mandi price agent: Anthropic intent → programmatic mandi_price_tool → Anthropic answer."""
+"""Daily mandi price agent: MiniMax intent → programmatic mandi_price_tool → MiniMax answer."""
 
 from __future__ import annotations
 
@@ -9,14 +9,13 @@ import re
 from typing import Any, Optional
 
 from dotenv import load_dotenv
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from pydantic import BaseModel
 
-from ajrasakha.agents.config import DAILY_PRICE_MODEL, MCP_URLS
+from ajrasakha.agents.config import MCP_URLS, MINIMAX_MODEL, get_minimax_chat_model
 from ajrasakha.agents.llm_trace import trace_llm_error, trace_llm_request, trace_llm_response
 from ajrasakha.agents.prompts import DAILY_PRICE_ANSWER_PROMPT, DAILY_PRICE_INTENT_PROMPT
 
@@ -405,8 +404,52 @@ def _extract_state_from_query(query: str) -> str | None:
     return None
 
 
+def _extract_lookback_days_from_query(query: str) -> int | None:
+    if not query:
+        return None
+    q = query.lower()
+
+    # Explicit day count: e.g. "15 days", "last 15 days", "past 10 days", "15-day", "15 d"
+    m_days = re.search(r"\b(\d+)\s*-?\s*(?:days?|d)\b", q)
+    if m_days:
+        try:
+            val = int(m_days.group(1))
+            if 1 <= val <= 365:
+                return val
+        except (ValueError, TypeError):
+            pass
+
+    # Explicit week count: e.g. "2 weeks", "3 weeks"
+    m_weeks = re.search(r"\b(\d+)\s*-?\s*weeks?\b", q)
+    if m_weeks:
+        try:
+            val = int(m_weeks.group(1)) * 7
+            if 1 <= val <= 365:
+                return val
+        except (ValueError, TypeError):
+            pass
+
+    # Explicit month count: e.g. "2 months", "3 months"
+    m_months = re.search(r"\b(\d+)\s*-?\s*months?\b", q)
+    if m_months:
+        try:
+            val = int(m_months.group(1)) * 30
+            if 1 <= val <= 365:
+                return val
+        except (ValueError, TypeError):
+            pass
+
+    if "fortnight" in q:
+        return 14
+    if "month" in q:
+        return 30
+    if "week" in q:
+        return 7
+    return None
+
+
 def _heuristic_intent(query: str) -> dict[str, Any]:
-    """Fallback intent when Anthropic is unavailable."""
+    """Fallback intent when LLM is unavailable."""
     q = (query or "").lower()
     base = _empty_intent_fields()
 
@@ -422,35 +465,32 @@ def _heuristic_intent(query: str) -> dict[str, Any]:
     if _is_market_discovery_query(query):
         return {**base, "action": "search_markets", "nearest_market": True, "radius_km": 50}
 
+    parsed_lookback = _extract_lookback_days_from_query(query)
+
     if "arrival" in q:
         if "lowest" in q or "least" in q:
-            return {**base, "action": "get_extreme_arrival", "sort_order": "lowest", "lookback_days": 7}
+            return {**base, "action": "get_extreme_arrival", "sort_order": "lowest", "lookback_days": parsed_lookback or 7}
         if "highest" in q or "maximum" in q or "most" in q:
-            return {**base, "action": "get_extreme_arrival", "sort_order": "highest", "lookback_days": 7}
-        if any(k in q for k in ("history", "week", "month", "days", "last ", "past ")):
-            lookback = 30 if "month" in q else 7
+            return {**base, "action": "get_extreme_arrival", "sort_order": "highest", "lookback_days": parsed_lookback or 7}
+        if any(k in q for k in ("history", "week", "month", "days", "last ", "past ")) or parsed_lookback is not None:
+            lookback = parsed_lookback if parsed_lookback is not None else 7
             return {**base, "action": "get_arrival_history", "lookback_days": lookback}
         return {**base, "action": "get_today_arrival"}
 
     if any(k in q for k in ("highest", "maximum", "max", "best price", "best rate", "peak price", "highest modal")):
-        lookback = 30 if "month" in q else (None if specific_date else 7)
+        lookback = parsed_lookback if parsed_lookback is not None else (None if specific_date else 7)
         return {**base, "action": "get_highest_price", "lookback_days": lookback}
 
     if any(k in q for k in ("lowest", "minimum", "min", "cheapest", "least price", "bottom price", "lowest modal")):
-        lookback = 30 if "month" in q else (None if specific_date else 7)
+        lookback = parsed_lookback if parsed_lookback is not None else (None if specific_date else 7)
         return {**base, "action": "get_lowest_price", "lookback_days": lookback}
 
     if any(k in q for k in ("average", "avg", "summary", "min max", "statistics", "stats")):
-        lookback = 30 if "month" in q else 7
+        lookback = parsed_lookback if parsed_lookback is not None else 7
         return {**base, "action": "get_price_summary", "lookback_days": lookback}
 
-    if any(k in q for k in ("history", "week", "month", "days", "last ", "past ", "from ", "between")):
-        if "month" in q or "30 day" in q:
-            lookback = 30
-        elif "week" in q or "7 day" in q:
-            lookback = 7
-        else:
-            lookback = 7
+    if any(k in q for k in ("history", "week", "month", "days", "last ", "past ", "from ", "between")) or parsed_lookback is not None:
+        lookback = parsed_lookback if parsed_lookback is not None else 7
         return {**base, "action": "get_price_history", "lookback_days": lookback}
 
     return {**base, "action": "get_today_price"}
@@ -602,7 +642,18 @@ def _normalize_intent(
         and not out.get("from_date")
         and not out.get("to_date")
     ):
-        out["lookback_days"] = 7
+        parsed_lb = _extract_lookback_days_from_query(query)
+        out["lookback_days"] = parsed_lb if parsed_lb is not None else 7
+
+    if (
+        out["action"] in {"get_price_history", "get_price_summary", "get_arrival_history"}
+        and out.get("lookback_days") is None
+        and not out.get("from_date")
+        and not out.get("to_date")
+    ):
+        parsed_lb = _extract_lookback_days_from_query(query)
+        if parsed_lb is not None:
+            out["lookback_days"] = parsed_lb
 
     if out["action"] == "get_extreme_arrival" and out["sort_order"] not in {"highest", "lowest"}:
         out["sort_order"] = "highest"
@@ -671,12 +722,12 @@ def _normalize_intent(
     return out
 
 
-async def _anthropic_chat(
+async def _minimax_chat(
     *,
     trace_name: str,
     system_prompt: str | None = None,
     user_content: str,
-    max_tokens: int = 512,
+    max_tokens: int = 2048,
     temperature: float = 0.0,
     query: str | None = None,
     config: RunnableConfig | None = None,
@@ -688,56 +739,45 @@ async def _anthropic_chat(
 
     trace_llm_request(
         trace_name,
-        model=DAILY_PRICE_MODEL,
+        model=MINIMAX_MODEL,
         messages=messages,
         query=query,
     )
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        logger.warning("ANTHROPIC_API_KEY not set; skipping Anthropic %s", trace_name)
-        trace_llm_error(trace_name, error="ANTHROPIC_API_KEY not set")
-        return None
 
     try:
-        timeout_s = float(os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "30"))
-        max_retries = int(os.getenv("ANTHROPIC_MAX_RETRIES", "2"))
-        llm = ChatAnthropic(
-            model=DAILY_PRICE_MODEL,
-            api_key=api_key,
+        llm = get_minimax_chat_model(
             temperature=temperature,
             max_tokens=max_tokens,
-            timeout=timeout_s,
-            max_retries=max_retries,
         )
         response = await llm.ainvoke(messages, config=config)
         content = response.content if isinstance(response.content, str) else str(response.content or "")
         content = content.strip()
-        trace_llm_response(trace_name, output=content, source="anthropic")
+        trace_llm_response(trace_name, output=content, source="minimax")
         return content
     except Exception as exc:
-        logger.warning("Anthropic %s failed: %s", trace_name, exc)
+        logger.warning("MiniMax %s failed: %s", trace_name, exc)
         trace_llm_error(trace_name, error=f"{type(exc).__name__}: {exc}")
         return None
 
 
 async def extract_daily_price_intent(query: str, config: RunnableConfig | None = None) -> dict[str, Any]:
-    """Ask Anthropic for mandi_price_tool params; fall back to heuristics."""
+    """Ask MiniMax for mandi_price_tool params; fall back to heuristics."""
     from datetime import datetime
     today_str = datetime.now().strftime("%d-%b-%Y")
     user_content = f"Today's Date: {today_str}\nQuery: {query}\nJSON:"
-    raw_text = await _anthropic_chat(
+    raw_text = await _minimax_chat(
         trace_name="daily_price_intent",
         system_prompt=DAILY_PRICE_INTENT_PROMPT,
         user_content=user_content,
-        max_tokens=256,
+        max_tokens=1024,
         temperature=0.0,
         query=query,
         config=config,
     )
     parsed = _extract_json_object(raw_text or "")
-    anthropic_succeeded = parsed is not None
-    intent = _normalize_intent(parsed, query, llm_succeeded=anthropic_succeeded)
-    if not anthropic_succeeded:
+    llm_succeeded = parsed is not None
+    intent = _normalize_intent(parsed, query, llm_succeeded=llm_succeeded)
+    if not llm_succeeded:
         trace_llm_response(
             "daily_price_intent",
             output=json.dumps(intent),
@@ -878,7 +918,7 @@ def _fallback_unavailable_answer(
     state: str | None = None,
     market_name: str | None = None,
 ) -> str:
-    """Deterministic English reply when Anthropic cannot phrase an unavailable result."""
+    """Deterministic English reply when LLM cannot phrase an unavailable result."""
     if isinstance(payload, dict) and payload.get("error"):
         return str(payload["error"]).strip()
 
@@ -1127,6 +1167,35 @@ def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
                 parts.append(p)
         return "\n\n".join(parts)
 
+    action = payload.get("action") or ""
+
+    # Handle summary stats
+    if action == "get_price_summary" or ("stats" in payload and not payload.get("price_records")):
+        stats = payload.get("stats") or {}
+        overall = stats.get("overall") or {}
+        commodity = (crop or "Commodity").title()
+        lines = [f"Here is the {commodity} price summary:"]
+        avg_modal = _fmt_price(overall.get("avg_modal_price"))
+        hi_max = _fmt_price(overall.get("highest_max_price"))
+        lo_min = _fmt_price(overall.get("lowest_min_price"))
+        spread = _fmt_price(overall.get("price_spread"))
+        tot_records = payload.get("total_records_analysed") or overall.get("total_records")
+        tot_arr = overall.get("total_arrival_qty")
+
+        if avg_modal:
+            lines.append(f"Average Modal Price: {avg_modal}/quintal")
+        if hi_max:
+            lines.append(f"Highest Max Price: {hi_max}")
+        if lo_min:
+            lines.append(f"Lowest Min Price: {lo_min}")
+        if spread:
+            lines.append(f"Price Spread: {spread}")
+        if tot_records:
+            lines.append(f"Total Records Analysed: {tot_records}")
+        if tot_arr:
+            lines.append(f"Total Arrival Quantity: {tot_arr} tonnes")
+        return _ensure_source_line("\n".join(lines), payload)
+
     # Resolution notice (latest price / fallback market)
     notice = ""
     resolution = payload.get("resolution") or {}
@@ -1146,16 +1215,165 @@ def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
         return ""
 
     commodity = (crop or records[0].get("commodity_name") or "commodity").title()
-    date_val = records[0].get("date") or ""
     sources = list({r.get("source_system") for r in records if r.get("source_system")})
 
     lines: list[str] = []
     if notice:
         lines.append(notice)
 
-    if len(records) == 1:
+    # 1) Highest Price
+    if action == "get_highest_price":
+        if len(records) == 1:
+            r = records[0]
+            mkt = (r.get("market_name") or "").title()
+            r_date = r.get("date") or ""
+            modal = _fmt_price(r.get("modal_price"))
+            mn = _fmt_price(r.get("min_price"))
+            mx = _fmt_price(r.get("max_price"))
+            aq = r.get("arrival_quantity")
+            price_str = " | ".join(filter(None, [
+                f"Modal: {modal}/quintal" if modal is not None else None,
+                f"Min: {mn}" if mn is not None else None,
+                f"Max: {mx}" if mx is not None else None,
+                f"Arrival: {aq} tonnes" if aq is not None else None,
+            ]))
+            if not notice:
+                lines.append(f"Here is the highest {commodity} price at {mkt} on {r_date}:")
+            lines.append(price_str)
+        else:
+            date_val = records[0].get("date") or ""
+            lines.append(f"Highest {commodity} prices on {date_val}:")
+            for i, r in enumerate(records[:5], 1):
+                mkt = (r.get("market_name") or f"Market {i}").title()
+                variety = r.get("variety") or ""
+                grade = r.get("grade") or ""
+                label = mkt
+                suffix = ", ".join(filter(None, [variety, grade]))
+                if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
+                    label = f"{mkt} ({suffix})"
+                modal = _fmt_price(r.get("modal_price"))
+                mn = _fmt_price(r.get("min_price"))
+                mx = _fmt_price(r.get("max_price"))
+                aq = r.get("arrival_quantity")
+                price_str = " | ".join(filter(None, [
+                    f"Modal: {modal}/quintal" if modal is not None else None,
+                    f"Min: {mn}" if mn is not None else None,
+                    f"Max: {mx}" if mx is not None else None,
+                    f"Arrival: {aq} tonnes" if aq is not None else None,
+                ]))
+                lines.append(f"{i}) {label}")
+                lines.append(f"   {price_str}")
+
+    # 2) Lowest Price
+    elif action == "get_lowest_price":
+        if len(records) == 1:
+            r = records[0]
+            mkt = (r.get("market_name") or "").title()
+            r_date = r.get("date") or ""
+            modal = _fmt_price(r.get("modal_price"))
+            mn = _fmt_price(r.get("min_price"))
+            mx = _fmt_price(r.get("max_price"))
+            aq = r.get("arrival_quantity")
+            price_str = " | ".join(filter(None, [
+                f"Modal: {modal}/quintal" if modal is not None else None,
+                f"Min: {mn}" if mn is not None else None,
+                f"Max: {mx}" if mx is not None else None,
+                f"Arrival: {aq} tonnes" if aq is not None else None,
+            ]))
+            if not notice:
+                lines.append(f"Here is the lowest {commodity} price at {mkt} on {r_date}:")
+            lines.append(price_str)
+        else:
+            date_val = records[0].get("date") or ""
+            lines.append(f"Lowest {commodity} prices on {date_val}:")
+            for i, r in enumerate(records[:5], 1):
+                mkt = (r.get("market_name") or f"Market {i}").title()
+                variety = r.get("variety") or ""
+                grade = r.get("grade") or ""
+                label = mkt
+                suffix = ", ".join(filter(None, [variety, grade]))
+                if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
+                    label = f"{mkt} ({suffix})"
+                modal = _fmt_price(r.get("modal_price"))
+                mn = _fmt_price(r.get("min_price"))
+                mx = _fmt_price(r.get("max_price"))
+                aq = r.get("arrival_quantity")
+                price_str = " | ".join(filter(None, [
+                    f"Modal: {modal}/quintal" if modal is not None else None,
+                    f"Min: {mn}" if mn is not None else None,
+                    f"Max: {mx}" if mx is not None else None,
+                    f"Arrival: {aq} tonnes" if aq is not None else None,
+                ]))
+                lines.append(f"{i}) {label}")
+                lines.append(f"   {price_str}")
+
+    # 3) Price History (list all records with dates)
+    elif action == "get_price_history":
+        mkt_names = {r.get("market_name") for r in records if r.get("market_name")}
+        same_mkt = len(mkt_names) == 1
+        mkt_title = (list(mkt_names)[0] or "").title() if same_mkt else ""
+        if same_mkt:
+            lines.append(f"Here is the {commodity} price history for {mkt_title}:")
+        else:
+            lines.append(f"Here is the {commodity} price history:")
+        for i, r in enumerate(records[:15], 1):
+            r_date = r.get("date") or ""
+            mkt = (r.get("market_name") or "").title()
+            variety = r.get("variety") or ""
+            grade = r.get("grade") or ""
+            suffix = ", ".join(filter(None, [variety, grade]))
+            if not same_mkt:
+                label = f"{r_date} - {mkt}"
+                if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
+                    label += f" ({suffix})"
+            else:
+                label = f"{r_date}"
+                if suffix and suffix.lower() not in ("faq", variety.lower() if variety else ""):
+                    label += f" ({suffix})"
+            modal = _fmt_price(r.get("modal_price"))
+            mn = _fmt_price(r.get("min_price"))
+            mx = _fmt_price(r.get("max_price"))
+            aq = r.get("arrival_quantity")
+            price_str = " | ".join(filter(None, [
+                f"Modal: {modal}/quintal" if modal is not None else None,
+                f"Min: {mn}" if mn is not None else None,
+                f"Max: {mx}" if mx is not None else None,
+                f"Arrival: {aq} tonnes" if aq is not None else None,
+            ]))
+            lines.append(f"{i}) {label}")
+            lines.append(f"   {price_str}")
+
+    # 4) Arrival History (list all records with dates)
+    elif action == "get_arrival_history":
+        mkt_names = {r.get("market_name") for r in records if r.get("market_name")}
+        same_mkt = len(mkt_names) == 1
+        mkt_title = (list(mkt_names)[0] or "").title() if same_mkt else ""
+        if same_mkt:
+            lines.append(f"Here is the {commodity} arrival history for {mkt_title}:")
+        else:
+            lines.append(f"Here is the {commodity} arrival history:")
+        for i, r in enumerate(records[:15], 1):
+            r_date = r.get("date") or ""
+            mkt = (r.get("market_name") or "").title()
+            aq = r.get("arrival_quantity")
+            label = f"{r_date}" if same_mkt else f"{r_date} - {mkt}"
+            lines.append(f"{i}) {label}: Arrival: {aq} tonnes" if aq is not None else f"{i}) {label}: No arrival data")
+
+    # 5) Extreme Arrival
+    elif action == "get_extreme_arrival":
+        order = payload.get("sort_order") or "highest"
         r = records[0]
         mkt = (r.get("market_name") or "").title()
+        r_date = r.get("date") or ""
+        aq = r.get("arrival_quantity")
+        lines.append(f"Here is the {order} {commodity} arrival recorded at {mkt} on {r_date}:")
+        lines.append(f"Arrival: {aq} tonnes" if aq is not None else "No arrival data")
+
+    # 6) Today / Single Record / Default
+    elif len(records) == 1:
+        r = records[0]
+        mkt = (r.get("market_name") or "").title()
+        date_val = r.get("date") or ""
         modal = _fmt_price(r.get("modal_price"))
         mn = _fmt_price(r.get("min_price"))
         mx = _fmt_price(r.get("max_price"))
@@ -1167,18 +1385,14 @@ def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
             f"Arrival: {aq} tonnes" if aq is not None else None,
         ]))
         if not notice:
-            if payload.get("action") == "get_lowest_price":
-                lines.append(f"Lowest {commodity} price at {mkt} on {date_val}:")
-            else:
-                lines.append(f"{commodity} price at {mkt} on {date_val}:")
+            lines.append(f"{commodity} price at {mkt} on {date_val}:")
         lines.append(price_str)
+
+    # 7) Multiple Markets (Today's price across mandis)
     else:
-        if payload.get("action") == "get_lowest_price":
-            sorted_records = records[:5]
-            lines.append(f"Lowest {commodity} prices on {date_val}:")
-        else:
-            sorted_records = _dedupe_and_sort_nearby_records(records, top_n=5)
-            lines.append(f"{commodity} prices on {date_val}:")
+        sorted_records = _dedupe_and_sort_nearby_records(records, top_n=5)
+        date_val = sorted_records[0].get("date") or "" if sorted_records else ""
+        lines.append(f"{commodity} prices on {date_val}:")
         for i, r in enumerate(sorted_records, 1):
             mkt = (r.get("market_name") or f"Market {i}").title()
             variety = r.get("variety") or ""
@@ -1216,7 +1430,7 @@ async def synthesize_daily_price_answer(
     market_name: str | None = None,
     config: RunnableConfig | None = None,
 ) -> str:
-    """Ask Anthropic to turn tool JSON into a farmer-facing English answer."""
+    """Ask MiniMax to turn tool JSON into a farmer-facing English answer."""
     payload = _unwrap_tool_payload(tool_result)
     payload = _sanitize_payload_for_synthesis(payload)
     if isinstance(payload, (dict, list)):
@@ -1228,11 +1442,11 @@ async def synthesize_daily_price_answer(
         f"Tool response JSON:\n{tool_text}\n\n"
         "Answer:"
     )
-    answer = await _anthropic_chat(
+    answer = await _minimax_chat(
         trace_name="daily_price_answer",
         system_prompt=DAILY_PRICE_ANSWER_PROMPT,
         user_content=user_content,
-        max_tokens=700,
+        max_tokens=2048,
         temperature=0.2,
         query=query,
         config=config,
@@ -1250,7 +1464,7 @@ async def synthesize_daily_price_answer(
     # LLM unavailable but data exists — build a deterministic answer so the farmer
     # always sees prices instead of triggering the "2-hour" fallback upstream.
     logger.warning(
-        "synthesize_daily_price_answer: Anthropic returned empty — using deterministic fallback formatter"
+        "synthesize_daily_price_answer: MiniMax returned empty — using deterministic fallback formatter"
     )
     fallback = _format_price_fallback(payload, crop=crop)
     if fallback:
@@ -1330,7 +1544,7 @@ async def daily_price(
             json.dumps(tool_payload, ensure_ascii=False, default=str)[:8000],
         )
 
-        # Always ask Anthropic — including error/empty payloads — so farmers get a clear "not available".
+        # Always ask MiniMax — including error/empty payloads — so farmers get a clear "not available".
         answer = await synthesize_daily_price_answer(
             query,
             tool_result,
