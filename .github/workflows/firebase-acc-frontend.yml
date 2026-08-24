@@ -55,7 +55,7 @@ jobs:
           VITE_PLIVO_ENDPOINT_USERNAME: ${{ secrets.ACC_VITE_PLIVO_ENDPOINT_USERNAME }}
           VITE_PLIVO_ENDPOINT_PASSWORD: ${{ secrets.ACC_VITE_PLIVO_ENDPOINT_PASSWORD }}
           VITE_PLIVO_STREAM_URL: ${{ secrets.ACC_VITE_PLIVO_STREAM_URL }}
-          VITE_FAST2SMS_API_KEY: ${{ secrets.ACC_VITE_FAST2SMS_API_KEY }}
+          VITE_FAST2SMS_API_KEY: ${{ secrets.ACC_VITE_FAST2SMS_API_KEY || secrets.ACC_FAST2SMS_API_KEY }}
         run: |
           cd acc/acc-frontend
           node node_modules/vite/bin/vite.js build
@@ -87,7 +87,13 @@ jobs:
           {
             "hosting": {
               "site": "acc-staging",
-              "public": "dist"
+              "public": "dist",
+              "rewrites": [
+                {
+                  "source": "**",
+                  "destination": "/index.html"
+                }
+              ]
             }
           }
           JSON
