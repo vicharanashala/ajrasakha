@@ -130,8 +130,9 @@ async def test_seed_drill_still_requires_named_crop():
     classifier.assert_awaited_once()
 
 
-def test_crop_master_aliases_resolve_before_legacy_regexes():
-    assert extract_crop_from_text("I am growing gehu") == "Wheat"
+def test_legacy_crop_patterns_are_used_without_crop_master_aliases():
+    assert extract_crop_from_text("I am growing gehu") is None
+    assert extract_crop_from_text("I am growing rice") == "paddy"
     assert extract_crop_from_text("I am growing rice") == "Paddy"
 
 

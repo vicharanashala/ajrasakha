@@ -54,10 +54,8 @@ from ajrasakha.agents.tool_registry import get_main_tool_node
 
 load_dotenv()
 
-from ajrasakha.agents.crop_chemical_resolver import ensure_crop_master_loaded
 from ajrasakha.agents.thread_logging import setup_thread_file_logging, with_thread_logging
 
-ensure_crop_master_loaded()
 setup_thread_file_logging()
 
 MCP_SERVERS = {
