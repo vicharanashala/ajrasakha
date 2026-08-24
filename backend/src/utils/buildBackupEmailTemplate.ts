@@ -1118,21 +1118,39 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
             </td>
           </tr>
 
-          <tr style="border-bottom: 1px solid #f3f4f6;">
-            <td style="padding: 11px 20px 11px 32px; font-size: 13px; color: #4b5563;">
+          <tr>
+            <td style="padding: 11px 20px 3px 32px; font-size: 13px; color: #4b5563;">
               WebApp Generated
             </td>
-            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+            <td style="padding: 11px 20px 3px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
               ${(stats.todayAddedWebAppCount ?? 0).toLocaleString()}
             </td>
           </tr>
-
           <tr style="border-bottom: 1px solid #f3f4f6;">
-            <td style="padding: 11px 20px 11px 32px; font-size: 13px; color: #4b5563;">
+            <td colspan="2" style="padding: 2px 20px 12px 52px; font-size: 11px; color: #6b7280; line-height: 1.8;">
+            <div>Duplicate: <strong>${(stats.todayAddedTypeBySource?.webApp?.duplicate ?? 0).toLocaleString()}</strong></div>
+              <div>Dynamic: <strong>${(stats.todayAddedTypeBySource?.webApp?.dynamic ?? 0).toLocaleString()}</strong></div>
+              <div>Static Dynamic: <strong>${(stats.todayAddedTypeBySource?.webApp?.staticDynamic ?? 0).toLocaleString()}</strong></div>
+              <div>Unique: <strong>${(stats.todayAddedTypeBySource?.webApp?.unique ?? 0).toLocaleString()}</strong></div>
+              
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 11px 20px 3px 32px; font-size: 13px; color: #4b5563;">
               WhatsApp Generated
             </td>
-            <td style="padding: 11px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+            <td style="padding: 11px 20px 3px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
               ${(stats.todayAddedWhatSappCount ?? 0).toLocaleString()}
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td colspan="2" style="padding: 2px 20px 12px 52px; font-size: 11px; color: #6b7280; line-height: 1.8;">
+            <div>Duplicate: <strong>${(stats.todayAddedTypeBySource?.whatSapp?.duplicate ?? 0).toLocaleString()}</strong></div>
+              <div>Dynamic: <strong>${(stats.todayAddedTypeBySource?.whatSapp?.dynamic ?? 0).toLocaleString()}</strong></div>
+              <div>Static Dynamic: <strong>${(stats.todayAddedTypeBySource?.whatSapp?.staticDynamic ?? 0).toLocaleString()}</strong></div>
+              <div>Unique: <strong>${(stats.todayAddedTypeBySource?.whatSapp?.unique ?? 0).toLocaleString()}</strong></div>
+              
             </td>
           </tr>
 

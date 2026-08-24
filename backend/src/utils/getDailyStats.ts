@@ -69,6 +69,19 @@ export interface DailyStats {
   todayAddedWhatSappCount?: number;
   todayAddedOutReachCount?: number;
   todayAddedAgriExpertCount?: number;
+  // Questions entered today (by createdAt), per source AND per type. Within each
+  // source the four type counts are mutually exclusive and sum to that source's total.
+  todayAddedTypeBySource?: {
+    webApp: TodayAddedTypeCounts;
+    whatSapp: TodayAddedTypeCounts;
+  };
+}
+
+export interface TodayAddedTypeCounts {
+  dynamic: number;
+  staticDynamic: number;
+  unique: number;
+  duplicate: number;
 }
 
 // export const getDailyStats = async (): Promise<DailyStats> => {
@@ -299,6 +312,34 @@ export const getDailyStats = async (
     }),
   ]);
 
+  // ── Questions entered today (by createdAt) split by SOURCE and, within each
+  //    source, by TYPE. The four types are mutually exclusive and exhaustive so
+  //    they add up to that source's total:
+  //      Duplicate      → has a referenceQuestionId
+  //      Dynamic        → tagged 'dynamic' and NOT a duplicate
+  //      Static Dynamic → tagged 'static_dynamic' and NOT a duplicate
+  //      Unique         → neither tagged nor a duplicate
+  const countTypesForSource = async (source: string) => {
+    const base = { isTesting: { $ne: true }, createdAt: dateRange, source };
+    const [dynamic, staticDynamic, unique, duplicate] = await Promise.all([
+      questionRepository.count({ ...base, referenceQuestionId: null, tag: 'dynamic' }),
+      questionRepository.count({ ...base, referenceQuestionId: null, tag: 'static_dynamic' }),
+      questionRepository.count({ ...base, referenceQuestionId: null, tag: null }),
+      questionRepository.count({ ...base, referenceQuestionId: { $ne: null } }),
+    ]);
+    return { dynamic, staticDynamic, unique, duplicate };
+  };
+  // Only WebApp (AJRASAKHA) and WhatsApp entries are broken down by type; Outreach
+  // and Agri Expert show the total count only.
+  const [webAppTypes, whatSappTypes] = await Promise.all([
+    countTypesForSource('AJRASAKHA'),
+    countTypesForSource('WHATSAPP'),
+  ]);
+  const todayAddedTypeBySource = {
+    webApp: webAppTypes,
+    whatSapp: whatSappTypes,
+  };
+
   const nonAgriCount = statusCount.find(s => s._id === 'non_agri')?.count ?? 0;
   const agriCount = totalQuestions - nonAgriCount;
   const closed = statusCount.find(s => s._id === 'closed')?.count ?? 0;
@@ -367,6 +408,7 @@ export const getDailyStats = async (
     todayAddedWebAppCount,
     todayAddedWhatSappCount,
     todayAddedOutReachCount,
-    todayAddedAgriExpertCount
+    todayAddedAgriExpertCount,
+    todayAddedTypeBySource
   };
 };
