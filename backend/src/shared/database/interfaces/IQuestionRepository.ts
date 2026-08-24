@@ -814,4 +814,29 @@ export interface IQuestionRepository {
   findQuestionsWithOpenPaeValidation(
     requireAutoAllocate?: boolean,
   ): Promise<IQuestion[]>;
+
+  /**
+   * Get paginated PAE validation queue data using MongoDB aggregation.
+   * This is the MOST EFFICIENT approach - single query with $facet to get:
+   * - Count per section (waitingAuto, waitingManual, assigned)
+   * - Paginated items per section
+   * 
+   * @param page - Page number (1-indexed)
+   * @param limit - Items per page
+   * @param section - Optional: filter to specific section
+   */
+  getPaeValidationQueuePaginated(params: {
+    page?: number;
+    limit?: number;
+    section?: 'waitingAuto' | 'waitingManual' | 'assigned';
+  }): Promise<{
+    waitingAuto: { count: number; totalPages: number; items: IQuestion[] };
+    waitingManual: { count: number; totalPages: number; items: IQuestion[] };
+    assigned: { count: number; totalPages: number; items: IQuestion[] };
+  }>;
+
+  /**
+   * Get available PAE experts count (lightweight query)
+   */
+  getAvailablePaeExpertsCount(): Promise<number>;
 }

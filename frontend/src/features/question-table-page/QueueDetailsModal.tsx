@@ -1398,6 +1398,8 @@ export const FeedbackQueueModal = ({
 
 // ── Pae Validation Queue tab ───────────────────────────────────────────────────────
 
+import { Pagination } from "@/components/pagination";
+
 const PaeSection = FbSection
 export const PaeValidationQueueModal = ({
   setIsSidebarOpen,
@@ -1407,6 +1409,14 @@ export const PaeValidationQueueModal = ({
   const [open, setOpen] = useState(false);
   const [openSection, setOpenSection] = useState<string | null>("waitingAuto");
   const { goToQuestion } = useNavigateToQuestion();
+  
+  // Pagination state per section
+  const [paePages, setPaePages] = useState({
+    waitingAuto: 1,
+    waitingManual: 1,
+    assigned: 1,
+  });
+  const PAE_PAGE_SIZE = 50;
 
   useEffect(() => {
     if (sessionStorage.getItem("reopenPaeValidationQueue") === "1") {
@@ -1422,11 +1432,40 @@ export const PaeValidationQueueModal = ({
     goToQuestion(item._id, "moderator_queue");
   };
 
+  // Main query - server-side pagination happens in the repository
+  // Query key includes pagination state so it refetches when page changes
+  // For the initial load, we fetch page 1 of all sections
+  const [currentPagination, setCurrentPagination] = useState({
+    section: undefined as 'waitingAuto' | 'waitingManual' | 'assigned' | undefined,
+    page: 1,
+    limit: PAE_PAGE_SIZE,
+  });
+
   const { data, isLoading, isError, error, refetch, isFetching } =
-    useGetPaeValidationQueueDetails(open);
-  console.log('dataaa:',data)
+    useGetPaeValidationQueueDetails(open, open ? currentPagination : undefined);
+
+  // Refetch when pagination changes
+  useEffect(() => {
+    if (open) {
+      refetch();
+    }
+  }, [currentPagination.section, currentPagination.page]);
+
   const toggle = (key: string) =>
     setOpenSection((prev) => (prev === key ? null : key));
+  
+  // Handle pagination for PAE sections
+  const handlePaePageChange = (section: 'waitingAuto' | 'waitingManual' | 'assigned', page: number) => {
+    setPaePages(prev => ({ ...prev, [section]: page }));
+    setCurrentPagination({ section, page, limit: PAE_PAGE_SIZE });
+    // Scroll to section after data loads
+    setTimeout(() => {
+      const element = document.getElementById(`pae-section-${section}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 200);
+  };
 
   return (
     <Dialog
@@ -1493,46 +1532,97 @@ export const PaeValidationQueueModal = ({
           </div>
         ) : data ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 py-2">
-            {/* need */}
-            <PaeSection<QueueQuestionItem>
-              icon={<Hourglass size={18} />}
-              color="amber"
-              title="Waiting — Auto Allocate"
-              description="Open pae validation, auto-allocation ON, no reviewer yet"
-              count={data.waitingAuto.count}
-              items={data.waitingAuto.items}
-              isOpen={openSection === "waitingAuto"}
-              onToggle={() => toggle("waitingAuto")}
-              emptyText="Nothing waiting"
-              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
-            />
-            {/* need */}
-            <PaeSection<QueueQuestionItem>
-              icon={<Power size={18} />}
-              color="blue"
-              title="Waiting — Manual (Auto Off)"
-              description="Open pae validation, auto-allocation OFF, unassigned"
-              count={data.waitingManual.count}
-              items={data.waitingManual.items}
-              isOpen={openSection === "waitingManual"}
-              onToggle={() => toggle("waitingManual")}
-              emptyText="Nothing waiting (manual)"
-              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
-            />
-            {/* need */}
-            <PaeSection<QueueQuestionItem>
-              icon={<UserCheck size={18} />}
-              color="green"
-              title="Assigned Pae Validation Questions"
-              description="Open pae validation with a reviewer assigned"
-              count={data.assigned.count}
-              items={data.assigned.items}
-              isOpen={openSection === "assigned"}
-              onToggle={() => toggle("assigned")}
-              emptyText="No assigned pae validation"
-              renderItem={(q) => <QuestionRow key={q._id} item={q} showAssignee assigneeLabel="Reviewer" onClick={() => handleQuestionClick(q)} />}
-            />
-            {/* need */}
+            {/* Waiting Auto Allocate */}
+            <div id="pae-section-waitingAuto" className="space-y-2">
+              {isFetching && currentPagination.section === "waitingAuto" && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
+                </div>
+              )}
+              <PaeSection<QueueQuestionItem>
+                icon={<Hourglass size={18} />}
+                color="amber"
+                title="Waiting — Auto Allocate"
+                description="Open pae validation, auto-allocation ON, no reviewer yet"
+                count={data.waitingAuto.count}
+                items={data.waitingAuto.items}
+                isOpen={openSection === "waitingAuto"}
+                onToggle={() => toggle("waitingAuto")}
+                emptyText="Nothing waiting"
+                renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+              />
+              {data.waitingAuto.totalPages && data.waitingAuto.totalPages > 1 && (
+                <div className="flex justify-center px-4">
+                  <Pagination
+                    currentPage={paePages.waitingAuto}
+                    totalPages={data.waitingAuto.totalPages}
+                    onPageChange={(page) => handlePaePageChange('waitingAuto', page)}
+                  />
+                </div>
+              )}
+            </div>
+            
+            {/* Waiting Manual */}
+            <div id="pae-section-waitingManual" className="space-y-2">
+              {isFetching && currentPagination.section === "waitingManual" && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
+                </div>
+              )}
+              <PaeSection<QueueQuestionItem>
+                icon={<Power size={18} />}
+                color="blue"
+                title="Waiting — Manual (Auto Off)"
+                description="Open pae validation, auto-allocation OFF, unassigned"
+                count={data.waitingManual.count}
+                items={data.waitingManual.items}
+                isOpen={openSection === "waitingManual"}
+                onToggle={() => toggle("waitingManual")}
+                emptyText="Nothing waiting (manual)"
+                renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+              />
+              {data.waitingManual.totalPages && data.waitingManual.totalPages > 1 && (
+                <div className="flex justify-center px-4">
+                  <Pagination
+                    currentPage={paePages.waitingManual}
+                    totalPages={data.waitingManual.totalPages}
+                    onPageChange={(page) => handlePaePageChange('waitingManual', page)}
+                  />
+                </div>
+              )}
+            </div>
+            
+            {/* Assigned */}
+            <div id="pae-section-assigned" className="space-y-2">
+              {isFetching && currentPagination.section === "assigned" && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
+                </div>
+              )}
+              <PaeSection<QueueQuestionItem>
+                icon={<UserCheck size={18} />}
+                color="green"
+                title="Assigned Pae Validation Questions"
+                description="Open pae validation with a reviewer assigned"
+                count={data.assigned.count}
+                items={data.assigned.items}
+                isOpen={openSection === "assigned"}
+                onToggle={() => toggle("assigned")}
+                emptyText="No assigned pae validation"
+                renderItem={(q) => <QuestionRow key={q._id} item={q} showAssignee assigneeLabel="Reviewer" onClick={() => handleQuestionClick(q)} />}
+              />
+              {data.assigned.totalPages && data.assigned.totalPages > 1 && (
+                <div className="flex justify-center px-4">
+                  <Pagination
+                    currentPage={paePages.assigned}
+                    totalPages={data.assigned.totalPages}
+                    onPageChange={(page) => handlePaePageChange('assigned', page)}
+                  />
+                </div>
+              )}
+            </div>
+            
+            {/* Available Experts */}
             <PaeSection<QueueExpertItem>
               icon={<ShieldUser size={18} />}
               color="violet"

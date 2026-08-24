@@ -82,13 +82,20 @@ export interface FeedbackQueueDetails {
  *  can render counts and lists consistently (mirrors QueueDetailsResponse). */
 export interface PaeValidationQueueDetails {
   /** Open-pae-validation questions, auto-allocation ON, no reviewer assigned yet. */
-  waitingAuto: { count: number; items: QueueQuestionItem[] };
+  waitingAuto: { count: number; items: QueueQuestionItem[]; page?: number; totalPages?: number };
   /** Open-pae-validation questions, auto-allocation OFF (handled manually), unassigned. */
-  waitingManual: { count: number; items: QueueQuestionItem[] };
+  waitingManual: { count: number; items: QueueQuestionItem[]; page?: number; totalPages?: number };
   /** Open-pae-validation questions already assigned to a reviewer. */
-  assigned: { count: number; items: QueueQuestionItem[] };
+  assigned: { count: number; items: QueueQuestionItem[]; page?: number; totalPages?: number };
   /** pae experts free to take a feedback review. */
   availablePaeExperts: { count: number; items: QueueExpertItem[] };
+}
+
+/** Pagination params for PAE queue endpoint */
+export interface PaeValidationQueueParams {
+  section?: 'waitingAuto' | 'waitingManual' | 'assigned';
+  page?: number;
+  limit?: number;
 }
 
 /** Lean question shape used in the moderator/admin "Queue Details" modal. */
@@ -884,7 +891,6 @@ export interface IQuestionService {
     suggestionSourceName?: string,
   ): Promise<{ success: boolean; message: string }>;
 
-  getPaeValidationQueueDetails(): Promise<PaeValidationQueueDetails>;
 
   ensureNormalisedCrop(
     questionId: string,
@@ -901,4 +907,5 @@ export interface IQuestionService {
     newStatus?: string,
     session?: ClientSession,
   ): Promise<void>;
+  getPaeValidationQueueDetails(params?: PaeValidationQueueParams): Promise<PaeValidationQueueDetails>;
 }
