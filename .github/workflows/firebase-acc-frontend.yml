@@ -19,19 +19,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'pnpm'
-          cache-dependency-path: 'acc/acc-frontend/pnpm-lock.yaml'
 
       - name: Install pnpm
-        run: corepack enable
+        run: npm install -g pnpm@10
 
       - name: Install dependencies
         working-directory: ./acc/acc-frontend
-        run: corepack exec pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         working-directory: ./acc/acc-frontend
-        run: corepack exec pnpm exec vite build
+        run: pnpm exec vite build
         env:
           VITE_API_BASE_URL: ${{ secrets.ACC_VITE_API_BASE_URL }}
           VITE_FIREBASE_API_KEY: ${{ secrets.ACC_VITE_FIREBASE_API_KEY }}
