@@ -876,6 +876,18 @@ export class ChatbotRepository implements IChatbotRepository {
                     then: '$passedAt',
                   },
                   {
+                    // dynamic_closed/duplicate_closed are stamped with closedAt on
+                    // transition (see QuestionService.ts) so they're treated the same
+                    // as a regular 'closed' completion for analytics purposes.
+                    case: {
+                      $in: [
+                        '$_normalizedStatus',
+                        ['dynamic_closed', 'duplicate_closed'],
+                      ],
+                    },
+                    then: '$closedAt',
+                  },
+                  {
                     case: '$_isGdbDuplicate',
                     then: '$passedAt',
                   },
@@ -1713,25 +1725,25 @@ export class ChatbotRepository implements IChatbotRepository {
       const ajrasakhaQueriesAsked = totalUserMessages;
 
       const whatsappAdherencePct =
-        whatsapp.totalResponded > 0
+        whatsapp.questionAsked > 0
           ? Math.round(
-              (whatsapp.answeredWithin120Min / whatsapp.totalResponded) *
+              (whatsapp.answeredWithin120Min / whatsapp.questionAsked) *
                 100 *
                 100,
             ) / 100
           : 0;
       const ajrasakhaAdherencePct =
-        ajrasakha.totalResponded > 0
+        ajrasakha.questionAsked > 0
           ? Math.round(
-              (ajrasakha.answeredWithin120Min / ajrasakha.totalResponded) *
+              (ajrasakha.answeredWithin120Min / ajrasakha.questionAsked) *
                 100 *
                 100,
             ) / 100
           : 0;
       const manualAdherencePct =
-        manual.totalResponded > 0
+        manual.questionAsked > 0
           ? Math.round(
-              (manual.answeredWithin120Min / manual.totalResponded) * 100 * 100,
+              (manual.answeredWithin120Min / manual.questionAsked) * 100 * 100,
             ) / 100
           : 0;
       const whatsappSlaBreachedCount = Math.max(

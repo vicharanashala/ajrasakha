@@ -3957,6 +3957,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
           : '';
       const title = `Ajrasakha - Daily Update on Application Testing, Backend Responses, and Response Time Compliance${dateRangeLabel}`;
       const platformUrl = appConfig.frontendUrl;
+      // CC recipients for the Response Adherence report, configured via the
+      // RESPONSE_ADHERENCE_REPORT_CC env var (comma-separated). Both the manual "Email
+      // Report" button and the automated daily job go through this method, so both pick
+      // this up.
+      const responseAdherenceReportCc = (emailConfig.RESPONSE_ADHERENCE_REPORT_CC || '')
+        .split(',')
+        .map(email => email.trim())
+        .filter(Boolean);
 
       // Colors/typography lifted from the app's own theme (frontend/src/styles.css's :root
       // OKLCH tokens, converted to hex since email clients don't support oklch()), so the
@@ -4047,6 +4055,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         fileName || 'response-adherence-report.csv',
         'text/csv',
         [annamLogoInlineAttachment()],
+        responseAdherenceReportCc.length ? responseAdherenceReportCc : undefined,
       );
 
       return {
