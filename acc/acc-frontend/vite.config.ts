@@ -10,7 +10,7 @@ export default defineConfig({
     viteReact(),
     tailwindcss(),
   ],
-  base: '/acc-frontend/',
+  base: '/',
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
