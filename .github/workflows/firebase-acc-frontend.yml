@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd acc/acc-frontend
-          pnpm install
+          pnpm install --ignore-scripts
 
       - name: Build frontend
         env:
@@ -57,7 +57,7 @@ jobs:
           VITE_FAST2SMS_API_KEY: ${{ secrets.ACC_VITE_FAST2SMS_API_KEY }}
         run: |
           cd acc/acc-frontend
-          pnpm exec vite build
+          node node_modules/vite/bin/vite.js build
 
       - uses: actions/upload-artifact@v4
         with:
