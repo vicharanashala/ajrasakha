@@ -695,22 +695,17 @@ export const IncomingCallBox = ({
     });
 
     ws.onMessage("transcript", (message: PlivoTranscriptMessage) => {
-      // console.log('📝 [IncomingCallBox] Received transcript:', message);
-      if (message.callId && activeCallUuidRef.current && message.callId !== activeCallUuidRef.current) {
-        // Ignore transcripts for other concurrent calls
-        return;
+      if (message.callId && !activeCallUuidRef.current) {
+        activeCallUuidRef.current = message.callId;
       }
-      if (message.callId) {
-        onCallUuidChange?.(message.callId);
-      }
-      if (message.originalText || message.translatedText) {
+      if (message.originalText || message.translatedText || message.text) {
         const newTranscript: CallTranscript = {
           track: message.track || "inbound",
-          text: message.text || "",
-          originalText: message.originalText || "",
-          translatedText: message.translatedText || "",
+          text: message.text || message.originalText || message.translatedText || "",
+          originalText: message.originalText || message.text || "",
+          translatedText: message.translatedText || message.text || "",
           detectedLanguage: message.detectedLanguage || "unknown",
-          timestamp: message.timestamp,
+          timestamp: message.timestamp || new Date().toISOString(),
         };
 
         setTranscripts((prev) => [...prev, newTranscript]);
@@ -718,12 +713,9 @@ export const IncomingCallBox = ({
     });
 
     ws.onMessage("call_end", (message: any) => {
-      // console.log('📴 Call ended from WebSocket:', message);
-      if (message.callId && activeCallUuidRef.current && message.callId !== activeCallUuidRef.current) {
-        // Ignore call end for other concurrent calls
-        return;
-      }
+      console.log('📴 [IncomingCallBox] Call ended from WebSocket:', message);
       if (message.callId) {
+        activeCallUuidRef.current = message.callId;
         onCallUuidChange?.(message.callId);
       }
       const finalItems: CallTranscript[] = [];

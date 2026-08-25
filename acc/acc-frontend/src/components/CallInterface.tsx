@@ -846,36 +846,8 @@ export const CallInterface = () => {
             if (uuid === null && callUuid !== null) {
               setLastCallUuid(callUuid);
             }
-            // Reset lastCallUuid when a new call comes in
             if (uuid !== null) {
               setLastCallUuid(null);
-              if (isHumanVerificationMode) {
-                toast.info("New call connected. Resetting previous review draft.");
-              }
-              // Clear transcripts, questions, summary and translation states for new calls
-              setTranscriptsList([]);
-              setQuestions([]);
-              setTranslatedQuestions({});
-              setTranslatedAnswers({});
-              setTranslatingQuestions({});
-              setCopiedStates({});
-              lastTranscriptRef.current = "";
-              setIsSummaryOpen(false);
-              setEditableSummaryText("");
-              setExtractedState("");
-              setExtractedCrop("");
-              setHasGeneratedQuestions(false);
-              // Reset HITL state
-              setThreadId(null);
-              setExtractedData(null);
-              setIsHumanVerificationMode(false);
-              setEditableQuery("");
-              setEditableCrop("");
-              setEditableState("");
-              setEditableDistrict("");
-              setEditableDomain([]);
-              setEditableSeason("");
-              setIsSimulatingMode(false);
             }
           }}
           onPhoneNumberChange={(phone) => {
