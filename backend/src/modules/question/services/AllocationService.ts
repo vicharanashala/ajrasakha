@@ -136,8 +136,15 @@ export class AllocationService extends BaseService {
         session,
       );
 
+      // A training question must go to training users only; a real question to real
+      // users only. (Previously this always kept non-training users, so training
+      // AJRASAKHA questions leaked to real experts.)
       allExpertIds = users
-        .filter(user => user.isTrainingUser !== true)
+        .filter(user =>
+          isTrainingQuestion
+            ? user.isTrainingUser === true
+            : user.isTrainingUser !== true,
+        )
         .map(user => user._id.toString());
     } else {
       const expertTMU = [];
