@@ -206,6 +206,8 @@ async def check_pending_duplicate_endpoint(body: PendingDuplicateCheckRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    return result
+
 
 # === V2 ENDPOINTS ===
 # V2 endpoints use LLM to refine the query by removing crop/state names,
