@@ -17,7 +17,16 @@ import { AnswerSubmissionService } from '../answer/services/AnswerSubmissionServ
 import { AnswerAiService } from '../answer/services/AnswerAiService.js';
 import { AnswerFaqService } from '../answer/services/AnswerFaqService.js';
 import { AnswerController } from '../answer/controllers/AnswerController.js';
-import { QuestionController } from '../question/controllers/QuestionController.js';
+import {
+  QuestionController,
+  QuestionIngestionController,
+  QuestionAllocationController,
+  QuestionFeedbackController,
+  QuestionPaeValidationController,
+  QuestionReportController,
+  QuestionAiController,
+  QuestionMaintenanceController,
+} from '../question/controllers/index.js';
 import { QuestionService } from '../question/services/QuestionService.js';
 import { QuestionReportService } from '../question/services/QuestionReportService.js';
 import { PaeValidationService } from '../question/services/PaeValidationService.js';
@@ -44,12 +53,19 @@ import { AccAgentService } from '../acc-agent/services/AccAgentService.js';
 import { CheckOverlapsService } from '../question/services/CheckOverlapsService.js';
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
+  options.bind(QuestionReportController).toSelf().inSingletonScope();
+  options.bind(QuestionAllocationController).toSelf().inSingletonScope();
+  options.bind(QuestionFeedbackController).toSelf().inSingletonScope();
+  options.bind(QuestionPaeValidationController).toSelf().inSingletonScope();
+  options.bind(QuestionAiController).toSelf().inSingletonScope();
+  options.bind(QuestionIngestionController).toSelf().inSingletonScope();
+  options.bind(QuestionMaintenanceController).toSelf().inSingletonScope();
   options.bind(QuestionController).toSelf().inSingletonScope();
   options.bind(AnswerController).toSelf().inSingletonScope();
   options.bind(ContextController).toSelf().inSingletonScope();
   options.bind(CommentController).toSelf().inSingletonScope();
   options.bind(RequestController).toSelf().inSingletonScope();
-  options.bind(PerformanceController).toSelf().inSingletonScope()
+  options.bind(PerformanceController).toSelf().inSingletonScope();
   // Services
 
   options
