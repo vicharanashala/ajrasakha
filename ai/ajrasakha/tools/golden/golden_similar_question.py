@@ -404,7 +404,7 @@ async def find_similar_questions(
 
     similar_questions = []
     for i, match in enumerate(vector_matches[:top_k]):
-        status = match.status or await _get_question_status(match.question_id)
+        status = await _get_question_status(match.question_id)
 
         similar_questions.append({
             "question_id": match.question_id,
