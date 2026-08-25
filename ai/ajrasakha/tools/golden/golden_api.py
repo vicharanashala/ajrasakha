@@ -11,10 +11,12 @@ try:
     from .golden_search import gdb_search, gdb_search_v2
     from .golden_pending_duplicate import check_pending_duplicate
     from .query_refinement import refine_query_to_core_farming_question
+    from .golden_similar_question import find_similar_questions, SimilarQuestionRequest
 except ImportError:
     from golden_search import gdb_search, gdb_search_v2
     from golden_pending_duplicate import check_pending_duplicate
     from query_refinement import refine_query_to_core_farming_question
+    from golden_similar_question import find_similar_questions, SimilarQuestionRequest
 
 app = FastAPI(
     title="AjraSakha Golden API",
@@ -476,3 +478,81 @@ async def check_pending_duplicate_endpoint_v2(body: PendingDuplicateCheckRequest
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# =============================================================================
+# SIMILAR QUESTION DETECTION API
+# Combines V1 search + duplicate check without crop/state filtering
+# =============================================================================
+
+
+class SimilarQuestionItemResponse(BaseModel):
+    """A single similar question result."""
+    question_id: str
+    question_text: str
+    status: str
+    similarity_score: float
+    match_type: str
+    chosen_for_answer: bool = False
+
+
+class SimilarQuestionResponse(BaseModel):
+    """Response for similar question detection (embedding-based, no Gemma)."""
+    query: str
+    is_present: bool
+    present_status: Optional[str] = None
+    present_question_id: Optional[str] = None
+    exact_match_found: bool = False
+    similar_questions: list[SimilarQuestionItemResponse] = Field(default_factory=list)
+    total_candidates_found: int = 0
+    audit: dict[str, Any] = Field(default_factory=dict)
+
+
+@app.post(
+    "/v1/gdb/find-similar-questions",
+    response_model=SimilarQuestionResponse,
+    summary="Find similar questions in database (embedding-based, no Gemma)",
+    description=(
+        "**Purpose:** Detect if a question already exists in the database without crop/state filtering.\n\n"
+        "**Method:** Pure embedding-based similarity - NO Gemma classification.\n\n"
+        "**Pipeline:**\n"
+        "1. **Exact match** on normalized question text across ALL statuses.\n"
+        "2. If no exact match: **Vector search** across all questions (no crop/state filter).\n"
+        "3. Return top-K similar questions sorted by embedding similarity score.\n\n"
+        "**Use cases:**\n"
+        "- Check if a new question is a duplicate before saving\n"
+        "- Find related existing questions for answer reference\n"
+        "- Question deduplication workflow"
+    ),
+)
+async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
+    """
+    Find similar questions in the database without crop/state filtering.
+    
+    Uses ONLY embedding similarity - NO Gemma classification.
+    Searches across ALL question statuses (closed + pending).
+    """
+    try:
+        result = await find_similar_questions(
+            question_text=body.question_text,
+            top_k=body.top_k,
+        )
+        
+        # Convert similar_questions list of dicts to response models
+        similar_questions = [
+            SimilarQuestionItemResponse(**item) for item in result.get("similar_questions", [])
+        ]
+        
+        return SimilarQuestionResponse(
+            query=result["query"],
+            is_present=result["is_present"],
+            present_status=result.get("present_status"),
+            present_question_id=result.get("present_question_id"),
+            exact_match_found=result.get("exact_match_found", False),
+            similar_questions=similar_questions,
+            total_candidates_found=result.get("total_candidates_found", 0),
+            audit=result.get("audit", {}),
+        )
+    except Exception as exc:
+        log.error("find_similar_questions_endpoint failed: %s: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
