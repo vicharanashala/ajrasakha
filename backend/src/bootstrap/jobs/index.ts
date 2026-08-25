@@ -8,6 +8,7 @@ import './timeBoundReAllocateCron.js'
 import './moderatorQueueCron.js'
 import './agentStatusCleanupJob.js';
 import './testersDashboardSyncCron.js'
+import './zohoTicketStatusSyncCron.js'
 import './gateKeeperAuditorQueueCron.js'
 //import './embeddingBackfill.js'
 export const initJobs = () => {

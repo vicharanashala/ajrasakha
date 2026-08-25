@@ -17,6 +17,7 @@ import { CommentController } from '../comment/controllers/CommentController.js';
 import { COMMENT_VALIDATORS } from '../comment/classes/validators/CommentValidator.js';
 import { PerformanceController } from '../../modules/performance/controllers/PerformanceController.js';
 import { TestersDashboardController } from '../../modules/dashboard/controllers/TestersDashboardController.js';
+import { ZohoTicketStatusController } from '../dashboard/controllers/ZohoTicketStatusController.js';
 import { RequestController } from '../request/controllers/RequestController.js';
 import { REQUEST_VALIDATORS } from '../request/classes/validators/RequestValidators.js';
 
@@ -28,7 +29,8 @@ export const coreModuleControllers: Function[] = [
   CommentController,
   RequestController,
   PerformanceController,
-  TestersDashboardController
+  TestersDashboardController,
+  ZohoTicketStatusController
 ];
 
 // Export container modules for loadAppModules
