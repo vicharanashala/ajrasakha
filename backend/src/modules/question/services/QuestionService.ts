@@ -1880,11 +1880,17 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async generateTatReport(
+    out: any,
     startDate: Date,
     endDate: Date,
     opts: {sources?: string[]; statuses?: string[]; maxReviewers?: number} = {},
-  ): Promise<ArrayBuffer | null> {
-    return this.questionReportService.generateTatReport(startDate, endDate, opts);
+  ): Promise<boolean> {
+    return this.questionReportService.generateTatReport(
+      out,
+      startDate,
+      endDate,
+      opts,
+    );
   }
 
   async generateOverallQuestionReport(

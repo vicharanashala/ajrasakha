@@ -8519,7 +8519,19 @@ export class QuestionRepository implements IQuestionRepository {
       ...(sources && sources.length ? { source: { $in: sources } } : {}),
       ...(expandedStatuses ? { status: { $in: expandedStatuses } } : {}),
     };
-    return this.QuestionCollection.find(match as any)
+    // Exclude heavy fields (esp. the embedding vector) the TAT report never reads —
+    // loading them for a multi-week, multi-source window bloats memory (Cloud Run 503).
+    return this.QuestionCollection.find(match as any, {
+      projection: {
+        embedding: 0,
+        text: 0,
+        aiInitialAnswer: 0,
+        aiApprovedSources: 0,
+        aiApprovedAnswer: 0,
+        popContext: 0,
+        referenceQuestionDetails: 0,
+      },
+    })
       .sort({ createdAt: 1 })
       .toArray();
   }

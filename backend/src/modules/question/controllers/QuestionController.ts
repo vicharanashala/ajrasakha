@@ -771,7 +771,6 @@ export class QuestionController {
     const sources = csv(query.sources);
     const statuses = csv(query.statuses);
 
-    let data;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.DOWNLOAD_REPORTS,
       action: AuditAction.DOWNLOAD,
@@ -792,10 +791,25 @@ export class QuestionController {
       },
     };
     try {
-      data = await this.questionService.generateTatReport(startDate, endDate, {
-        sources,
-        statuses,
-      });
+      // Streams the xlsx straight to the response (no full-workbook buffer). Returns
+      // false when there is no data — nothing has been written to `response` yet.
+      const wrote = await this.questionService.generateTatReport(
+        response,
+        startDate,
+        endDate,
+        { sources, statuses },
+      );
+      this.auditTrailsService.createAuditTrail(auditPayload);
+
+      if (!wrote) {
+        response.status(200).json({
+          success: false,
+          message: 'No questions found for the selected date range',
+        });
+        return;
+      }
+      // The workbook stream has already been finalized by generateTatReport.
+      return response;
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,
@@ -808,22 +822,21 @@ export class QuestionController {
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
+      // If streaming already began, headers/body are partially sent and we can't emit
+      // a clean error response — just tear down the socket.
+      if (response.headersSent) {
+        try {
+          response.destroy?.();
+        } catch {
+          /* noop */
+        }
+        return;
+      }
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
       }
       throw new BadRequestError(err?.message || 'Failed to generate TAT report');
     }
-    this.auditTrailsService.createAuditTrail(auditPayload);
-
-    if (!data) {
-      response.status(200).json({
-        success: false,
-        message: 'No questions found for the selected date range',
-      });
-      return;
-    }
-
-    return Buffer.from(data as ArrayBuffer);
   }
 
   @Get("/download-overall-report")
