@@ -216,7 +216,7 @@ async def _vector_search_all_statuses(
             },
         ]
         
-        cursor = questions_collection.aggregate(pipeline)
+        cursor = await questions_collection.aggregate(pipeline)
         docs = await cursor.to_list(length=top_k * 2)
         
         for doc in docs:
@@ -226,17 +226,14 @@ async def _vector_search_all_statuses(
             # Get answer
             answer, sources, author_name = await _get_answer_text_sources_and_author_name(question_id)
             
-            if not answer:
-                continue
-            
             vector_score = doc.get("vector_score", 0.5)
-            similarity_score = min(max(vector_score / 10.0, 0.0), 1.0) if vector_score else 0.5
+            similarity_score = float(vector_score) if vector_score else 0.5
             
             results.append(
                 QuestionAnswerPair(
                     question_id=question_id,
                     question_text=question_text,
-                    answer_text=answer,
+                    answer_text=answer or "",
                     author=author_name,
                     sources=sources if sources else [],
                     similarity_score=similarity_score,
@@ -278,7 +275,7 @@ async def _vector_search_all_statuses(
             },
         ]
         
-        cursor = questions_collection.aggregate(pending_pipeline)
+        cursor = await questions_collection.aggregate(pending_pipeline)
         pending_docs = await cursor.to_list(length=top_k)
         
         for doc in pending_docs:
@@ -288,7 +285,7 @@ async def _vector_search_all_statuses(
             # Pending questions may not have answers yet
             # Include them anyway for similarity detection
             vector_score = doc.get("vector_score", 0.5)
-            similarity_score = min(max(vector_score / 10.0, 0.0), 1.0) if vector_score else 0.5
+            similarity_score = float(vector_score) if vector_score else 0.5
             
             results.append(
                 QuestionAnswerPair(
