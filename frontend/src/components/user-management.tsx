@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { IUser } from "@/types";
 import { useDebounce } from "@/hooks/ui/useDebounce";
-import { canManageUsers } from "@/lib/roles";
+import { canManageUsers, hasFullUserManagement } from "@/lib/roles";
 import {
   Filter,
   MapPin,
@@ -51,7 +51,9 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [limit, setLimit] = useState(12);
   const [showSensitive, setShowSensitive] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const isAdmin = currentUser?.role === "admin";
+  // Gate keepers get the same full "User Management" view as admins (all users +
+  // admin actions), not the limited "Expert Management" view.
+  const isAdmin = hasFullUserManagement(currentUser?.role);
 
   const handleExportUsers = async () => {
     try {

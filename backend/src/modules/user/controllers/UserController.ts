@@ -190,7 +190,7 @@ export class UserController {
   })
   @Get('/admin/all')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   async getAllUsers(
     @CurrentUser() user: IUser,
     @QueryParams()
@@ -232,7 +232,7 @@ export class UserController {
 
   @OpenAPI({ summary: 'Export all users (matching the current filters) as an Excel sheet' })
   @Get('/admin/all/export')
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   async exportAllUsers(
     @QueryParams()
@@ -587,7 +587,7 @@ export class UserController {
   })
   @Patch('/stf')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   async toggleSTFStatus(
     @Body() body: BlockUnblockBody,
     @CurrentUser() user: IUser,
@@ -872,7 +872,7 @@ export class UserController {
     statusCode: 403,
     description: 'Forbidden - Admin access required',
   })
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   @Post('/:id/remove-allocations')
   @HttpCode(200)
   async removeExpertAllocations(
@@ -1012,7 +1012,7 @@ export class UserController {
     statusCode: 403,
     description: 'Forbidden - Admin access required',
   })
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   @Patch('/:id/verify')
   @HttpCode(200)
   async verifyUser(
@@ -1020,10 +1020,10 @@ export class UserController {
     @Body() body: VerifyUserBody,
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
-    // manual admin check
-  if (currentUser.role !== 'admin') {
+    // manual admin check (gate keepers get the same user-management actions)
+  if (currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper') {
     throw new ForbiddenError(
-      'Only admins can verify users',
+      'Only admin or gate keeper can verify users',
     );
   }
     const {isVerified} = body;
@@ -1298,7 +1298,7 @@ export class UserController {
   })
   @Patch('/training-users')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   async toggleTrainingUserStatus(
     @Body() body: BlockUnblockBody,
     @CurrentUser() user: IUser,

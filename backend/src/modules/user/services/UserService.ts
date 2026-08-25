@@ -231,8 +231,11 @@ export class UserService extends BaseService {
     changeRoleTo: UserRole,
   ): Promise<IUser> {
     try {
-      if (!currentUser || currentUser.role !== 'admin') {
-        throw new ForbiddenError('Only admin can switch user roles');
+      if (
+        !currentUser ||
+        (currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper')
+      ) {
+        throw new ForbiddenError('Only admin or gate keeper can switch user roles');
       }
 
       if (!userId) {
@@ -596,8 +599,13 @@ export class UserService extends BaseService {
     workloadAfter: number;
     questionIds: string[];
   }> {
-    if (!currentUser || currentUser.role !== 'admin') {
-      throw new ForbiddenError('Only admins can remove expert allocations');
+    if (
+      !currentUser ||
+      (currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper')
+    ) {
+      throw new ForbiddenError(
+        'Only admin or gate keeper can remove expert allocations',
+      );
     }
 
     return this._withTransaction(async (session: ClientSession) => {
