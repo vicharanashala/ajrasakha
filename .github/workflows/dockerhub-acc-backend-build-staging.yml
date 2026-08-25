@@ -9,16 +9,34 @@ permissions:
 
 env:
   DOCKER_IMAGE: acc-backend-staging
+  GCP_REGION: asia-south1
+  GCP_SERVICE: acc-backend-staging
 
 
 jobs:
-  build:
-    name: Build & Push Image
+  build-and-deploy:
+    name: Build, Push & Deploy to Cloud Run
     runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.meta.outputs.sha }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve commit + image tags
+        id: meta
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          REPO="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}"
+          {
+            echo "tags<<EOF"
+            echo "$REPO:latest"
+            echo "$REPO:latest-$SHA"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Building '$(git rev-parse --abbrev-ref HEAD)' @ $SHA"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -36,6 +54,18 @@ jobs:
           file: ./acc/acc-backend/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
+
+      - name: Deploy to Cloud Run (Staging)
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.GCP_SERVICE }}
+          region: ${{ env.GCP_REGION }}
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest-${{ steps.meta.outputs.sha }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          flags: --allow-unauthenticated
