@@ -607,7 +607,7 @@ describe('Post-allocation — reviewer rejects the author answer', () => {
 
     const after = await usersCol.findOne({ _id: experts[0]._id });
     expect((after.penalty ?? 0)).toBeGreaterThan(penaltyBefore);
-  });
+  }, 20000); // real POST + notification write occasionally exceeds the 5000ms default under current Atlas latency — see manual-allocation's note for the same pattern
 
   it('author (e1) was notified that the review was rejected', async () => {
     const notifications = await db.getCollection('notifications');

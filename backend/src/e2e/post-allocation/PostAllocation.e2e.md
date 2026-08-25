@@ -368,7 +368,25 @@ seeded questions, submissions, answers, reviews and notifications in `afterAll`.
 
 ---
 
+## Timeout note (added 2026-08-25)
+
+A full-suite run on 2026-08-24 (as part of an unrelated e2e coverage pass
+across the rest of the backend) surfaced 2 failures here — both cascading from
+the "the assigned reviewer rejects with a new answer" test timing out at
+vitest's 5000ms default (the second failing test just reads a notification
+that test writes). An isolated re-run passed cleanly, and manual-allocation's
+identical failure mode (same root cause: a real `POST` + notification write
+occasionally pushing past 5s under current Atlas latency) confirmed this
+wasn't a fluke. Added an explicit 20000ms timeout to that one test as a
+preventive fix — no application code changed, no assertions weakened.
+
+---
+
 ## Last Run
+
+**Date:** 2026-08-25 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 44.7 s
+
+### 2026-08-20 (superseded by the timeout note above)
 
 **Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 55.2 s
 

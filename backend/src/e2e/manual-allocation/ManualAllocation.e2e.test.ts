@@ -23,6 +23,14 @@
  *
  * No external services are called by these two endpoints, so no dummies
  * are needed beyond the circular-import warm-up for AnswerService.
+ *
+ * TIMEOUTS (added 2026-08-25): `allocateExperts`/removal send a real push
+ * notification as part of the request, which occasionally pushes a single
+ * call past vitest's 5000ms default test timeout (observed once at ~5.3s).
+ * The behavior itself is correct — confirmed by re-running the same call with
+ * a generous timeout and seeing a clean 200 — so every test that makes a real
+ * POST/DELETE call here carries an explicit 20000ms timeout rather than
+ * masking a functional bug.
  */
 
 // MongoDB on Atlas (mongodb+srv) requires TLS. MongoDatabase disables TLS when
@@ -213,7 +221,7 @@ describe('Manual allocation — moderator allocates experts', () => {
 
     console.log('ALLOCATE-EXPERT1 STATUS:', res.status, 'BODY:', res.body);
     expect(res.status).toBe(200);
-  });
+  }, 20000);
 
   it('DB: submission queue contains expert1 after first allocation', async () => {
     const submissions = await db.getCollection('question_submissions');
@@ -253,7 +261,7 @@ describe('Manual allocation — moderator allocates experts', () => {
       questionId: new ObjectId(testQuestionId),
     });
     expect(submission.queue).toHaveLength(2);
-  });
+  }, 20000);
 });
 
 // ─────────────────── VALIDATION ──────────────────────────
@@ -273,7 +281,7 @@ describe('Manual allocation — validation', () => {
 
     console.log('DUPLICATE-EXPERT STATUS:', res.status, 'BODY:', res.body);
     expect(res.status).toBe(200);
-  });
+  }, 20000);
 
   it('non-existent questionId returns 500 (known behavior: getQuestionDataById throws InternalServerError)', async () => {
     // KNOWN BEHAVIOR: getQuestionDataById throws InternalServerError when the
@@ -288,7 +296,7 @@ describe('Manual allocation — validation', () => {
 
     console.log('NONEXISTENT-Q STATUS:', res.status, 'BODY:', res.body);
     expect(res.status).toBe(500);
-  });
+  }, 20000);
 });
 
 // ─────────────────── REMOVE ──────────────────────────────
@@ -303,7 +311,7 @@ describe('Manual allocation — moderator removes an expert', () => {
 
     console.log('REMOVE-INDEX-0 STATUS:', res.status, 'BODY:', res.body);
     expect(res.status).toBe(200);
-  });
+  }, 20000);
 
   it('DB: queue shrinks to 1, expert1 removed, expert2 remains', async () => {
     const submissions = await db.getCollection('question_submissions');

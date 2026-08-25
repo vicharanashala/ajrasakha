@@ -301,7 +301,28 @@ Because expert1 was never in the queue, `getExprtIdByIndex(questionId, 0)` retur
 
 ---
 
+## Timeout note (added 2026-08-25)
+
+A full-suite run on 2026-08-24 (as part of an unrelated e2e coverage pass
+across the rest of the backend) surfaced 5/10 failures here, cascading from
+the very first `POST /allocate-experts` call timing out at vitest's 5000ms
+default. Re-running that same call in isolation with a 60000ms timeout showed
+it completes correctly — 200, real data — in ~5.3s: just over the default,
+not a hang or a functional regression. `allocateExperts` sends a real push
+notification as part of the request, and current real-world Atlas +
+notification-delivery latency occasionally pushes the total past 5s.
+
+Every test here that makes a real `POST`/`DELETE` call now carries an explicit
+20000ms timeout. No application code changed — this was purely a test-file fix
+for a suite that was otherwise passing correctly.
+
+---
+
 ## Last Run
+
+**Date:** 2026-08-25 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 27.1 s (up from 17.4s on 2026-08-20 — explicit timeouts don't add latency themselves, this reflects the same real-world latency that prompted the fix above)
+
+### 2026-08-20 (superseded by the timeout note above)
 
 **Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 17.4 s
 
