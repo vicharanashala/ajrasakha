@@ -150,7 +150,7 @@ async def _strict_exact_search_all_statuses(
         if question_text.lower().strip() != query.lower().strip():
             continue
         
-        answer, sources, author_name = await _get_answer_for_question(question_id)
+        answer, sources, author_name = await _get_answer_text_sources_and_author_name(question_id)
         
         result.append(
             QuestionAnswerPair(

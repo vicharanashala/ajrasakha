@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, model_validator
+
+log = logging.getLogger(__name__)
 
 try:
     from .golden_search import gdb_search, gdb_search_v2
