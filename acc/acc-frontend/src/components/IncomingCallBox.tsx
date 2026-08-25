@@ -433,22 +433,10 @@ export const IncomingCallBox = ({
 
     // Prevent multiple initializations
     if (plivoClientRef.current) {
-      console.log("⚠️ Plivo client already exists, skipping initialization...");
       return;
     }
 
     initializePlivoClient();
-
-    return () => {
-      if (plivoClientRef.current) {
-        try {
-          plivoClientRef.current.client.logout();
-          plivoClientRef.current = null;
-        } catch (error) {
-          console.error("Error logging out Plivo client:", error);
-        }
-      }
-    };
   }, [agentId, isAgentActive, userRole, isUserLoading]);
 
   const initializePlivoClient = async () => {
@@ -520,26 +508,33 @@ export const IncomingCallBox = ({
           client.client.login(endpointUsername, endpointPassword);
         }, 5000);
       } else {
-        alert("Plivo login failed: " + JSON.stringify(error));
+        toast.error("Plivo login failed: " + (error?.message || JSON.stringify(error)));
       }
     });
 
     client.client.on(
       "onIncomingCall",
       (callerID: string, _extraHeaders: any, callInfo: any, callerName: string) => {
-        // console.log('📞 Incoming call from:', callerName);
-        alert("Incoming call from " + callerName);
+        const callerPhone = callerName || callerID || "Unknown Caller";
+        const callUuid = callInfo?.callUUID || callInfo?.calluuid || (callerID?.includes("-") ? callerID : undefined);
 
-        let actualCallUuid = callInfo?.callUUID || callInfo?.calluuid || callerID;
+        console.log(`📞 [IncomingCallBox] Incoming call from: ${callerPhone}, callUUID: ${callUuid}`);
+        toast.info(`Incoming call from ${callerPhone}`, {
+          duration: 5000,
+        });
+
+        let actualCallUuid = callUuid || callerID;
 
         setIncomingCall({
-          uuid: callerID,
-          number: callerName,
+          uuid: callUuid || "",
+          number: callerPhone,
           timestamp: new Date().toISOString(),
         });
-        setLastCallNumber(callerName);
+        setLastCallNumber(callerPhone);
         setCallStatus("incoming");
-        activeCallUuidRef.current = actualCallUuid;
+        const currentCallId = callUuid || _extraHeaders?.call_uuid || callerID;
+        activeCallUuidRef.current = currentCallId;
+        onCallUuidChange?.(currentCallId);
 
         // Reset transcripts from previous calls immediately on incoming call
         setTranscripts([]);
@@ -548,17 +543,9 @@ export const IncomingCallBox = ({
         setMessageText("");
         lastCallUuidRef.current = null;
 
-        // Try to get the assigned call UUID from backend user document
-        refetchCurrentUser().then((res: any) => {
-          const backendCallUuid = res.data?.currentCallUuid;
-          if (backendCallUuid) {
-            actualCallUuid = backendCallUuid;
-            activeCallUuidRef.current = backendCallUuid;
-          }
-          onCallUuidChange?.(actualCallUuid);
-        }).catch((err) => {
+        // Background refetch user state without mutating currentCallUuid ref
+        refetchCurrentUser().catch((err) => {
           console.error("❌ [IncomingCallBox] Error refetching user on incoming call:", err);
-          onCallUuidChange?.(actualCallUuid);
         });
       },
     );
@@ -578,25 +565,15 @@ export const IncomingCallBox = ({
       connectWebSocketRef.current?.();
       setIsRecording(true);
 
-      let actualCallUuid = callInfo?.callUUID || callInfo?.calluuid;
-      if (actualCallUuid) {
-        activeCallUuidRef.current = actualCallUuid;
+      const answeredCallUuid = callInfo?.callUUID || callInfo?.calluuid || activeCallUuidRef.current;
+      if (answeredCallUuid) {
+        activeCallUuidRef.current = answeredCallUuid;
+        onCallUuidChange?.(answeredCallUuid);
       }
 
-      refetchCurrentUser().then((res: any) => {
-        const backendCallUuid = res.data?.currentCallUuid;
-        if (backendCallUuid) {
-          actualCallUuid = backendCallUuid;
-          activeCallUuidRef.current = backendCallUuid;
-        }
-        if (actualCallUuid) {
-          onCallUuidChange?.(actualCallUuid);
-        }
-      }).catch((err) => {
+      // Background refetch user state
+      refetchCurrentUser().catch((err) => {
         console.error("❌ [IncomingCallBox] Error refetching user on call answered:", err);
-        if (actualCallUuid) {
-          onCallUuidChange?.(actualCallUuid);
-        }
       });
     });
 
@@ -662,7 +639,7 @@ export const IncomingCallBox = ({
 
     client.client.on("onWebrtcNotSupported", () => {
       console.error("❌ WebRTC not supported");
-      alert("WebRTC is not supported in this browser");
+      toast.error("WebRTC is not supported in this browser");
     });
 
     // Monitor connection status
@@ -858,6 +835,7 @@ export const IncomingCallBox = ({
 
     if (!client) {
       console.error("❌ [handleAnswer] Plivo client not available");
+      toast.error("Plivo client not available");
       return;
     }
 
@@ -867,18 +845,28 @@ export const IncomingCallBox = ({
     }
 
     try {
-      client.client.answer(incomingCall.uuid);
+      console.log("📞 [handleAnswer] Answering active incoming call...");
+      // Calling answer() without parameters targets the currently ringing call in Plivo SDK
+      client.client.answer();
       // Auto-connect transcript WebSocket when call is answered
       connectWebSocket();
       setIsRecording(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ [handleAnswer] Error calling answer:", error);
+      toast.error(error.message || "Failed to answer call");
     }
   };
 
   const handleHangup = () => {
+    const targetCallUuid = activeCallUuidRef.current || incomingCall?.uuid;
+    console.log(`📴 [handleHangup] Ending call. Target CallUUID: ${targetCallUuid}`);
+
     if (plivoClientRef.current && plivoClientRef.current.client) {
-      plivoClientRef.current.client.hangup();
+      try {
+        plivoClientRef.current.client.hangup();
+      } catch (err) {
+        console.warn("Plivo client hangup error:", err);
+      }
     }
     setCallStatus("ended");
     setIncomingCall(null);
@@ -889,9 +877,20 @@ export const IncomingCallBox = ({
   };
 
   const handleReject = () => {
-    if (plivoClientRef.current && incomingCall) {
-      plivoClientRef.current.client.reject(incomingCall.uuid);
+    const targetCallUuid = activeCallUuidRef.current || incomingCall?.uuid;
+    console.log(`❌ [handleReject] Rejecting call. Target CallUUID: ${targetCallUuid}`);
+
+    if (plivoClientRef.current && plivoClientRef.current.client) {
+      try {
+        plivoClientRef.current.client.reject();
+      } catch (error) {
+        console.error("❌ [handleReject] Error calling reject:", error);
+      }
     }
+    setCallStatus("idle");
+    setIncomingCall(null);
+    onCallUuidChange?.(null);
+    handleMarkAgentAsAvailable();
   };
 
   const handleToggleHold = () => {
@@ -1011,7 +1010,7 @@ export const IncomingCallBox = ({
     >
       <div className="px-4 py-3 sm:px-5 sm:py-3.5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
-          
+
           {/* Left Section: Icon + Status + Phone + Farmer */}
           <div className="flex items-center gap-3 min-w-0">
             <div
@@ -1419,6 +1418,9 @@ export const IncomingCallBox = ({
           </div>
         </div>
       )}
+      {/* Hidden audio elements for Plivo WebRTC audio handling */}
+      <audio id="plivo-audio-remote" autoPlay style={{ display: "none" }} />
+      <audio id="plivo-audio-ringtone" autoPlay style={{ display: "none" }} />
     </div>
   );
 };

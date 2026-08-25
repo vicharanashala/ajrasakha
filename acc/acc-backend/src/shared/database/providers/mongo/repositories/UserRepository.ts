@@ -171,12 +171,16 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser | null> {
     await this.init();
     const now = new Date();
-    const result = await this.usersCollection.findOneAndUpdate(
+    const cutoffTime = new Date(Date.now() - 90 * 1000); // 90 seconds heartbeat threshold
+
+    // Prioritize agents that are genuinely online (have sent a heartbeat within 90 seconds)
+    let result = await this.usersCollection.findOneAndUpdate(
       {
         role: 'call_agent',
         isCallAgentActive: true,
         isBusy: false,
         agent: { $exists: true, $ne: 'not_available' },
+        lastAgentActiveAt: { $gte: cutoffTime },
       },
       {
         $set: {
@@ -192,6 +196,31 @@ export class UserRepository implements IUserRepository {
         sort: { lastCallAssignedAt: 1, agent: 1 },
       },
     );
+
+    // Fallback to any active agent if no heartbeat record exists yet
+    if (!result) {
+      result = await this.usersCollection.findOneAndUpdate(
+        {
+          role: 'call_agent',
+          isCallAgentActive: true,
+          isBusy: false,
+          agent: { $exists: true, $ne: 'not_available' },
+        },
+        {
+          $set: {
+            isBusy: true,
+            currentCallUuid: callUuid,
+            lastCallAssignedAt: now,
+            updatedAt: now,
+          },
+        },
+        {
+          returnDocument: 'after',
+          session,
+          sort: { lastCallAssignedAt: 1, agent: 1 },
+        },
+      );
+    }
 
     if (!result) {
       return null;
