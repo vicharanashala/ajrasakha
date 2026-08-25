@@ -200,7 +200,8 @@ async def _vector_search_all_statuses(
                     "index": MONGODB_QUESTION_EMBEDDING_INDEX,
                     "path": "question_embedding",
                     "queryVector": query_vector,
-                    "k": top_k * 2,  # Get more for filtering
+                    "numCandidates": max(50, top_k * 10),
+                    "limit": top_k * 4,
                 }
             },
             {
@@ -259,7 +260,8 @@ async def _vector_search_all_statuses(
                     "index": MONGODB_QUESTION_EMBEDDING_INDEX,
                     "path": "question_embedding",
                     "queryVector": query_vector,
-                    "k": top_k,
+                    "numCandidates": max(50, top_k * 10),
+                    "limit": top_k * 2,
                     "filter": pending_filter,
                 }
             },
