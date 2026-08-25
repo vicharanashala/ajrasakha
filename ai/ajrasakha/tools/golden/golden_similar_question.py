@@ -424,7 +424,18 @@ async def find_similar_questions(
     present_sources = None
     present_author = None
     if present_status == "closed":
+        log.info(
+            "find_similar_questions: fetching answer for question_id=%s status=%s",
+            present_question_id,
+            present_status,
+        )
         answer_text, sources, author_name = await _get_answer_text_sources_and_author_name(present_question_id)
+        log.info(
+            "find_similar_questions: answer retrieved answer_text=%s sources=%s author_name=%s",
+            "YES" if answer_text else "NO",
+            len(sources) if sources else 0,
+            author_name,
+        )
         present_answer_text = answer_text
         present_sources = sources or []
         present_author = author_name
