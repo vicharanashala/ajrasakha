@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowRight,
-  ArrowLeft,
   X,
   Menu,
   Check,
@@ -236,6 +235,14 @@ export const HomeDashboard: React.FC = () => {
   const [activeNetworkTab, setActiveNetworkTab] = useState<"experts" | "kvk" | "sau">("experts");
   const [hoveredKvkIdx, setHoveredKvkIdx] = useState<number | null>(null);
   const [isNavScrolled, setIsNavScrolled] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 640);
+    checkMobile();
+    window.addEventListener("resize", checkMobile, { passive: true });
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Mount / Unmount lifecycle hook to isolate Home Dashboard global styles from the rest of the application
   useEffect(() => {
@@ -811,12 +818,12 @@ export const HomeDashboard: React.FC = () => {
               background: "var(--forest)",
               color: "#faf8f1",
               border: "1px solid rgba(255,255,255,0.2)",
-              padding: "8px 18px",
+              padding: isMobile ? "6px 14px" : "8px 18px",
               borderRadius: "20px",
               fontWeight: 700,
-              fontSize: "0.85rem",
+              fontSize: isMobile ? "0.8rem" : "0.85rem",
               cursor: "pointer",
-              marginLeft: "12px",
+              marginLeft: isMobile ? "6px" : "12px",
               boxShadow: "0 4px 14px rgba(12, 58, 42, 0.25)",
               transition: "transform 0.2s ease",
             }}
@@ -855,7 +862,7 @@ export const HomeDashboard: React.FC = () => {
       />
 
       {/* 3. Knowledge Engine & Data Sources — Sapta Nadi Knowledge River */}
-      <Suspense fallback={<div style={{ height: "100vh", background: "#06140b" }} />}>
+      <Suspense fallback={<div style={{ height: "100dvh", minHeight: "400px", background: "#06140b" }} />}>
         <KnowledgeRootsCanvas />
       </Suspense>
 
@@ -878,7 +885,7 @@ export const HomeDashboard: React.FC = () => {
                   Review &amp; validation workflow
                 </span>
                 <h2 className="evo-headline">
-                  The evolution of<br />
+                  The evolution of <br />
                   <em>trusted knowledge</em>
                 </h2>
               </div>
@@ -1122,11 +1129,12 @@ export const HomeDashboard: React.FC = () => {
                         <i style={{ background: "#6d9a57" }} />
                         {u.name}
                       </span>
-                      {/* Hover the count to reveal the user's KVK names. */}
+                      {/* Hover / Tap the count to reveal the user's KVK names. */}
                       <strong
                         style={{ position: "relative", cursor: "pointer" }}
                         onMouseEnter={() => setHoveredKvkIdx(i)}
                         onMouseLeave={() => setHoveredKvkIdx(null)}
+                        onClick={() => setHoveredKvkIdx(hoveredKvkIdx === i ? null : i)}
                       >
                         {u.kvks.length.toLocaleString()}
                         {hoveredKvkIdx === i && (
@@ -1136,8 +1144,8 @@ export const HomeDashboard: React.FC = () => {
                               bottom: "calc(100% + 8px)",
                               right: 0,
                               zIndex: 20,
-                              minWidth: "180px",
-                              maxWidth: "260px",
+                              minWidth: "160px",
+                              maxWidth: "min(260px, 80vw)",
                               padding: "8px 10px",
                               borderRadius: "8px",
                               background: "#173326",
@@ -1177,9 +1185,9 @@ export const HomeDashboard: React.FC = () => {
             )}
           </div>
 
-          <div className="expert-map-card">
-            <div className="night-map" style={{ padding: "8px", overflow: "visible" }}>
-              <Suspense fallback={<div style={{ height: 540, borderRadius: 18, background: "#061710" }} />}>
+          <div className="expert-map-card" style={{ width: "100%", maxWidth: "100%", minWidth: 0, overflow: "hidden" }}>
+            <div className="night-map" style={{ width: "100%", maxWidth: "100%", minWidth: 0, padding: 0, overflow: "hidden" }}>
+              <Suspense fallback={<div style={{ height: "min(540px, 60vh)", minHeight: "340px", borderRadius: 18, background: "#061710", width: "100%" }} />}>
                 <ExpertNetworkMap publicUsers={publicUsers} mode={activeNetworkTab} />
               </Suspense>
               <div className="night-map-label" style={{ marginTop: "12px" }}>
@@ -1713,29 +1721,39 @@ export const HomeDashboard: React.FC = () => {
                 let filter = "none";
 
                 if (offset === 0) {
-                  transform = "translateX(0%) scale(1.15) translateZ(80px)";
+                  transform = isMobile
+                    ? "translateX(0%) scale(1.0)"
+                    : "translateX(0%) scale(1.15) translateZ(80px)";
                   zIndex = 10;
                   opacity = 1;
                   filter = "brightness(1.05) drop-shadow(0 25px 40px rgba(0,0,0,0.6))";
                 } else if (offset === -1 || (activeFutureSlideIdx === 0 && idx === futureSlides.length - 1)) {
-                  transform = "translateX(-68%) scale(0.86) rotateY(22deg) translateZ(-40px)";
+                  transform = isMobile
+                    ? "translateX(-75%) scale(0.82)"
+                    : "translateX(-68%) scale(0.86) rotateY(22deg) translateZ(-40px)";
                   zIndex = 5;
-                  opacity = 0.72;
+                  opacity = isMobile ? 0.35 : 0.72;
                   filter = "brightness(0.68) blur(0.5px)";
                 } else if (offset === 1 || (activeFutureSlideIdx === futureSlides.length - 1 && idx === 0)) {
-                  transform = "translateX(68%) scale(0.86) rotateY(-22deg) translateZ(-40px)";
+                  transform = isMobile
+                    ? "translateX(75%) scale(0.82)"
+                    : "translateX(68%) scale(0.86) rotateY(-22deg) translateZ(-40px)";
                   zIndex = 5;
-                  opacity = 0.72;
+                  opacity = isMobile ? 0.35 : 0.72;
                   filter = "brightness(0.68) blur(0.5px)";
                 } else if (offset === -2 || (activeFutureSlideIdx <= 1 && idx >= futureSlides.length - 2 + activeFutureSlideIdx)) {
-                  transform = "translateX(-115%) scale(0.7) rotateY(36deg) translateZ(-100px)";
+                  transform = isMobile
+                    ? "translateX(-120%) scale(0.6)"
+                    : "translateX(-115%) scale(0.7) rotateY(36deg) translateZ(-100px)";
                   zIndex = 2;
-                  opacity = 0.38;
+                  opacity = isMobile ? 0 : 0.38;
                   filter = "brightness(0.4) blur(1.5px)";
                 } else if (offset === 2 || (activeFutureSlideIdx >= futureSlides.length - 2 && idx <= 1)) {
-                  transform = "translateX(115%) scale(0.7) rotateY(-36deg) translateZ(-100px)";
+                  transform = isMobile
+                    ? "translateX(120%) scale(0.6)"
+                    : "translateX(115%) scale(0.7) rotateY(-36deg) translateZ(-100px)";
                   zIndex = 2;
-                  opacity = 0.38;
+                  opacity = isMobile ? 0 : 0.38;
                   filter = "brightness(0.4) blur(1.5px)";
                 } else {
                   transform = `translateX(${offset > 0 ? 150 : -150}%) scale(0.5)`;

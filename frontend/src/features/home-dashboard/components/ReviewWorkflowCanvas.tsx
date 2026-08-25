@@ -37,7 +37,6 @@ export const ReviewWorkflowCanvas: React.FC<ReviewWorkflowCanvasProps> = ({
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
-  const [displayFrameIdx, setDisplayFrameIdx] = useState(1);
 
   // Construct frame paths (/assets/review-workflow/ezgif-frame-001.png ...)
   const framePaths = React.useMemo(() => {
@@ -115,7 +114,6 @@ export const ReviewWorkflowCanvas: React.FC<ReviewWorkflowCanvasProps> = ({
 
         if (activeFrameIdxStateRef.current !== frameIdx) {
           activeFrameIdxStateRef.current = frameIdx;
-          setDisplayFrameIdx(frameIdx + 1);
         }
 
         const ctx = canvas.getContext("2d");

@@ -404,10 +404,10 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({
       {/* Column 3: Dynamic State Inspector Card */}
       <aside className="state-card">
         {/* Header: State Name & Filter Controls */}
-        <div className="state-card-head" style={{ alignItems: "flex-start" }}>
-          <div>
+        <div className="state-card-head" style={{ alignItems: "flex-start", gap: "8px" }}>
+          <div style={{ minWidth: 0, flex: "1 1 auto" }}>
             <small style={{ display: "block" }}>CURRENT FOCUS</small>
-            <strong style={{ fontSize: "1.15rem", color: "var(--forest, #173326)" }}>
+            <strong style={{ fontSize: "1.15rem", color: "var(--forest, #173326)", wordBreak: "break-word" }}>
               {isStateFocused ? formattedActiveStateName : "All India (Nationwide)"}
             </strong>
           </div>
@@ -537,7 +537,7 @@ export const IndiaCoverageMap: React.FC<IndiaCoverageMapProps> = ({
           >
             {totalQuestions > 0 ? totalQuestions.toLocaleString("en-IN") : "0"}
           </strong>
-          <div style={{ display: "flex", gap: "18px", marginTop: "8px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 18px", marginTop: "8px" }}>
             <span style={{ fontSize: "11px", color: "#173326b8" }}>
               Closed:{" "}
               <strong style={{ color: "var(--forest)" }}>

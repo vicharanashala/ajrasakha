@@ -197,6 +197,17 @@ body.home-dashboard-active a:focus-visible {
   line-height: 1.05 !important;
 }
 
+@media (max-width: 640px) {
+  .light-heading {
+    position: relative !important;
+    right: auto !important;
+    bottom: auto !important;
+    max-width: 100% !important;
+    padding: 22px 18px !important;
+    margin-top: 16px !important;
+  }
+}
+
 
 /* Clean positioning for tree workflow badges */
 .reviewer-badge,
@@ -1383,6 +1394,92 @@ body.home-dashboard-active a:focus-visible {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
 }
 
+@media (max-width: 900px) {
+  .human-section {
+    padding: 70px 0 !important;
+    background-attachment: scroll !important;
+    overflow-x: clip !important;
+  }
+
+  .human-grid {
+    grid-template-columns: 1fr !important;
+    gap: 28px !important;
+    width: min(100% - 36px, 820px) !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
+  }
+
+  .expert-copy {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding-inline: 4px !important;
+    box-sizing: border-box !important;
+  }
+
+  .expert-map-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .night-map {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .human-section {
+    padding: 52px 0 !important;
+  }
+
+  .human-grid {
+    width: calc(100% - 32px) !important;
+    margin-inline: auto !important;
+    gap: 24px !important;
+  }
+
+  .expert-copy {
+    padding-inline: 2px !important;
+  }
+
+  .human-section .expert-copy h2 {
+    font-size: clamp(26px, 6.8vw, 34px) !important;
+    line-height: 1.15 !important;
+    margin-top: 10px !important;
+  }
+
+  .human-section .network-tabs {
+    margin-top: 18px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .human-section .network-tabs button {
+    padding: 6px 14px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .human-section .expert-counts {
+    margin-top: 18px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .human-section .expert-counts li {
+    font-size: 9px !important;
+    padding: 9px 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
 /* ==========================================================================
    Outreach Story Video Controls (Prev & Next Buttons)
    ========================================================================== */
@@ -1658,6 +1755,24 @@ body.home-dashboard-active a:focus-visible {
   box-shadow: 0 0 24px rgba(214, 183, 99, 0.6) !important;
 }
 
+@media (max-width: 640px) {
+  .coverflow-slider-container {
+    height: 420px !important;
+    perspective: none !important;
+  }
+  .coverflow-card {
+    width: min(280px, 80vw) !important;
+    height: 400px !important;
+  }
+  .coverflow-nav-prev,
+  .coverflow-nav-next {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .coverflow-nav-prev { left: 8px !important; }
+  .coverflow-nav-next { right: 8px !important; }
+}
+
 /* Card placed below the image slider */
 .future-copy-banner {
   background: #f8f6ed !important;
@@ -1671,6 +1786,13 @@ body.home-dashboard-active a:focus-visible {
   flex-direction: column !important;
   gap: 20px !important;
   border: 1px solid rgba(214, 183, 99, 0.4) !important;
+}
+
+@media (max-width: 640px) {
+  .future-copy-banner {
+    padding: 24px 18px !important;
+    border-radius: 18px !important;
+  }
 }
 
 .future-copy-banner .eyebrow {
@@ -2265,6 +2387,53 @@ body.home-dashboard-active a:focus-visible {
   .vision-bar-content {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-metrics-box {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px 8px !important;
+    padding: 16px 14px !important;
+  }
+
+  .farmer-hero-avatar {
+    width: min(340px, 90vw) !important;
+    height: auto !important;
+    max-height: 400px !important;
+  }
+
+  .live-knowledge-pulse-card {
+    position: relative !important;
+    width: 100% !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin-top: 12px !important;
+  }
+
+  .vision-pillars {
+    flex-wrap: wrap !important;
+    gap: 16px !important;
+  }
+
+  .hero-orb-wrap {
+    width: 100vw !important;
+    margin-left: 0 !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .node-text {
+    min-width: 100px !important;
+    max-width: 140px !important;
+    padding: 6px 8px !important;
+  }
+
+  .node-avatar-wrap {
+    width: 52px !important;
+    height: 52px !important;
+    flex: 0 0 52px !important;
   }
 }
 
@@ -3081,20 +3250,207 @@ body.home-dashboard-active a:focus-visible {
   .evo-node-tip          { display: none; }
 }
 
-@media (max-width: 820px) {
-  .evo-shell        { padding-top: 56px; }
-  .evo-main-panel   { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  .evo-copy-pane    { max-height: 230px; overflow-y: auto; }
-  .evo-headline     { font-size: 26px; }
-  .evo-topbar       { align-items: flex-start; flex-direction: column; gap: 10px; }
-  .evo-stage-counter { flex-direction: column; align-items: flex-start; }
-  .evo-stage-counter-divider { width: 40px; height: 1px; }
+@media (max-width: 860px) {
+  .evo-shell {
+    height: 100% !important;
+    padding-top: 72px !important;
+    padding-bottom: 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  /* Hide the side text content card on mobile and tablet as requested */
+  .evo-copy-pane {
+    display: none !important;
+  }
+
+  .evo-main-panel {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+  }
+
+  .evo-topbar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 8px !important;
+    padding-bottom: 12px !important;
+    gap: 12px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .evo-headline {
+    font-size: clamp(20px, 5.2vw, 28px) !important;
+    line-height: 1.12 !important;
+  }
+
+  .evo-headline br {
+    display: none;
+  }
+
+  .evo-stage-counter {
+    padding: 6px 12px !important;
+    border-radius: 12px !important;
+    flex-shrink: 0 !important;
+    gap: 8px !important;
+  }
+
+  .evo-stage-num {
+    font-size: 18px !important;
+  }
+
+  .evo-stage-name {
+    font-size: 10px !important;
+  }
+
+  .evo-scene-pane,
+  .evo-canvas-container {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 20px !important;
+    min-height: 360px !important;
+  }
 }
 
 @media (max-width: 640px) {
-  .rb-tl,.rb-tr,.rb-bl,.rb-br { transform: scale(0.78); }
-  .evo-fig           { width: 110px; }
-  .evo-fig-img-wrap  { height: 190px; }
+  .evo-shell {
+    padding-top: 68px !important;
+    padding-bottom: 16px !important;
+  }
+
+  .evo-headline {
+    font-size: clamp(18px, 4.8vw, 22px) !important;
+  }
+
+  .evo-glass-card {
+    max-width: calc(100vw - 48px) !important;
+    padding: 8px 12px !important;
+    font-size: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .evo-glass-header {
+    font-size: 10px !important;
+    gap: 6px !important;
+  }
+
+  .evo-glass-tags {
+    gap: 4px !important;
+  }
+
+  .evo-glass-tags .evo-tag {
+    font-size: 8px !important;
+    padding: 2px 6px !important;
+  }
+
+  .evo-badge-stage0,
+  .evo-badge-stage2,
+  .evo-badge-stage4 {
+    bottom: 68px !important;
+    left: 12px !important;
+    right: auto !important;
+    top: auto !important;
+  }
+
+  .evo-badge-stage1,
+  .evo-badge-stage3 {
+    top: 14px !important;
+    left: 12px !important;
+    right: auto !important;
+    bottom: auto !important;
+  }
+
+  /* Compact 4-corner badges for Reviewer verification stage */
+  .evo-badges-cluster {
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none !important;
+    z-index: 6 !important;
+    display: block !important;
+  }
+
+  .evo-badges-cluster .reviewer-badge {
+    position: absolute !important;
+    width: auto !important;
+    max-width: 140px !important;
+    padding: 5px 8px !important;
+    gap: 6px !important;
+    border-radius: 8px !important;
+    background: rgba(10, 28, 18, 0.92) !important;
+    border: 1px solid rgba(201, 163, 79, 0.35) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .evo-badges-cluster .reviewer-badge svg {
+    width: 14px !important;
+    height: 14px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .evo-badges-cluster .reviewer-badge span {
+    font-size: 8.5px !important;
+    line-height: 1.1 !important;
+  }
+
+  .evo-badges-cluster .reviewer-badge small {
+    font-size: 6.5px !important;
+    line-height: 1 !important;
+    display: block !important;
+  }
+
+  .rb-tl {
+    top: 14px !important;
+    left: 12px !important;
+    right: auto !important;
+    bottom: auto !important;
+  }
+
+  .rb-tr {
+    top: 14px !important;
+    right: 12px !important;
+    left: auto !important;
+    bottom: auto !important;
+  }
+
+  .rb-bl {
+    bottom: 68px !important;
+    left: 12px !important;
+    top: auto !important;
+    right: auto !important;
+  }
+
+  .rb-br {
+    bottom: 68px !important;
+    right: 12px !important;
+    left: auto !important;
+    top: auto !important;
+  }
+
+  .moderator-badge.evo-mod-badge,
+  .golden-badge.evo-gold-badge {
+    top: 14px !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+    max-width: calc(100% - 28px) !important;
+    padding: 6px 12px !important;
+    border-radius: 10px !important;
+  }
+
+  .evo-canvas-bottom-pagination {
+    bottom: 12px !important;
+  }
 }
 
 /* ══════════════════════════════════════════════════════
@@ -3833,12 +4189,28 @@ body.home-dashboard-active a:focus-visible {
 @media (max-width: 640px) {
   .outreach-dark-panel,
   .farmers-friday-panel {
-    padding: 24px;
-    border-radius: 20px;
+    padding: 24px 18px !important;
+    border-radius: 20px !important;
   }
 
   .farmers-friday-comp-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+  }
+
+  .outreach-dark-metrics {
+    flex-wrap: wrap !important;
+    gap: 18px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .outreach-dark-header {
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+  }
+  .outreach-dark-step-indicator {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
   }
 }
 
@@ -4047,6 +4419,24 @@ body.home-dashboard-active a:focus-visible {
 
   .explore-card-body h3 {
     font-size: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .coverage-intro h2 {
+    font-size: clamp(32px, 8vw, 52px) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .site-header,
+  .site-header.is-scrolled {
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: calc(100% - 24px) !important;
+    max-width: 580px !important;
+    margin: 0 auto !important;
   }
 }
 
