@@ -814,4 +814,42 @@ export interface IQuestionRepository {
   findQuestionsWithOpenPaeValidation(
     requireAutoAllocate?: boolean,
   ): Promise<IQuestion[]>;
+
+  getAverageResponseTime(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+    customStartTime?: string,
+    customEndTime?: string,
+  ): Promise<{ whatsapp: number; ajrasakha: number }>;
+
+  getQuestionSourceBreakdown(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+    customStartTime?: string,
+    customEndTime?: string,
+  ): Promise<{ whatsapp: number; ajrasakha: number }>;
+
+  getQuestionsAnsweredWithin120Minutes(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+    customStartTime?: string,
+    customEndTime?: string,
+  ): Promise<{ whatsapp: number; ajrasakha: number }>;
+
+  getQuestionsAnsweredAfter120Minutes(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{ whatsapp: number; ajrasakha: number }>;
+
+  getQuestionStateBreakdown(
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<QuestionStateBreakdownBySource>;
+
+  getCountByStatus(): Promise<any>;
 }
