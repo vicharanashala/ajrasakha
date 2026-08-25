@@ -344,85 +344,23 @@ async def find_similar_questions(
     top_k: int = 3,
 ) -> dict[str, Any]:
     """
-    Find similar questions in the database without crop/state filtering.
+    Find similar questions using ONLY embedding-based similarity.
     
-    This function uses ONLY embedding similarity - NO Gemma classification.
-    
-    Pipeline:
-    1. Exact match (normalized text, case-insensitive)
-    2. Vector search (top-K by embedding similarity)
-    3. Return results sorted by similarity score
-    
-    Args:
-        question_text: The question to find similar matches for
-        top_k: Maximum similar questions to return
-        
-    Returns:
-        SimilarQuestionResponse as dict
+    NO exact match - purely semantic search.
+    Searches across ALL question statuses (closed + pending).
     """
     query = question_text.strip()
-    
-    log.info("find_similar_questions: query=%r top_k=%d", 
+
+    log.info("find_similar_questions: query=%r top_k=%d",
              _truncate_text(query, 80), top_k)
-    
+
     audit: dict[str, Any] = {
         "query": query,
         "steps": [],
     }
-    
-    # Step 1: Exact match across ALL statuses (no crop/state filter)
-    log.info("Step 1: Exact match search (all statuses)")
-    exact_matches = await _strict_exact_search_all_statuses(
-        query=query,
-    )
-    
-    audit["steps"].append({
-        "step": "exact_match",
-        "results_count": len(exact_matches),
-        "exact_match_found": len(exact_matches) > 0,
-    })
-    
-    # If exact match found, return immediately
-    if exact_matches:
-        match = exact_matches[0]
-        status = await _get_question_status(match.question_id)
-        log.info("find_similar_questions: exact match found question_id=%s status=%s", match.question_id, status)
 
-        # Get answer details if status is closed
-        answer_text = None
-        sources = None
-        author_name = None
-        if status == "closed":
-            answer_text, sources, author_name = await _get_answer_text_sources_and_author_name(match.question_id)
-
-        log.info("find_similar_questions: exact match found question_id=%s status=%s has_answer=%s",
-                 match.question_id, status, bool(answer_text))
-        
-        return {
-            "query": query,
-            "is_present": True,
-            "present_status": status,
-            "present_question_id": match.question_id,
-            "present_answer_text": answer_text,
-            "present_sources": sources or [],
-            "present_author": author_name,
-            "exact_match_found": True,
-            "similar_questions": [
-                {
-                    "question_id": match.question_id,
-                    "question_text": match.question_text,
-                    "status": status,
-                    "similarity_score": 1.0,
-                    "match_type": "exact",
-                    "chosen_for_answer": True,
-                }
-            ],
-            "total_candidates_found": 1,
-            "audit": {**audit, "final_status": "exact_match_found"},
-        }
-    
-    # Step 2: Vector search across ALL questions (no crop/state filter)
-    log.info("Step 2: Vector search (all statuses, no crop/state filter)")
+    # Pure vector search - no exact match
+    log.info("Vector search (all statuses, no crop/state filter)")
     try:
         vector_matches = await _vector_search_all_statuses(
             query=query,
@@ -431,7 +369,7 @@ async def find_similar_questions(
     except Exception as exc:
         log.warning("vector search failed: %s - returning empty", exc)
         vector_matches = []
-    
+
     audit["steps"].append({
         "step": "vector_search",
         "results_count": len(vector_matches),
@@ -441,10 +379,10 @@ async def find_similar_questions(
                 "question": _truncate_text(m.question_text, 60),
                 "similarity_score": m.similarity_score,
             }
-            for m in vector_matches
+            for m in vector_matches[:5]
         ],
     })
-    
+
     if not vector_matches:
         log.info("find_similar_questions: no matches found")
         return {
@@ -452,52 +390,68 @@ async def find_similar_questions(
             "is_present": False,
             "present_status": None,
             "present_question_id": None,
+            "present_answer_text": None,
+            "present_sources": None,
+            "present_author": None,
             "exact_match_found": False,
             "similar_questions": [],
             "total_candidates_found": 0,
             "audit": {**audit, "final_status": "no_matches"},
         }
-    
-    # Step 3: Build final response with top-K results
-    # NO Gemma classification - rely purely on embedding similarity
-    log.info("Step 3: Building response with top %d results (embedding-based)", top_k)
-    
+
+    # Build response with top-K results
+    log.info("Building response with top %d results", top_k)
+
     similar_questions = []
     for i, match in enumerate(vector_matches[:top_k]):
-        status = await _get_question_status(match.question_id)
-        
+        status = match.status or await _get_question_status(match.question_id)
+
         similar_questions.append({
             "question_id": match.question_id,
             "question_text": match.question_text,
             "status": status,
             "similarity_score": match.similarity_score or 0.0,
             "match_type": "semantic",
-            "chosen_for_answer": (i == 0),  # First is highest similarity
+            "chosen_for_answer": (i == 0),
         })
-    
-    # is_present is True only for exact matches (handled above)
-    is_present = False
-    present_status = None
-    present_question_id = None
-    
+
+    # Get answer details for top result if status is closed
+    top_result = similar_questions[0]
+    present_status = top_result["status"]
+    present_question_id = top_result["question_id"]
+
+    present_answer_text = None
+    present_sources = None
+    present_author = None
+    if present_status == "closed":
+        answer_text, sources, author_name = await _get_answer_text_sources_and_author_name(present_question_id)
+        present_answer_text = answer_text
+        present_sources = sources or []
+        present_author = author_name
+
     audit["final_status"] = "completed"
-    audit["is_present"] = is_present
+    audit["is_present"] = True
     audit["total_candidates_found"] = len(vector_matches)
-    
+
     log.info(
-        "find_similar_questions: done is_present=%s candidates_found=%d results=%d",
-        is_present,
+        "find_similar_questions: done candidates_found=%d results=%d top_score=%.4f status=%s",
         len(vector_matches),
         len(similar_questions),
+        top_result["similarity_score"],
+        present_status,
     )
-    
+
     return {
         "query": query,
-        "is_present": is_present,
+        "is_present": True,
         "present_status": present_status,
         "present_question_id": present_question_id,
+        "present_answer_text": present_answer_text,
+        "present_sources": present_sources or [],
+        "present_author": present_author,
         "exact_match_found": False,
         "similar_questions": similar_questions,
         "total_candidates_found": len(vector_matches),
         "audit": audit,
     }
+
