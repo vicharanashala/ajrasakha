@@ -74,11 +74,23 @@ class SimilarQuestionResponse(BaseModel):
     )
     present_status: Optional[str] = Field(
         None,
-        description="Status of the matched question if is_present=True",
+        description="Status of the matched question if is_present=True (open, closed, duplicate, in-review, delayed)",
     )
     present_question_id: Optional[str] = Field(
         None,
         description="Question ID of the matched question if is_present=True",
+    )
+    present_answer_text: Optional[str] = Field(
+        None,
+        description="The answer text for the matched question (only if status=closed)",
+    )
+    present_sources: Optional[list] = Field(
+        None,
+        description="Source references for the answer",
+    )
+    present_author: Optional[str] = Field(
+        None,
+        description="Author name of the answer",
     )
     exact_match_found: bool = Field(
         False,
@@ -375,12 +387,25 @@ async def find_similar_questions(
         match = exact_matches[0]
         status = await _get_question_status(match.question_id)
         log.info("find_similar_questions: exact match found question_id=%s status=%s", match.question_id, status)
+
+        # Get answer details if status is closed
+        answer_text = None
+        sources = None
+        author_name = None
+        if status == "closed":
+            answer_text, sources, author_name = await _get_answer_text_sources_and_author_name(match.question_id)
+
+        log.info("find_similar_questions: exact match found question_id=%s status=%s has_answer=%s",
+                 match.question_id, status, bool(answer_text))
         
         return {
             "query": query,
             "is_present": True,
             "present_status": status,
             "present_question_id": match.question_id,
+            "present_answer_text": answer_text,
+            "present_sources": sources or [],
+            "present_author": author_name,
             "exact_match_found": True,
             "similar_questions": [
                 {
