@@ -7,6 +7,7 @@ import type {
 } from "@/types";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 import { AllocationQueueHeader } from "./AllocationQueueHeader";
 import { ClosedFinalAnswerModal } from "./ClosedFinalAnswerModal";
 import {
@@ -40,6 +41,7 @@ export const AllocationTimeline = ({
   history,
   question,
 }: AllocationTimelineProps) => {
+  const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const INITIAL_DISPLAY_COUNT = 12;
   const [isFlipped, setIsFlipped] = useState(false);
@@ -250,7 +252,33 @@ export const AllocationTimeline = ({
         queue={queue}
         question={question}
         currentUser={currentUser}
+        isOpen={isOpen}
+        onToggleOpen={() => setIsOpen((prev) => !prev)}
       />
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="allocation-timeline-content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{
+              height: "auto",
+              opacity: 1,
+              transition: {
+                height: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1.0] },
+                opacity: { duration: 0.25, delay: 0.05 },
+              },
+            }}
+            exit={{
+              height: 0,
+              opacity: 0,
+              transition: {
+                height: { duration: 0.28, ease: [0.25, 0.1, 0.25, 1.0] },
+                opacity: { duration: 0.18 },
+              },
+            }}
+            className="overflow-hidden"
+          >
       {!displayedQueue || displayedQueue.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-lg bg-muted/30 dark:bg-muted/10">
           <div className="flex flex-col items-center gap-3 max-w-sm">
@@ -622,6 +650,9 @@ export const AllocationTimeline = ({
           </Button>
         </div>
       )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

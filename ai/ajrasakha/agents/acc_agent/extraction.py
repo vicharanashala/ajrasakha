@@ -46,6 +46,26 @@ def _optional_int(value: object) -> Optional[int]:
         return None
 
 
+def _secondary_crops(value: object, primary_crop: Optional[str]) -> list[str]:
+    """Return unique, explicitly extracted crops other than the primary crop."""
+    values = value if isinstance(value, (list, tuple, set)) else [value]
+    primary_key = primary_crop.casefold() if primary_crop else None
+    seen: set[str] = set()
+    crops: list[str] = []
+
+    for item in values:
+        crop = _optional_str(item)
+        if not crop:
+            continue
+        crop_key = crop.casefold()
+        if crop_key == primary_key or crop_key in seen:
+            continue
+        seen.add(crop_key)
+        crops.append(crop)
+
+    return crops
+
+
 def build_extraction_update(
     data: dict[str, Any],
     extraction_type: ExtractionType,
@@ -88,6 +108,10 @@ def build_extraction_update(
         "extracted_village": _optional_str(data.get("village")),
         "extracted_block": _optional_str(data.get("block")),
         "extracted_primary_crop": primary_crop,
+        "extracted_secondary_crops": _secondary_crops(
+            data.get("secondary_crops"),
+            primary_crop,
+        ),
     }
 
     if extraction_type == "farmer_details":

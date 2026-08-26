@@ -44,7 +44,7 @@ import { useToggleRole } from "@/hooks/api/user/useToggleRole";
 import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
 import { useVerifyUser } from "@/hooks/api/user/useVerifyUser";
 import { useToggleSTF } from "@/hooks/api/user/useToggleSTF";
-import { isCoordinatorRole } from "@/lib/roles";
+import { isCoordinatorRole, hasFullUserManagement } from "@/lib/roles";
 import AvatarComponent from "./avatar-component";
 import { useToggleTrainingUserStatus } from "@/hooks/api/user/useToggleTrainingUser";
 
@@ -98,7 +98,8 @@ export const UsersTable = ({
     console.log("Users data is", { userId, userRole, selectedRole })
     toggleUserRole({ userId, currentUserRole: userRole!, selectedRole: selectedRole });
   };
-  const isAdmin = userRole === "admin";
+  // Gate keepers get the same admin actions/columns as admins.
+  const isAdmin = hasFullUserManagement(userRole);
 
 
   return (
@@ -286,7 +287,8 @@ const UserRow: React.FC<UserRowProps> = ({
   const [actionUserId, setActionUserId] = useState<string>("");
   const [actionRole, setActionRole] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);
-  const isAdmin = userRole === "admin";
+  // Gate keepers get the same admin actions/columns as admins.
+  const isAdmin = hasFullUserManagement(userRole);
   const [selectRole, setSelectRole] = useState("")
   const handleExpertClick = async (userdetails: any) => {
     if (userdetails) {

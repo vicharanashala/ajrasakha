@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+logger = logging.getLogger(__name__)
+
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import ToolNode
 
@@ -31,12 +34,15 @@ async def get_location_tool():
 
 async def get_reviewer_tool():
     global _reviewer_tool
+    logger.info("get_reviewer_tool: _reviewer_tool=%s MCP_URLS[reviewer]=%s", _reviewer_tool, MCP_URLS.get("reviewer"))
     if _reviewer_tool is None:
         client = MultiServerMCPClient(
             {"reviewer_server": {"url": MCP_URLS["reviewer"], "transport": "http"}}
         )
         tools = await client.get_tools()
+        logger.info("get_reviewer_tool: tools=%s", [t.name for t in tools])
         _reviewer_tool = tools[0]
+    logger.info("get_reviewer_tool: returning=%s", _reviewer_tool.name if _reviewer_tool else None)
     return _reviewer_tool
 
 

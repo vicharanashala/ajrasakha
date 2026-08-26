@@ -41,6 +41,7 @@ import {
   WeatherConcernAnalyticsQueryDto,
   WeatherConcernQueriesQueryDto,
   FeedbackUsersQueryDto,
+  SendResponseAdherenceReportRequest,
 } from '../classes/validators/ChatbotQueryValidators.js';
 import {
   ChatbotErrorResponse,
@@ -2078,6 +2079,72 @@ export class ChatbotController {
     );
   }
 
+  @OpenAPI({
+    summary: 'Email the Response Adherence Summary report',
+    description:
+      'Sends the Response Adherence Summary report (as built by the dashboard download button) as a CSV attachment to the given list of recipient emails.',
+  })
+  @Post('/response-adherence-table/email')
+  @HttpCode(200)
+  @Authorized()
+  async sendResponseAdherenceReportEmail(
+    @Body() body: SendResponseAdherenceReportRequest,
+    @CurrentUser() user: IUser,
+  ) {
+    const {emails, reportContent, reportHtml, fileName, source, userType, startDate, endDate, timeWindow} = body;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ADMIN_REPORT,
+      action: AuditAction.SEND_DASHBOARD_REPORT,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        recipients: emails,
+        source,
+        userType,
+        startDate,
+        endDate,
+        endPoint: 'sendResponseAdherenceReportEmail',
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      const result = await this.chatbotService.sendResponseAdherenceReportEmail(
+        emails,
+        reportContent,
+        fileName || `response-adherence-report-${startDate || ''}.csv`,
+        {source, userType, startDate, endDate, timeWindow},
+        reportHtml,
+      );
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return result;
+    } catch (error: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: error?.message || 'Failed to send response adherence report email',
+          errorName: error?.name || 'Error',
+          errorStack:
+            error?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      console.error('Error in sendResponseAdherenceReportEmail controller:', error);
+      throw error;
+    }
+  }
+
   @Get('/state-user-data')
   @HttpCode(200)
   @Authorized()
@@ -2362,6 +2429,78 @@ export class ChatbotController {
       startDate,
       endDate
     )
+  }
+
+  // Dataset Application Totals (external data release service)
+  @OpenAPI({ summary: 'Get total number of questions in the dataset application' })
+  @Get('/dataset/total-questions')
+  @HttpCode(200)
+  @Authorized()
+  async getTotalQuestionsFromDataset() {
+    const total = await this.chatbotService.getTotalQuestionsFromDataset();
+    return { total };
+  }
+
+  @OpenAPI({ summary: 'Get total number of feedbacks in the dataset application' })
+  @Get('/dataset/total-feedbacks')
+  @HttpCode(200)
+  @Authorized()
+  async getTotalFeedbacksFromDataset() {
+    const total = await this.chatbotService.getTotalFeedbacksFromDataset();
+    return { total };
+  }
+
+  @OpenAPI({ summary: 'Get total number of users in the dataset application' })
+  @Get('/dataset/total-users')
+  @HttpCode(200)
+  @Authorized()
+  async getTotalUsersFromDataset() {
+    const total = await this.chatbotService.getTotalUsersFromDataset();
+    return { total };
+  }
+
+  // Dataset Application Lists (external data release service — NOT the
+  // internal review system)
+  @OpenAPI({
+    summary: 'List questions in the dataset application',
+    description: 'Paginated list of dataset-app questions (questionId, question, createdAt).',
+  })
+  @Get('/dataset/questions')
+  @HttpCode(200)
+  @Authorized()
+  async listQuestionsFromDataset(
+    @QueryParam('page') page: number = 1,
+    @QueryParam('pageSize') pageSize: number = 10,
+  ) {
+    return this.chatbotService.listQuestionsFromDataset(page, pageSize);
+  }
+
+  @OpenAPI({
+    summary: 'List feedbacks in the dataset application',
+    description: 'Paginated list of dataset-app feedbacks (email, questionId, tag, type, predefinedOption, comment, reviewNote, status, createdAt).',
+  })
+  @Get('/dataset/feedbacks')
+  @HttpCode(200)
+  @Authorized()
+  async listFeedbacksFromDataset(
+    @QueryParam('page') page: number = 1,
+    @QueryParam('pageSize') pageSize: number = 10,
+  ) {
+    return this.chatbotService.listFeedbacksFromDataset(page, pageSize);
+  }
+
+  @OpenAPI({
+    summary: 'List users in the dataset application',
+    description: 'Paginated list of dataset-app users (name, email, phone, age, createdAt).',
+  })
+  @Get('/dataset/users')
+  @HttpCode(200)
+  @Authorized()
+  async listUsersFromDataset(
+    @QueryParam('page') page: number = 1,
+    @QueryParam('pageSize') pageSize: number = 10,
+  ) {
+    return this.chatbotService.listUsersFromDataset(page, pageSize);
   }
 
 }

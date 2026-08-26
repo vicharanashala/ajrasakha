@@ -213,6 +213,13 @@ export interface IQuestionRepository {
    * @param addText - To add text field without filtering it.
    * @returns A promise that resolves to an object containing the number of modified documents.
    */
+  findClosedQuestionsWithoutModerator(limit: number): Promise<string[]>;
+  bulkSetModeratorId(
+    pairs: { questionId: string; moderatorId: string }[],
+  ): Promise<number>;
+  bulkSetNormalizedDomain(
+    pairs: { questionId: string; normalizedDomain: string }[],
+  ): Promise<{ total: number; matched: number; modified: number; notMatched: number; invalid: number }>;
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
@@ -323,6 +330,7 @@ export interface IQuestionRepository {
   * @returns A promise that resolves to question document
   */
   getTodayApproved(isTrainingUser?: boolean, isAdmin?: boolean, session?:ClientSession):Promise<{todayApproved: number, moderatorBreakdown?: { moderatorName: string, count: number, moderatorHours?: number, auditorHours?: number, gateKeeperHours?: number}[]}>;
+  getClosedAnswerMismatch(startDate: Date, endDate: Date): Promise<{ window: { start: Date; end: Date }; totalClosed: number; matched: number; mismatched: number; items: any[] }>;
 
   /**
    * get monthly analytics.
@@ -642,7 +650,13 @@ export interface IQuestionRepository {
 
   findUnassignedInReviewQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
   findModeratorAssignedQuestions(sources?: QuestionSource[], isTrainingUser?: boolean, isAdmin?: boolean): Promise<IQuestion[]>
-  findQuestionsWithOpenFeedbacks(): Promise<IQuestion[]>;
+  findQuestionsWithOpenFeedbacks(
+    requireAutoAllocate?: boolean,
+  ): Promise<IQuestion[]>;
+  closeFeedbackSourceAndCheckAll(
+    questionId: string,
+    source: string,
+  ): Promise<boolean>;
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 
   /** Gate-keeper / auditor role allocation helpers. */
@@ -651,8 +665,19 @@ export interface IQuestionRepository {
     assigneeField: 'gateKeeperId' | 'auditorId',
     autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
   ): Promise<IQuestion[]>;
+  findQuestionsForTatReport(
+    from: Date,
+    to: Date,
+    sources?: string[],
+    statuses?: string[],
+  ): Promise<IQuestion[]>;
   findQuestionsAssignedToRole(
     assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+  ): Promise<IQuestion[]>;
+  findLeakedRoleAssignments(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
     statuses: QuestionStatus[],
   ): Promise<IQuestion[]>;
   getRoleAssigneeDashboard(
@@ -689,6 +714,129 @@ export interface IQuestionRepository {
 
   addOrUpdateFeedbackStatus(
     questionId: string,
-    source: "DATASET" | "WEB_APPLICATION",
+    source: "DATASET" | "WEB_APPLICATION" | "PAE_Validation",
   ): Promise<number>;
+
+  /** Find all questions with paeValidation status of 'pending' that are ready for
+   *  PAE expert validation. Questions are sorted by createdAt in ascending order
+   *  (oldest first).
+   *  @param session Optional MongoDB client session for transactions
+   *  @returns Promise resolving to array of questions pending PAE validation */
+  findQuestionsPendingPaeValidation(session?: ClientSession): Promise<IQuestion[]>;
+
+  /** Update the paeValidation status on a question.
+   *  @param questionId The question ID to update
+   *  @param paeValidation The new paeValidation status ('pending' | 'in-progress' | 'completed')
+   *  @param session Optional MongoDB client session for transactions */
+  updatePaeValidationStatus(
+    questionId: string,
+    paeValidation: 'pending' | 'in-progress' | 'completed',
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }>;
+
+  /** Update the paeValidation array in the question's submission document.
+   *  @param questionId The question ID to update
+   *  @param paeValidationEntry The new PAE validation entry to push
+   *  @param session Optional MongoDB client session for transactions */
+  addPaeValidationEntry(
+    questionId: string,
+    paeValidationEntry: {
+      paeAssignedAt: Date;
+      paeId: string | ObjectId;
+      paeStatus: 'in-progress' | 'completed';
+      paeFinishedAt?: Date | null;
+    },
+    session?: ClientSession,
+  ): Promise<void>;
+
+  /** Find questions by their IDs with pagination and join final answers in a single aggregation.
+   *  Uses $lookup to join with the answers collection and get final answers with sources.
+   *  @param ids - Array of question ObjectIds to fetch
+   *  @param page - Page number (1-indexed)
+   *  @param limit - Number of items per page
+   *  @param session - Optional MongoDB client session for transactions
+   *  @returns Promise resolving to paginated questions with answers joined
+   */
+  findByIdsWithAnswers(
+    ids: ObjectId[],
+    page: number,
+    limit: number,
+    session?: ClientSession,
+  ): Promise<{
+    questions: Array<{
+      _id: ObjectId;
+      question: string;
+      status: QuestionStatus;
+      source: QuestionSource;
+      priority?: string;
+      totalAnswersCount?: number;
+      createdAt: Date;
+      state?: string;
+      district?: string;
+      crop?: string;
+      domain?: string;
+      season?: string;
+      normalised_crop?: string;
+      answer?: {
+        _id: ObjectId;
+        answer: string;
+        sources: Array<{
+          source: string;
+          sourceType?: string;
+          sourceName?: string;
+          page?: string | number;
+        }>;
+        authorId: ObjectId;
+        isFinalAnswer: boolean;
+      };
+    }>;
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+  }>;
+
+  /**
+   * Adds a feedback entry to the question's feedbacks array.
+   * @param questionId The question ID to update
+   * @param feedbackEntry The feedback entry to add
+   * @param session Optional MongoDB client session for transactions
+   */
+  addFeedback(
+    questionId: string,
+    feedbackEntry: {
+      source: string;
+      status: string;
+      recentFeedback?: Date;
+    },
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }>;
+
+  findQuestionsWithOpenPaeValidation(
+    requireAutoAllocate?: boolean,
+  ): Promise<IQuestion[]>;
+
+  /**
+   * Get paginated PAE validation queue data using MongoDB aggregation.
+   * This is the MOST EFFICIENT approach - single query with $facet to get:
+   * - Count per section (waitingAuto, waitingManual, assigned)
+   * - Paginated items per section
+   * 
+   * @param page - Page number (1-indexed)
+   * @param limit - Items per page
+   * @param section - Optional: filter to specific section
+   */
+  getPaeValidationQueuePaginated(params: {
+    page?: number;
+    limit?: number;
+    section?: 'waitingAuto' | 'waitingManual' | 'assigned';
+  }): Promise<{
+    waitingAuto: { count: number; totalPages: number; items: IQuestion[] };
+    waitingManual: { count: number; totalPages: number; items: IQuestion[] };
+    assigned: { count: number; totalPages: number; items: IQuestion[] };
+  }>;
+
+  /**
+   * Get available PAE experts count (lightweight query)
+   */
+  getAvailablePaeExpertsCount(): Promise<number>;
 }

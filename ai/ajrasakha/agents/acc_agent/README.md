@@ -205,12 +205,23 @@ The initial LangGraph run accepts an optional `extraction_type` input:
 
 | Value | Returned extraction fields | Continues to answer flow when resumed |
 |---|---|---|
-| `farmer_details` | Farmer profile fields plus state and district | No |
+| `farmer_details` | Farmer profile fields, including primary and secondary crops, plus state and district | No |
 | `query_details` | Query, crop, state, district, and standardized domains | Yes |
 | `all` | Both field groups | Yes |
 
 `all` is the default when `extraction_type` is omitted, preserving the
 pre-existing API behavior.
+
+For `farmer_details` and `all`, the crop-profile fields are
+`extracted_primary_crop` and `extracted_secondary_crops`. The latter is always
+an array and excludes the primary crop, for example:
+
+```json
+{
+  "extracted_primary_crop": "Cotton",
+  "extracted_secondary_crops": ["Wheat", "Dal"]
+}
+```
 
 ```json
 {

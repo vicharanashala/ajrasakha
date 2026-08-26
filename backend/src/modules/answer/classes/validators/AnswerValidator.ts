@@ -534,6 +534,13 @@ class UpdateAnswerBody {
   @IsOptional()
   @IsString()
   source?: string; //
+
+  /** Auditor finalise intent: 'gdb' (Push to GDB → close as 'closed') or 'notify'
+   *  (Notify User → close as dynamic_closed / duplicate_closed by review type). */
+  @Expose()
+  @IsOptional()
+  @IsString()
+  closeIntent?: 'gdb' | 'notify';
 }
 
 export const ANSWER_VALIDATORS = [

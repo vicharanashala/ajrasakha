@@ -575,6 +575,7 @@ export interface IQuestionFullData {
     createdAt?: string;
     updatedAt?: string;
   } | null;
+  paeValidation?: "in-progress" | "completed" | "pending"
 }
 
 export interface QuestionFullDataResponse {
@@ -606,9 +607,11 @@ export interface QuestionFeedbackResponse {
   success: boolean;
   data: {
     feedback: {
+      _id?:string;
       rating: string;
       tag?: string;
       text?: string;
+      status?:string;
     } | null;
     user?: {
       username: string;
@@ -685,6 +688,7 @@ export interface IDetailedQuestion {
   isDuplicateCancelled?: boolean;
   duplicateCancelReason?: string;
   isAutoAllocate?: boolean;
+  autoAllocatePaeValidationExpert?: boolean;
 }
 
 export interface IDetailedQuestionResponse {
@@ -1087,6 +1091,10 @@ enum AuditAction {
   DELETE_AUDITOR = 'DELETE_AUDITOR',
   TOGGLE_GATE_KEEPER_ALLOCATION = 'TOGGLE_GATE_KEEPER_ALLOCATION',
   TOGGLE_AUDITOR_ALLOCATION = 'TOGGLE_AUDITOR_ALLOCATION',
+  SELECT_FEEDBACK_REVIEWER = 'SELECT_FEEDBACK_REVIEWER',
+  DELETE_FEEDBACK_REVIEWER = 'DELETE_FEEDBACK_REVIEWER',
+  TOGGLE_FEEDBACK_ALLOCATION = 'TOGGLE_FEEDBACK_ALLOCATION',
+  FEEDBACK_ACTION = 'FEEDBACK_ACTION',
   EXPERTS_ADD_COMMENT = 'EXPERTS_ADD_COMMENT',
 
   //EXPERTS_MANAGEMENT
