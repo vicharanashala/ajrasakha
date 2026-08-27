@@ -370,16 +370,7 @@ export class QuestionReportService
    * Ports scripts/timebound-question-cycle-report.js. Timings come from the submission
    * history work-log; timestamps are written in IST. Returns null when nothing matched.
    */
-  /**
-   * Streams the TAT (turnaround-time) lifecycle report as xlsx straight to `out`
-   * (the HTTP response) instead of buffering the whole workbook in memory — a large
-   * date/source window was OOMing the container and returning a Cloud Run 503.
-   *
-   * @returns true if a workbook was streamed, false if there was no data (nothing has
-   *          been written to `out`, so the caller can still send a JSON "no data" reply).
-   */
   async generateTatReport(
-    out: any,
     startDate: Date,
     endDate: Date,
     opts: {
@@ -387,7 +378,7 @@ export class QuestionReportService
       statuses?: string[];
       maxReviewers?: number;
     } = {},
-  ): Promise<boolean> {
+  ): Promise<ArrayBuffer | null> {
     const {sources, statuses, maxReviewers: maxReviewersArg = 0} = opts;
 
     const CLOSED_STATUSES = ['closed', 'dynamic_closed', 'duplicate_closed'];
@@ -441,7 +432,7 @@ export class QuestionReportService
       sources,
       statuses,
     );
-    if (!docs.length) return false;
+    if (!docs.length) return null;
 
     const qIds = docs
       .map(q => idStr(q._id))
@@ -566,24 +557,9 @@ export class QuestionReportService
       } as Record<string, any>;
     });
 
-    /* ─── workbook (streamed straight to the response) ─── */
-    if (typeof out.setHeader === 'function') {
-      out.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      out.setHeader(
-        'Content-Disposition',
-        'attachment; filename="tat-report.xlsx"',
-      );
-    }
-
-    // Stream the workbook out row-by-row instead of buffering the whole file — the
-    // xlsx never lives fully in memory, which is what was OOMing large exports.
-    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
-      stream: out,
-      useStyles: true,
-    });
+    /* ─── workbook ─── */
+    const workbook = new ExcelJS.Workbook();
+    workbook.created = new Date();
     const ws = workbook.addWorksheet('Question Lifecycle');
 
     const headers = Object.keys(rows[0]);
@@ -607,7 +583,6 @@ export class QuestionReportService
       )} → ${istLabel(endDate).slice(0, 10)} IST`,
     ]);
     titleRow.font = {bold: true, size: 12};
-    titleRow.commit();
 
     const avgLabelRow = ws.addRow([
       'Author',
@@ -620,8 +595,6 @@ export class QuestionReportService
     avgLabelRow.eachCell(c => {
       c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF3E7D3'}};
     });
-    avgLabelRow.commit();
-
     const avgValueRow = ws.addRow([
       humanDuration(mean(authorTimes)),
       humanDuration(mean(reviewerTimes)),
@@ -633,9 +606,8 @@ export class QuestionReportService
       c.alignment = {horizontal: 'left'};
       c.numFmt = '@';
     });
-    avgValueRow.commit();
 
-    ws.addRow([]).commit(); // spacer
+    ws.addRow([]); // spacer
 
     const headerRow = ws.addRow(headers);
     headerRow.font = {bold: true};
@@ -643,32 +615,24 @@ export class QuestionReportService
       c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFE4F6EA'}};
     });
     const HEADER_ROW = headerRow.number;
-    headerRow.commit();
 
-    // Worksheet-level view/filter settings are serialised on commit, so set them now.
+    rows.forEach(r => ws.addRow(r));
+
     ws.views = [{state: 'frozen', ySplit: HEADER_ROW}];
     ws.autoFilter = {
       from: {row: HEADER_ROW, column: 1},
       to: {row: HEADER_ROW, column: headers.length},
     };
 
-    // Streaming can't revisit committed rows, so stamp the IST date format per cell
-    // as each data row is written.
-    const istCols = headers
-      .map((h, i) => (/At \(IST\)$/.test(h) ? i + 1 : -1))
-      .filter(i => i > 0);
+    // Scope date formats to the data rows only (not the averages text block above).
+    headers.forEach((h, i) => {
+      if (!/At \(IST\)$/.test(h)) return;
+      for (let r = HEADER_ROW + 1; r <= ws.rowCount; r++) {
+        ws.getRow(r).getCell(i + 1).numFmt = 'yyyy-mm-dd hh:mm';
+      }
+    });
 
-    for (const r of rows) {
-      const added = ws.addRow(r);
-      istCols.forEach(ci => {
-        added.getCell(ci).numFmt = 'yyyy-mm-dd hh:mm';
-      });
-      added.commit();
-    }
-
-    ws.commit();
-    await workbook.commit();
-    return true;
+    return workbook.xlsx.writeBuffer();
   }
 
   async generateOverallQuestionReport(

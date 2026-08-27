@@ -119,9 +119,7 @@ let isReallocatingManual = false;
 let isReallocatingFeedback = false;
 
 @injectable()
-// NOTE: This is a dead reference snapshot (not imported / DI-bound anywhere). It no
-// longer declares `implements IQuestionService` so interface changes don't break the build.
-export class QuestionService extends BaseService {
+export class QuestionService extends BaseService implements IQuestionService {
   constructor(
     @inject(CORE_TYPES.AIService)
     private readonly aiService: AiService,
