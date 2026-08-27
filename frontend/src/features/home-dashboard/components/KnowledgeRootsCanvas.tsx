@@ -105,7 +105,7 @@ export const KnowledgeRootsCanvas: React.FC = () => {
     if (!container) return;
     const io = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting && !hasEntered) setHasEntered(true); },
-      { threshold: 0.05 }
+      { threshold: 0.05, rootMargin: '300px' }
     );
     io.observe(container);
     return () => io.disconnect();
@@ -144,7 +144,7 @@ export const KnowledgeRootsCanvas: React.FC = () => {
           loop
           muted
           playsInline
-          poster="/sapta_nadi_bg.jpg"
+          poster="/sapta_nadi_bg.webp"
         >
           <source src="/sapta-nadi.mp4" type="video/mp4" />
         </video>

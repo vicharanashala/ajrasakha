@@ -1311,7 +1311,7 @@ body.home-dashboard-active a:focus-visible {
       rgba(10, 34, 23, 0.72) 50%,
       rgba(4, 16, 11, 0.84) 100%
     ),
-    url("/assets/green-field.jpg") !important;
+    url("/assets/green-field.webp") !important;
   background-size: cover !important;
   background-position: center !important;
   background-attachment: fixed !important;
