@@ -618,7 +618,6 @@ export interface IQuestionService {
     isAdmin?: boolean
   ): Promise<ArrayBuffer | null>;
   generateTatReport(
-    out: any,
     startDate: Date,
     endDate: Date,
     opts?: {
@@ -626,7 +625,7 @@ export interface IQuestionService {
       statuses?: string[];
       maxReviewers?: number;
     }
-  ): Promise<boolean>;
+  ): Promise<ArrayBuffer | null>;
   generateStateCropQuestionReport(filters: {
     state?: string;
     crop?: string;
