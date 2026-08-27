@@ -204,6 +204,7 @@ export class UserController {
       isBlocked?: string;
       isVerified?: string;
       isSTF?: string;
+      isTMU?: string;
     },
 
   ) {
@@ -216,6 +217,7 @@ export class UserController {
     const isBlocked = query.isBlocked === 'true' ? true : query.isBlocked === 'false' ? false : undefined;
     const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
     const isSTF = query.isSTF === 'true' ? true : query.isSTF === 'false' ? false : undefined;
+    const isTMU = query.isTMU === 'true' ? true : query.isTMU === 'false' ? false : undefined;
 
     return this.userService.getAllUsers(
       pageNum,
@@ -227,6 +229,7 @@ export class UserController {
       isBlocked,
       isVerified,
       isSTF,
+      isTMU,
     );
   }
 
@@ -244,12 +247,14 @@ export class UserController {
       isBlocked?: string;
       isVerified?: string;
       isSTF?: string;
+      isTMU?: string;
     },
     @Res() response: any,
   ) {
     const isBlocked = query.isBlocked === 'true' ? true : query.isBlocked === 'false' ? false : undefined;
     const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
     const isSTF = query.isSTF === 'true' ? true : query.isSTF === 'false' ? false : undefined;
+    const isTMU = query.isTMU === 'true' ? true : query.isTMU === 'false' ? false : undefined;
 
     const data = await this.userService.exportUsersToXlsx({
       search: query.search || '',
@@ -259,6 +264,7 @@ export class UserController {
       isBlocked,
       isVerified,
       isSTF,
+      isTMU,
     });
 
     response.setHeader(

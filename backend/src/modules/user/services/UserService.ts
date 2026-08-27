@@ -298,6 +298,7 @@ export class UserService extends BaseService {
     isBlocked?: boolean;
     isVerified?: boolean;
     isSTF?: boolean;
+    isTMU?: boolean;
   }): Promise<ArrayBuffer> {
     // Fetch every matching user (no pagination) via the same query the list uses.
     // 1_000_000 is an effective "no limit" cap — far above the total user count.
@@ -311,6 +312,7 @@ export class UserService extends BaseService {
       opts.isBlocked,
       opts.isVerified,
       opts.isSTF,
+      opts.isTMU,
     );
 
     const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -384,6 +386,7 @@ export class UserService extends BaseService {
     isBlocked?: boolean,
     isVerified?: boolean,
     isSTF?: boolean,
+    isTMU?: boolean,
   ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
     return await this._withTransaction(async () => {
       const { users, totalUsers, totalPages } =
@@ -397,6 +400,7 @@ export class UserService extends BaseService {
           isBlocked,
           isVerified,
           isSTF,
+          isTMU,
         );
       return { users, totalUsers, totalPages };
     });
