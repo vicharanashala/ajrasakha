@@ -139,7 +139,7 @@ export default function TranslateReviewCell({ kind, doc, translationAvailable, o
         className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         onClick={handleTranslate}
         disabled={busy || !translationAvailable}
-        title={!translationAvailable ? "Translation is unavailable — no LLM API key configured" : undefined}
+        title={!translationAvailable ? "Translation is currently out of order" : undefined}
       >
         Translate
       </button>
