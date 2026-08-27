@@ -96,8 +96,11 @@ const VERTICALS: VerticalSource[] = [
 export const KnowledgeRootsCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [activeVertical, setActiveVertical] = useState<string | null>(null);
   const [hasEntered, setHasEntered] = useState(false);
+  // Lazy-load flag for the heavy background video (below the fold).
+  const [videoReady, setVideoReady] = useState(false);
 
   // Entrance animation trigger
   useEffect(() => {
@@ -110,6 +113,28 @@ export const KnowledgeRootsCanvas: React.FC = () => {
     io.observe(container);
     return () => io.disconnect();
   }, [hasEntered]);
+
+  // Lazy-load the heavy background video: only start fetching the mp4 as the section
+  // nears the viewport (rootMargin), so it never competes with the initial page load
+  // (noticeable on CDN/Firebase hosting). The poster image is shown until then.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || videoReady) return;
+    const io = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setVideoReady(true); },
+      { rootMargin: '400px 0px' }
+    );
+    io.observe(container);
+    return () => io.disconnect();
+  }, [videoReady]);
+
+  // Once flagged ready, attach the source and start playback.
+  useEffect(() => {
+    if (videoReady && videoRef.current) {
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {});
+    }
+  }, [videoReady]);
 
   // Scroll reveal for CTA card
   useEffect(() => {
@@ -139,14 +164,16 @@ export const KnowledgeRootsCanvas: React.FC = () => {
       {/* ── Seamless Looping Background Video (sapta-nadi.mp4) ──────────── */}
       <div className={`kr-bg-landscape${hasEntered ? ' kr-bg-landscape--entered' : ''}`}>
         <video
+          ref={videoRef}
           className="kr-bg-video"
           autoPlay
           loop
           muted
           playsInline
           poster="/sapta_nadi_bg.webp"
+          preload={videoReady ? 'auto' : 'none'}
         >
-          <source src="/sapta-nadi.mp4" type="video/mp4" />
+          {videoReady && <source src="/sapta-nadi.mp4" type="video/mp4" />}
         </video>
       </div>
 
