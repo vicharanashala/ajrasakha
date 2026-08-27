@@ -408,11 +408,8 @@ class GoldenToHuggingFaceSync:
         # Read the template
         readme_content = readme_path.read_text(encoding="utf-8")
 
-        # Count unique questions by text
-        unique_questions = len(set(qa["question"] for qa in qa_pairs if qa.get("question")))
-
-        # Count questions with approved final answer (all qa_pairs have status: approved)
-        with_approved = len(qa_pairs)
+        # Count total questions (same as total rows in HF dataset)
+        total_questions = len(qa_pairs)
 
         # Calculate splits (default: 1% validation, 1% test, rest train)
         val_count = max(int(total_rows * 0.01), 1)
@@ -423,15 +420,14 @@ class GoldenToHuggingFaceSync:
         current_date = datetime.now(IST).strftime("%d %B %Y")
 
         # Replace placeholders
-        readme_content = readme_content.replace("{{TOTAL_QUESTIONS}}", f"{unique_questions:,}")
-        readme_content = readme_content.replace("{{WITH_APPROVED_ANSWER}}", f"{with_approved:,}")
+        readme_content = readme_content.replace("{{TOTAL_RECORDS}}", f"{total_questions:,}")
         readme_content = readme_content.replace("{{SYNC_DATE}}", current_date)
         readme_content = readme_content.replace("{{TRAIN_COUNT}}", f"{train_count:,}")
         readme_content = readme_content.replace("{{VAL_COUNT}}", f"{val_count:,}")
         readme_content = readme_content.replace("{{TEST_COUNT}}", f"{test_count:,}")
 
-        log.info("README stats - Questions: %s, With approved: %s, Date: %s",
-                 f"{unique_questions:,}", f"{with_approved:,}", current_date)
+        log.info("README stats - Total Records: %s, Date: %s",
+                 f"{total_questions:,}", current_date)
         log.info("Splits - Train: %s, Val: %s, Test: %s",
                  f"{train_count:,}", f"{val_count:,}", f"{test_count:,}")
 
@@ -446,7 +442,7 @@ class GoldenToHuggingFaceSync:
                 path_in_repo="README.md",
                 repo_id=repo_id,
                 repo_type="dataset",
-                commit_message=f"Update README stats: {unique_questions:,} questions, {with_approved:,} with approved answer",
+                commit_message=f"Update README stats: {total_questions:,} records",
             )
             log.info("Successfully updated README on HuggingFace")
         except Exception as e:

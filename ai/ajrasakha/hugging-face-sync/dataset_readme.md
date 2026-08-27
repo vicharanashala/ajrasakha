@@ -12,8 +12,7 @@ A question–answer dataset of Indian agriculture advisory queries and expert-re
 |---|---|
 | **Source** | annam.ai — Ajrasakha platform |
 | **Coverage** | Up to {{SYNC_DATE}} |
-| **Questions** | {{TOTAL_QUESTIONS}} (unique by text) |
-| **With approved final answer** | {{WITH_APPROVED_ANSWER}} |
+| **Total Records** | {{TOTAL_RECORDS}} |
 | **Languages** | Primarily English; with local-language terms and English/local-language code-mixing (Hindi, Marathi, Telugu, Tamil, Punjabi, Bengali, etc.) |
 | **Domain** | Agriculture (crop protection, nutrients, agronomy, varieties, market info, weather, horticulture) |
 | **License** | MIT |
