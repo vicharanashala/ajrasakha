@@ -31,6 +31,7 @@
   position: relative;
   width: 100%;
   height: 100vh;
+  height: 100dvh;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -297,15 +298,15 @@
 
 /* Phone anchor: positioned at the farmer's smartphone in the image.
    The anchor marks the phone location in the farmer.png cutout.
-   Adjust left/top % to match where the phone actually appears in the image.
-   Visual reference: ~62% from left edge, ~50% from top of wrapper. */
+   Visual reference: center-hands ~52% from left, ~56% from top of wrapper. */
 .hc-phone-anchor {
   position: absolute;
-  left: 62%;
-  top: 50%;
-  width: 2px;
-  height: 2px;
+  left: 52%;
+  top: 56%;
+  width: 10px;
+  height: 10px;
   pointer-events: none;
+  transform: translate(-50%, -50%);
 }
 
 /* Contact shadow / ground plane */
@@ -327,7 +328,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   FARMER RAMESH KUMAR BADGE — Convergence Destination
+   FARMER RAMESH KUMAR BADGE — Desktop Destination Label
    ═══════════════════════════════════════════════════════════════════════════ */
 .hc-farmer-label {
   position: absolute;
@@ -879,23 +880,6 @@
   text-overflow: ellipsis;
 }
 
-.hc-metric-info strong {
-  font-family: Newsreader, serif;
-  font-size: 19px;
-  font-weight: 500;
-  line-height: 1;
-  color: #f2f0e6;
-}
-
-.hc-metric-info small {
-  font-family: Manrope, sans-serif;
-  font-size: 7.5px;
-  font-weight: 600;
-  color: rgba(242, 240, 230, 0.40);
-  letter-spacing: 0.04em;
-  line-height: 1.35;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
    TRUST STRIP — bottom of metrics
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -1028,30 +1012,39 @@
   .hc-badge:nth-child(2) { font-size: 0.92em; }
 }
 
+/* Medium screen / Tablet metrics bar */
+@media (max-width: 1180px) {
+  .hc-metrics-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .hc-metric-item {
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
 /* Tablet */
 @media (max-width: 860px) {
   .hc-content-panel {
-    right: auto;
-    left: 50%;
-    top: auto;
-    bottom: 24px;
-    transform: translateX(-50%);
-    width: calc(100% - 32px);
-    max-width: 520px;
+    display: none !important;
   }
 
-  .hc-content-card {
-    padding: 22px 26px 18px;
-    background: rgba(8, 20, 12, 0.82);
+  .hc-pulse-card {
+    display: none !important;
   }
 
+  /* Hide chapter bar on tablet & mobile */
   .hc-chapter-bar {
-    top: 80px;
+    display: none !important;
   }
 
   .hc-farmer-wrapper {
-    left: 0;
-    height: clamp(40vh, 50vh, 56vh);
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    height: clamp(48vh, 56vh, 66vh) !important;
+    bottom: clamp(130px, 16vh, 180px) !important;
+    z-index: 8 !important;
   }
 
   /* Simplify badges on tablet */
@@ -1062,45 +1055,164 @@
   .hc-badge-text strong { font-size: 9px; }
   .hc-badge-text span   { font-size: 7px; }
 
-  /* Reposition badges to not conflict with bottom panel */
-  .hc-farmer-label { display: none; }
+  /* Show farmer label pill on tablet centered at convergence point */
+  .hc-farmer-label {
+    display: flex !important;
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 9 !important;
+  }
 }
 
 /* Mobile */
 @media (max-width: 600px) {
-  .hc-farmer-wrapper {
-    height: clamp(34vh, 44vh, 50vh);
-    left: -2vw;
-  }
-
-  /* Hide badges on very small screens — too crowded */
-  .hc-badge {
-    display: none;
-  }
-
-  .hc-network-svg {
-    display: none;
-  }
-
+  /* Hide the text content card so farmer and animation are front & center */
   .hc-content-panel {
-    bottom: 16px;
-    width: calc(100% - 24px);
+    display: none !important;
   }
 
-  .hc-content-card {
-    padding: 18px 20px 14px;
-    border-radius: 16px;
+  /* Show farmer label pill on mobile centered right where lines connect */
+  .hc-farmer-label {
+    display: flex !important;
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 9 !important;
+    padding: 6px 12px 6px 8px !important;
+    gap: 8px !important;
+    background: rgba(10, 22, 14, 0.95) !important;
+    border: 1.5px solid rgba(240, 210, 123, 0.5) !important;
+    border-radius: 50px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 15px rgba(240, 210, 123, 0.25) !important;
+    pointer-events: none !important;
   }
 
-  .hc-headline {
-    font-size: clamp(20px, 6vw, 28px);
+  .hc-farmer-label--visible {
+    opacity: 1 !important;
+    transform: translate(-50%, -50%) scale(1) !important;
+  }
+
+  .hc-farmer-label--connected {
+    border-color: rgba(240, 210, 123, 0.85) !important;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.6),
+      0 0 25px rgba(240, 210, 123, 0.5),
+      0 0 0 1px rgba(240, 210, 123, 0.4) !important;
+  }
+
+  .hc-farmer-label-icon {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .hc-farmer-label-icon svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  .hc-farmer-label-text {
+    font-size: 9.5px !important;
+  }
+
+  .hc-farmer-label-sub {
+    font-size: 7.5px !important;
+  }
+
+  /* Hide pulse card on mobile to keep top area uncluttered for badges */
+  .hc-pulse-card {
+    display: none !important;
+  }
+
+  /* Hide chapter bar on mobile */
+  .hc-chapter-bar {
+    display: none !important;
+  }
+
+  /* Centered farmer cutout, larger, standing naturally touching the metrics card */
+  .hc-farmer-wrapper {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    height: clamp(40vh, 48vh, 56vh) !important;
+    bottom: clamp(195px, 26vh, 235px) !important;
+    z-index: 8 !important;
+  }
+
+  .hc-farmer-img {
+    height: 100% !important;
+    width: auto !important;
+    display: block !important;
+  }
+
+  /* Visible, compact 4 knowledge source badges arranged in top arch */
+  .hc-badge {
+    display: flex !important;
+    padding: 4px 8px 4px 6px !important;
+    gap: 5px !important;
+    border-radius: 12px !important;
+    max-width: 135px !important;
+    background: rgba(10, 26, 16, 0.92) !important;
+    border: 1px solid rgba(240, 210, 123, 0.35) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  .hc-badge-role {
+    width: 2px !important;
+    height: 18px !important;
+  }
+
+  .hc-badge-icon-wrap {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .hc-badge-icon-wrap svg {
+    width: 11px !important;
+    height: 11px !important;
+  }
+
+  .hc-badge-text strong {
+    font-size: 8px !important;
+    line-height: 1.1 !important;
+  }
+
+  .hc-badge-text span {
+    font-size: 6.5px !important;
+    line-height: 1.1 !important;
+  }
+
+  /* Specific positions for the 4 badges on mobile around the top arch */
+  .hc-badge--university {
+    left: 2% !important;
+    top: 11% !important;
+  }
+  .hc-badge--expert {
+    left: 2% !important;
+    top: 22% !important;
+  }
+  .hc-badge--scientist {
+    left: auto !important;
+    right: 2% !important;
+    top: 22% !important;
+  }
+  .hc-badge--government {
+    left: auto !important;
+    right: 2% !important;
+    top: 11% !important;
+  }
+
+  /* Connection SVG paths active and visible */
+  .hc-network-svg {
+    display: block !important;
   }
 
   .hc-metrics-bar {
     grid-template-columns: repeat(2, 1fr);
     padding: 8px 12px;
-    bottom: 12px;
-    width: calc(100% - 24px);
+    bottom: 8px;
+    width: calc(100% - 20px);
   }
 
   .hc-metric-item {
@@ -1111,17 +1223,6 @@
 
   .hc-metric-info strong {
     font-size: 15px;
-  }
-}
-
-@media (max-width: 1180px) {
-  .hc-metrics-bar {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-  }
-  .hc-metric-item {
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
   }
 }
 
