@@ -30,14 +30,6 @@ export class ModeratorQueueService {
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService) private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
-    private isQuestionUserTrainingTypeMatch(
-    user: IUser,
-    question: IQuestion,
-  ): boolean {
-    return (
-      (question.isTrainingQuestion === true) === (user.isTrainingUser === true)
-    );
-  }
 
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -102,16 +94,20 @@ export class ModeratorQueueService {
         label: string,
         moderators: IUser[],
         questions: IQuestion[],
-        canAssignQuestion?: (moderator: IUser, question: IQuestion) => boolean,
       ) => {
         for (const moderator of moderators) {
           const moderatorId = moderator._id!.toString();
 
-          const nextQuestion = questions.find(
-            (q: any) =>
-              !claimedIds.has(q._id.toString()) &&
-              (canAssignQuestion ? canAssignQuestion(moderator, q) : true),
-          );
+          const unclaimed = (q: any) => !claimedIds.has(q._id.toString());
+          const isTraining = (q: any) => (q as any).isTrainingQuestion === true;
+          // Training moderators take training questions FIRST; only when none remain do
+          // they fall back to normal questions. Non-training moderators only ever get
+          // non-training questions (training questions never go to them).
+          const nextQuestion =
+            moderator.isTrainingUser === true
+              ? questions.find(q => unclaimed(q) && isTraining(q)) ??
+                questions.find(q => unclaimed(q) && !isTraining(q))
+              : questions.find(q => unclaimed(q) && !isTraining(q));
           if (!nextQuestion) {
             // Moderator is free for this category but no more questions left in it.
             availableWaiting++;
@@ -368,20 +364,8 @@ export class ModeratorQueueService {
           !(m as any).feedbacksAssigned?.length,
       );
 
-      await runPass(
-        'time-bound',
-        eligibleTimeBoundModerators,
-        timeBoundQuestions,
-        (moderator, question) =>
-          this.isQuestionUserTrainingTypeMatch(moderator, question),
-      );
-      await runPass(
-        'manual',
-        manualModerators,
-        manualQuestions,
-        (moderator, question) =>
-          this.isQuestionUserTrainingTypeMatch(moderator, question),
-      );
+      await runPass('time-bound', eligibleTimeBoundModerators, timeBoundQuestions);
+      await runPass('manual', manualModerators, manualQuestions);
 
       console.log(
         `[ModeratorQueue] Done. assigned=${assigned}, availableWaiting=${availableWaiting}, failed=${failedAssignments}`,
