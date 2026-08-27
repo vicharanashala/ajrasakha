@@ -862,6 +862,8 @@ export class QuestionService extends BaseService implements IQuestionService {
               tag: 'dynamic',
               status: 'dynamic',
             });
+            // Entered a gate-keeper status → fill the gate-keeper queue now.
+            this.triggerRoleQueueAllocation('processQuestionInBackground');
             return;
           }
 
@@ -907,6 +909,8 @@ export class QuestionService extends BaseService implements IQuestionService {
                   ? {isExact: result.isExact}
                   : {}),
               });
+              // Entered a gate-keeper status → fill the gate-keeper queue now.
+              this.triggerRoleQueueAllocation('processQuestionInBackground');
               return;
             }
 
@@ -921,6 +925,8 @@ export class QuestionService extends BaseService implements IQuestionService {
                 referenceQuestion: result.referenceQuestion,
                 referenceSource: result.referenceSource,
               });
+              // Entered a gate-keeper status → fill the gate-keeper queue now.
+              this.triggerRoleQueueAllocation('processQuestionInBackground');
               return;
             }
 
@@ -984,6 +990,24 @@ export class QuestionService extends BaseService implements IQuestionService {
         error?.message,
       );
     }
+  }
+
+  /**
+   * Event-driven gate-keeper / auditor queue allocation (replaces the periodic cron).
+   * Call this right after a question enters a gate-keeper/auditor status (or a role
+   * assignee is freed). Fire-and-forget and best-effort: `runGateKeeperAuditorQueueCron`
+   * is idempotent (self-heals leaked assignees + fills both role queues), and any failure
+   * is swallowed so it can never roll back or disrupt the caller's own write.
+   */
+  private triggerRoleQueueAllocation(context: string): void {
+    void this.roleAssigneeService
+      .runGateKeeperAuditorQueueCron()
+      .catch(err =>
+        console.error(
+          `[${context}] event-driven gate-keeper/auditor allocation failed:`,
+          err?.message,
+        ),
+      );
   }
 
   private async validateTimeBoundQuestionThread(
@@ -1436,6 +1460,21 @@ export class QuestionService extends BaseService implements IQuestionService {
         },
       );
 
+      // Event-driven gate-keeper / auditor allocation (replaces the periodic cron):
+      // fill the role queues now when this update made a question newly available to a
+      // role — it entered a gate-keeper/auditor status, its auto-allocate toggle was
+      // turned ON, OR it freed a role assignee (left their scope, via
+      // freeRoleAssigneeOnStatusChange above). Runs AFTER the transaction commits,
+      // best-effort and fire-and-forget, so it can never roll back the update.
+      if (
+        !threadUpdate &&
+        (updates.status ||
+          updates.autoAllocateGateKeeper === true ||
+          updates.autoAllocateAuditor === true)
+      ) {
+        this.triggerRoleQueueAllocation('updateQuestion');
+      }
+
       return result;
     } catch (error) {
       throw new InternalServerError(`Failed to update question: ${error}`);
@@ -1761,7 +1800,16 @@ export class QuestionService extends BaseService implements IQuestionService {
     role: 'gate_keeper' | 'auditor',
     actorName?: string,
   ) {
-    return this.roleAssigneeService.removeQuestionRoleAssignee(questionId, role, actorName);
+    const result = await this.roleAssigneeService.removeQuestionRoleAssignee(
+      questionId,
+      role,
+      actorName,
+    );
+    // Removing an assignee frees BOTH the question (back to the unassigned queue) and
+    // the person — fill the role queues now so the question is re-matched and the freed
+    // gate keeper / auditor can immediately receive another question.
+    this.triggerRoleQueueAllocation('removeQuestionRoleAssignee');
+    return result;
   }
 
   async getAllocatedQuestionPage(userId: string, questionId: string) {
