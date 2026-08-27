@@ -636,7 +636,7 @@ def merge_entities_from_rephrased_query(
     """Resolve state/crop/district from farmer text, LLM entities, stored profile, or clarify carry-over.
 
     State/district never come from device coordinates — only from rephrased query text,
-    LLM entity fields, stored user location, or ``prev_entities`` during clarification.
+    LLM entity fields, or ``prev_entities`` during an incomplete clarification turn.
     """
     # Start with previous entities, override with new plan entities
     merged: PlannerEntities = {**(prev_entities or {}), **dict(plan.get("entities") or {})}
@@ -735,11 +735,6 @@ def merge_entities_from_rephrased_query(
         merged["district"] = "all"
         state_source = "rephrased_query_text" if state_from_text else "plan.entities.state (llm)"
         district_source = "default_all_when_state_only"
-    elif stored_location and stored_location.get("state"):
-        merged["state"] = stored_location["state"]
-        merged["district"] = stored_location.get("district") or "all"
-        state_source = "stored_user_location"
-        district_source = "stored_user_location"
     elif prev_entities and prev_entities.get("state"):
         merged["state"] = prev_entities.get("state")
         state_source = "prev_entities (incomplete_clarify_carryover)"
@@ -765,10 +760,6 @@ def merge_entities_from_rephrased_query(
         crop_source=crop_source,
         entity_text=text[:200] if text else None,
     )
-
-    if sources_out is not None:
-        sources_out["state_source"] = state_source
-        sources_out["district_source"] = district_source
 
     return merged
 

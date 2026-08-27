@@ -31,6 +31,7 @@ import {sendEmailNotification} from '#root/utils/mailer.js';
 import { appConfig } from '#root/config/app.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
+import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -52,6 +53,9 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.NotificationService)
     private readonly notificationService: NotificationService,
+
+    @inject(GLOBAL_TYPES.RoleAssigneeService)
+    private readonly roleAssigneeService: IRoleAssigneeService,
   ) {
     super(mongoDatabase);
   }
@@ -243,30 +247,48 @@ export class UserService extends BaseService {
         throw new BadRequestError('User ID is required');
       }
 
-      return this._withTransaction(async (session: ClientSession) => {
-        const user = await this.userRepo.findById(userId, session);
+      const result = await this._withTransaction(
+        async (session: ClientSession) => {
+          const user = await this.userRepo.findById(userId, session);
 
-        if (!user) {
-          throw new NotFoundError(`User with ID ${userId} not found`);
-        }
+          if (!user) {
+            throw new NotFoundError(`User with ID ${userId} not found`);
+          }
 
-        // Prevent unnecessary update
-        if (user.role === changeRoleTo) {
-          throw new BadRequestError(`User already has role ${changeRoleTo}`);
-        }
+          // Prevent unnecessary update
+          if (user.role === changeRoleTo) {
+            throw new BadRequestError(`User already has role ${changeRoleTo}`);
+          }
 
-        const updatedUser = await this.userRepo.edit(
-          userId,
-          { role: changeRoleTo },
-          session,
-        );
+          const updatedUser = await this.userRepo.edit(
+            userId,
+            { role: changeRoleTo },
+            session,
+          );
 
-        if (!updatedUser) {
-          throw new InternalServerError('Failed to update user role');
-        }
+          if (!updatedUser) {
+            throw new InternalServerError('Failed to update user role');
+          }
 
-        return updatedUser;
-      });
+          return updatedUser;
+        },
+      );
+
+      // Switching a user INTO the gate keeper / auditor role adds a new available
+      // assignee — fill the role queues now so they can immediately receive a question.
+      // Fire-and-forget and idempotent, so it can't affect the role update.
+      if (changeRoleTo === 'gate_keeper' || changeRoleTo === 'auditor') {
+        void this.roleAssigneeService
+          .runGateKeeperAuditorQueueCron()
+          .catch(err =>
+            console.error(
+              '[updateUserRole] event-driven gate-keeper/auditor allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+
+      return result;
     } catch (error) {
       // Preserve known errors
       if (
@@ -519,7 +541,7 @@ export class UserService extends BaseService {
   }
 
   async blockUnblockExperts(userId: string, action: string) {
-    return await this._withTransaction(async (session: ClientSession) => {
+    const result = await this._withTransaction(async (session: ClientSession) => {
       if (action === 'block') {
         // The minimum-experts guard protects the EXPERT pool only. Blocking a
         // moderator (e.g. moderator check-out, which toggles isBlocked) must not
@@ -538,6 +560,29 @@ export class UserService extends BaseService {
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
     });
+
+    // Unblocking a gate keeper / auditor makes them available again
+    // (findAvailableUsersByRole excludes isBlocked users) — fill the role queues now so
+    // they can immediately receive a question. Only relevant for those two roles.
+    // Fire-and-forget and idempotent, so it can't affect the unblock result.
+    if (action !== 'block') {
+      const unblocked = await this.userRepo.findById(userId);
+      if (
+        unblocked?.role === 'gate_keeper' ||
+        unblocked?.role === 'auditor'
+      ) {
+        void this.roleAssigneeService
+          .runGateKeeperAuditorQueueCron()
+          .catch(err =>
+            console.error(
+              '[blockUnblockExperts] event-driven gate-keeper/auditor allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+    }
+
+    return result;
   }
 
   async updateSTFStatus(userId: string, action: string): Promise<void> {

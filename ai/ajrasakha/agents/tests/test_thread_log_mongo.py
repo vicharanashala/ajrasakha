@@ -187,7 +187,7 @@ def test_read_thread_log_text_from_turns(monkeypatch):
     assert tlm.read_thread_log_text("thread-abc") == "trace 1\ntrace 2\n"
     mock_col.find_one.assert_called_once_with(
         {"_id": "thread-abc"},
-        {"turns": 1, "text": 1, "full_logs": 1},
+        {"turns": 1, "text": 1},
         max_time_ms=tlm._MONGO_OP_TIMEOUT_MS,
     )
 

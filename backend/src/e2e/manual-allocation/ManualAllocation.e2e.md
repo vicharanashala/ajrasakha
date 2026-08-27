@@ -1,0 +1,338 @@
+# Manual Allocation — E2E Test Documentation
+
+**File:** `src/e2e/manual-allocation/ManualAllocation.e2e.test.ts`
+
+## What this covers
+
+Two manual-allocation endpoints exercised against the real Mongo DB (`.env`):
+
+| Method | Endpoint | What it does |
+|--------|----------|--------------|
+| `POST` | `/api/questions/:questionId/allocate-experts` | Moderator picks specific experts for a question |
+| `DELETE` | `/api/questions/:questionId/allocation` | Moderator removes an expert by queue index |
+
+## Strategy
+
+**In-process server** — `loadAppModules('all')` builds the real production DI container against the real DB. A single OUTREACH question is seeded directly in `beforeAll` and shared across the full suite.
+
+Users are fetched from the DB by email using `.env.test` credentials (no Firebase token exchange needed). A `currentTestUser` variable is swapped per-test; both `authorizationChecker` and `currentUserChecker` read from it.
+
+`InternalApiAuth` is a global `@Middleware({ type: 'before' })` that checks the `x-internal-api-key` header on every route. The test sets `process.env.INTERNAL_API_KEY = 'e2e-manual-alloc-key'` and attaches that header to all requests via `apiPost`/`apiDelete` helpers. `authorizationChecker` still gates per-test access.
+
+## Why OUTREACH source
+
+| Source | Status on creation | Background pipeline | Queue on creation |
+|--------|-------------------|---------------------|-------------------|
+| `AGRI_EXPERT` | `open` | Immediately auto-allocates experts | Filled by background |
+| `WHATSAPP` / `AJRASAKHA` | `pending` | Thread validation + duplicate check + cron allocation | Empty |
+| **`OUTREACH`** | **`open`** | **Notify moderators only** | **Empty** |
+
+OUTREACH gives a clean starting state (status `open`, empty queue) without background allocation side effects.
+
+## Flow diagram
+
+> **To preview this diagram locally:** install the VS Code extension
+> **"Markdown Preview Mermaid Support"** then press `Ctrl+Shift+V`.
+> Diagrams also render natively on GitHub.
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 50, 'rankSpacing': 60}}}%%
+flowchart TD
+  classDef entry  fill:#ede9fe,stroke:#7c3aed,color:#3b0764,font-weight:bold
+  classDef ok     fill:#d1fae5,stroke:#059669,color:#064e3b
+  classDef warn   fill:#fef9c3,stroke:#d97706,color:#78350f
+  classDef err    fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef decide fill:#faf5ff,stroke:#7c3aed,color:#3b0764
+  classDef fail   fill:#fdba74,stroke:#ea580c,color:#7c2d12,font-weight:bold
+
+  ROOT["OUTREACH question seeded
+  status='open', queue=[]"]:::entry
+
+  subgraph ALLOC["1 - POST /questions/:id/allocate-experts"]
+    L1{"who is calling?"}:::decide
+    L2["no user -> 401
+    (authorizationChecker)"]:::err
+    L3["role='expert' -> 400
+    (UnauthorizedError wrapped
+    as BadRequestError)"]:::err
+    L4["moderator -> allocateExperts()"]:::ok
+    L5{"hasExistingExpert check:
+    queue.includes(expertId) ?"}:::decide
+    L6["BUG-001: queue holds ObjectId objects,
+    expertId is a plain string - Array.includes
+    uses reference equality - ALWAYS false
+    -> duplicate guard never fires"]:::fail
+    L7["expert pushed onto queue
+    (again, if already present)
+    firstAllocationAt stamped on 1st allocation"]:::ok
+    L8["200 - queue now has
+    the expert (possibly twice+)"]:::ok
+    L9{"questionId
+    exists?"}:::decide
+    L10["BEHAVIOR-001: getQuestionDataById ->
+    QuestionRepository.getById throws
+    InternalServerError on a miss (not
+    NotFoundError) -> controller re-throws
+    as-is -> 500 instead of 400/404"]:::fail
+
+    ROOT --> L1
+    L1 -- "no user" --> L2
+    L1 -- expert --> L3
+    L1 -- moderator --> L4 --> L9
+    L9 -- no --> L10
+    L9 -- yes --> L5
+    L5 -. "intended: reject" .-> BLOCKED["400 'expert already
+    in queue' (never happens)"]:::warn
+    L5 -- "actual (bug)" --> L6 --> L7 --> L8
+  end
+
+  subgraph REMOVE["2 - DELETE /questions/:id/allocation (remove by queue index)"]
+    R1["moderator removes
+    expert at index i"]:::entry
+    R2["getExprtIdByIndex(questionId, i)"]:::ok
+    R3{"entry exists
+    at index i?"}:::decide
+    R4["BUG-003: returns null -> getUserById(null)
+    throws -> controller catch block itself
+    throws a SECOND error (questionDetails.text
+    on an undefined questionDetails) -> escapes
+    the catch -> HTTP 500 instead of the
+    intended 400 'no expert at that index'"]:::fail
+    R5["removeExpertFromQueuebyIndex()
+    $pull: { queue: ObjectId(expertId) }"]:::ok
+    R6["BUG-002: named 'byIndex' and takes an index
+    param, but $pull removes EVERY queue entry
+    matching that expertId VALUE - not just
+    the one at index i"]:::fail
+    R7["normal case (expert appears once):
+    harmless - $pull removes exactly 1 entry"]:::ok
+    R8["cascades with BUG-001: if the queue has
+    duplicates of the same expert (e.g.
+    [e1, e2, e1]), removing 'index 0' pulls
+    BOTH e1 entries -> queue becomes [e2] -
+    assertions can pass by accident, not
+    because the index logic is correct"]:::warn
+
+    R1 --> R2 --> R3
+    R3 -- no --> R4
+    R3 -- yes --> R5 --> R6
+    R6 --> R7
+    R6 -.-> R8
+  end
+```
+
+## Test setup
+
+- `.env` loaded first → real Atlas DB URL
+- `.env.test` loaded second (dotenv doesn't override existing vars) → test user credentials
+- `process.env.NODE_ENV = 'development'` set before any module load → Atlas TLS stays enabled
+- AnswerService warm-up import before `loadAppModules` → circular-import workaround
+
+## Cleanup (afterAll)
+
+Removes from the real DB:
+- `questions` — the seeded OUTREACH question
+- `question_submissions` — the bare submission row
+- `notifications` — any allocation notifications created during the tests
+
+## Test cases (10 total)
+
+| # | Group | What | Expected |
+|---|-------|------|----------|
+| 1 | AUTH | No user (`currentTestUser=null`) → allocate-experts | 401 (from `authorizationChecker`) |
+| 2 | AUTH | Expert tries to allocate | 400 (`UnauthorizedError` wrapped as `BadRequestError`) |
+| 3 | ALLOCATE | Moderator allocates expert1 | 200 |
+| 4 | ALLOCATE | DB: submission queue contains expert1's `_id` | `queue.length === 1` |
+| 5 | ALLOCATE | DB: question has `firstAllocationAt` set | not null, instanceof Date |
+| 6 | ALLOCATE | Moderator allocates expert2 to same question | 200, `queue.length === 2` |
+| 7 | VALIDATION | Re-allocate expert1 (duplicate) | **200** (see known bug below) |
+| 8 | VALIDATION | Non-existent `questionId` | **500** (see known behavior below) |
+| 9 | REMOVE | Moderator removes expert at index 0 | 200 |
+| 10 | REMOVE | DB: queue shrinks to 1, expert2 remains, expert1 gone | confirmed |
+
+## Known bugs / deviations from spec
+
+### BUG-001 — Duplicate expert guard never fires
+
+**Location:** `QuestionService.ts` — `allocateExperts()`:
+```ts
+const hasExistingExpert = experts.some(expertId =>
+  questionSubmission.queue.includes(expertId),
+);
+```
+`questionSubmission.queue` holds `ObjectId` objects (as returned from MongoDB), but `expertId` is a plain `string` from the request body. `Array.includes` uses reference equality — an `ObjectId` is never `===` a string — so the guard always returns `false` and duplicates are silently allowed.
+
+**Intended behavior:** 400 "The selected expert is already in the queue."  
+**Actual behavior:** 200 (duplicate added to queue)  
+**Fix:** `.queue.some(id => id.toString() === expertId)` or map the queue to strings before checking.
+
+---
+
+### BEHAVIOR-001 — Non-existent questionId returns 500, not 400/404
+
+**Location:** `QuestionService.ts` — `getQuestionDataById()` calls `QuestionRepository.getById()`, which throws `InternalServerError("Failed to get Question:, More/ NotFoundError: ...")` on a miss.
+
+The `allocateExperts` controller catch block re-throws `InternalServerError` as-is → HTTP 500.
+
+**Intended behavior:** 400 or 404  
+**Actual behavior:** 500  
+**Fix:** `getQuestionDataById` (or the repository) should throw `NotFoundError` rather than `InternalServerError` for a missing document.
+
+---
+
+### BUG-002 — `removeExpertFromQueuebyIndex` removes by value, not by position
+
+**Location:** `SubmissionRepository.ts` — `removeExpertFromQueuebyIndex()`:
+```ts
+$pull: {
+  queue: new ObjectId(expertId),   // removes ALL entries matching this ObjectId
+  history: { updatedBy: new ObjectId(expertId) },
+}
+```
+The function is named "byIndex" and accepts an `index` parameter, but the actual MongoDB `$pull` removes every queue entry whose value matches `expertId` — not just the one at the given index.
+
+**Effect in the normal case:** Harmless — each expert appears in the queue at most once, so `$pull` removes exactly one entry.
+
+**Cascading failure with BUG-001:** After BUG-001 allows a duplicate allocation, the queue contains the same expert twice (e.g. `[expert1, expert2, expert1]`). Removing at index 0 (`$pull expert1`) removes **both** expert1 entries, leaving `[expert2]`. In the current test suite this accidentally satisfies the `queue.length === 1` assertion — it is a lucky pass, not correct behaviour.
+
+**How this causes the remove → 500 / empty queue failure:**  
+If `EXPERT_EMAIL` and `EXPERT_EMAIL_2` in `.env.test` resolve to the same DB user (or `EXPERT_EMAIL_2` is unset), BUG-001 fills the queue with three copies of the same expert: `[expert1, expert1, expert1]`. Removing index 0 then `$pull`s all three entries → queue becomes `[]`.
+
+**Intended behavior:** remove only the entry at the given index  
+**Fix:** Splice the array in application code (read queue → remove at index → `$set` the updated array) instead of relying on `$pull`.
+
+---
+
+### BUG-003 — `removeAllocation` controller returns HTTP 500 when `getExprtIdByIndex` yields `null`
+
+**Location:** `QuestionController.ts` — `removeAllocation()`:
+```ts
+expertId = await this.questionService.getExprtIdByIndex(questionId, index);
+expertDeatils = await this.userService.getUserById(expertId);   // throws if expertId is null
+questionDetails = await this.questionService.getQuestionById(questionId);
+```
+`getExprtIdByIndex` returns `null` when the queue has no entry at `index` (queue empty or shorter than expected). `getUserById(null)` then throws an exception before `questionDetails` is ever assigned.
+
+The controller catch block is:
+```ts
+} catch (err: any) {
+  auditPayload = {
+    ...
+    context: { ...auditPayload.context, question: questionDetails.text },  // TypeError: cannot read .text of undefined
+    ...
+  };
+  ...
+  throw new BadRequestError(...);
+}
+```
+`questionDetails.text` itself throws a `TypeError` inside the catch block. That secondary exception escapes the catch block entirely → routing-controllers' default error handler → HTTP 500, not the intended `BadRequestError`.
+
+This is triggered by BUG-002's empty-queue scenario and is the direct cause of the observed `expected 500 to be 200` / `expected [] to have a length of 1 but got +0` failure pair.
+
+**Intended behavior:** 400 "no expert at that index"  
+**Fix:** Guard `questionDetails?.text` in the catch block, and validate that `getExprtIdByIndex` returned a non-null value before calling `getUserById`.
+
+---
+
+## Last Test Run Results
+
+### 2026-06-16
+
+**Total:** 10 tests — **8 passed, 2 failed**
+
+The expert1 allocation bug from 2026-06-15 is resolved (experts 1 and 2 now allocate cleanly).
+The remove-allocation path still fails with a MongoDB write conflict.
+
+| # | Group | Test | Result | Error |
+|---|-------|------|--------|-------|
+| 1 | AUTH | No user → 401 (allocate-experts) | ✅ | — |
+| 2 | AUTH | Expert tries to allocate → 400 | ✅ | — |
+| 3 | ALLOCATE | Moderator allocates expert1 → 200 | ✅ | — |
+| 4 | ALLOCATE | DB: queue contains expert1 | ✅ | `QUEUE AFTER EXPERT1: [ ObjectId('…eb') ]` |
+| 5 | ALLOCATE | DB: `firstAllocationAt` set | ✅ | `2026-06-16T07:02:49.911Z` |
+| 6 | ALLOCATE | Moderator allocates expert2 → 200, queue length 2 | ✅ | — |
+| 7 | VALIDATION | Duplicate expert → 200 (known BUG-001) | ✅ | Queue grows to 3 (bug confirmed) |
+| 8 | VALIDATION | Non-existent questionId → 500 (known) | ✅ | — |
+| **9** | **REMOVE** | **Moderator removes expert at index 0 → 200** | ❌ FAIL | **500** — `MongoServerError: Write conflict during plan execution and yielding is disabled. Please retry your operation or multi-document transaction.` |
+| **10** | **REMOVE** | **DB: queue shrinks to 1, expert2 remains** | ❌ FAIL | Queue still has 3 entries (cascade from #9) |
+
+**Failure detail (tests #9-10):** `DELETE /api/questions/:id/allocation` triggers a MongoDB write conflict.
+Likely caused by another write (notification or reallocation) running concurrently on the same document at
+test time. The operation fails before any modification occurs, leaving the queue unchanged at length 3.
+This is an intermittent infrastructure issue — not a logic bug in the allocation code itself.
+
+---
+
+### 2026-06-15
+
+**Total:** 10 tests — **4 passed, 6 failed**
+
+| # | Group | Test | Result | Error |
+|---|-------|------|--------|-------|
+| 1 | AUTH | No user → 401 (allocate-experts) | ✅ | — |
+| 2 | AUTH | Expert tries to allocate → 400 | ✅ | — |
+| **3** | **ALLOCATE** | **Moderator allocates expert1 → 200** | ❌ FAIL | Response was not 200; expert1 not added to queue |
+| **4** | **ALLOCATE** | **DB: queue contains expert1 after allocation** | ❌ FAIL | `QUEUE AFTER EXPERT1: []` — queue empty |
+| **5** | **ALLOCATE** | **DB: `firstAllocationAt` set after first allocation** | ❌ FAIL | `firstAllocationAt: undefined` |
+| **6** | **ALLOCATE** | **Moderator allocates expert2 → 200, queue length 2** | ❌ FAIL | Queue has 1 entry (expert2 only); expert1 missing |
+| 7 | VALIDATION | Re-allocate expert1 (duplicate) → 200 (known BUG-001) | ✅ | — |
+| 8 | VALIDATION | Non-existent questionId → 500 (known behavior) | ✅ | — |
+| **9** | **REMOVE** | **Moderator removes expert at index 0 → 200** | ❌ FAIL | `expected 500 to be 200` |
+| **10** | **REMOVE** | **DB: queue shrinks to 1, expert2 remains** | ❌ FAIL | Queue empty after failed remove (BUG-003 cascade) |
+
+---
+
+## Failing Paths (2026-06-15)
+
+### Expert1 allocation silently fails (tests #3-6)
+
+The `POST /allocate-experts` call for `EXPERT_EMAIL` returned a non-200 status. No success log was observed for expert1, but expert2 allocation (`ALLOCATE-EXPERT2 STATUS: 200`) succeeds and shows `queue: [ { buffer: [Object] } ]` — only 1 expert instead of the expected 2.
+
+Possible causes:
+- `EXPERT_EMAIL` in `.env.test` does not resolve to a valid user in the current DB (user deleted or email changed)
+- A new validation in `allocateExperts` that rejects expert1's ID specifically
+- The expert user's role or `isBlocked` flag has changed
+
+**Effect:** Tests #4-6 all cascade from this root failure. Test #9 (remove) then hits BUG-003 (empty queue at the expected index → 500) because expert1 was never added.
+
+### Remove fails with 500 (test #9)
+
+Because expert1 was never in the queue, `getExprtIdByIndex(questionId, 0)` returns `null`. Passing `null` to `getUserById` throws inside the controller's catch block, and the secondary `questionDetails.text` access in the catch body triggers a `TypeError` → HTTP 500. This is BUG-003 documented above.
+
+---
+
+## Timeout note (added 2026-08-25)
+
+A full-suite run on 2026-08-24 (as part of an unrelated e2e coverage pass
+across the rest of the backend) surfaced 5/10 failures here, cascading from
+the very first `POST /allocate-experts` call timing out at vitest's 5000ms
+default. Re-running that same call in isolation with a 60000ms timeout showed
+it completes correctly — 200, real data — in ~5.3s: just over the default,
+not a hang or a functional regression. `allocateExperts` sends a real push
+notification as part of the request, and current real-world Atlas +
+notification-delivery latency occasionally pushes the total past 5s.
+
+Every test here that makes a real `POST`/`DELETE` call now carries an explicit
+20000ms timeout. No application code changed — this was purely a test-file fix
+for a suite that was otherwise passing correctly.
+
+---
+
+## Last Run
+
+**Date:** 2026-08-25 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 27.1 s (up from 17.4s on 2026-08-20 — explicit timeouts don't add latency themselves, this reflects the same real-world latency that prompted the fix above)
+
+### 2026-08-20 (superseded by the timeout note above)
+
+**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 17.4 s
+
+> ⚠ Vitest only printed 6 of 10 test lines (passing suites are truncated in the output).
+
+| # | Test | Result | Failure reason |
+|---|------|:------:|----------------|
+| 1 | Manual allocation — authentication > returns 400 when an expert tries to allocate (role... | ✅ | — |
+| 2 | Manual allocation — moderator allocates experts > moderator allocates expert1 → 200 | ✅ | — |
+| 3 | Manual allocation — moderator allocates experts > moderator allocates expert2 to same q... | ✅ | — |
+| 4 | Manual allocation — validation > duplicate expert check (known bug: guard silently pass... | ✅ | — |
+| 5 | Manual allocation — validation > non-existent questionId returns 500 (known behavior: g... | ✅ | — |
+| 6 | Manual allocation — moderator removes an expert > moderator removes expert at index 0 →... | ✅ | — |

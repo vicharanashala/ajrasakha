@@ -1,7 +1,7 @@
-import { GLOBAL_TYPES } from '#root/types.js';
-import { IDatabase } from '#shared/database/interfaces/IDatabase.js';
-import { injectable, inject } from 'inversify';
-import { Db, MongoClient, Document, Collection } from 'mongodb';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {IDatabase} from '#shared/database/interfaces/IDatabase.js';
+import {injectable, inject} from 'inversify';
+import {Db, MongoClient, Document, Collection} from 'mongodb';
 
 /**
  * @class MongoDatabase
@@ -42,14 +42,16 @@ export class MongoDatabase implements IDatabase<Db> {
 
     console.log(`[${this.dbIdentifier}] Initializing database connection...`);
 
+    const isTest = process.env.NODE_ENV === 'test';
+
     this.client = new MongoClient(uri, {
-      ssl: true,
-      tls: true,
+      ssl: !isTest,
+      tls: !isTest,
       tlsAllowInvalidCertificates: false,
       tlsAllowInvalidHostnames: false,
       retryWrites: true,
       connectTimeoutMS: 30000,
-      socketTimeoutMS: 30000
+      socketTimeoutMS: 30000,
     });
   }
 
