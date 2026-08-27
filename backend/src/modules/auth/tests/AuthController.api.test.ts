@@ -91,46 +91,21 @@ describe('AuthController API', () => {
     vi.clearAllMocks();
   });
 
-  // ─────────────────────────────────────────────────────────
-  // SIGNUP
-  // ─────────────────────────────────────────────────────────
-
-  describe('POST /auth/signup', () => {
-    it('returns 201 on successful signup', async () => {
-      mockAuthService.signup.mockResolvedValue({
-        userId: 'user-123',
-      });
-
-      const response = await request(app).post('/auth/signup').send({
-        email: 'john@test.com',
-        password: 'StrongPass123!',
-        firstName: 'John',
-        lastName: 'Doe',
-      });
-
-      expect(response.status).toBe(201);
-
-      expect(response.body.success).toBe(true);
-
-      expect(mockAuthService.signup).toHaveBeenCalled();
-    });
-
-    it('returns 400 for invalid email', async () => {
-      const response = await request(app).post('/auth/signup').send({
-        email: 'invalid-email',
-        password: 'StrongPass123!',
-        firstName: 'John',
-        lastName: 'Doe',
-      });
-
-      expect(response.status).toBe(400);
-    });
-  });
+  // POST /auth/signup (201 success, 400 invalid email) removed 2026-08-25 —
+  // duplicated by real e2e coverage in
+  // src/e2e/auth/AuthController.e2e.test.ts ("creates a new Firebase user
+  // and returns 201" / "rejects an invalid email format"), which exercises
+  // the real FirebaseAuthService rather than a mock. See
+  // src/e2e/BUGS_REPORT.md / COVERAGE_GAP_REPORT.md.
 
   // ─────────────────────────────────────────────────────────
   // GOOGLE SIGNUP
   // ─────────────────────────────────────────────────────────
 
+  // Kept (not a duplicate): the real e2e suite can only exercise this route's
+  // failure path (no real Google ID token available headlessly) — this
+  // mocked happy path is the only place the 201/response-shape/service-call
+  // contract for a successful Google signup is verified at all.
   describe('POST /auth/signup/google', () => {
     it('returns 201 for google signup', async () => {
       mockAuthService.googleSignup.mockResolvedValue(undefined);
@@ -163,6 +138,14 @@ describe('AuthController API', () => {
   // CHANGE PASSWORD
   // ─────────────────────────────────────────────────────────
 
+  // Kept (not a duplicate): this test mocks AuthService entirely, so it only
+  // verifies the CONTROLLER's own success/error-type-to-status mapping — it
+  // never touches FirebaseAuthService, which is where BUG-018 actually lives
+  // (request.user is never populated by any middleware, so the real service
+  // call always throws). The real e2e suite demonstrates that end-to-end bug
+  // for real (always 500, see BUG-018 in BUGS_REPORT.md); this test protects
+  // a different, still-real piece of logic — the controller's own mapping —
+  // that would matter again the moment BUG-018 is fixed.
   describe('PATCH /auth/change-password', () => {
     it('returns 200 on successful password change', async () => {
       mockAuthService.changePassword.mockResolvedValue({
@@ -193,52 +176,20 @@ describe('AuthController API', () => {
     });
   });
 
-  // ─────────────────────────────────────────────────────────
-  // FORGOT PASSWORD
-  // ─────────────────────────────────────────────────────────
-
-  describe('POST /auth/forgot-password', () => {
-    it('returns 200 successfully', async () => {
-      mockAuthService.sendPasswordResetEmail.mockResolvedValue(undefined);
-
-      const response = await request(app).post('/auth/forgot-password').send({
-        email: 'john@test.com',
-      });
-
-      expect(response.status).toBe(200);
-
-      expect(mockAuthService.sendPasswordResetEmail).toHaveBeenCalledWith(
-        'john@test.com',
-      );
-    });
-  });
-
-  // ─────────────────────────────────────────────────────────
-  // RESEND VERIFICATION
-  // ─────────────────────────────────────────────────────────
-
-  describe('POST /auth/resend-verification', () => {
-    it('returns 200 successfully', async () => {
-      mockAuthService.sendVerificationEmail.mockResolvedValue(undefined);
-
-      const response = await request(app)
-        .post('/auth/resend-verification')
-        .send({
-          email: 'john@test.com',
-        });
-
-      expect(response.status).toBe(200);
-
-      expect(mockAuthService.sendVerificationEmail).toHaveBeenCalledWith(
-        'john@test.com',
-      );
-    });
-  });
+  // POST /auth/forgot-password (200 success) and POST /auth/resend-verification
+  // (200 success) removed 2026-08-25 — both duplicated by real e2e coverage
+  // in src/e2e/auth/AuthController.e2e.test.ts, which hits the real
+  // FirebaseAuthService for both routes. See BUGS_REPORT.md / COVERAGE_GAP_REPORT.md.
 
   // ─────────────────────────────────────────────────────────
   // LOGIN
   // ─────────────────────────────────────────────────────────
 
+  // Kept (not a duplicate): FIREBASE_API_KEY is rejected by Google in this
+  // environment (see the "Environment note" in README.md / BUGS_REPORT.md),
+  // so the real e2e suite can never reach a real 200 here — this mocked
+  // happy path is the only place the successful-login response shape and
+  // Identity-Toolkit-response parsing are verified at all right now.
   describe('POST /auth/login', () => {
     it('returns 200 on successful login', async () => {
       vi.mocked(global.fetch)
@@ -277,54 +228,14 @@ describe('AuthController API', () => {
       expect(response.body.idToken).toBeDefined();
     });
 
-    it('returns 401 for invalid credentials', async () => {
-      vi.mocked(global.fetch).mockResolvedValueOnce({
-        json: async () => ({
-          error: {
-            message: 'INVALID_PASSWORD',
-          },
-        }),
-      } as any);
-
-      const response = await request(app).post('/auth/login').send({
-        email: 'john@test.com',
-        password: 'wrong-password',
-      });
-
-      expect(response.status).toBe(401);
-    });
+    // "returns 401 for invalid credentials" removed 2026-08-25 — duplicated
+    // by the real e2e test "returns 401 for a wrong password against a real
+    // account" in src/e2e/auth/AuthController.e2e.test.ts.
   });
 
-  // ─────────────────────────────────────────────────────────
-  // SYNC ACCOUNT
-  // ─────────────────────────────────────────────────────────
-
-  describe('POST /auth/sync', () => {
-    it('returns 200 on successful sync', async () => {
-      vi.mocked(admin.auth).mockReturnValue({
-        verifyIdToken: vi.fn().mockResolvedValue({
-          uid: 'firebase-uid',
-          email: 'john@test.com',
-          email_verified: true,
-          name: 'John Doe',
-        }),
-      } as any);
-
-      mockAuthService.syncUserWithDb.mockResolvedValue(mockUser);
-
-      const response = await request(app)
-        .post('/auth/sync')
-        .set('Authorization', 'Bearer valid-token');
-
-      expect(response.status).toBe(200);
-
-      expect(response.body.success).toBe(true);
-    });
-
-    it('returns 401 when token missing', async () => {
-      const response = await request(app).post('/auth/sync');
-
-      expect(response.status).toBe(401);
-    });
-  });
+  // POST /auth/sync (200 success, 401 missing token) removed 2026-08-25 —
+  // both duplicated by real e2e coverage in
+  // src/e2e/auth/AuthController.e2e.test.ts, which uses a real Firebase ID
+  // token (see helpers/firebaseAuth.ts's getFirebaseToken) rather than a
+  // mocked verifyIdToken. See BUGS_REPORT.md / COVERAGE_GAP_REPORT.md.
 });

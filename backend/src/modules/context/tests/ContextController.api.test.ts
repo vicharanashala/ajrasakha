@@ -59,42 +59,18 @@ describe('ContextController', () => {
     vi.clearAllMocks();
   });
 
-  describe('POST /context', () => {
-    it('creates context successfully', async () => {
-      mockContextService.addContext.mockResolvedValueOnce({
-        insertedId: 'context-123',
-      });
-
-      const res = await request(app).post('/context').send({
-        transcript: 'This is a transcript',
-      });
-
-      expect(res.status).toBe(201);
-
-      expect(res.body).toEqual({
-        insertedId: 'context-123',
-      });
-
-      expect(mockContextService.addContext).toHaveBeenCalledWith(
-        mockUser._id,
-        'This is a transcript',
-      );
-    });
-
-    it('returns 500 when service throws', async () => {
-      mockContextService.addContext.mockRejectedValueOnce(
-        new Error('Failed to create context'),
-      );
-
-      const res = await request(app).post('/context').send({
-        transcript: 'test transcript',
-      });
-
-      expect(res.status).toBe(500);
-    });
-  });
+  // POST /context ("creates context successfully", "returns 500 when
+  // service throws") removed 2026-08-25 — duplicated by real e2e coverage
+  // in src/e2e/context/ContextController.e2e.test.ts: "creates a context
+  // from transcript text" (real 201) and BUG-020 (real empty-transcript
+  // 500, same status/behavior class). See BUGS_REPORT.md.
 
   describe('POST /context/translate', () => {
+    // Kept (not a duplicate): SARVAM_API_KEY is rejected by Sarvam in this
+    // environment (see the "Environment note" in README.md / BUGS_REPORT.md),
+    // so the real e2e suite can never reach a real 200 here — this mocked
+    // happy path is the only place a successful translate response is
+    // verified at all right now.
     it('translates successfully', async () => {
       mockContextService.translate.mockResolvedValueOnce({
         translated_text: 'नमस्ते',
@@ -136,17 +112,11 @@ describe('ContextController', () => {
       );
     });
 
-    it('returns 500 when translation service throws', async () => {
-      mockContextService.translate.mockRejectedValueOnce(
-        new Error('Translation failed'),
-      );
-
-      const res = await request(app).post('/context/translate').send({
-        text: 'Hello',
-        targetLang: 'hi-IN',
-      });
-
-      expect(res.status).toBe(500);
-    });
+    // "returns 500 when translation service throws" removed 2026-08-25 —
+    // duplicated in effect by the real e2e "ENV ISSUE" test in
+    // src/e2e/context/ContextController.e2e.test.ts, which already
+    // demonstrates a real 500 for this exact route (a rejected Sarvam
+    // credential rather than a generic mock throw, but the same
+    // service-failure-becomes-500 behavior).
   });
 });
