@@ -85,7 +85,7 @@ class GoldenToHuggingFaceSync:
     def _get_final_answer(self, question_id: str) -> dict[str, Any] | None:
         """Get full final answer document for a question."""
         answer_doc = self.answers_collection.find_one(
-            {"questionId": ObjectId(question_id), "isFinalAnswer": True},
+            {"questionId": ObjectId(question_id), "status": "approved"},
             {
                 "_id": 1,
                 "answer": 1,
@@ -93,6 +93,7 @@ class GoldenToHuggingFaceSync:
                 "authorId": 1,
                 "approvalCount": 1,
                 "approvedBy": 1,
+                "status": 1,
             },
         )
 
@@ -410,8 +411,8 @@ class GoldenToHuggingFaceSync:
         # Count unique questions by text
         unique_questions = len(set(qa["question"] for qa in qa_pairs if qa.get("question")))
 
-        # Count questions with approved final answer
-        with_approved = sum(1 for qa in qa_pairs if qa.get("answer_text"))
+        # Count questions with approved final answer (all qa_pairs have status: approved)
+        with_approved = len(qa_pairs)
 
         # Calculate splits (default: 1% validation, 1% test, rest train)
         val_count = max(int(total_rows * 0.01), 1)
