@@ -28,6 +28,7 @@ import {getFromContainer} from 'class-validator';
 import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthService.js';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
+import { appConfig } from '#root/config/app.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 
@@ -780,114 +781,158 @@ export class UserService extends BaseService {
             //     <p>Please review their request in the admin dashboard.</p>
             //   </div>
             // `;
+            const requestDate = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+            const currentYear = new Date().getFullYear();
+            const frontendUrl = appConfig.frontendUrl;
             const htmlMessage = `
             <!DOCTYPE html>
-            <html>
+            <html lang="en">
             <head>
               <meta charset="UTF-8" />
               <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+              <meta name="color-scheme" content="light" />
+              <meta name="supported-color-schemes" content="light" />
+              <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+              <title>New Registration Request</title>
             </head>
-            <body style="margin: 0; padding: 0; background-color: #f2f2f0; font-family: 'Outfit', sans-serif;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f2f2f0; padding: 40px 20px;">
+            <body style="margin: 0; padding: 0; background-color: #eef1ef; font-family: 'Outfit', Arial, sans-serif;">
+              <!-- Preheader (hidden preview text) -->
+              <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
+                ${identifier} has requested registration approval on Ajrasakha Reviewer System.
+              </div>
+
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #eef1ef; padding: 40px 16px;">
                 <tr>
                   <td align="center">
-                    <table width="600" cellpadding="0" cellspacing="0" style="background-color: #fdfdfb; border-radius: 8px; overflow: hidden; border: 1px solid #e8e8e4;">
+                    <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width: 600px; max-width: 100%; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e3e6e2; box-shadow: 0 1px 3px rgba(20, 40, 30, 0.06);">
+
+                      <!-- Logo bar -->
+                      <tr>
+                        <td style="background-color: #ffffff; padding: 20px 40px; text-align: center; border-bottom: 1px solid #e3e6e2;">
+                          <img src="${frontendUrl}/annam-logo.png" alt="Annam.ai" width="130" height="auto" style="display: block; margin: 0 auto; max-width: 130px; border: 0;" />
+                        </td>
+                      </tr>
 
                       <!-- Header -->
                       <tr>
-                        <td style="background-color: #c5eedb; padding: 32px 40px; text-align: center; border-bottom: 1px solid #b0e4ca;">
-                          <h1 style="margin: 0; color: #2d6650; font-size: 22px; font-weight: 600; font-family: 'Outfit', sans-serif; letter-spacing: 0.025em;">
+                        <td style="background-color: #1f5f45; padding: 24px 40px; text-align: center;">
+                          <p style="margin: 0; color: #ffffff; font-size: 17px; font-weight: 700; font-family: 'Outfit', Arial, sans-serif; letter-spacing: 0.02em;">
                             Ajrasakha Reviewer System
-                          </h1>
-                          <p style="margin: 6px 0 0; color: #4a8c72; font-size: 13px; font-family: 'Outfit', sans-serif;">
-                            desk.vicharanashala.ai
+                          </p>
+                          <p style="margin: 4px 0 0; font-size: 12.5px; font-family: 'Outfit', Arial, sans-serif;">
+                            <a href="${frontendUrl}" style="color: #bfe0cf; text-decoration: none; font-family: 'Outfit', Arial, sans-serif;">ajrasakha-desk.annam.ai</a>
                           </p>
                         </td>
                       </tr>
 
+                      <!-- Accent stripe -->
+                      <tr>
+                        <td style="height: 4px; background-color: #2f8f66; line-height: 4px; font-size: 0;">&nbsp;</td>
+                      </tr>
+
                       <!-- Body -->
                       <tr>
-                        <td style="padding: 36px 40px 24px;">
+                        <td style="padding: 40px 40px 24px;">
 
-                          <p style="margin: 0 0 4px; font-size: 12px; color: #8a8a85; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; font-family: 'Outfit', sans-serif;">
-                            Action Required
-                          </p>
-                          <h2 style="margin: 0 0 20px; font-size: 20px; color: #1a1a17; font-weight: 600; font-family: 'Outfit', sans-serif; letter-spacing: 0.025em;">
-                            New Verification Request
-                          </h2>
-
-                          <p style="margin: 0 0 16px; font-size: 15px; color: #3a3a35; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            Hello Admin,
-                          </p>
-                          <p style="margin: 0 0 28px; font-size: 15px; color: #3a3a35; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            A user has submitted a verification request on the Ajrasakha Reviewer System and is awaiting your approval. Please review the details below and take the appropriate action.
-                          </p>
-
-                          <!-- User Info Card -->
-                          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f2; border: 1px solid #e8e8e4; border-radius: 8px; margin-bottom: 28px;">
+                          <table cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 20px;">
                             <tr>
-                              <td style="padding: 20px 24px;">
-
-                                <p style="margin: 0 0 3px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">
-                                  Requesting User
-                                </p>
-                                <p style="margin: 0 0 18px; font-size: 18px; color: #1a1a17; font-weight: 600; font-family: 'Outfit', sans-serif;">
-                                  ${identifier}
-                                </p>
-
-                                <table cellpadding="0" cellspacing="0">
-                                  <tr>
-                                    <td style="padding-right: 32px;">
-                                      <p style="margin: 0 0 2px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">Request Date</p>
-                                      <p style="margin: 0; font-size: 14px; color: #3a3a35; font-family: 'Outfit', sans-serif;">
-                                        ${new Date().toLocaleDateString('en-IN', {day: 'numeric', month: 'long', year: 'numeric'})}
-                                      </p>
-                                    </td>
-                                    <td>
-                                      <p style="margin: 0 0 2px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">Status</p>
-                                      <p style="margin: 0; font-size: 14px; font-weight: 600; font-family: 'Outfit', sans-serif;">
-                                        <span style="display: inline-block; background-color: #fef9ec; color: #a0721a; border: 1px solid #f5dfa0; border-radius: 4px; padding: 2px 10px; font-size: 13px;">
-                                          Pending Review
-                                        </span>
-                                      </p>
-                                    </td>
-                                  </tr>
-                                </table>
-
+                              <td style="background-color: #fef3d9; border-radius: 4px; padding: 4px 10px;">
+                                <span style="font-size: 11px; font-weight: 600; color: #96650f; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                  Action Required
+                                </span>
                               </td>
                             </tr>
                           </table>
 
-                          <!-- Dashboard Link -->
-                          <p style="margin: 0 0 6px; font-size: 14px; color: #6b6b66; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            Or review all pending requests in the admin dashboard:
-                          </p>
-                          <a href="https://desk.vicharanashala.ai"
-                            style="font-size: 14px; color: #4a8c72; text-decoration: underline; font-family: 'Outfit', sans-serif;">
-                            Open Admin Dashboard →
-                          </a>
+                          <h1 style="margin: 0 0 16px; font-size: 21px; line-height: 1.3; color: #1a1e1b; font-weight: 700; font-family: 'Outfit', Arial, sans-serif;">
+                            New Registration Request
+                          </h1>
 
+                          <p style="margin: 0 0 14px; font-size: 15px; color: #454a46; line-height: 1.6; font-family: 'Outfit', Arial, sans-serif;">
+                            Hello Admin,
+                          </p>
+                          <p style="margin: 0 0 28px; font-size: 15px; color: #454a46; line-height: 1.6; font-family: 'Outfit', Arial, sans-serif;">
+                            A new user has submitted a registration request on the Ajrasakha Web Application and is awaiting your approval. Please review the details below and take the appropriate action.
+                          </p>
+
+                          <!-- Role reminder callout -->
+                          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 28px;">
+                            <tr>
+                              <td style="background-color: #f0f7f4; border-left: 3px solid #1f5f45; border-radius: 0 6px 6px 0; padding: 14px 18px;">
+                                <p style="margin: 0 0 4px; font-size: 12px; font-weight: 700; color: #1f5f45; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Outfit', Arial, sans-serif;">Before Approving</p>
+                                <p style="margin: 0; font-size: 13.5px; color: #383d39; line-height: 1.65; font-family: 'Outfit', Arial, sans-serif;">
+                                  Please ensure the user's <strong>role is correctly set</strong> before granting access. If this is a test or internal account, set the role to <strong style="color: #1f5f45;">INTERNAL</strong> before approving.
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+
+                          <!-- User Info Card -->
+                          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f6f8f6; border: 1px solid #e3e6e2; border-radius: 10px; margin-bottom: 28px;">
+                            <tr>
+                              <td style="padding: 22px 24px;">
+                                <p style="margin: 0 0 4px; font-size: 11px; color: #8b918c; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                  Requesting User
+                                </p>
+                                <p style="margin: 0 0 20px; font-size: 18px; color: #1a1e1b; font-weight: 600; font-family: 'Outfit', Arial, sans-serif;">
+                                  ${identifier}
+                                </p>
+
+                                <table cellpadding="0" cellspacing="0" role="presentation">
+                                  <tr>
+                                    <td style="padding-right: 40px;">
+                                      <p style="margin: 0 0 3px; font-size: 11px; color: #8b918c; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                        Request Date
+                                      </p>
+                                      <p style="margin: 0; font-size: 14px; color: #383d39; font-family: 'Outfit', Arial, sans-serif;">
+                                        ${requestDate}
+                                      </p>
+                                    </td>
+                                    <td>
+                                      <p style="margin: 0 0 3px; font-size: 11px; color: #8b918c; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Outfit', Arial, sans-serif;">
+                                        Status
+                                      </p>
+                                      <span style="display: inline-block; background-color: #fef3d9; color: #96650f; border: 1px solid #f3dda2; border-radius: 4px; padding: 3px 10px; font-size: 12.5px; font-weight: 600; font-family: 'Outfit', Arial, sans-serif;">
+                                        Pending Review
+                                      </span>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+
+                          <!-- CTA Button -->
+                          <table cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 8px;">
+                            <tr>
+                              <td style="border-radius: 8px; background-color: #1f5f45;">
+                                <a href="${frontendUrl}/chatbot?source=web-application&view=dashboard&user=all"
+                                  style="display: inline-block; padding: 13px 28px; font-size: 14.5px; font-weight: 600; color: #ffffff; text-decoration: none; font-family: 'Outfit', Arial, sans-serif; border-radius: 8px;">
+                                  Review Request
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
 
                       <!-- Divider -->
                       <tr>
                         <td style="padding: 0 40px;">
-                          <hr style="border: none; border-top: 1px solid #e8e8e4; margin: 0;" />
+                          <hr style="border: none; border-top: 1px solid #e3e6e2; margin: 0;" />
                         </td>
                       </tr>
 
                       <!-- Footer -->
                       <tr>
                         <td style="padding: 24px 40px 32px;">
-                          <p style="margin: 0; font-size: 12px; color: #9a9a95; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            This is an automated notification from the <strong style="color: #6b6b66;">Ajrasakha Web Application</strong>.
+                          <p style="margin: 0; font-size: 12px; color: #9a9fa0; line-height: 1.6; font-family: 'Outfit', Arial, sans-serif;">
+                            This is an automated notification from the <strong style="color: #6b706c;">Ajrasakha</strong>.
                             Please do not reply to this email. If you believe this was sent in error, you can safely ignore it
                             or contact your system administrator.
                           </p>
-                          <p style="margin: 10px 0 0; font-size: 12px; color: #b8b8b3; font-family: 'Outfit', sans-serif;">
-                            © ${new Date().getFullYear()} Annam.Ai · desk.vicharanashala.ai
+                          <p style="margin: 10px 0 0; font-size: 12px; color: #b8bcb8; font-family: 'Outfit', Arial, sans-serif;">
+                            &copy; ${currentYear} Annam.Ai 
                           </p>
                         </td>
                       </tr>
