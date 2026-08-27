@@ -14,6 +14,9 @@ async function _handleResponse(res: Response) {
     }
     throw new Error(detail);
   }
+  // 204 No Content (used by every DELETE in the dashboard API) has no body — res.json() would
+  // throw on the empty string.
+  if (res.status === 204) return null;
   return res.json();
 }
 
@@ -403,5 +406,256 @@ export async function uploadPopAuditedFile(
     method: "POST",
     body: fd,
   });
+  return _handleResponse(res);
+}
+
+// ---------------------------------------------------------------------------
+// Document Management — /dashboard routes on the same POP server
+// ---------------------------------------------------------------------------
+
+const PAGE_SIZE = 100;
+
+function _buildListParams(page: number, filters: Record<string, string[]>) {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(PAGE_SIZE),
+  });
+  for (const [key, values] of Object.entries(filters || {})) {
+    for (const v of values || []) {
+      if (v !== "" && v != null) params.append(`filter[${key}]`, v);
+    }
+  }
+  return params;
+}
+
+export async function getDashboardDocuments(
+  page = 1,
+  filters: Record<string, string[]> = {},
+) {
+  const params = _buildListParams(page, filters);
+  const res = await fetch(`${POP_API}/dashboard/documents?${params}`);
+  return _handleResponse(res);
+}
+
+export async function getDashboardDocument(id: string) {
+  const res = await fetch(`${POP_API}/dashboard/documents/${id}`);
+  return _handleResponse(res);
+}
+
+export async function updateDashboardDocument(
+  id: string,
+  fields: { state_id?: number; crop_id?: number },
+) {
+  const res = await fetch(`${POP_API}/dashboard/documents/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields),
+  });
+  return _handleResponse(res);
+}
+
+export async function deleteDashboardDocument(id: string) {
+  const res = await fetch(`${POP_API}/dashboard/documents/${id}`, {
+    method: "DELETE",
+  });
+  return _handleResponse(res);
+}
+
+export async function getDashboardUniqueDocuments(
+  page = 1,
+  filters: Record<string, string[]> = {},
+) {
+  const params = _buildListParams(page, filters);
+  const res = await fetch(`${POP_API}/dashboard/unique-documents?${params}`);
+  return _handleResponse(res);
+}
+
+export async function getDashboardUniqueDocument(id: string) {
+  const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}`);
+  return _handleResponse(res);
+}
+
+export async function updateDashboardUniqueDocument(
+  id: string,
+  fields: Record<string, unknown>,
+) {
+  const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields),
+  });
+  return _handleResponse(res);
+}
+
+export async function deleteDashboardUniqueDocument(id: string) {
+  const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}`, {
+    method: "DELETE",
+  });
+  return _handleResponse(res);
+}
+
+export async function getDashboardStates() {
+  const res = await fetch(`${POP_API}/dashboard/states`);
+  return _handleResponse(res);
+}
+
+export async function getDashboardCrops() {
+  const res = await fetch(`${POP_API}/dashboard/crops`);
+  return _handleResponse(res);
+}
+
+export async function createDashboardCrop(name: string) {
+  const res = await fetch(`${POP_API}/dashboard/crops`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  return _handleResponse(res);
+}
+
+// Backend API changes (2026-08-26, round 5): fixed list of OCR-supported languages — the only
+// valid source for the upload form's Language dropdown, don't hardcode one client-side.
+export async function getDashboardLanguages() {
+  const res = await fetch(`${POP_API}/dashboard/languages`);
+  return _handleResponse(res);
+}
+
+// Backend API changes (2026-08-24, round 2): an upload is now tagged to exactly ONE state
+// (`states_json` still a JSON array, just always length 1) — multiple crops are still allowed.
+// (2026-08-26, round 5): `language` is now a required plain Form field (not JSON) — one of the
+// codes from getDashboardLanguages(), e.g. "kan". 422 if omitted, 400 if not a valid code.
+export async function uploadDashboardDocument(
+  file: File,
+  fields: Record<string, string>,
+  state: string,
+  crops: string[],
+  language: string,
+) {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("states_json", JSON.stringify([state]));
+  fd.append("crops_json", JSON.stringify(crops));
+  fd.append("language", language);
+  for (const [key, value] of Object.entries(fields || {})) {
+    if (value !== "" && value != null) fd.append(key, value);
+  }
+  const res = await fetch(`${POP_API}/dashboard/uploads`, {
+    method: "POST",
+    body: fd,
+  });
+  return _handleResponse(res);
+}
+
+export async function getDashboardUploads() {
+  const res = await fetch(`${POP_API}/dashboard/uploads`);
+  return _handleResponse(res);
+}
+
+export async function cancelDashboardUpload(id: string) {
+  const res = await fetch(`${POP_API}/dashboard/uploads/${id}`, {
+    method: "DELETE",
+  });
+  return _handleResponse(res);
+}
+
+// Backend API changes (2026-08-26, round 6): the status `duplicate_found` no longer exists — it's
+// renamed to `awaiting_review`, and EVERY upload lands there (not just confident duplicates), so
+// these three actions are required for every single upload, not just ones with a match. All three
+// remove the item from the queue once resolved.
+export async function addUploadToMatch(id: string) {
+  // "This IS the matched document" — links the new placement(s) onto it. 200, synchronous.
+  // Requires duplicate_of_id to be set (match_type !== null) — 409 otherwise.
+  const res = await fetch(`${POP_API}/dashboard/uploads/${id}/add`, {
+    method: "POST",
+  });
+  return _handleResponse(res);
+}
+
+export async function addUploadAsNew(id: string) {
+  // "This is actually a different document" (or there was no candidate at all) — creates it as
+  // its own unique_documents row. 202, ASYNC (a real Zoho upload happens) — response is just
+  // {processing: true}; caller must keep polling GET /dashboard/uploads until the item disappears
+  // (succeeded) or status: "failed". Returns 409 if match_type === "sha" (exact hash match can't
+  // be "a different document").
+  const res = await fetch(`${POP_API}/dashboard/uploads/${id}/new`, {
+    method: "POST",
+  });
+  return _handleResponse(res);
+}
+
+export async function cancelPendingDuplicateUpload(id: string) {
+  // "Don't append" — nothing linked or created, matched document untouched. 204.
+  const res = await fetch(`${POP_API}/dashboard/uploads/${id}/cancel`, {
+    method: "POST",
+  });
+  return _handleResponse(res);
+}
+
+// Backend API changes (2026-08-24, round 2): a second, separate queue for translations, backed
+// by translation_jobs. No status param = active jobs only (queued/running) — the live queue view.
+export async function getDashboardTranslationJobs(status?: string) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await fetch(`${POP_API}/dashboard/translation-jobs${qs}`);
+  return _handleResponse(res);
+}
+
+// Real cancellation (stops the background thread within ~one page of work), not a soft un-flag —
+// the job's status flips to "cancelled" asynchronously, so keep polling rather than assuming this
+// call alone removed it from the active queue.
+export async function cancelDashboardTranslationJob(jobId: string) {
+  const res = await fetch(`${POP_API}/dashboard/translation-jobs/${jobId}/cancel`, {
+    method: "POST",
+  });
+  return _handleResponse(res);
+}
+
+export async function translateDashboardDocument(id: string) {
+  const res = await fetch(
+    `${POP_API}/dashboard/unique-documents/${id}/translate`,
+    { method: "POST" },
+  );
+  return _handleResponse(res);
+}
+
+export async function deleteDashboardTranslation(id: string) {
+  const res = await fetch(
+    `${POP_API}/dashboard/unique-documents/${id}/translation`,
+    { method: "DELETE" },
+  );
+  return _handleResponse(res);
+}
+
+export async function uploadDashboardReview(id: string, file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(
+    `${POP_API}/dashboard/unique-documents/${id}/review`,
+    { method: "POST", body: fd },
+  );
+  return _handleResponse(res);
+}
+
+export async function deleteDashboardReview(id: string) {
+  const res = await fetch(
+    `${POP_API}/dashboard/unique-documents/${id}/review`,
+    { method: "DELETE" },
+  );
+  return _handleResponse(res);
+}
+
+// Backend API changes (2026-08-24): `zoho_file_id` is no longer in any /dashboard response, so
+// GET /dashboard/files/{zoho_file_id}/... has nothing left to be called with — the *_shareable_link
+// fields (shareable_link / translation_shareable_link / review_shareable_link) are now always
+// populated directly and used as-is for view/copy/download (see FileActionIcons.tsx).
+
+export async function deleteDashboardOriginal(id: string) {
+  const res = await fetch(`${POP_API}/dashboard/unique-documents/${id}/original`, {
+    method: "DELETE",
+  });
+  return _handleResponse(res);
+}
+
+export async function getDashboardConfig() {
+  const res = await fetch(`${POP_API}/dashboard/config`);
   return _handleResponse(res);
 }
