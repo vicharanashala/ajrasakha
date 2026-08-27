@@ -78,13 +78,23 @@ export class PlivoController {
         const credentials = await this.agentAssignmentService.getAgentCredentials(agentNumber);
         endpointUser = credentials.username;
 
-        this.plivoService.setCallAgent(callUuid, availableAgent._id.toString());
+        this.plivoService.registerCall(callUuid, {
+          from: callerNumber,
+          to: myPlivoNumber,
+          agentUserId: availableAgent._id.toString(),
+          startTime: new Date(),
+        });
         // console.log(`✅ [PLIVO-CONTROLLER] Assigned agent ${agentNumber} (userId=${availableAgent._id}, endpoint=${endpointUser}) to call ${callUuid}`);
         fallbackMessage = 'The specialist is busy. Please stay on the line.';
       } else {
         endpointUser = '';
         fallbackMessage = 'All agents are busy. Please call back later.';
         console.warn(`⚠️ [PLIVO-CONTROLLER] No available agents for call ${callUuid}. Caller: ${callerNumber}`);
+        this.plivoService.registerCall(callUuid, {
+          from: callerNumber,
+          to: myPlivoNumber,
+          startTime: new Date(),
+        });
       }
 
       let xml: string;
@@ -306,6 +316,7 @@ export class PlivoController {
     }
   }
 
+  /* Commented out local recordings endpoint (audio recordings are streamed via Firebase Storage Emulator / GCS Signed URLs):
   @Get('/recordings/local')
   @OpenAPI({ summary: 'Stream local audio recording file' })
   async streamLocalRecording(
@@ -358,6 +369,8 @@ export class PlivoController {
       res.status(500).send('Error streaming recording');
     }
   }
+  */
+
 
 
 
@@ -516,6 +529,23 @@ export class PlivoController {
         });
       }
 
+      // Sanitize phone number (remove non-digits, take last 10 digits for Indian numbers)
+      const sanitizedPhone = body.destination.replace(/\D/g, '').slice(-10);
+      if (!/^[6-9]\d{9}$/.test(sanitizedPhone)) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid 10-digit Indian mobile number provided"
+        });
+      }
+
+      const cleanText = body.text.trim();
+      if (!cleanText || cleanText.length > 500) {
+        return res.status(400).json({
+          success: false,
+          error: "Message text must be between 1 and 500 characters"
+        });
+      }
+
       const apiKey = appConfig.fast2sms.apiKey;
       if (!apiKey) {
         return res.status(500).json({
@@ -526,10 +556,10 @@ export class PlivoController {
 
       const requestBody = {
         route: 'q',
-        message: body.text,
+        message: cleanText,
         language: 'english',
         flash: 0,
-        numbers: body.destination,
+        numbers: sanitizedPhone,
         sms_details: 1
       };
 

@@ -35,7 +35,7 @@ export const loginWithEmail = async (email: string, password: string) => {
       }
 
       await signOut(auth);
-      throw new Error("Please verify your email before logging in. A new verification link has been printed in the backend console log.");
+      throw new Error("Please verify your email before logging in. A verification link has been sent to your email address.");
     }
 
     const idToken = await result.user.getIdToken();
@@ -68,6 +68,11 @@ export const signUpWithEmail = async (
       await updateProfile(result.user, { displayName });
       const idToken = await result.user.getIdToken();
       await authService.accountSync(idToken);
+      try {
+        await authService.resendVerification(email);
+      } catch (verifyError) {
+        console.warn("Failed to auto-dispatch verification email on signup:", verifyError);
+      }
     }
     return result;
   } catch (error) {

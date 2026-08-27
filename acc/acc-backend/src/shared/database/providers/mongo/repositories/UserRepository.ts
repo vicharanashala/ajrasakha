@@ -12,7 +12,7 @@ export class UserRepository implements IUserRepository {
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private readonly database: MongoDatabase,
-  ) {}
+  ) { }
 
   private async init() {
     if (!this.usersCollection) {
@@ -241,7 +241,8 @@ export class UserRepository implements IUserRepository {
     await this.init();
     const matchCriteria: any = {};
     if (search && search.trim()) {
-      const searchRegex = new RegExp(search.trim(), 'i');
+      const sanitizedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = new RegExp(sanitizedSearch, 'i');
       matchCriteria.$or = [
         { firstName: searchRegex },
         { lastName: searchRegex },

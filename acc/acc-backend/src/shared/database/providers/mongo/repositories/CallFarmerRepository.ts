@@ -9,6 +9,31 @@ import type {
   FarmerProfile,
 } from '#shared/database/interfaces/IFarmerRepository.js';
 
+function getPhoneVariations(raw: string): string[] {
+  if (!raw) return [];
+  const clean = raw.trim();
+  const digits = clean.replace(/\D/g, '');
+  const variations = new Set<string>();
+  variations.add(clean);
+  if (digits) variations.add(digits);
+  if (digits.length === 10) {
+    variations.add(`+91${digits}`);
+    variations.add(`91${digits}`);
+    variations.add(`0${digits}`);
+  } else if (digits.length === 12 && digits.startsWith('91')) {
+    const core = digits.slice(2);
+    variations.add(core);
+    variations.add(`+${digits}`);
+    variations.add(`0${core}`);
+  } else if (digits.length === 11 && digits.startsWith('0')) {
+    const core = digits.slice(1);
+    variations.add(core);
+    variations.add(`+91${core}`);
+    variations.add(`91${core}`);
+  }
+  return [...variations].filter(Boolean);
+}
+
 @injectable()
 export class CallFarmerRepository implements ICallFarmerRepository {
   private callFarmersCollection!: Collection<CallFarmer>;
@@ -30,11 +55,48 @@ export class CallFarmerRepository implements ICallFarmerRepository {
   ): Promise<CallFarmer | null> {
     try {
       await this.init();
-      const result = await this.callFarmersCollection.findOne(
-        { phoneNo },
+      const phoneVariants = getPhoneVariations(phoneNo);
+      const rawDoc = await this.callFarmersCollection.findOne(
+        {
+          $or: [
+            { phoneNo: { $in: phoneVariants } },
+            { "profile.phoneNo": { $in: phoneVariants } }
+          ]
+        },
         { session },
-      );
-      return result;
+      ) as any;
+      if (!rawDoc) {
+        return null;
+      }
+      const profile = rawDoc.profile || rawDoc;
+      return {
+        _id: rawDoc._id?.toString(),
+        phoneNo: rawDoc.phoneNo || phoneNo,
+        profile: {
+          farmerName: profile.farmerName || profile.extracted_name || profile.name || '',
+          phoneNo: profile.phoneNo || phoneNo,
+          age: profile.age !== undefined && profile.age !== null ? Number(profile.age) : undefined,
+          gender: profile.gender || '',
+          villageName: profile.villageName || profile.village || '',
+          blockName: profile.blockName || profile.block || '',
+          district: profile.district || '',
+          state: profile.state || '',
+          primaryCrop: profile.primaryCrop || profile.extracted_primary_crop || profile.crop || '',
+          secondaryCrop: profile.secondaryCrop || '',
+          languagePreference: profile.languagePreference || profile.language || '',
+          yearsOfExperience: profile.yearsOfExperience !== undefined && profile.yearsOfExperience !== null ? Number(profile.yearsOfExperience) : undefined,
+          cropsCultivated: Array.isArray(profile.cropsCultivated)
+            ? profile.cropsCultivated
+            : profile.primaryCrop
+              ? [profile.primaryCrop]
+              : undefined,
+          highestEducatedPerson: profile.highestEducatedPerson || '',
+          numberOfSmartphones: profile.numberOfSmartphones !== undefined && profile.numberOfSmartphones !== null ? Number(profile.numberOfSmartphones) : undefined,
+          location: profile.location,
+        },
+        createdAt: rawDoc.createdAt || new Date(),
+        updatedAt: rawDoc.updatedAt || new Date(),
+      };
     } catch (error: any) {
       console.error(`[FARMER_FLOW] CallFarmerRepository.findByPhoneNo: Error querying phoneNo ${phoneNo}:`, error.stack || error);
       throw new InternalServerError(
@@ -50,13 +112,27 @@ export class CallFarmerRepository implements ICallFarmerRepository {
     try {
       await this.init();
       const now = new Date();
-      const doc = {
-        ...farmer,
-        createdAt: now,
-        updatedAt: now,
-      };
-      const result = await this.callFarmersCollection.insertOne(doc, { session });
-      return result.insertedId.toString();
+      const phoneVariants = getPhoneVariations(farmer.phoneNo);
+      const result = await this.callFarmersCollection.updateOne(
+        {
+          $or: [
+            { phoneNo: { $in: phoneVariants } },
+            { "profile.phoneNo": { $in: phoneVariants } }
+          ]
+        },
+        {
+          $set: {
+            profile: farmer.profile,
+            updatedAt: now,
+          },
+          $setOnInsert: {
+            phoneNo: farmer.phoneNo,
+            createdAt: now,
+          },
+        },
+        { upsert: true, session }
+      );
+      return result.upsertedId ? result.upsertedId.toString() : farmer.phoneNo;
     } catch (error: any) {
       console.error(`[FARMER_FLOW] CallFarmerRepository.create: Error creating farmer record:`, error.stack || error);
       throw new InternalServerError(`Failed to create farmer: ${error}`);
@@ -70,17 +146,28 @@ export class CallFarmerRepository implements ICallFarmerRepository {
   ): Promise<boolean> {
     try {
       await this.init();
+      const now = new Date();
+      const phoneVariants = getPhoneVariations(phoneNo);
       const result = await this.callFarmersCollection.updateOne(
-        { phoneNo },
+        {
+          $or: [
+            { phoneNo: { $in: phoneVariants } },
+            { "profile.phoneNo": { $in: phoneVariants } }
+          ]
+        },
         {
           $set: {
             profile,
-            updatedAt: new Date(),
+            updatedAt: now,
+          },
+          $setOnInsert: {
+            phoneNo,
+            createdAt: now,
           },
         },
-        { session },
+        { upsert: true, session },
       );
-      return result.modifiedCount > 0;
+      return (result.modifiedCount > 0 || result.upsertedCount > 0 || result.matchedCount > 0);
     } catch (error: any) {
       console.error(`[FARMER_FLOW] CallFarmerRepository.update: Error updating farmer record for phoneNo ${phoneNo}:`, error.stack || error);
       throw new InternalServerError(`Failed to update farmer: ${error}`);
@@ -93,8 +180,14 @@ export class CallFarmerRepository implements ICallFarmerRepository {
   ): Promise<boolean> {
     try {
       await this.init();
-      const result = await this.callFarmersCollection.deleteOne(
-        { phoneNo },
+      const phoneVariants = getPhoneVariations(phoneNo);
+      const result = await this.callFarmersCollection.deleteMany(
+        {
+          $or: [
+            { phoneNo: { $in: phoneVariants } },
+            { "profile.phoneNo": { $in: phoneVariants } }
+          ]
+        },
         { session },
       );
       return result.deletedCount > 0;
@@ -107,11 +200,42 @@ export class CallFarmerRepository implements ICallFarmerRepository {
   async getAll(session?: ClientSession): Promise<CallFarmer[]> {
     try {
       await this.init();
-      const result = await this.callFarmersCollection
+      const docs = await this.callFarmersCollection
         .find({}, { session })
         .sort({ createdAt: -1 })
-        .toArray();
-      return result;
+        .toArray() as any[];
+
+      return docs.map((doc) => {
+        const profile = doc.profile || doc;
+        return {
+          _id: doc._id?.toString(),
+          phoneNo: doc.phoneNo,
+          profile: {
+            farmerName: profile.farmerName || profile.extracted_name || profile.name || '',
+            phoneNo: profile.phoneNo || doc.phoneNo || '',
+            age: profile.age !== undefined && profile.age !== null ? Number(profile.age) : undefined,
+            gender: profile.gender || '',
+            villageName: profile.villageName || profile.village || '',
+            blockName: profile.blockName || profile.block || '',
+            district: profile.district || '',
+            state: profile.state || '',
+            primaryCrop: profile.primaryCrop || profile.extracted_primary_crop || profile.crop || '',
+            secondaryCrop: profile.secondaryCrop || '',
+            languagePreference: profile.languagePreference || profile.language || '',
+            yearsOfExperience: profile.yearsOfExperience !== undefined && profile.yearsOfExperience !== null ? Number(profile.yearsOfExperience) : undefined,
+            cropsCultivated: Array.isArray(profile.cropsCultivated)
+              ? profile.cropsCultivated
+              : profile.primaryCrop
+                ? [profile.primaryCrop]
+                : undefined,
+            highestEducatedPerson: profile.highestEducatedPerson || '',
+            numberOfSmartphones: profile.numberOfSmartphones !== undefined && profile.numberOfSmartphones !== null ? Number(profile.numberOfSmartphones) : undefined,
+            location: profile.location,
+          },
+          createdAt: doc.createdAt,
+          updatedAt: doc.updatedAt,
+        };
+      });
     } catch (error: any) {
       console.error(`[FARMER_FLOW] CallFarmerRepository.getAll: Error retrieving all records:`, error.stack || error);
       throw new InternalServerError(`Failed to get all farmers: ${error}`);

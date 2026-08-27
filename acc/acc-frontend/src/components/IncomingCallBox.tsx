@@ -523,8 +523,6 @@ export const IncomingCallBox = ({
           duration: 5000,
         });
 
-        let actualCallUuid = callUuid || callerID;
-
         setIncomingCall({
           uuid: callUuid || "",
           number: callerPhone,
@@ -535,6 +533,7 @@ export const IncomingCallBox = ({
         const currentCallId = callUuid || _extraHeaders?.call_uuid || callerID;
         activeCallUuidRef.current = currentCallId;
         onCallUuidChange?.(currentCallId);
+        onPhoneNumberChange?.(callerPhone);
 
         // Reset transcripts from previous calls immediately on incoming call
         setTranscripts([]);
@@ -571,6 +570,10 @@ export const IncomingCallBox = ({
         onCallUuidChange?.(answeredCallUuid);
       }
 
+      if (incomingCall?.number) {
+        onPhoneNumberChange?.(incomingCall.number);
+      }
+
       // Background refetch user state
       refetchCurrentUser().catch((err) => {
         console.error("❌ [IncomingCallBox] Error refetching user on call answered:", err);
@@ -583,6 +586,7 @@ export const IncomingCallBox = ({
       setIncomingCall(null);
       onCallStateChange?.(false);
       onCallUuidChange?.(null);
+      onPhoneNumberChange?.(null);
       disconnectWebSocket();
       // Mark agent as available when call ends
       handleMarkAgentAsAvailable();
@@ -593,6 +597,7 @@ export const IncomingCallBox = ({
       setCallStatus("idle");
       setIncomingCall(null);
       onCallUuidChange?.(null);
+      onPhoneNumberChange?.(null);
       handleMarkAgentAsAvailable();
     });
 
@@ -609,6 +614,7 @@ export const IncomingCallBox = ({
       console.error("❌ Call failed:", error);
       setCallStatus("idle");
       setIncomingCall(null);
+      onPhoneNumberChange?.(null);
       handleMarkAgentAsAvailable();
     });
 
@@ -618,6 +624,7 @@ export const IncomingCallBox = ({
       setCallStatus("idle");
       setIncomingCall(null);
       onCallUuidChange?.(null);
+      onPhoneNumberChange?.(null);
       disconnectWebSocket();
       handleMarkAgentAsAvailable();
     });
@@ -628,6 +635,7 @@ export const IncomingCallBox = ({
       setCallStatus("idle");
       setIncomingCall(null);
       onCallUuidChange?.(null);
+      onPhoneNumberChange?.(null);
       disconnectWebSocket();
       handleMarkAgentAsAvailable();
     });
@@ -773,6 +781,7 @@ export const IncomingCallBox = ({
       setIncomingCall(null);
       onCallStateChange?.(false);
       onCallUuidChange?.(null);
+      onPhoneNumberChange?.(null);
       disconnectWebSocket();
     });
 
@@ -785,6 +794,7 @@ export const IncomingCallBox = ({
       setIncomingCall(null);
       onCallStateChange?.(false);
       onCallUuidChange?.(null);
+      onPhoneNumberChange?.(null);
       disconnectWebSocket();
     });
 

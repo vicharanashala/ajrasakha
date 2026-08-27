@@ -58,6 +58,7 @@ import {
 } from "./atoms/select";
 import type { GeneratedQuestion } from "@/hooks/services/questionService";
 import type { ExtractDataResponse } from "@/hooks/services/accAgentService";
+import { plivoService } from "@/hooks/api/plivo/api";
 
 const DOMAIN_OPTIONS = [
   "Soil Health and Nutrient Management",
@@ -279,6 +280,8 @@ export const CallInterface = () => {
   const [isCallActive, setIsCallActive] = useState(false);
   const [callUuid, setCallUuid] = useState<string | null>(null);
   const [lastCallUuid, setLastCallUuid] = useState<string | null>(null);
+  const callUuidRef = useRef<string | null>(null);
+  const lastCallUuidRef = useRef<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   interface ExtGeneratedQuestion extends GeneratedQuestion {
     weather?: any;
@@ -330,6 +333,9 @@ export const CallInterface = () => {
   // Phone number state tracking
   const [callPhoneNumber, setCallPhoneNumber] = useState<string | null>(null);
   const [lastCallPhoneNumber, setLastCallPhoneNumber] = useState<string | null>(null);
+  const callPhoneNumberRef = useRef<string | null>(null);
+  const lastCallPhoneNumberRef = useRef<string | null>(null);
+  const activeProfileRef = useRef<any>(null);
 
   // HITL state
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -378,6 +384,15 @@ export const CallInterface = () => {
 
   const handleResetConversation = () => {
     setCallUuid(null);
+    setLastCallUuid(null);
+    callUuidRef.current = null;
+    lastCallUuidRef.current = null;
+    setCallPhoneNumber(null);
+    setLastCallPhoneNumber(null);
+    callPhoneNumberRef.current = null;
+    lastCallPhoneNumberRef.current = null;
+    activeProfileRef.current = null;
+    setExtractedFarmerProfile(null);
     setTranscriptsList([]);
     setQuestions([]);
     setTranslatedQuestions({});
@@ -418,6 +433,7 @@ export const CallInterface = () => {
       String(now.getMinutes()).padStart(2, '0') +
       String(now.getSeconds()).padStart(2, '0');
     const mockCallUuid = `testing_${dateStr}`;
+    const testPhone = "+919999999999";
 
     const sampleTranscripts: CallTranscript[] = [
       {
@@ -449,8 +465,12 @@ export const CallInterface = () => {
     setTranscriptsList(sampleTranscripts);
     setCallUuid(mockCallUuid);
     setLastCallUuid(mockCallUuid);
-    setCallPhoneNumber("+919999999999");
-    setLastCallPhoneNumber("+919999999999");
+    callUuidRef.current = mockCallUuid;
+    lastCallUuidRef.current = mockCallUuid;
+    setCallPhoneNumber(testPhone);
+    setLastCallPhoneNumber(testPhone);
+    callPhoneNumberRef.current = testPhone;
+    lastCallPhoneNumberRef.current = testPhone;
 
     // Reset previous Q&A states
     setQuestions([]);
@@ -593,9 +613,9 @@ export const CallInterface = () => {
       }
 
       if (extractionType === 'farmer_details') {
-        setExtractedFarmerProfile({
+        const farmerProfileData = {
           farmerName: data.extracted_name || "",
-          phoneNo: data.extracted_phone || callPhoneNumber || lastCallPhoneNumber || "",
+          phoneNo: data.extracted_phone || callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || "",
           age: data.extracted_age !== undefined && data.extracted_age !== null ? Number(data.extracted_age) : 45,
           gender: data.extracted_gender || "",
           villageName: data.extracted_village || "",
@@ -606,11 +626,24 @@ export const CallInterface = () => {
           district: data.extracted_district || "",
           languagePreference: (data as any).extracted_language || "",
           cropsCultivated: data.extracted_crop ? [data.extracted_crop] : [""],
-        });
+        };
+        setExtractedFarmerProfile(farmerProfileData);
+        activeProfileRef.current = farmerProfileData;
         setEditableState(data.extracted_state || "");
         setEditableDistrict(data.extracted_district || "");
         setEditableBlock(data.extracted_block || "");
         setEditableVillage(data.extracted_village || "");
+
+        // Auto-save extracted farmer details to backend if phone number exists
+        const phoneToSave = (farmerProfileData.phoneNo || "").trim();
+        if (phoneToSave) {
+          try {
+            await plivoService.updateFarmer(phoneToSave, farmerProfileData);
+            console.log(`✅ [FARMER_FLOW] Auto-saved extracted farmer details for ${phoneToSave}`);
+          } catch (e) {
+            console.warn(`[FARMER_FLOW] Could not auto-save extracted farmer profile:`, e);
+          }
+        }
       }
 
       setIsHumanVerificationMode(true);
@@ -688,7 +721,29 @@ export const CallInterface = () => {
         toast.info("Updated extracted data with your corrections.");
       }
 
-      // Step 4: Resume and get answer
+      // Step 4: Auto-save farmer profile if present
+      const targetPhone = (callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || activeProfileRef.current?.phoneNo || extractedData?.extracted_phone || "").trim();
+      const farmerProfileToPersist = activeProfileRef.current || (extractedFarmerProfile ? { ...extractedFarmerProfile } : null);
+
+      if (targetPhone && farmerProfileToPersist) {
+        try {
+          const profilePayload = {
+            ...farmerProfileToPersist,
+            phoneNo: targetPhone,
+            state: editableState || farmerProfileToPersist.state,
+            district: editableDistrict || farmerProfileToPersist.district,
+            blockName: editableBlock || farmerProfileToPersist.blockName,
+            villageName: editableVillage || farmerProfileToPersist.villageName,
+            primaryCrop: editableCrop || farmerProfileToPersist.primaryCrop,
+          };
+          await plivoService.updateFarmer(targetPhone, profilePayload);
+          console.log(`✅ [FARMER_FLOW] Saved farmer details on approval for ${targetPhone}`);
+        } catch (farmerErr) {
+          console.warn(`[FARMER_FLOW] Error saving farmer details on approval:`, farmerErr);
+        }
+      }
+
+      // Step 5: Resume and get answer with guaranteed targetCallUuid
       const metadata = {
         extracted_query: editableQuery,
         extracted_crop: editableCrop,
@@ -700,18 +755,15 @@ export const CallInterface = () => {
         extracted_domain: finalDomain,
         extracted_season: editableSeason,
       };
-      // Use lastCallUuid if call has ended, otherwise use current callUuid
-      const targetCallUuid = callUuid || lastCallUuid || undefined;
+
+      const targetCallUuid = callUuid || lastCallUuid || lastCallUuidRef.current || undefined;
+      console.log(`🚀 [ACC-AGENT] Resuming with callUuid=${targetCallUuid}, metadata=`, metadata);
+
       const result = await resumeAndGetAnswer({
         threadId,
         callUuid: targetCallUuid,
         metadata,
       });
-
-      // Reset lastCallUuid after successful Q/A storage to prevent re-association
-      if (targetCallUuid) {
-        setLastCallUuid(null);
-      }
 
       // Extract details from parsed values.final_answer object (or root response if flat)
       const finalAnswerObj = result?.values?.final_answer || result;
@@ -810,6 +862,7 @@ export const CallInterface = () => {
             if (isActive) {
               // Clear transcripts, questions, summary, HITL and simulation states when a new call becomes active
               setExtractedFarmerProfile(null);
+              activeProfileRef.current = null;
               setTranscriptsList([]);
               setQuestions([]);
               setTranslatedQuestions({});
@@ -838,29 +891,25 @@ export const CallInterface = () => {
             }
           }}
           onCallUuidChange={(uuid) => {
-            if (uuid === callUuid) {
-              return;
-            }
-            setCallUuid(uuid);
-            // Preserve the last call's UUID when call ends for question generation
-            if (uuid === null && callUuid !== null) {
-              setLastCallUuid(callUuid);
-            }
-            if (uuid !== null) {
-              setLastCallUuid(null);
+            if (uuid) {
+              callUuidRef.current = uuid;
+              lastCallUuidRef.current = uuid;
+              setCallUuid(uuid);
+              setLastCallUuid(uuid);
+            } else {
+              setCallUuid(null);
+              callUuidRef.current = null;
             }
           }}
           onPhoneNumberChange={(phone) => {
-            if (phone === callPhoneNumber) {
-              return;
-            }
-            setCallPhoneNumber(phone);
-            // Preserve the last call's phone number when call ends
-            if (phone === null && callPhoneNumber !== null) {
-              setLastCallPhoneNumber(callPhoneNumber);
-            }
-            if (phone !== null) {
-              setLastCallPhoneNumber(null);
+            if (phone) {
+              callPhoneNumberRef.current = phone;
+              lastCallPhoneNumberRef.current = phone;
+              setCallPhoneNumber(phone);
+              setLastCallPhoneNumber(phone);
+            } else {
+              setCallPhoneNumber(null);
+              callPhoneNumberRef.current = null;
             }
           }}
         />
@@ -872,8 +921,12 @@ export const CallInterface = () => {
         {/* Left Column: Farmer Information Form (25%) */}
         <div className="w-full flex flex-col space-y-4">
           <FarmerDetails
-            phoneNo={callPhoneNumber || lastCallPhoneNumber || ""}
+            phoneNo={callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || ""}
             extractedProfile={extractedFarmerProfile}
+            disabled={!isCallActive && !isSimulatingMode && !(callUuid && callUuid.startsWith("testing_"))}
+            onProfileUpdated={(profile) => {
+              activeProfileRef.current = profile;
+            }}
             defaultOpen={true}
             className="border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300"
           />

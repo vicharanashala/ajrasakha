@@ -36,6 +36,7 @@ export class PlivoService {
   private activeStreams: Map<string, SarvamStreamSession> = new Map();
   private plivoClient: plivo.Client;
   private callAgentMapping: Map<string, string> = new Map();
+  private callMetadataMap: Map<string, { from?: string; to?: string; agentUserId?: string; startTime?: Date }> = new Map();
 
   private lastActivityMap: Map<string, number> = new Map();
 
@@ -59,6 +60,7 @@ export class PlivoService {
       if (now - lastTime > oneHourMs) {
         console.log(`[PLIVO-SERVICE GC] Purging stale in-memory call session for ${callId}`);
         this.clearTranscript(callId);
+        this.callMetadataMap.delete(callId);
       }
     }
   }
@@ -161,23 +163,31 @@ export class PlivoService {
       try {
         const response = JSON.parse(data.toString());
         if (response.type === 'data') {
-          const current = response.data.transcript || '';
-          const prev = session.lastOriginal;
-          let delta = '';
-          if (current.startsWith(prev)) {
-            delta = current.substring(prev.length).trim();
-          } else {
-            delta = current.trim();
-          }
+          const current = (response.data.transcript || '').trim();
+          if (!current) return;
 
           if (response.data.language_code) {
             session.detectedLanguage = response.data.language_code;
             this.detectedLanguages.set(key, response.data.language_code);
           }
 
+          const prev = session.lastOriginal;
+          let delta = '';
+          if (prev && current.startsWith(prev)) {
+            delta = current.substring(prev.length).trim();
+          } else if (!prev) {
+            delta = current;
+          } else {
+            // Streaming hypothesis revised by Sarvam STT: replace current pending segment
+            delta = current;
+            session.pendingOriginal = '';
+          }
+
           if (delta) {
             session.lastOriginal = current;
-            session.pendingOriginal = (session.pendingOriginal + ' ' + delta).trim();
+            session.pendingOriginal = session.pendingOriginal
+              ? `${session.pendingOriginal} ${delta}`.trim()
+              : delta;
             this.triggerDebounce(callId, track);
           }
         } else if (response.type === 'error') {
@@ -411,6 +421,7 @@ export class PlivoService {
 
   clearTranscript(callId: string): void {
     this.lastActivityMap.delete(callId);
+    this.endedCalls.delete(callId);
     for (const track of ['inbound', 'outbound'] as const) {
       const key = `${callId}_${track}`;
       this.activeTranscriptions.delete(key);
@@ -435,17 +446,38 @@ export class PlivoService {
     this.callAgentMapping.delete(callId);
   }
 
+
+  registerCall(callUuid: string, info: { from?: string; to?: string; agentUserId?: string; startTime?: Date }): void {
+    const existing = this.callMetadataMap.get(callUuid) || {};
+    this.callMetadataMap.set(callUuid, {
+      ...existing,
+      ...info,
+      startTime: info.startTime || existing.startTime || new Date(),
+    });
+    if (info.agentUserId) {
+      this.callAgentMapping.set(callUuid, info.agentUserId);
+    }
+    console.log(`📞 [PLIVO-SERVICE] Registered call metadata for ${callUuid}: from=${info.from}, to=${info.to}, agent=${info.agentUserId}`);
+  }
+
+  getCallMetadata(callUuid: string): { from?: string; to?: string; agentUserId?: string; startTime?: Date } | undefined {
+    return this.callMetadataMap.get(callUuid);
+  }
+
   setCallAgent(callUuid: string, agentUserId: string): void {
     this.callAgentMapping.set(callUuid, agentUserId);
+    const existing = this.callMetadataMap.get(callUuid) || {};
+    this.callMetadataMap.set(callUuid, { ...existing, agentUserId });
     console.log(`✅ [PLIVO-SERVICE] Set agent ${agentUserId} for call ${callUuid}`);
   }
 
   getCallAgent(callUuid: string): string | undefined {
-    return this.callAgentMapping.get(callUuid);
+    return this.callAgentMapping.get(callUuid) || this.callMetadataMap.get(callUuid)?.agentUserId;
   }
 
   async saveCallDetails(callUuid: string): Promise<void> {
     try {
+      const inMemoryMeta = this.callMetadataMap.get(callUuid);
       let plivoCall: any = null;
       try {
         plivoCall = await this.plivoClient.calls.get(callUuid);
@@ -460,15 +492,38 @@ export class PlivoService {
       const agentTranscript = this.getTranscript(callUuid, 'outbound');
       const agentTranslation = this.getTranslation(callUuid, 'outbound');
       const agentLanguage = this.getDetectedLanguage(callUuid, 'outbound');
-      const agentUserId = this.getCallAgent(callUuid);
+      const rawAgentUserId = this.getCallAgent(callUuid) || inMemoryMeta?.agentUserId;
+      let agentUserIdObj: ObjectId | undefined = undefined;
+      if (rawAgentUserId) {
+        const idStr = String(rawAgentUserId);
+        if (ObjectId.isValid(idStr) && idStr.length === 24) {
+          try {
+            agentUserIdObj = new ObjectId(idStr);
+          } catch {
+            agentUserIdObj = undefined;
+          }
+        }
+      }
+
+      const fromNumber = plivoCall?.from || plivoCall?.fromNumber || plivoCall?.from_number || inMemoryMeta?.from;
+      const toNumber = plivoCall?.to || plivoCall?.toNumber || plivoCall?.to_number || inMemoryMeta?.to;
+      let duration = plivoCall?.duration || plivoCall?.callDuration || plivoCall?.totalDuration;
+      if (duration !== undefined && duration !== null) {
+        duration = Math.max(0, Math.round(Number(duration)));
+      } else if (inMemoryMeta?.startTime) {
+        duration = Math.max(0, Math.round((Date.now() - inMemoryMeta.startTime.getTime()) / 1000));
+      }
+
+      const status = plivoCall?.callState || plivoCall?.status || 'completed';
+      const direction = plivoCall?.callDirection || plivoCall?.direction || 'inbound';
 
       const callDetails = {
         callUuid,
-        from: plivoCall?.fromNumber,
-        to: plivoCall?.toNumber,
-        duration: plivoCall?.callDuration,
-        status: plivoCall?.callState,
-        direction: plivoCall?.callDirection,
+        from: fromNumber,
+        to: toNumber,
+        duration: duration || 0,
+        status: status,
+        direction: direction,
         caller: {
           transcript: callerTranscript,
           translation: callerTranslation,
@@ -478,7 +533,7 @@ export class PlivoService {
           transcript: agentTranscript,
           translation: agentTranslation,
           detectedLanguage: agentLanguage,
-          userid: agentUserId ? new ObjectId(agentUserId) : undefined,
+          userid: agentUserIdObj,
         }
       };
 

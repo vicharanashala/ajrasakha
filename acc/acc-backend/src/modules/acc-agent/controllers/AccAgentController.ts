@@ -125,46 +125,72 @@ export class AccAgentController {
       // 2. Fetch the full thread state (with parsed final_answer, weather, and similar pairs)
       const threadState = await this.accAgentService.getThreadState(body.threadId);
 
-      // 3. If callUuid and metadata are provided, store Q/A pairs in call_details
-      if (body.callUuid && body.metadata) {
+      // 3. If callUuid is provided, store Q/A pairs in call_details & call_queries
+      if (body.callUuid) {
         const finalAnswerObj = threadState?.values?.final_answer;
         const finalAnswerMarkdown = typeof finalAnswerObj === 'string' ? finalAnswerObj : finalAnswerObj?.final_answer || '';
 
         const weather = finalAnswerObj?.weather || null;
-        const similarPair = finalAnswerObj?.gdb?.similar_pair1 || null;
+        const similarPair = finalAnswerObj?.gdb?.similar_pair1 || finalAnswerObj?.gdb?.exact_match || null;
         const authorName = similarPair?.details?.[0]?.author_name || "";
         const sourceName = similarPair?.details?.[0]?.source_name || "";
         const sourceLink = similarPair?.details?.[0]?.source_link || "";
 
+        const threadValues = threadState?.values || {};
+        const meta = body.metadata || {};
+
+        const extractedQuery = meta.extracted_query || threadValues.extracted_query || '';
+        const extractedCrop = meta.extracted_crop || threadValues.extracted_crop || '';
+        const extractedState = meta.extracted_state || threadValues.extracted_state || '';
+        const extractedDistrict = meta.extracted_district || threadValues.extracted_district || '';
+        const extractedBlock = meta.extracted_block || threadValues.extracted_block || '';
+        const extractedVillage = meta.extracted_village || threadValues.extracted_village || '';
+        const rawDomain = meta.standardized_domains || meta.extracted_domain || threadValues.standardized_domains || threadValues.extracted_domain || '';
+        const standardizedDomains = Array.isArray(rawDomain) ? rawDomain : (rawDomain ? [rawDomain] : []);
+        const extractedSeason = meta.extracted_season || threadValues.extracted_season || '';
+
         // Ensure call_details document exists
         let existingCallDetails = await this.callDetailsRepository.getByCallUuid(body.callUuid);
         if (!existingCallDetails) {
-          const agentUserIdStr = this.plivoService.getCallAgent(body.callUuid);
-          const agentUserIdObj = agentUserIdStr ? new ObjectId(agentUserIdStr) : undefined;
+          const inMemoryMeta = this.plivoService.getCallMetadata(body.callUuid);
+          const agentUserIdStr = this.plivoService.getCallAgent(body.callUuid) || inMemoryMeta?.agentUserId;
+          let agentUserIdObj: ObjectId | undefined = undefined;
+          if (agentUserIdStr) {
+            const idStr = String(agentUserIdStr);
+            if (ObjectId.isValid(idStr) && idStr.length === 24) {
+              try {
+                agentUserIdObj = new ObjectId(idStr);
+              } catch {
+                agentUserIdObj = undefined;
+              }
+            }
+          }
           console.warn(`[AccAgentController] Call details document not found for callUuid: ${body.callUuid}. Creating new document with agent.userid: ${agentUserIdStr}`);
           await this.callDetailsRepository.create({
             callUuid: body.callUuid,
+            from: inMemoryMeta?.from,
+            to: inMemoryMeta?.to,
             status: 'completed',
             direction: 'inbound',
-            caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
-            agent: { transcript: '', translation: '', detectedLanguage: 'unknown', userid: agentUserIdObj }
+            caller: { transcript: this.plivoService.getTranscript(body.callUuid, 'inbound'), translation: this.plivoService.getTranslation(body.callUuid, 'inbound'), detectedLanguage: this.plivoService.getDetectedLanguage(body.callUuid, 'inbound') },
+            agent: { transcript: this.plivoService.getTranscript(body.callUuid, 'outbound'), translation: this.plivoService.getTranslation(body.callUuid, 'outbound'), detectedLanguage: this.plivoService.getDetectedLanguage(body.callUuid, 'outbound'), userid: agentUserIdObj }
           });
         }
 
         // Add individual query with its own metadata to call_queries collection
         await this.callDetailsRepository.addQueryToCall(body.callUuid, {
           metadata: {
-            extracted_query: body.metadata.extracted_query || '',
-            extracted_crop: body.metadata.extracted_crop || '',
-            extracted_state: body.metadata.extracted_state || '',
-            extracted_district: body.metadata.extracted_district || '',
-            extracted_block: body.metadata.extracted_block || '',
-            extracted_village: body.metadata.extracted_village || '',
-            extracted_domain: body.metadata.extracted_domain || '',
-            extracted_season: body.metadata.extracted_season || '',
-            standardized_domains: body.metadata.standardized_domains || []
+            extracted_query: extractedQuery,
+            extracted_crop: extractedCrop,
+            extracted_state: extractedState,
+            extracted_district: extractedDistrict,
+            extracted_block: extractedBlock,
+            extracted_village: extractedVillage,
+            extracted_domain: standardizedDomains,
+            extracted_season: extractedSeason,
+            standardized_domains: standardizedDomains,
           },
-          question: body.metadata.extracted_query,
+          question: extractedQuery,
           answer: finalAnswerMarkdown,
           agri_specialist: 'ACC_AGENT',
           referenceSource: 'acc_agent_hitl',
@@ -173,6 +199,7 @@ export class AccAgentController {
           sourceLink,
           weather
         });
+        console.log(`✅ [AccAgentController] Saved question and metadata to call_queries for callUuid: ${body.callUuid}`);
       }
 
       // 4. Return the full thread state

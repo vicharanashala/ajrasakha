@@ -168,9 +168,17 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         { callUuid },
         {
           $addToSet: { queryIds: queryId as any },
-          $set: { updatedAt: now }
+          $set: { updatedAt: now },
+          $setOnInsert: {
+            callUuid,
+            createdAt: now,
+            status: 'completed',
+            direction: 'inbound',
+            caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
+            agent: { transcript: '', translation: '', detectedLanguage: 'unknown' },
+          }
         },
-        { session }
+        { upsert: true, session }
       );
 
       return queryId.toString();
@@ -193,6 +201,17 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       if (result) {
         const queries = await this.getQueriesByIds(result.queryIds, callUuid, session);
         result.queries = queries;
+        if (result.from) {
+          try {
+            const farmersColl = await this.db.getCollection('Farmers_info');
+            const farmerDoc: any = await farmersColl.findOne({ phoneNo: result.from }, { session });
+            if (farmerDoc) {
+              (result as any).farmerProfile = farmerDoc.profile || farmerDoc;
+            }
+          } catch (fErr) {
+            // ignore
+          }
+        }
       }
       return result;
     } catch (error: any) {

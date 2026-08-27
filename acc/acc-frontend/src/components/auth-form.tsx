@@ -6,11 +6,14 @@ import { Button } from "./atoms/button";
 import { Label } from "./atoms/label";
 import { Input } from "./atoms/input";
 import { useNavigate } from "@tanstack/react-router";
-import { Eye, EyeOff, UserPlus, LogIn } from "lucide-react";
+import { Eye, EyeOff, UserPlus, LogIn, ArrowLeft, Mail } from "lucide-react";
 import { loginWithEmail, signUpWithEmail } from "@/lib/firebase";
+import { AuthService } from "@/hooks/services/authService";
 import { toast } from "sonner";
 
 interface AuthFormProps extends React.ComponentProps<"div"> {}
+
+const authService = new AuthService();
 
 export const calculatePasswordStrength = (password: string) => {
   if (!password) return { value: 0, label: "Weak", color: "bg-red-500" };
@@ -35,6 +38,10 @@ export const AuthForm = ({
   ...props
 }: AuthFormProps) => {
   const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [isForgotPasswordMode, setIsForgotPasswordMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [isForgotLoading, setIsForgotLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -99,7 +106,7 @@ export const AuthForm = ({
           name: displayName,
           avatar: result.user.photoURL || "",
         });
-        toast.success("Account created successfully! Welcome to Annam Call Center.");
+        toast.success("Account created! A verification link has been sent to your email.");
         navigate({ to: "/call-agent-dashboard" });
       } else {
         // Handle Sign In
@@ -111,181 +118,271 @@ export const AuthForm = ({
           name: result!.user.displayName || email.split("@")[0],
           avatar: result!.user.photoURL || "",
         });
-        toast.success("Successfully logged in.");
+        toast.success("Signed in successfully!");
         navigate({ to: "/call-agent-dashboard" });
       }
     } catch (error: any) {
-      console.error("Auth failed", error);
-      toast.error(error.message || `Failed to ${isSignUpMode ? "sign up" : "sign in"}.`);
+      console.error("Auth error:", error);
+      let errorMessage = "An error occurred during authentication.";
+
+      if (error.code === "auth/email-already-in-use") {
+        errorMessage = "An account with this email already exists.";
+      } else if (
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/invalid-credential"
+      ) {
+        errorMessage = "Invalid email or password.";
+      } else if (error.code === "auth/user-not-found") {
+        errorMessage = "No account found with this email.";
+      } else if (error.code === "auth/weak-password") {
+        errorMessage = "Password should be at least 6 characters.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleForgotPasswordSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const targetEmail = forgotEmail.trim();
+    if (!targetEmail) {
+      toast.error("Please enter your email address.");
+      return;
+    }
+
+    setIsForgotLoading(true);
+    try {
+      await authService.forgotPassword(targetEmail);
+      toast.success(`Password reset link sent to ${targetEmail}. Please check your inbox and spam folder.`);
+      setIsForgotPasswordMode(false);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to send password reset email. Please try again.");
+    } finally {
+      setIsForgotLoading(false);
+    }
+  };
+
   const toggleMode = () => {
     setIsSignUpMode((prev) => !prev);
+    setIsForgotPasswordMode(false);
     setErrors({});
+    setFormData({
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+    });
   };
 
   return (
-    <div
-      className={cn(
-        "flex flex-col min-h-screen items-center justify-center p-4 relative overflow-hidden",
-        className
-      )}
-      {...props}
-    >
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-200/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-200/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-      </div>
-
-      <Card className="w-full max-w-md relative z-10 shadow-2xl border-0 backdrop-blur-sm animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
-        <CardHeader className="p-0 text-center flex flex-col items-center justify-center gap-2">
-          <img
-            src="/logo.png"
-            alt="Annam Logo"
-            className="w-12 h-12 object-contain mx-auto"
-          />
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-green-300 to-emerald-400 bg-clip-text text-transparent whitespace-nowrap">
-            {isSignUpMode ? "Create Annam Account" : "Annam Call Center Login"}
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <Card className="rounded-2xl border bg-card text-card-foreground shadow-xl transition-all duration-300">
+        <CardHeader className="text-center pb-4 pt-6">
+          <CardTitle className="text-xl font-bold tracking-tight">
+            {isForgotPasswordMode
+              ? "Reset Password"
+              : isSignUpMode
+              ? "Create an Account"
+              : "Welcome to Annam Call Center"}
           </CardTitle>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {isSignUpMode
-              ? "Register a new staff account to access the call portal"
-              : "Enter your credentials to access your dashboard"}
+          <p className="text-xs text-muted-foreground mt-1">
+            {isForgotPasswordMode
+              ? "Enter your email address to receive a secure password reset link."
+              : isSignUpMode
+              ? "Sign up to join as a call agent or administrator"
+              : "Enter your credentials to access the call center portal"}
           </p>
         </CardHeader>
 
-        <CardContent className="px-8 pb-8 pt-4">
-          <form onSubmit={handleEmailAuth}>
-            <div className="grid gap-4">
-              {/* First Name & Last Name (Sign Up Mode Only) */}
-              {isSignUpMode && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-1.5">
-                    <Label
-                      htmlFor="firstName"
-                      className="text-xs font-semibold text-gray-700 dark:text-gray-300"
-                    >
-                      First Name *
-                    </Label>
-                    <Input
-                      id="firstName"
-                      name="firstName"
-                      placeholder="John"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      className="h-10 border-2 focus:border-green-400 transition-colors duration-300 text-sm"
-                    />
-                    {errors.firstName && (
-                      <p className="text-xs text-red-500">{errors.firstName}</p>
-                    )}
-                  </div>
-
-                  <div className="grid gap-1.5">
-                    <Label
-                      htmlFor="lastName"
-                      className="text-xs font-semibold text-gray-700 dark:text-gray-300"
-                    >
-                      Last Name
-                    </Label>
-                    <Input
-                      id="lastName"
-                      name="lastName"
-                      placeholder="Doe"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      className="h-10 border-2 focus:border-green-400 transition-colors duration-300 text-sm"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Email Address */}
-              <div className="grid gap-1.5">
-                <Label
-                  htmlFor="email"
-                  className="text-xs font-semibold text-gray-700 dark:text-gray-300"
-                >
-                  Email Address *
-                </Label>
-                <Input
-                  id="email"
-                  name="email"
-                  placeholder="user@example.com"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="h-10 border-2 focus:border-green-400 transition-colors duration-300 text-sm"
-                />
-                {errors.email && (
-                  <p className="text-xs text-red-500">{errors.email}</p>
-                )}
-              </div>
-
-              {/* Password */}
-              <div className="grid gap-1.5">
-                <Label
-                  htmlFor="password"
-                  className="text-xs font-semibold text-gray-700 dark:text-gray-300"
-                >
-                  Password *
-                </Label>
-                <div className="relative">
+        <CardContent className="px-6 pb-6">
+          {isForgotPasswordMode ? (
+            <form onSubmit={handleForgotPasswordSubmit}>
+              <div className="grid gap-4">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="forgotEmail" className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    Email Address *
+                  </Label>
                   <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder={isSignUpMode ? "Create a strong password" : "Enter your password"}
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="h-10 border-2 focus:border-green-400 transition-colors duration-300 pr-10 text-sm"
+                    id="forgotEmail"
+                    name="forgotEmail"
+                    type="email"
+                    placeholder="user@example.com"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    className="h-10 border-2 focus:border-green-400 transition-colors duration-300 text-sm"
+                    autoFocus
                   />
+                </div>
+
+                <Button
+                  className="w-full h-11 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center cursor-pointer btn-primary-emerald mt-2 gap-2"
+                  type="submit"
+                  disabled={isForgotLoading}
+                >
+                  <Mail className="w-4 h-4" />
+                  <span className="text-sm font-semibold">
+                    {isForgotLoading ? "Sending Link..." : "Send Password Reset Link"}
+                  </span>
+                </Button>
+
+                <div className="text-center pt-3 border-t border-border">
                   <button
                     type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer"
+                    onClick={() => setIsForgotPasswordMode(false)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-primary-accent hover:underline bg-transparent border-none cursor-pointer"
                   >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Back to Sign In
                   </button>
                 </div>
-                {errors.password && (
-                  <p className="text-xs text-red-500">{errors.password}</p>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleEmailAuth}>
+              <div className="grid gap-3.5">
+                {/* First and Last Name (Sign Up only) */}
+                {isSignUpMode && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-1">
+                      <Label
+                        htmlFor="firstName"
+                        className="text-xs font-semibold text-gray-700 dark:text-gray-300"
+                      >
+                        First Name *
+                      </Label>
+                      <Input
+                        id="firstName"
+                        name="firstName"
+                        placeholder="John"
+                        value={formData.firstName}
+                        onChange={handleInputChange}
+                        className="h-10 border-2 focus:border-green-400 transition-colors duration-300 text-sm"
+                      />
+                      {errors.firstName && (
+                        <p className="text-xs text-red-500">{errors.firstName}</p>
+                      )}
+                    </div>
+                    <div className="grid gap-1">
+                      <Label
+                        htmlFor="lastName"
+                        className="text-xs font-semibold text-gray-700 dark:text-gray-300"
+                      >
+                        Last Name
+                      </Label>
+                      <Input
+                        id="lastName"
+                        name="lastName"
+                        placeholder="Doe"
+                        value={formData.lastName}
+                        onChange={handleInputChange}
+                        className="h-10 border-2 focus:border-green-400 transition-colors duration-300 text-sm"
+                      />
+                    </div>
+                  </div>
                 )}
-              </div>
 
-              {/* Submit Button */}
-              <Button
-                className="w-full h-11 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center cursor-pointer btn-primary-emerald mt-2 gap-2"
-                type="submit"
-                disabled={isLoading}
-              >
-                {isSignUpMode ? <UserPlus className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
-                <span className="text-sm font-semibold">
-                  {isLoading ? "Please wait..." : isSignUpMode ? "Create Account" : "Sign In"}
-                </span>
-              </Button>
-
-              {/* Toggle Mode Switcher */}
-              <div className="text-center pt-3 border-t border-border">
-                <p className="text-xs text-muted-foreground">
-                  {isSignUpMode ? "Already have an account?" : "Don't have an account?"}{" "}
-                  <button
-                    type="button"
-                    onClick={toggleMode}
-                    className="font-bold text-primary-accent hover:underline bg-transparent border-none cursor-pointer"
+                {/* Email Address */}
+                <div className="grid gap-1.5">
+                  <Label
+                    htmlFor="email"
+                    className="text-xs font-semibold text-gray-700 dark:text-gray-300"
                   >
-                    {isSignUpMode ? "Sign In" : "Sign Up"}
-                  </button>
-                </p>
+                    Email Address *
+                  </Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    placeholder="user@example.com"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="h-10 border-2 focus:border-green-400 transition-colors duration-300 text-sm"
+                  />
+                  {errors.email && (
+                    <p className="text-xs text-red-500">{errors.email}</p>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div className="grid gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="password"
+                      className="text-xs font-semibold text-gray-700 dark:text-gray-300"
+                    >
+                      Password *
+                    </Label>
+                    {!isSignUpMode && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsForgotPasswordMode(true);
+                          setForgotEmail(formData.email);
+                        }}
+                        className="text-[11px] font-semibold text-primary-accent hover:underline bg-transparent border-none cursor-pointer"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder={isSignUpMode ? "Create a strong password" : "Enter your password"}
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="h-10 border-2 focus:border-green-400 transition-colors duration-300 pr-10 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-xs text-red-500">{errors.password}</p>
+                  )}
+                </div>
+
+                {/* Submit Button */}
+                <Button
+                  className="w-full h-11 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center cursor-pointer btn-primary-emerald mt-2 gap-2"
+                  type="submit"
+                  disabled={isLoading}
+                >
+                  {isSignUpMode ? <UserPlus className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
+                  <span className="text-sm font-semibold">
+                    {isLoading ? "Please wait..." : isSignUpMode ? "Create Account" : "Sign In"}
+                  </span>
+                </Button>
+
+                {/* Toggle Mode Switcher */}
+                <div className="text-center pt-3 border-t border-border">
+                  <p className="text-xs text-muted-foreground">
+                    {isSignUpMode ? "Already have an account?" : "Don't have an account?"}{" "}
+                    <button
+                      type="button"
+                      onClick={toggleMode}
+                      className="font-bold text-primary-accent hover:underline bg-transparent border-none cursor-pointer"
+                    >
+                      {isSignUpMode ? "Sign In" : "Sign Up"}
+                    </button>
+                  </p>
+                </div>
               </div>
-            </div>
-          </form>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -164,9 +164,10 @@ export class StorageService {
         size,
       };
     } catch (gcsError: any) {
-      console.warn(`⚠️ [STORAGE-SERVICE] Storage bucket upload failed (${gcsError.message}). Saving to local uploads folder fallback...`);
+      console.error(`❌ [STORAGE-SERVICE] Storage bucket upload failed: ${gcsError.message}`);
+      throw gcsError;
 
-      // Fallback: Save to local filesystem in development
+      /* Commented out local uploads filesystem fallback (use Firebase Storage Emulator locally instead):
       const fs = await import('fs');
       const path = await import('path');
       const localFilePath = path.join(process.cwd(), 'uploads', destinationPath);
@@ -184,6 +185,7 @@ export class StorageService {
         storagePath: destinationPath,
         size: stats.size,
       };
+      */
     }
   }
 
@@ -214,6 +216,10 @@ export class StorageService {
         size: buffer.length,
       };
     } catch (err: any) {
+      console.error(`❌ [STORAGE-SERVICE] Storage buffer upload failed: ${err.message}`);
+      throw err;
+
+      /* Commented out local uploads filesystem fallback:
       const fs = await import('fs');
       const path = await import('path');
       const localFilePath = path.join(process.cwd(), 'uploads', destinationPath);
@@ -225,24 +231,25 @@ export class StorageService {
         storagePath: destinationPath,
         size: buffer.length,
       };
+      */
     }
   }
 
   /**
    * Generates a temporary, authenticated playback URL.
-   * In local fallback/emulator mode: returns direct HTTP media endpoint.
+   * In local emulator mode: returns direct HTTP media endpoint from emulator.
    * In production mode: returns 15-minute V4 Signed URL.
    */
   async getSignedPlaybackUrl(storagePath: string, expiresInMinutes: number = 15): Promise<string> {
+    /* Commented out local uploads directory fallback:
     const fs = await import('fs');
     const path = await import('path');
     const localFilePath = path.join(process.cwd(), 'uploads', storagePath);
-
-    // If file exists in local uploads directory fallback, serve from backend endpoint
     if (fs.existsSync(localFilePath)) {
       const backendUrl = appConfig.url || `http://localhost:${appConfig.port}`;
       return `${backendUrl}/api/plivo/recordings/local?path=${encodeURIComponent(storagePath)}`;
     }
+    */
 
     const emulatorHost =
       process.env.FIREBASE_STORAGE_EMULATOR_HOST ||
@@ -254,22 +261,17 @@ export class StorageService {
       return `http://${cleanHost}/v0/b/${this.bucketName}/o/${encodedPath}?alt=media`;
     }
 
-    try {
-      const bucket = this.getBucket();
-      const file = bucket.file(storagePath);
-      const expiresAt = Date.now() + expiresInMinutes * 60 * 1000;
-      const [signedUrl] = await file.getSignedUrl({
-        version: 'v4',
-        action: 'read',
-        expires: expiresAt,
-      });
-      return signedUrl;
-    } catch (err) {
-      const backendUrl = appConfig.url || `http://localhost:${appConfig.port}`;
-      return `${backendUrl}/api/plivo/recordings/local?path=${encodeURIComponent(storagePath)}`;
-    }
-
+    const bucket = this.getBucket();
+    const file = bucket.file(storagePath);
+    const expiresAt = Date.now() + expiresInMinutes * 60 * 1000;
+    const [signedUrl] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: expiresAt,
+    });
+    return signedUrl;
   }
+
 
 
   /**

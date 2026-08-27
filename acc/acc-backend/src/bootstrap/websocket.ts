@@ -41,7 +41,8 @@ export const initWebSocket = (server: Server) => {
         const isTargetAgent = assignedAgentId && client.userId === assignedAgentId;
         const isAdminOrMod = client.userRole === 'admin' || client.userRole === 'moderator';
 
-        if (!assignedAgentId || isTargetAgent || isAdminOrMod) {
+        // Deliver only to the assigned call agent or verified admins/moderators
+        if (isTargetAgent || isAdminOrMod) {
           client.send(JSON.stringify(payload));
           recipientCount++;
         }
@@ -62,7 +63,8 @@ export const initWebSocket = (server: Server) => {
     let callId = Date.now().toString();
     let isMediaStream = false;
     let isCallEnded = false;
-    const audioChunks: Buffer[] = [];
+    // Unused in-memory buffer commented out to prevent heap memory exhaustion during calls
+    // const audioChunks: Buffer[] = [];
 
     // Authenticate client if token query param is provided
     try {
@@ -81,6 +83,7 @@ export const initWebSocket = (server: Server) => {
     } catch (authError: any) {
       console.warn('[WEBSOCKET] Token authentication skipped/failed:', authError.message || authError);
     }
+
 
     const handleCallEnd = async () => {
       if (!isMediaStream || isCallEnded) return;
@@ -198,7 +201,7 @@ export const initWebSocket = (server: Server) => {
 
         if (msg.event === 'media') {
           const audioBuffer = Buffer.from(msg.media.payload, 'base64');
-          audioChunks.push(audioBuffer);
+          // audioChunks.push(audioBuffer); // Commented out unused buffer
           const track = msg.media.track || 'inbound';
           plivoService.transcribeAudio(audioBuffer, callId, track).catch((transcribeError) => {
             console.error('[BACKEND] transcribeAudio failed:', transcribeError);
@@ -209,6 +212,7 @@ export const initWebSocket = (server: Server) => {
             });
           });
         }
+
 
         if (msg.event === 'stop') {
           await handleCallEnd();

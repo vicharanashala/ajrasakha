@@ -204,8 +204,8 @@ export class PlivoService {
       const response = await apiFetch<CallFarmer>(url);
       return response;
     } catch (error) {
-      console.error(`[FARMER_FLOW] PlivoService.getFarmerByPhoneNo: Error for phoneNo ${phoneNo}:`, error);
-      throw error;
+      console.warn(`[FARMER_FLOW] PlivoService.getFarmerByPhoneNo: Note for phoneNo ${phoneNo}:`, error);
+      return null;
     }
   }
 

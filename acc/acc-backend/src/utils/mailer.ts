@@ -15,20 +15,23 @@ export async function sendEmailNotification(
   }
 
   const transporter = nodemailer.createTransport({
-    host: 'smtp.zoho.in',
-    port: 465,
-    secure: true,
+    host: emailConfig.SMTP_HOST,
+    port: emailConfig.SMTP_PORT,
+    secure: emailConfig.SMTP_SECURE,
     auth: {
       user,
       pass,
     },
   });
 
+  const fromSender = emailConfig.EMAIL_FROM || `"Agri Platform" <${user}>`;
+
   try {
     await transporter.sendMail({
-      from: `"Agri Platform" <${user}>`,
+      from: fromSender,
       to: email,
       subject: title,
+      text: message,
       html,
     });
   } catch (error) {
@@ -36,3 +39,4 @@ export async function sendEmailNotification(
     throw error;
   }
 }
+
