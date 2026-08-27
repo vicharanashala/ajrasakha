@@ -335,6 +335,7 @@ export class UserRepository implements IUserRepository {
     isBlockedFilter?: boolean,
     isVerifiedFilter?: boolean,
     isSTFFilter?: boolean,
+    isTMUFilter?: boolean,
     session?: ClientSession,
   ): Promise<{
     users: IUser[];
@@ -375,6 +376,11 @@ export class UserRepository implements IUserRepository {
 
       if (isSTFFilter !== undefined) {
         matchQuery.special_task_force = isSTFFilter;
+      }
+
+      // Training-user filter: true → training users; false → non-training (false/missing).
+      if (isTMUFilter !== undefined) {
+        matchQuery.isTrainingUser = isTMUFilter ? true : { $ne: true };
       }
 
       const sortMap: any = {

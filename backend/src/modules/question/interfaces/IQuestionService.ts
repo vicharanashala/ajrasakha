@@ -705,6 +705,8 @@ export interface IQuestionService {
     limit?: number,
     startTime?: Date,
     endTime?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<QueueSectionResult>;
 
   /**

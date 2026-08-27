@@ -94,6 +94,8 @@ export class QuestionAllocationController {
         limit,
         startTime,
         endTime,
+        isTrainingUser,
+        isAdmin,
       );
       return { success: true, data };
     }

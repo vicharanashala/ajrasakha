@@ -3935,6 +3935,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
       {$sort: {'question.createdAt': 1}},
+      // Drop the heavy embedding vector from the joined question — the allocator
+      // never uses it, and loading it per candidate bloats memory (OOM / 503).
+      {$project: {'question.embedding': 0}},
     ]).toArray();
   }
 
@@ -3990,6 +3993,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
       {$sort: {'question.createdAt': 1}},
+      // Drop the heavy embedding vector from the joined question — the allocator
+      // never uses it, and loading it per candidate bloats memory (OOM / 503).
+      {$project: {'question.embedding': 0}},
     ]).toArray();
   }
 
@@ -4020,6 +4026,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       isTesting: {$ne: true},
       // Manual single-allocation: only questions not yet PAE-reviewed (false/missing).
       ...(requirePaeReviewNotDone ? { pae_review: { $ne: true } } : {}),
+    }, {
+      // Never load the embedding vector — the allocator doesn't use it, and pulling it
+      // for every candidate question bloats memory (OOM / Cloud Run 503).
+      projection: { embedding: 0 },
     })
       .sort({createdAt: 1})
       .toArray();

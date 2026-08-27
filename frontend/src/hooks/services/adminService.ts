@@ -39,10 +39,11 @@ export class AdminUserService {
     role: string,
     isBlocked: string,
     isVerified: string,
-    isSTF: string
+    isSTF: string,
+    isTMU: string
   ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number } | null> {
     return apiFetch(
-      `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}&role=${role}&isBlocked=${isBlocked}&isVerified=${isVerified}&isSTF=${isSTF}`
+      `${this._baseUrl}/admin/all?page=${page}&limit=${limit}&search=${search}&sort=${sort}&filter=${filter}&role=${role}&isBlocked=${isBlocked}&isVerified=${isVerified}&isSTF=${isSTF}&isTMU=${isTMU}`
     );
   }
 
@@ -55,6 +56,7 @@ export class AdminUserService {
     isBlocked?: string;
     isVerified?: string;
     isSTF?: string;
+    isTMU?: string;
   }): Promise<Blob> {
     const qs = new URLSearchParams();
     if (params.search) qs.append("search", params.search);
@@ -64,6 +66,7 @@ export class AdminUserService {
     if (params.isBlocked && params.isBlocked !== "ALL") qs.append("isBlocked", params.isBlocked);
     if (params.isVerified && params.isVerified !== "ALL") qs.append("isVerified", params.isVerified);
     if (params.isSTF && params.isSTF !== "ALL") qs.append("isSTF", params.isSTF);
+    if (params.isTMU && params.isTMU !== "ALL") qs.append("isTMU", params.isTMU);
 
     const user = await getCurrentUser();
     if (!user) throw new Error("User not authenticated");

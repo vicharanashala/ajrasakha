@@ -231,8 +231,11 @@ export class UserService extends BaseService {
     changeRoleTo: UserRole,
   ): Promise<IUser> {
     try {
-      if (!currentUser || currentUser.role !== 'admin') {
-        throw new ForbiddenError('Only admin can switch user roles');
+      if (
+        !currentUser ||
+        (currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper')
+      ) {
+        throw new ForbiddenError('Only admin or gate keeper can switch user roles');
       }
 
       if (!userId) {
@@ -295,6 +298,7 @@ export class UserService extends BaseService {
     isBlocked?: boolean;
     isVerified?: boolean;
     isSTF?: boolean;
+    isTMU?: boolean;
   }): Promise<ArrayBuffer> {
     // Fetch every matching user (no pagination) via the same query the list uses.
     // 1_000_000 is an effective "no limit" cap — far above the total user count.
@@ -308,6 +312,7 @@ export class UserService extends BaseService {
       opts.isBlocked,
       opts.isVerified,
       opts.isSTF,
+      opts.isTMU,
     );
 
     const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -381,6 +386,7 @@ export class UserService extends BaseService {
     isBlocked?: boolean,
     isVerified?: boolean,
     isSTF?: boolean,
+    isTMU?: boolean,
   ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
     return await this._withTransaction(async () => {
       const { users, totalUsers, totalPages } =
@@ -394,6 +400,7 @@ export class UserService extends BaseService {
           isBlocked,
           isVerified,
           isSTF,
+          isTMU,
         );
       return { users, totalUsers, totalPages };
     });
@@ -596,8 +603,13 @@ export class UserService extends BaseService {
     workloadAfter: number;
     questionIds: string[];
   }> {
-    if (!currentUser || currentUser.role !== 'admin') {
-      throw new ForbiddenError('Only admins can remove expert allocations');
+    if (
+      !currentUser ||
+      (currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper')
+    ) {
+      throw new ForbiddenError(
+        'Only admin or gate keeper can remove expert allocations',
+      );
     }
 
     return this._withTransaction(async (session: ClientSession) => {

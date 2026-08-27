@@ -2579,17 +2579,28 @@ export class AllocationService extends BaseService {
         unallocatedSubmissions,
         answeredNeedingReviewer,
       ] = await Promise.all([
+        // Fetch BOTH training and real questions (isAdmin=true bypasses the training
+        // filter). Each question is then routed to the right expert pool by
+        // getEligibleExpertsForQuestion (training question → training experts, real
+        // question → real experts). Without this the cron only fetched non-training
+        // questions, so training questions were never allocated.
         this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(
           sources,
           requirePaeReviewNotDone,
+          undefined,
+          true,
         ),
         this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(
           sources,
           requirePaeReviewNotDone,
+          undefined,
+          true,
         ),
         this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(
           sources,
           requirePaeReviewNotDone,
+          undefined,
+          true,
         ),
       ]);
 

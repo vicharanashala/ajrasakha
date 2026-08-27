@@ -4,7 +4,8 @@ This script:
 1. Connects to MongoDB and fetches closed questions with final answers
 2. Formats the data for HuggingFace dataset format
 3. Pushes to HuggingFace Hub
-4. Sends email notification with sync statistics
+4. Updates the dataset README with latest statistics
+5. Sends email notification with sync statistics
 
 Run via Google Cloud Run as a daily cron job.
 """
@@ -13,13 +14,16 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 from bson import ObjectId
 from datasets import Dataset, DatasetDict, load_dataset
 from datasets import Features, Sequence, Value
 from dotenv import load_dotenv
+from huggingface_hub import HfApi
 from pymongo import MongoClient
 
 from email_service import send_sync_notification
@@ -329,6 +333,10 @@ class GoldenToHuggingFaceSync:
         try:
             self.push_to_huggingface(dataset)
 
+            # Update README with latest statistics
+            log.info("Updating dataset README with statistics...")
+            self.update_dataset_readme(qa_pairs, new_rows)
+
             log.info("=" * 60)
             log.info("Sync completed successfully!")
             log.info("=" * 60)
@@ -359,6 +367,90 @@ class GoldenToHuggingFaceSync:
             raise
 
         return dataset
+
+    def get_statistics(self) -> tuple[int, int]:
+        """Get dataset statistics from MongoDB.
+
+        Returns:
+            Tuple of (total_questions, with_approved_answer)
+        """
+        # Count total unique questions (by text)
+        total_questions = self.questions_collection.count_documents({
+            "status": "closed",
+            "question": {"$exists": True, "$ne": ""}
+        })
+
+        # Count questions with approved final answer
+        with_approved = self.answers_collection.count_documents({
+            "isFinalAnswer": True
+        })
+
+        return total_questions, with_approved
+
+    def update_dataset_readme(self, qa_pairs: list[dict[str, Any]], total_rows: int) -> None:
+        """Update the dataset README on HuggingFace with latest statistics.
+
+        Reads the local README template, replaces placeholders with actual
+        counts, and pushes the updated README to HuggingFace.
+
+        Args:
+            qa_pairs: The synced Q&A pairs (used to count unique questions)
+            total_rows: Total number of rows in the dataset
+        """
+        # Get the README template path
+        readme_path = Path(__file__).parent / "dataset_readme.md"
+
+        if not readme_path.exists():
+            log.warning("README template not found at %s, skipping README update", readme_path)
+            return
+
+        # Read the template
+        readme_content = readme_path.read_text(encoding="utf-8")
+
+        # Count unique questions by text
+        unique_questions = len(set(qa["question"] for qa in qa_pairs if qa.get("question")))
+
+        # Count questions with approved final answer
+        with_approved = sum(1 for qa in qa_pairs if qa.get("answer_text"))
+
+        # Calculate splits (default: 1% validation, 1% test, rest train)
+        val_count = max(int(total_rows * 0.01), 1)
+        test_count = max(int(total_rows * 0.01), 1)
+        train_count = total_rows - val_count - test_count
+
+        # Get current date for coverage
+        current_date = datetime.now(IST).strftime("%d %B %Y")
+
+        # Replace placeholders
+        readme_content = readme_content.replace("{{TOTAL_QUESTIONS}}", f"{unique_questions:,}")
+        readme_content = readme_content.replace("{{WITH_APPROVED_ANSWER}}", f"{with_approved:,}")
+        readme_content = readme_content.replace("{{SYNC_DATE}}", current_date)
+        readme_content = readme_content.replace("{{TRAIN_COUNT}}", f"{train_count:,}")
+        readme_content = readme_content.replace("{{VAL_COUNT}}", f"{val_count:,}")
+        readme_content = readme_content.replace("{{TEST_COUNT}}", f"{test_count:,}")
+
+        log.info("README stats - Questions: %s, With approved: %s, Date: %s",
+                 f"{unique_questions:,}", f"{with_approved:,}", current_date)
+        log.info("Splits - Train: %s, Val: %s, Test: %s",
+                 f"{train_count:,}", f"{val_count:,}", f"{test_count:,}")
+
+        # Push to HuggingFace
+        hf_api = HfApi(token=HUGGINGFACE_TOKEN)
+        repo_id = HF_DATASET_NAME
+
+        try:
+            # Upload the README file
+            hf_api.upload_file(
+                path_or_fileobj=readme_content.encode("utf-8"),
+                path_in_repo="README.md",
+                repo_id=repo_id,
+                repo_type="dataset",
+                commit_message=f"Update README stats: {unique_questions:,} questions, {with_approved:,} with approved answer",
+            )
+            log.info("Successfully updated README on HuggingFace")
+        except Exception as e:
+            log.error("Failed to update README on HuggingFace: %s", str(e))
+            raise
 
 
 def main():
