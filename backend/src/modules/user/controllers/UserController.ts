@@ -16,7 +16,9 @@ import {
   BadRequestError,
   InternalServerError,
   ForbiddenError,
-  QueryParam
+  QueryParam,
+  ContentType,
+  Res,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -188,7 +190,7 @@ export class UserController {
   })
   @Get('/admin/all')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   async getAllUsers(
     @CurrentUser() user: IUser,
     @QueryParams()
@@ -202,6 +204,7 @@ export class UserController {
       isBlocked?: string;
       isVerified?: string;
       isSTF?: string;
+      isTMU?: string;
     },
 
   ) {
@@ -214,6 +217,7 @@ export class UserController {
     const isBlocked = query.isBlocked === 'true' ? true : query.isBlocked === 'false' ? false : undefined;
     const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
     const isSTF = query.isSTF === 'true' ? true : query.isSTF === 'false' ? false : undefined;
+    const isTMU = query.isTMU === 'true' ? true : query.isTMU === 'false' ? false : undefined;
 
     return this.userService.getAllUsers(
       pageNum,
@@ -225,7 +229,49 @@ export class UserController {
       isBlocked,
       isVerified,
       isSTF,
+      isTMU,
     );
+  }
+
+  @OpenAPI({ summary: 'Export all users (matching the current filters) as an Excel sheet' })
+  @Get('/admin/all/export')
+  @Authorized(['admin', 'gate_keeper'])
+  @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportAllUsers(
+    @QueryParams()
+    query: {
+      search?: string;
+      sort?: string;
+      filter?: string;
+      role?: string;
+      isBlocked?: string;
+      isVerified?: string;
+      isSTF?: string;
+      isTMU?: string;
+    },
+    @Res() response: any,
+  ) {
+    const isBlocked = query.isBlocked === 'true' ? true : query.isBlocked === 'false' ? false : undefined;
+    const isVerified = query.isVerified === 'true' ? true : query.isVerified === 'false' ? false : undefined;
+    const isSTF = query.isSTF === 'true' ? true : query.isSTF === 'false' ? false : undefined;
+    const isTMU = query.isTMU === 'true' ? true : query.isTMU === 'false' ? false : undefined;
+
+    const data = await this.userService.exportUsersToXlsx({
+      search: query.search || '',
+      sort: query.sort || '',
+      filter: query.filter || '',
+      role: query.role || 'ALL',
+      isBlocked,
+      isVerified,
+      isSTF,
+      isTMU,
+    });
+
+    response.setHeader(
+      'Content-Disposition',
+      'attachment; filename="users.xlsx"',
+    );
+    return Buffer.from(data);
   }
 
   @OpenAPI({
@@ -547,7 +593,7 @@ export class UserController {
   })
   @Patch('/stf')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   async toggleSTFStatus(
     @Body() body: BlockUnblockBody,
     @CurrentUser() user: IUser,
@@ -832,7 +878,7 @@ export class UserController {
     statusCode: 403,
     description: 'Forbidden - Admin access required',
   })
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   @Post('/:id/remove-allocations')
   @HttpCode(200)
   async removeExpertAllocations(
@@ -972,7 +1018,7 @@ export class UserController {
     statusCode: 403,
     description: 'Forbidden - Admin access required',
   })
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   @Patch('/:id/verify')
   @HttpCode(200)
   async verifyUser(
@@ -980,10 +1026,10 @@ export class UserController {
     @Body() body: VerifyUserBody,
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
-    // manual admin check
-  if (currentUser.role !== 'admin') {
+    // manual admin check (gate keepers get the same user-management actions)
+  if (currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper') {
     throw new ForbiddenError(
-      'Only admins can verify users',
+      'Only admin or gate keeper can verify users',
     );
   }
     const {isVerified} = body;
@@ -1258,7 +1304,7 @@ export class UserController {
   })
   @Patch('/training-users')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', 'gate_keeper'])
   async toggleTrainingUserStatus(
     @Body() body: BlockUnblockBody,
     @CurrentUser() user: IUser,

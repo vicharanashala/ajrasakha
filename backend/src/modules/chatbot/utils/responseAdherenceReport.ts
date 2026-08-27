@@ -141,10 +141,13 @@ function buildRowExportData(
 }
 
 /**
- * Builds the full Response Adherence report as CSV text (with a UTF-8 BOM, matching the
- * frontend's download/email output exactly), always including every row and all three
- * source columns — the same "full table" shape the old Email Report button always sent,
- * regardless of whichever rows/columns were checked in the download panel.
+ * Builds the full Response Adherence report as CSV text (with a UTF-8 BOM), always including
+ * every row — the same "full table" shape the old Email Report button always sent, regardless
+ * of whichever rows/columns were checked in the download panel.
+ *
+ * All three source columns are emitted. Unlike the email body — whose highlights table drops
+ * Manual while Additional Breakdowns keeps it — the attachment is a single flat table with one
+ * fixed header, so it cannot vary per section and carries Manual throughout.
  */
 export function buildResponseAdherenceCsv(
   d: ResponseAdherenceTable,
@@ -174,9 +177,11 @@ const HIGHLIGHT_ROW_IDS = [
 /**
  * Renders one set of rows as a styled, rounded HTML table card. Used twice by
  * {@link buildResponseAdherenceHtmlTable} — once for the highlight rows, once for everything
- * else — so the two tables look identical apart from which rows they contain.
+ * else — so the two tables look identical apart from which rows they contain and whether they
+ * carry the Manual column (`includeManual`): the highlights table is Whatsapp/AjraSakha only,
+ * while Additional Breakdowns keeps all three sources.
  */
-function renderTableCard(rows: ReportRow[]): string {
+function renderTableCard(rows: ReportRow[], includeManual: boolean): string {
   if (!rows.length) return '';
 
   const thStyle =
@@ -188,8 +193,12 @@ function renderTableCard(rows: ReportRow[]): string {
   const fieldTdStyle = (striped: boolean) =>
     `${tdStyle(striped)}font-weight:500;`;
 
-  const headerCells = ['Status', 'Whatsapp', 'AjraSakha', 'Manual']
-    .map((label, idx) => `<th style="${thStyle}${idx === 0 ? 'border-top-left-radius:12px;' : ''}${idx === 3 ? 'border-top-right-radius:12px;' : ''}">${htmlEscape(label)}</th>`)
+  const headerLabels = ['Status', 'Whatsapp', 'AjraSakha'];
+  if (includeManual) {
+    headerLabels.push('Manual');
+  }
+  const headerCells = headerLabels
+    .map((label, idx) => `<th style="${thStyle}${idx === 0 ? 'border-top-left-radius:12px;' : ''}${idx === headerLabels.length - 1 ? 'border-top-right-radius:12px;' : ''}">${htmlEscape(label)}</th>`)
     .join('');
 
   const bodyRows = rows
@@ -199,7 +208,9 @@ function renderTableCard(rows: ReportRow[]): string {
         `<td style="${fieldTdStyle(striped)}">${htmlEscape(row.field)}</td>`,
         `<td style="${tdStyle(striped)}">${htmlEscape(row.whatsapp)}</td>`,
         `<td style="${tdStyle(striped)}">${htmlEscape(row.ajraSakha)}</td>`,
-        `<td style="${tdStyle(striped)}">${htmlEscape(row.manual)}</td>`,
+        ...(includeManual
+          ? [`<td style="${tdStyle(striped)}">${htmlEscape(row.manual)}</td>`]
+          : []),
       ].join('');
       return `<tr>${cells}</tr>`;
     })
@@ -223,11 +234,14 @@ export function buildResponseAdherenceHtmlTable(
 ): string {
   const rows = buildRowExportData(d, fallbackDate);
   const highlightRows = rows.filter(row => HIGHLIGHT_ROW_IDS.includes(row.id));
-  const mainRows = rows.filter(row => !HIGHLIGHT_ROW_IDS.includes(row.id));
+  // const mainRows = rows.filter(row => !HIGHLIGHT_ROW_IDS.includes(row.id));
 
-  const sectionLabel =
-    `<div style="margin:4px 0 10px 2px;font-family:${THEME.font};font-size:13px;font-weight:700;` +
-    `color:${THEME.heading};text-transform:uppercase;letter-spacing:.04em;">Additional Breakdowns</div>`;
+  // const sectionLabel =
+  //   `<div style="margin:4px 0 10px 2px;font-family:${THEME.font};font-size:13px;font-weight:700;` +
+  //   `color:${THEME.heading};text-transform:uppercase;letter-spacing:.04em;">Additional Breakdowns</div>`;
 
-  return `${renderTableCard(highlightRows)}${mainRows.length ? sectionLabel : ''}${renderTableCard(mainRows)}`;
+  // Additional Breakdowns table temporarily disabled in the email body (2026-08-20, per request).
+  // To restore: uncomment mainRows/sectionLabel above and swap back to the return below.
+  // return `${renderTableCard(highlightRows, false)}${mainRows.length ? sectionLabel : ''}${renderTableCard(mainRows, true)}`;
+  return `${renderTableCard(highlightRows, false)}`;
 }

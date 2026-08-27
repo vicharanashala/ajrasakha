@@ -8987,7 +8987,16 @@ export class QuestionRepository implements IQuestionRepository {
               autoAllocateFeedback: true,
               // Feedback (re)opened now — stamp recency so the moderator queue can
               // order feedback questions by when feedback arrived, not question age.
-              recentFeedback: '$$NOW',
+              // Only stamp it when there is no existing value (null / missing): the first
+              // feedback sets the clock; a later feedback arriving while one is still open
+              // must NOT reset it. It's cleared back to null once all feedbacks close.
+              recentFeedback: {
+                $cond: [
+                  { $eq: [{ $ifNull: ['$recentFeedback', null] }, null] },
+                  '$$NOW',
+                  '$recentFeedback',
+                ],
+              },
               feedbacks: {
                 $let: {
                   vars: {
@@ -9066,14 +9075,26 @@ export class QuestionRepository implements IQuestionRepository {
   /** Find all questions with paeValidation status of 'pending' that are ready for
    *  PAE expert validation. Questions are sorted by createdAt in ascending order
    *  (oldest first).
+   *
+   *  Uses a lean projection to only retrieve fields needed by the PAE assignment
+   *  algorithm (domain/state matching via isQuestionMatchForPaeExpert).
    */
   async findQuestionsPendingPaeValidation(
     session?: ClientSession,
   ): Promise<IQuestion[]> {
     await this.init();
+
+    // Lean projection: only fields needed for domain/state matching
+    // isQuestionMatchForPaeExpert needs: details.domain, details.state, _id
+    const leanProjection = {
+      _id: 1,
+      'details.domain': 1,
+      'details.state': 1,
+    };
+
     return this.QuestionCollection.find(
-      { paeValidation: 'pending',autoAllocatePaeValidationExpert:true },
-      { session },
+      { paeValidation: 'pending', autoAllocatePaeValidationExpert: true },
+      { session, projection: leanProjection },
     )
       .sort({ createdAt: 1 })
       .toArray();
@@ -9395,8 +9416,196 @@ export class QuestionRepository implements IQuestionRepository {
       filter.autoAllocatePaeValidationExpert = true;
     }
 
-    return this.QuestionCollection.find(filter as any)
+    // INCLUSION projection: retrieve ONLY the fields actually consumed by submissionToQueueItem()
+    // and the PAE queue service logic. This dramatically reduces memory usage compared to the
+    // previous exclusion projection which still loaded unnecessary large fields like metrics,
+    // feedbacks, authors_history, etc.
+    //
+    // Fields required by submissionToQueueItem(q):
+    //   _id, question, status, source, isTrainingQuestion, priority, createdAt,
+    //   details.state, details.district, details.crop
+    // Additional fields needed by PaeValidationService.getPaeValidationQueueDetails():
+    //   autoAllocatePaeValidationExpert
+    const leanProjection = {
+      _id: 1,
+      question: 1,
+      status: 1,
+      source: 1,
+      isTrainingQuestion: 1,
+      priority: 1,
+      createdAt: 1,
+      'details.state': 1,
+      'details.district': 1,
+      'details.crop': 1,
+      autoAllocatePaeValidationExpert: 1,
+    };
+
+    return this.QuestionCollection.find(filter as any, {
+      projection: leanProjection,
+    } as any)
       .sort({ createdAt: 1 })
       .toArray();
+  }
+
+  /**
+   * Get paginated PAE validation queue data with TRUE server-side pagination.
+   * 
+   * Strategy:
+   * 1. First get assigned question IDs from submissions (small query)
+   * 2. Then use MongoDB $facet aggregation to:
+   *    - Categorize questions into sections (waitingAuto, waitingManual, assigned)
+   *    - Count per section
+   *    - Paginate per section
+   * 
+   * This fetches ONLY the needed documents from MongoDB, not all ~40k questions.
+   */
+  async getPaeValidationQueuePaginated(params: {
+    page?: number;
+    limit?: number;
+    section?: 'waitingAuto' | 'waitingManual' | 'assigned';
+  }): Promise<{
+    waitingAuto: { count: number; totalPages: number; items: IQuestion[] };
+    waitingManual: { count: number; totalPages: number; items: IQuestion[] };
+    assigned: { count: number; totalPages: number; items: IQuestion[] };
+  }> {
+    await this.init();
+
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(Math.max(1, params.limit ?? 50), 100);
+    const skip = (page - 1) * limit;
+
+    // Step 1: Get assigned question IDs from submissions (lightweight query - just IDs)
+    // This is necessary because "assigned" status comes from question_submissions collection
+    const assignedIds = await this.getAssignedPaeValidationQuestionIds();
+    console.log("Assigned ids@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ",assignedIds)
+    console.log("Assigned ids@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ length ",assignedIds.length)
+    // Step 2: Build the base filter for questions with open PAE validation
+    const baseFilter: Record<string, unknown> = {
+      status: { $in: ['closed', 'dynamic_closed', 'duplicate_closed'] },
+      paeValidation: { $ne: 'completed' },
+    };
+
+    // Lean projection - only fields needed for queue display
+    const leanProjection = {
+      _id: 1,
+      question: 1,
+      status: 1,
+      source: 1,
+      isTrainingQuestion: 1,
+      priority: 1,
+      createdAt: 1,
+      'details.state': 1,
+      'details.district': 1,
+      'details.crop': 1,
+      autoAllocatePaeValidationExpert: 1,
+    };
+
+    // Step 3: Use $facet for server-side categorization and pagination
+    // This runs ONE query but handles all 3 sections efficiently
+    const pipeline: object[] = [
+      { $match: baseFilter },
+      {
+        $facet: {
+          // waitingAuto: questions with autoAllocatePaeValidationExpert = true
+          waitingAuto: [
+            { $match: { autoAllocatePaeValidationExpert: true, paeValidation:"pending" } },
+            { $count: 'total' },
+          ],
+          waitingAutoItems: [
+            { $match: { autoAllocatePaeValidationExpert: true, paeValidation:"pending" } },
+            { $sort: { createdAt: 1 } },
+            { $skip: skip },
+            { $limit: limit },
+            { $project: leanProjection },
+          ],
+          // waitingManual: questions WITHOUT auto allocation (false, undefined, or missing)
+          waitingManual: [
+            { $match: { autoAllocatePaeValidationExpert: { $ne: true }, paeValidation: "pending" } },
+            { $count: 'total' },
+          ],
+          waitingManualItems: [
+            { $match: { autoAllocatePaeValidationExpert: { $ne: true }, paeValidation: "pending" } },
+            { $sort: { createdAt: 1 } },
+            { $skip: skip },
+            { $limit: limit },
+            { $project: leanProjection },
+          ],
+          // assigned: questions that have an active PAE validation review
+          assigned: [
+            { $match: { _id: { $in: assignedIds } } },
+            { $count: 'total' },
+          ],
+          assignedItems: [
+            { $match: { _id: { $in: assignedIds } } },
+            { $sort: { createdAt: 1 } },
+            { $skip: skip },
+            { $limit: limit },
+            { $project: leanProjection },
+          ],
+        },
+      },
+    ];
+
+    console.log(`[PAE REPO] Executing paginated aggregation for page ${page}, limit ${limit}`);
+
+    const [result] = await this.QuestionCollection.aggregate(pipeline as any, {
+      allowDiskUse: true,
+      // Note: Let MongoDB query planner choose the best index automatically
+    }).toArray();
+
+    // Extract and format results
+    const waitingAutoCount = result?.waitingAuto?.[0]?.total ?? 0;
+    const waitingManualCount = result?.waitingManual?.[0]?.total ?? 0;
+    const assignedCount = result?.assigned?.[0]?.total ?? 0;
+
+    return {
+      waitingAuto: {
+        count: waitingAutoCount,
+        totalPages: Math.ceil(waitingAutoCount / limit),
+        items: result?.waitingAutoItems ?? [],
+      },
+      waitingManual: {
+        count: waitingManualCount,
+        totalPages: Math.ceil(waitingManualCount / limit),
+        items: result?.waitingManualItems ?? [],
+      },
+      assigned: {
+        count: assignedCount,
+        totalPages: Math.ceil(assignedCount / limit),
+        items: result?.assignedItems ?? [],
+      },
+    };
+  }
+
+  /**
+   * Helper: Get IDs of questions with active PAE validation reviews
+   * This is a lightweight query - only returns _id field
+   * Uses paeValidation array with paeFinishedAt = null (matching findOpenPaeValidationReviews logic)
+   */
+  private async getAssignedPaeValidationQuestionIds(): Promise<ObjectId[]> {
+    await this.init();
+    
+    const submissions = await this.QuestionSubmissionCollection.aggregate([
+      { $match: { paeValidation: { $elemMatch: { paeFinishedAt: null } } } },
+      { $project: { questionId: 1 } },
+    ]).toArray();
+    return submissions
+      .map((s) => s.questionId)
+      .filter((id): id is ObjectId => id != null);
+  }
+
+  /**
+   * Get count of available PAE experts
+   */
+  async getAvailablePaeExpertsCount(): Promise<number> {
+    await this.init();
+
+    return this.UsersCollection.countDocuments({
+      role: 'pae_expert',
+      isPaused: false,
+      $expr: {
+        $lt: [{ $size: { $ifNull: ['$assignedValidationQuestions', []] } }, 3],
+      },
+    });
   }
 }

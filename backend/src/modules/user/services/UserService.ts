@@ -1,4 +1,5 @@
 import { inject, injectable } from 'inversify';
+import ExcelJS from 'exceljs';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
@@ -29,6 +30,7 @@ import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRep
 import {sendEmailNotification} from '#root/utils/mailer.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
+import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -50,6 +52,9 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.NotificationService)
     private readonly notificationService: NotificationService,
+
+    @inject(GLOBAL_TYPES.RoleAssigneeService)
+    private readonly roleAssigneeService: IRoleAssigneeService,
   ) {
     super(mongoDatabase);
   }
@@ -230,38 +235,59 @@ export class UserService extends BaseService {
     changeRoleTo: UserRole,
   ): Promise<IUser> {
     try {
-      if (!currentUser || currentUser.role !== 'admin') {
-        throw new ForbiddenError('Only admin can switch user roles');
+      if (
+        !currentUser ||
+        (currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper')
+      ) {
+        throw new ForbiddenError('Only admin or gate keeper can switch user roles');
       }
 
       if (!userId) {
         throw new BadRequestError('User ID is required');
       }
 
-      return this._withTransaction(async (session: ClientSession) => {
-        const user = await this.userRepo.findById(userId, session);
+      const result = await this._withTransaction(
+        async (session: ClientSession) => {
+          const user = await this.userRepo.findById(userId, session);
 
-        if (!user) {
-          throw new NotFoundError(`User with ID ${userId} not found`);
-        }
+          if (!user) {
+            throw new NotFoundError(`User with ID ${userId} not found`);
+          }
 
-        // Prevent unnecessary update
-        if (user.role === changeRoleTo) {
-          throw new BadRequestError(`User already has role ${changeRoleTo}`);
-        }
+          // Prevent unnecessary update
+          if (user.role === changeRoleTo) {
+            throw new BadRequestError(`User already has role ${changeRoleTo}`);
+          }
 
-        const updatedUser = await this.userRepo.edit(
-          userId,
-          { role: changeRoleTo },
-          session,
-        );
+          const updatedUser = await this.userRepo.edit(
+            userId,
+            { role: changeRoleTo },
+            session,
+          );
 
-        if (!updatedUser) {
-          throw new InternalServerError('Failed to update user role');
-        }
+          if (!updatedUser) {
+            throw new InternalServerError('Failed to update user role');
+          }
 
-        return updatedUser;
-      });
+          return updatedUser;
+        },
+      );
+
+      // Switching a user INTO the gate keeper / auditor role adds a new available
+      // assignee — fill the role queues now so they can immediately receive a question.
+      // Fire-and-forget and idempotent, so it can't affect the role update.
+      if (changeRoleTo === 'gate_keeper' || changeRoleTo === 'auditor') {
+        void this.roleAssigneeService
+          .runGateKeeperAuditorQueueCron()
+          .catch(err =>
+            console.error(
+              '[updateUserRole] event-driven gate-keeper/auditor allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+
+      return result;
     } catch (error) {
       // Preserve known errors
       if (
@@ -278,6 +304,100 @@ export class UserService extends BaseService {
     }
   }
 
+  /**
+   * Build an .xlsx of all users matching the SAME filters the admin user-management
+   * list uses (search / sort / state filter / role / blocked / verified / STF), with
+   * one row per user. Only human/personal details are included — preference is split
+   * into its own columns (state / district / crop / domain) — and work/system fields
+   * (assigned questions, reputation, penalty, incentive, etc.), the password and the
+   * firebase id are excluded. Returns the workbook as a Buffer.
+   */
+  async exportUsersToXlsx(opts: {
+    search?: string;
+    sort?: string;
+    filter?: string;
+    role?: string;
+    isBlocked?: boolean;
+    isVerified?: boolean;
+    isSTF?: boolean;
+    isTMU?: boolean;
+  }): Promise<ArrayBuffer> {
+    // Fetch every matching user (no pagination) via the same query the list uses.
+    // 1_000_000 is an effective "no limit" cap — far above the total user count.
+    const { users } = await this.userRepo.findAllUsers(
+      1,
+      1_000_000,
+      opts.search || '',
+      opts.sort || '',
+      opts.filter || '',
+      opts.role || 'ALL',
+      opts.isBlocked,
+      opts.isVerified,
+      opts.isSTF,
+      opts.isTMU,
+    );
+
+    const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+    const asIST = (v: any): string => {
+      if (!v) return '';
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return '';
+      return new Date(d.getTime() + IST_OFFSET_MS)
+        .toISOString()
+        .replace('T', ' ')
+        .slice(0, 16);
+    };
+    const yesNo = (v: any): string => (v === true ? 'Yes' : v === false ? 'No' : '');
+    const joinArr = (v: any): string =>
+      Array.isArray(v) ? v.filter(Boolean).join(', ') : (v ?? '');
+    // KVKs → "State / District — Name; …" (each entry may be partial).
+    const fmtKvk = (v: any): string =>
+      Array.isArray(v)
+        ? v
+            .map((k: any) =>
+              [k?.state, k?.district].filter(Boolean).join(' / ') +
+              (k?.name ? ` — ${k.name}` : ''),
+            )
+            .filter(s => s.trim())
+            .join('; ')
+        : '';
+
+    // Curated, human-readable columns only.
+    const columns: { header: string; value: (u: any) => any }[] = [
+      { header: 'ID', value: u => u._id?.toString() ?? '' },
+      { header: 'First Name', value: u => u.firstName ?? '' },
+      { header: 'Last Name', value: u => u.lastName ?? '' },
+      { header: 'Email', value: u => u.email ?? '' },
+      { header: 'Mobile', value: u => u.mobile ?? '' },
+      { header: 'Role', value: u => u.role ?? '' },
+      { header: 'Status', value: u => u.status ?? '' },
+      { header: 'Blocked', value: u => yesNo(u.isBlocked) },
+      { header: 'Verified', value: u => yesNo(u.isVerified) },
+      { header: 'University', value: u => u.university ?? '' },
+      { header: 'Preferred State', value: u => u.preference?.state ?? '' },
+      { header: 'Preferred District', value: u => u.preference?.district ?? '' },
+      { header: 'Preferred Crop', value: u => u.preference?.crop ?? '' },
+      { header: 'Preferred Domain', value: u => joinArr(u.preference?.domain) },
+      { header: 'KVK Covered', value: u => fmtKvk(u.kvkCovered) },
+      { header: 'Last Check-In', value: u => asIST(u.lastCheckInAt) },
+      { header: 'Created At', value: u => asIST(u.createdAt) },
+      { header: 'Updated At', value: u => asIST(u.updatedAt) },
+    ];
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Users');
+    sheet.columns = columns.map(c => ({ header: c.header, key: c.header, width: 22 }));
+    sheet.getRow(1).font = { bold: true };
+
+    for (const u of users as any[]) {
+      const row: Record<string, any> = {};
+      for (const c of columns) row[c.header] = c.value(u);
+      sheet.addRow(row);
+    }
+
+    return (await workbook.xlsx.writeBuffer()) as unknown as ArrayBuffer;
+  }
+
   async getAllUsers(
     page: number,
     limit: number,
@@ -288,6 +408,7 @@ export class UserService extends BaseService {
     isBlocked?: boolean,
     isVerified?: boolean,
     isSTF?: boolean,
+    isTMU?: boolean,
   ): Promise<{ users: IUser[]; totalUsers: number; totalPages: number }> {
     return await this._withTransaction(async () => {
       const { users, totalUsers, totalPages } =
@@ -301,6 +422,7 @@ export class UserService extends BaseService {
           isBlocked,
           isVerified,
           isSTF,
+          isTMU,
         );
       return { users, totalUsers, totalPages };
     });
@@ -418,7 +540,7 @@ export class UserService extends BaseService {
   }
 
   async blockUnblockExperts(userId: string, action: string) {
-    return await this._withTransaction(async (session: ClientSession) => {
+    const result = await this._withTransaction(async (session: ClientSession) => {
       if (action === 'block') {
         // The minimum-experts guard protects the EXPERT pool only. Blocking a
         // moderator (e.g. moderator check-out, which toggles isBlocked) must not
@@ -437,6 +559,29 @@ export class UserService extends BaseService {
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
     });
+
+    // Unblocking a gate keeper / auditor makes them available again
+    // (findAvailableUsersByRole excludes isBlocked users) — fill the role queues now so
+    // they can immediately receive a question. Only relevant for those two roles.
+    // Fire-and-forget and idempotent, so it can't affect the unblock result.
+    if (action !== 'block') {
+      const unblocked = await this.userRepo.findById(userId);
+      if (
+        unblocked?.role === 'gate_keeper' ||
+        unblocked?.role === 'auditor'
+      ) {
+        void this.roleAssigneeService
+          .runGateKeeperAuditorQueueCron()
+          .catch(err =>
+            console.error(
+              '[blockUnblockExperts] event-driven gate-keeper/auditor allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+    }
+
+    return result;
   }
 
   async updateSTFStatus(userId: string, action: string): Promise<void> {
@@ -503,8 +648,13 @@ export class UserService extends BaseService {
     workloadAfter: number;
     questionIds: string[];
   }> {
-    if (!currentUser || currentUser.role !== 'admin') {
-      throw new ForbiddenError('Only admins can remove expert allocations');
+    if (
+      !currentUser ||
+      (currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper')
+    ) {
+      throw new ForbiddenError(
+        'Only admin or gate keeper can remove expert allocations',
+      );
     }
 
     return this._withTransaction(async (session: ClientSession) => {

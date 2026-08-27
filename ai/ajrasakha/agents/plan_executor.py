@@ -1201,6 +1201,8 @@ async def execute_plan_node(
         resolved=resolved,
     )
     
+    logger.info("execute_plan_node: reviewer_calls=%s question_source=%s", reviewer_calls, question_source)
+    
     if reviewer_calls:
         ai_reviewer = AIMessage(content="", tool_calls=reviewer_calls)
         exec_state2 = {**state, "messages": list(all_messages) + [ai_reviewer]}

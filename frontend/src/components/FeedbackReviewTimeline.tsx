@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   MessageSquareDiff,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Loader2,
   UserPlus,
@@ -13,6 +14,8 @@ import {
   CheckCheck,
   Trash2,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 import { QuestionService } from "@/hooks/services/questionService";
 import { useToggleRoleAllocation } from "@/hooks/api/question/useRoleAssignee";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
@@ -59,6 +62,7 @@ export const FeedbackReviewTimeline = ({
   const autoOn = timeline?.autoAllocateFeedback === true;
   const hasOpenRound = !!timeline?.reviews.some((r) => !r.finishedAt);
 
+  const [isOpen, setIsOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -154,12 +158,15 @@ export const FeedbackReviewTimeline = ({
       {/* Header — mirrors the role queue header */}
       <div className="flex flex-col gap-4 pb-6 border-b border-border">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10">
+          <div
+            onClick={() => setIsOpen((prev) => !prev)}
+            className="flex items-center gap-3 cursor-pointer select-none group"
+          >
+            <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
               <MessageSquareDiff className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-semibold text-foreground">
+              <h2 className="text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
                 Feedback Review
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
@@ -170,59 +177,100 @@ export const FeedbackReviewTimeline = ({
             </div>
           </div>
 
-          {canManage && (
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
-                <Switch
-                  id="auto-allocate-feedback"
-                  checked={autoOn}
-                  disabled={toggle.isPending}
-                  onCheckedChange={handleToggle}
-                />
-                <Label
-                  htmlFor="auto-allocate-feedback"
-                  className="cursor-pointer font-medium text-sm flex items-center gap-2"
-                >
-                  {toggle.isPending && (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
-                  Auto-allocate Feedback
-                </Label>
-              </div>
-
-              {showSelect &&
-                (hasOpenRound && openRoundCompleted ? (
-                  // Replacing a reviewer who already submitted feedback — confirm first.
-                  <ConfirmationModal
-                    title="Replace this reviewer?"
-                    description={`${openRound?.reviewerName ?? "This user"} has already completed ${openRound?.completedCount} feedback${(openRound?.completedCount ?? 0) === 1 ? "" : "s"} on this question. Replacing them may erase that completed work. Are you sure you want to replace the user?`}
-                    confirmText="Replace"
-                    cancelText="Cancel"
-                    type="edit"
-                    onConfirm={() => openPicker(openRoundIndex)}
-                    trigger={
-                      <Button variant="default" className="gap-2 w-full sm:w-auto">
-                        <UserPlus className="w-4 h-4" />
-                        Change Reviewer
-                      </Button>
-                    }
+          <div className="flex flex-wrap items-center gap-3">
+            {canManage && (
+              <>
+                <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+                  <Switch
+                    id="auto-allocate-feedback"
+                    checked={autoOn}
+                    disabled={toggle.isPending}
+                    onCheckedChange={handleToggle}
                   />
-                ) : (
-                  <Button
-                    variant="default"
-                    className="gap-2 w-full sm:w-auto"
-                    onClick={() =>
-                      openPicker(hasOpenRound ? openRoundIndex : undefined)
-                    }
+                  <Label
+                    htmlFor="auto-allocate-feedback"
+                    className="cursor-pointer font-medium text-sm flex items-center gap-2"
                   >
-                    <UserPlus className="w-4 h-4" />
-                    {hasOpenRound ? "Change Reviewer" : "Select Reviewer"}
-                  </Button>
-                ))}
-            </div>
-          )}
+                    {toggle.isPending && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                    Auto-allocate Feedback
+                  </Label>
+                </div>
+
+                {showSelect &&
+                  (hasOpenRound && openRoundCompleted ? (
+                    // Replacing a reviewer who already submitted feedback — confirm first.
+                    <ConfirmationModal
+                      title="Replace this reviewer?"
+                      description={`${openRound?.reviewerName ?? "This user"} has already completed ${openRound?.completedCount} feedback${(openRound?.completedCount ?? 0) === 1 ? "" : "s"} on this question. Replacing them may erase that completed work. Are you sure you want to replace the user?`}
+                      confirmText="Replace"
+                      cancelText="Cancel"
+                      type="edit"
+                      onConfirm={() => openPicker(openRoundIndex)}
+                      trigger={
+                        <Button variant="default" className="gap-2 w-full sm:w-auto">
+                          <UserPlus className="w-4 h-4" />
+                          Change Reviewer
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <Button
+                      variant="default"
+                      className="gap-2 w-full sm:w-auto"
+                      onClick={() =>
+                        openPicker(hasOpenRound ? openRoundIndex : undefined)
+                      }
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      {hasOpenRound ? "Change Reviewer" : "Select Reviewer"}
+                    </Button>
+                  ))}
+              </>
+            )}
+
+            <Button
+              variant="default"
+              size="sm"
+              className="h-9 mr-2 w-9 p-0 rounded-lg hover:bg-muted"
+              title={isOpen ? "Collapse" : "Expand"}
+              onClick={() => setIsOpen((prev) => !prev)}
+            >
+              <ChevronDown
+                className={cn(
+                  "h-5 w-5 transition-transform duration-300 ease-in-out",
+                  isOpen ? "rotate-180" : ""
+                )}
+              />
+            </Button>
+          </div>
         </div>
       </div>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="feedback-review-timeline-content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{
+              height: "auto",
+              opacity: 1,
+              transition: {
+                height: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1.0] },
+                opacity: { duration: 0.25, delay: 0.05 },
+              },
+            }}
+            exit={{
+              height: 0,
+              opacity: 0,
+              transition: {
+                height: { duration: 0.28, ease: [0.25, 0.1, 0.25, 1.0] },
+                opacity: { duration: 0.18 },
+              },
+            }}
+            className="overflow-hidden"
+          >
 
       {/* Assigned reviewers as circular cards */}
       {timeline.reviews.length === 0 ? (
@@ -360,6 +408,9 @@ export const FeedbackReviewTimeline = ({
           })}
         </div>
       )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Select / change reviewer modal — all users */}
       <Dialog

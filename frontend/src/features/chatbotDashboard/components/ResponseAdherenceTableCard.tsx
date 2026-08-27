@@ -1392,8 +1392,10 @@ export function ResponseAdherenceTableCard({
 
   const hasSelectedRows = rowExportData.some((row) => checkedRows[row.id]);
 
-  // Shared by both the "Download .xlsx" button and the "Email Report" dialog,
-  // so the emailed report always matches exactly what the download would have produced.
+  // Shared by both the "Download .xlsx" button and the "Email Report" dialog. The download
+  // passes no `columns` and so follows the checkboxes; the email call site pins all three on.
+  // The attachment is a single flat table with one fixed header, so unlike the email body
+  // (whose highlights table drops Manual) it cannot vary per section and keeps Manual throughout.
   const buildCsvContent = (
     options?: {
       rowIds?: readonly string[];
@@ -1465,8 +1467,13 @@ export function ResponseAdherenceTableCard({
 
   // Renders one set of rows as a styled, rounded HTML table card. Used twice by
   // buildReportHtmlTable below - once for the highlight rows, once for everything
-  // else - so the two tables look identical apart from which rows they contain.
-  const renderTableCard = (rows: typeof rowExportData): string => {
+  // else - so the two tables look identical apart from which rows they contain and
+  // whether they carry the Manual column (`includeManual`): the highlights table is
+  // Whatsapp/AjraSakha only, while Additional Breakdowns keeps all three sources.
+  const renderTableCard = (
+    rows: typeof rowExportData,
+    includeManual: boolean,
+  ): string => {
     if (!rows.length) return "";
 
     const thStyle =
@@ -1477,8 +1484,12 @@ export function ResponseAdherenceTableCard({
       `color:${EMAIL_THEME.text};background:${striped ? EMAIL_THEME.rowStripe : EMAIL_THEME.cardBg};`;
     const fieldTdStyle = (striped: boolean) => `${tdStyle(striped)}font-weight:500;`;
 
-    const headerCells = ["Status", "Whatsapp", "AjraSakha", "Manual"]
-      .map((label, idx) => `<th style="${thStyle}${idx === 0 ? "border-top-left-radius:12px;" : ""}${idx === 3 ? "border-top-right-radius:12px;" : ""}">${htmlEscape(label)}</th>`)
+    const headerLabels = ["Status", "Whatsapp", "AjraSakha"];
+    if (includeManual) {
+      headerLabels.push("Manual");
+    }
+    const headerCells = headerLabels
+      .map((label, idx) => `<th style="${thStyle}${idx === 0 ? "border-top-left-radius:12px;" : ""}${idx === headerLabels.length - 1 ? "border-top-right-radius:12px;" : ""}">${htmlEscape(label)}</th>`)
       .join("");
 
     const bodyRows = rows
@@ -1488,7 +1499,9 @@ export function ResponseAdherenceTableCard({
           `<td style="${fieldTdStyle(striped)}">${htmlEscape(row.field)}</td>`,
           `<td style="${tdStyle(striped)}">${htmlEscape(row.whatsapp)}</td>`,
           `<td style="${tdStyle(striped)}">${htmlEscape(row.ajraSakha)}</td>`,
-          `<td style="${tdStyle(striped)}">${htmlEscape(row.manual)}</td>`,
+          ...(includeManual
+            ? [`<td style="${tdStyle(striped)}">${htmlEscape(row.manual)}</td>`]
+            : []),
         ].join("");
         return `<tr>${cells}</tr>`;
       })
@@ -1509,13 +1522,16 @@ export function ResponseAdherenceTableCard({
     if (!selectedRows.length) return null;
 
     const highlightRows = selectedRows.filter((row) => HIGHLIGHT_ROW_IDS.includes(row.id));
-    const mainRows = selectedRows.filter((row) => !HIGHLIGHT_ROW_IDS.includes(row.id));
+    // const mainRows = selectedRows.filter((row) => !HIGHLIGHT_ROW_IDS.includes(row.id));
 
-    const sectionLabel =
-      `<div style="margin:4px 0 10px 2px;font-family:${EMAIL_THEME.font};font-size:13px;font-weight:700;` +
-      `color:${EMAIL_THEME.heading};text-transform:uppercase;letter-spacing:.04em;">Additional Breakdowns</div>`;
+    // const sectionLabel =
+    //   `<div style="margin:4px 0 10px 2px;font-family:${EMAIL_THEME.font};font-size:13px;font-weight:700;` +
+    //   `color:${EMAIL_THEME.heading};text-transform:uppercase;letter-spacing:.04em;">Additional Breakdowns</div>`;
 
-    return `${renderTableCard(highlightRows)}${mainRows.length ? sectionLabel : ""}${renderTableCard(mainRows)}`;
+    // Additional Breakdowns table temporarily disabled in the email body (2026-08-20, per request).
+    // To restore: uncomment mainRows/sectionLabel above and swap back to the return below.
+    // return `${renderTableCard(highlightRows, false)}${mainRows.length ? sectionLabel : ""}${renderTableCard(mainRows, true)}`;
+    return `${renderTableCard(highlightRows, false)}`;
   };
 
   const handleDownloadSelectedFields = () => {
@@ -1790,7 +1806,7 @@ export function ResponseAdherenceTableCard({
                     </motion.div>
                     <div className="flex flex-col items-start min-w-0">
                       <CardTitle className="text-sm font-semibold tracking-tight text-foreground flex items-center gap-1.5">
-                        <span>Response Adherence Summary</span>
+                        <span>Ajrasakha - Daily Update on Application Testing, Backend Responses, and Response Time Compliance</span>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
