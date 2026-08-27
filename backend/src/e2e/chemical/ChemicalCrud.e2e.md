@@ -132,7 +132,25 @@ flowchart TD
   end
 ```
 
-## Test cases (15 total)
+## Additional coverage (migrated 2026-08-25)
+
+`GET ?search=`, `POST` 400-missing-fields, and `PUT`/`DELETE` 404-for-non-existent-id
+were previously covered only by a mocked test in
+`src/modules/chemical/tests/ChemicalController.api.test.ts` (fully mocked service, no
+real DB). That file has been deleted — everything it tested that wasn't already
+duplicated by this suite now has a real equivalent here, in the same in-process
+harness. See `BUGS_REPORT.md` / `COVERAGE_GAP_REPORT.md` for the consolidation note.
+
+| # | Test | Expected |
+|---|------|----------|
+| 16 | `GET /chemicals?search=<name>` returns only matching chemicals | 200, filtered list |
+| 17 | `POST /chemicals` with an empty body | 400 |
+| 18 | `PUT /chemicals/:id` for a non-existent id | 404 |
+| 19 | `DELETE /chemicals/:id` for a non-existent id | 404 |
+
+---
+
+## Test cases (19 total)
 
 ### Authentication Smoke Tests (3 tests)
 
@@ -236,14 +254,7 @@ NODE_ENV=test pnpm exec vitest run src/e2e/chemical/ChemicalCrud.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 15 passed &nbsp;|&nbsp; **Duration:** 12.9 s
+**Date:** 2026-08-25 &nbsp;|&nbsp; **Result:** ✅ all 19 passed &nbsp;|&nbsp; **Duration:** ~11 s
 
-> ⚠ Vitest only printed 5 of 15 test lines (passing suites are truncated in the output).
-
-| # | Test | Result | Failure reason |
-|---|------|:------:|----------------|
-| 1 | Authentication Smoke Tests > returns 200 when auth is valid | ✅ | — |
-| 2 | Chemical CRUD E2E > admin updates a chemical | ✅ | — |
-| 3 | Chemical CRUD E2E > moderator can update chemical | ✅ | — |
-| 4 | Chemical CRUD E2E > expert cannot delete chemical | ✅ | — |
-| 5 | Chemical CRUD E2E > moderator can delete chemical | ✅ | — |
+(Previous run: 2026-08-20, 15/15 passed, 12.9s — before the 4 tests migrated from
+`ChemicalController.api.test.ts` were added.)

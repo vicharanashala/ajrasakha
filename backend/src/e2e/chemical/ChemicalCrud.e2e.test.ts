@@ -439,3 +439,66 @@ describe('Chemical CRUD E2E', () => {
     expect(getRes.status).toBe(404);
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// Additional coverage — migrated 2026-08-25 from the mocked
+// src/modules/chemical/tests/ChemicalController.api.test.ts (now deleted;
+// see BUGS_REPORT.md / COVERAGE_GAP_REPORT.md for the consolidation note).
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('GET /chemicals — search query param', () => {
+  it('returns only chemicals matching the search term', async () => {
+    currentTestUser = adminUser;
+
+    const uniqueName = `${RUN_TAG}_Searchable_Chemical`;
+    const createRes = await apiPost(`${ROUTE_PREFIX}/chemicals`).send({
+      name: uniqueName,
+      status: 'Restricted',
+    });
+    expect(createRes.status).toBe(201);
+    const localId = createRes.body.data._id;
+    createdChemicalIds.push(localId);
+
+    const res = await apiGet(`${ROUTE_PREFIX}/chemicals?search=${encodeURIComponent(uniqueName)}`);
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 300));
+    expect(res.status).toBe(200);
+    expect(res.body.chemicals.length).toBeGreaterThan(0);
+    expect(res.body.chemicals.every((c: any) => c.name.toLowerCase().includes(uniqueName.toLowerCase()))).toBe(true);
+  });
+});
+
+describe('POST /chemicals — validation', () => {
+  it('returns 400 when required fields are missing', async () => {
+    currentTestUser = adminUser;
+
+    const res = await apiPost(`${ROUTE_PREFIX}/chemicals`).send({});
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body));
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('PUT/DELETE /chemicals/:chemicalId — non-existent id', () => {
+  const nonExistentId = new ObjectId().toString();
+
+  it('PUT returns 404 for a non-existent chemical', async () => {
+    currentTestUser = adminUser;
+
+    const res = await apiPut(`${ROUTE_PREFIX}/chemicals/${nonExistentId}`).send({
+      name: 'Does Not Matter',
+    });
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body));
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE returns 404 for a non-existent chemical', async () => {
+    currentTestUser = adminUser;
+
+    const res = await apiDelete(`${ROUTE_PREFIX}/chemicals/${nonExistentId}`);
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body));
+    expect(res.status).toBe(404);
+  });
+});
