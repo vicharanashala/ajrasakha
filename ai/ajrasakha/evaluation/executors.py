@@ -126,7 +126,9 @@ def run_mock_case(case: dict) -> dict:
         "http_status": 200,
         "graph_status": "success",
         "latency_seconds": round(time.time() - start_time, 2),
-        "response_text": response_text,
+        "response_text": response_text[:500],
+        "full_response_text": response_text,
+        "retrieved_context": [],
         "error": "",
         "trace": trace,
     }
@@ -259,6 +261,9 @@ def run_live_case(case: dict) -> dict:
     observed_nodes = extract_nodes_from_response(events, full_stream_text)  
     observed_plan = extract_plan_from_response(extraction_source)
 
+    final_answer = extract_final_ai_answer(extraction_source)
+    contexts = extract_retrieved_contexts(extraction_source)
+
     return {
         "name": case.get("name"),
         "query": case.get("query"),
@@ -267,7 +272,9 @@ def run_live_case(case: dict) -> dict:
         "http_status": http_status,
         "graph_status": graph_status,
         "latency_seconds": round(time.time() - start_time, 2),
-        "response_text": extraction_source[:500],
+        "response_text": final_answer[:500],
+        "full_response_text": final_answer,
+        "retrieved_context": contexts,
         "error": error[:500],
         "trace": {
             "nodes": observed_nodes,
@@ -277,3 +284,93 @@ def run_live_case(case: dict) -> dict:
             "errors": [error[:500]] if error else [],
         },
     }
+
+
+def _extract_messages_from_json(response_text: str) -> list[dict]:
+    try:
+        data = json.loads(response_text)
+        if isinstance(data, dict):
+            if isinstance(data.get("messages"), list):
+                return data["messages"]
+            values = data.get("values")
+            if isinstance(values, dict) and isinstance(values.get("messages"), list):
+                return values["messages"]
+    except Exception:
+        pass
+    return []
+
+
+def extract_final_ai_answer(extraction_source: str) -> str:
+    messages = _extract_messages_from_json(extraction_source)
+    if not messages:
+        return extraction_source.strip()
+
+    # Iterate backwards to find the last AI message
+    for msg in reversed(messages):
+        if not isinstance(msg, dict):
+            continue
+        role = (msg.get("role") or msg.get("type") or "").lower()
+        if role in ("ai", "assistant"):
+            content = msg.get("content")
+            if content:
+                if isinstance(content, str):
+                    return content.strip()
+                elif isinstance(content, list):
+                    parts = []
+                    for block in content:
+                        if isinstance(block, str):
+                            parts.append(block)
+                        elif isinstance(block, dict):
+                            text = block.get("text")
+                            if isinstance(text, str):
+                                parts.append(text)
+                    return "\n".join(parts).strip()
+
+    # Fallback to the last message that is not human/user/tool/system
+    for msg in reversed(messages):
+        if not isinstance(msg, dict):
+            continue
+        role = (msg.get("role") or msg.get("type") or "").lower()
+        if role not in ("user", "human", "tool", "system"):
+            content = msg.get("content")
+            if content and isinstance(content, str):
+                return content.strip()
+
+    return extraction_source.strip()
+
+
+def extract_retrieved_contexts(extraction_source: str) -> list[str]:
+    messages = _extract_messages_from_json(extraction_source)
+    contexts = []
+
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        role = (msg.get("role") or msg.get("type") or "").lower()
+        name = (msg.get("name") or "").lower()
+
+        if role == "tool" or msg.get("type") == "tool":
+            content = msg.get("content", "")
+            if not content:
+                continue
+
+            if name == "gdb" or "gdb" in name:
+                try:
+                    gdb_data = json.loads(content)
+                    if isinstance(gdb_data, dict):
+                        exact = gdb_data.get("exact_match")
+                        if isinstance(exact, dict) and exact.get("answer"):
+                            contexts.append(f"GDB Exact Match Q: {exact.get('question', '')} A: {exact['answer']}")
+
+                        similar = gdb_data.get("similar_pair1")
+                        if isinstance(similar, dict) and similar.get("answer"):
+                            contexts.append(f"GDB Similar Match Q: {similar.get('question', '')} A: {similar['answer']}")
+                except Exception:
+                    contexts.append(str(content).strip())
+            else:
+                text = str(content).strip()
+                if text:
+                    contexts.append(text)
+
+    return contexts
+

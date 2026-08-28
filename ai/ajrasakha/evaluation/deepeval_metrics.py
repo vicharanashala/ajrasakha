@@ -103,6 +103,14 @@ def evaluate_answer_with_deepeval(
     for metric in metrics:
         metric_name = metric.__class__.__name__
 
+        if metric_name in ("FaithfulnessMetric", "ContextualRelevancyMetric") and not context:
+            results[metric_name] = {
+                "score": None,
+                "passed": None,
+                "reason": "Skipped: no retrieved context available",
+            }
+            continue
+
         try:
             metric.measure(test_case)
 
