@@ -386,7 +386,7 @@ export const QAInterface = ({
       return;
 
     const findAndSelectQuestion = async () => {
-      // setIsLoadingTargetQuestion(true);
+      setIsLoadingTargetQuestion(true);
 
       // Check if question is in currently loaded pages
       const allLoadedQuestions = questionPages?.pages.flat() || [];
