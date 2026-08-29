@@ -5,7 +5,7 @@ import { QuestionService } from '#root/modules/core/index.js';
 import { appConfig } from '#root/config/app.js';
 
 // Run every 2 minutes, all day — time-bound questions can arrive at any hour
-const ENABLE_INPROCESS_CRON = false;
+const ENABLE_INPROCESS_CRON = true;
 if (ENABLE_INPROCESS_CRON) {
   cron.schedule(
     '0 */1 * * * *',
