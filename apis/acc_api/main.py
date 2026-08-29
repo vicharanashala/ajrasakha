@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 from pymongo import MongoClient
 from bson import ObjectId
@@ -55,7 +55,23 @@ golden_client = MongoClient(GOLDEN_MONGO_URI)
 golden_qa_collection = golden_client[GOLDEN_DB_NAME][GOLDEN_QA_COLLECTION]
 golden_pop_collection = golden_client[GOLDEN_DB_NAME][GOLDEN_POP_COLLECTION]
 
-model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+# Lazy model loader – the BGE model is large (~1.3 GB) and we don't want
+# /health, /filters or an empty /search to trigger the download on every
+# cold start.  The model is only materialised on first use by either
+# /search or /gdb/gap-report.
+_model: SentenceTransformer | None = None
+
+
+def _get_model() -> SentenceTransformer:
+    """Return the (lazily loaded) sentence-transformer model.
+
+    Loaded on first call and cached for the lifetime of the process.
+    """
+    global _model
+    if _model is None:
+        log.info("Loading embedding model %r …", EMBEDDING_MODEL_NAME)
+        _model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+    return _model
 
 
 class SearchRequest(BaseModel):
@@ -522,7 +538,7 @@ def search_unified(request: SearchRequest):
         raise HTTPException(status_code=400, detail="Query must not be empty.")
 
     query_text = f"Represent this sentence for searching relevant passages: {request.query}"
-    query_embedding = model.encode(query_text, normalize_embeddings=True).tolist()
+    query_embedding = _get_model().encode(query_text, normalize_embeddings=True).tolist()
 
     # ---------------- Reviewer Search ----------------
     t_rev = time.perf_counter()
@@ -838,9 +854,252 @@ def get_filters():
     }
 
 
+# ---------------------------------------------------------------------------
+#  /gdb/gap-report — Golden-DB coverage gap report
+# ---------------------------------------------------------------------------
+#
+# A *coverage gap* is a (query, expected_answer) pair in the Reviewer DB
+# (or any external Q&A source) that the Golden QA corpus has *no close
+# semantic match* for.  Identifying these gaps tells the content team which
+# new Q&A entries to author next so the Golden DB fully covers the live
+# question stream.
+#
+# Detection happens in `gdb_gap_detector.build_gap_report(...)`.  This wrapper
+# caches results in a per-process dict (so repeated dashboard refreshes
+# don't re-run the expensive DBSCAN clustering) and exposes a manual purge
+# endpoint for the admin tools.
+
+from gdb_gap_detector import (  # type: ignore  # noqa: E402
+    build_gap_report,
+    invalidate_cache as _gdb_invalidate_cache,
+)
+
+
+# Module-level cache.  Keys are (similarity_threshold, min_samples,
+# lookback_days) tuples – any change to the inputs invalidates the entry.
+# Values are the raw dict produced by build_gap_report().
+_GAP_REPORT_CACHE: dict[tuple, dict] = {}
+
+
+def _build_gap_report(
+    *,
+    similarity_threshold: float,
+    min_samples: int,
+    lookback_days: int | None,
+) -> dict:
+    """Build (or return cached) gap report.
+
+    ``similarity_threshold`` is the cosine similarity used by the DBSCAN
+    clustering step (higher = tighter clusters).  ``min_samples`` is the
+    DBSCAN minimum-cluster-size parameter (noise is promoted to singletons
+    so nothing is silently dropped).  ``lookback_days`` caps the reviewer
+    candidates considered by the disclaimer fetch step.
+    """
+    cache_key = (similarity_threshold, min_samples, lookback_days)
+    cached = _GAP_REPORT_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    t0 = time.perf_counter()
+    log.info(
+        "[/gdb/gap-report] computing: threshold=%.2f min_samples=%d lookback_days=%s",
+        similarity_threshold, min_samples, lookback_days,
+    )
+
+    kwargs = dict(
+        review_collection=reviewer_collection,
+        review_golden_collection=golden_qa_collection,
+        review_pop_collection=golden_pop_collection,
+        embed_fn=_get_model().encode,
+        similarity_threshold=similarity_threshold,
+        min_samples=min_samples,
+    )
+    if lookback_days is not None:
+        kwargs["lookback_days"] = lookback_days
+    report = build_gap_report(**kwargs)
+
+    log.info(
+        "[/gdb/gap-report] clusters=%d queries=%d (%.0fms)",
+        report.get("total_clusters_found", 0),
+        report.get("total_queries_analyzed", 0),
+        (time.perf_counter() - t0) * 1000,
+    )
+
+    _GAP_REPORT_CACHE[cache_key] = report
+    return report
+
+
+class GapReportRequest(BaseModel):
+    """Tunable parameters for ``POST /gdb/gap-report``.
+
+    All fields are optional and default to values that match the
+    ``gdb_gap_detector`` module defaults.
+    """
+
+    similarity_threshold: float = 0.85
+    min_samples: int = 2
+    lookback_days: int | None = None
+    refresh: bool = False
+
+
+@app.post("/gdb/gap-report")
+def gdb_gap_report(request: GapReportRequest):
+    """Return the Golden-DB coverage-gap report.
+
+    Wraps :func:`gdb_gap_detector.build_gap_report`.  Body fields are all
+    optional; defaults match the detector module.  Pass ``refresh=true``
+    to drop the in-process cache before rebuilding.
+    """
+    if not (0.0 <= request.similarity_threshold <= 1.0):
+        raise HTTPException(
+            status_code=400,
+            detail="similarity_threshold must be in [0, 1]",
+        )
+    if request.min_samples < 1 or request.min_samples > 50:
+        raise HTTPException(status_code=400, detail="min_samples must be in [1, 50]")
+    if request.lookback_days is not None and request.lookback_days < 1:
+        raise HTTPException(status_code=400, detail="lookback_days must be >= 1")
+
+    if request.refresh:
+        # Drop every cached report so the next call rebuilds from Mongo.
+        _GAP_REPORT_CACHE.clear()
+        _gdb_invalidate_cache()
+        log.info("[/gdb/gap-report] cache cleared via refresh=true")
+
+    try:
+        report = _build_gap_report(
+            similarity_threshold=request.similarity_threshold,
+            min_samples=request.min_samples,
+            lookback_days=request.lookback_days,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        log.exception("[/gdb/gap-report] failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"gap report failed: {e}")
+
+    return report
+
+
+@app.post("/gdb/refresh")
+def gdb_refresh():
+    """Drop the in-process gap-report cache (and the detector module's own
+    cache).  The next ``/gdb/gap-report`` call will rebuild from Mongo.
+    Intended for ops use after the content team has authored new Golden
+    Q&A entries or after a fresh back-fill of reviewer ``tag`` data."""
+    _GAP_REPORT_CACHE.clear()
+    _gdb_invalidate_cache()
+    return {"status": "ok", "cache_cleared": True}
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# GDB gap-detector weekly scheduler wiring
+# ---------------------------------------------------------------------------
+# The scheduler is opt-in via env vars.  See ``gap_scheduler.py`` for the
+# full configuration reference.  Importing the module here is safe — it
+# performs no work until :func:`start` is called.
+
+_scheduler_started = False
+
+
+# Bearer-token auth shared by every /gdb/scheduler/* mutation endpoint.
+# Lives in a sibling module so the FastAPI dep graph stays light and so
+# tests can exercise it in isolation.  When ``GDB_SCHEDULER_ADMIN_TOKEN``
+# is unset, every call to this dependency returns 503 — fail-closed.
+try:
+    from gap_scheduler_auth import require_bearer_token as _require_admin
+except Exception:  # pragma: no cover - only on broken installs
+    def _require_admin():
+        raise HTTPException(
+            status_code=503,
+            detail="admin endpoints disabled: gap_scheduler_auth not available",
+        )
+
+
+@app.on_event("startup")
+def _gdb_start_scheduler() -> None:
+    """Try to start the in-process GDB gap-detector scheduler.
+
+    All guards (test environment, force-disable flag, multi-worker gating,
+    Mongo leader lock) live inside ``GapScheduler.start`` and are logged
+    with ``reason=...`` so operators can grep for skips.  This function
+    never raises, so it cannot crash the FastAPI app.
+    """
+    global _scheduler_started
+    if _scheduler_started:
+        return
+    try:
+        import gap_scheduler  # local import to avoid module-load side effects
+        ok = gap_scheduler.get_default_scheduler().start()
+        _scheduler_started = ok
+    except Exception as e:  # pragma: no cover - defensive
+        log.error(f"[gdb-scheduler] startup hook failed: {e}")
+
+
+@app.on_event("shutdown")
+def _gdb_stop_scheduler() -> None:
+    try:
+        import gap_scheduler
+        gap_scheduler.get_default_scheduler().stop()
+    except Exception:  # pragma: no cover
+        pass
+
+
+@app.get("/gdb/scheduler/state", dependencies=[Depends(_require_admin)])
+def _gdb_scheduler_state():
+    """Operational snapshot for the gap-detector scheduler.
+
+    Protected by ``GDB_SCHEDULER_ADMIN_TOKEN`` (bearer token).  Returns
+    503 when the server has no token configured (fail-closed).
+    """
+    try:
+        import gap_scheduler
+        return gap_scheduler.get_default_scheduler().state()
+    except Exception as e:  # pragma: no cover - defensive
+        return {"error": str(e)}
+
+
+@app.post("/gdb/scheduler/run-now", dependencies=[Depends(_require_admin)])
+def _gdb_scheduler_run_now():
+    """Operator escape-hatch: run a single report pass immediately.
+
+    Protected by ``GDB_SCHEDULER_ADMIN_TOKEN``.  This endpoint triggers
+    real embedding work and Mongo load, so it must not be public.
+    """
+    try:
+        import gap_scheduler
+        result = gap_scheduler.get_default_scheduler().run_now()
+        return {
+            "success": result.success,
+            "duration_ms": result.duration_ms,
+            "queries_analyzed": result.queries_analyzed,
+            "clusters": result.clusters,
+            "priority_gaps": result.priority_gaps,
+            "report_id": result.report_id,
+            "error": result.error,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/gdb/scheduler/invalidate-cache", dependencies=[Depends(_require_admin)])
+def _gdb_scheduler_invalidate_cache():
+    """Drop the in-process and HTTP caches for the gap report.
+
+    Protected by ``GDB_SCHEDULER_ADMIN_TOKEN``.  Returns 401 / 503 when
+    the caller is unauthenticated or the server has no token configured.
+    """
+    try:
+        import gap_scheduler
+        gap_scheduler.get_default_scheduler().invalidate_cache()
+        return {"invalidated": True}
+    except Exception as e:
+        return {"invalidated": False, "error": str(e)}
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhatsappHistoryRouteImport } from './routes/whatsapp-history'
+import { Route as GdbGapReportRouteImport } from './routes/gdb-gap-report'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProfileIndexRouteImport } from './routes/profile/index'
 import { Route as PaeExpertIndexRouteImport } from './routes/pae-expert/index'
@@ -28,6 +29,11 @@ import { Route as CoordinatorProfileRouteImport } from './routes/coordinator/pro
 const WhatsappHistoryRoute = WhatsappHistoryRouteImport.update({
   id: '/whatsapp-history',
   path: '/whatsapp-history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GdbGapReportRoute = GdbGapReportRouteImport.update({
+  id: '/gdb-gap-report',
+  path: '/gdb-gap-report',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -103,6 +109,7 @@ const CoordinatorProfileRoute = CoordinatorProfileRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/gdb-gap-report': typeof GdbGapReportRoute
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/coordinator/profile': typeof CoordinatorProfileRoute
   '/user-history/$userId': typeof UserHistoryUserIdRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/gdb-gap-report': typeof GdbGapReportRoute
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/coordinator/profile': typeof CoordinatorProfileRoute
   '/user-history/$userId': typeof UserHistoryUserIdRoute
@@ -138,6 +146,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/gdb-gap-report': typeof GdbGapReportRoute
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/coordinator/profile': typeof CoordinatorProfileRoute
   '/user-history/$userId': typeof UserHistoryUserIdRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/gdb-gap-report'
     | '/whatsapp-history'
     | '/coordinator/profile'
     | '/user-history/$userId'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/gdb-gap-report'
     | '/whatsapp-history'
     | '/coordinator/profile'
     | '/user-history/$userId'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/gdb-gap-report'
     | '/whatsapp-history'
     | '/coordinator/profile'
     | '/user-history/$userId'
@@ -209,6 +221,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GdbGapReportRoute: typeof GdbGapReportRoute
   WhatsappHistoryRoute: typeof WhatsappHistoryRoute
   CoordinatorProfileRoute: typeof CoordinatorProfileRoute
   UserHistoryUserIdRoute: typeof UserHistoryUserIdRoute
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       path: '/whatsapp-history'
       fullPath: '/whatsapp-history'
       preLoaderRoute: typeof WhatsappHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gdb-gap-report': {
+      id: '/gdb-gap-report'
+      path: '/gdb-gap-report'
+      fullPath: '/gdb-gap-report'
+      preLoaderRoute: typeof GdbGapReportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -337,6 +357,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GdbGapReportRoute: GdbGapReportRoute,
   WhatsappHistoryRoute: WhatsappHistoryRoute,
   CoordinatorProfileRoute: CoordinatorProfileRoute,
   UserHistoryUserIdRoute: UserHistoryUserIdRoute,

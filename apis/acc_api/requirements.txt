@@ -4,3 +4,12 @@ pymongo>=4.7.0
 sentence-transformers>=3.0.0
 python-dotenv>=1.0.0
 pydantic>=2.0.0
+
+# Optional dependency used by gap_scheduler.py.  Absent only disables the
+# in-process scheduler; operators can still trigger reports manually via
+# the /gdb/scheduler/run-now HTTP endpoint or run_now() API.
+schedule>=1.2.0
+
+# Test-time dep that the scheduler tests also rely on.  pytest>=7.
+pytest>=7.4.0
+pytest-mock>=3.14.0
