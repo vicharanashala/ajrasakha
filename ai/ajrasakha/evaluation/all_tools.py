@@ -17,7 +17,9 @@ TOOL_TO_MCP_SERVICE = {
     "get_subdivision_rainfall_forecast": "weather",
 
     # Market
+    "daily_price": "market",
     "market": "market",
+    "mandi": "market",
     "get_states": "market",
     "get_districts": "market",
     "get_markets": "market",
@@ -39,6 +41,7 @@ TOOL_TO_MCP_SERVICE = {
     "get_scheme_details": "schemes",
 
     # Golden DB / RAG
+    "gdb": "golden_db",
     "golden_retriever_tool": "golden_db",
     "golden_exact_search_tool": "golden_db",
     "get_available_states": "golden_db",

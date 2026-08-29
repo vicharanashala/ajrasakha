@@ -1,14 +1,20 @@
+from ajrasakha.evaluation.all_tools import normalize_tool_name
+
+
 def evaluate_tools(result: dict, case: dict) -> dict:
     if result.get("graph_status") != "success":
         return {
             "tool_pass": "not_evaluated",
         }
 
-    expected_tools = case.get("expected_tools", [])
+    expected_tools = [
+        normalize_tool_name(tool)
+        for tool in case.get("expected_tools", [])
+    ]
 
     observed_tools_raw = result.get("observed_tools", "")
     observed_tools = [
-        tool.strip()
+        normalize_tool_name(tool)
         for tool in observed_tools_raw.split(",")
         if tool.strip()
     ]
