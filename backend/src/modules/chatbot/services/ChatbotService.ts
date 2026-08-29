@@ -4363,7 +4363,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     try {
       return this.chatbotRepository.getFeedbackByLocation(source, page, limit, sortBy, sortOrder, userType, rating, state, district, search, undefined, startDate, endDate);
     }catch(error){
-      throw new InternalServerError(`Something went wrong ${error}`)
+      throw new InternalServerError(`Failed to retrieve feedback data for the specified location: ${error}`)
     }
   }
 
@@ -4371,7 +4371,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     try{
       return this.chatbotRepository.getClosedInLastTwoHoursByLocation(source, userType, state, district, startDate, endDate);
     }catch(error){
-      throw new InternalServerError(`Something went wrong ${error}`)
+      throw new InternalServerError(`Failed to fetch recently closed conversations for the specified location: ${error}`)
     }
   }
 
@@ -4379,7 +4379,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       try{
       return this.chatbotRepository.getActiveUsersDetailsByQuestions(page, limit, source, userType, undefined, state, district, search, startDate, endDate);
     }catch(error){
-      throw new InternalServerError(`Something went wrong ${error}`)
+      throw new InternalServerError(`Failed to get active users by question: ${error}`)
     }
   }
 
@@ -4387,7 +4387,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       try{
       return this.chatbotRepository.getQuestionByManualSource( manualSource, effectiveDate, userType, page, limit, search );
     }catch(error){
-      throw new InternalServerError(`Something went wrong ${error}`)
+      throw new InternalServerError(`Failed to retrieve manual source questions: ${error}`)
     }
   }
 
@@ -4395,7 +4395,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     try{
       return this.chatbotRepository.getReviewerLifecycle( userId, startDate, endDate );
     }catch(error){
-      throw new InternalServerError(`Something went wrong ${error}`)
+      throw new InternalServerError(`Failed to retrieve reviewer lifecycle data: ${error}`)
     }
   }
 
