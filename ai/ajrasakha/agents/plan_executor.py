@@ -71,6 +71,9 @@ def _compute_tools_used(plan: PlannerPlan) -> list[str]:
     if plan.get("chemical_checker"):
         tools.append("chemical_checker")
     
+    if plan.get("crop_recommendation"):
+        tools.append("crop_recommendation")
+    
     return tools
 
 
@@ -164,6 +167,9 @@ def compute_actual_tools_used(messages: list[BaseMessage]) -> list[str]:
         elif name in {"chemical_checker", "chemical_checker_chemical_checker"}:
             if _is_useful_tool_response(msg) and "chemical_checker" not in tools:
                 tools.append("chemical_checker")
+        elif name in {"crop_recommendation", "crop_recommendation_agent"}:
+            if _is_useful_tool_response(msg) and "crop_recommendation" not in tools:
+                tools.append("crop_recommendation")
     
     return tools
 
@@ -809,6 +815,18 @@ async def build_specialist_tool_calls_from_plan(
             "type": "tool_call",
         })
 
+    if plan.get("crop_recommendation"):
+        calls.append({
+            "name": "crop_recommendation",
+            "args": {
+                "query": user_query,
+                "state": state_name if state_name != "Not specified" else "all",
+                "district": district if district != "Not specified" else "all",
+            },
+            "id": _new_tool_call_id(),
+            "type": "tool_call",
+        })
+
     trace_resolution(
         "specialist_tool_args",
         specialist_calls=[{"name": c.get("name"), "args": c.get("args")} for c in calls],
@@ -1322,6 +1340,7 @@ _SPECIALIST_TOOL_NAMES = frozenset({
     "soil",
     "schemes",
     "chemical_checker",
+    "crop_recommendation",
 })
 
 

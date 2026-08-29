@@ -115,6 +115,7 @@ class PlannerOutput(BaseModel):
     schemes: bool = False
     chemical_checker: bool = False
     knowledge_base: bool = False
+    crop_recommendation: bool = False
     is_agriculture_related: bool = Field(
         default=True,
         description=(
@@ -296,6 +297,8 @@ def _compute_tools_used_from_output(output: PlannerOutput) -> list[str]:
         tools.append("schemes")
     if output.chemical_checker:
         tools.append("chemical_checker")
+    if output.crop_recommendation:
+        tools.append("crop_recommendation")
     
     return tools
 
@@ -334,6 +337,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "schemes": output.schemes,
         "chemical_checker": output.chemical_checker,
         "knowledge_base": output.knowledge_base,
+        "crop_recommendation": output.crop_recommendation,
         "is_agriculture_related": output.is_agriculture_related,
         "is_greeting": output.is_greeting,
         "is_complete": output.is_complete,

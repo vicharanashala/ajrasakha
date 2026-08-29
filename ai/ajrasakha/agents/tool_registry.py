@@ -15,6 +15,7 @@ from ajrasakha.agents.gdb_agent import gdb
 from ajrasakha.agents.schemes_agent import schemes
 from ajrasakha.agents.soil_agent import soil
 from ajrasakha.agents.weather_agent import weather
+from ajrasakha.agents.crop_recommendation_agent import crop_recommendation
 
 _location_tool = None
 _reviewer_tool = None
@@ -57,6 +58,7 @@ async def get_main_tools() -> list:
         location_mcp,
         schemes,
         chemical_checker,
+        crop_recommendation,
         reviewer_mcp,
     ]
 
