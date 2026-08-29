@@ -127,7 +127,7 @@ export const AuthForm = ({ mode: initialMode = "login" }: AuthFormProps) => {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="grid gap-6">
+            <form onSubmit={handleSubmit} className="grid gap-6" noValidate>
               <AuthFields
                 mode={mode}
                 formData={formData}

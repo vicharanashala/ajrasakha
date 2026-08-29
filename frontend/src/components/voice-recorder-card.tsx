@@ -240,7 +240,12 @@ export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
       setIsLoadingRemainingTranscript(true);
       const result = await sendChunkToBackend(blob, language);
       setIsLoadingRemainingTranscript(false);
-      setTranscript((prev) => prev + " " + result);
+      if (result && result.trim()) {
+        setTranscript((prev) => {
+          const trimmedPrev = prev.trim();
+          return trimmedPrev ? trimmedPrev + " " + result.trim() : result.trim();
+        });
+      }
     }
   };
 
@@ -309,7 +314,7 @@ export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
                 </CardTitle>
                 <Select
                   value={language}
-                  disabled
+                  disabled={isRecording}
                   onValueChange={(value) =>
                     setLanguage(value as SupportedLanguage)
                   }
