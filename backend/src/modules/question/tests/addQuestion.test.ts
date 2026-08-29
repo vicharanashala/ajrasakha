@@ -1,124 +1,134 @@
-// import 'reflect-metadata';
-// import {describe, it, expect, beforeEach, vi} from 'vitest';
-// import {QuestionService} from '../services/QuestionService.js';
-// import {AddQuestionBodyDto} from '../classes/validators/QuestionVaidators.js';
+import 'reflect-metadata';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 
-// // ── Shared test data ──────────────────────────────────────────────────────────
+vi.mock('#root/modules/notification/services/NotificationService.js', () => ({
+  NotificationService: class {
+    saveTheNotifications = vi.fn();
+  },
+}));
 
-// const FIXED_USER_ID = '664f00000000000000000001';
+vi.mock('#root/config/app.js', () => ({
+  appConfig: {ENABLE_AI_SERVER: false},
+}));
 
-// function makeBody(cropName: string): AddQuestionBodyDto {
-//   return {
-//     question: `Question_${Date.now()}`,
-//     priority: 'medium',
-//     source: 'AGRI_EXPERT',
-//     details: {
-//       state: 'Maharashtra',
-//       district: 'Pune',
-//       crop: cropName,
-//       season: 'Kharif',
-//       domain: 'Pest Management',
-//     },
-//   } as AddQuestionBodyDto;
-// }
+vi.mock('../logger/chatbot-similarity.logger.js', () => ({
+  chatbotSimilarityLogger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
-// // ── Mock dependencies ─────────────────────────────────────────────────────────
+import {QuestionService} from '../services/QuestionService.js';
+import {AddQuestionBodyDto} from '../classes/validators/QuestionVaidators.js';
 
-// const mockAiService = {
-//   getEmbedding: vi.fn().mockResolvedValue({embedding: [0.1, 0.2, 0.3]}),
-//   getQuestionByContextAndMetaData: vi.fn(),
-// };
+const FIXED_USER_ID = '664f00000000000000000001';
 
-// const mockContextRepo = {addContext: vi.fn()};
+function makeBody(cropName: string): AddQuestionBodyDto {
+  return {
+    question: `Question_${Date.now()}`,
+    priority: 'medium',
+    source: 'AGRI_EXPERT',
+    details: {
+      state: 'Maharashtra',
+      district: 'Pune',
+      crop: cropName,
+      season: 'Kharif',
+      domain: ['Pest Management'],
+    },
+  } as AddQuestionBodyDto;
+}
 
-// const mockQuestionRepo = {
-//   addQuestion: vi.fn().mockResolvedValue({_id: '664f00000000000000000001'}),
-// };
+const mockAiService = {
+  getEmbedding: vi.fn().mockResolvedValue({embedding: [0.1, 0.2, 0.3]}),
+};
 
-// const mockUserRepo = {
-//   findExpertsByPreference: vi.fn().mockResolvedValue([]),
-//   updateReputationScore: vi.fn(),
-// };
+const mockContextRepo = {
+  addContext: vi.fn().mockResolvedValue({insertedId: '664f00000000000000000002'}),
+};
 
-// const mockQuestionSubmissionRepo = {
-//   addSubmission: vi.fn().mockResolvedValue(undefined),
-// };
+const mockQuestionRepo = {
+  addQuestion: vi.fn().mockResolvedValue({_id: '664f00000000000000000003'}),
+  updateQuestion: vi.fn(),
+};
 
-// const mockNotificationService = {
-//   saveTheNotifications: vi.fn().mockResolvedValue(undefined),
-// };
+const mockUserRepo = {
+  findExpertsByPreference: vi.fn().mockResolvedValue([]),
+  updateReputationScore: vi.fn(),
+};
 
-// const mockCropRepository = {
-//   findByNameOrAlias: vi.fn(),
-//   createCrop: vi.fn().mockResolvedValue(undefined),
-// };
+const mockQuestionSubmissionRepo = {
+  addSubmission: vi.fn().mockResolvedValue(undefined),
+  updateQueue: vi.fn().mockResolvedValue(undefined),
+};
 
-// // ── Service factory ───────────────────────────────────────────────────────────
+const mockNotificationService = {
+  saveTheNotifications: vi.fn().mockResolvedValue(undefined),
+};
 
-// function buildService(): QuestionService {
-//   return new QuestionService(
-//     mockAiService as any,
-//     mockContextRepo as any,
-//     mockQuestionRepo as any,
-//     mockUserRepo as any,
-//     mockQuestionSubmissionRepo as any,
-//     {} as any, // requestRepository
-//     {} as any, // answerRepo
-//     {} as any, // notificationRepository
-//     mockNotificationService as any,
-//     {} as any, // reRouteRepository
-//     {} as any, // duplicateQuestionRepository
-//     mockCropRepository as any,
-//     {} as any, // mongoDatabase
-//   );
-// }
+const mockCropRepository = {
+  findByNameOrAlias: vi.fn(),
+};
 
-// // ── Tests ─────────────────────────────────────────────────────────────────────
+function buildService(): QuestionService {
+  return new QuestionService(
+    mockAiService as any,
+    {} as any,
+    mockContextRepo as any,
+    mockQuestionRepo as any,
+    mockUserRepo as any,
+    mockQuestionSubmissionRepo as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    mockNotificationService as any,
+    {} as any,
+    {addDuplicate: vi.fn()} as any,
+    mockCropRepository as any,
+    {} as any,
+    {getClient: vi.fn()} as any,
+    {} as any,
+    {} as any,
+    {} as any,
+  );
+}
 
-// describe('QuestionService.addQuestion — crop normalisation', () => {
-//   let service: QuestionService;
+describe('QuestionService.addQuestion — crop normalization', () => {
+  let service: QuestionService;
 
-//   beforeEach(() => {
-//     vi.clearAllMocks();
-//     mockQuestionRepo.addQuestion.mockResolvedValue({_id: '664f00000000000000000001'});
-//     mockUserRepo.findExpertsByPreference.mockResolvedValue([]);
-//     mockNotificationService.saveTheNotifications.mockResolvedValue(undefined);
-//     mockQuestionSubmissionRepo.addSubmission.mockResolvedValue(undefined);
-//     mockCropRepository.createCrop.mockResolvedValue(undefined);
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockQuestionRepo.addQuestion.mockResolvedValue({_id: '664f00000000000000000003'});
+    mockQuestionSubmissionRepo.addSubmission.mockResolvedValue(undefined);
+    mockUserRepo.findExpertsByPreference.mockResolvedValue([]);
+    mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+    mockNotificationService.saveTheNotifications.mockResolvedValue(undefined);
+    mockContextRepo.addContext.mockResolvedValue({insertedId: '664f00000000000000000002'});
 
-//     service = buildService();
+    service = buildService();
+    vi.spyOn(service as any, '_withTransaction').mockImplementation(async (operation: any) => operation(null));
+    vi.spyOn(service as any, 'processQuestionInBackground').mockResolvedValue(undefined);
+  });
 
-//     // Bypass MongoDB transaction — execute the callback directly with null session
-//     vi.spyOn(service as any, '_withTransaction').mockImplementation(
-//       (fn: any) => fn(null),
-//     );
-//   });
+  it('stores the canonical crop name when a matching crop exists', async () => {
+    mockCropRepository.findByNameOrAlias.mockResolvedValue({name: 'wheat'});
 
-//   // ── Crop exists in crop_master ────────────────────────────────────────────
+    await service.addQuestion(FIXED_USER_ID, makeBody('Wheat'));
 
-//   describe('when crop exists in crop_master', () => {
-//     it('sets normalised_crop to the canonical name and does not create a new crop', async () => {
-//       mockCropRepository.findByNameOrAlias.mockResolvedValue({name: 'wheat'});
+    const passedQuestion = mockQuestionRepo.addQuestion.mock.calls[0][0];
+    expect(mockCropRepository.findByNameOrAlias).toHaveBeenCalledWith('Wheat');
+    expect(passedQuestion.details.normalised_crop).toBe('wheat');
+    expect(passedQuestion.details.crop).toBe('Wheat');
+  });
 
-//       await service.addQuestion(FIXED_USER_ID, makeBody('Wheat'));
+  it('does not set a normalised crop when no match is found', async () => {
+    mockCropRepository.findByNameOrAlias.mockResolvedValue(null);
 
-//       const passedQuestion = mockQuestionRepo.addQuestion.mock.calls[0][0];
-//       expect(passedQuestion.details.normalised_crop).toBe('wheat');
-//       expect(mockCropRepository.createCrop).not.toHaveBeenCalled();
-//     });
-//   });
+    await service.addQuestion(FIXED_USER_ID, makeBody('Bajra'));
 
-//   // ── Crop does NOT exist in crop_master ────────────────────────────────────
-
-//   describe('when crop does NOT exist in crop_master', () => {
-//     it('creates the crop with no aliases and sets normalised_crop to the lowercased input', async () => {
-//       mockCropRepository.findByNameOrAlias.mockResolvedValue(null);
-
-//       await service.addQuestion(FIXED_USER_ID, makeBody('Bajra'));
-
-//       const passedQuestion = mockQuestionRepo.addQuestion.mock.calls[0][0];
-//       expect(mockCropRepository.createCrop).toHaveBeenCalledWith('bajra', FIXED_USER_ID, []);
-//       expect(passedQuestion.details.normalised_crop).toBe('bajra');
-//     });
-//   });
-// });
+    const passedQuestion = mockQuestionRepo.addQuestion.mock.calls[0][0];
+    expect(mockCropRepository.findByNameOrAlias).toHaveBeenCalledWith('Bajra');
+    expect(passedQuestion.details.normalised_crop).toBeUndefined();
+    expect(passedQuestion.details.crop).toBe('Bajra');
+  });
+});
