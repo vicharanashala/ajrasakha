@@ -110,6 +110,7 @@ TEST_CASES = [
         "stable": False,
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "gdb"],
+        "expected_treatment": "a fertilizer dosage recommendation (N-P-K quantities) for Rice",
         "expected_plan": {
             "soil": False,
             "state": "Punjab",
@@ -158,6 +159,7 @@ TEST_CASES = [
         "stable": True,
         "expected_nodes": ["planner", "execute_plan", "retrieval_sanitizer", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "gdb"],
+        "expected_treatment": "standard paddy cultivation practices suited to Punjab",
         "expected_plan": {
             "knowledge_base": True,
             "state": "Punjab",
@@ -215,6 +217,7 @@ TEST_CASES = [
         "stable": False,
         "expected_nodes": ["planner", "execute_plan", "retrieval_sanitizer", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "weather", "gdb"],
+        "expected_treatment": "fungicide/management guidance for yellow rust in wheat",
         "expected_plan": {
             "weather": True,
             "knowledge_base": True,

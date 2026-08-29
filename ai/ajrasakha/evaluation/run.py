@@ -15,6 +15,7 @@ from ajrasakha.evaluation.plan import evaluate_plan
 from ajrasakha.evaluation.answer_eval import evaluate_response_quality
 from ajrasakha.evaluation.validators.source_check import evaluate_source_attribution
 from ajrasakha.evaluation.validators.disclaimer_language import evaluate_disclaimer_language
+from ajrasakha.evaluation.validators.banned_chemicals import evaluate_banned_chemicals
 from ajrasakha.evaluation.langsmith_trace import build_langsmith_trace_url
 
 
@@ -35,9 +36,11 @@ def run_case(case: dict, mode: str) -> dict:
     plan_result = evaluate_plan(result, case)
     trace_result = build_langsmith_trace_url(result)
     disclaimer_language_result = evaluate_disclaimer_language(result, case)
+    banned_chemicals_result = evaluate_banned_chemicals(result)
 
     quality_result = evaluate_response_quality(
         result,
+        case,
         enabled=(mode == "live"),
     )
 
@@ -53,6 +56,7 @@ def run_case(case: dict, mode: str) -> dict:
         **source_result,
         **trace_result,
         **disclaimer_language_result,
+        **banned_chemicals_result,
     }
 
     failure_result = classify_failure(combined)
