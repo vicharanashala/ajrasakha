@@ -260,6 +260,8 @@ def _append_to_file(
     log_dir: Path | None = None,
 ) -> None:
     """Append text to the local thread log file only (fast path during request)."""
+    if os.getenv("THREAD_FILE_LOGGING", "true").lower() not in ("true", "1", "yes"):
+        return
     block = text if text.endswith("\n") else f"{text}\n"
     safe = sanitize_thread_id_for_filename(thread_id)
     path = (log_dir or thread_log_dir()) / f"{safe}.txt"
