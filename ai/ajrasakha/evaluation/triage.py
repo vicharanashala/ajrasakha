@@ -31,6 +31,37 @@ def triage_result(result: dict) -> dict:
             "severity": "high",
         }
 
+    if failure_reason == "tool_validation_failed":
+        return {
+            "triage_category": "tool_routing_issue",
+            "triage_action": "inspect_expected_vs_observed_tools",
+            "severity": "high",
+        }
+
+    if failure_reason == "plan_validation_failed":
+        return {
+            "triage_category": "planner_expectation_mismatch",
+            "triage_action": "inspect_planner_output_or_update_case_expectation",
+            "severity": "medium",
+        }
+
+    if failure_reason in {
+        "source_attribution_failed",
+        "source_url_validation_failed",
+    }:
+        return {
+            "triage_category": "source_attribution_issue",
+            "triage_action": "inspect_response_sources_or_validator_expectation",
+            "severity": "medium",
+        }
+
+    if failure_reason == "disclaimer_language_failed":
+        return {
+            "triage_category": "disclaimer_language_issue",
+            "triage_action": "inspect_disclaimer_language_validator",
+            "severity": "medium",
+        }
+
     if result.get("quality_pass") is False:
         return {
             "triage_category": "answer_quality_issue",
