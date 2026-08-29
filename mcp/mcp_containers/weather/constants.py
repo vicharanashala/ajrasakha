@@ -1,14 +1,22 @@
-from urllib.parse import quote_plus
+import os
 from llama_index.core.prompts import PromptTemplate
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+def require_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise ValueError(f"{name} environment variable is required")
+    return value
 
 # Vector Database
-USERNAME = quote_plus("agriai")
-PASSWORD = quote_plus("agriai1224")
-MONGODB_URI = f"mongodb+srv://{USERNAME}:{PASSWORD}@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging"
+MONGODB_URI = require_env("MONGODB_URI")
 DB_NAME = "golden_db"
 INDEX_NAME = "vector_index"
 SARVAM_URL = "https://api.sarvam.ai/speech-to-text"
-API_KEY = "sk_s2j7cwtf_frU76CJMmVQi3Y4jwBfY3M3m"
+API_KEY = os.getenv("SARVAM_API_KEY")
 
 
 # Database Collections

@@ -33,7 +33,7 @@ from pymongo import MongoClient
 load_dotenv()
 
 # Configuration
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://agriai:agriai1224@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging")
+MONGODB_URI = os.getenv("MONGODB_URI")
 DATABASE_NAME = os.getenv("FAQ_DATABASE_NAME", "golden_db")
 COLLECTION_NAME = os.getenv("FAQ_COLLECTION_NAME", "faq")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-en")
@@ -56,6 +56,10 @@ class CSVFAQIngestion:
     
     def _initialize_mongodb(self):
         """Initialize MongoDB connection."""
+        if not MONGODB_URI:
+            print("MONGODB_URI is required for FAQ ingestion")
+            sys.exit(1)
+
         try:
             self.db_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
             self.db_client.server_info()
@@ -157,7 +161,7 @@ class CSVFAQIngestion:
             # Check if entry already exists (by link)
             existing = self.db_collection.find_one({"link": faq_entry['link']})
             if existing:
-                print(f"⚠️  Entry already exists: {faq_entry['link']}")z
+                print(f"⚠️  Entry already exists: {faq_entry['link']}")
                 return False  # Already exists
             
             # Generate embedding for the query

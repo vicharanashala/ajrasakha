@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -20,7 +21,7 @@ except ImportError:
 
 # ================= CONFIG =================
 
-API_KEY = "579b464db66ec23bdd000001d7142eeff5b24f194f92d9870b3571fd"
+API_KEY = os.getenv("DATA_GOV_API_KEY")
 RESOURCE_ID = "35985678-0d79-46b4-9ed6-6f13308a1d24"
 
 BASE_URL = f"https://api.data.gov.in/resource/{RESOURCE_ID}"
@@ -124,6 +125,13 @@ def _parse_dd_mm_yyyy(value: str) -> datetime | None:
 # ================= CORE REQUEST =================
 
 async def _request(params: dict[str, Any]) -> dict[str, Any]:
+    if not API_KEY:
+        return {
+            "success": False,
+            "error_type": "missing_api_key",
+            "error": "DATA_GOV_API_KEY environment variable is required.",
+        }
+
     query = {
         "api-key": API_KEY,
         "format": "json",
