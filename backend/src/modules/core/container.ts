@@ -35,7 +35,11 @@ import { PerformanceController } from '../performance/controllers/PerformanceCon
 import { CORE_TYPES } from './types.js';
 import { GLOBAL_TYPES } from '../../types.js';
 import { PerformanceService } from '../performance/services/PerformanceService.js';
+import { TestersDashboardController } from '../dashboard/controllers/TestersDashboardController.js';
+import { TestersDashboardService } from '../dashboard/services/TestersDashboardService.js';
 import { RequestController } from '../request/controllers/RequestController.js';
+import { ZohoTicketStatusService } from '../dashboard/services/ZohoTicketStatusService.js';
+import { ZohoTicketStatusController } from '../dashboard/controllers/ZohoTicketStatusController.js';
 import { RequestService } from '../request/services/RequestService.js';
 import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { DuplicateQuestionRepository } from '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js';
@@ -50,6 +54,8 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CommentController).toSelf().inSingletonScope();
   options.bind(RequestController).toSelf().inSingletonScope();
   options.bind(PerformanceController).toSelf().inSingletonScope()
+  options.bind(TestersDashboardController).toSelf().inSingletonScope()
+  options.bind(ZohoTicketStatusController).toSelf().inSingletonScope()
   // Services
 
   options
@@ -120,8 +126,10 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.ContextService).to(ContextService).inSingletonScope();
   options.bind(CORE_TYPES.CommentService).to(CommentService).inSingletonScope();
   options.bind(CORE_TYPES.RequestService).to(RequestService).inSingletonScope();
+  options.bind(CORE_TYPES.ZohoTicketStatusService).to(ZohoTicketStatusService).inSingletonScope();
 
   options.bind(CORE_TYPES.PerformanceService).to(PerformanceService).inSingletonScope();
+  options.bind(CORE_TYPES.TestersDashboardService).to(TestersDashboardService).inSingletonScope();
   options.bind(GLOBAL_TYPES.AccAgentService).to(AccAgentService).inSingletonScope();
   options.bind(CORE_TYPES.CheckOverlapsService).to(CheckOverlapsService).inSingletonScope();
   // Repositories
