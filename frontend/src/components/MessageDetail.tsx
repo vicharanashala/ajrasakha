@@ -24,7 +24,7 @@ import {
 } from "@/components/atoms/alert-dialog";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { ScrollArea } from "./atoms/scroll-area";
-import { toast,useToast } from "@/shared/components/toast";
+import { toast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 
 interface MessageDetailCardProps {
@@ -125,6 +125,7 @@ const MessageDetail = ({
                                 refechMessageDetails();
                             }}
                             className="inline-flex items-center justify-center h-7 w-7 rounded-md border bg-background hover:bg-muted transition-colors"
+                            aria-label="Refresh message details"
                         >
                             <RefreshCw className="h-3.5 w-3.5" />
                         </button>

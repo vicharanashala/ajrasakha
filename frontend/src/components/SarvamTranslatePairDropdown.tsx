@@ -145,7 +145,7 @@ export default function SarvamTranslatePairDropdown({
       {isOpen && (
         <div className="absolute right-0 top-full mt-1.5 w-48 bg-popover text-popover-foreground rounded-lg shadow-xl border border-border z-50 backdrop-blur-sm">
           <div className="px-2.5 py-1.5 border-b border-border bg-muted/30">
-            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">
+            <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">
               Select Language
             </p>
           </div>
