@@ -4,84 +4,83 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from deepeval.models.base_model import DeepEvalBaseLLM
-from deepeval.metrics import (
-    AnswerRelevancyMetric,
-    FaithfulnessMetric,
-    GEval,
-)
-from deepeval.test_case import LLMTestCase, LLMTestCaseParams
-
 DEFAULT_ANTHROPIC_MODEL = os.getenv("ANTHROPIC_JUDGE_MODEL", "claude-3-5-sonnet-20241022")
 
 
-class AnthropicJudge(DeepEvalBaseLLM):
-    """
-    Custom DeepEval judge model powered by Anthropic's Claude API.
-    Ensures deterministic, zero-temperature scoring and chain-of-thought agricultural reasoning.
-    """
+def get_anthropic_judge_class():
+    """Dynamically creates and returns the AnthropicJudge subclassing DeepEvalBaseLLM."""
+    from deepeval.models.base_model import DeepEvalBaseLLM
 
-    def __init__(self, model_name: Optional[str] = None):
-        self.model_name = model_name or DEFAULT_ANTHROPIC_MODEL
-        self._client = None
-        self._async_client = None
-        super().__init__(self.model_name)
+    class AnthropicJudge(DeepEvalBaseLLM):
+        """
+        Custom DeepEval judge model powered by Anthropic's Claude API.
+        Ensures deterministic, zero-temperature scoring and chain-of-thought agricultural reasoning.
+        """
 
-    def load_model(self):
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError(
-                "ANTHROPIC_API_KEY environment variable is missing. "
-                "Please configure ANTHROPIC_API_KEY in your .env file."
-            )
-        import anthropic
-        self._client = anthropic.Anthropic(api_key=api_key)
-        return self._client
+        def __init__(self, model_name: Optional[str] = None):
+            self.model_name = model_name or DEFAULT_ANTHROPIC_MODEL
+            self._client = None
+            self._async_client = None
+            super().__init__(self.model_name)
 
-    def _get_async_client(self):
-        if self._async_client is None:
+        def load_model(self):
             api_key = os.getenv("ANTHROPIC_API_KEY")
             if not api_key:
-                raise ValueError("ANTHROPIC_API_KEY environment variable is missing.")
+                raise ValueError(
+                    "ANTHROPIC_API_KEY environment variable is missing. "
+                    "Please configure ANTHROPIC_API_KEY in your .env file."
+                )
             import anthropic
-            self._async_client = anthropic.AsyncAnthropic(api_key=api_key)
-        return self._async_client
+            self._client = anthropic.Anthropic(api_key=api_key)
+            return self._client
 
-    def generate(self, prompt: str) -> str:
-        if self._client is None:
-            self.load_model()
-        response = self._client.messages.create(
-            model=self.model_name,
-            max_tokens=1500,
-            temperature=0.0,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        if response.content and len(response.content) > 0:
-            return response.content[0].text
-        return ""
+        def _get_async_client(self):
+            if self._async_client is None:
+                api_key = os.getenv("ANTHROPIC_API_KEY")
+                if not api_key:
+                    raise ValueError("ANTHROPIC_API_KEY environment variable is missing.")
+                import anthropic
+                self._async_client = anthropic.AsyncAnthropic(api_key=api_key)
+            return self._async_client
 
-    async def a_generate(self, prompt: str) -> str:
-        client = self._get_async_client()
-        response = await client.messages.create(
-            model=self.model_name,
-            max_tokens=1500,
-            temperature=0.0,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        if response.content and len(response.content) > 0:
-            return response.content[0].text
-        return ""
+        def generate(self, prompt: str) -> str:
+            if self._client is None:
+                self.load_model()
+            response = self._client.messages.create(
+                model=self.model_name,
+                max_tokens=1500,
+                temperature=0.0,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            if response.content and len(response.content) > 0:
+                return response.content[0].text
+            return ""
 
-    def get_model_name(self) -> str:
-        return self.model_name
+        async def a_generate(self, prompt: str) -> str:
+            client = self._get_async_client()
+            response = await client.messages.create(
+                model=self.model_name,
+                max_tokens=1500,
+                temperature=0.0,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            if response.content and len(response.content) > 0:
+                return response.content[0].text
+            return ""
+
+        def get_model_name(self) -> str:
+            return self.model_name
+
+    return AnthropicJudge
 
 
-def _get_judge_model() -> Optional[DeepEvalBaseLLM]:
+def _get_judge_model() -> Optional[Any]:
     """Retrieve Anthropic Judge if key exists, else fall back to ClaudeModel or default."""
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
     if anthropic_key:
         try:
-            return AnthropicJudge()
+            judge_cls = get_anthropic_judge_class()
+            return judge_cls()
         except Exception:
             try:
                 from deepeval.models import ClaudeModel
@@ -89,6 +88,7 @@ def _get_judge_model() -> Optional[DeepEvalBaseLLM]:
             except Exception:
                 return None
     return None
+
 
 
 def _metric_passed(metric) -> bool:
@@ -99,8 +99,11 @@ def _metric_passed(metric) -> bool:
     return False
 
 
-def build_gdb_match_metric(judge_model: Optional[DeepEvalBaseLLM] = None) -> GEval:
+def build_gdb_match_metric(judge_model: Optional[Any] = None):
     """Metric 3: GDB Match Score evaluating alignment with the expert-validated golden answer."""
+    from deepeval.metrics import GEval
+    from deepeval.test_case import LLMTestCaseParams
+
     return GEval(
         name="GDB Alignment Score",
         criteria="""Determine how accurately and completely the candidate answer matches the expert-verified golden expected output.
@@ -123,8 +126,11 @@ Verify that:
     )
 
 
-def build_agricultural_correctness_metric(judge_model: Optional[DeepEvalBaseLLM] = None) -> GEval:
+def build_agricultural_correctness_metric(judge_model: Optional[Any] = None):
     """Metric 4: Domain-specific Agricultural Correctness & Safety Metric."""
+    from deepeval.metrics import GEval
+    from deepeval.test_case import LLMTestCaseParams
+
     return GEval(
         name="Agricultural Correctness & Safety",
         criteria="""Evaluate the domain-specific safety, agronomic validity, and regional appropriateness of the agricultural advice.
@@ -188,6 +194,9 @@ def evaluate_answer_with_deepeval(
         # Fall back to heuristic mock evaluation if no API keys are present
         return _evaluate_mock(query, answer, expected_output, context, domain)
 
+    from deepeval.test_case import LLMTestCase
+    from deepeval.metrics import AnswerRelevancyMetric, FaithfulnessMetric
+
     test_case = LLMTestCase(
         input=query,
         actual_output=answer,
@@ -199,6 +208,7 @@ def evaluate_answer_with_deepeval(
     faithfulness_metric = FaithfulnessMetric(threshold=0.70, model=judge_model, include_reason=True)
     gdb_metric = build_gdb_match_metric(judge_model)
     agri_metric = build_agricultural_correctness_metric(judge_model)
+
 
     metrics = [
         ("AnswerRelevancy", relevancy_metric),
