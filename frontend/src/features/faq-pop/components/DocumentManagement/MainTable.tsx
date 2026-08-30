@@ -177,6 +177,14 @@ export default function MainTable({ fetchUniqueDocCached, onJumpToUniqueDoc, tra
                 />
               </th>
               <th className="text-left px-3 py-2 whitespace-nowrap">
+                <TextFilter
+                  label="Document"
+                  value={filters.shareable_name?.[0] || ""}
+                  onChange={(v) => setFilter("shareable_name", v ? [v] : [])}
+                  placeholder="Search name…"
+                />
+              </th>
+              <th className="text-left px-3 py-2 whitespace-nowrap">
                 <ColumnFilter
                   label="State"
                   options={stateOptions}
@@ -218,7 +226,7 @@ export default function MainTable({ fetchUniqueDocCached, onJumpToUniqueDoc, tra
           <tbody>
             {rows.length === 0 && !loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground italic">
+                <td colSpan={9} className="px-4 py-8 text-center text-sm text-muted-foreground italic">
                   No rows match the current filters.
                 </td>
               </tr>
@@ -235,6 +243,11 @@ export default function MainTable({ fetchUniqueDocCached, onJumpToUniqueDoc, tra
                       >
                         {row.document_id}
                       </button>
+                    </td>
+                    <td className="px-3 py-2 align-middle max-w-[200px]">
+                      <span className="block truncate text-foreground" title={row.shareable_name || ""}>
+                        {row.shareable_name || "—"}
+                      </span>
                     </td>
                     <td className="px-3 py-2 align-middle">
                       {editingId === row.id ? (
@@ -320,7 +333,7 @@ export default function MainTable({ fetchUniqueDocCached, onJumpToUniqueDoc, tra
                   </tr>
                   {expandedId === row.id && (
                     <tr className="border-b border-border/50 bg-muted/5">
-                      <td colSpan={8} className="px-4 py-2">
+                      <td colSpan={9} className="px-4 py-2">
                         <UniqueDocumentDetails
                           doc={expandedDoc}
                           translationAvailable={translationAvailable}

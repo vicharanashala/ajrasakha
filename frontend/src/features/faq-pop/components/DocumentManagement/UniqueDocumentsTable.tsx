@@ -7,6 +7,8 @@ import {
   getDashboardUniqueDocuments,
   deleteDashboardUniqueDocument,
   deleteDashboardOriginal,
+  getDashboardStates,
+  getDashboardCrops,
 } from "../../api";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import ColumnFilter from "../FunctionsPanel/ColumnFilter";
@@ -28,8 +30,8 @@ const FIELD_COLUMNS = [
   { key: "document_id", label: "Document ID", filterable: true, mono: true },
   { key: "advisory_type", label: "Advisory Type", filterable: true },
   { key: "advisory_scope", label: "Advisory Scope", filterable: true },
-  { key: "crops", label: "Crop(s)", array: true },
-  { key: "states", label: "State(s)", array: true },
+  { key: "crops", label: "Crop(s)", array: true, dropdownFilter: "crop" },
+  { key: "states", label: "State(s)", array: true, dropdownFilter: "state" },
   { key: "season", label: "Season", filterable: true },
   { key: "edition_revision_volume", label: "Edition/Rev/Vol", filterable: true },
   { key: "date_of_release", label: "Date of Release", filterable: true },
@@ -72,6 +74,34 @@ export default function UniqueDocumentsTable({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Dropdown+search options for the Crop(s)/State(s) filters below (ColumnFilter already has a
+  // built-in search box). NOTE: the backend doesn't accept filter[state]/filter[crop] on
+  // /unique-documents yet (only on /documents) — these controls are wired up ready to go, but
+  // won't actually narrow results until that's added server-side.
+  const [stateOptions, setStateOptions] = useState([]);
+  const [cropOptions, setCropOptions] = useState([]);
+  useEffect(() => {
+    getDashboardStates()
+      .then((d) => setStateOptions((d || []).map((s) => s.name)))
+      .catch(() => {});
+    getDashboardCrops()
+      .then((d) => setCropOptions((d || []).map((c) => c.name)))
+      .catch(() => {});
+  }, []);
+
+  // Crop(s)/State(s) cells are truncated by default (a document can carry many) — click to
+  // expand the full list inline instead of relying on a hover-only title tooltip.
+  const [expandedCells, setExpandedCells] = useState(() => new Set());
+  function toggleCell(rowId, colKey) {
+    const key = `${rowId}:${colKey}`;
+    setExpandedCells((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   async function load() {
     setLoading(true);
@@ -234,6 +264,13 @@ export default function UniqueDocumentsTable({
                       selected={filters[col.key] || []}
                       onChange={(v) => setFilter(col.key, v)}
                     />
+                  ) : col.dropdownFilter ? (
+                    <ColumnFilter
+                      label={col.label}
+                      options={col.dropdownFilter === "state" ? stateOptions : cropOptions}
+                      selected={filters[col.dropdownFilter] || []}
+                      onChange={(v) => setFilter(col.dropdownFilter, v)}
+                    />
                   ) : col.filterable ? (
                     <TextFilter
                       label={col.label}
@@ -286,12 +323,30 @@ export default function UniqueDocumentsTable({
                   {FIELD_COLUMNS.map((col) => {
                     const val = row[col.key];
                     if (col.array) {
-                      const text = (val || []).join(", ");
+                      const items = val || [];
+                      const text = items.join(", ");
+                      const expanded = expandedCells.has(`${row.id}:${col.key}`);
                       return (
                         <td key={col.key} className="px-3 py-2 align-middle max-w-[180px]">
-                          <span className="block truncate text-foreground" title={text}>
-                            {text || "—"}
-                          </span>
+                          {items.length === 0 ? (
+                            <span className="text-foreground">—</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => toggleCell(row.id, col.key)}
+                              className="text-left w-full cursor-pointer"
+                              title={expanded ? "Click to collapse" : text}
+                            >
+                              <span className={expanded ? "block text-foreground whitespace-normal" : "block truncate text-foreground"}>
+                                {text}
+                              </span>
+                              {items.length > 1 && (
+                                <span className="text-[10px] text-primary hover:underline">
+                                  {expanded ? "show less" : `${items.length} — show all`}
+                                </span>
+                              )}
+                            </button>
+                          )}
                         </td>
                       );
                     }
