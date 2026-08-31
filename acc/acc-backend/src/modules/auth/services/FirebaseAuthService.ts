@@ -105,8 +105,13 @@ export class FirebaseAuthService extends BaseService {
   }
 
   async sendVerificationEmail(email: string): Promise<void> {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail) {
+      throw new BadRequestError('Email address is required');
+    }
+
     try {
-      const link = await this.auth.generateEmailVerificationLink(email);
+      const link = await this.auth.generateEmailVerificationLink(cleanEmail);
 
       const html = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px;">
@@ -134,22 +139,35 @@ export class FirebaseAuthService extends BaseService {
         </div>
       `;
 
-      await sendEmailNotification(
-        email,
+      const sent = await sendEmailNotification(
+        cleanEmail,
         'Verify your email - Annam Call Center',
         `Please verify your email by clicking on the link below:\n\n${link}\n\nIf you did not create an account, you can safely ignore this email.`,
         html
       );
-      console.log(`✉️ Verification email sent successfully to ${email}`);
+
+      if (!sent) {
+        throw new InternalServerError('Failed to dispatch verification email. Please check SMTP configuration.');
+      }
+
+      console.log(`✉️ Verification email sent successfully to ${cleanEmail}`);
     } catch (err: any) {
-      console.error(`Failed to send verification email to ${email}:`, err);
+      console.error(`Failed to send verification email to ${cleanEmail}:`, err);
+      if (err instanceof BadRequestError || err instanceof InternalServerError) {
+        throw err;
+      }
       throw new BadRequestError(`Failed to send verification email: ${err.message || 'Unknown error'}`);
     }
   }
 
   async sendPasswordResetEmail(email: string): Promise<void> {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail) {
+      throw new BadRequestError('Email address is required');
+    }
+
     try {
-      const link = await this.auth.generatePasswordResetLink(email);
+      const link = await this.auth.generatePasswordResetLink(cleanEmail);
 
       const html = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px;">
@@ -178,14 +196,19 @@ export class FirebaseAuthService extends BaseService {
       `;
 
       await sendEmailNotification(
-        email,
+        cleanEmail,
         'Reset your password - Annam Call Center',
         `Reset your password by clicking on the link below:\n\n${link}\n\nThis link will expire shortly. If you did not request this, please ignore this email.`,
         html
       );
-      console.log(`✉️ Password reset email sent successfully to ${email}`);
+      console.log(`✉️ Password reset email sent successfully to ${cleanEmail}`);
     } catch (err: any) {
-      console.error(`Failed to send password reset email to ${email}:`, err);
+      console.error(`Failed to send password reset email to ${cleanEmail}:`, err);
+      // Security best practice: don't reveal whether the user exists or not
+      if (err.code === 'auth/user-not-found' || err.message?.includes('user-not-found')) {
+        console.warn(`Password reset requested for non-existent user: ${cleanEmail}`);
+        return;
+      }
       throw new BadRequestError(`Failed to send password reset email: ${err.message || 'Unknown error'}`);
     }
   }

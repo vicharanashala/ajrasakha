@@ -340,7 +340,9 @@ The ACC application includes a complete, self-contained call recording, storage,
 | `FAST2SMS_API_KEY` | String | **Yes** | `fast2sms_key_xxxxxxxx` | Fast2SMS Quick SMS API Key |
 | `ACC_AGENT_BASE_URL` | String | **Yes** | `http://localhost:9017` | LangGraph Python AI service base URL |
 | `ACC_AGENT_ASSISTANT_ID` | String | **Yes** | `acc_agent` | LangGraph assistant identifier |
-| `EMAIL_USER` / `EMAIL_PASS` | String | No | `support@annam.org` | Zoho Mail SMTP credentials |
+| `EMAIL_USER` | String | No | `support@annam.org` | Zoho Mail sender email address |
+| `EMAIL_PASS` | String | No | `zoho_app_password` | Zoho Mail app password |
+| `NOTIFICATION_EMAIL` | String | No | `admin@annam.org,alerts@annam.org` | Comma-separated notification recipients |
 
 ---
 
