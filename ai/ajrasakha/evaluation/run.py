@@ -18,6 +18,7 @@ from ajrasakha.evaluation.answer_eval import evaluate_response_quality
 from ajrasakha.evaluation.validators.source_check import evaluate_source_attribution
 from ajrasakha.evaluation.validators.disclaimer_language import evaluate_disclaimer_language
 from ajrasakha.evaluation.langsmith_trace import build_langsmith_trace_url
+from ajrasakha.evaluation.html_report import write_html_dashboard
 
 
 def run_case(case: dict, mode: str, eval_answers: bool = True) -> dict:
@@ -138,10 +139,12 @@ def main():
         results.append(res)
 
     output_file = f"evaluation_report_{args.mode}.csv"
+    output_html_file = f"evaluation_dashboard_{args.mode}.html"
     write_csv_report(results, output_file=output_file)
 
     duration = round(time.time() - start_time, 2)
     summary = build_summary(results)
+    write_html_dashboard(results, summary, output_file=output_html_file, run_id=run_id, mode=args.mode)
 
     print("\n========================================================")
     print(" Evaluation Run Summary")
@@ -160,4 +163,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main()
+

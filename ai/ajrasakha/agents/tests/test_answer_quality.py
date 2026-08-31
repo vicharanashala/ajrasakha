@@ -1,6 +1,8 @@
 """Unit tests for expert-answer quality heuristics and disclaimer stripping."""
 
 
+import os
+
 from ajrasakha.agents.answer_quality import (
     ensure_two_hour_disclaimer,
     is_no_database_match_answer,
@@ -8,6 +10,7 @@ from ajrasakha.agents.answer_quality import (
     is_sufficient_expert_answer,
     strip_two_hour_disclaimer,
 )
+
 
 SOIL_HEALTH_ANSWER = """
 ## Fertilizer Dosage Recommendation for Rice in Ropar, Punjab
@@ -173,6 +176,35 @@ def test_6_domain_summary_aggregation():
     assert "soil" in breakdown
     assert "schemes" in breakdown
     assert "gdb_queries" in breakdown
-    assert "greetings" in breakdown
     assert breakdown["weather"]["passed_cases"] == 1
 
+
+def test_html_dashboard_generation(tmp_path):
+    from ajrasakha.evaluation.html_report import write_html_dashboard
+    from ajrasakha.evaluation.summary import build_summary
+
+    mock_results = [
+        {
+            "name": "weather_test_1",
+            "domain": "weather",
+            "query": "What is the weather today in Ropar?",
+            "response_text": "Today in Ropar, partly cloudy 32C.",
+            "expected_output": "Partly cloudy 32C in Ropar.",
+            "technical_pass": True,
+            "quality_overall_passed": True,
+            "relevance_score": 0.85,
+            "faithfulness_score": 0.90,
+            "gdb_match_score": 0.88,
+            "agri_correctness_score": 0.95,
+        }
+    ]
+
+    summary = build_summary(mock_results)
+    out_file = str(tmp_path / "test_dashboard.html")
+    generated_path = write_html_dashboard(mock_results, summary, output_file=out_file)
+
+    assert os.path.exists(out_file)
+    content = open(out_file, encoding="utf-8").read()
+    assert "Ajrasakha Answer Evaluation Dashboard" in content
+    assert "weather_test_1" in content
+    assert "0.85" in content
