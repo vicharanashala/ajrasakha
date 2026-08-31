@@ -52,5 +52,19 @@ export default defineConfig({
     pool: 'forks',
     fileParallelism: false,
     hookTimeout: 120_000,
+    coverage: {
+      provider: 'v8',
+      reportsDirectory: './coverage/e2e',
+      reporter: [['html', {subdir: 'html'}], 'json', 'text'],
+      // Without this, vitest silently skips writing ANY coverage report
+      // (no text, no json, no html) the moment a single test fails — and
+      // this suite has 2 known, documented, permanently-failing tests
+      // (see Failed_tests.md), so coverage would never generate otherwise.
+      reportOnFailure: true,
+      // Only count application code, not the e2e test files themselves —
+      // otherwise "coverage" just measures that the test files ran.
+      include: ['src/modules/**', 'src/shared/**'],
+      exclude: ['src/**/tests/**', 'src/e2e/**', 'src/**/*.d.ts'],
+    },
   },
 });

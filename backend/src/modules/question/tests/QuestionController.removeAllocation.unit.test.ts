@@ -29,6 +29,10 @@ describe('QuestionController.removeAllocation', () => {
       getExprtIdByIndex: vi.fn(),
       getQuestionById: vi.fn(),
       removeExpertFromQueue: vi.fn(),
+      // New: when the queue's history is empty after removal, the controller
+      // clears firstAllocationAt via updateQuestion (added by the same merge
+      // that changed the constructor signature below).
+      updateQuestion: vi.fn().mockResolvedValue({}),
     };
 
     mockUserService = {

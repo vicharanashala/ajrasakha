@@ -69,7 +69,7 @@ describe('QuestionController.downloadDuplicateReport', () => {
 
     expect(
       mockQuestionService.generateDuplicateQuestionReport,
-    ).toHaveBeenCalledWith(new Date('2024-01-01'), new Date('2024-12-31'));
+    ).toHaveBeenCalledWith(new Date('2024-01-01'), new Date('2024-12-31'), false, true);
 
     expect(result).toBeInstanceOf(Buffer);
   });
@@ -83,7 +83,7 @@ describe('QuestionController.downloadDuplicateReport', () => {
 
     expect(
       mockQuestionService.generateDuplicateQuestionReport,
-    ).toHaveBeenCalledWith(undefined, undefined);
+    ).toHaveBeenCalledWith(undefined, undefined, false, true);
   });
 
   it('returns no data response when report is empty', async () => {
@@ -114,7 +114,7 @@ describe('QuestionController.downloadDuplicateReport', () => {
 
     expect(
       mockQuestionService.generateDuplicateQuestionReport,
-    ).toHaveBeenCalledWith(new Date('2024-01-01'), undefined);
+    ).toHaveBeenCalledWith(new Date('2024-01-01'), undefined, false, true);
   });
 
   it('parses only endDate correctly', async () => {
@@ -132,7 +132,7 @@ describe('QuestionController.downloadDuplicateReport', () => {
 
     expect(
       mockQuestionService.generateDuplicateQuestionReport,
-    ).toHaveBeenCalledWith(undefined, new Date('2024-12-31'));
+    ).toHaveBeenCalledWith(undefined, new Date('2024-12-31'), false, true);
   });
 
   it('passes service errors through', async () => {

@@ -20,6 +20,10 @@ describe('QuestionController.updateQuestion', () => {
     vi.clearAllMocks();
 
     mockQuestionService = {
+      // The controller now snapshots the question via getQuestionById before
+      // every update (for the audit-trail before/after diff) — added by the
+      // same merge that changed the constructor signature below.
+      getQuestionById: vi.fn().mockResolvedValue({}),
       updateQuestion: vi.fn(),
     };
 

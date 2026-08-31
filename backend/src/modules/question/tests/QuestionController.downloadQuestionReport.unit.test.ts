@@ -71,6 +71,11 @@ describe('QuestionController.downloadQuestionReport', () => {
       5,
       new Date('2024-01-01'),
       new Date('2024-12-31'),
+      // isTrainingUser (defaults false), isAdmin — threaded through by the
+      // training-moderator-priority feature (same merge as the constructor
+      // signature change above). mockUser has no isTrainingUser and role='admin'.
+      false,
+      true,
     );
 
     expect(result).toBeInstanceOf(Buffer);
@@ -87,6 +92,8 @@ describe('QuestionController.downloadQuestionReport', () => {
       undefined,
       undefined,
       undefined,
+      false,
+      true,
     );
   });
 
@@ -156,6 +163,8 @@ describe('QuestionController.downloadQuestionReport', () => {
       10,
       undefined,
       undefined,
+      false,
+      true,
     );
   });
 });
