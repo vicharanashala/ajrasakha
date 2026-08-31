@@ -5,7 +5,7 @@ import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
 import { NotificationModal } from "./NotificationModal";
 import { TabsList, TabsTrigger } from "@/components/atoms/tabs";
-import { canManageUsers } from "@/lib/roles";
+import { canManageUsers, hasFullUserManagement } from "@/lib/roles";
 import type { IUser } from "@/types";
 
 export function PlaygroundHeader({
@@ -95,7 +95,7 @@ export function PlaygroundHeader({
                 >
                   <HoverCard openDelay={150}>
                     <span>
-                      {user.role === "admin" ? "User" : "Expert"} Management
+                      {hasFullUserManagement(user.role) ? "User" : "Expert"} Management
                     </span>
                   </HoverCard>
                 </TabsTrigger>

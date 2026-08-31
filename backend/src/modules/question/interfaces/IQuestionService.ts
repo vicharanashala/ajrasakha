@@ -705,6 +705,8 @@ export interface IQuestionService {
     limit?: number,
     startTime?: Date,
     endTime?: Date,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
   ): Promise<QueueSectionResult>;
 
   /**
@@ -891,5 +893,21 @@ export interface IQuestionService {
     suggestionSourceName?: string,
   ): Promise<{ success: boolean; message: string }>;
 
+
+  ensureNormalisedCrop(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<string | null>;
+
+  ensureNormalisedLocation(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<{valid: true}>;
+
+  freeRoleAssigneeOnStatusChange(
+    questionId: string,
+    newStatus?: string,
+    session?: ClientSession,
+  ): Promise<void>;
   getPaeValidationQueueDetails(params?: PaeValidationQueueParams): Promise<PaeValidationQueueDetails>;
 }

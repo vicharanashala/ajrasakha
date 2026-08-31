@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { IUser } from "@/types";
 import { useDebounce } from "@/hooks/ui/useDebounce";
-import { canManageUsers } from "@/lib/roles";
+import { canManageUsers, hasFullUserManagement } from "@/lib/roles";
 import {
   Filter,
   MapPin,
@@ -47,11 +47,14 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [verifiedFilter, setVerifiedFilter] = useState<string>("ALL");
   const [stfFilter, setStfFilter] = useState<string>("ALL");
+  const [tmuFilter, setTmuFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(12);
   const [showSensitive, setShowSensitive] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const isAdmin = currentUser?.role === "admin";
+  // Gate keepers get the same full "User Management" view as admins (all users +
+  // admin actions), not the limited "Expert Management" view.
+  const isAdmin = hasFullUserManagement(currentUser?.role);
 
   const handleExportUsers = async () => {
     try {
@@ -65,6 +68,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
         isBlocked: statusFilter,
         isVerified: verifiedFilter,
         isSTF: stfFilter,
+        isTMU: tmuFilter,
       });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -97,6 +101,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   statusFilter,
   verifiedFilter,
   stfFilter,
+  tmuFilter,
   { enabled: isAdmin }
 );
   const toggleSort = (key: string) => {
@@ -157,6 +162,7 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   if (statusFilter !== "ALL") activeFiltersCount++;
   if (verifiedFilter !== "ALL") activeFiltersCount++;
   if (stfFilter !== "ALL") activeFiltersCount++;
+  if (tmuFilter !== "ALL") activeFiltersCount++;
 
 
   // console.log("Admin users ->", adminUsers?.users);
@@ -358,6 +364,8 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
                 setVerifiedFilter={setVerifiedFilter}
                 stfFilter={stfFilter}
                 setStfFilter={setStfFilter}
+                tmuFilter={tmuFilter}
+                setTmuFilter={setTmuFilter}
                 setPage={setPage}
                 activeFiltersCount={activeFiltersCount}
               />

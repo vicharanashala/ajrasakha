@@ -54,6 +54,8 @@ export async function sendEmailWithAttachment(
     contentType: string;
     cid: string;
   }[],
+  // Optional CC recipient(s), passed straight through to nodemailer's `cc` field.
+  cc?: string | string[],
 ) {
   const user = emailConfig.EMAIL_USER;
   const pass = emailConfig.EMAIL_PASS;
@@ -74,6 +76,7 @@ export async function sendEmailWithAttachment(
   await transporter.sendMail({
     from: `"Agri Platform" <${emailConfig.EMAIL_USER}>`,
     to: email,
+    ...(cc ? {cc} : {}),
     subject: title,
     html,
     attachments: [
