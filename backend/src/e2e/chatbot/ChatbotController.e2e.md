@@ -60,16 +60,32 @@ fields: `DemographicUsersQueryDto.category`/`value`,
 
 ---
 
-## Test cases (64 total)
+## Test cases (70 total)
 
 - 2 auth-gate tests (bare `@Authorized()` → 401; roles-array → 403)
 - ~35 no-param analytics GETs, one `it` each
 - 2 required-param validation tests (`users-by-demographic`,
   `users-by-platform`) plus their happy paths
 - BUG-027 reproduction (`lifecycle-summary`)
-- Cross-domain lookup documentation (`user-questions-data`, `question-lifecycle`,
-  `user-profile`) — a fake or app-domain id correctly 500s with a clean
-  not-found message from the chatbot-user domain
+- `GET /filtered-questions` — 5 real dispatch-branch tests
+  (`?category=`/`?state=`/`?district=`/`?crop=`/`?status=`), each passing
+  `source=whatsapp` explicitly to force `ChatbotRepository`'s DB routing to
+  this app's own test DB instead of its default (`source==='annam'`, which
+  connects to the **real production** Annam analytics cluster —
+  `ANNAM_URL_ANALYTICS`/`production.irscxiv.mongodb.net`, confirmed by
+  reading `ChatbotRepository.init()`). 3 of the 8 dispatch branches
+  (`closedWithInTwohours`, `period`, `manualSource`) hardcode
+  `this.init('annam')` internally regardless of the caller's `source` —
+  there is no way to call those three safely for real, so they stay
+  untested on purpose.
+- `GET /user-questions-data` — 1 real test using the shared moderator
+  fixture's email with `source=whatsapp` (same DB-routing reasoning as
+  above), exercising `getUserData`/`getUsersMessages`/`getAllUserMessageIds`
+  for real. The deeper `getUserQuestionsData` repository query only runs
+  when real linked WhatsApp message ids are found — not reached here.
+- Cross-domain lookup documentation (`user-questions-data` fake-id case,
+  `question-lifecycle`, `user-profile`) — a fake or app-domain id correctly
+  500s with a clean not-found message from the chatbot-user domain
 - `village-data`, `top-questions/:questionId`, `download-chatbot-report`
   (validation + generation-environment note)
 - 6 `/dataset/*` environment-issue tests

@@ -138,6 +138,82 @@ describe('No-param analytics GETs (200 for an authenticated user)', () => {
   }
 });
 
+// GET /filtered-questions dispatches to one of 8 different ChatbotRepository
+// methods depending on which query param is present. The bare smoke test
+// above only exercises whichever branch runs with NO params. Each of these
+// methods calls a private `init(source)` that routes `this.users`/
+// `this.conversations`/`this.messagesCollection`/`this.sessionCollection` to
+// EITHER the real Annam production cluster (`source==='annam'`, the default)
+// OR this app's own test DB (`source==='whatsapp'`) — confirmed by reading
+// ChatbotRepository.ts's `init()`. Every test below passes `source=whatsapp`
+// explicitly to force the safe DB path.
+//
+// NOT tested: `closedWithInTwohours`, `period`, `manualSource`. Their
+// ChatbotRepository methods (`getQuestionsClosedWithinTwoHours`,
+// `getQueriesByPeriod`, `getQuestionByManualSource`) call `this.init('annam')`
+// with a HARDCODED literal, ignoring the caller's `source` entirely — there
+// is no query param that makes these three safe to call for real. Left
+// uncovered on purpose; see README.md's "Code coverage" section.
+describe('GET /filtered-questions — real dispatch branches (source=whatsapp forces the safe DB path)', () => {
+  it('?category=... dispatches to getQueryCategoryQuestions', async () => {
+    currentTestUser = moderatorUser;
+    const res = await apiGet(`${ROUTE_PREFIX}/analytics/filtered-questions?category=faq&source=whatsapp`);
+    console.log('category STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
+    expect(res.status).toBe(200);
+  }, 20000);
+
+  it('?state=... (no district, no closedWithInTwohours) dispatches to getQuestionFromState', async () => {
+    currentTestUser = moderatorUser;
+    const res = await apiGet(`${ROUTE_PREFIX}/analytics/filtered-questions?state=Punjab&source=whatsapp`);
+    console.log('state STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
+    expect(res.status).toBe(200);
+  }, 20000);
+
+  it('?district=... dispatches to getQuestionFromDistrict', async () => {
+    currentTestUser = moderatorUser;
+    const res = await apiGet(`${ROUTE_PREFIX}/analytics/filtered-questions?district=Ludhiana&state=Punjab&source=whatsapp`);
+    console.log('district STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
+    expect(res.status).toBe(200);
+  }, 20000);
+
+  it('?crop=... dispatches to getQuestionsByCrop', async () => {
+    currentTestUser = moderatorUser;
+    const res = await apiGet(`${ROUTE_PREFIX}/analytics/filtered-questions?crop=Wheat&source=whatsapp`);
+    console.log('crop STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
+    expect(res.status).toBe(200);
+  }, 20000);
+
+  it('?status=... dispatches to getQuestionsByStatus', async () => {
+    currentTestUser = moderatorUser;
+    const res = await apiGet(
+      `${ROUTE_PREFIX}/analytics/filtered-questions?status=open&source=whatsapp&startDate=${startDate}&endDate=${endDate}`,
+    );
+    console.log('status STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
+    expect(res.status).toBe(200);
+  }, 20000);
+});
+
+// GET /user-questions-data — chatbotService.getUserQuestionsData internally
+// chains getUserData -> getUsersMessages -> getAllUserMessageIds -> (if any
+// message ids matched) getUserQuestionsData. getUsersMessages/
+// getAllUserMessageIds respect the caller's `source`, same
+// safe-with-source=whatsapp pattern as /filtered-questions above.
+// getCoordinatorKpiSummary (used elsewhere, not this route) hardcodes
+// `this.init('annam')` regardless of caller input — that one stays untested.
+describe('GET /user-questions-data (source=whatsapp forces the safe DB path)', () => {
+  it('exercises getUserData -> getUsersMessages -> getAllUserMessageIds for real', async () => {
+    // source=whatsapp routes getUserData's lookup to this app's own `users`
+    // collection (not a real WhatsApp farmer profile) — so the email has to
+    // be a real row in THAT collection. The shared moderator fixture works.
+    currentTestUser = moderatorUser;
+    const res = await apiGet(
+      `${ROUTE_PREFIX}/analytics/user-questions-data?userEmail=${encodeURIComponent(process.env.MODERATOR_EMAIL as string)}&source=whatsapp`,
+    );
+    console.log('user-questions-data STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 300));
+    expect(res.status).toBe(200);
+  }, 20000);
+});
+
 describe('Routes with real required query params', () => {
   it('GET /users-by-demographic requires category+value', async () => {
     currentTestUser = moderatorUser;

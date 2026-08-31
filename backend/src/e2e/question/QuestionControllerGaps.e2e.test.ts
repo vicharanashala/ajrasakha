@@ -747,6 +747,17 @@ describe('Report downloads', () => {
     expect(res.status).toBe(200);
   }, 20000);
 
+  // Coverage note: status=closed triggers generateStateCropQuestionReport's
+  // includeAnswerDetails branch (answer text/sources/approving-moderator
+  // resolution) — the plain state-only call above never reaches it. Uses
+  // the real closed fixture question + finalized answer from beforeAll.
+  it('GET /download-filtered-report?status=closed (exercises answer-details resolution)', async () => {
+    currentTestUser = moderatorUser;
+    const res = await apiGet(`${ROUTE_PREFIX}/questions/download-filtered-report?status=closed`);
+    console.log('download-filtered-report(closed) STATUS:', res.status);
+    expect(res.status).toBe(200);
+  }, 20000);
+
   it('GET /download-duplicate-questions-report', async () => {
     currentTestUser = moderatorUser;
     const res = await apiGet(`${ROUTE_PREFIX}/questions/download-duplicate-questions-report?startDate=${startDate}&endDate=${endDate}`);

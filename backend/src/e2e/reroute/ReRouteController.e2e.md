@@ -19,19 +19,28 @@
 
 ## Scope of this pass
 
-A genuine reroute record only exists after a peer-review rejection cycle produces
-one — the underlying mechanics are already exercised structurally by
-`post-allocation/` and `gatekeeper-auditor/`. Building the full multi-stage fixture
-chain (allocate → submit → reviewer rejects → reroute created) just to reach these
-6 routes would duplicate a lot of unrelated machinery, so **this suite covers the
-auth gate and the error paths every route takes for nonexistent/invalid ids — not
-the full reroute happy path.** Worth a dedicated follow-up suite if reroute-specific
-business logic needs deeper coverage (e.g. verifying reroute ordering, notification
-content, or reputation-score effects).
+The first pass covered only the auth gate and the error paths every route
+takes for nonexistent/invalid ids. A second pass added a real fixture chain
+— a real `OUTREACH` question created via `POST /questions`, plus a
+directly-inserted `answers` doc (the service layer never validates
+`answerId` against a real document, but `getAllocatedQuestions`/
+`getAllocatedQuestionsByID` both `$lookup` + `$unwind` on `answers`, so an
+`answerId` with no match silently drops the whole result — the fixture
+answer has to be real for those two reads to return anything) — to exercise
+the actual business logic: `addrerouteAnswer`, `getQuestionById`,
+`getAllocatedQuestions`, `getRerouteHistory`, `rejectRerouteRequest`
+(expert path, including the real "already rejected" business-rule 400 on a
+second attempt), and `moderatorReject`/`updateStatus` (moderator path).
+
+**Note on `GET /:answerId/history`:** despite the param name, the
+repository (`ReRouteRepository.getRerouteHistory`) matches it against
+`questionId`, not the reroute's `answerId` field — the happy-path test
+calls this route with the question id, documenting actual behavior rather
+than the route's apparent contract.
 
 ---
 
-## Test cases (12 total)
+## Test cases (15 total)
 
 | # | Test | Expected |
 |---|------|----------|
@@ -47,6 +56,9 @@ content, or reputation-score effects).
 | 10 | Same — non-existent reroute record | ≥400 |
 | 11 | `PATCH /:questionId/:expertId/action` — no auth | 401 |
 | 12 | Same — non-existent question/expert | ≥400 |
+| 13 | Real reroute assignment — record created, visible via `GET /:questionId` + `POST /allocated`, real history via `GET /:questionId/history` | 200s throughout, real DB state asserted |
+| 14 | Expert rejects — real `expert_rejected` flip, question → `in-review`, reputation/notification side effects run, second reject on same record | 200 then real 400 ("already rejected") |
+| 15 | Moderator rejects via the dedicated action route — real `updateStatus` write | 200, real `moderator_rejected` state |
 
 ---
 
@@ -60,4 +72,4 @@ NODE_ENV=test pnpm exec vitest run --config vitest.e2e.config.ts src/e2e/reroute
 
 ## Last Run
 
-**Date:** 2026-08-24 | **Result:** ✅ all 12 passed | **Duration:** ~6s
+**Date:** 2026-08-31 | **Result:** ✅ all 15 passed | **Duration:** ~13s

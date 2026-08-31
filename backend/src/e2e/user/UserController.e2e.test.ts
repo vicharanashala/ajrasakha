@@ -70,6 +70,7 @@ let adminUser: any;
 let moderatorUser: any;
 let expertUser: any;
 let gateKeeperUser: any;
+let callAgentUser: any;
 
 let currentTestUser: any = null;
 let targetUserId: string;
@@ -144,6 +145,29 @@ beforeAll(async () => {
   });
   createdUserIds.push(gkResult.insertedId);
   gateKeeperUser = await users.findOne({_id: gkResult.insertedId});
+
+  // Real call_agent role fixture — the existing call-agent tests above only
+  // exercise the auth/role-gate paths with a moderator/admin caller; nothing
+  // previously drove UserService's setAgentOnline/Offline/heartbeat/
+  // markAgentAsAvailable through their real business logic.
+  const caResult = await users.insertOne({
+    email: `${RUN_TAG.toLowerCase()}-callagent@example.com`,
+    firstName: 'E2E',
+    lastName: 'CallAgent',
+    role: 'call_agent',
+    status: 'active',
+    isBlocked: false,
+    isVerified: true,
+    isCallAgentActive: false,
+    isBusy: false,
+    agent: 'not_available',
+    firebaseUID: `e2e-fixture-ca-${Date.now()}`,
+    assignedQuestionIds: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  createdUserIds.push(caResult.insertedId);
+  callAgentUser = await users.findOne({_id: caResult.insertedId});
 
   console.log(`[setup] Connected. RUN_TAG=${RUN_TAG} targetUserId=${targetUserId}`);
 }, 90000);
@@ -607,6 +631,55 @@ describe('Call-agent self-service routes (call_agent role only)', () => {
     currentTestUser = moderatorUser;
     const res = await apiPost(`${ROUTE_PREFIX}/users/call-agents/available`);
     expect(res.status).toBe(200);
+  });
+});
+
+describe('Call-agent self-service — real call_agent happy path', () => {
+  it('toggle-status(online:true) assigns agent_1 and sets isCallAgentActive', async () => {
+    currentTestUser = callAgentUser;
+    const res = await apiPost(`${ROUTE_PREFIX}/users/call-agents/toggle-status`).send({online: true});
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
+    expect(res.status).toBe(200);
+    expect(res.body.isCallAgentActive).toBe(true);
+    expect(res.body.agent).toBe('agent_1');
+    expect(res.body.isBusy).toBe(false);
+  });
+
+  it('heartbeat updates lastAgentActiveAt for the now-online agent', async () => {
+    currentTestUser = callAgentUser;
+    const res = await apiPost(`${ROUTE_PREFIX}/users/call-agents/heartbeat`);
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body));
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const users = await db.getCollection('users');
+    const updated = await users.findOne({_id: callAgentUser._id});
+    expect(updated.lastAgentActiveAt).toBeTruthy();
+  });
+
+  it('available marks a busy agent as not busy (no-op for an already-free agent)', async () => {
+    const users = await db.getCollection('users');
+    await users.updateOne({_id: callAgentUser._id}, {$set: {isBusy: true, currentCallUuid: 'fake-call-uuid'}});
+
+    currentTestUser = callAgentUser;
+    const res = await apiPost(`${ROUTE_PREFIX}/users/call-agents/available`);
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
+    expect(res.status).toBe(200);
+    expect(res.body.isBusy).toBe(false);
+    expect(res.body.currentCallUuid).toBeFalsy();
+  });
+
+  it('toggle-status(online:false) releases the agent slot back to not_available', async () => {
+    currentTestUser = callAgentUser;
+    const res = await apiPost(`${ROUTE_PREFIX}/users/call-agents/toggle-status`).send({online: false});
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
+    expect(res.status).toBe(200);
+    expect(res.body.isCallAgentActive).toBe(false);
+    expect(res.body.agent).toBe('not_available');
   });
 });
 

@@ -8,6 +8,11 @@ production DI container in-process via `loadAppModules('all')`.
 and how to fix it. This file covers what's tested, what's missing, and how
 the suite works.
 
+**Changing a route or service and need to know which test file to update?
+See `TEST_MAP.md`** — a lookup index by controller/route, by service, and
+by cross-cutting feature workflow, meant for the dev team to self-serve
+test updates without depending on the testing team.
+
 ---
 
 ## How to run
@@ -33,7 +38,7 @@ intentional skip — check the `beforeAll` first if you see a block of `↓`.
 
 ---
 
-## Coverage: 266/293 routes (~91%)
+## Coverage: 274/293 routes (~93.5%)
 
 `pnpm run test:e2e:coverage` cross-references every route decorator across
 `src/modules/*/controllers` against every literal path called from
@@ -41,9 +46,12 @@ intentional skip — check the `beforeAll` first if you see a block of `↓`.
 check** — it tells you *some* test hits a route, not that the route's
 important edge cases are actually exercised. The "Suites at a glance" table
 below and each suite's own `.md` doc are the real record of what's verified.
+For real *code* coverage (branches, not just "a request hit this route"),
+see `pnpm run test:e2e:code-coverage` — a v8 report at
+`coverage/e2e/html/index.html`.
 
 17 of 18 modules sit at 83–100%. `QuestionController` (the largest single
-controller) is at 64/83 (~77%).
+controller) is at 72/83 (~86.7%).
 
 ---
 
@@ -76,22 +84,111 @@ paths instead of as a standalone string literal):
 | `lgd POST /kvks/sync` | Runs a real script that upserts the *live* reference-data collection from a CSV | A disposable dataset + scoped test collection, or mock the upsert layer entirely |
 | `question POST /bulk-pae-allocate` | Worker-thread CSV processing — worker threads don't resolve modules under this in-process vitest harness | A real live server, or an app-code fix to the worker's module resolution |
 
-### `QuestionController`'s remaining 19 routes, by category
+### `QuestionController`'s remaining 11 routes, by category
 
 None of these are accidentally-missed business logic — each falls into a
-category flagged up front as a poor fit for this kind of testing:
+category flagged up front as a poor fit for this kind of testing. (The
+internal `/background/*` ops routes previously listed here are now covered
+by `question/QuestionControllerOps.e2e.test.ts`.)
 
 | Category | Count | Routes | Why |
 |---|---:|---|---|
 | Real external-AI-service calls | 3 | `/generate`, `/generate-by-call-context`, `/call-summary` | Needs dedicated mocking/fixture work beyond "accept a clean 5xx" |
 | ACC-agent flow | 4 | `/acc-agent/thread`, `/extract`, `/update-state`, `/resume` | Multi-step external call-agent state machine, needs its own fixture chain |
-| Internal/background/ops helpers | 8 | `/background/*` (7 routes), `GET /background/unknown-geo` | Not real client-facing API surface |
 | Cross-DB migration/comparison | 3 | `/check-overlaps`, `/run-migration`, `/migrate-firebase-users` | `check-overlaps` needs a staging DB this environment doesn't have; the other two are one-off scripts |
-| Bulk CSV (listed above too) | 1 | `/bulk-pae-allocate` | Same worker-thread issue as the Group above |
+| Bulk CSV | 1 | `/bulk-pae-allocate` | Worker-thread module resolution doesn't work under this in-process vitest harness |
 
 **If closing more of this is worth it:** the 7 external-AI + ACC-agent
 routes are the highest-value remaining work (real business logic, just needs
 fixture investment). The rest are reasonably left alone.
+
+---
+
+## Code coverage: 65.01% — final state, and why 80% isn't reachable this way
+
+`pnpm run test:e2e:code-coverage` (v8) measures actual code execution — a
+stricter, different signal than the ~93.5% route coverage above. Final
+state as of 2026-08-31: **65.01% statements/lines** (49,726/76,491),
+52.01% branches, 76.48% functions, across 664 tests (653 passing — the 11
+failures are exactly the ones documented in `Failed_tests.md`, nothing
+new). Started this specific push at 55.47%.
+
+A target of 80% overall was set for this suite. This section is the
+complete, audited accounting of why that isn't reachable by writing more
+tests the way every other test in this suite is written, without a scope
+decision — not a guess, every file below was read and traced by hand.
+
+### The bifurcation
+
+| | Statements | Share |
+|---|---:|---:|
+| Covered by real e2e tests | 49,726 | 65.0% |
+| **Reachable, safe, but not yet covered** — genuine remaining test-writing opportunity | ~15,109 | 19.8% |
+| **Structurally out of reach** — concentrated in 9 files, cannot close by writing more tests | 11,656 | 15.2% |
+
+The "reachable but not yet covered" 19.8% is real, ordinary remaining
+work — the kind this session already made a dent in (`reroute/`, `user/`
+call-agent, `auth/RealAuthGate`, the `/filtered-questions` and
+`/user-questions-data` dispatch branches on `chatbot/`). Continuing that
+same style of work can still move the number up. It's the other 15.2% —
+11,656 statements, concentrated in exactly 9 files — that's the actual
+ceiling. Below is where it lives and why.
+
+### Where it lives
+
+| File | Uncovered / Total | % dead |
+|---|---:|---:|
+| [`ChatbotRepository.ts`](../shared/database/providers/mongo/repositories/ChatbotRepository.ts) | 7,642 / 19,139 | 60% |
+| [`ChatbotService.ts`](../modules/chatbot/services/ChatbotService.ts) | 1,680 / 3,753 | 55% |
+| [`CheckOverlapsService.ts`](../modules/question/services/CheckOverlapsService.ts) | 695 / 722 | 96% |
+| [`PlivoService.ts`](../modules/plivo/services/PlivoService.ts) | 340 / 409 | 83% |
+| [`AiService.ts`](../modules/ai/services/AiService.ts) | 306 / 397 | 77% |
+| [`QuestionAiService.ts`](../modules/question/services/QuestionAiService.ts) | 306 / 343 | 89% |
+| [`CallDetailsRepository.ts`](../shared/database/providers/mongo/repositories/CallDetailsRepository.ts) | 261 / 407 | 64% |
+| [`AccAgentService.ts`](../modules/acc-agent/services/AccAgentService.ts) | 216 / 242 | 89% |
+| [`WhatsAppService.ts`](../modules/whatsapp/services/WhatsAppService.ts) | 210 / 281 | 75% |
+| **Total** | **11,656** | |
+
+### Why — the 5 causes, each verified by reading the code
+
+**1. Dead code — nothing routes to it, so nothing can call it in a test**
+- [`AgentAssignmentService.ts`](../modules/plivo/services/AgentAssignmentService.ts) (whole file, 113 statements) — bound in the DI container, but `UserService` reimplements the same agent-assignment logic inline instead of calling it. Zero callers anywhere. Excluded from coverage measurement entirely (see `vitest.e2e.config.ts`).
+- [`ReviewRepository.ts`](../shared/database/providers/mongo/repositories/ReviewRepository.ts)'s 4 read methods — zero callers anywhere in `src/modules`.
+- [`DuplicateQuestionRepository.ts`](../shared/database/providers/mongo/repositories/DuplicateQuestionRepository.ts)'s `addDuplicate`/`findDuplicatesByMatchedId` — the only caller, `DuplicateService.checkDuplicateQuestion`, never passes the `fromOutReach` flag needed to reach the branch that calls them.
+- `ChatbotRepository.ts`/`ChatbotService.ts` — ~1,584 lines with no controller call site at all: `getDailyAnalyticsForWhatsApp`/`getWeeklyAnalyticsForWhatsApp`/`getMonthlyAnalyticsForWhatsApp` (1,215 lines alone), `getWhatsAppTopFaqs`, `getWhatsAppDuplicateQuestions`, `getWhatsAppDuplicateQuestionsCount`, `getWeeklyAvgSessionDuration`, `getDailyQueryCounts`/`getWeeklyQueryCounts`/`getMonthlyQueryCounts`, `getUserConversationIds`, `getUserEmailByConversationId`, `getHierarchyUserIds`.
+- Fix: a deletion pass, verified safe by the same grep method used here. Not a test-writing task — I did not delete any of this, since it's an application-code change outside what "add tests" should do unilaterally.
+
+**2. Real writes to the production Annam analytics cluster**
+- `ChatbotRepository.updateUser`/`addUser`/`changeUserPassword`/`findMatchingReviewSystemUser`/`deleteReviewSystemUser`/`rollbackPasswordSync` (~440 lines) — these inject `AnnamDatabase` directly, bound to `ANNAM_URL_ANALYTICS`, which points at `production.irscxiv.mongodb.net` (confirmed by reading `.env`).
+- A real "success" test here would create or modify real production data. `chatbot/ChatbotController.e2e.test.ts` deliberately only tests the validation/auth-block paths on these routes — verified intentional, not an oversight.
+- Fix: none available without a staging Annam cluster.
+
+**3. Real reads from the same production cluster, with no safe way around it**
+- `ChatbotRepository.getQuestionsClosedWithinTwoHours`/`getQueriesByPeriod`/`getQuestionByManualSource`/`getCoordinatorKpiSummary` (~1,042 lines) call a private `init('annam')` with a **hardcoded literal** — unlike their sibling functions (`getQuestionsByCrop`, `getQuestionsByStatus`, `getQuestionFromState`, `getQuestionFromDistrict`, `getQueryCategoryQuestions` — all closed this session by passing `source=whatsapp` through `GET /filtered-questions`), these four ignore whatever `source` the caller passes and always route to the production cluster.
+- Fix: change the hardcoded `'annam'` to the passed-in `source` parameter in `ChatbotRepository.ts` — a one-line-per-function application code change, not a test change, so left alone here.
+
+**4. Real third-party API calls, no mock boundary in this harness**
+- `PlivoService`'s call/audio-streaming internals (`transcribeAudio`, `sendAudio`, `saveCallDetails`, `initializeStreams`, etc.) — needs a live Plivo call.
+- `CallDetailsRepository` — same live-call dependency.
+- `WhatsAppService`/`ChatbotService`'s LGD-heatmap calls (`getHeatMapLgdDistricts`/`Blocks`/`Villages`) — real calls to `process.env.LGD_STATES_API_URL` and siblings.
+- `QuestionAiService`/`AiService`/`AccAgentService` — real LLM/ACC-agent calls (`/generate`, `/generate-by-call-context`, `/call-summary`, `/acc-agent/*` — already listed as out of scope in "Missing tests" above, same root cause).
+- Fix: dedicated HTTP-mocking infrastructure (nock/msw) — a philosophy change for a suite that's deliberately "real e2e against real services" everywhere else. A scope decision, not a gap to quietly patch.
+
+**5. Environment-config blocked**
+- [`CheckOverlapsService.ts`](../modules/question/services/CheckOverlapsService.ts) (695 of 722 lines) — `check-overlaps` needs a staging DB this environment doesn't have (already listed in "Missing tests" above).
+- `/dataset/*` routes and `ChatbotService.generateChatbotAnalyticsPdfReport` + its table-drawing helpers — `DATA_RELEASE_URL` isn't configured in this environment; already documented per-route in `chatbot/ChatbotController.e2e.md`.
+- Fix: configure the missing env vars against a real or staging endpoint.
+
+### Net effect
+
+Every one of the 5 causes needs a decision or resource this suite doesn't
+have on its own: delete confirmed-dead application code, get a staging
+Annam cluster, fix a hardcoded DB-routing parameter, build HTTP-mocking
+infrastructure, or configure missing env vars. None of them are closed by
+writing more tests in the existing style — that style has already been
+pushed as far as it safely goes, closing the ~15,109 statements of
+genuinely reachable, safe gap that existed at the start of this session's
+coverage work.
 
 ---
 
@@ -155,12 +252,13 @@ whenever a new suite touches a real external credential.
 | `gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts` | 37 | Push to auditor, finalize, duplicate handling, queue cron |
 | `feedback/Feedback.e2e.test.ts` | 34 | PAE_Validation/DATASET/WEB_APPLICATION routing — 2 failing, see `Failed_tests.md` |
 | `auth/AuthController.e2e.test.ts` | 26 | Signup, admin review-users, change-password, real Firebase login+sync |
+| `auth/RealAuthGate.e2e.test.ts` | 7 | Real (non-faked) `authorizationChecker`/`currentUserChecker`/`FlexibleAuth` — every other suite fakes these |
 | `comment/CommentController.e2e.test.ts` | 6 | Paginated list, add comment |
 | `context/ContextController.e2e.test.ts` | 9 | Add context, live Sarvam translate, speech-to-text auth gate |
 | `request/RequestController.e2e.test.ts` | 9 | Create/list/diff/status/delete flag-request lifecycle |
 | `crop/CropController.e2e.test.ts` | 16 | CRUD, bulk-status, xlsx download, role guards, search filter |
 | `auditTrails/AuditTrailsController.e2e.test.ts` | 6 | Admin vs. moderator-scoped views, shift counts |
-| `reroute/ReRouteController.e2e.test.ts` | 12 | Auth gate + error paths |
+| `reroute/ReRouteController.e2e.test.ts` | 15 | Auth gate + error paths, plus a real allocate → expert-reject / moderator-reject happy path |
 | `dashboard/PublicDashboardController.e2e.test.ts` | 17 | Public reads, admin item CRUD |
 | `notification/NotificationController.e2e.test.ts` | 13 | CRUD, mark-as-read, push subscription |
 | `lgd/LocationController.e2e.test.ts` | 26 | State/district/block/village/kvk reads, role-guarded lifecycle, `districts/all` singleton |
@@ -168,11 +266,12 @@ whenever a new suite touches a real external credential.
 | `plivo/PlivoController.e2e.test.ts` | 8 | Call history, SMS validation, agent/admin analytics |
 | `performance/PerformanceController.e2e.test.ts` | 34 | All 18 routes — dashboard analytics + shift-based reports |
 | `whatsapp/WhatsAppController.e2e.test.ts` | 6 | The controller's own routes (distinct from the ingestion pipeline) |
-| `user/UserController.e2e.test.ts` | 53 | All 30 routes incl. `admin/all/export`, gate-keeper user-management access |
+| `user/UserController.e2e.test.ts` | 57 | All 30 routes incl. `admin/all/export`, gate-keeper user-management access, real call_agent online/offline/heartbeat happy path |
 | `answer/AnswerControllerGaps.e2e.test.ts` | 8 | Direct answer creation, AI-answer proxy, submissions/FAQ reads |
 | `chatbot/ChatbotController.e2e.test.ts` | 64 | All ~61 routes |
 | `question/QuestionControllerGaps.e2e.test.ts` | 60 | 40 additional `QuestionController` routes |
-| **Total** | **631** | **626/631 raw; 629/631 excluding 2 confirmed-transient flakes** |
+| `question/QuestionControllerOps.e2e.test.ts` | 12 | Internal `/background/*` ops routes, `queue-details?section=`, `reAllocateLessWorkload` real path |
+| **Total** | **657** | **645/657 raw; excludes the 6 auto-allocation test-data-debt failures and 3 confirmed-transient flakes from the real-bug count — see `Failed_tests.md`** |
 
 3 tests fail for real, reproducible reasons and 2 more fail only under full-suite
 load and aren't reproducible alone — **all detail, root cause, and fix
@@ -341,5 +440,5 @@ ingestion, not at ingestion time.
 | `PATCH` | `/api/questions/:id/toggle-auto-allocate` | Firebase JWT (moderator/admin) |
 | `POST` | `/api/answers/review` | Firebase JWT (expert/pae_expert) |
 | `PUT` | `/api/answers` | Firebase JWT (moderator/admin) |
-| `PUT` | `/api/questions/:id` | Firebase JWT (**no real role guard** — see BUG-006) |
-| `POST` | `/api/answers/:questionId/confirm-duplicate` | Firebase JWT (**no real role guard** — see BUG-006) |
+| `PUT` | `/api/questions/:id` | Firebase JWT (**no real role guard** — any authenticated role can call this, not just moderator/admin) |
+| `POST` | `/api/answers/:questionId/confirm-duplicate` | Firebase JWT (**no real role guard** — same issue, not covered in the e2e suite, see `TEST_MAP.md`) |

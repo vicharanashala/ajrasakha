@@ -64,7 +64,25 @@ export default defineConfig({
       // Only count application code, not the e2e test files themselves —
       // otherwise "coverage" just measures that the test files ran.
       include: ['src/modules/**', 'src/shared/**'],
-      exclude: ['src/**/tests/**', 'src/e2e/**', 'src/**/*.d.ts'],
+      // QuestionService_copy.ts is an 11,431-line legacy snapshot with zero
+      // imports anywhere in the codebase (verified via repo-wide grep) — not
+      // reachable by any route or test. Left in place (its history suggests
+      // it's an intentional reference copy, not litter to delete), but
+      // counting its ~9,200 never-touched lines against coverage understates
+      // the real number by ~7 points overall (question/services alone reports
+      // ~32% with it included vs. ~60% without). Excluded from measurement
+      // only, not from the build.
+      exclude: [
+        'src/**/tests/**',
+        'src/e2e/**',
+        'src/**/*.d.ts',
+        'src/modules/question/services/QuestionService_copy.ts',
+        // Bound in the DI container but never injected into any controller
+        // or reachable service — UserService reimplements the same
+        // agent-assignment logic inline instead of calling this. Verified
+        // via repo-wide grep; nothing routes to it. See README.md.
+        'src/modules/plivo/services/AgentAssignmentService.ts',
+      ],
     },
   },
 });
