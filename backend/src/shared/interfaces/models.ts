@@ -83,6 +83,16 @@ export interface IUser {
   feedbacksAssigned?: (string | ObjectId)[] | null;
 }
 
+export interface IUserAdminEdit {
+  firstName: string;
+  lastName?: string;
+  avatar?: string;
+  preference?: IPreference | null;
+  mobile?: string;
+  university?: string;
+  kvkCovered?: IKVKCoveredItem[] | null;
+}
+
 export interface IUserRoleHistory {
   _id?: string | ObjectId;
   userId: string | ObjectId;

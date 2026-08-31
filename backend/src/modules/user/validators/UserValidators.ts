@@ -159,7 +159,55 @@ export class VerificationRequestDto {
   identifier: string;
 }
 
-export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, VerifyUserBody, VerificationRequestDto];
+export class AdminEditUserDto {
+  @IsString()
+  @IsNotEmpty({ message: 'First name cannot be empty or spaces' })
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  firstName: string;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' && value.trim() === '' ? undefined : value?.trim()
+  )
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  avatar?: string;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => PreferenceDto)
+  preference?: PreferenceDto | null;
+
+  @IsOptional()
+  @IsString()
+  mobile?: string;
+
+  @IsOptional()
+  @IsString()
+  university?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => KVKCoveredItemDto)
+  kvkCovered?: KVKCoveredItemDto[] | null;
+}
+
+export const USER_VALIDATORS = [
+  PreferenceDto,
+  UsersNameResponseDto,
+  UserDto,
+  NotificationDeletePreferenceDTO,
+  UpdatePenaltyAndIncentive,
+  BlockUnblockBody,
+  VerifyUserBody,
+  VerificationRequestDto,
+  AdminEditUserDto,
+];
 
 class UpdateUserDto {
   @IsOptional()
@@ -195,3 +243,4 @@ export class ToggleUserRoleDto {
 }
 
 export { PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, ExpertReviewLevelDto, UpdateUserDto, VerifyUserBody };
+

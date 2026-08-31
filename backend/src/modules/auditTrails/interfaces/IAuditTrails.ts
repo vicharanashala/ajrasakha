@@ -127,6 +127,7 @@ export enum AuditAction {
   //ROLE_MANAGEMENT
   TOGGLE_ROLE = 'TOGGLE_ROLE',
   VERIFY_USER = 'VERIFY_USER',
+  EDIT_USER = 'EDIT_USER',
 }
 
 export enum OutComeStatus {
