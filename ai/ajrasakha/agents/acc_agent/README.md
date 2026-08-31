@@ -5,8 +5,9 @@ farmer and query context, pauses for human verification, routes answer requests
 to the relevant agricultural agents, and returns structured output for the
 call-centre agent.
 
-The graph is registered as `acc_agent` in
-[`ai/langgraph.json`](../../../langgraph.json).
+The workflow is implemented in this package but is not currently registered in
+[`ai/langgraph.json`](../../../langgraph.json). Add it to the LangGraph graph
+configuration before exposing it through the LangGraph server.
 
 ## Overview
 
