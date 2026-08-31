@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
+  IUserAdminEdit,
   INotificationType,
   NotificationRetentionType,
   UserRole,
@@ -222,6 +223,129 @@ export class UserService extends BaseService {
     } catch (error) {
       throw new InternalServerError(
         `Failed to update user with ID ${userId}: ${error}`,
+      );
+    }
+  }
+
+  async adminEditUser(
+    currentUser: IUser,
+    userId: string,
+    data: IUserAdminEdit,
+  ): Promise<IUser> {
+    try {
+      if (!currentUser || currentUser.role !== 'admin') {
+        throw new ForbiddenError('Only admin can edit user details');
+      }
+
+      if (!userId) {
+        throw new BadRequestError('User ID is required');
+      }
+
+      const targetUser = await this.userRepo.findById(userId);
+      if (!targetUser) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      if (targetUser.role === 'admin') {
+        throw new ForbiddenError('Admin cannot edit details of another admin');
+      }
+
+      const editableFields = [
+        'firstName',
+        'lastName',
+        'avatar',
+        'preference',
+        'mobile',
+        'university',
+        'kvkCovered',
+      ] as const;
+
+      const sanitizedData: Partial<IUser> = {};
+
+      for (const field of editableFields) {
+        if (Object.prototype.hasOwnProperty.call(data, field)) {
+          (sanitizedData as any)[field] = (data as any)[field];
+        }
+      }
+
+      if (sanitizedData.firstName !== undefined && !sanitizedData.firstName.trim()) {
+        throw new BadRequestError('First name cannot be empty or blank space');
+      }
+
+      if (sanitizedData.mobile !== undefined && sanitizedData.mobile !== null) {
+        sanitizedData.mobile = sanitizedData.mobile.trim();
+      }
+
+      if (sanitizedData.university !== undefined && sanitizedData.university !== null) {
+        sanitizedData.university = sanitizedData.university.trim();
+      }
+
+      // Title-case a value so entries persist consistently ("kl university" → "Kl University").
+      const toTitleCase = (v: unknown) =>
+        typeof v === 'string'
+          ? v.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+          : '';
+      // Same, but keep the "all" sentinel lowercase so domain/district "all" checks keep working.
+      const titleCaseOrAll = (v: unknown) => {
+        const s = typeof v === 'string' ? v.trim() : '';
+        return s.toLowerCase() === 'all' ? 'all' : toTitleCase(s);
+      };
+
+      if (sanitizedData.kvkCovered !== undefined && sanitizedData.kvkCovered !== null) {
+        const raw = Array.isArray(sanitizedData.kvkCovered)
+          ? sanitizedData.kvkCovered
+          : [];
+        sanitizedData.kvkCovered = raw
+          .map((item: any) => {
+            if (item && typeof item === 'object') {
+              return {
+                state: toTitleCase(item.state),
+                district: toTitleCase(item.district),
+                name: toTitleCase(item.name),
+              };
+            }
+            return { state: '', district: '', name: toTitleCase(item) };
+          })
+          .filter((item: { name: string }) => item.name);
+      }
+
+      if (sanitizedData.preference) {
+        const pref: any = sanitizedData.preference;
+        if (typeof pref.district === 'string') {
+          pref.district = titleCaseOrAll(pref.district);
+        }
+        if (Array.isArray(pref.domain)) {
+          pref.domain = pref.domain.map((d: unknown) => titleCaseOrAll(d)).filter(Boolean);
+        } else if (typeof pref.domain === 'string') {
+          pref.domain = titleCaseOrAll(pref.domain);
+        }
+      }
+
+      const authService = getFromContainer(FirebaseAuthService);
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const updatedUser = await this.userRepo.edit(userId, sanitizedData, session);
+        if (!updatedUser) {
+          throw new NotFoundError(`User with ID ${userId} not found`);
+        }
+        if (sanitizedData.firstName || sanitizedData.lastName) {
+          await authService.updateFirebaseUser(updatedUser.firebaseUID, {
+            firstName: sanitizedData.firstName ?? updatedUser.firstName,
+            lastName: sanitizedData.lastName ?? updatedUser.lastName,
+          });
+        }
+        return updatedUser;
+      });
+    } catch (error) {
+      if (
+        error instanceof BadRequestError ||
+        error instanceof NotFoundError ||
+        error instanceof ForbiddenError
+      ) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to edit user with ID ${userId}: ${error}`,
       );
     }
   }

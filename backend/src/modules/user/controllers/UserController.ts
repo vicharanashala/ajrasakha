@@ -25,6 +25,7 @@ import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
+  IUserAdminEdit,
   IUserHistory,
   NotificationRetentionType,
   UserRole,
@@ -41,7 +42,8 @@ import {
   UpdateUserDto,
   ToggleUserRoleDto,
   VerifyUserBody,
-  VerificationRequestDto
+  VerificationRequestDto,
+  AdminEditUserDto,
 } from '#root/modules/user/validators/UserValidators.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -170,6 +172,123 @@ export class UserController {
       throw new NotFoundError('User not found');
     }
     return updatedUser;
+  }
+
+  @OpenAPI({
+    summary: 'Edit user details (Admin only)',
+    description: 'Allows an admin to edit user details. Admin cannot edit another admin.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'User details updated successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - User not found',
+  })
+  @Put('/admin/:id')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async adminEditUser(
+    @Param('id') userId: string,
+    @Body() body: AdminEditUserDto,
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    verifyNotTester(currentUser);
+    if (currentUser.role !== 'admin') {
+      throw new ForbiddenError('Only admin can edit user details');
+    }
+    const targetUser = await this.userService.getUserById(userId);
+    if (!targetUser) {
+      throw new NotFoundError(`User with ID ${userId} not found`);
+    }
+    if (targetUser.role === 'admin') {
+      throw new ForbiddenError('Admin cannot edit details of another admin');
+    }
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.USER_MANAGEMENT,
+      action: AuditAction.EDIT_USER,
+      actor: {
+        id: currentUser._id.toString(),
+        name: `${currentUser.firstName} ${currentUser.lastName}`,
+        email: currentUser.email,
+        role: currentUser.role,
+        avatar: currentUser?.avatar || '',
+      },
+      context: {
+        userId,
+        name: `${targetUser.firstName} ${targetUser.lastName}`,
+        email: targetUser.email,
+        role: targetUser.role,
+      },
+      changes: {
+        before: {
+          firstName: targetUser.firstName,
+          lastName: targetUser.lastName,
+          mobile: targetUser.mobile,
+          university: targetUser.university,
+          preference: targetUser.preference,
+          kvkCovered: targetUser.kvkCovered,
+          avatar: targetUser.avatar,
+        },
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      const updatedUser = await this.userService.adminEditUser(
+        currentUser,
+        userId,
+        body as unknown as IUserAdminEdit,
+      );
+      auditPayload = {
+        ...auditPayload,
+        changes: {
+          ...auditPayload.changes,
+          after: {
+            firstName: updatedUser.firstName,
+            lastName: updatedUser.lastName,
+            mobile: updatedUser.mobile,
+            university: updatedUser.university,
+            preference: updatedUser.preference,
+            kvkCovered: updatedUser.kvkCovered,
+            avatar: updatedUser.avatar,
+          },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return updatedUser;
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to edit user details',
+          errorName: err?.name || 'Error',
+          errorStack:
+            err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      throw err;
+    }
   }
 
   @OpenAPI({
