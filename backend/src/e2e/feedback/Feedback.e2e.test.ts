@@ -385,6 +385,17 @@ afterEach(() => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Feedback — Group 1: PAE_Validation (internal)', () => {
+  // BUG-033 (found 2026-08-27, after merging feat/optimize_gate_keeper_cron):
+  // the DB assignment below (question → in-progress, round pushed, expert
+  // claimed) genuinely succeeds — but `runPaeValidationQueueCron`'s own
+  // return value always reports `assigned: 0` because the post-commit
+  // notification step crashes on `matchedQuestion.question.substring(...)`
+  // (`question` was dropped by a lean projection added elsewhere) and the
+  // surrounding catch treats that as if the whole assignment had failed.
+  // See the fuller root-cause writeup on the timeline test below and in
+  // Failed_tests.md. Left failing on purpose — this line is the direct
+  // regression test for the misreported return value; every other
+  // assertion in this test (the real DB state) still passes.
   it('runPaeValidationQueueCron assigns an ancient pending question to an available pae_expert', async () => {
     const approver = await makeUser('moderator');
     await makeUser('pae_expert'); // guarantees at least one available expert exists
@@ -530,6 +541,29 @@ describe('Feedback — Group 1b: PAE Validation queue & reviewer management', ()
     expect(res.status).toBe(403);
   });
 
+  // BUG-033 (found 2026-08-27, after merging feat/optimize_gate_keeper_cron):
+  // `findQuestionsPendingPaeValidation`'s new lean projection (added for a
+  // separate performance optimization) only returns `_id`/`details.domain`/
+  // `details.state` — it no longer includes `question` (the text field).
+  // `runPaeValidationQueueCron`'s per-expert loop does the DB assignment
+  // (status → in-progress, round pushed, expert claimed) inside a
+  // transaction that commits successfully, THEN — still inside the same
+  // try/catch — calls `notificationService.saveTheNotifications` with
+  // `matchedQuestion.question.substring(0, 50)`, which throws
+  // (`question` is undefined post-projection). The catch block's
+  // `claimedQuestionIds.delete(questionId)` doesn't distinguish "the
+  // transaction itself failed" from "a POST-commit step failed" — so on
+  // every failure the SAME already-assigned question becomes eligible for
+  // the NEXT available expert in the loop, which repeats the (also
+  // committing, also crashing) assignment again. With N available PAE
+  // experts, a single matched question gets N duplicate rounds pushed to
+  // its `paeValidation` array in one cron run, no notification is ever
+  // sent, and the cron's own return value claims `assigned=0` throughout —
+  // completely misreporting what actually happened. This assertion encodes
+  // the CORRECT behavior (exactly one round) and is left failing on
+  // purpose — see Failed_tests.md. How many duplicates appear depends on how
+  // many PAE-expert fixtures are available when this test runs, so the
+  // exact received count varies run to run.
   it('GET /:questionId/pae-validation-timeline reflects the cron-assigned round', async () => {
     const approver = await makeUser('moderator');
     await makeUser('pae_expert');
@@ -1010,14 +1044,14 @@ describe('Feedback — Group 4: accept/reject settlement', () => {
     expect((reviewerAfter.feedbacksAssigned ?? []).map(String)).toContain(qId);
   });
 
-  it('[BUG-014] WEB_APPLICATION accept still calls DATA_RELEASE_URL, not WEB_APP_URL — only the auth key differs', async () => {
-    // handleFeedbackAction resolves WEB_APP_Url (QuestionService.ts:9946) but never
-    // uses it: both the DATASET and WEB_APPLICATION branches fetch
-    // `${dataReleaseUrl}/feedbacks/${feedbackId}/status` (QuestionService.ts:9973 /
-    // 9985) — WEB_APPLICATION only swaps the Authorization header
-    // (authKey → webAuthKey). Any real WEB_APPLICATION accept/reject is sent to the
-    // DATASET data-release service instead of the public web app. Pinned as
-    // observed behavior, not fixed here (QA-only role).
+  // FIXED 2026-08-27 (merged via feat/optimize_gate_keeper_cron, which pulled
+  // in the QuestionService → FeedbackService decomposition): previously
+  // documented as BUG-014 — the WEB_APPLICATION branch called
+  // DATA_RELEASE_URL instead of WEB_APP_URL, only swapping the auth header.
+  // FeedbackService.handleFeedbackAction now correctly branches on `source`
+  // for the URL too (WEB_APP_Url for WEB_APPLICATION, dataReleaseUrl for
+  // DATASET) — verified for real below.
+  it('WEB_APPLICATION accept calls WEB_APP_URL (not DATA_RELEASE_URL) — BUG-014 fixed', async () => {
     const approver = await makeUser('moderator');
     const reviewer = await makeUser('moderator');
     const qId = await seedClosedQuestion({
@@ -1037,7 +1071,8 @@ describe('Feedback — Group 4: accept/reject settlement', () => {
     expect(res.status).toBe(200);
 
     const [calledUrl, calledInit] = fetchSpy.mock.calls[0] as [string, any];
-    expect(calledUrl).toContain(process.env.DATA_RELEASE_URL); // BUG-014: should be WEB_APP_URL
+    expect(calledUrl).toContain(process.env.WEB_APP_URL);
+    expect(calledUrl).not.toContain(process.env.DATA_RELEASE_URL);
     expect(calledInit.headers.Authorization).toBe(`Bearer ${process.env.WEB_WEBHOOK_API_KEY}`);
 
     const q = await getQuestion(qId);

@@ -62,7 +62,7 @@ full-suite run (2026-08-24). Fixed 2026-08-25 by scoping the alias to
 Tests #14-16 were migrated 2026-08-25 from `src/modules/crop/tests/CropController.api.test.ts`
 (fully mocked service) — that file has been deleted, and its non-duplicate cases (query-param
 search, admin role for create/update — the existing suite above only exercised moderator and
-expert for those) now have real equivalents here. See `BUGS_REPORT.md` / `COVERAGE_GAP_REPORT.md`.
+expert for those) now have real equivalents here.
 
 ---
 

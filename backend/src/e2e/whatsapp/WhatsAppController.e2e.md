@@ -10,7 +10,7 @@
 (`POST /api/questions` with source=WHATSAPP), which
 `whatsapp/WhatsAppQuestion.e2e.test.ts` already covers in depth. None of these
 routes were previously exercised by any suite — the existing "whatsapp" e2e
-folder name was misleading in that respect (see `COVERAGE_GAP_REPORT.md`).
+folder name was misleading in that respect.
 
 | Method | Endpoint |
 |--------|----------|

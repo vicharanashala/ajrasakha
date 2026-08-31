@@ -5,12 +5,12 @@
  * ----------------
  * `QuestionController` is the largest controller in the codebase (83 routes).
  * This suite fills as many of the ~35 "genuinely testable business/analytics
- * routes" identified in `COVERAGE_GAP_REPORT.md` as reasonably reachable in a
+ * routes" identified in README.md's "Missing tests" section as reasonably reachable in a
  * single pass, on top of the 24 routes already covered by `question/`,
  * `manual-allocation/`, `auto-allocation/`, `reviewer-queue/`,
  * `gatekeeper-auditor/`, `post-allocation/`, `feedback/`.
  *
- * NOT covered here (see COVERAGE_GAP_REPORT.md for the full triage):
+ * NOT covered here (see README.md's "Missing tests" section for the full triage):
  * - 12 internal/background/migration ops routes (`run-migration`,
  *   `migrate-firebase-users`, `background/*`) — not real API surface.
  * - `bulk-pae-allocate` — already documented unreachable in-process.

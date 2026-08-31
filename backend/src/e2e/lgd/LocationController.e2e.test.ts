@@ -28,7 +28,11 @@
  * FIXTURES: this suite creates its own throwaway state/district using an
  * out-of-range `stateCode`/`districtCode` (900000+) that cannot collide with real
  * LGD codes, and deletes them via the controller's own DELETE routes in `afterAll`
- * — real state/district reference data is never touched.
+ * — real state/district reference data is never touched. The one exception is
+ * `POST /districts/all`, which manages a real singleton (districtCode 0) —
+ * that block creates it, verifies the duplicate-guard, then deletes it again
+ * within the same test, restoring whatever state existed before (see the
+ * comment on that describe block for the full reasoning).
  */
 
 process.env.NODE_ENV = 'development';
@@ -186,6 +190,65 @@ describe('GET /location/districts + /districts/all', () => {
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
+  });
+});
+
+// POST /location/districts/all adds the single common "All" district — a
+// real, permanent singleton (districtCode: 0), not a per-run fixture like
+// the rest of this suite's RUN_TAG-scoped 900000+ codes. Unlike a normal
+// district, there's no collision-proof code to invent for it: the code and
+// name are fixed constants LocationService checks against. To stay
+// consistent with this suite's "never touch real reference data" rule while
+// still testing the real create/duplicate-guard/delete behavior, this block
+// is defensive about starting state — it doesn't assume the singleton is
+// absent (a prior interrupted run could have left it behind) or present,
+// and always ends by deleting whatever it created, restoring the
+// pre-existing state exactly.
+describe('POST /location/districts/all', () => {
+  it('blocks an expert with 403 (real assertCanManage check)', async () => {
+    currentTestUser = expertUser;
+    const res = await apiPost(`${ROUTE_PREFIX}/location/districts/all`).send({reason: 'e2e attempt'});
+
+    console.log('STATUS:', res.status);
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects a missing reason (real cleanReason check, no mutation either way)', async () => {
+    currentTestUser = moderatorUser;
+    const res = await apiPost(`${ROUTE_PREFIX}/location/districts/all`).send({});
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body));
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/reason is required/i);
+  });
+
+  it('creates the singleton, rejects a duplicate attempt, then cleans up', async () => {
+    currentTestUser = moderatorUser;
+
+    // Defensive pre-clean: if an earlier interrupted run left the singleton
+    // behind, remove it first so this test starts from a known state.
+    await apiDelete(`${ROUTE_PREFIX}/location/districts/0`).send({reason: 'e2e pre-clean'}).catch(() => {});
+
+    const createRes = await apiPost(`${ROUTE_PREFIX}/location/districts/all`).send({reason: `${RUN_TAG} e2e create`});
+    console.log('CREATE STATUS:', createRes.status, 'BODY:', JSON.stringify(createRes.body));
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.districtCode).toBe(0);
+    expect(createRes.body.districtNameEnglish).toBe('All');
+
+    // Idempotent guard: LocationService.addAllDistrict throws BadRequestError
+    // if the singleton already exists — verify that for real rather than
+    // creating a second one.
+    const dupRes = await apiPost(`${ROUTE_PREFIX}/location/districts/all`).send({reason: `${RUN_TAG} e2e duplicate attempt`});
+    console.log('DUPLICATE STATUS:', dupRes.status, 'BODY:', JSON.stringify(dupRes.body));
+    expect(dupRes.status).toBe(400);
+    expect(dupRes.body.message).toMatch(/already exists/i);
+
+    // Cleanup — restores the pre-test (non-existent) state.
+    const deleteRes = await apiDelete(`${ROUTE_PREFIX}/location/districts/0`).send({reason: `${RUN_TAG} e2e cleanup`});
+    expect(deleteRes.status).toBe(200);
+
+    const listRes = await apiGet(`${ROUTE_PREFIX}/location/districts/all`);
+    expect(listRes.body.some((d: any) => d.districtCode === 0)).toBe(false);
   });
 });
 

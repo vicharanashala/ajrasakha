@@ -223,8 +223,8 @@ describe('PUT /crops/:cropId', () => {
 
 // ════════════════════════════════════════════════════════════════════════════
 // Additional coverage — migrated 2026-08-25 from the mocked
-// src/modules/crop/tests/CropController.api.test.ts (now deleted; see
-// BUGS_REPORT.md / COVERAGE_GAP_REPORT.md for the consolidation note).
+// src/modules/crop/tests/CropController.api.test.ts (now deleted — these
+// scenarios have a real equivalent here instead).
 // ════════════════════════════════════════════════════════════════════════════
 
 describe('GET /crops — search query param', () => {

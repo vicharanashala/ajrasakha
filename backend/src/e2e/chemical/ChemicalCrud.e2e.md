@@ -139,7 +139,7 @@ were previously covered only by a mocked test in
 `src/modules/chemical/tests/ChemicalController.api.test.ts` (fully mocked service, no
 real DB). That file has been deleted — everything it tested that wasn't already
 duplicated by this suite now has a real equivalent here, in the same in-process
-harness. See `BUGS_REPORT.md` / `COVERAGE_GAP_REPORT.md` for the consolidation note.
+harness.
 
 | # | Test | Expected |
 |---|------|----------|

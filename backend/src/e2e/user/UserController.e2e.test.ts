@@ -33,6 +33,18 @@
  *   authenticated user despite a roles-array `@Authorized`, no service-layer
  *   check either): `GET /admin/all`, `GET /stf-moderators`, `GET /call-agents`,
  *   `PATCH /stf`, `PATCH /training-users`.
+ *
+ * UPDATED 2026-08-27 after merging feat/optimize_gate_keeper_cron ("giving
+ * user management access to gate keeper"): `gate_keeper` was added to
+ * `@Authorized([...])` on `GET /admin/all`, `PATCH /stf`,
+ * `POST /:id/remove-allocations`, `PATCH /:id/verify`,
+ * `PATCH /training-users`, and a new `GET /admin/all/export` route was added
+ * (same auth). For the three routes with a REAL in-handler/service-layer
+ * check (`remove-allocations`, `verify`, `:id/role`), gate_keeper access is
+ * now genuinely enforced-and-intentional, not just BUG-017 — verified below
+ * with a `gateKeeperUser` fixture. The other two were already BUG-017
+ * instances (no real enforcement for any authenticated user), so adding
+ * gate_keeper to their already-inert roles array changed nothing observable.
  */
 
 process.env.NODE_ENV = 'development';
@@ -57,10 +69,12 @@ let db: any;
 let adminUser: any;
 let moderatorUser: any;
 let expertUser: any;
+let gateKeeperUser: any;
 
 let currentTestUser: any = null;
 let targetUserId: string;
 const targetEmail = `${RUN_TAG.toLowerCase()}-target@example.com`;
+const createdUserIds: ObjectId[] = [];
 
 beforeAll(async () => {
   await import('#root/modules/answer/services/AnswerService.js');
@@ -113,6 +127,24 @@ beforeAll(async () => {
   });
   targetUserId = insertResult.insertedId.toString();
 
+  // No .env.test fixture exists for gate_keeper — insert one directly, same
+  // pattern used in gatekeeper-auditor/ and question/QuestionControllerGaps.
+  const gkResult = await users.insertOne({
+    email: `${RUN_TAG.toLowerCase()}-gatekeeper@example.com`,
+    firstName: 'E2E',
+    lastName: 'GateKeeper',
+    role: 'gate_keeper',
+    status: 'active',
+    isBlocked: false,
+    isVerified: true,
+    firebaseUID: `e2e-fixture-gk-${Date.now()}`,
+    assignedQuestionIds: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  createdUserIds.push(gkResult.insertedId);
+  gateKeeperUser = await users.findOne({_id: gkResult.insertedId});
+
   console.log(`[setup] Connected. RUN_TAG=${RUN_TAG} targetUserId=${targetUserId}`);
 }, 90000);
 
@@ -121,6 +153,9 @@ afterAll(async () => {
   if (db && targetUserId) {
     const users = await db.getCollection('users');
     await users.deleteOne({_id: new ObjectId(targetUserId)}).catch(() => {});
+    for (const id of createdUserIds) {
+      await users.deleteOne({_id: id}).catch(() => {});
+    }
     console.log('[teardown] Cleaned up fixture target user.');
   }
   if (db?.disconnect) await db.disconnect();
@@ -197,13 +232,68 @@ describe('GET /users/review-level', () => {
 // ════════════════════════════════════════════════════════════════════════════
 
 describe('GET /users/admin/all', () => {
-  it('BUG-017: a non-admin (expert) is NOT blocked despite @Authorized(["admin"])', async () => {
+  // Decorator updated by feat/optimize_gate_keeper_cron to
+  // @Authorized(['admin', 'gate_keeper']) — still a roles-array, still
+  // subject to BUG-017 (not actually enforced) for any OTHER role.
+  it('BUG-017: a non-admin (expert) is NOT blocked despite @Authorized(["admin", "gate_keeper"])', async () => {
     currentTestUser = expertUser;
     const res = await apiGet(`${ROUTE_PREFIX}/users/admin/all?page=1&limit=5`);
 
     console.log('STATUS:', res.status);
     expect(res.status).toBe(200);
   });
+
+  // New in feat/optimize_gate_keeper_cron: gate_keeper is now an intentional
+  // (not just BUG-017-accidental) caller of this route.
+  it('gate keeper can list users (new: gate keeper now intentionally allowed)', async () => {
+    currentTestUser = gateKeeperUser;
+    const res = await apiGet(`${ROUTE_PREFIX}/users/admin/all?page=1&limit=5`);
+
+    console.log('STATUS:', res.status);
+    expect(res.status).toBe(200);
+  });
+
+  // New filter param in feat/optimize_gate_keeper_cron (isTMU = "training
+  // moderator user", alongside the pre-existing isSTF).
+  it('accepts the new isTMU filter param', async () => {
+    currentTestUser = adminUser;
+    const res = await apiGet(`${ROUTE_PREFIX}/users/admin/all?page=1&limit=5&isTMU=true`);
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
+    expect(res.status).toBe(200);
+  });
+});
+
+// New route in feat/optimize_gate_keeper_cron — xlsx export of the same
+// admin/all listing, with the same filters.
+describe('GET /users/admin/all/export', () => {
+  // @Authorized(['admin', 'gate_keeper']) has a non-empty roles array, so
+  // routing-controllers throws AccessDeniedError (403) for a missing user,
+  // not AuthorizationRequiredError (401) — same quirk documented elsewhere
+  // in this suite (only bare @Authorized() 401s on missing auth).
+  it('returns 403 with no authenticated user', async () => {
+    currentTestUser = null;
+    const res = await apiGet(`${ROUTE_PREFIX}/users/admin/all/export`);
+    expect(res.status).toBe(403);
+  });
+
+  it('returns an xlsx buffer for an admin', async () => {
+    currentTestUser = adminUser;
+    const res = await apiGet(`${ROUTE_PREFIX}/users/admin/all/export`);
+
+    console.log('STATUS:', res.status, 'content-type:', res.headers['content-type']);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('spreadsheetml');
+  }, 20000);
+
+  it('gate keeper can also export users', async () => {
+    currentTestUser = gateKeeperUser;
+    const res = await apiGet(`${ROUTE_PREFIX}/users/admin/all/export`);
+
+    console.log('STATUS:', res.status, 'content-type:', res.headers['content-type']);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('spreadsheetml');
+  }, 20000);
 });
 
 describe('Simple listing GETs (any authenticated user)', () => {
@@ -342,17 +432,37 @@ describe('PATCH /users/:id/role', () => {
     expect(res.status).toBe(401);
   });
 
+  // Message updated by feat/optimize_gate_keeper_cron (merged 2026-08-27):
+  // UserService.updateUserRole's role check now allows 'admin' OR
+  // 'gate_keeper' (previously admin-only) — part of "giving user management
+  // access to gate keeper". The old message text no longer matches.
   it('blocks a non-admin (expert) with 400 — real service-layer check, not the controller', async () => {
     currentTestUser = expertUser;
     const res = await apiPatch(`${ROUTE_PREFIX}/users/${targetUserId}/role`).send({role: 'moderator'});
 
     console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 300));
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/Only admin can switch user roles/i);
+    expect(res.body.message).toMatch(/Only admin or gate keeper can switch user roles/i);
   });
 
   it('admin promotes the target to moderator, then reverts it', async () => {
     currentTestUser = adminUser;
+    const res = await apiPatch(`${ROUTE_PREFIX}/users/${targetUserId}/role`).send({role: 'moderator'});
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 300));
+    expect(res.status).toBe(200);
+
+    const users = await db.getCollection('users');
+    const doc = await users.findOne({_id: new ObjectId(targetUserId)});
+    expect(doc.role).toBe('moderator');
+
+    const revertRes = await apiPatch(`${ROUTE_PREFIX}/users/${targetUserId}/role`).send({role: 'expert'});
+    expect(revertRes.status).toBe(200);
+  });
+
+  // New in feat/optimize_gate_keeper_cron: a gate keeper can now do this too.
+  it('gate keeper promotes the target to moderator, then reverts it (new: gate keeper now allowed)', async () => {
+    currentTestUser = gateKeeperUser;
     const res = await apiPatch(`${ROUTE_PREFIX}/users/${targetUserId}/role`).send({role: 'moderator'});
 
     console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 300));
@@ -396,6 +506,19 @@ describe('PATCH /users/:id/verify', () => {
     console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
     expect(res.status).toBe(200);
     expect(res.body.isVerified).toBe(true);
+  });
+
+  // New in feat/optimize_gate_keeper_cron: the in-handler check
+  // (`currentUser.role !== 'admin' && currentUser.role !== 'gate_keeper'`)
+  // now allows gate_keeper too — part of "giving user management access to
+  // gate keeper".
+  it('gate keeper can also verify the target user (new: gate keeper now allowed)', async () => {
+    currentTestUser = gateKeeperUser;
+    const res = await apiPatch(`${ROUTE_PREFIX}/users/${targetUserId}/verify`).send({isVerified: false});
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
+    expect(res.status).toBe(200);
+    expect(res.body.isVerified).toBe(false);
   });
 });
 
@@ -566,17 +689,29 @@ describe('GET /users/reviewer-lifecycle', () => {
 });
 
 describe('POST /users/:id/remove-allocations', () => {
+  // Message updated by feat/optimize_gate_keeper_cron (merged 2026-08-27):
+  // UserService.removeExpertAllocations now allows 'admin' OR 'gate_keeper'
+  // (previously admin-only). The old message text no longer matches.
   it('blocks a non-admin (moderator) with 400 — real service-layer check', async () => {
     currentTestUser = moderatorUser;
     const res = await apiPost(`${ROUTE_PREFIX}/users/${targetUserId}/remove-allocations`);
 
     console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/Only admins can remove expert allocations/i);
+    expect(res.body.message).toMatch(/Only admin or gate keeper can remove expert allocations/i);
   });
 
   it('admin removes (zero) allocations for the target', async () => {
     currentTestUser = adminUser;
+    const res = await apiPost(`${ROUTE_PREFIX}/users/${targetUserId}/remove-allocations`);
+
+    console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
+    expect(res.status).toBe(200);
+  });
+
+  // New in feat/optimize_gate_keeper_cron: a gate keeper can now do this too.
+  it('gate keeper removes (zero) allocations for the target (new: gate keeper now allowed)', async () => {
+    currentTestUser = gateKeeperUser;
     const res = await apiPost(`${ROUTE_PREFIX}/users/${targetUserId}/remove-allocations`);
 
     console.log('STATUS:', res.status, 'BODY:', JSON.stringify(res.body).slice(0, 200));
