@@ -1,12 +1,22 @@
 import { apiFetch, getCurrentUser } from "../api/api-fetch";
 import { getIdToken } from "firebase/auth";
 import { env } from "@/config/env";
-import type { IUser } from "@/types";
+import type { IUser, IUserAdminEdit } from "@/types";
 
 const API_BASE_URL = env.apiBaseUrl();
 
 export class AdminUserService {
   private _baseUrl = `${API_BASE_URL}/users`;
+
+  async editUserDetails(
+    userId: string,
+    data: IUserAdminEdit,
+  ): Promise<IUser | null> {
+    return apiFetch<IUser>(`${this._baseUrl}/admin/${userId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
 
   async removeExpertAllocations(
     expertId: string,
