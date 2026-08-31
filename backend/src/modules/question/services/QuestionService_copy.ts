@@ -7108,6 +7108,15 @@ export class QuestionService extends BaseService implements IQuestionService {
    *       - pulls questionId from user.assignedQuestionIds
    *  …making the moderator available again on the next cron run once the array is empty.
    */
+  triggerModeratorQueueAllocation(context: string): void {
+    void this.runModeratorQueueCron().catch(err =>
+      console.error(
+        `[${context}] event-driven moderator-queue allocation failed:`,
+        err?.message,
+      ),
+    );
+  }
+
   async runModeratorQueueCron(): Promise<{
     assigned: number;
     availableWaiting: number;

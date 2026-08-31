@@ -1010,6 +1010,25 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
   }
 
+  /**
+   * Event-driven moderator-queue allocation (replaces the periodic moderator cron).
+   * Call this right after a question enters a moderator status (status → in-review /
+   * pae_submitted) OR a moderator is freed (finalizes an answer, submits feedback).
+   * Public so callers in other services (answer review, feedback) can trigger it after
+   * their own transaction commits. Fire-and-forget and best-effort: runModeratorQueueCron
+   * is idempotent, and any failure is swallowed so it can't disrupt the caller's write.
+   */
+  triggerModeratorQueueAllocation(context: string): void {
+    void this.moderatorQueueService
+      .runModeratorQueueCron()
+      .catch(err =>
+        console.error(
+          `[${context}] event-driven moderator-queue allocation failed:`,
+          err?.message,
+        ),
+      );
+  }
+
   private async validateTimeBoundQuestionThread(
     questionId: string,
     threadId?: string,
@@ -1475,6 +1494,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         this.triggerRoleQueueAllocation('updateQuestion');
       }
 
+      // Event-driven moderator-queue allocation (replaces the periodic moderator cron):
+      // a status change may have freed the moderator (finalize → 'closed', pass, etc.)
+      // OR made a question a moderator candidate (→ in-review / pae_submitted) — fill the
+      // moderator queue now. Fire-and-forget, so it can never roll back the update.
+      if (!threadUpdate && updates.status) {
+        this.triggerModeratorQueueAllocation('updateQuestion');
+      }
+
       return result;
     } catch (error) {
       throw new InternalServerError(`Failed to update question: ${error}`);
@@ -1483,7 +1510,12 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   // ── Expert allocation & workload balancing delegates to AllocationService ──
   async autoAllocateExperts(questionId: string, session?: ClientSession, BATCH_EXPECTED_TO_ADD?: number) {
-    return this.allocationService.autoAllocateExperts(questionId, session, BATCH_EXPECTED_TO_ADD);
+    const result = await this.allocationService.autoAllocateExperts(questionId, session, BATCH_EXPECTED_TO_ADD);
+    // When we own the transaction (no external session) it's committed now, so a question
+    // handed off to a moderator (→ in-review) is visible — fill the moderator queue. When a
+    // session is passed, the caller owns the commit and triggers after it (e.g. reviewAnswer).
+    if (!session) this.triggerModeratorQueueAllocation('autoAllocateExperts');
+    return result;
   }
 
   async toggleAutoAllocate(questionId: string) {
@@ -1491,7 +1523,10 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async allocateExperts(userId: string, questionId: string, experts: string[]) {
-    return this.allocationService.allocateExperts(userId, questionId, experts);
+    const result = await this.allocationService.allocateExperts(userId, questionId, experts);
+    // May have exhausted experts and handed the question to a moderator (→ in-review).
+    this.triggerModeratorQueueAllocation('allocateExperts');
+    return result;
   }
 
   async bulkAllocatePaeExperts(userId: string, questionIds: string[], paeExpertId: string) {
@@ -1507,7 +1542,10 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async replaceQueueExpert(userId: string, questionId: string, levelIndex: number, newExpertId: string, isAuthor?: boolean, reasonForChange?: string) {
-    return this.allocationService.replaceQueueExpert(userId, questionId, levelIndex, newExpertId, isAuthor, reasonForChange);
+    const result = await this.allocationService.replaceQueueExpert(userId, questionId, levelIndex, newExpertId, isAuthor, reasonForChange);
+    // May have exhausted experts and handed the question to a moderator (→ in-review).
+    this.triggerModeratorQueueAllocation('replaceQueueExpert');
+    return result;
   }
   async deleteQuestion(
     questionId: string,
