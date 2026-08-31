@@ -47,6 +47,7 @@ describe('QuestionController.downloadDuplicateReport', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

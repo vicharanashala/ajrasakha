@@ -31,6 +31,7 @@ describe('QuestionController.getReallocationPreview', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

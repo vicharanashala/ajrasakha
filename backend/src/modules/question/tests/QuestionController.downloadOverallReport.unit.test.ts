@@ -48,6 +48,7 @@ describe('QuestionController.downloadOverallReport', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

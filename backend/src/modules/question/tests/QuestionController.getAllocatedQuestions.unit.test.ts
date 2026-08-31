@@ -30,6 +30,7 @@ describe('QuestionController.getAllocatedQuestions', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

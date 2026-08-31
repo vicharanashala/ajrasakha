@@ -35,6 +35,7 @@ describe('QuestionController.generateAiInitialAnswer', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

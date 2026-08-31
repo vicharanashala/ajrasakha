@@ -121,21 +121,62 @@ function buildMocks() {
     mockUserService: {
       updatePenaltyAndIncentive: vi.fn(),
     },
+    // Added for the current 26-param constructor (see buildService below).
+    // Only the methods actually called by delegating code are stubbed with
+    // vi.fn() — everything else is a bare object so an unexpected call
+    // throws a clear "not a function" in just that one test, rather than
+    // silently no-op'ing.
+    mockAuditTrailsService: {
+      createAuditTrail: vi.fn(),
+    },
+    mockFeedbackRepo: {},
+    mockQuestionReportService: {},
+    mockPaeValidationService: {},
+    mockFeedbackService: {},
+    mockQuestionAiService: {
+      getQuestionFromRawContext: vi.fn(),
+    },
+    mockDuplicateService: {},
+    mockQueueService: {},
+    mockRoleAssigneeService: {
+      runGateKeeperAuditorQueueCron: vi.fn().mockResolvedValue(undefined),
+    },
+    mockAllocationService: {
+      toggleAutoAllocate: vi.fn(),
+      allocateExperts: vi.fn(),
+    },
+    mockModeratorQueueService: {},
+    mockMaintenanceService: {
+      backfillEmptyEmbeddings: vi.fn(),
+    },
   };
 }
 
 // ─── Helper: build a QuestionService from a mocks object ───────────────────
+// Constructor order below matches QuestionService's CURRENT signature (26
+// params, post feat/optimize_gate_keeper_cron's QuestionService decomposition
+// — see Failed_tests.md). `accAgentService` no longer exists as a param at
+// all (dropped somewhere in that refactor); the 10 new collaborator services
+// it introduced (questionReportService, paeValidationService,
+// feedbackService, questionAiService, duplicateService, queueService,
+// roleAssigneeService, allocationService, moderatorQueueService,
+// maintenanceService) are stubbed here since no test in this file currently
+// exercises them directly — several tested methods (`toggleAutoAllocate`,
+// `allocateExperts`, `getQuestionFromRawContext`, `backfillEmptyEmbeddings`,
+// and parts of `updateQuestion`/`approveAiInitialAnswer`/
+// `getQuestionFullData`/`createBulkQuestions`) now delegate to one of these
+// services instead of the repo mocks below — those describe blocks need
+// per-service mocks to keep testing real behavior; see the note in
+// Failed_tests.md.
 function buildService(mocks: ReturnType<typeof buildMocks>): QuestionService {
   return new QuestionService(
     mocks.mockAiService as any,
-    mocks.mockAccAgentService as any,
     mocks.mockContextRepo as any,
     mocks.mockQuestionRepo as any,
     mocks.mockUserRepo as any,
     mocks.mockQuestionSubmissionRepo as any,
     mocks.mockRequestRepository as any,
     mocks.mockAnswerRepo as any,
-    mocks.mockNotificationRepository as any,
     mocks.mockNotificationService as any,
     mocks.mockReRouteRepository as any,
     mocks.mockDuplicateQuestionRepository as any,
@@ -143,6 +184,18 @@ function buildService(mocks: ReturnType<typeof buildMocks>): QuestionService {
     mocks.mockChatbotRepository as any,
     mocks.mockMongoDatabase as any,
     mocks.mockUserService as any,
+    mocks.mockAuditTrailsService as any,
+    mocks.mockFeedbackRepo as any,
+    mocks.mockQuestionReportService as any,
+    mocks.mockPaeValidationService as any,
+    mocks.mockFeedbackService as any,
+    mocks.mockQuestionAiService as any,
+    mocks.mockDuplicateService as any,
+    mocks.mockQueueService as any,
+    mocks.mockRoleAssigneeService as any,
+    mocks.mockAllocationService as any,
+    mocks.mockModeratorQueueService as any,
+    mocks.mockMaintenanceService as any,
   );
 }
 
@@ -1627,38 +1680,10 @@ describe('QuestionService.getQuestionStatusSummary', () => {
   });
 });
 
-// ════════════════════════════════════════════════════════════════════════════
-// private truncateQuestionText (tested via visible effects in notifications)
-// ════════════════════════════════════════════════════════════════════════════
-describe('QuestionService — truncateQuestionText (private, tested indirectly)', () => {
-  let mocks: ReturnType<typeof buildMocks>;
-  let service: QuestionService;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks = buildMocks();
-    service = buildService(mocks);
-  });
-
-  it('short text is returned as-is', () => {
-    const result = (service as any).truncateQuestionText('Short text');
-    expect(result).toBe('Short text');
-  });
-
-  it('long text is truncated at 50 characters with ellipsis', () => {
-    const long = 'a'.repeat(80);
-    const result = (service as any).truncateQuestionText(long);
-    expect(result.endsWith('...')).toBe(true);
-    expect(result.length).toBe(53); // 50 chars + '...'
-  });
-
-  it('returns "Question" when text is falsy', () => {
-    expect((service as any).truncateQuestionText('')).toBe('Question');
-    expect((service as any).truncateQuestionText(null)).toBe('Question');
-  });
-
-  it('respects custom maxLength', () => {
-    const result = (service as any).truncateQuestionText('Hello World!', 5);
-    expect(result).toBe('Hello...');
-  });
-});
+// `truncateQuestionText` moved to AllocationService during the
+// QuestionService decomposition (feat/optimize_gate_keeper_cron) — it's no
+// longer a method on QuestionService at all, so the describe block that used
+// to live here (testing `(service as any).truncateQuestionText(...)`) was
+// removed rather than left calling a method that doesn't exist. If this
+// logic needs direct unit coverage again, it belongs in an
+// AllocationService.unit.test.ts instead.

@@ -46,6 +46,7 @@ describe('QuestionController.toggleAutoAllocate', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

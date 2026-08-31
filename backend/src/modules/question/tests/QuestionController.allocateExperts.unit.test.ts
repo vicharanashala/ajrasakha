@@ -46,6 +46,7 @@ describe('QuestionController.allocateExperts', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

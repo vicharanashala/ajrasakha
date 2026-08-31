@@ -36,6 +36,7 @@ describe('QuestionController.approveInitialAnswer', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

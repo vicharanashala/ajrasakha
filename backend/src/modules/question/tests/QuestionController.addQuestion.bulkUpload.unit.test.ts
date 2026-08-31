@@ -45,6 +45,7 @@ describe('QuestionController.addQuestion - Bulk Upload', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

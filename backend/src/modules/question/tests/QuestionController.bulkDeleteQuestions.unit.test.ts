@@ -43,6 +43,7 @@ describe('QuestionController.bulkDeleteQuestions', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

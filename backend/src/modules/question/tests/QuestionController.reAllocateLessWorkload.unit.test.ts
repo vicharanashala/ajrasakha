@@ -32,6 +32,7 @@ describe('QuestionController.reAllocateLessWorkload', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

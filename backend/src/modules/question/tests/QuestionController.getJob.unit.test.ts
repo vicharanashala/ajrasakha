@@ -21,6 +21,7 @@ describe('QuestionController.getJob', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any, // checkOverlapsService
     );
   });
 

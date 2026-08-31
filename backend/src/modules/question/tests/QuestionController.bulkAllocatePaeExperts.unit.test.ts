@@ -29,6 +29,7 @@ describe('QuestionController.bulkAllocatePaeExperts', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

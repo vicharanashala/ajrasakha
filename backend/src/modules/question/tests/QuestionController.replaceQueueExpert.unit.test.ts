@@ -32,6 +32,7 @@ describe('QuestionController.replaceQueueExpert', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

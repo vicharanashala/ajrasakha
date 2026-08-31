@@ -36,6 +36,7 @@ describe('QuestionController.outreachQuestions', () => {
       {} as any,
       {} as any,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

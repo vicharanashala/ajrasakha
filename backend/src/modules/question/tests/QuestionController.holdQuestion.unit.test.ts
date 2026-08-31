@@ -35,6 +35,7 @@ describe('QuestionController.holdQuestion', () => {
       {} as any,
       {} as any,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

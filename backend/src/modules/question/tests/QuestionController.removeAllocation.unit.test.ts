@@ -46,6 +46,7 @@ describe('QuestionController.removeAllocation', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

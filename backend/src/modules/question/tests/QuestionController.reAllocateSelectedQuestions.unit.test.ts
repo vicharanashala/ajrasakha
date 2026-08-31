@@ -32,6 +32,7 @@ describe('QuestionController.reAllocateSelectedQuestions', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

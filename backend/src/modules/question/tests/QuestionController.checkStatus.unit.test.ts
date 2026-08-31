@@ -26,6 +26,7 @@ describe('QuestionController.checkStatus', () => {
       {} as any,
       {} as any,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 

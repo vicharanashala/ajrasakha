@@ -34,6 +34,7 @@ describe('QuestionController.reallocateManual', () => {
       mockUserService,
       mockContextService,
       mockAuditTrailsService,
+      {} as any, // checkOverlapsService
     );
   });
 
