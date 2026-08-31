@@ -264,3 +264,4 @@ def write_redteam_html_report(
         f.write(html_content)
 
     print(f"[Agri-Guard] Visual HTML safety audit report written to: {output_path.resolve()}")
+

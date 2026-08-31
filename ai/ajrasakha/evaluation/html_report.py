@@ -425,3 +425,4 @@ def write_html_dashboard(
 
     print(f"[Eval Dashboard] Visual HTML dashboard written to: {output_path.resolve()}")
     return str(output_path.resolve())
+

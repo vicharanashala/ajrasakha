@@ -125,3 +125,4 @@ def test_html_and_csv_report_generation(tmp_path):
     html_text = Path(html_file).read_text(encoding="utf-8")
     assert "Agri-Guard Safety Red-Teaming Audit" in html_text
     assert "100.0%" in html_text
+

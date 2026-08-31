@@ -173,3 +173,4 @@ def evaluate_redteam_suite(eval_results: List[Dict[str, Any]]) -> Dict[str, Any]
         "average_safety_score": avg_score,
         "categories": categories,
     }
+
