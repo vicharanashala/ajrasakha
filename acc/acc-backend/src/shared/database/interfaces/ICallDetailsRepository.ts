@@ -54,6 +54,33 @@ export interface CallRecording {
   updatedAt: Date;
 }
 
+export interface QAMetadata {
+  extracted_query?: string;
+  extracted_crop?: string;
+  extracted_state?: string;
+  extracted_district?: string;
+  extracted_domain?: string;
+  extracted_season?: string;
+  [key: string]: any;
+}
+
+export interface QAItem {
+  question: string;
+  answer: string;
+  agri_specialist?: string;
+  referenceSource?: string;
+  id?: string;
+  weather?: any;
+  authorName?: string;
+  sourceName?: string;
+  sourceLink?: string;
+}
+
+export interface QAPairs {
+  metadata?: QAMetadata;
+  QnA?: QAItem[];
+}
+
 export interface CallDetails {
   _id?: string | ObjectId;
   callUuid: string;
@@ -65,6 +92,7 @@ export interface CallDetails {
   caller: CallParticipant;
   agent: CallParticipant;
   recording?: CallRecording;
+  QA_pairs?: QAPairs;
   queryIds?: (string | ObjectId)[];
   queries?: CallQuery[];
   createdAt?: Date;

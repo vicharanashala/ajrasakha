@@ -533,7 +533,12 @@ export class PlivoController {
                       direction: item.direction
                     };
                   } else {
-                    // Merge QA_pairs if parent has none or has empty fields
+                    // Merge queries if parent has none
+                    if ((!details.queries || details.queries.length === 0) && sipDetails.queries && sipDetails.queries.length > 0) {
+                      details.queries = sipDetails.queries;
+                      details.queryIds = sipDetails.queryIds;
+                    }
+                    // Merge QA_pairs if parent has none or has empty fields (legacy support)
                     if (!details.QA_pairs && sipDetails.QA_pairs) {
                       details.QA_pairs = sipDetails.QA_pairs;
                     } else if (details.QA_pairs && sipDetails.QA_pairs) {
