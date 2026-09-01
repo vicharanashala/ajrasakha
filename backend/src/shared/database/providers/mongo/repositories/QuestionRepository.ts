@@ -908,7 +908,18 @@ export class QuestionRepository implements IQuestionRepository {
           };
         }
       }
-      caseInsensitiveStringFilter('details.domain', domain);
+      // --- Domain filter: multi-select — `domain` is a comma-joined list of selected
+      // domains ("all"/empty = no filter). details.domain is stored as an array, so $in
+      // on case-insensitive regexes matches a question when ANY of its domains is selected.
+      const selectedDomains = (domain ?? '')
+        .split(',')
+        .map(d => d.trim())
+        .filter(d => d && d !== 'all');
+      if (selectedDomains.length > 0) {
+        filter['details.domain'] = {
+          $in: selectedDomains.map(d => new RegExp(`^${escapeRegex(d)}$`, 'i')),
+        };
+      }
 
       // --- Normalized Crop Filter (from body array) ---
       if (body?.normalisedCrops && body.normalisedCrops.length > 0) {
