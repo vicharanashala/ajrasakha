@@ -69,14 +69,16 @@ def cluster_embeddings(
     embeddings: np.ndarray,
     triage_map: dict[str, str],
     min_cluster_size: int | None = None,
-) -> list[GapCluster]:
+    return_labels: bool = False,
+) -> list[GapCluster] | tuple[list[GapCluster], np.ndarray]:
     """Stage 4: HDBSCAN Semantic Clustering + Outlier Safety Net (Miscellaneous Bucket).
 
     Returns list of un-scored GapCluster models.
     """
     if len(unique_hashes) == 0:
+        if return_labels:
+            return [], np.empty(0, dtype=int)
         return []
-
     min_size = min_cluster_size or settings.min_cluster_size
 
     # Fallback to single miscellaneous cluster if data size < min_cluster_size
@@ -194,6 +196,10 @@ def cluster_embeddings(
         gap_clusters.append(gap_cluster)
 
     logger.info(
-        f"HDBSCAN created {len(gap_clusters)} clusters (including Outlier Safety Net)."
-    )
+    f"HDBSCAN created {len(gap_clusters)} clusters (including Outlier Safety Net)."
+)
+
+    if return_labels:
+        return gap_clusters, labels
+
     return gap_clusters

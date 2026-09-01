@@ -28,6 +28,7 @@ def assemble_gap_report(
     recommendations: list[OutreachRecommendation],
     overlap_counts: dict[str, int],
     trend_delta: TrendDelta | None = None,
+    cluster_quality: dict | None = None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
 ) -> GapReport:
@@ -75,6 +76,7 @@ def assemble_gap_report(
         states_with_gaps=states_with_gaps,
         overlap_summary=overlap_summary,
         trend_delta=delta,
+        cluster_quality=cluster_quality or {},
     )
     return report
 

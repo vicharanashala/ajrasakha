@@ -32,8 +32,6 @@ class ScoredCluster(GapCluster):
     triage_status: str = "real_gap"  # real_gap, near_miss, almost_covered
     recommended_action: str = ""
     trend_status: str = "baseline"  # NEW, GROWING, SHRINKING, baseline
-
-
 class CoverageCell(BaseModel):
     """Cell in Coverage Heatmap Matrix (Domain x State)."""
 
@@ -101,6 +99,7 @@ class GapReport(BaseModel):
     total_unique_queries: int = 0
     noise_queries_filtered: int = 0
     clusters_found: int = 0
+    cluster_quality: dict[str, Any] = Field(default_factory=dict)
     total_clusters_found: int = 0
     top_gaps: list[ScoredCluster] = Field(default_factory=list)
     heatmap: CoverageHeatmap = Field(default_factory=CoverageHeatmap)
@@ -110,4 +109,3 @@ class GapReport(BaseModel):
     overlap_summary: OverlapSummary = Field(default_factory=OverlapSummary)
     trend_delta: TrendDelta = Field(default_factory=TrendDelta)
     summary_markdown: str = ""
-

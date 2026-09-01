@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import logging
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from gdb_gap_detector.pipeline.cluster_quality import evaluate_cluster_quality
 
 from gdb_gap_detector.core.config import settings
 from gdb_gap_detector.models import FlaggedEntry, GapReport, GdbEntry
@@ -51,8 +52,18 @@ async def run_full_pipeline(
     triage_map, summary_counts = triage_query_overlaps(unique_map)
 
     # Stage 4: HDBSCAN Clusterer
-    raw_clusters = cluster_embeddings(unique_hashes, unique_map, embeddings, triage_map)
+    raw_clusters, cluster_labels = cluster_embeddings(
+        unique_hashes,
+        unique_map,
+        embeddings,
+        triage_map,
+        return_labels=True,
+    )
 
+    cluster_quality = evaluate_cluster_quality(
+        embeddings,
+        cluster_labels,
+    )
     # Fetch Flagged Entries for Quality Boost
     flagged_cursor = db[settings.flagged_entries_collection].find({})
     flagged_entries = [
@@ -85,6 +96,7 @@ async def run_full_pipeline(
         recommendations=recommendations,
         overlap_counts=summary_counts,
         trend_delta=trend_delta,
+        cluster_quality=cluster_quality,
     )
 
     if write_to_db:
