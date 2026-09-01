@@ -571,6 +571,8 @@ async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
             similar_questions=similar_questions,
             total_candidates_found=result.get("total_candidates_found", 0),
             audit=result.get("audit", {}),
+            rejected=result.get("rejected", False),
+            rejection_reason=result.get("rejection_reason"),
         )
     except Exception as exc:
         log.error("find_similar_questions_endpoint failed: %s: %s", type(exc).__name__, exc)
