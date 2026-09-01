@@ -734,6 +734,19 @@ export interface IQuestionRepository {
     session?: ClientSession,
   ): Promise<{ modifiedCount: number }>;
 
+  /** Atomically claim a question for PAE validation by transitioning it from 'pending' to 'in-progress'.
+   *  This uses MongoDB's findOneAndUpdate with a condition to ensure only one processor can claim
+   *  the same question, preventing race conditions in distributed systems.
+   * 
+   *  @param questionId The question ID to claim
+   *  @param session Optional MongoDB client session for transactions
+   *  @returns Promise resolving to the question if claimed successfully, null if already taken
+   */
+  claimPaeValidationQuestion(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null>;
+
   /** Update the paeValidation array in the question's submission document.
    *  @param questionId The question ID to update
    *  @param paeValidationEntry The new PAE validation entry to push

@@ -56,16 +56,26 @@ export class PaeValidationService extends BaseService {
   }
 
   /**
-   * Cron job to assign questions pending PAE validation to available PAE experts.
+   * Process PAE validation queue - assigns questions pending PAE validation to available PAE experts.
+   * This method is event-driven and should be called when:
+   * 1. A question becomes PAE-validation pending (answer approved)
+   * 2. A PAE expert completes a validation (becomes available)
+   * 
+   * Uses atomic question claiming to prevent race conditions in distributed systems.
    */
-  async runPaeValidationQueueCron(): Promise<{
+  async processPaeValidationQueue(): Promise<{
     assigned: number;
     availableWaiting: number;
     failedAssignments: number;
   }> {
     console.log(
-      '[PaeValidationQueue] Starting PAE validation queue assignment check...',
+      '[PAE Validation Queue] Starting queue processing...',
     );
+
+    // Counters need to be outside the try block so they're accessible in the catch block
+      let assigned = 0;
+      let availableWaiting = 0;
+      let failedAssignments = 0;
 
     try {
       const pendingQuestions =
@@ -74,7 +84,7 @@ export class PaeValidationService extends BaseService {
 
       if (!pendingQuestions.length) {
         console.log(
-          '[PaeValidationQueue] No pending questions for PAE validation',
+          '[PAE Validation Queue] No pending questions for PAE validation',
         );
         return {
           assigned: 0,
@@ -84,31 +94,30 @@ export class PaeValidationService extends BaseService {
       }
 
       if (!availableExperts.length) {
-        console.log('[PaeValidationQueue] No available PAE experts');
+        console.log('[PAE Validation Queue] No available PAE experts');
         return {assigned: 0, availableWaiting: 0, failedAssignments: 0};
       }
 
       console.log(
-        `[PaeValidationQueue] Found ${pendingQuestions.length} pending questions and ${availableExperts.length} available PAE experts`,
+        `[PAE Validation Queue] Found ${pendingQuestions.length} pending questions and ${availableExperts.length} available PAE experts`,
       );
 
-      const claimedQuestionIds = new Set<string>();
-      let assigned = 0;
-      let availableWaiting = 0;
-      let failedAssignments = 0;
+      // Keep track of assigned question IDs for in-memory deduplication within this run
+      const assignedQuestionIds = new Set<string>();
 
       for (const expert of availableExperts) {
         const expertId = expert._id!.toString();
 
+        // Find a matching question that hasn't been assigned in this run
         const matchedQuestion = pendingQuestions.find(
           q =>
-            !claimedQuestionIds.has(q._id!.toString()) &&
+            !assignedQuestionIds.has(q._id!.toString()) &&
             isQuestionMatchForPaeExpert(q, expert),
         );
 
         if (!matchedQuestion) {
           console.log(
-            '[PaeValidationQueue] No matching question found for PAE expert',
+            '[PAE Validation Queue] No matching question found for PAE expert',
             expertId,
           );
           availableWaiting++;
@@ -116,15 +125,23 @@ export class PaeValidationService extends BaseService {
         }
 
         const questionId = matchedQuestion._id!.toString();
-        claimedQuestionIds.add(questionId);
 
         try {
-          await this._withTransaction(async (session: ClientSession) => {
-            await this.questionRepo.updatePaeValidationStatus(
-              questionId,
-              'in-progress',
-              session,
+          // Use atomic claim to prevent race conditions
+          // This will only succeed if the question is still in 'pending' state
+          const claimedQuestion = await this.questionRepo.claimPaeValidationQuestion(questionId);
+
+          if (!claimedQuestion) {
+            // Another processor already claimed this question
+            console.log(
+              `[PAE Validation Queue] Question ${questionId} already claimed by another processor`,
             );
+            failedAssignments++;
+            continue;
+          }
+
+          // Question successfully claimed, now complete the assignment in a transaction
+          await this._withTransaction(async (session: ClientSession) => {
             await this.questionRepo.addPaeValidationEntry(
               questionId,
               {
@@ -143,7 +160,7 @@ export class PaeValidationService extends BaseService {
           });
 
           await this.notificationService.saveTheNotifications(
-            `A question (${matchedQuestion.question.substring(0, 50)}...) has been assigned to you for PAE validation`,
+            `A question (${matchedQuestion.question?.substring(0, 50) || 'question'}...) has been assigned to you for PAE validation`,
             'Question Assigned for PAE Validation',
             questionId,
             expertId,
@@ -151,31 +168,31 @@ export class PaeValidationService extends BaseService {
           );
 
           console.log(
-            `[PaeValidationQueue] Assigned question ${questionId} → PAE expert ${expertId}`,
+            `[PAE Validation Queue] Assigned question ${questionId} → PAE expert ${expertId}`,
           );
+          assignedQuestionIds.add(questionId);
           assigned++;
         } catch (error: any) {
           console.error(
-            `[PaeValidationQueue] Failed to assign question ${questionId} to ${expertId}:`,
+            `[PAE Validation Queue] Failed to assign question ${questionId} to ${expertId}:`,
             error?.message,
           );
-          claimedQuestionIds.delete(questionId);
           failedAssignments++;
         }
       }
 
       console.log(
-        `[PaeValidationQueue] Done: assigned=${assigned}, availableWaiting=${availableWaiting}, failedAssignments=${failedAssignments}`,
+        `[PAE Validation Queue] Completed: assigned=${assigned}, availableWaiting=${availableWaiting}, failedAssignments=${failedAssignments}`,
       );
       return {assigned, availableWaiting, failedAssignments};
     } catch (error: any) {
       console.error(
-        '[PaeValidationQueue] PAE validation queue cron failed:',
+        '[PAE Validation Queue] Queue processing failed:',
         error?.message,
       );
-      throw new BadRequestError(
-        `PAE validation queue cron failed: ${error?.message}`,
-      );
+      // Don't throw - allow the caller to continue even if queue processing fails
+      // This ensures the primary operation (answer approval, PAE action) isn't affected
+      return {assigned, availableWaiting, failedAssignments};
     }
   }
 
@@ -520,6 +537,15 @@ export class PaeValidationService extends BaseService {
           new Date(),
           session,
         );
+      });
+
+      // Trigger PAE queue processing to assign next waiting question to this expert
+      setImmediate(async () => {
+        try {
+          await this.processPaeValidationQueue();
+        } catch (err) {
+          console.error('[PAE Validation Queue] Trigger failed after approve:', err);
+        }
       });
 
       return {

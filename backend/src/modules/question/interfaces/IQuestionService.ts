@@ -818,10 +818,14 @@ export interface IQuestionService {
     success: boolean;
   }>;
 
-  /** PAE Validation Queue Cron - runs every minute to assign questions pending PAE validation
+  /** Process PAE validation queue - event-driven assignment of questions pending PAE validation
    *  to available PAE experts based on domain and state preferences.
+   *  This method is triggered when:
+   *  1. A question becomes PAE-validation pending (answer approved)
+   *  2. A PAE expert completes a validation (becomes available)
+   * 
    *  @returns Promise resolving to object with assigned count and available waiting count */
-  runPaeValidationQueueCron(): Promise<{
+  processPaeValidationQueue(): Promise<{
     assigned: number;
     availableWaiting: number;
     failedAssignments: number;

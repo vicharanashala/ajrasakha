@@ -2636,8 +2636,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   // ─────────────────────────────────────────────────────────────────────────────
 
   // ── PAE validation delegates to PaeValidationService ──
-  async runPaeValidationQueueCron() {
-    return this.paeValidationService.runPaeValidationQueueCron();
+  async processPaeValidationQueue() {
+    return this.paeValidationService.processPaeValidationQueue();
   }
 
   async getPaeValidationTimeline(questionId: string) {

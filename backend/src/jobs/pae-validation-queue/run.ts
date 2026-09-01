@@ -1,8 +1,8 @@
 /**
- * Cloud Run Job entrypoint for PAE validation queue assignment.
+ * Cloud Run Job entrypoint for PAE validation queue processing.
  *
- * Triggered by Cloud Scheduler every 1 minute (Asia/Kolkata).
- * Assigns questions pending PAE validation to available PAE experts.
+ * This can be used as a fallback/retry mechanism for PAE queue processing.
+ * Primary processing is now event-driven (triggered from answer approval and PAE action).
  *
  * Replaces the in-process node-cron in bootstrap/jobs/paeValidationQueueCron.ts.
  */
@@ -12,43 +12,43 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 import { QuestionService } from '#root/modules/core/index.js';
 
 async function main(): Promise<void> {
-  console.log('[pae-validation-queue-job] starting...');
+  console.log('[PAE Validation Queue Job] starting...');
 
   try {
-    console.log('[pae-validation-queue-job] loading app modules...');
+    console.log('[PAE Validation Queue Job] loading app modules...');
     await loadAppModules('all');
-    console.log('[pae-validation-queue-job] modules loaded successfully');
+    console.log('[PAE Validation Queue Job] modules loaded successfully');
   } catch (moduleError) {
-    console.error('[pae-validation-queue-job] failed to load modules:', moduleError);
+    console.error('[PAE Validation Queue Job] failed to load modules:', moduleError);
     throw moduleError;
   }
 
   try {
     const container = getContainer();
-    console.log('[pae-validation-queue-job] container obtained');
+    console.log('[PAE Validation Queue Job] container obtained');
 
     const questionService = container.get<QuestionService>(
       CORE_TYPES.QuestionService,
     );
-    console.log('[pae-validation-queue-job] QuestionService resolved');
+    console.log('[PAE Validation Queue Job] QuestionService resolved');
 
-    const result = await questionService.runPaeValidationQueueCron();
+    const result = await questionService.processPaeValidationQueue();
     console.log(
-      `[pae-validation-queue-job] done: assigned=${result.assigned}, availableWaiting=${result.availableWaiting}, failedAssignments=${result.failedAssignments}`,
+      `[PAE Validation Queue Job] done: assigned=${result.assigned}, availableWaiting=${result.availableWaiting}, failedAssignments=${result.failedAssignments}`,
     );
   } catch (serviceError) {
-    console.error('[pae-validation-queue-job] service error:', serviceError);
+    console.error('[PAE Validation Queue Job] service error:', serviceError);
     throw serviceError;
   }
 }
 
 main()
   .then(() => {
-    console.log('[pae-validation-queue-job] completed successfully');
+    console.log('[PAE Validation Queue Job] completed successfully');
     setTimeout(() => process.exit(0), 100);
   })
   .catch(err => {
-    console.error('[pae-validation-queue-job] fatal error:', err);
-    console.error('[pae-validation-queue-job] stack:', err instanceof Error ? err.stack : String(err));
+    console.error('[PAE Validation Queue Job] fatal error:', err);
+    console.error('[PAE Validation Queue Job] stack:', err instanceof Error ? err.stack : String(err));
     setTimeout(() => process.exit(1), 100);
   });

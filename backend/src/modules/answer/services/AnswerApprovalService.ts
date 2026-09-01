@@ -397,6 +397,16 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
       await this.questionService.freeRoleAssigneeOnStatusChange(
         updates.questionId,
       );
+
+      // Trigger PAE queue processing after successful approval
+      // This is event-driven: when a question becomes PAE-pending, assign it to available experts
+      setImmediate(async () => {
+        try {
+          await this.questionService.processPaeValidationQueue();
+        } catch (err) {
+          console.error('[PAE Validation Queue] Trigger failed after answer approval:', err);
+        }
+      });
     }
     return approveResult;
   }
@@ -505,6 +515,17 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
     );
 
     await this.questionService.freeRoleAssigneeOnStatusChange(questionId);
+
+    // Trigger PAE queue processing after successful duplicate confirm
+    // This is event-driven: when a question becomes PAE-pending, assign it to available experts
+    setImmediate(async () => {
+      try {
+        await this.questionService.processPaeValidationQueue();
+      } catch (err) {
+        console.error('[PAE Validation Queue] Trigger failed after duplicate confirm:', err);
+      }
+    });
+
     return result;
   }
 

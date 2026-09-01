@@ -9168,6 +9168,43 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   /**
+   * Atomically claim a question for PAE validation by transitioning it from 'pending' to 'in-progress'.
+   * This uses MongoDB's findOneAndUpdate with a condition to ensure only one processor can claim
+   * the same question, preventing race conditions in distributed systems.
+   * 
+   * The query condition ensures that only questions in 'pending' state can be claimed.
+   * If another processor has already claimed the question (changed it to 'in-progress'),
+   * this operation will return null.
+   */
+  async claimPaeValidationQuestion(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<IQuestion | null> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+
+    const result = await this.QuestionCollection.findOneAndUpdate(
+      {
+        _id: qid,
+        paeValidation: 'pending',
+        autoAllocatePaeValidationExpert: true,
+      },
+      {
+        $set: {
+          paeValidation: 'in-progress',
+          updatedAt: new Date(),
+        },
+      },
+      {
+        session,
+        returnDocument: 'after',
+      },
+    );
+
+    return result as IQuestion | null;
+  }
+
+  /**
    * Adds a feedback entry to the question's feedbacks array.
    * Updates recentFeedback timestamp only if:
    * - There is no existing open feedback, OR
