@@ -23,20 +23,25 @@ import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { initializeNotifications } from "@/services/pushService";
 import type { IQuestionFullData, ISubmission, IUser } from "@/types";
 import { DialogTitle } from "@radix-ui/react-dialog";
-import { GraduationCap, Info, Loader2, User, UserPlus, Users, X } from "lucide-react";
+import { ChevronDown, GraduationCap, Info, Loader2, User, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface AllocationQueueHeaderProps {
   question: IQuestionFullData;
   queue?: ISubmission["queue"];
   currentUser: IUser;
+  isOpen?: boolean;
+  onToggleOpen?: () => void;
 }
 
 export const AllocationQueueHeader = ({
   question,
   queue = [],
   currentUser,
+  isOpen,
+  onToggleOpen,
 }: AllocationQueueHeaderProps) => {
   const [autoAllocate, setAutoAllocate] = useState(question.isAutoAllocate);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -171,12 +176,15 @@ export const AllocationQueueHeader = ({
     <div className="flex flex-col gap-4 pb-6 border-b border-border">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* LEFT SECTION */}
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10">
+        <div
+          onClick={onToggleOpen}
+          className="flex items-center gap-3 cursor-pointer select-none group"
+        >
+          <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
             <Users className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-semibold text-foreground">
+            <h2 className="text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
               Allocation Queue
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
@@ -425,17 +433,49 @@ export const AllocationQueueHeader = ({
                 </DialogContent>
               </Dialog>
             )}
+
+            <Button
+              variant="default"
+              size="sm"
+              className="h-9 mr-2 w-9 p-0 rounded-lg hover:bg-muted"
+              title={isOpen ? "Collapse" : "Expand"}
+              onClick={onToggleOpen}
+            >
+              <ChevronDown
+                className={cn(
+                  "h-5 w-5 transition-transform duration-300 ease-in-out",
+                  isOpen ? "rotate-180" : ""
+                )}
+              />
+            </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
-            <span
-              className={`h-2.5 w-2.5 rounded-full ${
-                autoAllocate ? "bg-green-500" : "bg-muted-foreground/50"
-              }`}
-            />
-            <span className="font-medium text-sm text-foreground">
-              Auto-allocate: {autoAllocate ? "On" : "Off"}
-            </span>
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  autoAllocate ? "bg-green-500" : "bg-muted-foreground/50"
+                }`}
+              />
+              <span className="font-medium text-sm text-foreground">
+                Auto-allocate: {autoAllocate ? "On" : "Off"}
+              </span>
+            </div>
+
+            <Button
+              variant="default"
+              size="sm"
+              className="h-9 mr-2 w-9 p-0 rounded-lg hover:bg-muted"
+              title={isOpen ? "Collapse" : "Expand"}
+              onClick={onToggleOpen}
+            >
+              <ChevronDown
+                className={cn(
+                  "h-5 w-5 transition-transform duration-300 ease-in-out",
+                  isOpen ? "rotate-180" : ""
+                )}
+              />
+            </Button>
           </div>
         )}
       </div>

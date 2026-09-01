@@ -76,6 +76,16 @@ export interface IUser {
   feedbacksAssigned?: string[]; // question IDs assigned for feedback review
 }
 
+export interface IUserAdminEdit {
+  firstName: string;
+  lastName?: string;
+  avatar?: string;
+  preference?: IMyPreference | null;
+  mobile?: string;
+  university?: string;
+  kvkCovered?: IKVKCoveredItem[] | null;
+}
+
 export interface IUnverifiedUser {
   _id: string;
   username: string;
@@ -575,6 +585,7 @@ export interface IQuestionFullData {
     createdAt?: string;
     updatedAt?: string;
   } | null;
+  paeValidation?: "in-progress" | "completed" | "pending"
 }
 
 export interface QuestionFullDataResponse {
@@ -606,9 +617,11 @@ export interface QuestionFeedbackResponse {
   success: boolean;
   data: {
     feedback: {
+      _id?:string;
       rating: string;
       tag?: string;
       text?: string;
+      status?:string;
     } | null;
     user?: {
       username: string;
@@ -685,6 +698,7 @@ export interface IDetailedQuestion {
   isDuplicateCancelled?: boolean;
   duplicateCancelReason?: string;
   isAutoAllocate?: boolean;
+  autoAllocatePaeValidationExpert?: boolean;
 }
 
 export interface IDetailedQuestionResponse {

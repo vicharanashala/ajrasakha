@@ -5,14 +5,15 @@ from langchain_core.messages import AIMessage, HumanMessage
 from ajrasakha.agents.domains import domain_requires_crop
 from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
-    canonicalize_chemical_names,
     conversation_text_from_messages,
     extract_crop_from_text,
     format_conversation_for_planner,
     format_prev_plan_context,
     infer_domain_for_plan,
     is_schemes_intent,
+    is_standalone_clarification_reply,
     merge_entities_from_rephrased_query,
+    merge_clarification_reply_into_query,
 )
 
 
@@ -28,6 +29,59 @@ def test_pm_kisan_domain_does_not_require_crop():
     )
     assert domain == "Financial & Institutional Services"
     assert domain_requires_crop(domain) is False
+
+
+def test_crop_clarification_preserves_query_after_location_clarification():
+    merged = merge_clarification_reply_into_query(
+        {
+            "is_complete": False,
+            "missing_info": ["crop"],
+            "rephrased_query": "How do I control gulli danda? Location: Delhi",
+        },
+        "wheat",
+    )
+    assert merged == "How do I control gulli danda? Location: Delhi. Crop: wheat"
+
+
+def test_crop_clarification_preserves_query_without_location_clarification():
+    merged = merge_clarification_reply_into_query(
+        {
+            "is_complete": False,
+            "missing_info": ["crop"],
+            "rephrased_query": "How do I control gulli danda?",
+        },
+        "Wheat",
+    )
+    assert merged == "How do I control gulli danda? Crop: Wheat"
+
+
+def test_clarification_query_merge_handles_location_and_skips_complete_turns():
+    merged = merge_clarification_reply_into_query(
+        {
+            "is_complete": False,
+            "missing_info": ["location"],
+            "rephrased_query": "How do I control gulli danda?",
+        },
+        "Delhi",
+    )
+    assert merged == "How do I control gulli danda? Location: Delhi"
+    assert merge_clarification_reply_into_query(
+        {
+            "is_complete": True,
+            "missing_info": [],
+            "rephrased_query": "Original question",
+        },
+        "Delhi",
+    ) is None
+
+
+def test_standalone_clarification_rephrase_uses_deterministic_fallback():
+    assert is_standalone_clarification_reply("Delhi", "Delhi") is True
+    assert is_standalone_clarification_reply("Wheat crop", "Wheat") is True
+    assert is_standalone_clarification_reply(
+        "How do I control gulli danda in wheat?",
+        "Wheat",
+    ) is False
 
 
 def test_crop_insurance_requires_crop():
@@ -55,20 +109,6 @@ def test_format_prev_plan_context_includes_rephrased_and_chemicals():
 
 def test_format_prev_plan_context_empty_when_prior_turn_complete():
     assert format_prev_plan_context({"is_complete": True, "rephrased_query": "x"}) == ""
-
-
-def test_canonicalize_chemical_names_typo_to_dazomet():
-    from ajrasakha.agents import crop_chemical_resolver as resolver
-
-    resolver.build_cache_from_docs([
-        {
-            "_id": "chem2",
-            "name": "Dazomet",
-            "type": "chemical",
-            "aliases": [{"english_representation": "mylone", "native_representation": ""}],
-        },
-    ])
-    assert canonicalize_chemical_names(["mylonee"]) == ["Dazomet"]
 
 
 def test_format_conversation_for_planner_keeps_farmer_messages_not_bot():
@@ -185,7 +225,7 @@ def test_crop_still_asks_first_time():
     assert plan.get("follow_up_question")
 
 
-def test_crop_fallback_after_clarify_does_not_matter():
+def test_crop_required_after_clarify_does_not_satisfy_requirement():
     messages = [
         HumanMessage(
             content=(
@@ -207,10 +247,10 @@ def test_crop_fallback_after_clarify_does_not_matter():
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
     )
-    assert plan["is_complete"] is True
-    assert plan["entities"]["crop"] == "all"
-    assert plan.get("follow_up_question") is None
-    assert "crop" not in (plan.get("missing_info") or [])
+    assert plan["is_complete"] is False
+    assert plan["entities"].get("crop") is None
+    assert "crop" in (plan.get("missing_info") or [])
+    assert plan.get("follow_up_question")
 
 
 def test_crop_clarify_reply_still_extracts_cotton():

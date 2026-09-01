@@ -8,6 +8,10 @@ import {CHATBOT_TYPES} from '../types.js';
 import type {
   IChatbotService,
   DashboardResponse,
+  DatasetListResponse,
+  DatasetQuestionListItem,
+  DatasetFeedbackListItem,
+  DatasetUserListItem,
 } from '../interfaces/IChatbotService.js';
 import type {
   IChatbotRepository,
@@ -29,6 +33,11 @@ import type {
   PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
+import {sendEmailWithAttachment} from '#root/utils/mailer.js';
+import {
+  ANNAM_LOGO_CID,
+  annamLogoInlineAttachment,
+} from '#root/utils/emailAssets.js';
 import {GrowthResponse} from '../types/chatbot.type.js';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -43,6 +52,12 @@ import {WhatsappUsers} from '#root/utils/dummyWhatsAppUsers.js';
 import {access} from 'node:fs';
 import {aiConfig} from '#root/config/ai.js';
 import {appConfig} from '#root/config/app.js';
+import {emailConfig} from '#root/config/mail.js';
+import {getISTStartOfToday} from '#root/utils/date.utils.js';
+import {
+  buildResponseAdherenceCsv,
+  buildResponseAdherenceHtmlTable,
+} from '../utils/responseAdherenceReport.js';
 import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
@@ -3906,6 +3921,201 @@ export class ChatbotService extends BaseService implements IChatbotService {
       }));
   }
 
+  async sendResponseAdherenceReportEmail(
+    emails: string[],
+    reportContent: string,
+    fileName: string,
+    context?: {
+      source?: string;
+      userType?: string;
+      startDate?: string;
+      endDate?: string;
+      timeWindow?: string;
+    },
+    reportHtml?: string,
+  ): Promise<{success: boolean; message: string}> {
+    try {
+      const formatDateStr = (d?: string) => {
+        if (!d) return '';
+        const parts = d.split(/[-/]/);
+        if (parts.length === 3 && parts[0].length === 4) {
+          return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return d;
+      };
+      
+      const formattedStartDate = formatDateStr(context?.startDate);
+      const formattedEndDate = formatDateStr(context?.endDate);
+
+      const dateRangeLabel =
+        formattedStartDate || formattedEndDate
+          ? ` (${formattedStartDate || ''}${
+              formattedEndDate && formattedEndDate !== formattedStartDate
+                ? ` to ${formattedEndDate}`
+                : ''
+            })`
+          : '';
+      const title = `Ajrasakha - Daily Update on Application Testing, Backend Responses, and Response Time Compliance${dateRangeLabel}`;
+      const platformUrl = appConfig.frontendUrl;
+      // CC recipients for the Response Adherence report, configured via the
+      // RESPONSE_ADHERENCE_REPORT_CC env var (comma-separated). Both the manual "Email
+      // Report" button and the automated daily job go through this method, so both pick
+      // this up.
+      const responseAdherenceReportCc = (emailConfig.RESPONSE_ADHERENCE_REPORT_CC || '')
+        .split(',')
+        .map(email => email.trim())
+        .filter(Boolean);
+
+      // Colors/typography lifted from the app's own theme (frontend/src/styles.css's :root
+      // OKLCH tokens, converted to hex since email clients don't support oklch()), so the
+      // report reads as part of the AjraSakha Review System rather than a generic spreadsheet
+      // dump. Keep in sync with the frontend/backend copies of this palette in
+      // responseAdherenceReport.ts if the app's theme colors change.
+      const FONT = "'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+      const PAGE_BG = '#f3f6f4';
+      const CARD_BG = '#ffffff';
+      const BORDER = '#e5e7eb';
+      const PRIMARY = '#72e3ad';
+      const PRIMARY_SOFT = '#e8faf1';
+      const PRIMARY_BORDER = '#bdeed4';
+      const HEADING = '#14532d';
+      const TEXT = '#171717';
+      const MUTED = '#6b7280';
+
+      const chipEntries: {label: string; value: string}[] = [];
+      if (context?.source) chipEntries.push({label: 'Source', value: context.source});
+      if (context?.userType) {
+        chipEntries.push({
+          label: 'User Type',
+          value: context.userType.toLowerCase() === 'all' ? 'External & Internal' : context.userType,
+        });
+      }
+      if (formattedStartDate || formattedEndDate) {
+        chipEntries.push({
+          label: 'Date',
+          value: `${formattedStartDate || ''}${formattedEndDate && formattedEndDate !== formattedStartDate ? ` to ${formattedEndDate}` : ''}`,
+        });
+      }
+      if (context?.timeWindow) chipEntries.push({label: 'Time', value: context.timeWindow});
+
+      const chipsHtml = chipEntries.length
+        ? `
+            <div style="margin: 22px 0;">
+              ${chipEntries
+                .map(
+                  chip => `
+                <span style="display:inline-block; background:${PRIMARY_SOFT}; border:1px solid ${PRIMARY_BORDER}; border-radius:999px; padding:7px 16px; margin:0 8px 8px 0; font-family:${FONT}; font-size:12px; color:${HEADING};">
+                  <span style="font-weight:700; text-transform:uppercase; letter-spacing:.04em; font-size:10px;">${chip.label}</span>
+                  &nbsp;·&nbsp;<span style="font-weight:600;">${chip.value}</span>
+                </span>`,
+                )
+                .join('')}
+            </div>`
+        : '';
+
+      const html = `
+        <div style="background:${PAGE_BG}; padding: 32px 16px; font-family: ${FONT};">
+          <div style="max-width: 800px; margin: 0 auto; background: ${CARD_BG}; color: ${TEXT}; border: 1px solid ${BORDER}; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+            <div style="text-align: center; padding: 14px 20px 11px; background-color: ${CARD_BG}; border-bottom: 3px solid ${PRIMARY};">
+              <img src="cid:${ANNAM_LOGO_CID}" alt="Annam.ai Logo" style="height: 108px; max-width: 100%;" />
+            </div>
+            <div style="padding: 30px 28px;">
+              <h2 style="color: ${HEADING}; margin-top: 0; margin-bottom: 16px; text-align: center; font-family: ${FONT}; font-size: 21px;">Ajrasakha - Daily Update on Application Testing, Backend Responses, and Response Time Compliance</h2>
+              <p style="font-size: 15px; line-height: 1.6; color: ${TEXT};">Hello,</p>
+              <p style="font-size: 15px; line-height: 1.6; color: ${TEXT};">Please find attached the <b>AjraSakha Response Adherence</b> report. A summary is also provided below for quick reference.</p>
+
+              ${chipsHtml}
+
+              ${reportHtml ? `<div style="overflow-x:auto; margin-top: 8px;">${reportHtml}</div>` : ''}
+
+              <div style="margin-top: 32px; text-align: center;">
+                <a href="${platformUrl}" style="display:inline-block; padding: 13px 28px; background-color: ${HEADING}; color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 14px; font-family: ${FONT};">
+                  Go to AjraSakha Platform
+                </a>
+              </div>
+
+              <p style="margin-top: 28px; font-size: 13px; color: ${MUTED}; line-height: 1.6; text-align: center;">
+                If you encounter any issues with the report or have any questions regarding the data, please contact the Developer Team for assistance.
+              </p>
+            </div>
+            <div style="background-color: ${PRIMARY_SOFT}; padding: 20px; text-align: center; font-size: 13px; color: ${MUTED}; border-top: 1px solid ${PRIMARY_BORDER};">
+              <p style="margin: 0; color: ${TEXT};">Regards,</p>
+              <p style="margin: 4px 0 0 0; color: ${HEADING}; font-weight: 700;">AjraSakha System</p>
+              <p style="margin: 14px 0 0 0; font-size: 11px; color: ${MUTED};">&copy; ${new Date().getFullYear()} Annam.ai. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      await sendEmailWithAttachment(
+        emails,
+        title,
+        html,
+        reportContent,
+        fileName || 'response-adherence-report.csv',
+        'text/csv',
+        [annamLogoInlineAttachment()],
+        responseAdherenceReportCc.length ? responseAdherenceReportCc : undefined,
+      );
+
+      return {
+        success: true,
+        message: 'Response adherence report sent via email',
+      };
+    } catch (error) {
+      console.error('Error in sendResponseAdherenceReportEmail:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cloud Run Job entrypoint for the daily 7 PM (Asia/Kolkata) Response Adherence Summary
+   * report — see backend/src/jobs/response-adherence-report/run.ts. 
+   */
+  async sendDailyResponseAdherenceReportEmail(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    const recipients = (emailConfig.RESPONSE_ADHERENCE_REPORT_EMAILS || '')
+      .split(',')
+      .map(email => email.trim())
+      .filter(Boolean);
+
+    if (!recipients.length) {
+      console.warn(
+        '[sendDailyResponseAdherenceReportEmail] RESPONSE_ADHERENCE_REPORT_EMAILS is not configured; skipping send.',
+      );
+      return {
+        success: false,
+        message: 'RESPONSE_ADHERENCE_REPORT_EMAILS is not configured; report was not sent',
+      };
+    }
+
+    const now = new Date();
+    const startOfDayIST = getISTStartOfToday(now);
+    const dateLabel = now.toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
+
+    // source is intentionally left undefined (all sources combined) — the report's per-source
+    // columns (Whatsapp / AjraSakha) are the breakdown, not the `source` filter.
+    const table = await this.getResponseAdherenceTable(
+      undefined,
+      'all',
+      startOfDayIST.toISOString(),
+      now.toISOString(),
+    );
+
+    const reportContent = buildResponseAdherenceCsv(table, dateLabel);
+    const reportHtml = buildResponseAdherenceHtmlTable(table, dateLabel);
+
+    return this.sendResponseAdherenceReportEmail(
+      recipients,
+      reportContent,
+      `response-adherence-report-${dateLabel}.csv`,
+      {userType: 'all', startDate: dateLabel, endDate: dateLabel, timeWindow: table.timeWindow},
+      reportHtml,
+    );
+  }
+
   async getQuestionsByCrop(
     crop: string,
     crops?: string[],
@@ -4187,6 +4397,254 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }catch(error){
       throw new InternalServerError(`Something went wrong ${error}`)
     }
+  }
+
+  private async fetchDataReleaseTotalCount(resourcePath: string): Promise<number> {
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+
+    try {
+      const response = await fetch(
+        `${dataReleaseUrl}/${resourcePath}/total?page=1&pageSize=1`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authKey}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+
+      const res = (await response.json()) as {
+        total?: number;
+        totalCount?: number;
+      };
+
+      if (typeof res.total === 'number') {
+        return res.total;
+      }
+      if (typeof res.totalCount === 'number') {
+        return res.totalCount;
+      }
+      return 0;
+    } catch (error: any) {
+      console.error(
+        `[ChatbotService] fetchDataReleaseTotalCount(${resourcePath}): Failed to call data release service:`,
+        error,
+      );
+      throw new InternalServerError(
+        `Failed to get total count for ${resourcePath}: ` + error.message,
+      );
+    }
+  }
+
+  /**
+   * Total number of questions in the dataset application (external data
+   * release service).
+   */
+  async getTotalQuestionsFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('questions');
+  }
+
+  /**
+   * Total number of feedbacks in the dataset application (external data
+   * release service).
+   */
+  async getTotalFeedbacksFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('feedbacks');
+  }
+
+  /**
+   * Total number of users in the dataset application (external data
+   * release service).
+   */
+  async getTotalUsersFromDataset(): Promise<number> {
+    return this.fetchDataReleaseTotalCount('users');
+  }
+
+  /**
+   * Shared helper to fetch a paginated list from the external data release
+   * service (the dataset application — NOT the internal review system).
+   * Mirrors the DATA_RELEASE_URL/REVIEW_SYSTEM_AUTH_KEY fetch pattern used
+   * by QuestionService.getFeedbacks() and fetchDataReleaseTotalCount()
+   * above. `mapItem` normalizes each raw item from the external service
+   * into the shape this app displays.
+   */
+  private async fetchDataReleaseList<T>(
+    resourcePath: string,
+    page: number,
+    pageSize: number,
+    mapItem: (raw: any) => T,
+  ): Promise<DatasetListResponse<T>> {
+    const dataReleaseUrl = process.env.DATA_RELEASE_URL;
+    const authKey = process.env.REVIEW_SYSTEM_AUTH_KEY;
+
+    if (!dataReleaseUrl) {
+      throw new Error('DATA_RELEASE_URL environment variable is not configured');
+    }
+
+    if (!authKey) {
+      throw new Error('REVIEW_SYSTEM_AUTH_KEY environment variable is not configured');
+    }
+
+    try {
+      const response = await fetch(
+        `${dataReleaseUrl}/${resourcePath}/list?page=${page}&pageSize=${pageSize}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authKey}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Data release service returned status ${response.status}`);
+      }
+
+      const res = (await response.json()) as {
+        data?: any[];
+        total?: number;
+        totalCount?: number;
+        page?: number;
+        limit?: number;
+        totalPages?: number;
+      };
+
+      const data = (Array.isArray(res.data) ? res.data : []).map(mapItem);
+      const total =
+        typeof res.total === 'number'
+          ? res.total
+          : typeof res.totalCount === 'number'
+            ? res.totalCount
+            : data.length;
+
+      return {
+        data,
+        total,
+        page: typeof res.page === 'number' ? res.page : page,
+        pageSize: typeof res.limit === 'number' ? res.limit : pageSize,
+        totalPages:
+          typeof res.totalPages === 'number'
+            ? res.totalPages
+            : Math.ceil(total / pageSize),
+      };
+    } catch (error: any) {
+      console.error(
+        `[ChatbotService] fetchDataReleaseList(${resourcePath}): Failed to call data release service:`,
+        error,
+      );
+      throw new InternalServerError(
+        `Failed to list ${resourcePath}: ` + error.message,
+      );
+    }
+  }
+
+  /** Normalizes a raw dataset-app question record into the display shape. */
+  private mapDatasetQuestionItem(raw: any): DatasetQuestionListItem {
+    return {
+      questionId: String(raw?.id ?? raw?._id?.$oid ?? raw?._id ?? ''),
+      question: raw?.question ?? '',
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  /** Normalizes a raw dataset-app feedback record into the display shape. */
+  private mapDatasetFeedbackItem(raw: any): DatasetFeedbackListItem {
+    return {
+      email: raw?.email ?? raw?.userId?.email ?? '',
+      questionId: String(raw?.questionId?.$oid ?? raw?.questionId ?? ''),
+      tag: raw?.tag ?? '',
+      type: raw?.type ?? '',
+      predefinedOption: raw?.predefinedOption ?? '',
+      comment: raw?.comment ?? '',
+      reviewNote: raw?.reviewNote ?? '',
+      status: raw?.status ?? '',
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  /** Normalizes a raw dataset-app user record into the display shape. */
+  private mapDatasetUserItem(raw: any): DatasetUserListItem {
+    return {
+      name:
+        raw?.name ??
+        [raw?.firstName, raw?.lastName].filter(Boolean).join(' ').trim(),
+      email: raw?.email ?? '',
+      phone: raw?.phone ?? raw?.phoneNumber ?? '',
+      age: typeof raw?.age === 'number' ? raw.age : null,
+      createdAt:
+        typeof raw?.createdAt === 'string'
+          ? raw.createdAt
+          : raw?.createdAt?.$date ?? '',
+    };
+  }
+
+  /**
+   * Paginated list of questions in the dataset application (external data
+   * release service).
+   */
+  async listQuestionsFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetQuestionListItem>> {
+    return this.fetchDataReleaseList(
+      'questions',
+      page,
+      pageSize,
+      this.mapDatasetQuestionItem,
+    );
+  }
+
+  /**
+   * Paginated list of feedbacks in the dataset application (external data
+   * release service).
+   */
+  async listFeedbacksFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetFeedbackListItem>> {
+    return this.fetchDataReleaseList(
+      'feedbacks',
+      page,
+      pageSize,
+      this.mapDatasetFeedbackItem,
+    );
+  }
+
+  /**
+   * Paginated list of users in the dataset application (external data
+   * release service).
+   */
+  async listUsersFromDataset(
+    page = 1,
+    pageSize = 10,
+  ): Promise<DatasetListResponse<DatasetUserListItem>> {
+    return this.fetchDataReleaseList(
+      'users',
+      page,
+      pageSize,
+      this.mapDatasetUserItem,
+    );
   }
 }
 

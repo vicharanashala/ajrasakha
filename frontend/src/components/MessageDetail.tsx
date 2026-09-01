@@ -589,7 +589,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [translatedText, setTranslatedText] = useState<string>("");
     const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "accept" | "save" | "cancel" | "push-to-gdb" | "push-to-auditor"; remark?: string }>({ open: false, type: "pass" });
     const [passRemarkError, setPassRemarkError] = useState("");
-    const [pendingApprovalAction, setPendingApprovalAction] = useState<"accept" | "push-to-gdb" | null>(null);
+    const [pendingApprovalAction, setPendingApprovalAction] = useState<"accept" | "push-to-gdb" | "notify" | null>(null);
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
@@ -684,7 +684,19 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         setIsEditModalOpen(true);
     };
 
-    const doApprove = async (flowType?: "accept" | "push-to-gdb") => {
+    // Auditor "Notify User" — closes the question as dynamic_closed / duplicate_closed
+    // (by review type) rather than plain closed (that's Push to GDB).
+    const handleNotifyUser = () => {
+        if (!question?._id) { toast.error("Question data is missing."); return; }
+        if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") {
+            toast.error("Only AJRASAKHA or WHATSAPP answers can be approved."); return;
+        }
+        setPendingApprovalAction("notify");
+        setEditModalKey(k => k + 1);
+        setIsEditModalOpen(true);
+    };
+
+    const doApprove = async (flowType?: "accept" | "push-to-gdb" | "notify") => {
         try {
             const sources: SourceItem[] = [];
             for (const spec of editedSpecialists) {
@@ -702,7 +714,11 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 return;
             }
 
-            const isAcceptFlow = (flowType ?? confirmDialog.type) === "accept";
+            const action = flowType ?? confirmDialog.type;
+            const isAcceptFlow = action === "accept";
+            // "Push to GDB" → close as 'closed'; "Notify User" → dynamic/duplicate_closed.
+            const closeIntent: "gdb" | "notify" | undefined =
+                action === "notify" ? "notify" : action === "push-to-gdb" ? "gdb" : undefined;
 
             await updateAnswer({
                 updatedAnswer: editedAnswerBody.trim(),
@@ -711,6 +727,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 questionId: question._id,
                 source: question.source,
                 isModeratorApproval: isAcceptFlow,
+                closeIntent,
             }),{
                 loading:"approving answer...",
                 success:isAcceptFlow
@@ -755,7 +772,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         const action = pendingApprovalAction;
         setIsEditModalOpen(false);
         setPendingApprovalAction(null);
-        if (action === "accept" || action === "push-to-gdb") {
+        if (action === "accept" || action === "push-to-gdb" || action === "notify") {
             doApprove(action);
         }
     };
@@ -991,10 +1008,14 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">
                             {isDynamicQuestion
-                                ? "As Auditor you can notify the user, allocate experts, or close this dynamic question."
-                                : "As Auditor you can push this duplicate question to the GDB, allocate experts, or notify the user."}
+                                ? "As Auditor you can pass this question, notify the user, allocate experts, or close this dynamic question."
+                                : "As Auditor you can pass this question, push it to the GDB, allocate experts, or notify the user."}
                         </p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+                            <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>
+                                {updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}
+                                {updatingQuestion ? "Passing..." : "Pass"}
+                            </Button>
                             {isDuplicateQuestion && (
                                 <Button type="button" variant="destructive" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4">
                                     {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
@@ -1006,13 +1027,13 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 {isUpdating ? "Allocating..." : "Allocate Experts"}
                             </Button>
                             {isDuplicateQuestion && (
-                                <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                                <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handleNotifyUser} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
                                     {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                                     {isUpdating ? "Notifying..." : "Notify User"}
                                 </Button>
                             )}
                             {isDynamicQuestion && (
-                                <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                                <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handleNotifyUser} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
                                     {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                                     {isUpdating ? "Notifying..." : "Notify User"}
                                 </Button>

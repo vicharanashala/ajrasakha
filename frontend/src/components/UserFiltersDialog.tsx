@@ -32,6 +32,8 @@ interface UserFiltersDialogProps {
   setVerifiedFilter: (val: string) => void;
   stfFilter: string;
   setStfFilter: (val: string) => void;
+  tmuFilter: string;
+  setTmuFilter: (val: string) => void;
   setPage: (val: number) => void;
   activeFiltersCount: number;
 }
@@ -48,6 +50,8 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
   setVerifiedFilter,
   stfFilter,
   setStfFilter,
+  tmuFilter,
+  setTmuFilter,
   setPage,
   activeFiltersCount,
 }) => {
@@ -61,6 +65,7 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
   const [draftStatus, setDraftStatus] = useState(statusFilter);
   const [draftVerified, setDraftVerified] = useState(verifiedFilter);
   const [draftStf, setDraftStf] = useState(stfFilter);
+  const [draftTmu, setDraftTmu] = useState(tmuFilter);
 
   useEffect(() => {
     if (open) {
@@ -69,8 +74,9 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
       setDraftStatus(statusFilter);
       setDraftVerified(verifiedFilter);
       setDraftStf(stfFilter);
+      setDraftTmu(tmuFilter);
     }
-  }, [open, filter, roleFilter, statusFilter, verifiedFilter, stfFilter]);
+  }, [open, filter, roleFilter, statusFilter, verifiedFilter, stfFilter, tmuFilter]);
 
   const handleApply = () => {
     setFilter(draftFilter === "ALL" ? "" : draftFilter);
@@ -78,6 +84,7 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
     setStatusFilter(draftStatus);
     setVerifiedFilter(draftVerified);
     setStfFilter(draftStf);
+    setTmuFilter(draftTmu);
     setPage(1);
     setOpen(false);
   };
@@ -88,6 +95,7 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
     setDraftStatus("ALL");
     setDraftVerified("ALL");
     setDraftStf("ALL");
+    setDraftTmu("ALL");
   };
 
   return (
@@ -208,6 +216,25 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
                     <SelectItem value="ALL">All Users</SelectItem>
                     <SelectItem value="true">STF Users</SelectItem>
                     <SelectItem value="false">Non-STF Users</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 relative">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  Training Users
+                  <Badge className="h-4 text-[9px] px-1.5 py-0 bg-red-500 hover:bg-red-600 border-0 text-white">
+                    New
+                  </Badge>
+                </Label>
+                <Select value={draftTmu} onValueChange={setDraftTmu}>
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue placeholder="Training Users" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Users</SelectItem>
+                    <SelectItem value="true">Training Users</SelectItem>
+                    <SelectItem value="false">Not Training</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

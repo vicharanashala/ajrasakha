@@ -33,6 +33,7 @@ SAMPLE_EXTRACTION = {
     "village": "Morinda",
     "block": "Chamkaur Sahib",
     "primary_crop": "Wheat",
+    "secondary_crops": ["Mustard", "Maize"],
 }
 
 
@@ -53,6 +54,10 @@ class AccAgentExtractionTests(unittest.TestCase):
         self.assertEqual(result["extracted_state"], "Punjab")
         self.assertEqual(result["extracted_district"], "Rupnagar")
         self.assertEqual(result["extracted_primary_crop"], "Wheat")
+        self.assertEqual(
+            result["extracted_secondary_crops"],
+            ["Mustard", "Maize"],
+        )
         self.assertNotIn("extracted_query", result)
         self.assertNotIn("extracted_crop", result)
         self.assertNotIn("standardized_domains", result)
@@ -74,6 +79,7 @@ class AccAgentExtractionTests(unittest.TestCase):
         self.assertNotIn("extracted_name", result)
         self.assertNotIn("extracted_phone", result)
         self.assertNotIn("extracted_primary_crop", result)
+        self.assertNotIn("extracted_secondary_crops", result)
 
     def test_all_contains_query_and_farmer_fields(self):
         result = build_extraction_update(SAMPLE_EXTRACTION, "all")
@@ -85,6 +91,37 @@ class AccAgentExtractionTests(unittest.TestCase):
         )
         self.assertEqual(result["extracted_name"], "Ramesh Kumar")
         self.assertEqual(result["extracted_primary_crop"], "Wheat")
+        self.assertEqual(
+            result["extracted_secondary_crops"],
+            ["Mustard", "Maize"],
+        )
+
+    def test_secondary_crops_are_cleaned_and_exclude_the_primary_crop(self):
+        result = build_extraction_update(
+            {
+                "primary_crop": "Cotton",
+                "secondary_crops": [
+                    " Wheat ",
+                    "cotton",
+                    "Dal",
+                    "wheat",
+                    None,
+                    "Unknown",
+                ],
+            },
+            "farmer_details",
+        )
+
+        self.assertEqual(result["extracted_primary_crop"], "Cotton")
+        self.assertEqual(result["extracted_secondary_crops"], ["Wheat", "Dal"])
+
+    def test_missing_secondary_crops_returns_an_empty_list(self):
+        result = build_extraction_update(
+            {"primary_crop": "Cotton"},
+            "farmer_details",
+        )
+
+        self.assertEqual(result["extracted_secondary_crops"], [])
 
 
 if __name__ == "__main__":
