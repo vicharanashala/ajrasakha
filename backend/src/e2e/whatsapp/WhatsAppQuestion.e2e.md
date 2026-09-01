@@ -569,7 +569,7 @@ The controller (QuestionController.ts:332-354) catches service errors and re-thr
 
 ## Last Run
 
-**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 20 passed &nbsp;|&nbsp; **Duration:** 2.3 min
+**Date:** 20-08-2026 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 20 passed &nbsp;|&nbsp; **Duration:** 2.3 min
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|

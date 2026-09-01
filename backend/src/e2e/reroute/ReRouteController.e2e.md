@@ -72,4 +72,4 @@ NODE_ENV=test pnpm exec vitest run --config vitest.e2e.config.ts src/e2e/reroute
 
 ## Last Run
 
-**Date:** 2026-08-31 | **Result:** ✅ all 15 passed | **Duration:** ~13s
+**Date:** 31-08-2026 | **Result:** ✅ all 15 passed | **Duration:** ~13s

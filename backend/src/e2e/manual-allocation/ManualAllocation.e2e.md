@@ -320,11 +320,11 @@ for a suite that was otherwise passing correctly.
 
 ## Last Run
 
-**Date:** 2026-08-25 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 27.1 s (up from 17.4s on 2026-08-20 — explicit timeouts don't add latency themselves, this reflects the same real-world latency that prompted the fix above)
+**Date:** 25-08-2026 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 27.1 s (up from 17.4s on 2026-08-20 — explicit timeouts don't add latency themselves, this reflects the same real-world latency that prompted the fix above)
 
 ### 2026-08-20 (superseded by the timeout note above)
 
-**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 17.4 s
+**Date:** 20-08-2026 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 17.4 s
 
 > ⚠ Vitest only printed 6 of 10 test lines (passing suites are truncated in the output).
 

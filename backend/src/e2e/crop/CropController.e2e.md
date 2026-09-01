@@ -82,7 +82,7 @@ NODE_ENV=test pnpm exec vitest run --config vitest.e2e.config.ts src/e2e/crop/Cr
 
 ## Last Run
 
-**Date:** 2026-08-25 | **Result:** ✅ all 16 passed | **Duration:** ~10s
+**Date:** 25-08-2026 | **Result:** ✅ all 16 passed | **Duration:** ~10s
 
 (Previous run: 2026-08-24, 13/13 passed, ~19s — before the 3 tests migrated from
 `CropController.api.test.ts` were added.)

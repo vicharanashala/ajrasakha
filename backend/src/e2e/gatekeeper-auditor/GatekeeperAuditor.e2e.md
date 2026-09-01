@@ -276,7 +276,7 @@ Pinned in `Auditor — Notify User ... > [FINDING-008] a legacy caller that omit
 
 ## Last Run
 
-**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 37 passed &nbsp;|&nbsp; **Duration:** 1.3 min
+**Date:** 20-08-2026 &nbsp;|&nbsp; **Result:** ✅ all 37 passed &nbsp;|&nbsp; **Duration:** 1.3 min
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|

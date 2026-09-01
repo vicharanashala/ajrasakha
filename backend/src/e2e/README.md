@@ -28,6 +28,9 @@ pnpm exec vitest run --config vitest.e2e.config.ts src/e2e/chemical/ChemicalCrud
 pnpm run test:e2e:coverage
 pnpm run test:e2e:coverage -- --json   # machine-readable
 
+# Real code coverage (v8) — see "Code coverage" section below
+pnpm run test:e2e:code-coverage
+
 # Run everything at once (~5-6 min)
 pnpm exec vitest run --config vitest.e2e.config.ts src/e2e
 ```
@@ -35,6 +38,31 @@ pnpm exec vitest run --config vitest.e2e.config.ts src/e2e
 **About `↓ skipped` tests:** vitest auto-skips every `it` inside a `describe`
 whose `beforeAll` throws. That's a cascade from a setup failure, not an
 intentional skip — check the `beforeAll` first if you see a block of `↓`.
+
+**Automatic per-run failure report:** both `pnpm run test:e2e` and
+`pnpm run test:e2e:code-coverage` run `scripts/e2e-failure-report.mjs`
+after every run, which parses `src/e2e/last-run.log`, cross-references
+every failure against `scripts/known-e2e-failures.json` (kept in sync
+with `Failed_tests.md`), and does two things automatically, every time:
+
+1. Writes `src/e2e/last-run-failures.md` — a fresh, short summary of
+   exactly what failed *this run*. `last-run.log` and
+   `last-run-failures.md` are both regenerated (overwritten) every run
+   and gitignored — not meant to be committed.
+2. Updates the **"Newly detected failures — needs triage"** section
+   inside `Failed_tests.md` itself, between a pair of
+   `<!-- AUTO-TRIAGE:START/END -->` markers. Anything that fails and
+   doesn't match `known-e2e-failures.json` shows up there automatically —
+   test name, error message, first-seen date — with no manual edit
+   required, so `Failed_tests.md` can never silently drift out of sync
+   with what the suite is actually doing. Everything outside those
+   markers (root-cause write-ups, the flaky/disabled sections) is
+   hand-written and untouched by the script — a script can explain *that*
+   something is failing, not *why*, so triaging a new entry still means
+   reading the code, writing up the real cause in the right section above,
+   and adding a matching entry to `scripts/known-e2e-failures.json`. Once
+   that's done, the entry stops appearing in the auto-managed section on
+   the next run.
 
 ---
 
@@ -127,9 +155,9 @@ decision — not a guess, every file below was read and traced by hand.
 | **Structurally out of reach** — concentrated in 9 files, cannot close by writing more tests | 11,656 | 15.2% |
 
 The "reachable but not yet covered" 19.8% is real, ordinary remaining
-work — the kind this session already made a dent in (`reroute/`, `user/`
-call-agent, `auth/RealAuthGate`, the `/filtered-questions` and
-`/user-questions-data` dispatch branches on `chatbot/`). Continuing that
+work — the kind already closed for `reroute/`, `user/` call-agent,
+`auth/RealAuthGate`, and the `/filtered-questions` and
+`/user-questions-data` dispatch branches on `chatbot/`. Continuing that
 same style of work can still move the number up. It's the other 15.2% —
 11,656 statements, concentrated in exactly 9 files — that's the actual
 ceiling. Below is where it lives and why.
@@ -156,7 +184,7 @@ ceiling. Below is where it lives and why.
 - [`ReviewRepository.ts`](../shared/database/providers/mongo/repositories/ReviewRepository.ts)'s 4 read methods — zero callers anywhere in `src/modules`.
 - [`DuplicateQuestionRepository.ts`](../shared/database/providers/mongo/repositories/DuplicateQuestionRepository.ts)'s `addDuplicate`/`findDuplicatesByMatchedId` — the only caller, `DuplicateService.checkDuplicateQuestion`, never passes the `fromOutReach` flag needed to reach the branch that calls them.
 - `ChatbotRepository.ts`/`ChatbotService.ts` — ~1,584 lines with no controller call site at all: `getDailyAnalyticsForWhatsApp`/`getWeeklyAnalyticsForWhatsApp`/`getMonthlyAnalyticsForWhatsApp` (1,215 lines alone), `getWhatsAppTopFaqs`, `getWhatsAppDuplicateQuestions`, `getWhatsAppDuplicateQuestionsCount`, `getWeeklyAvgSessionDuration`, `getDailyQueryCounts`/`getWeeklyQueryCounts`/`getMonthlyQueryCounts`, `getUserConversationIds`, `getUserEmailByConversationId`, `getHierarchyUserIds`.
-- Fix: a deletion pass, verified safe by the same grep method used here. Not a test-writing task — I did not delete any of this, since it's an application-code change outside what "add tests" should do unilaterally.
+- Fix: a deletion pass, verified safe by the same repo-wide grep method used here. Not a test-writing task — deleting application code is a separate decision from adding test coverage, so this dead code is left in place, just flagged.
 
 **2. Real writes to the production Annam analytics cluster**
 - `ChatbotRepository.updateUser`/`addUser`/`changeUserPassword`/`findMatchingReviewSystemUser`/`deleteReviewSystemUser`/`rollbackPasswordSync` (~440 lines) — these inject `AnnamDatabase` directly, bound to `ANNAM_URL_ANALYTICS`, which points at `production.irscxiv.mongodb.net` (confirmed by reading `.env`).
@@ -164,7 +192,7 @@ ceiling. Below is where it lives and why.
 - Fix: none available without a staging Annam cluster.
 
 **3. Real reads from the same production cluster, with no safe way around it**
-- `ChatbotRepository.getQuestionsClosedWithinTwoHours`/`getQueriesByPeriod`/`getQuestionByManualSource`/`getCoordinatorKpiSummary` (~1,042 lines) call a private `init('annam')` with a **hardcoded literal** — unlike their sibling functions (`getQuestionsByCrop`, `getQuestionsByStatus`, `getQuestionFromState`, `getQuestionFromDistrict`, `getQueryCategoryQuestions` — all closed this session by passing `source=whatsapp` through `GET /filtered-questions`), these four ignore whatever `source` the caller passes and always route to the production cluster.
+- `ChatbotRepository.getQuestionsClosedWithinTwoHours`/`getQueriesByPeriod`/`getQuestionByManualSource`/`getCoordinatorKpiSummary` (~1,042 lines) call a private `init('annam')` with a **hardcoded literal** — unlike their sibling functions (`getQuestionsByCrop`, `getQuestionsByStatus`, `getQuestionFromState`, `getQuestionFromDistrict`, `getQueryCategoryQuestions` — all covered by passing `source=whatsapp` through `GET /filtered-questions`), these four ignore whatever `source` the caller passes and always route to the production cluster.
 - Fix: change the hardcoded `'annam'` to the passed-in `source` parameter in `ChatbotRepository.ts` — a one-line-per-function application code change, not a test change, so left alone here.
 
 **4. Real third-party API calls, no mock boundary in this harness**
@@ -186,9 +214,8 @@ have on its own: delete confirmed-dead application code, get a staging
 Annam cluster, fix a hardcoded DB-routing parameter, build HTTP-mocking
 infrastructure, or configure missing env vars. None of them are closed by
 writing more tests in the existing style — that style has already been
-pushed as far as it safely goes, closing the ~15,109 statements of
-genuinely reachable, safe gap that existed at the start of this session's
-coverage work.
+pushed as far as it safely goes, closing the genuinely reachable, safe
+gap that existed before this coverage push.
 
 ---
 
@@ -246,7 +273,7 @@ whenever a new suite touches a real external credential.
 | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 21 | Full ingestion pipeline — 1 failing, see `Failed_tests.md` |
 | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 11 | AJRASAKHA-specific ingestion fields |
 | `manual-allocation/ManualAllocation.e2e.test.ts` | 10 | Allocate/remove experts on an OUTREACH question |
-| `auto-allocation/AutoAllocation.e2e.test.ts` | 55 | Background queue, preference scoring, time-bound allocation, capacity |
+| `auto-allocation/AutoAllocation.e2e.test.ts` | 47 | Background queue, preference scoring, time-bound allocation, capacity |
 | `allocation-ordering/AllocationOrdering.e2e.test.ts` | 8 | Chronological ordering + history exclusion |
 | `post-allocation/PostAllocation.e2e.test.ts` | 27 | Expert peer-review → moderator-approval state machine |
 | `gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts` | 37 | Push to auditor, finalize, duplicate handling, queue cron |
@@ -268,14 +295,14 @@ whenever a new suite touches a real external credential.
 | `whatsapp/WhatsAppController.e2e.test.ts` | 6 | The controller's own routes (distinct from the ingestion pipeline) |
 | `user/UserController.e2e.test.ts` | 57 | All 30 routes incl. `admin/all/export`, gate-keeper user-management access, real call_agent online/offline/heartbeat happy path |
 | `answer/AnswerControllerGaps.e2e.test.ts` | 8 | Direct answer creation, AI-answer proxy, submissions/FAQ reads |
-| `chatbot/ChatbotController.e2e.test.ts` | 64 | All ~61 routes |
-| `question/QuestionControllerGaps.e2e.test.ts` | 60 | 40 additional `QuestionController` routes |
+| `chatbot/ChatbotController.e2e.test.ts` | 70 | All ~61 routes, incl. real `/filtered-questions` dispatch branches and `/user-questions-data` |
+| `question/QuestionControllerGaps.e2e.test.ts` | 61 | 40 additional `QuestionController` routes |
 | `question/QuestionControllerOps.e2e.test.ts` | 12 | Internal `/background/*` ops routes, `queue-details?section=`, `reAllocateLessWorkload` real path |
-| **Total** | **657** | **645/657 raw; excludes the 6 auto-allocation test-data-debt failures and 3 confirmed-transient flakes from the real-bug count — see `Failed_tests.md`** |
+| **Total** | **656** | **4 tests fail for real, reproducible application reasons — see `Failed_tests.md`; a handful more fail only under full-suite load and aren't reproducible alone (see "Flaky" there)** |
 
-3 tests fail for real, reproducible reasons and 2 more fail only under full-suite
-load and aren't reproducible alone — **all detail, root cause, and fix
-suggestions are in `Failed_tests.md`**, not duplicated here.
+4 tests fail for real, reproducible reasons; a handful more fail only under
+full-suite load and aren't reproducible alone — **all detail, root cause, and
+fix suggestions are in `Failed_tests.md`**, not duplicated here.
 
 ---
 

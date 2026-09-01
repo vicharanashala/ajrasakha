@@ -384,11 +384,11 @@ preventive fix — no application code changed, no assertions weakened.
 
 ## Last Run
 
-**Date:** 2026-08-25 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 44.7 s
+**Date:** 25-08-2026 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 44.7 s
 
 ### 2026-08-20 (superseded by the timeout note above)
 
-**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 55.2 s
+**Date:** 20-08-2026 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 55.2 s
 
 > ⚠ Vitest only printed 21 of 27 test lines (passing suites are truncated in the output).
 

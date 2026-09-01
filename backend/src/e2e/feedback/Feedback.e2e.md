@@ -60,9 +60,9 @@ first (every close path stamps it `'pending'`), and only reaching `status:'feedb
   `.js` file (only `pnpm run build`'s `build/` output does). Verified directly: calling
   `startPaeAllocationWorker` produces `❌ Worker error: Cannot find module
   '.../src/workers/paeAllocation.worker.js'` and the job status flips to `'failed'` — the exact
-  same failure mode already observed for `balanceWorkload.worker.js` in this session's full e2e
-  runs. Parked as a known, environment-level gap (same category as the OUTREACH duplicate-detection
-  engine), not attempted here.
+  same failure mode already observed for `balanceWorkload.worker.js` when running the full e2e
+  suite in this harness. Parked as a known, environment-level gap (same category as the OUTREACH
+  duplicate-detection engine), not attempted here.
 
 ## Flow diagram
 
@@ -336,7 +336,7 @@ Pinned in Group 1b's `[BUG-016]` test.
 
 ## Last Run
 
-**Date:** 2026-08-20 &nbsp;|&nbsp; **Result:** ✅ all 34 passed &nbsp;|&nbsp; **Duration:** 1.2 min
+**Date:** 20-08-2026 &nbsp;|&nbsp; **Result:** ✅ all 34 passed &nbsp;|&nbsp; **Duration:** 1.2 min
 
 > ⚠ Vitest only printed 33 of 34 test lines (passing suites are truncated in the output).
 

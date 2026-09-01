@@ -70,4 +70,4 @@ NODE_ENV=test pnpm exec vitest run --config vitest.e2e.config.ts src/e2e/auth/Re
 
 ## Last Run
 
-**Date:** 2026-08-31 | **Result:** ✅ all 7 passed | **Duration:** ~9s
+**Date:** 31-08-2026 | **Result:** ✅ all 7 passed | **Duration:** ~9s

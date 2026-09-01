@@ -1,0 +1,15 @@
+{
+  "_comment": "Canonical list of documented e2e failures, kept in sync with src/e2e/Failed_tests.md. Used by scripts/e2e-failure-report.mjs to classify each run's failures as 'known' vs 'NEW'. A failure only counts as a match when its file matches AND every string in `contains` appears in the failing test's full describe/it breadcrumb.",
+  "entries": [
+    {"file": "feedback/Feedback.e2e.test.ts", "contains": ["runPaeValidationQueueCron assigns an ancient pending question to an available pae_expert"], "category": "real-bug"},
+    {"file": "feedback/Feedback.e2e.test.ts", "contains": ["pae-validation-timeline reflects the cron-assigned round"], "category": "real-bug"},
+    {"file": "reviewer-queue/ReviewerQueue.e2e.test.ts", "contains": ["author-slot question appears before reviewer-slot question in the /allocated response"], "category": "real-bug"},
+    {"file": "whatsapp/WhatsAppQuestion.e2e.test.ts", "contains": ["proceeds to open (not isTesting) when the thread API throws non-not-found errors"], "category": "real-bug"},
+    {"file": "user/UserController.e2e.test.ts", "contains": ["notification preference", "updates the notification preference"], "category": "flaky"},
+    {"file": "question/QuestionControllerGaps.e2e.test.ts", "contains": ["status-summary", "returns 401 with no authenticated user"], "category": "flaky"},
+    {"file": "post-allocation/PostAllocation.e2e.test.ts", "contains": ["the assigned reviewer modifies"], "category": "flaky"},
+    {"file": "performance/PerformanceController.e2e.test.ts", "contains": ["GET /shift-based-metrics", "returns a result for a valid range"], "category": "flaky"},
+    {"file": "ajrasakha/AjrasakhaQuestion.e2e.test.ts", "contains": ["flags the question isTesting=true when threadId is empty"], "category": "flaky"},
+    {"file": "whatsapp/WhatsAppQuestion.e2e.test.ts", "contains": [], "category": "flaky", "note": "Whole suite is network-dependent on a real external WhatsApp/LangGraph backend — any failure here beyond the one 'real-bug' entry above is treated as this suite's general flakiness, not a new regression, unless it repeats consistently across runs."}
+  ]
+}

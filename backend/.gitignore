@@ -1,6 +1,7 @@
 # Logs
 logs
 *.log
+src/e2e/last-run-failures.md
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

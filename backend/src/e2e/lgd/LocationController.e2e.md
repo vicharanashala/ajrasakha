@@ -94,7 +94,7 @@ NODE_ENV=test pnpm exec vitest run --config vitest.e2e.config.ts src/e2e/lgd/Loc
 
 ## Last Run
 
-**Date:** 2026-08-27 | **Result:** ✅ all 26 passed | **Duration:** ~10s
+**Date:** 27-08-2026 | **Result:** ✅ all 26 passed | **Duration:** ~10s
 
 (Previous run: 2026-08-24, 23/23 passed, ~19s — before `POST /districts/all`
 coverage was added.)

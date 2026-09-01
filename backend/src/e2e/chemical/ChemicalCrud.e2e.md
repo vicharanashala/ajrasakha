@@ -254,7 +254,7 @@ NODE_ENV=test pnpm exec vitest run src/e2e/chemical/ChemicalCrud.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-08-25 &nbsp;|&nbsp; **Result:** ✅ all 19 passed &nbsp;|&nbsp; **Duration:** ~11 s
+**Date:** 25-08-2026 &nbsp;|&nbsp; **Result:** ✅ all 19 passed &nbsp;|&nbsp; **Duration:** ~11 s
 
 (Previous run: 2026-08-20, 15/15 passed, 12.9s — before the 4 tests migrated from
 `ChemicalController.api.test.ts` were added.)
