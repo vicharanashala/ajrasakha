@@ -618,6 +618,13 @@ export class PaeValidationService extends BaseService {
           },
           session,
         );
+        setImmediate(async () => {
+        try {
+          await this.processPaeValidationQueue();
+        } catch (err) {
+          console.error('[PAE Validation Queue] Trigger failed after approve:', err);
+        }
+      });
 
         console.log(
           `[processPaeValidation] Feedback created for question ${questionId} by PAE expert ${paeExpertId}`,

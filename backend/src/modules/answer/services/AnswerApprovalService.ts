@@ -397,8 +397,8 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
       await this.questionService.freeRoleAssigneeOnStatusChange(
         updates.questionId,
       );
-
-      // Trigger PAE queue processing after successful approval
+    }
+    // Trigger PAE queue processing after successful approval
       // This is event-driven: when a question becomes PAE-pending, assign it to available experts
       setImmediate(async () => {
         try {
@@ -407,7 +407,6 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
           console.error('[PAE Validation Queue] Trigger failed after answer approval:', err);
         }
       });
-    }
     return approveResult;
   }
 
