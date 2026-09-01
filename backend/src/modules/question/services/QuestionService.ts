@@ -1495,10 +1495,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       // Event-driven moderator-queue allocation (replaces the periodic moderator cron):
-      // a status change may have freed the moderator (finalize → 'closed', pass, etc.)
-      // OR made a question a moderator candidate (→ in-review / pae_submitted) — fill the
-      // moderator queue now. Fire-and-forget, so it can never roll back the update.
-      if (!threadUpdate && updates.status) {
+      // fill the moderator queue now when this update made a question newly available to a
+      // moderator — a status change (freed the moderator via finalize → 'closed'/pass, or
+      // made it a candidate → in-review / pae_submitted), OR its moderator auto-allocate
+      // toggle was turned ON (an in-review/pae_submitted question that was excluded now
+      // qualifies). Fire-and-forget, so it can never roll back the update.
+      if (
+        !threadUpdate &&
+        (updates.status || updates.autoAllocateModerator === true)
+      ) {
         this.triggerModeratorQueueAllocation('updateQuestion');
       }
 
