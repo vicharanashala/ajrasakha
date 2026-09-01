@@ -1659,12 +1659,17 @@ export class QuestionService extends BaseService implements IQuestionService {
     };
 
     if (session) {
+      // Caller owns the transaction and its commit — it triggers the queue afterwards.
       return execute(session);
     }
 
-    return this._withTransaction(async (transactionSession: ClientSession) =>
-      execute(transactionSession),
+    const result = await this._withTransaction(
+      async (transactionSession: ClientSession) => execute(transactionSession),
     );
+    // Deleting a question frees any moderator that held it — run the moderator queue so
+    // that freed moderator immediately picks up another in-review/pae_submitted question.
+    this.triggerModeratorQueueAllocation('deleteQuestion');
+    return result;
   }
 
   async bulkDeleteQuestions(userId: string, questionIds: string[]) {
@@ -1813,7 +1818,13 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async removeQuestionModerator(questionId: string) {
-    return this.roleAssigneeService.removeQuestionModerator(questionId);
+    const result =
+      await this.roleAssigneeService.removeQuestionModerator(questionId);
+    // Removing the moderator frees them AND re-queues the question (back to an
+    // unassigned in-review/pae_submitted candidate) — run the moderator queue so both
+    // the question and the freed moderator are immediately re-matched.
+    this.triggerModeratorQueueAllocation('removeQuestionModerator');
+    return result;
   }
 
   async getRoleAssigneeDashboard(
@@ -1893,7 +1904,11 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async runAbsentScript() {
-    return this.allocationService.runAbsentScript();
+    const result = await this.allocationService.runAbsentScript();
+    // The absent-expert cleanup reclaims questions from blocked experts and pushes them
+    // back to in-review — run the moderator queue so free moderators pick them up.
+    this.triggerModeratorQueueAllocation('runAbsentScript');
+    return result;
   }
 
   async findAbsentExperts(session: ClientSession) {

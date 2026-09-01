@@ -398,6 +398,12 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
         updates.questionId,
       );
     }
+
+    // Approving/closing a question frees its moderator (removeAssignedQuestionFromAllModerators
+    // above, committed) — run the moderator queue so that moderator immediately picks up
+    // their next in-review/pae_submitted question. Fire-and-forget; can't affect approval.
+    this.questionService.triggerModeratorQueueAllocation('approveAnswer');
+
     return approveResult;
   }
 

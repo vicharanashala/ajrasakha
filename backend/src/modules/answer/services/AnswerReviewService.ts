@@ -1052,6 +1052,12 @@ export class AnswerReviewService extends BaseService implements IAnswerReviewSer
           session,
         );
       });
+
+      // Transaction committed. A reroute can move the question back to `in-review`
+      // (moderator candidate) — run the moderator queue so a free moderator picks it up.
+      // Fire-and-forget, so it can't affect the recorded response.
+      this.questionService.triggerModeratorQueueAllocation('reRouteReviewAnswer');
+
       return { message: 'Your response recorded successfully, thank you!' };
     } catch (error) {
       throw new InternalServerError(
