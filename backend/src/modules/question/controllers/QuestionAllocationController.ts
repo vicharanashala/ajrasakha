@@ -871,6 +871,18 @@ export class QuestionAllocationController {
 
       await this.questionService.updateQuestion(questionId, { [field]: enabled } as any);
 
+      // When enabling PAE validator auto-allocation, trigger the queue processor immediately
+      // so the question gets assigned to an available PAE expert right away
+      if (role === 'pae_validator' && enabled) {
+        setImmediate(async () => {
+          try {
+            await this.questionService.processPaeValidationQueue();
+          } catch (err) {
+            console.error('[PAE Validation Queue] Trigger failed after toggle:', err);
+          }
+        });
+      }
+
       auditPayload = {
         ...auditPayload,
         context: { ...auditPayload.context, question: questionDetails?.question },
