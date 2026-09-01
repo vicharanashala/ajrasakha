@@ -197,7 +197,7 @@ export const IncomingCallBox = ({
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCallUuidRef = useRef<string | null>(null);
   const activeCallUuidRef = useRef<string | null>(null);
-  const connectWebSocketRef = useRef<(() => void) | null>(null);
+  const isHangingUpRef = useRef(false);
 
   // Voice-to-Text STT Handler with REAL-TIME Live Recognition
   const sttSpeechRecognitionRef = useRef<any>(null);
@@ -552,6 +552,7 @@ export const IncomingCallBox = ({
     client.client.on("onCallAnswered", (callInfo?: any) => {
       setCallStatus("connected");
       onCallStateChange?.(true);
+      isHangingUpRef.current = false;
 
       // Reset transcripts from previous calls on call answered
       setTranscripts([]);
@@ -560,8 +561,8 @@ export const IncomingCallBox = ({
       setMessageText("");
       lastCallUuidRef.current = null;
 
-      // Default ON: Auto-start transcript streaming when call is answered
-      connectWebSocketRef.current?.();
+      // NOTE: WebSocket is already connected by handleAnswer() — do NOT call connectWebSocket again here.
+      // Calling it again would create a stale closure or duplicate connection.
       setIsRecording(true);
 
       const answeredCallUuid = callInfo?.callUUID || callInfo?.calluuid || activeCallUuidRef.current;
@@ -582,6 +583,13 @@ export const IncomingCallBox = ({
 
     client.client.on("onCallTerminated", () => {
       console.log("📴 Call ended");
+      // If handleHangup already processed this termination, skip to avoid double-processing
+      if (isHangingUpRef.current) {
+        console.log("📴 [onCallTerminated] Skipping — already handled by handleHangup");
+        isHangingUpRef.current = false;
+        return;
+      }
+      activeCallUuidRef.current = null;
       setCallStatus("ended");
       setIncomingCall(null);
       onCallStateChange?.(false);
@@ -669,7 +677,6 @@ export const IncomingCallBox = ({
   };
 
   const connectWebSocket = () => {
-    connectWebSocketRef.current = connectWebSocket;
     // console.log('🚀 [WEBSOCKET] connectWebSocket function called!');
 
     if (wsRef.current) {
@@ -678,7 +685,8 @@ export const IncomingCallBox = ({
     }
 
     // Clear transcripts from previous call only if call UUID changed
-    const currentCallUuid = incomingCall?.uuid || null;
+    // Use activeCallUuidRef (always current) instead of incomingCall (can be stale in closures)
+    const currentCallUuid = activeCallUuidRef.current || incomingCall?.uuid || null;
     if (currentCallUuid && currentCallUuid !== lastCallUuidRef.current) {
       setTranscripts([]);
       lastCallUuidRef.current = currentCallUuid;
@@ -863,13 +871,19 @@ export const IncomingCallBox = ({
     const targetCallUuid = activeCallUuidRef.current || incomingCall?.uuid;
     console.log(`📴 [handleHangup] Ending call. Target CallUUID: ${targetCallUuid}`);
 
+    // Signal that we are handling this termination, so onCallTerminated can skip
+    isHangingUpRef.current = true;
+
     if (plivoClientRef.current && plivoClientRef.current.client) {
       try {
         plivoClientRef.current.client.hangup();
       } catch (err) {
         console.warn("Plivo client hangup error:", err);
+        // If hangup fails, reset the flag so onCallTerminated can still handle it
+        isHangingUpRef.current = false;
       }
     }
+    activeCallUuidRef.current = null;
     setCallStatus("ended");
     setIncomingCall(null);
     onCallStateChange?.(false);

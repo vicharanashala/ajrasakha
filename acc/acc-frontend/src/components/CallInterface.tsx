@@ -923,7 +923,7 @@ export const CallInterface = () => {
           <FarmerDetails
             phoneNo={callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || ""}
             extractedProfile={extractedFarmerProfile}
-            disabled={!isCallActive && !isSimulatingMode && !(callUuid && callUuid.startsWith("testing_"))}
+            disabled={!isCallActive && !isSimulatingMode && !(callUuid && callUuid.startsWith("testing_")) && !callPhoneNumber && !lastCallPhoneNumber}
             onProfileUpdated={(profile) => {
               activeProfileRef.current = profile;
             }}

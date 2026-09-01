@@ -454,7 +454,7 @@ export class PlivoController {
 
       const response = await this.client.calls.list(plivoQuery);
 
-      const history = (response as any)
+      const rawHistory = (response as any)
         .filter((item: any) => item.callUuid)
         .map((call: any) => ({
           uuid: call.callUuid,
@@ -466,10 +466,98 @@ export class PlivoController {
           direction: call.callDirection
         }));
 
+      // Helper to identify internal Plivo SIP bridge legs
+      const isSipBridgeLeg = (call: any) => {
+        const to = String(call.to || '').toLowerCase();
+        const direction = String(call.direction || '').toLowerCase();
+        return (
+          direction === 'outbound' &&
+          (to.startsWith('sip:') || to.includes('@phone.plivo.com') || to.includes('endpoint'))
+        );
+      };
+
+      const mainCalls: any[] = [];
+      const sipLegs: any[] = [];
+
+      for (const call of rawHistory) {
+        if (isSipBridgeLeg(call)) {
+          sipLegs.push(call);
+        } else {
+          mainCalls.push(call);
+        }
+      }
+
+      // Map matching SIP legs to their parent main/inbound calls based on proximity of initiation time
+      const matchedSipUuidsByMainUuid = new Map<string, string[]>();
+
+      for (const sipCall of sipLegs) {
+        const sipTime = sipCall.startTime ? new Date(sipCall.startTime).getTime() : 0;
+        let bestMatch: any = null;
+        let minDiff = Infinity;
+
+        for (const mainCall of mainCalls) {
+          if (mainCall.direction === 'inbound') {
+            const mainTime = mainCall.startTime ? new Date(mainCall.startTime).getTime() : 0;
+            const diff = Math.abs(mainTime - sipTime);
+            // Must be within 90 seconds of each other
+            if (diff <= 90000 && diff < minDiff) {
+              minDiff = diff;
+              bestMatch = mainCall;
+            }
+          }
+        }
+
+        if (bestMatch) {
+          const list = matchedSipUuidsByMainUuid.get(bestMatch.uuid) || [];
+          list.push(sipCall.uuid);
+          matchedSipUuidsByMainUuid.set(bestMatch.uuid, list);
+        }
+      }
+
       await Promise.all(
-        (history as any[]).map(async (item) => {
+        mainCalls.map(async (item) => {
           try {
-            const details = await this.callDetailsRepository.getByCallUuid(item.uuid);
+            let details = await this.callDetailsRepository.getByCallUuid(item.uuid);
+            const associatedSipUuids = matchedSipUuidsByMainUuid.get(item.uuid) || [];
+
+            for (const sipUuid of associatedSipUuids) {
+              try {
+                const sipDetails = await this.callDetailsRepository.getByCallUuid(sipUuid);
+                if (sipDetails) {
+                  if (!details) {
+                    details = {
+                      ...sipDetails,
+                      callUuid: item.uuid,
+                      from: item.from,
+                      to: item.to,
+                      direction: item.direction
+                    };
+                  } else {
+                    // Merge QA_pairs if parent has none or has empty fields
+                    if (!details.QA_pairs && sipDetails.QA_pairs) {
+                      details.QA_pairs = sipDetails.QA_pairs;
+                    } else if (details.QA_pairs && sipDetails.QA_pairs) {
+                      if ((!details.QA_pairs.QnA || details.QA_pairs.QnA.length === 0) && sipDetails.QA_pairs.QnA?.length > 0) {
+                        details.QA_pairs.QnA = sipDetails.QA_pairs.QnA;
+                      }
+                      if (!details.QA_pairs.metadata?.extracted_crop && sipDetails.QA_pairs.metadata?.extracted_crop) {
+                        details.QA_pairs.metadata = { ...details.QA_pairs.metadata, ...sipDetails.QA_pairs.metadata };
+                      }
+                    }
+                    // Merge transcripts if parent has none
+                    if (!details.caller?.transcript && sipDetails.caller?.transcript) {
+                      details.caller = sipDetails.caller;
+                    }
+                    if (!details.agent?.transcript && sipDetails.agent?.transcript) {
+                      details.agent = sipDetails.agent;
+                    }
+                  }
+                }
+              } catch (sipErr) {
+                console.warn(`[PLIVO-CONTROLLER] Error fetching sip details for ${sipUuid}:`, sipErr);
+              }
+            }
+
             let agentUserIdStr = details?.agent?.userid ? details.agent.userid.toString() : this.plivoService.getCallAgent(item.uuid);
 
             if (details) {
@@ -503,7 +591,7 @@ export class PlivoController {
         })
       );
 
-      return history;
+      return mainCalls;
     } catch (error: any) {
       console.error('❌ Error fetching call history:', error);
       throw new InternalServerError('Failed to fetch call history');

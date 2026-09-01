@@ -818,27 +818,27 @@ export const CallHistory = ({ onRedial: _onRedial }: CallHistoryProps) => {
         ) : (
           <>
             {/* Call History Table */}
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="px-4 py-3 text-left text-sm font-medium">
+                    <tr className="border-b bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th className="px-5 py-3.5 w-[12%]">
                         Direction
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">
+                      <th className="px-5 py-3.5 w-[17%]">
                         From
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">
+                      <th className="px-5 py-3.5 w-[17%]">
                         To
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">
+                      <th className="px-5 py-3.5 w-[16%]">
                         Status
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">
+                      <th className="px-5 py-3.5 w-[12%]">
                         Duration
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">
+                      <th className="px-5 py-3.5 w-[26%] text-right pr-6">
                         Actions
                       </th>
                     </tr>
@@ -858,22 +858,22 @@ export const CallHistory = ({ onRedial: _onRedial }: CallHistoryProps) => {
                         <>
                           <tr
                             key={call.uuid}
-                            className="border-b hover:bg-muted/50"
+                            className="border-b hover:bg-muted/50 transition-colors"
                           >
-                            <td className="px-4 py-3">
+                            <td className="px-5 py-3.5">
                               <Badge
                                 className={getDirectionColor(call.direction)}
                               >
                                 {call.direction}
                               </Badge>
                             </td>
-                            <td className="px-4 py-3 text-sm">
+                            <td className="px-5 py-3.5 text-sm font-medium">
                               {formatPhoneNumber(call.from)}
                             </td>
-                            <td className="px-4 py-3 text-sm">
+                            <td className="px-5 py-3.5 text-sm font-medium">
                               {formatPhoneNumber(call.to)}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-5 py-3.5">
                               <div className="flex flex-col gap-1">
                                 <Badge className={getStatusColor(call.status)}>
                                   {call.status}
@@ -888,18 +888,18 @@ export const CallHistory = ({ onRedial: _onRedial }: CallHistoryProps) => {
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm">
+                            <td className="px-5 py-3.5 text-sm font-medium">
                               {formatDuration(call.duration)}
                             </td>
-                            <td className="px-4 py-3">
-                              <div className="flex gap-2">
+                            <td className="px-5 py-3.5 pr-6">
+                              <div className="flex items-center justify-end gap-2">
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleRedial(call)}
-                                  className="gap-2"
+                                  className="gap-1.5 h-8 px-3 text-xs"
                                 >
-                                  <Phone className="h-4 w-4" />
+                                  <Phone className="h-3.5 w-3.5" />
                                   Redial
                                 </Button>
                                 <Button
@@ -913,9 +913,9 @@ export const CallHistory = ({ onRedial: _onRedial }: CallHistoryProps) => {
                                     );
                                     setMessageText("");
                                   }}
-                                  className="gap-3"
+                                  className="gap-1.5 h-8 px-3 text-xs"
                                 >
-                                  <MessageSquare className="h-4 w-4" />
+                                  <MessageSquare className="h-3.5 w-3.5" />
                                   Message
                                 </Button>
                                 <Button
@@ -928,9 +928,9 @@ export const CallHistory = ({ onRedial: _onRedial }: CallHistoryProps) => {
                                         : call.uuid,
                                     )
                                   }
-                                  className="gap-2"
+                                  className="gap-1.5 h-8 px-3 text-xs"
                                 >
-                                  <Eye className="h-4 w-4" />
+                                  <Eye className="h-3.5 w-3.5" />
                                   {selectedCallForDetails === call.uuid
                                     ? "Hide"
                                     : "View"}

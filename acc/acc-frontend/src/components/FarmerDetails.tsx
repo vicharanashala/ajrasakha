@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Input } from "./atoms/input";
 import { Label } from "./atoms/label";
 import { Button } from "./atoms/button";
+
 import {
   Info,
   CheckCircle2,
@@ -15,6 +16,34 @@ import { plivoService } from "@/hooks/api/plivo/api";
 import type { FarmerProfile } from "@/hooks/api/plivo/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+export const SARVAM_LANGUAGES = [
+  { code: "en-IN", name: "English" },
+  { code: "hi-IN", name: "Hindi" },
+  { code: "bn-IN", name: "Bengali" },
+  { code: "gu-IN", name: "Gujarati" },
+  { code: "kn-IN", name: "Kannada" },
+  { code: "ml-IN", name: "Malayalam" },
+  { code: "mr-IN", name: "Marathi" },
+  { code: "od-IN", name: "Odia" },
+  { code: "pa-IN", name: "Punjabi" },
+  { code: "ta-IN", name: "Tamil" },
+  { code: "te-IN", name: "Telugu" },
+  { code: "as-IN", name: "Assamese" },
+  { code: "doi-IN", name: "Dogri" },
+  { code: "kok-IN", name: "Konkani" },
+  { code: "ks-IN", name: "Kashmiri" },
+  { code: "mai-IN", name: "Maithili" },
+  { code: "mni-IN", name: "Manipuri" },
+  { code: "ne-IN", name: "Nepali" },
+  { code: "sa-IN", name: "Sanskrit" },
+  { code: "sat-IN", name: "Santali" },
+  { code: "sd-IN", name: "Sindhi" },
+  { code: "ur-IN", name: "Urdu" },
+  { code: "brx-IN", name: "Bodo" },
+];
+
+
 
 interface FarmerDetailsProps {
   phoneNo: string;
@@ -258,7 +287,49 @@ export const FarmerDetails = ({
               />
             </div>
 
-            {/* 3. Village / Location */}
+            {/* 3. State */}
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
+                State
+              </Label>
+              <Input
+                disabled={disabled}
+                value={activeProfile.state || ""}
+                onChange={(e) => handleFieldChange("state", e.target.value)}
+                placeholder="Select or enter state"
+                className={inputClass}
+              />
+            </div>
+
+            {/* 4. Block (Moved up below State) */}
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
+                Block
+              </Label>
+              <Input
+                disabled={disabled}
+                value={activeProfile.blockName || ""}
+                onChange={(e) => handleFieldChange("blockName", e.target.value)}
+                placeholder="Enter block name"
+                className={inputClass}
+              />
+            </div>
+
+            {/* 5. District */}
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
+                District
+              </Label>
+              <Input
+                disabled={disabled}
+                value={activeProfile.district || ""}
+                onChange={(e) => handleFieldChange("district", e.target.value)}
+                placeholder="Enter district"
+                className={inputClass}
+              />
+            </div>
+
+            {/* 6. Village / Location */}
             <div className="space-y-0.5">
               <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
                 <span>Village / Location</span>
@@ -273,35 +344,65 @@ export const FarmerDetails = ({
               />
             </div>
 
-            {/* 4. District */}
+            {/* 7. Primary Crop */}
             <div className="space-y-0.5">
-              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
-                District
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
+                <span>Primary Crop</span>
+                <span className="text-red-500 font-bold">*</span>
               </Label>
               <Input
                 disabled={disabled}
-                value={activeProfile.district || ""}
-                onChange={(e) => handleFieldChange("district", e.target.value)}
-                placeholder="Enter district"
+                value={activeProfile.primaryCrop || ""}
+                onChange={(e) => handleFieldChange("primaryCrop", e.target.value)}
+                placeholder="Select or enter primary crop"
                 className={inputClass}
               />
             </div>
 
-            {/* 5. State */}
+            {/* 8. Secondary Crop */}
             <div className="space-y-0.5">
               <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
-                State
+                Secondary Crop
               </Label>
               <Input
                 disabled={disabled}
-                value={activeProfile.state || ""}
-                onChange={(e) => handleFieldChange("state", e.target.value)}
-                placeholder="Select or enter state"
+                value={activeProfile.secondaryCrop || ""}
+                onChange={(e) => handleFieldChange("secondaryCrop", e.target.value)}
+                placeholder="Select or enter secondary crop"
                 className={inputClass}
               />
             </div>
 
-            {/* 6. Age */}
+            {/* 9. Language Preference */}
+            <div className="space-y-0.5">
+              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
+                Language Preference
+              </Label>
+              <select
+                disabled={disabled}
+                value={(() => {
+                  const langVal = activeProfile.languagePreference || "";
+                  const match = SARVAM_LANGUAGES.find(
+                    (l) =>
+                      l.code.toLowerCase() === langVal.trim().toLowerCase() ||
+                      l.name.toLowerCase() === langVal.trim().toLowerCase() ||
+                      l.code.split("-")[0].toLowerCase() === langVal.trim().toLowerCase()
+                  );
+                  return match ? match.code : "";
+                })()}
+                onChange={(e) => handleFieldChange("languagePreference", e.target.value ? SARVAM_LANGUAGES.find(l => l.code === e.target.value)?.name || e.target.value : "")}
+                className={cn(inputClass, "w-full cursor-pointer appearance-auto")}
+              >
+                <option value="">Select Language</option>
+                {SARVAM_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name} ({lang.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 10. Age */}
             <div className="space-y-0.5">
               <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Age
@@ -315,7 +416,7 @@ export const FarmerDetails = ({
               />
             </div>
 
-            {/* 7. Gender */}
+            {/* 11. Gender */}
             <div className="space-y-1">
               <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Gender
@@ -363,63 +464,6 @@ export const FarmerDetails = ({
               </div>
             </div>
 
-            {/* 8. Language Preference */}
-            <div className="space-y-0.5">
-              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
-                Language Preference
-              </Label>
-              <Input
-                disabled={disabled}
-                value={activeProfile.languagePreference || ""}
-                onChange={(e) => handleFieldChange("languagePreference", e.target.value)}
-                placeholder="Select or enter language"
-                className={inputClass}
-              />
-            </div>
-
-            {/* 9. Primary Crop */}
-            <div className="space-y-0.5">
-              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
-                <span>Primary Crop</span>
-                <span className="text-red-500 font-bold">*</span>
-              </Label>
-              <Input
-                disabled={disabled}
-                value={activeProfile.primaryCrop || ""}
-                onChange={(e) => handleFieldChange("primaryCrop", e.target.value)}
-                placeholder="Select or enter primary crop"
-                className={inputClass}
-              />
-            </div>
-
-            {/* 10. Secondary Crop */}
-            <div className="space-y-0.5">
-              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
-                Secondary Crop
-              </Label>
-              <Input
-                disabled={disabled}
-                value={activeProfile.secondaryCrop || ""}
-                onChange={(e) => handleFieldChange("secondaryCrop", e.target.value)}
-                placeholder="Select or enter secondary crop"
-                className={inputClass}
-              />
-            </div>
-
-            {/* 11. Block */}
-            <div className="space-y-0.5">
-              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
-                Block
-              </Label>
-              <Input
-                disabled={disabled}
-                value={activeProfile.blockName || ""}
-                onChange={(e) => handleFieldChange("blockName", e.target.value)}
-                placeholder="Enter block name"
-                className={inputClass}
-              />
-            </div>
-
             {/* 12. Years of Experience */}
             <div className="space-y-0.5">
               <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
@@ -438,25 +482,7 @@ export const FarmerDetails = ({
               />
             </div>
 
-            {/* 13. Crops Cultivated */}
-            <div className="space-y-0.5">
-              <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
-                Crops Cultivated
-              </Label>
-              <Input
-                disabled={disabled}
-                value={
-                  Array.isArray(activeProfile.cropsCultivated)
-                    ? activeProfile.cropsCultivated.join(", ")
-                    : activeProfile.cropsCultivated || ""
-                }
-                onChange={(e) => handleFieldChange("cropsCultivated", e.target.value.split(",").map(c => c.trim()))}
-                placeholder="e.g. Wheat, Rice, Cotton"
-                className={inputClass}
-              />
-            </div>
-
-            {/* 14. Highest Educated */}
+            {/* 13. Highest Educated */}
             <div className="space-y-0.5">
               <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Highest Educated
@@ -470,7 +496,7 @@ export const FarmerDetails = ({
               />
             </div>
 
-            {/* 15. Smartphones */}
+            {/* 14. Smartphones */}
             <div className="space-y-0.5">
               <Label className="text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-400">
                 Smartphones in Household

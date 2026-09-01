@@ -166,6 +166,125 @@ export interface PlivoAgentCredential {
   updatedAt?: string;
 }
 
+export const mergeAndCleanCallHistory = (rawCalls: CallHistoryItem[]): CallHistoryItem[] => {
+  if (!Array.isArray(rawCalls)) return [];
+
+  const isSipBridgeLeg = (call: CallHistoryItem) => {
+    const to = String(call.to || '').toLowerCase();
+    const direction = String(call.direction || '').toLowerCase();
+    return (
+      direction === 'outbound' &&
+      (to.startsWith('sip:') || to.includes('phone.plivo.com') || to.includes('endpoint'))
+    );
+  };
+
+  const mainCalls: CallHistoryItem[] = [];
+  const sipLegs: CallHistoryItem[] = [];
+
+  for (const call of rawCalls) {
+    if (isSipBridgeLeg(call)) {
+      sipLegs.push(call);
+    } else {
+      mainCalls.push({
+        ...call,
+        callDetails: call.callDetails ? { ...call.callDetails } : undefined,
+      });
+    }
+  }
+
+  // Correlate each SIP leg with its parent inbound call based on initiation timestamp
+  for (const sipCall of sipLegs) {
+    const sipTime = sipCall.startTime ? new Date(sipCall.startTime).getTime() : 0;
+    let bestMatch: CallHistoryItem | null = null;
+    let minDiff = Infinity;
+
+    for (const mainCall of mainCalls) {
+      if (mainCall.direction === 'inbound') {
+        const mainTime = mainCall.startTime ? new Date(mainCall.startTime).getTime() : 0;
+        const diff = Math.abs(mainTime - sipTime);
+        // Match calls within 180 seconds of each other
+        if (diff <= 180000 && diff < minDiff) {
+          minDiff = diff;
+          bestMatch = mainCall;
+        }
+      }
+    }
+
+    if (bestMatch) {
+      const sipDetails = sipCall.callDetails;
+      if (sipDetails) {
+        if (!bestMatch.callDetails) {
+          bestMatch.callDetails = { ...sipDetails };
+        } else {
+          // Merge QA_pairs
+          if (!bestMatch.callDetails.QA_pairs && sipDetails.QA_pairs) {
+            bestMatch.callDetails.QA_pairs = sipDetails.QA_pairs;
+          } else if (bestMatch.callDetails.QA_pairs && sipDetails.QA_pairs) {
+            if (
+              (!bestMatch.callDetails.QA_pairs.QnA || bestMatch.callDetails.QA_pairs.QnA.length === 0) &&
+              sipDetails.QA_pairs.QnA?.length > 0
+            ) {
+              bestMatch.callDetails.QA_pairs.QnA = sipDetails.QA_pairs.QnA;
+            }
+            if (sipDetails.QA_pairs.metadata) {
+              bestMatch.callDetails.QA_pairs.metadata = {
+                ...(bestMatch.callDetails.QA_pairs.metadata || {}),
+                ...sipDetails.QA_pairs.metadata,
+              };
+            }
+          }
+
+          // Merge queries
+          if (
+            (!bestMatch.callDetails.queries || bestMatch.callDetails.queries.length === 0) &&
+            sipDetails.queries &&
+            sipDetails.queries.length > 0
+          ) {
+            bestMatch.callDetails.queries = sipDetails.queries;
+          }
+
+          // Merge transcripts
+          if (!bestMatch.callDetails.caller?.transcript && sipDetails.caller?.transcript) {
+            bestMatch.callDetails.caller = sipDetails.caller;
+          }
+          if (!bestMatch.callDetails.agent?.transcript && sipDetails.agent?.transcript) {
+            bestMatch.callDetails.agent = sipDetails.agent;
+          }
+
+          // Merge recordings
+          if (!bestMatch.callDetails.recording && sipDetails.recording) {
+            bestMatch.callDetails.recording = sipDetails.recording;
+          }
+          if (sipDetails.recordings && Array.isArray(sipDetails.recordings)) {
+            bestMatch.callDetails.recordings = [
+              ...(bestMatch.callDetails.recordings || []),
+              ...sipDetails.recordings,
+            ];
+          }
+
+          // Merge farmerProfile
+          if (!bestMatch.farmerProfile && sipCall.farmerProfile) {
+            bestMatch.farmerProfile = sipCall.farmerProfile;
+          }
+        }
+      }
+
+      // Merge agent details
+      if (!bestMatch.agentUsername && sipCall.agentUsername) {
+        bestMatch.agentUsername = sipCall.agentUsername;
+      }
+      if (!bestMatch.agentUserId && sipCall.agentUserId) {
+        bestMatch.agentUserId = sipCall.agentUserId;
+      }
+      if (!bestMatch.agentEmail && sipCall.agentEmail) {
+        bestMatch.agentEmail = sipCall.agentEmail;
+      }
+    }
+  }
+
+  return mainCalls;
+};
+
 export class PlivoService {
   private _baseUrl = `${API_BASE_URL}/plivo`;
   private _farmerBaseUrl = `${API_BASE_URL}/farmer`;
@@ -195,7 +314,7 @@ export class PlivoService {
       throw new Error('Failed to fetch call history: No response received');
     }
 
-    return response;
+    return mergeAndCleanCallHistory(response);
   }
 
   async getFarmerByPhoneNo(phoneNo: string): Promise<CallFarmer | null> {

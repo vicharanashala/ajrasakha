@@ -179,8 +179,21 @@ export const AuthForm = ({
   };
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="rounded-2xl border bg-card text-card-foreground shadow-xl transition-all duration-300">
+    <div
+      className={cn(
+        "flex flex-col min-h-screen items-center justify-center p-4 relative overflow-hidden",
+        className
+      )}
+      {...props}
+    >
+      {/* Background glow effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-200/20 dark:bg-emerald-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-200/20 dark:bg-emerald-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-200/10 dark:bg-teal-500/5 rounded-full blur-3xl animate-pulse delay-500" />
+      </div>
+
+      <Card className="w-full max-w-md relative z-10 rounded-2xl border bg-card text-card-foreground shadow-xl transition-all duration-300">
         <CardHeader className="text-center pb-4 pt-6">
           <CardTitle className="text-xl font-bold tracking-tight">
             {isForgotPasswordMode
