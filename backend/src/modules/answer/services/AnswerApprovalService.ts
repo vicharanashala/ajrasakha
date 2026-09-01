@@ -119,7 +119,16 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
       };
 
       // EDIT-FINAL-ANSWER FLOW
-      if (question.status === 'closed' && updates.answerId) {
+      // Applies to any closed variant — a plain `closed` question AND the auditor
+      // "Notify User" closes (`duplicate_closed` / `dynamic_closed`). The latter skip the
+      // peer-review cycle so they have no question_submissions doc; routing their edit
+      // through here (text/embedding + updateAnswer) avoids the submission-required path.
+      if (
+        (question.status === 'closed' ||
+          question.status === 'duplicate_closed' ||
+          question.status === 'dynamic_closed') &&
+        updates.answerId
+      ) {
         const existing = await this.answerRepo.getById(updates.answerId, session);
         if (!existing) {
           throw new BadRequestError(`Answer with ID ${updates.answerId} not found`);
