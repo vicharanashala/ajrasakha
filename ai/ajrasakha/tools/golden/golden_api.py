@@ -491,16 +491,6 @@ async def check_pending_duplicate_endpoint_v2(body: PendingDuplicateCheckRequest
 # =============================================================================
 
 
-class SimilarQuestionItemResponse(BaseModel):
-    """A single similar question result."""
-    question_id: str
-    question_text: str
-    status: str
-    similarity_score: float
-    match_type: str
-    chosen_for_answer: bool = False
-
-
 class SimilarQuestionResponse(BaseModel):
     """Response for similar question detection (embedding-based, no Gemma)."""
     query: str
@@ -512,9 +502,7 @@ class SimilarQuestionResponse(BaseModel):
     present_sources: list = Field(default_factory=list)
     present_author: Optional[str] = None
     exact_match_found: bool = False
-    similar_questions: list[SimilarQuestionItemResponse] = Field(default_factory=list)
     total_candidates_found: int = 0
-    audit: dict[str, Any] = Field(default_factory=dict)
     rejected: bool = False
     rejection_reason: Optional[str] = None
 
@@ -550,11 +538,6 @@ async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
             question_text=body.question_text,
         )
         
-        # Convert similar_questions list of dicts to response models
-        similar_questions = [
-            SimilarQuestionItemResponse(**item) for item in result.get("similar_questions", [])
-        ]
-        
         log.info(
             "find_similar_questions_endpoint: result keys=%s is_present=%s present_status=%s present_question_id=%s",
             list(result.keys()),
@@ -573,9 +556,7 @@ async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
             present_sources=result.get("present_sources", []),
             present_author=result.get("present_author"),
             exact_match_found=result.get("exact_match_found", False),
-            similar_questions=similar_questions,
             total_candidates_found=result.get("total_candidates_found", 0),
-            audit=result.get("audit", {}),
             rejected=result.get("rejected", False),
             rejection_reason=result.get("rejection_reason"),
         )
