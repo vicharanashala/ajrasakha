@@ -25,6 +25,8 @@ import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
 import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 import { useUpdateCrop } from "@/hooks/api/crop/useUpdateCrop";
+import { CropAuditTrailModal } from "./CropAuditTrailModal";
+import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useBulkUploadCrops } from "@/hooks/api/crop/useBulkUploadCrops";
 import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
@@ -117,10 +119,22 @@ const AliasEntryForm = ({
 
   const handleAdd = () => {
     if (!canAdd) return;
+    // Commit any region the user typed but didn't press Enter on, so it isn't lost.
+    const pendingRegion = regionInput.trim();
+    const currentRegions = entry.region
+      ? entry.region.split(",").map((r) => r.trim()).filter(Boolean)
+      : [];
+    if (pendingRegion && !currentRegions.includes(pendingRegion)) {
+      currentRegions.push(pendingRegion);
+    }
+    const finalEntry: ICropAliasObject = {
+      ...entry,
+      region: currentRegions.join(", "),
+    };
     if (isEditing) {
-      onUpdate?.({ ...entry });
+      onUpdate?.(finalEntry);
     } else {
-      onAdd({ ...entry });
+      onAdd(finalEntry);
     }
     setEntry(emptyAliasEntry());
     setRegionInput("");
@@ -488,9 +502,10 @@ const AliasManagerModal = ({
     setLegacyAliases((prev) => prev.filter((a) => a !== alias));
   };
 
+  const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
+
   const handleSave = async () => {
     if (!crop._id) return;
-    if (!window.confirm(`Update "${crop.name}"?`)) return;
     try {
       const payload: { aliases: (ICropAliasObject | string)[]; status?: string; crops?: string[] } = {
         aliases: [...legacyAliases, ...structuredAliases],
@@ -685,7 +700,7 @@ const AliasManagerModal = ({
             </Button>
             <Button
               size="sm"
-              onClick={handleSave}
+              onClick={() => setConfirmUpdateOpen(true)}
               disabled={isUpdating}
               className="h-8 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
             >
@@ -702,6 +717,16 @@ const AliasManagerModal = ({
               )}
             </Button>
           </div>
+
+          <ConfirmationModal
+            open={confirmUpdateOpen}
+            onOpenChange={setConfirmUpdateOpen}
+            title={`Update "${crop.name}"?`}
+            description="Save your changes to this entry's aliases and details."
+            confirmText="Update"
+            isLoading={isUpdating}
+            onConfirm={handleSave}
+          />
         </div>
       </DialogContent>
     </Dialog>
@@ -894,11 +919,11 @@ export const CropManagementModal = ({
   };
 
   const isSaving = isCreating;
+  const [confirmCreateOpen, setConfirmCreateOpen] = useState(false);
 
   const handleSave = async () => {
     const name = newCropName.trim();
     if (!name) return;
-    if (!window.confirm(`Are you sure you want to create "${name}"?`)) return;
     try {
       const res = await createCrop({
         name,
@@ -1023,7 +1048,8 @@ export const CropManagementModal = ({
               </span>
             </div>
             {/* Manage Aliases */}
-            <div className="px-3 py-2.5 flex items-center justify-center">
+            <div className="px-3 py-2.5 flex items-center justify-center gap-0.5">
+              <CropAuditTrailModal crop={item} />
               <button
                 className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-all"
                 onClick={() => setAliasManagerCrop(item)}
@@ -1136,7 +1162,8 @@ export const CropManagementModal = ({
               </span>
             </div>
             {/* Manage Aliases */}
-            <div className="px-3 py-2.5 flex items-center justify-center">
+            <div className="px-3 py-2.5 flex items-center justify-center gap-0.5">
+              <CropAuditTrailModal crop={item} />
               <button
                 className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all"
                 onClick={() => setAliasManagerCrop(item)}
@@ -1239,7 +1266,8 @@ export const CropManagementModal = ({
               </span>
             </div>
             {/* Manage Aliases */}
-            <div className="px-3 py-2.5 flex items-center justify-center">
+            <div className="px-3 py-2.5 flex items-center justify-center gap-0.5">
+              <CropAuditTrailModal crop={item} />
               <button
                 className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all"
                 onClick={() => setAliasManagerCrop(item)}
@@ -1518,7 +1546,7 @@ export const CropManagementModal = ({
                   />
                   <Button
                     size="sm"
-                    onClick={handleSave}
+                    onClick={() => setConfirmCreateOpen(true)}
                     disabled={!newCropName.trim() || isSaving}
                     className={`h-8 text-xs text-white rounded-lg ${
                       entryType === "chemical"
@@ -1535,6 +1563,15 @@ export const CropManagementModal = ({
                       `Save ${entryType === "crop" ? "Crop" : entryType === "chemical" ? "Chemical" : "Entry"}`
                     )}
                   </Button>
+                  <ConfirmationModal
+                    open={confirmCreateOpen}
+                    onOpenChange={setConfirmCreateOpen}
+                    title={`Create "${newCropName.trim()}"?`}
+                    description={`Add this new ${entryType === "crop" ? "crop" : entryType === "chemical" ? "chemical" : "entry"} to Agri Tech Management.`}
+                    confirmText="Create"
+                    isLoading={isSaving}
+                    onConfirm={handleSave}
+                  />
                 </div>
               </div>
             )}
