@@ -263,6 +263,118 @@ def turn_has_unavailable_weather(messages: list[BaseMessage]) -> bool:
     return False
 
 
+def _current_turn_tool_messages(messages: list[BaseMessage]) -> list[ToolMessage]:
+    """Return only tool results produced after the latest farmer message."""
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+    if last_human_idx < 0:
+        return []
+    return [
+        msg
+        for msg in messages[last_human_idx + 1:]
+        if isinstance(msg, ToolMessage)
+    ]
+
+
+def _first_mandi_name(value: Any) -> str | None:
+    """Extract a concrete market/APMC name from the daily-price payload."""
+    if not isinstance(value, dict):
+        return None
+
+    for key in ("market_name", "mandi_name"):
+        candidate = value.get(key)
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+
+    resolution = value.get("resolution")
+    if isinstance(resolution, dict):
+        markets = resolution.get("nearest_markets")
+        if isinstance(markets, list):
+            for market in markets:
+                if isinstance(market, dict):
+                    name = market.get("name")
+                    if isinstance(name, str) and name.strip():
+                        return name.strip()
+
+    for key in ("markets", "price_records"):
+        rows = value.get(key)
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            for name_key in ("market_name", "mandi_name", "name"):
+                name = row.get(name_key)
+                if isinstance(name, str) and name.strip():
+                    return name.strip()
+    return None
+
+
+def _daily_price_unavailable_context(
+    message: ToolMessage,
+    plan: PlannerPlan,
+) -> MandiUnavailableContext | None:
+    """Classify a failed daily-price response into one of the two catalog cases."""
+    text = _message_to_text(message)
+    payload: dict[str, Any] | None = None
+    if text:
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                payload = parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    answer = ""
+    tool_data: Any = None
+    if payload is not None:
+        answer_value = payload.get("answer")
+        answer = answer_value.strip() if isinstance(answer_value, str) else ""
+        tool_data = payload.get("tool_data")
+    else:
+        answer = text
+
+    diagnostic = " ".join(
+        part
+        for part in (
+            answer,
+            json.dumps(tool_data, ensure_ascii=False, default=str) if tool_data is not None else "",
+        )
+        if part
+    ).lower()
+    is_unavailable = not answer or any(marker in diagnostic for marker in _MANDI_UNAVAILABLE_MARKERS)
+    if not is_unavailable:
+        return None
+
+    entities = plan.get("entities") or {}
+    crop_name = str(entities.get("crop") or "Crop").strip() or "Crop"
+    district = str(entities.get("district") or "").strip()
+    state = str(entities.get("state") or "").strip()
+    mandi_name = _first_mandi_name(tool_data) or district or state or "Mandi"
+    reason = (
+        "mandi_unavailable"
+        if any(marker in diagnostic for marker in _MANDI_MISSING_MARKERS)
+        else "crop_price_unavailable"
+    )
+    return MandiUnavailableContext(reason, crop_name, mandi_name)
+
+
+def mandi_unavailable_context(state: AjraSakhaState) -> MandiUnavailableContext | None:
+    """Return a catalog fallback context for this turn's unavailable mandi result."""
+    plan = state.get("plan") or {}
+    if not plan.get("mandi"):
+        return None
+    for message in _current_turn_tool_messages(state.get("messages") or []):
+        if (getattr(message, "name", None) or "") in _DAILY_PRICE_TOOL_NAMES:
+            context = _daily_price_unavailable_context(message, plan)
+            if context is not None:
+                return context
+    return None
+
+
 def _last_human_text(messages: list[BaseMessage]) -> str:
     for msg in reversed(messages):
         if isinstance(msg, HumanMessage):
@@ -1231,6 +1343,8 @@ async def execute_plan_node(
         resolved=resolved,
     )
     
+    logger.info("execute_plan_node: reviewer_calls=%s question_source=%s", reviewer_calls, question_source)
+    
     if reviewer_calls:
         ai_reviewer = AIMessage(content="", tool_calls=reviewer_calls)
         exec_state2 = {**state, "messages": list(all_messages) + [ai_reviewer]}
@@ -1390,6 +1504,8 @@ def route_after_execute(state: AjraSakhaState) -> str:
     messages = state.get("messages") or []
     if plan.get("weather") and turn_has_unavailable_weather(messages):
         return "weather_unavailable_reply"
+    if mandi_unavailable_context(state) is not None:
+        return "mandi_unavailable_reply"
     if plan.get("skip_synthesize"):
         return "translate_answer"
     if plan.get("is_greeting") or plan.get("reasoning") == "greeting":

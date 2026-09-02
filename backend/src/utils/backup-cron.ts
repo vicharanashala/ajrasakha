@@ -35,7 +35,7 @@ const getAllDatabases = async (mongoUri: string) => {
 
     await client.close();
     return result.databases
-      .map(db => db.name)
+      .map(db => db.name === 'agriai' ? 'ajrasakha' : db.name)
       .filter(name => !['admin', 'local', 'config'].includes(name));
   } finally {
     await client.close();

@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/atoms/checkbox";
 import { Input } from "@/components/atoms/input";
 import { StateMultiSelect } from "./atoms/StateMultiSelect";
 import { CropMultiSelect } from "./atoms/CropMultiSelect";
+import { DomainMultiSelect } from "./atoms/DomainMultiSelect";
 import {
   Filter,
   FileText,
@@ -111,7 +112,7 @@ export type AdvanceFilterValues = {
   dateRange: QuestionDateRangeFilter;
   user: string;
   assignedUser?: string;
-  domain: string;
+  domain: string; // multi-select stored as a comma-joined string ("all" = none)
   crop: string;
   crops?: string[]; // multi-select for expert Preferences filter
   normalised_crop: string;
@@ -139,6 +140,7 @@ export type AdvanceFilterValues = {
   /** Dedicated tab for gate keepers / auditors — filters by their assigned questions. */
   gateKeeperId?: string;
   auditorId?: string;
+  feedbackFilter?: "all" | "open" | "closed";
 };
 
 
@@ -411,15 +413,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
     })),
   ];
 
-  const domainOptions: SearchableFilterSelectOption[] = [
-    { value: "all", searchText: "All Domains", children: "All Domains" },
-    ...DOMAINS.map((domain) => ({
-      value: domain,
-      searchText: domain,
-      children: domain,
-    })),
-  ];
-
   const userOptions: SearchableFilterSelectOption[] = [
     { value: "all", searchText: "All Users", children: "All Users" },
     ...users.map((user) => ({
@@ -670,10 +663,19 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   <Globe className="h-4 w-4 text-primary" />
                   Domain
                 </Label>
-                <SearchableFilterSelect
-                  value={advanceFilter.domain}
-                  onValueChange={(v) => handleDialogChange("domain", v)}
-                  options={domainOptions}
+                <DomainMultiSelect
+                  selected={
+                    advanceFilter.domain && advanceFilter.domain !== "all"
+                      ? advanceFilter.domain.split(",").filter(Boolean)
+                      : []
+                  }
+                  onChange={(next) =>
+                    handleDialogChange(
+                      "domain",
+                      next.length > 0 ? next.join(",") : "all",
+                    )
+                  }
+                  searchable
                 />
               </div>
 
@@ -939,6 +941,45 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
             <Separator />
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  Feedbacks
+                </Label>
+                <Select
+                  value={advanceFilter.feedbackFilter || "all"}
+                  onValueChange={(v) => handleDialogChange("feedbackFilter", v)}
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue placeholder="Select Feedbacks" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-primary" />
+                        <span>All</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="open">
+                      <div className="flex items-center gap-2">
+                        <Circle className="w-4 h-4 text-yellow-500 fill-yellow-500/20" />
+                        <span>Open</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="closed">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 fill-green-500/20" />
+                        <span>Closed</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator />
+
             {/* Number of Answers Slider */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -1097,7 +1138,9 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                                     ? "Question closed in 2 hrs"
                                     : key === "assignedUser"
                                       ? "Assigned User"
-                                      : key;
+                                      : key === "feedbackFilter"
+                                        ? "Feedbacks"
+                                        : key;
 
                       const displayValue =
                         key === "assignedUser"
@@ -1176,6 +1219,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   consecutiveApprovals: "all",
                   autoAllocateFilter: "all",
                   autoAllocateModeratorFilter: "all",
+                  feedbackFilter: "all",
                   unallocatedQuestions: false,
                   is_testing: false,
                 });

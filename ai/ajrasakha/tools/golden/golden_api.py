@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, model_validator
 
+log = logging.getLogger(__name__)
+
 try:
     from .golden_search import gdb_search, gdb_search_v2
     from .golden_pending_duplicate import check_pending_duplicate
     from .query_refinement import refine_query_to_core_farming_question
+    from .golden_similar_question import find_similar_questions, SimilarQuestionRequest
 except ImportError:
     from golden_search import gdb_search, gdb_search_v2
     from golden_pending_duplicate import check_pending_duplicate
     from query_refinement import refine_query_to_core_farming_question
+    from golden_similar_question import find_similar_questions, SimilarQuestionRequest
 
 app = FastAPI(
     title="AjraSakha Golden API",
@@ -200,6 +205,8 @@ async def check_pending_duplicate_endpoint(body: PendingDuplicateCheckRequest):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return result
 
 
 # === V2 ENDPOINTS ===
@@ -476,3 +483,83 @@ async def check_pending_duplicate_endpoint_v2(body: PendingDuplicateCheckRequest
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# =============================================================================
+# SIMILAR QUESTION DETECTION API
+# Combines V1 search + duplicate check without crop/state filtering
+# =============================================================================
+
+
+class SimilarQuestionResponse(BaseModel):
+    """Response for similar question detection (embedding-based, no Gemma)."""
+    query: str
+    is_present: bool
+    present_status: Optional[str] = None
+    present_question_id: Optional[str] = None
+    present_question_text: Optional[str] = None
+    present_answer_text: Optional[str] = None
+    present_sources: list = Field(default_factory=list)
+    present_author: Optional[str] = None
+    exact_match_found: bool = False
+    total_candidates_found: int = 0
+    rejected: bool = False
+    rejection_reason: Optional[str] = None
+
+
+@app.post(
+    "/v1/gdb/find-similar-questions",
+    response_model=SimilarQuestionResponse,
+    summary="Find similar questions in database (embedding-based with Gemma classification)",
+    description=(
+        "**Purpose:** Detect if a question already exists in the database without crop/state filtering.\n\n"
+        "**Pipeline:**\n"
+        "0. **MiniMax 2.7 Pre-check**: Safety (vulgar/abusive) + Agriculture relevance. Reject if unsafe/off-topic.\n"
+        "1. **Exact match** on normalized question text across ALL statuses.\n"
+        "2. **Vector search**: Fetch top 5 candidates for Gemma evaluation.\n"
+        "3. **Gemma filter**: Reject irrelevant candidates.\n"
+        "4. **Gemma classification**: SAME/RELATED/DIFFERENT for remaining candidates.\n"
+        "5. **Return** up to 5 filtered/sorted results.\n\n"
+        "**Use cases:**\n"
+        "- Check if a new question is a duplicate before saving\n"
+        "- Find related existing questions for answer reference\n"
+        "- Question deduplication workflow"
+    ),
+)
+async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
+    """
+    Find similar questions in the database without crop/state filtering.
+    
+    Uses ONLY embedding similarity - NO Gemma classification.
+    Searches across ALL question statuses (closed + pending).
+    """
+    try:
+        result = await find_similar_questions(
+            question_text=body.question_text,
+        )
+        
+        log.info(
+            "find_similar_questions_endpoint: result keys=%s is_present=%s present_status=%s present_question_id=%s",
+            list(result.keys()),
+            result.get("is_present"),
+            result.get("present_status"),
+            result.get("present_question_id"),
+        )
+        
+        return SimilarQuestionResponse(
+            query=result["query"],
+            is_present=result["is_present"],
+            present_status=result.get("present_status"),
+            present_question_id=result.get("present_question_id"),
+            present_question_text=result.get("present_question_text"),
+            present_answer_text=result.get("present_answer_text"),
+            present_sources=result.get("present_sources", []),
+            present_author=result.get("present_author"),
+            exact_match_found=result.get("exact_match_found", False),
+            total_candidates_found=result.get("total_candidates_found", 0),
+            rejected=result.get("rejected", False),
+            rejection_reason=result.get("rejection_reason"),
+        )
+    except Exception as exc:
+        log.error("find_similar_questions_endpoint failed: %s: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

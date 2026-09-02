@@ -134,6 +134,16 @@ export interface IQuestionSubmissionRepository {
   ): Promise<IQuestionSubmission | null>;
 
   /**
+   * Bulk-fetch submissions for many questions in one query.
+   * @param questionIds - Question ids to fetch submissions for
+   * @param session - Optional MongoDB session for transaction
+   */
+  getByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IQuestionSubmission[]>;
+
+  /**
    * Find all submissions where the given expert appears in the queue.
    * @param expertId - Expert user id
    * @param session - Optional MongoDB session for transaction
@@ -333,4 +343,38 @@ export interface IQuestionSubmissionRepository {
   /** Single aggregation: returns a Map<expertId, count> of active single-allocation
    *  questions per expert (defaults to time-bound sources). Used to enforce the cap. */
   getTimeBoundActiveCountPerExpert(sources?: QuestionSource[]): Promise<Map<string, number>>;
+
+   assignPaeValidationReviewer(
+    questionId: string,
+    reviewerId: string,
+    assignedAt: Date,
+    session?: ClientSession,
+  ): Promise<boolean>;
+  
+  removePaeValidationReviewByIndex(
+    questionId: string,
+    index: number,
+    session?: ClientSession,
+  ): Promise<boolean>;
+  /**
+   * Update the PAE validation status in the question submission's paeValidation array.
+   * Finds the entry matching the given paeId and updates its paeStatus and paeFinishedAt.
+   * @param questionId - The question ID
+   * @param paeId - The PAE expert's user ID to match in the array
+   * @param paeStatus - The new status ('in-progress' | 'completed')
+   * @param paeFinishedAt - The completion timestamp (null for in-progress)
+   * @param session - Optional MongoDB client session for transactions
+   */
+  updatePaeValidationStatus(
+    questionId: string,
+    paeId: string,
+    paeStatus: 'in-progress' | 'completed',
+    paeFinishedAt: Date | null,
+    session?: ClientSession,
+  ): Promise<{ modifiedCount: number }>;
+
+  findOpenPaeValidationReviews(): Promise<
+    {questionId: string; reviewerId: string; assignedAt: Date}[]
+  >;
+
 }

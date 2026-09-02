@@ -10,6 +10,11 @@ export const CORE_TYPES = {
   QuestionService: Symbol.for('QuestionService'),
   RequestService: Symbol.for('RequestService'),
   AnswerService: Symbol.for('AnswerService'),
+  AnswerReviewService: Symbol.for('AnswerReviewService'),
+  AnswerApprovalService: Symbol.for('AnswerApprovalService'),
+  AnswerSubmissionService: Symbol.for('AnswerSubmissionService'),
+  AnswerAiService: Symbol.for('AnswerAiService'),
+  AnswerFaqService: Symbol.for('AnswerFaqService'),
   ContextService: Symbol.for('ContextService'),
   CommentService: Symbol.for('CommentService'),
   AIService: Symbol.for('AIService'),
@@ -28,6 +33,7 @@ export const CORE_TYPES = {
   NotificationRepository:Symbol.for('NotificationRepository'),
   ReviewRepository:Symbol.for('ReviewRepository'),
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
+  FeedbackRepository: Symbol.for('FeedbackRepository'),
   CheckOverlapsService: Symbol.for('CheckOverlapsService'),
 
 };

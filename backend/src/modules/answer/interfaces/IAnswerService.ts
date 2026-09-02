@@ -1,17 +1,23 @@
-import type { ClientSession } from "mongodb";
-import type {
-  IAnswer,
-  SourceItem,
-  QuestionStatus,
-} from "#root/shared/interfaces/models.js";
-import type {
-  ReviewAnswerBody,
-  SubmissionResponse,
-  UpdateAnswerBody,
-  FetchAiInitialAnswerBody,
-} from "../classes/validators/AnswerValidator.js";
+import type { ClientSession } from 'mongodb';
+import type { IAnswer, SourceItem } from '#root/shared/interfaces/models.js';
+import type { IAnswerReviewService } from './IAnswerReviewService.js';
+import type { IAnswerApprovalService } from './IAnswerApprovalService.js';
+import type { IAnswerSubmissionService } from './IAnswerSubmissionService.js';
+import type { IAnswerAiService } from './IAnswerAiService.js';
+import type { IAnswerFaqService } from './IAnswerFaqService.js';
 
-export interface IAnswerService {
+/**
+ * Main Answer Service interface, combining sub-service surfaces and core CRUD operations.
+ */
+export interface IAnswerService
+  extends IAnswerReviewService,
+    Pick<
+      IAnswerApprovalService,
+      'approveAnswer' | 'approveLLMAnswer' | 'confirmDuplicate'
+    >,
+    IAnswerSubmissionService,
+    IAnswerAiService,
+    IAnswerFaqService {
   addAnswer(
     questionId: string,
     authorId: string,
@@ -23,65 +29,10 @@ export interface IAnswerService {
     type?: string,
   ): Promise<{ insertedId: string; isFinalAnswer: boolean }>;
 
-  reviewAnswer(
-    userId: string,
-    body: ReviewAnswerBody,
-  ): Promise<{ message: string }>;
-
-  reRouteReviewAnswer(
-    userId: string,
-    body: ReviewAnswerBody,
-  ): Promise<{ message: string }>;
-
-  getSubmissions(
-    userId: string,
-    page: number,
-    limit: number,
-    dateRange?: { from: string | undefined; to: string | undefined },
-    selectedHistoryId?: string | undefined,
-    expertId?: string | undefined,
-  ): Promise<SubmissionResponse[]>;
-
-  getFinalAnswerQuestions(
-    userId: string,
-    currentUserId: string,
-    date: string,
-    status: string,
-  ): Promise<{ finalizedSubmissions: any[] }>;
-
-  fetchAiInitialAnswer(body: FetchAiInitialAnswerBody): Promise<any>;
-
-  /*approveAnswer(
-    userId: string,
-    answerId: string,
-    updates: UpdateAnswerBody,
-  ): Promise<{ modifiedCount: number }>;*/
-  approveAnswer(
-    userId: string,
-    updates: UpdateAnswerBody,
-  ): Promise<{modifiedCount: number} | {insertedId: string}>;
-
-  approveLLMAnswer(
-    userId: string,
-    updates: UpdateAnswerBody,
-  ): Promise<{modifiedCount: number}>;
-
-  confirmDuplicate(
-    userId: string,
-    questionId: string,
-  ): Promise<{status: QuestionStatus; closed: boolean}>;
-
   deleteAnswer(
     questionId: string,
     answerId: string,
   ): Promise<{ deletedCount: number }>;
-
-  goldenFaq(
-    userId: string,
-    page: number,
-    limit: number,
-    search: string,
-  ): Promise<{ faqs: any[]; totalFaqs: number }>;
 
   incrementApprovalCount(
     answerId: string,

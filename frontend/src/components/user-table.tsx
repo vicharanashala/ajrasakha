@@ -21,8 +21,8 @@ import {
   Zap,
   ShieldCheck,
   UserCheck,
-  BadgeCheck,
   GraduationCap,
+  Pencil,
 } from "lucide-react";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "./atoms/dropdown-menu";
 import { ConfirmationModal } from "./confirmation-modal";
+import { EditUserDetailsDialog } from "./EditUserDetailsDialog";
 import { formatDate } from "@/utils/formatDate";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
@@ -44,7 +45,7 @@ import { useToggleRole } from "@/hooks/api/user/useToggleRole";
 import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
 import { useVerifyUser } from "@/hooks/api/user/useVerifyUser";
 import { useToggleSTF } from "@/hooks/api/user/useToggleSTF";
-import { isCoordinatorRole } from "@/lib/roles";
+import { isCoordinatorRole, hasFullUserManagement } from "@/lib/roles";
 import AvatarComponent from "./avatar-component";
 import { useToggleTrainingUserStatus } from "@/hooks/api/user/useToggleTrainingUser";
 
@@ -98,7 +99,8 @@ export const UsersTable = ({
     console.log("Users data is", { userId, userRole, selectedRole })
     toggleUserRole({ userId, currentUserRole: userRole!, selectedRole: selectedRole });
   };
-  const isAdmin = userRole === "admin";
+  // Gate keepers get the same admin actions/columns as admins.
+  const isAdmin = hasFullUserManagement(userRole);
 
 
   return (
@@ -286,8 +288,12 @@ const UserRow: React.FC<UserRowProps> = ({
   const [actionUserId, setActionUserId] = useState<string>("");
   const [actionRole, setActionRole] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);
-  const isAdmin = userRole === "admin";
-  const [selectRole, setSelectRole] = useState("")
+  const [editUserOpen, setEditUserOpen] = useState(false);
+  // Gate keepers get the same admin actions/columns as admins.
+  const isAdmin = hasFullUserManagement(userRole);
+  const isCallerAdmin = userRole === "admin";
+  const canEditUser = isCallerAdmin && u.role !== "admin";
+  const [selectRole, setSelectRole] = useState("");
   const handleExpertClick = async (userdetails: any) => {
     if (userdetails) {
       setSelectExpertId?.(userdetails._id);
@@ -598,6 +604,22 @@ const UserRow: React.FC<UserRowProps> = ({
 
             <DropdownMenuContent align="end" className="w-44">
 
+              {/* Edit user details — only admin can edit, and admin cannot edit another admin */}
+              {canEditUser && (
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setIsOpen(false);
+                    setEditUserOpen(true);
+                  }}
+                >
+                  <div className="flex items-center gap-2 w-full">
+                    <Pencil className="w-4 h-4 text-blue-600" />
+                    <span>Edit Details</span>
+                  </div>
+                </DropdownMenuItem>
+              )}
+
               {isAdmin && (
                 <DropdownMenuItem
                   onSelect={(e) => {
@@ -853,6 +875,13 @@ const UserRow: React.FC<UserRowProps> = ({
             confirmAction={confirmAction || undefined}
             canAssignAdmin={isAdmin}
           />
+          {canEditUser && (
+            <EditUserDetailsDialog
+              open={editUserOpen}
+              onOpenChange={setEditUserOpen}
+              user={u}
+            />
+          )}
 
         </div>
       </TableCell>
