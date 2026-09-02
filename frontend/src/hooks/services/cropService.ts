@@ -22,6 +22,9 @@ export interface ICropResponse {
   updatedBy?: string;
   createdAt?: string;
   updatedAt?: string;
+  /** Resolved "firstName lastName" for createdBy / updatedBy (populated by the API). */
+  createdByName?: string;
+  updatedByName?: string;
   crops?: string[];
 }
 

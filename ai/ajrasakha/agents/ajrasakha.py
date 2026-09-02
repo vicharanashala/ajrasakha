@@ -50,6 +50,7 @@ from ajrasakha.agents.assemble_answer_body import assemble_answer_body_node
 from ajrasakha.agents.follow_up_node import follow_up_node
 from ajrasakha.agents.non_agriculture_reply import non_agriculture_reply_node
 from ajrasakha.agents.weather_unavailable_reply import weather_unavailable_reply_node
+from ajrasakha.agents.mandi_unavailable_reply import mandi_unavailable_reply_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
 
 load_dotenv()
@@ -410,6 +411,10 @@ def _build_graph():
             "weather_unavailable_reply",
             with_thread_logging(weather_unavailable_reply_node),
         )
+        builder.add_node(
+            "mandi_unavailable_reply",
+            with_thread_logging(mandi_unavailable_reply_node),
+        )
         builder.add_node("execute_plan", with_thread_logging(execute_plan_node))
         builder.add_node("assemble_answer_body", with_thread_logging(assemble_answer_body_node))
         builder.add_node("follow_up", with_thread_logging(follow_up_node))
@@ -447,9 +452,11 @@ def _build_graph():
                 "translate_answer": "translate_answer",
                 "empty_gdb_reply": "empty_gdb_reply",
                 "weather_unavailable_reply": "weather_unavailable_reply",
+                "mandi_unavailable_reply": "mandi_unavailable_reply",
             },
         )
         builder.add_edge("weather_unavailable_reply", END)
+        builder.add_edge("mandi_unavailable_reply", END)
         builder.add_edge("assemble_answer_body", "translate_answer")
         builder.add_edge("translate_answer", END)
         builder.add_edge("empty_gdb_reply", "translate_answer")

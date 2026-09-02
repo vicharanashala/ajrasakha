@@ -1010,6 +1010,25 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
   }
 
+  /**
+   * Event-driven moderator-queue allocation (replaces the periodic moderator cron).
+   * Call this right after a question enters a moderator status (status → in-review /
+   * pae_submitted) OR a moderator is freed (finalizes an answer, submits feedback).
+   * Public so callers in other services (answer review, feedback) can trigger it after
+   * their own transaction commits. Fire-and-forget and best-effort: runModeratorQueueCron
+   * is idempotent, and any failure is swallowed so it can't disrupt the caller's write.
+   */
+  triggerModeratorQueueAllocation(context: string): void {
+    void this.moderatorQueueService
+      .runModeratorQueueCron()
+      .catch(err =>
+        console.error(
+          `[${context}] event-driven moderator-queue allocation failed:`,
+          err?.message,
+        ),
+      );
+  }
+
   private async validateTimeBoundQuestionThread(
     questionId: string,
     threadId?: string,
@@ -1475,6 +1494,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         this.triggerRoleQueueAllocation('updateQuestion');
       }
 
+      // Event-driven moderator-queue allocation (replaces the periodic moderator cron):
+      // fill the moderator queue now when this update made a question newly available to a
+      // moderator — a status change (freed the moderator via finalize → 'closed'/pass, or
+      // made it a candidate → in-review / pae_submitted), OR its moderator auto-allocate
+      // toggle was turned ON (an in-review/pae_submitted question that was excluded now
+      // qualifies). Fire-and-forget, so it can never roll back the update.
+      if (
+        !threadUpdate &&
+        (updates.status || updates.autoAllocateModerator === true)
+      ) {
+        this.triggerModeratorQueueAllocation('updateQuestion');
+      }
+
       return result;
     } catch (error) {
       throw new InternalServerError(`Failed to update question: ${error}`);
@@ -1483,7 +1515,12 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   // ── Expert allocation & workload balancing delegates to AllocationService ──
   async autoAllocateExperts(questionId: string, session?: ClientSession, BATCH_EXPECTED_TO_ADD?: number) {
-    return this.allocationService.autoAllocateExperts(questionId, session, BATCH_EXPECTED_TO_ADD);
+    const result = await this.allocationService.autoAllocateExperts(questionId, session, BATCH_EXPECTED_TO_ADD);
+    // When we own the transaction (no external session) it's committed now, so a question
+    // handed off to a moderator (→ in-review) is visible — fill the moderator queue. When a
+    // session is passed, the caller owns the commit and triggers after it (e.g. reviewAnswer).
+    if (!session) this.triggerModeratorQueueAllocation('autoAllocateExperts');
+    return result;
   }
 
   async toggleAutoAllocate(questionId: string) {
@@ -1491,7 +1528,10 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async allocateExperts(userId: string, questionId: string, experts: string[]) {
-    return this.allocationService.allocateExperts(userId, questionId, experts);
+    const result = await this.allocationService.allocateExperts(userId, questionId, experts);
+    // May have exhausted experts and handed the question to a moderator (→ in-review).
+    this.triggerModeratorQueueAllocation('allocateExperts');
+    return result;
   }
 
   async bulkAllocatePaeExperts(userId: string, questionIds: string[], paeExpertId: string) {
@@ -1507,7 +1547,10 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async replaceQueueExpert(userId: string, questionId: string, levelIndex: number, newExpertId: string, isAuthor?: boolean, reasonForChange?: string) {
-    return this.allocationService.replaceQueueExpert(userId, questionId, levelIndex, newExpertId, isAuthor, reasonForChange);
+    const result = await this.allocationService.replaceQueueExpert(userId, questionId, levelIndex, newExpertId, isAuthor, reasonForChange);
+    // May have exhausted experts and handed the question to a moderator (→ in-review).
+    this.triggerModeratorQueueAllocation('replaceQueueExpert');
+    return result;
   }
   async deleteQuestion(
     questionId: string,
@@ -1616,12 +1659,17 @@ export class QuestionService extends BaseService implements IQuestionService {
     };
 
     if (session) {
+      // Caller owns the transaction and its commit — it triggers the queue afterwards.
       return execute(session);
     }
 
-    return this._withTransaction(async (transactionSession: ClientSession) =>
-      execute(transactionSession),
+    const result = await this._withTransaction(
+      async (transactionSession: ClientSession) => execute(transactionSession),
     );
+    // Deleting a question frees any moderator that held it — run the moderator queue so
+    // that freed moderator immediately picks up another in-review/pae_submitted question.
+    this.triggerModeratorQueueAllocation('deleteQuestion');
+    return result;
   }
 
   async bulkDeleteQuestions(userId: string, questionIds: string[]) {
@@ -1770,7 +1818,13 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async removeQuestionModerator(questionId: string) {
-    return this.roleAssigneeService.removeQuestionModerator(questionId);
+    const result =
+      await this.roleAssigneeService.removeQuestionModerator(questionId);
+    // Removing the moderator frees them AND re-queues the question (back to an
+    // unassigned in-review/pae_submitted candidate) — run the moderator queue so both
+    // the question and the freed moderator are immediately re-matched.
+    this.triggerModeratorQueueAllocation('removeQuestionModerator');
+    return result;
   }
 
   async getRoleAssigneeDashboard(
@@ -1850,7 +1904,11 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   async runAbsentScript() {
-    return this.allocationService.runAbsentScript();
+    const result = await this.allocationService.runAbsentScript();
+    // The absent-expert cleanup reclaims questions from blocked experts and pushes them
+    // back to in-review — run the moderator queue so free moderators pick them up.
+    this.triggerModeratorQueueAllocation('runAbsentScript');
+    return result;
   }
 
   async findAbsentExperts(session: ClientSession) {

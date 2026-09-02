@@ -491,42 +491,35 @@ async def check_pending_duplicate_endpoint_v2(body: PendingDuplicateCheckRequest
 # =============================================================================
 
 
-class SimilarQuestionItemResponse(BaseModel):
-    """A single similar question result."""
-    question_id: str
-    question_text: str
-    status: str
-    similarity_score: float
-    match_type: str
-    chosen_for_answer: bool = False
-
-
 class SimilarQuestionResponse(BaseModel):
     """Response for similar question detection (embedding-based, no Gemma)."""
     query: str
     is_present: bool
     present_status: Optional[str] = None
     present_question_id: Optional[str] = None
+    present_question_text: Optional[str] = None
     present_answer_text: Optional[str] = None
     present_sources: list = Field(default_factory=list)
     present_author: Optional[str] = None
     exact_match_found: bool = False
-    similar_questions: list[SimilarQuestionItemResponse] = Field(default_factory=list)
     total_candidates_found: int = 0
-    audit: dict[str, Any] = Field(default_factory=dict)
+    rejected: bool = False
+    rejection_reason: Optional[str] = None
 
 
 @app.post(
     "/v1/gdb/find-similar-questions",
     response_model=SimilarQuestionResponse,
-    summary="Find similar questions in database (embedding-based, no Gemma)",
+    summary="Find similar questions in database (embedding-based with Gemma classification)",
     description=(
         "**Purpose:** Detect if a question already exists in the database without crop/state filtering.\n\n"
-        "**Method:** Pure embedding-based similarity - NO Gemma classification.\n\n"
         "**Pipeline:**\n"
+        "0. **MiniMax 2.7 Pre-check**: Safety (vulgar/abusive) + Agriculture relevance. Reject if unsafe/off-topic.\n"
         "1. **Exact match** on normalized question text across ALL statuses.\n"
-        "2. If no exact match: **Vector search** across all questions (no crop/state filter).\n"
-        "3. Return top-K similar questions sorted by embedding similarity score.\n\n"
+        "2. **Vector search**: Fetch top 5 candidates for Gemma evaluation.\n"
+        "3. **Gemma filter**: Reject irrelevant candidates.\n"
+        "4. **Gemma classification**: SAME/RELATED/DIFFERENT for remaining candidates.\n"
+        "5. **Return** up to 5 filtered/sorted results.\n\n"
         "**Use cases:**\n"
         "- Check if a new question is a duplicate before saving\n"
         "- Find related existing questions for answer reference\n"
@@ -543,13 +536,7 @@ async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
     try:
         result = await find_similar_questions(
             question_text=body.question_text,
-            top_k=body.top_k,
         )
-        
-        # Convert similar_questions list of dicts to response models
-        similar_questions = [
-            SimilarQuestionItemResponse(**item) for item in result.get("similar_questions", [])
-        ]
         
         log.info(
             "find_similar_questions_endpoint: result keys=%s is_present=%s present_status=%s present_question_id=%s",
@@ -564,13 +551,14 @@ async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
             is_present=result["is_present"],
             present_status=result.get("present_status"),
             present_question_id=result.get("present_question_id"),
+            present_question_text=result.get("present_question_text"),
             present_answer_text=result.get("present_answer_text"),
             present_sources=result.get("present_sources", []),
             present_author=result.get("present_author"),
             exact_match_found=result.get("exact_match_found", False),
-            similar_questions=similar_questions,
             total_candidates_found=result.get("total_candidates_found", 0),
-            audit=result.get("audit", {}),
+            rejected=result.get("rejected", False),
+            rejection_reason=result.get("rejection_reason"),
         )
     except Exception as exc:
         log.error("find_similar_questions_endpoint failed: %s: %s", type(exc).__name__, exc)

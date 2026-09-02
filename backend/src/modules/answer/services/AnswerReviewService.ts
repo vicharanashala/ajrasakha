@@ -793,6 +793,12 @@ export class AnswerReviewService extends BaseService implements IAnswerReviewSer
         );
       });
 
+      // Transaction committed. This review may have handed the question off to a
+      // moderator (status → in-review, via autoAllocateExperts or the history-limit
+      // branch above) — event-driven moderator-queue allocation (replaces the periodic
+      // moderator cron). Fire-and-forget, so it can't affect the recorded review.
+      this.questionService.triggerModeratorQueueAllocation('reviewAnswer');
+
       return { message: 'Your response recorded sucessfully, thankyou!' };
     } catch (error) {
       throw new InternalServerError(`${error}`);
@@ -1046,6 +1052,12 @@ export class AnswerReviewService extends BaseService implements IAnswerReviewSer
           session,
         );
       });
+
+      // Transaction committed. A reroute can move the question back to `in-review`
+      // (moderator candidate) — run the moderator queue so a free moderator picks it up.
+      // Fire-and-forget, so it can't affect the recorded response.
+      this.questionService.triggerModeratorQueueAllocation('reRouteReviewAnswer');
+
       return { message: 'Your response recorded successfully, thank you!' };
     } catch (error) {
       throw new InternalServerError(
