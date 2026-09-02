@@ -21,6 +21,7 @@ import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import { AiService } from '#root/modules/ai/services/AiService.js';
 import { IQuestionService } from '#root/modules/question/interfaces/IQuestionService.js';
+import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
 import { UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { triggerWebhook } from '../utils/triggerWebhook.js';
 import { IAnswerApprovalService } from '../interfaces/IAnswerApprovalService.js';
@@ -49,10 +50,30 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
     @inject(GLOBAL_TYPES.QuestionService)
     private readonly questionService: IQuestionService,
 
+    @inject(GLOBAL_TYPES.RoleAssigneeService)
+    private readonly roleAssigneeService: IRoleAssigneeService,
+
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
     super(mongoDatabase);
+  }
+
+  /**
+   * Event-driven gate-keeper / auditor queue allocation. Call after a role assignee is
+   * freed (freeRoleAssigneeOnStatusChange) so the freed gate keeper / auditor immediately
+   * picks up their next queued question. Fire-and-forget and idempotent — never affects
+   * the approval that triggered it.
+   */
+  private triggerRoleQueueAllocation(context: string): void {
+    void this.roleAssigneeService
+      .runGateKeeperAuditorQueueCron()
+      .catch(err =>
+        console.error(
+          `[${context}] event-driven gate-keeper/auditor allocation failed:`,
+          err?.message,
+        ),
+      );
   }
 
   async approveAnswer(
@@ -407,6 +428,9 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
         updates.questionId,
       );
     }
+    // Approving/closing frees any gate keeper / auditor on the question — run the role
+    // queue so that freed assignee immediately picks up their next queued question.
+    this.triggerRoleQueueAllocation('approveAnswer');
     return approveResult;
   }
 
@@ -514,6 +538,8 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
     );
 
     await this.questionService.freeRoleAssigneeOnStatusChange(questionId);
+    // Confirming a duplicate frees its gate keeper — run the role queue for their next one.
+    this.triggerRoleQueueAllocation('confirmDuplicate');
     return result;
   }
 
@@ -657,6 +683,8 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
         updates.questionId,
       );
     }
+    // Frees any gate keeper / auditor on the question — run the role queue for their next.
+    this.triggerRoleQueueAllocation('approveLLMAnswer');
     return llmResult;
   }
 }
