@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,12 @@ import {
   SelectValue,
 } from "@/components/atoms/select";
 import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { toast } from "sonner";
@@ -75,15 +81,29 @@ const AliasEntryForm = ({
   accentColor = "amber",
   isChemical = false,
   isOther = false,
+  editEntry = null,
+  onUpdate,
+  onCancelEdit,
 }: {
   onAdd: (alias: ICropAliasObject) => void;
   accentColor?: "amber" | "blue";
   isChemical?: boolean;
   isOther?: boolean;
+  /** When set, the form is in EDIT mode — prefilled with this alias. */
+  editEntry?: ICropAliasObject | null;
+  onUpdate?: (alias: ICropAliasObject) => void;
+  onCancelEdit?: () => void;
 }) => {
   const [entry, setEntry] = useState<ICropAliasObject>(emptyAliasEntry());
   const [regionInput, setRegionInput] = useState("");
   const isAmber = accentColor === "amber";
+  const isEditing = !!editEntry;
+
+  // Prefill when entering edit mode; reset when it clears.
+  useEffect(() => {
+    setEntry(editEntry ? { ...editEntry } : emptyAliasEntry());
+    setRegionInput("");
+  }, [editEntry]);
 
   const addBtnClass = isAmber
     ? "bg-amber-600 hover:bg-amber-700 text-white"
@@ -97,7 +117,11 @@ const AliasEntryForm = ({
 
   const handleAdd = () => {
     if (!canAdd) return;
-    onAdd({ ...entry });
+    if (isEditing) {
+      onUpdate?.({ ...entry });
+    } else {
+      onAdd({ ...entry });
+    }
     setEntry(emptyAliasEntry());
     setRegionInput("");
   };
@@ -105,7 +129,13 @@ const AliasEntryForm = ({
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/80 bg-gray-50/50 dark:bg-[#141414] p-4 space-y-3">
       <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        {isChemical ? "Add New Trade Name" : "Add New Alias"}
+        {isEditing
+          ? isChemical
+            ? "Edit Trade Name"
+            : "Edit Alias"
+          : isChemical
+            ? "Add New Trade Name"
+            : "Add New Alias"}
       </p>
       <div className="grid grid-cols-2 gap-2.5">
         <div className="space-y-1">
@@ -207,7 +237,19 @@ const AliasEntryForm = ({
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {isEditing && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onCancelEdit?.()}
+            className="h-7 text-[11px] gap-1 px-3 rounded-md"
+          >
+            <X className="h-3 w-3" />
+            Cancel
+          </Button>
+        )}
         <Button
           type="button"
           size="sm"
@@ -215,8 +257,17 @@ const AliasEntryForm = ({
           disabled={!canAdd}
           className={`h-7 text-[11px] gap-1 px-3 rounded-md disabled:opacity-40 ${addBtnClass}`}
         >
-          <Plus className="h-3 w-3" />
-          {isChemical ? "Add Trade Name" : "Add Alias"}
+          {isEditing ? (
+            <>
+              <Check className="h-3 w-3" />
+              {isChemical ? "Update Trade Name" : "Update Alias"}
+            </>
+          ) : (
+            <>
+              <Plus className="h-3 w-3" />
+              {isChemical ? "Add Trade Name" : "Add Alias"}
+            </>
+          )}
         </Button>
       </div>
     </div>
@@ -224,19 +275,69 @@ const AliasEntryForm = ({
 };
 // CREATE COMMON COMPONENT
 
+/**
+ * Renders a "/"-separated list of crop names: the first name in FULL (not trimmed),
+ * then a "+N" badge for the rest. Hovering shows every name in a tooltip.
+ */
+const CropNamesCell = ({
+  value,
+  className,
+}: {
+  value: string;
+  className?: string;
+}) => {
+  const names = (value || "")
+    .split("/")
+    .map((n) => n.trim())
+    .filter(Boolean);
+  if (names.length === 0) {
+    return <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>;
+  }
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex w-max max-w-full items-center gap-1.5 cursor-default">
+            <span className={className}>{names[0]}</span>
+            {names.length > 1 && (
+              <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-white/5 px-1.5 text-[10px] font-bold text-gray-600 dark:text-gray-300">
+                +{names.length - 1}
+              </span>
+            )}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="start" className="max-w-[300px] p-2 z-[100]">
+          <div className="flex flex-col gap-1.5">
+            {names.map((n, idx) => (
+              <span key={idx} className="text-xs break-words">
+                • {n}
+              </span>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
 const StructuredAliasesTable = ({
   aliases,
   onRemove,
+  onEdit,
+  editingIndex,
 }: {
   aliases: ICropAliasObject[];
   onRemove: (index: number) => void;
+  onEdit?: (index: number) => void;
+  /** Row currently being edited (highlighted). */
+  editingIndex?: number | null;
 }) => {
   if (aliases.length === 0) return null;
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
+      <div className="grid grid-cols-[1fr_1fr_1fr_1fr_64px] gap-0 bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
         {["Language", "Region", "English", "Native", ""].map((h, i) => (
           <div
             key={i}
@@ -251,13 +352,17 @@ const StructuredAliasesTable = ({
       {aliases.map((alias, i) => (
         <div
           key={i}
-          className={`grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-0 items-center group transition-colors
+          className={`grid grid-cols-[1fr_1fr_1fr_1fr_64px] gap-0 items-center group transition-colors
             ${
               i < aliases.length - 1
                 ? "border-b border-gray-100 dark:border-gray-800/60"
                 : ""
             }
-            hover:bg-gray-50/60 dark:hover:bg-white/[0.02]`}
+            ${
+              editingIndex === i
+                ? "bg-amber-50/70 dark:bg-amber-500/5"
+                : "hover:bg-gray-50/60 dark:hover:bg-white/[0.02]"
+            }`}
         >
           <div className="px-3 py-2.5 min-w-0">
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/15">
@@ -276,21 +381,36 @@ const StructuredAliasesTable = ({
           </div>
 
           <div className="px-3 py-2.5 min-w-0">
-            <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate block">
-              {alias.english_representation}
-            </span>
+            <CropNamesCell
+              value={alias.english_representation}
+              className="text-xs font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap"
+            />
           </div>
 
           <div className="px-3 py-2.5 min-w-0">
-            <span className="text-xs text-gray-600 dark:text-gray-400 truncate block">
-              {alias.native_representation}
-            </span>
+            <CropNamesCell
+              value={alias.native_representation}
+              className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap"
+            />
           </div>
 
-          <div className="flex items-center justify-center pr-1">
+          <div className="flex items-center justify-center gap-0.5 pr-1">
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(i)}
+                title="Edit alias"
+                className={`p-1 rounded-md transition-all text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 ${
+                  editingIndex === i ? "opacity-100 text-amber-600 dark:text-amber-400" : "opacity-0 group-hover:opacity-100"
+                }`}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onRemove(i)}
+              title="Delete alias"
               className="p-1 rounded-md opacity-0 group-hover:opacity-100 transition-all text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -328,11 +448,24 @@ const AliasManagerModal = ({
 
   const totalCount = legacyAliases.length + structuredAliases.length;
 
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
   const handleAdd = (alias: ICropAliasObject) => {
     setStructuredAliases((prev) => [...prev, alias]);
   };
 
+  const handleUpdateStructured = (alias: ICropAliasObject) => {
+    setStructuredAliases((prev) =>
+      prev.map((a, i) => (i === editingIndex ? alias : a)),
+    );
+    setEditingIndex(null);
+  };
+
   const handleRemoveStructured = (index: number) => {
+    // Keep the edit form in sync if the edited/earlier row is removed.
+    setEditingIndex((cur) =>
+      cur === null ? null : cur === index ? null : cur > index ? cur - 1 : cur,
+    );
     setStructuredAliases((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -474,6 +607,8 @@ const AliasManagerModal = ({
               <StructuredAliasesTable
               aliases={structuredAliases}
               onRemove={handleRemoveStructured}
+              onEdit={setEditingIndex}
+              editingIndex={editingIndex}
             />
             )}
           </div>
@@ -507,8 +642,15 @@ const AliasManagerModal = ({
             </div>
           )}
 
-          {/* ── Add Alias Form ────────────────────────────────────────── */}
-          <AliasEntryForm onAdd={handleAdd} accentColor="amber" isChemical={isChemicalEntry} />
+          {/* ── Add / Edit Alias Form ─────────────────────────────────── */}
+          <AliasEntryForm
+            onAdd={handleAdd}
+            accentColor="amber"
+            isChemical={isChemicalEntry}
+            editEntry={editingIndex !== null ? structuredAliases[editingIndex] : null}
+            onUpdate={handleUpdateStructured}
+            onCancelEdit={() => setEditingIndex(null)}
+          />
         </div>
 
         {/* ── Footer ─────────────────────────────────────────────────────── */}
@@ -563,21 +705,41 @@ const AliasSection = ({
   isChemical?: boolean;
   isOther?: boolean;
 }) => {
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
   const handleAdd = (alias: ICropAliasObject) => {
     onAliasesChange([...aliases, alias]);
   };
 
+  const handleUpdate = (alias: ICropAliasObject) => {
+    onAliasesChange(aliases.map((a, idx) => (idx === editingIndex ? alias : a)));
+    setEditingIndex(null);
+  };
+
   const handleRemove = (i: number) => {
+    setEditingIndex((cur) =>
+      cur === null ? null : cur === i ? null : cur > i ? cur - 1 : cur,
+    );
     onAliasesChange(aliases.filter((_, idx) => idx !== i));
   };
 
   return (
     <div className="space-y-2">
-      <AliasEntryForm onAdd={handleAdd} accentColor="amber" isChemical={isChemical} isOther={isOther} />
+      <AliasEntryForm
+        onAdd={handleAdd}
+        accentColor="amber"
+        isChemical={isChemical}
+        isOther={isOther}
+        editEntry={editingIndex !== null ? aliases[editingIndex] : null}
+        onUpdate={handleUpdate}
+        onCancelEdit={() => setEditingIndex(null)}
+      />
       {aliases.length > 0 && (
          <StructuredAliasesTable
          aliases={aliases}
          onRemove={handleRemove}
+         onEdit={setEditingIndex}
+         editingIndex={editingIndex}
        />
       )}
     </div>
