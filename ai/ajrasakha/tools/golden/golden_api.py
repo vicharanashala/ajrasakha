@@ -521,14 +521,16 @@ class SimilarQuestionResponse(BaseModel):
 @app.post(
     "/v1/gdb/find-similar-questions",
     response_model=SimilarQuestionResponse,
-    summary="Find similar questions in database (embedding-based, no Gemma)",
+    summary="Find similar questions in database (embedding-based with Gemma classification)",
     description=(
         "**Purpose:** Detect if a question already exists in the database without crop/state filtering.\n\n"
-        "**Method:** Pure embedding-based similarity - NO Gemma classification.\n\n"
         "**Pipeline:**\n"
+        "0. **MiniMax 2.7 Pre-check**: Safety (vulgar/abusive) + Agriculture relevance. Reject if unsafe/off-topic.\n"
         "1. **Exact match** on normalized question text across ALL statuses.\n"
-        "2. If no exact match: **Vector search** across all questions (no crop/state filter).\n"
-        "3. Return top-K similar questions sorted by embedding similarity score.\n\n"
+        "2. **Vector search**: Fetch top 5 candidates for Gemma evaluation.\n"
+        "3. **Gemma filter**: Reject irrelevant candidates.\n"
+        "4. **Gemma classification**: SAME/RELATED/DIFFERENT for remaining candidates.\n"
+        "5. **Return** up to 5 filtered/sorted results.\n\n"
         "**Use cases:**\n"
         "- Check if a new question is a duplicate before saving\n"
         "- Find related existing questions for answer reference\n"
@@ -545,7 +547,6 @@ async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
     try:
         result = await find_similar_questions(
             question_text=body.question_text,
-            top_k=body.top_k,
         )
         
         # Convert similar_questions list of dicts to response models

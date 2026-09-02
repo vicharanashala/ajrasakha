@@ -67,12 +67,6 @@ class SimilarQuestionRequest(BaseModel):
         description="The question to find similar matches for",
         examples=["How to treat brown spot disease in rice?"],
     )
-    top_k: int = Field(
-        3,
-        ge=1,
-        le=10,
-        description="Maximum similar questions to return (default: 3, max: 10)",
-    )
 
 
 class SimilarQuestionItem(BaseModel):
@@ -387,7 +381,6 @@ async def _vector_search_all_statuses(
 
 async def find_similar_questions(
     question_text: str,
-    top_k: int = 3,
 ) -> dict[str, Any]:
     """
     Find similar questions using embedding-based similarity with Gemma classification.
@@ -402,8 +395,8 @@ async def find_similar_questions(
     """
     query = question_text.strip()
 
-    log.info("find_similar_questions: query=%r top_k=%d",
-             _truncate_text(query, 80), top_k)
+    log.info("find_similar_questions: query=%r",
+             _truncate_text(query, 80))
 
     audit: dict[str, Any] = {
         "query": query,
@@ -470,7 +463,7 @@ async def find_similar_questions(
     try:
         vector_matches = await _vector_search_all_statuses(
             query=query,
-            top_k=top_k,
+            top_k=5,  # Fixed: always fetch 5 candidates for Gemma evaluation
         )
     except Exception as exc:
         log.warning("vector search failed: %s - returning empty", exc)
