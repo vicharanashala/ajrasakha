@@ -40,13 +40,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { format } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import { Calendar } from "@/components/atoms/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/atoms/popover";
 import type { DateRange } from "react-day-picker";
 
 interface UserQuestionsModalProps {
@@ -335,7 +330,7 @@ const UserQuestionsModal = ({
                       setDateRange(range);
                     }}
                     numberOfMonths={1}
-                    disabled={{ after: new Date() }}
+                    disabled={{ after: startOfDay(new Date()) }}
                   />
 
                   {dateRange?.from && (
