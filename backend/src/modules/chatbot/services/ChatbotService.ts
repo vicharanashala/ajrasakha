@@ -3679,12 +3679,23 @@ async getUserQuestionsData(
         </html>
       `;
       if(isVerified === true){
-        await sendEmailNotification(
-          updatedUser.email,
-          subject,
-          '',
-          htmlMessage
-        );
+        // Email delivery is best-effort: a SMTP failure must not fail the
+        // verify-user API, because the DB update above has already committed
+        // and the admin expects the user to be verified regardless. We log
+        // the failure so it can be retried / diagnosed out-of-band.
+        try {
+          await sendEmailNotification(
+            updatedUser.email,
+            subject,
+            '',
+            htmlMessage,
+          );
+        } catch (emailError: any) {
+          console.error(
+            `[verifyUser] Failed to send verification email to ${updatedUser.email} for user ${userId}:`,
+            emailError?.message || emailError,
+          );
+        }
       }
 
       return updatedUser;

@@ -141,9 +141,7 @@ export function UserDetailsView({
 }: UserDetailsViewProps) {
   const { data: currentUser } = useGetCurrentUser({});
   const verifyUserMutation = useVerifyUserAnalytics();
-  const verifyingUserId = verifyUserMutation.isPending
-    ? verifyUserMutation.variables?.userId
-    : null;
+  const [verifyingUserId, setVerifyingUserId] = useState<string | null>(null);
   const isAdmin = currentUser?.role === "admin";
   const deleteUserMutation = useDeleteUser();
   const updateUserMutation = useUpdateUser();
@@ -481,6 +479,7 @@ export function UserDetailsView({
     source: string,
     isVerified: boolean,
   ) => {
+    setVerifyingUserId(userId);
     try {
       const response = await verifyUserMutation.mutateAsync({
         userId,
@@ -499,10 +498,13 @@ export function UserDetailsView({
       );
     } catch (error: any) {
       toast.error(error?.message || "Failed to update verification status");
+    } finally {
+      setVerifyingUserId(null);
     }
   };
 
   const requestVerificationChange = (user: UserDetail, nextStatus: boolean) => {
+    console.log("Requesting verification change for user:", user, "Next status:", nextStatus);
     setVerificationToConfirm({
       userId: user.userId,
       source,
@@ -1176,7 +1178,12 @@ export function UserDetailsView({
                       users.map((user, idx) => {
                         const isVerifyingThisUser =
                           verifyingUserId === user.userId;
-                        const isUserVerified = user.isVerified ?? true;
+                        // Default to `false` (not verified) when the field is
+                        // missing so a stale/undefined cache entry does not
+                        // silently hide the verify button. The backend always
+                        // returns a boolean, so this fallback only kicks in for
+                        // legacy records that lack the field.
+                        const isUserVerified = user.isVerified ?? false;
                         return (
                           <ContextMenu key={user.userId} modal={false}>
                             <ContextMenuTrigger asChild>
@@ -1253,9 +1260,9 @@ export function UserDetailsView({
                                       <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                                         {!isUserVerified ? (
                                           <Button
-                                            disabled={isVerifyingThisUser}
+                                            // disabled={isVerifyingThisUser}
                                             className="h-8 px-3 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
-                                            onClick={() =>
+                                            onClick={() => 
                                               requestVerificationChange(
                                                 user,
                                                 true,
@@ -1395,7 +1402,7 @@ export function UserDetailsView({
               onDelete={handleDeleteUser}
               isChangingPassword={changeUserPasswordMutation.isPending}
               onChangePassword={handleChangeViewedUserPassword}
-              isUpdatingVerification={verifyUserMutation.isPending}
+              isUpdatingVerification={!!verifyingUserId}
               onVerificationChange={(nextStatus) => {
                 if (userToView) {
                   requestVerificationChange(userToView, nextStatus);
@@ -1473,7 +1480,7 @@ export function UserDetailsView({
       <AlertDialog
         open={!!verificationToConfirm}
         onOpenChange={(open) => {
-          if (!open && !verifyUserMutation.isPending) {
+          if (!open && !verifyingUserId) {
             setVerificationToConfirm(null);
           }
         }}
@@ -1504,17 +1511,17 @@ export function UserDetailsView({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={verifyUserMutation.isPending}>
+            <AlertDialogCancel disabled={!!verifyingUserId}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              disabled={verifyUserMutation.isPending}
+              disabled={!!verifyingUserId}
               onClick={(event) => {
                 event.preventDefault();
                 void handleConfirmVerificationChange();
               }}
             >
-              {verifyUserMutation.isPending ? (
+              {verifyingUserId ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Updating...
