@@ -28,7 +28,7 @@ export const appConfig = {
     streamUrl: env('PLIVO_STREAM_URL') || 'wss://dummy-stream-url.example.com',
     authId: env('PLIVO_AUTH_ID') || 'dummy-plivo-auth-id',
     authToken: env('PLIVO_AUTH_TOKEN') || 'dummy-plivo-auth-token',
-    plivo_number: env('PLIVO_NUMBER') || '+15551234567',
+    plivo_number: env('PLIVO_NUMBER') || env('PLIVO_CALLER_ID') || env('PLIVO_PHONE_NUMBER') || '+918031150392',
     recordCallbackUrl: env('PLIVO_RECORD_CALLBACK_URL') || `${env('APP_URL') || 'http://localhost:4001'}/api/plivo/webhook/record`,
   },
   storage: {

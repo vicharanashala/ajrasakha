@@ -115,8 +115,7 @@ export class PlivoController {
   <Hangup />
 </Response>`;
           res.set('Content-Type', 'text/xml');
-          res.send(xml);
-          return;
+          return res.send(xml);
         }
 
         // Identify agent user in DB
@@ -141,13 +140,15 @@ export class PlivoController {
           console.warn(`⚠️ [PLIVO-CONTROLLER] Error identifying agent for outbound call ${callUuid}:`, findErr);
         }
 
+        const effectiveCallerId = myPlivoNumber && !myPlivoNumber.includes('+1555') ? myPlivoNumber : '+918031150392';
+
         if (agentUser) {
           availableAgent = agentUser;
           await this.agentAssignmentService.markAgentAsBusy(agentUser._id.toString(), callUuid);
         }
 
         this.plivoService.registerCall(callUuid, {
-          from: myPlivoNumber,
+          from: effectiveCallerId,
           to: destination,
           agentUserId: agentUser?._id?.toString(),
           direction: 'outbound',
@@ -160,7 +161,7 @@ export class PlivoController {
 <Response>
   <Stream contentType="audio/x-l16;rate=16000" noiseCancellation="true" audioTrack="both" noise_cancellation_level="85">${streamUrl}</Stream>
   <Record action="${recordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
-  <Dial timeout="40" callerId="${myPlivoNumber}">
+  <Dial timeout="40" callerId="${effectiveCallerId}">
     <Number>${destination}</Number>
   </Dial>
 </Response>`;
