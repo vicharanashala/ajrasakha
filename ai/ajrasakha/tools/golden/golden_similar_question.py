@@ -131,10 +131,6 @@ class SimilarQuestionResponse(BaseModel):
         False,
         description="True if exact text match was found",
     )
-    similar_questions: list[SimilarQuestionItem] = Field(
-        default_factory=list,
-        description="List of up to top_k similar questions found in database",
-    )
     total_candidates_found: int = Field(0, description="Total candidates found by vector search")
     audit: dict[str, Any] = Field(
         default_factory=dict,
@@ -438,7 +434,6 @@ async def find_similar_questions(
                 "present_sources": [],
                 "present_author": None,
                 "exact_match_found": False,
-                "similar_questions": [],
                 "total_candidates_found": 0,
                 "rejected": True,
                 "rejection_reason": preprocess_result.rejection_reason,
@@ -501,7 +496,6 @@ async def find_similar_questions(
             "present_sources": [],
             "present_author": None,
             "exact_match_found": exact_match_found,
-            "similar_questions": [],
             "total_candidates_found": 0,
             "audit": {**audit, "final_status": "no_matches"},
         }
@@ -542,7 +536,6 @@ async def find_similar_questions(
             "present_sources": [],
             "present_author": None,
             "exact_match_found": exact_match_found,
-            "similar_questions": [],
             "total_candidates_found": len(vector_matches),
             "audit": {**audit, "final_status": "all_rejected_by_gemma"},
         }
@@ -581,6 +574,10 @@ async def find_similar_questions(
         best_question_id = getattr(best_match_result["question"], "question_id", None)
 
     for ((match, filter_result), cls_result) in zip(filtered_questions, classifications):
+        # Skip DIFFERENT classifications - they are not relevant
+        if cls_result.get("classification") == "DIFFERENT":
+            continue
+        
         status = await _get_question_status(match.question_id)
         is_best = (getattr(match, "question_id", None) == best_question_id)
 
@@ -597,16 +594,33 @@ async def find_similar_questions(
             "gemma_classification_reason": cls_result.get("reason"),
         })
 
-    # Sort by Gemma relevance (SAME first, then RELATED, then DIFFERENT)
+    # Sort by Gemma relevance (SAME first, then RELATED)
     def _gemma_sort_key(item):
-        cls = item.get("gemma_classification", "DIFFERENT")
+        cls = item.get("gemma_classification", "RELATED")
         if cls == "SAME":
             return 0
-        elif cls == "RELATED":
-            return 1
-        return 2
+        return 1  # RELATED
 
     similar_questions.sort(key=_gemma_sort_key)
+
+    # If all results were DIFFERENT, return no match
+    if not similar_questions:
+        log.info("find_similar_questions: all results classified as DIFFERENT by Gemma")
+        if exact_match_result:
+            return await _build_exact_match_response(query, exact_match_result, audit)
+        return {
+            "query": query,
+            "is_present": False,
+            "present_status": None,
+            "present_question_id": None,
+            "present_question_text": None,
+            "present_answer_text": None,
+            "present_sources": [],
+            "present_author": None,
+            "exact_match_found": exact_match_found,
+            "total_candidates_found": len(vector_matches),
+            "audit": {**audit, "final_status": "no_relevant_matches"},
+        }
 
     # Get answer details for best result if status is closed
     top_result = similar_questions[0]
@@ -655,7 +669,6 @@ async def find_similar_questions(
         "present_sources": present_sources or [],
         "present_author": present_author,
         "exact_match_found": False,
-        "similar_questions": similar_questions,
         "total_candidates_found": len(vector_matches),
         "audit": audit,
     }
@@ -709,18 +722,6 @@ async def _build_exact_match_response(query: str, exact_match: Any, audit: dict)
         "present_sources": present_sources or [],
         "present_author": present_author,
         "exact_match_found": True,
-        "similar_questions": [{
-            "question_id": present_question_id,
-            "question_text": present_question_text,
-            "status": present_status,
-            "similarity_score": 1.0,
-            "match_type": "exact",
-            "chosen_for_answer": True,
-            "gemma_relevance_decision": "SAME",
-            "gemma_relevance_reason": "Exact match found",
-            "gemma_classification": "SAME",
-            "gemma_classification_reason": "Exact match",
-        }],
         "total_candidates_found": 1,
         "audit": audit,
     }
