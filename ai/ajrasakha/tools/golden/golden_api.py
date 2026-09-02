@@ -503,7 +503,6 @@ class SimilarQuestionResponse(BaseModel):
     present_author: Optional[str] = None
     exact_match_found: bool = False
     total_candidates_found: int = 0
-    audit: dict[str, Any] = Field(default_factory=dict)
     rejected: bool = False
     rejection_reason: Optional[str] = None
 
@@ -558,7 +557,6 @@ async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
             present_author=result.get("present_author"),
             exact_match_found=result.get("exact_match_found", False),
             total_candidates_found=result.get("total_candidates_found", 0),
-            audit=result.get("audit", {}),
             rejected=result.get("rejected", False),
             rejection_reason=result.get("rejection_reason"),
         )
