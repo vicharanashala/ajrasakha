@@ -514,6 +514,8 @@ class SimilarQuestionResponse(BaseModel):
     similar_questions: list[SimilarQuestionItemResponse] = Field(default_factory=list)
     total_candidates_found: int = 0
     audit: dict[str, Any] = Field(default_factory=dict)
+    rejected: bool = False
+    rejection_reason: Optional[str] = None
 
 
 @app.post(
