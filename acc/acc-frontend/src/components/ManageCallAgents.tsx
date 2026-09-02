@@ -444,9 +444,9 @@ export const ManageCallAgents = () => {
                       )}
 
                       {/* Current Call UUID */}
-                      {agent.currentCallUuid && (
+                      {agent.currentCallUuid && typeof agent.currentCallUuid === "string" && (
                         <span className="text-xs px-2.5 py-0.5 rounded-full bg-secondary-accent/15 text-secondary-accent font-mono border border-secondary-accent/40">
-                          UUID: {agent.currentCallUuid.slice(0, 8)}...
+                          UUID: {agent.currentCallUuid.length > 8 ? `${agent.currentCallUuid.slice(0, 8)}...` : agent.currentCallUuid}
                         </span>
                       )}
                     </div>

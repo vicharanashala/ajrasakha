@@ -23,11 +23,20 @@ import {
   Users,
   Loader2,
 } from "lucide-react";
+import { PlivoProvider } from "@/context/PlivoContext";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/call-agent-dashboard/")({
-  component: DashboardComponent,
+  component: DashboardWithProvider,
 });
+
+function DashboardWithProvider() {
+  return (
+    <PlivoProvider>
+      <DashboardComponent />
+    </PlivoProvider>
+  );
+}
 
 function DashboardComponent() {
   const navigate = useNavigate();

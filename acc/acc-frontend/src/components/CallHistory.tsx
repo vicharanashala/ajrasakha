@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Button } from "./atoms/button";
 import { Badge } from "./atoms/badge";
@@ -25,7 +25,7 @@ import type { CallHistoryItem } from "@/hooks/api/plivo/api";
 import { format } from "date-fns";
 import { FarmerDetails } from "./FarmerDetails";
 import { AudioPlayer } from "./atoms/AudioPlayer";
-import Plivo from "plivo-browser-sdk";
+import { usePlivo } from "@/context/PlivoContext";
 
 import { toast } from "sonner";
 import {
@@ -261,7 +261,8 @@ interface CallHistoryProps {
   onRedial?: (phoneNumber: string) => void;
 }
 
-export const CallHistory = ({ onRedial: _onRedial }: CallHistoryProps) => {
+export const CallHistory = ({ onRedial }: CallHistoryProps) => {
+  const { initiateRedial } = usePlivo();
   const [calls, setCalls] = useState<CallHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -614,43 +615,44 @@ export const CallHistory = ({ onRedial: _onRedial }: CallHistoryProps) => {
     }
   };
 
-  const handleRedial = async (_CallHistoryItem?: any) => {
-    // const { from, to } = CallHistoryItem;
+  const handleRedial = async (callItem?: any) => {
+    if (!callItem) return;
+    const { from, to, farmerProfile } = callItem;
 
-    // // Designated numbers to check
-    // const designatedNumbers = ["918031150392", "sip:annamuser1293525305518427216@phone.plivo.com"];
-
-    // // Determine which number to call
-    let numberToCall = "+919606751041"; // Default to calling the 'to' number
-
-    // // If 'from' contains any of the designated numbers, call the opposite (to)
-    // if (designatedNumbers.some(dn => from?.includes(dn))) {
-    //   numberToCall = to;
-    // }
-    // // If 'to' contains any of the designated numbers, call the opposite (from)
-    // else if (designatedNumbers.some(dn => to?.includes(dn))) {
-    //   numberToCall = from;
-    // }
-
-    // Preserved for redial hook implementation
-
-    let plivoClientRef;
-    const options = {
-      debug: "DEBUG" as const,
-      permOnClick: true,
-      enableTracking: true,
+    // Designated numbers or SIP URIs to filter out
+    const isInternal = (val: string) => {
+      if (!val) return false;
+      const lower = String(val).toLowerCase();
+      return (
+        lower.startsWith("sip:") ||
+        lower.includes("phone.plivo.com") ||
+        lower.includes("8031150392") ||
+        lower.includes("endpoint")
+      );
     };
 
-    const client = new Plivo(options);
-    plivoClientRef = client;
-    try {
-      const extraHeaders = {
-        "X-PH-destination": "+919606751041",
-      };
-      const result = plivoClientRef.client.call("+919606751041", extraHeaders);
-      toast.success(`Redialing ${numberToCall}. Call UUID: ${result}`);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to initiate call");
+    let targetPhone = "";
+    if (from && !isInternal(from)) {
+      targetPhone = from;
+    } else if (to && !isInternal(to)) {
+      targetPhone = to;
+    } else if (farmerProfile?.phoneNo) {
+      targetPhone = farmerProfile.phoneNo;
+    } else {
+      targetPhone = from || to || "";
+    }
+
+    if (!targetPhone) {
+      toast.error("Could not find a valid farmer phone number to redial.");
+      return;
+    }
+
+    const success = await initiateRedial(targetPhone, {
+      "X-PH-previousCallUuid": callItem.uuid || "",
+    });
+
+    if (success && onRedial) {
+      onRedial(targetPhone);
     }
   };
 
@@ -855,9 +857,8 @@ export const CallHistory = ({ onRedial: _onRedial }: CallHistoryProps) => {
                       </tr>
                     ) : (
                       calls.map((call) => (
-                        <>
+                        <React.Fragment key={call.uuid}>
                           <tr
-                            key={call.uuid}
                             className="border-b hover:bg-muted/50 transition-colors"
                           >
                             <td className="px-5 py-3.5">
@@ -1354,7 +1355,7 @@ export const CallHistory = ({ onRedial: _onRedial }: CallHistoryProps) => {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </React.Fragment>
                       ))
                     )}
                   </tbody>

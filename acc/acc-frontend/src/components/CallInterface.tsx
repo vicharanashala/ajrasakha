@@ -808,45 +808,7 @@ export const CallInterface = () => {
     }
   };
 
-  /*
-  // Preserved for redial hook implementation
-  let plivoClientRef: any;
 
-  const handleRedial = async (phoneNumber: string) => {
-    const options = {
-      debug: "DEBUG" as const,
-      permOnClick: true,
-      enableTracking: true,
-    };
-
-    const client = new (Plivo as any)(options);
-    plivoClientRef = client;
-    try {
-      const extraHeaders = {
-        "X-PH-destination": "+919606751041", // e.g. "+919606751041"
-      };
-      const result = plivoClientRef.client.call("+919606751041", extraHeaders);
-      toast.success(`Redialing ${phoneNumber}. Call UUID: ${result}`);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to initiate call");
-    }
-  };
-
-  const handleToggleAgentStatus = async (online: boolean) => {
-    try {
-      await userService.toggleAgentStatus(online);
-      toast.success(
-        online
-          ? "You are now online and ready to receive calls"
-          : "You are now offline",
-      );
-      // Refetch current user to update UI without page reload
-      refetchCurrentUser();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update status");
-    }
-  };
-  */
 
   return (
     <div className="space-y-3.5 w-full max-w-full px-1.5 sm:px-3 py-1.5 relative">
@@ -914,7 +876,7 @@ export const CallInterface = () => {
           }}
         />
       </div>
-      {/* <button onClick={() => handleRedial("+919606751041")}>Redial</button> */}
+
 
       {/* 3-Column Modern Call Interface Layout (Left 25%: Farmer Details, Center: 50% of rest, Right: 50% of rest) */}
       <div className="grid grid-cols-1 lg:grid-cols-[25%_1fr_1fr] gap-4 items-start">
@@ -950,12 +912,12 @@ export const CallInterface = () => {
                     </h3>
                   </div>
 
-                  {callUuid && (
+                  {callUuid && typeof callUuid === "string" && (
                     <span
                       className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 font-medium truncate max-w-[140px] sm:max-w-[200px] pl-6"
                       title={callUuid}
                     >
-                      UUID: {callUuid.slice(0, 8)}...
+                      UUID: {callUuid.length > 8 ? `${callUuid.slice(0, 8)}...` : callUuid}
                     </span>
                   )}
                 </div>

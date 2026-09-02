@@ -56,8 +56,8 @@ export class PlivoController {
   @Post('/answer')
   @HttpCode(200)
   @UseBefore(urlencoded({ extended: true }))
-  @OpenAPI({ summary: 'Handle inbound call answer from Plivo' })
-  async answer(@Req() req: Request, @Res() res: Response): Promise<void> {
+  @OpenAPI({ summary: 'Handle inbound call answer or agent outbound redial from Plivo' })
+  async answer(@Req() req: Request, @Res() res: Response): Promise<any> {
     let availableAgent: IUser | null = null;
     try {
       const streamUrl = appConfig.plivo.streamUrl;
@@ -65,8 +65,111 @@ export class PlivoController {
       const myPlivoNumber = appConfig.plivo.plivo_number;
       const callUuid = req.body?.CallUUID || req.query?.CallUUID;
       const callerNumber = req.body?.From || req.query?.From || 'unknown';
-      // console.log(`📞 [PLIVO-CONTROLLER] Incoming call: CallUUID=${callUuid}, From=${callerNumber}`);
+      // console.log(`📞 [PLIVO-CONTROLLER] Call webhook received: CallUUID=${callUuid}, From=${callerNumber}`);
 
+      // Check if this call is initiated outbound by an agent's SIP WebRTC softphone
+      const isOutbound =
+        (typeof callerNumber === 'string' && callerNumber.startsWith('sip:')) ||
+        req.body?.['X-PH-callType'] === 'outbound' ||
+        req.headers?.['x-ph-calltype'] === 'outbound' ||
+        req.query?.['X-PH-callType'] === 'outbound' ||
+        Boolean(req.body?.['X-PH-destination'] || req.headers?.['x-ph-destination'] || req.query?.['X-PH-destination']);
+
+      if (isOutbound) {
+        console.log(`📞 [PLIVO-CONTROLLER] Agent outbound redial call detected: CallUUID=${callUuid}, From=${callerNumber}`);
+
+        const rawDest =
+          req.body?.['X-PH-destination'] ||
+          req.headers?.['x-ph-destination'] ||
+          req.query?.['X-PH-destination'] ||
+          req.body?.To ||
+          req.query?.To;
+
+        const agentIdentifier =
+          req.body?.['X-PH-agentId'] ||
+          req.headers?.['x-ph-agentid'] ||
+          req.query?.['X-PH-agentId'];
+
+        // Format destination phone number to E.164 (+91...)
+        let destination = String(rawDest || '').trim();
+        if (destination) {
+          destination = destination.replace(/[^\d+]/g, '');
+          if (!destination.startsWith('+')) {
+            if (destination.startsWith('91') && destination.length === 12) {
+              destination = '+' + destination;
+            } else if (destination.length === 10) {
+              destination = '+91' + destination;
+            } else if (destination.startsWith('0') && destination.length === 11) {
+              destination = '+91' + destination.substring(1);
+            } else {
+              destination = '+' + destination;
+            }
+          }
+        }
+
+        if (!destination || destination.length < 10) {
+          console.warn(`⚠️ [PLIVO-CONTROLLER] Invalid destination for outbound call ${callUuid}: ${destination}`);
+          const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Speak voice="MAN" language="en-US">Invalid destination number.</Speak>
+  <Hangup />
+</Response>`;
+          res.set('Content-Type', 'text/xml');
+          res.send(xml);
+          return;
+        }
+
+        // Identify agent user in DB
+        let agentUser: IUser | null = null;
+        try {
+          const activeAgents = await this.userRepository.findActiveCallAgents();
+          if (agentIdentifier) {
+            agentUser = activeAgents.find(a => a.agent === agentIdentifier || a._id.toString() === agentIdentifier) || null;
+          }
+          if (!agentUser && typeof callerNumber === 'string' && callerNumber.startsWith('sip:')) {
+            const sipUser = callerNumber.replace(/^sip:/, '').split('@')[0];
+            const allCreds = await this.plivoCredentialsRepository.getAllAgentCredentials();
+            const matchedCred = allCreds.find(c => c.username === sipUser || c.agentNumber === sipUser);
+            if (matchedCred) {
+              agentUser = activeAgents.find(a => a.agent === matchedCred.agentNumber) || null;
+            }
+          }
+          if (!agentUser && activeAgents.length > 0) {
+            agentUser = activeAgents[0];
+          }
+        } catch (findErr) {
+          console.warn(`⚠️ [PLIVO-CONTROLLER] Error identifying agent for outbound call ${callUuid}:`, findErr);
+        }
+
+        if (agentUser) {
+          availableAgent = agentUser;
+          await this.agentAssignmentService.markAgentAsBusy(agentUser._id.toString(), callUuid);
+        }
+
+        this.plivoService.registerCall(callUuid, {
+          from: myPlivoNumber,
+          to: destination,
+          agentUserId: agentUser?._id?.toString(),
+          direction: 'outbound',
+          startTime: new Date(),
+        });
+
+        console.log(`✅ [PLIVO-CONTROLLER] Outbound call ${callUuid} to ${destination} registered for agent ${agentUser?.agent || 'unknown'}`);
+
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Stream contentType="audio/x-l16;rate=16000" noiseCancellation="true" audioTrack="both" noise_cancellation_level="85">${streamUrl}</Stream>
+  <Record action="${recordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
+  <Dial timeout="40" callerId="${myPlivoNumber}">
+    <Number>${destination}</Number>
+  </Dial>
+</Response>`;
+
+        res.set('Content-Type', 'text/xml');
+        return res.send(xml);
+      }
+
+      // --- Inbound Call Flow ---
       availableAgent = await this.agentAssignmentService.findAndMarkAvailableAgent(callUuid);
 
       let endpointUser: string;
@@ -82,6 +185,7 @@ export class PlivoController {
           from: callerNumber,
           to: myPlivoNumber,
           agentUserId: availableAgent._id.toString(),
+          direction: 'inbound',
           startTime: new Date(),
         });
         // console.log(`✅ [PLIVO-CONTROLLER] Assigned agent ${agentNumber} (userId=${availableAgent._id}, endpoint=${endpointUser}) to call ${callUuid}`);
@@ -93,6 +197,7 @@ export class PlivoController {
         this.plivoService.registerCall(callUuid, {
           from: callerNumber,
           to: myPlivoNumber,
+          direction: 'inbound',
           startTime: new Date(),
         });
       }
@@ -123,7 +228,7 @@ export class PlivoController {
       }
 
       res.set('Content-Type', 'text/xml');
-      res.send(xml);
+      return res.send(xml);
     } catch (error: any) {
       console.error('❌ [PLIVO-CONTROLLER] Error in answer endpoint:', error);
       if (availableAgent) {
@@ -134,7 +239,8 @@ export class PlivoController {
           console.error(`❌ [PLIVO-CONTROLLER] Failed to release agent ${availableAgent._id} after error:`, releaseError);
         }
       }
-      res.status(500).send('Internal Server Error');
+      res.set('Content-Type', 'text/plain');
+      return res.status(500).send('Internal Server Error');
     }
   }
 
@@ -142,7 +248,7 @@ export class PlivoController {
   @HttpCode(200)
   @UseBefore(urlencoded({ extended: true }))
   @OpenAPI({ summary: 'Handle Plivo recording completed webhook callback' })
-  async handleRecordWebhook(@Req() req: Request, @Res() res: Response): Promise<void> {
+  async handleRecordWebhook(@Req() req: Request, @Res() res: Response): Promise<any> {
     try {
       const body = req.body || {};
       const query = req.query || {};
@@ -466,56 +572,113 @@ export class PlivoController {
           direction: call.callDirection
         }));
 
-      // Helper to identify internal Plivo SIP bridge legs
-      const isSipBridgeLeg = (call: any) => {
-        const to = String(call.to || '').toLowerCase();
-        const direction = String(call.direction || '').toLowerCase();
-        return (
-          direction === 'outbound' &&
-          (to.startsWith('sip:') || to.includes('@phone.plivo.com') || to.includes('endpoint'))
-        );
+      // Helper function to identify SIP URIs
+      const isSipUri = (val: string) => {
+        const s = String(val || '').toLowerCase();
+        return s.startsWith('sip:') || s.includes('@phone.plivo.com') || s.includes('endpoint');
       };
 
-      const mainCalls: any[] = [];
-      const sipLegs: any[] = [];
+      const initialMainCalls: any[] = [];
+      const bridgeLegs: any[] = [];
 
       for (const call of rawHistory) {
-        if (isSipBridgeLeg(call)) {
-          sipLegs.push(call);
-        } else {
-          mainCalls.push(call);
+        const fromStr = String(call.from || '');
+        const toStr = String(call.to || '');
+        const dirStr = String(call.direction || '').toLowerCase();
+
+        // 1. Inbound SIP bridge leg: Plivo dialing out to agent WebRTC SIP
+        if (dirStr === 'outbound' && isSipUri(toStr)) {
+          bridgeLegs.push({ ...call, legType: 'inbound_sip_bridge' });
+          continue;
         }
+
+        // 2. Primary Outbound Agent leg: WebRTC calling into Plivo to redial farmer
+        if (isSipUri(fromStr)) {
+          initialMainCalls.push({
+            ...call,
+            direction: 'outbound',
+            from: appConfig.plivo.plivo_number || call.from,
+            originalFrom: call.from,
+            isOutboundAgentLeg: true,
+          });
+          continue;
+        }
+
+        // 3. Normal inbound farmer call or outbound PSTN leg
+        initialMainCalls.push(call);
       }
 
-      // Map matching SIP legs to their parent main/inbound calls based on proximity of initiation time
-      const matchedSipUuidsByMainUuid = new Map<string, string[]>();
+      // Deduplicate Outbound Calls:
+      // Match and merge any secondary outbound PSTN child leg into its primary outbound agent leg
+      const finalMainCalls: any[] = [];
+      const outboundAgentLegs = initialMainCalls.filter(c => c.isOutboundAgentLeg);
+      const otherCalls = initialMainCalls.filter(c => !c.isOutboundAgentLeg);
 
-      for (const sipCall of sipLegs) {
-        const sipTime = sipCall.startTime ? new Date(sipCall.startTime).getTime() : 0;
-        let bestMatch: any = null;
-        let minDiff = Infinity;
+      for (const agentCall of outboundAgentLegs) {
+        const agentTime = agentCall.startTime ? new Date(agentCall.startTime).getTime() : 0;
+        const targetTo = String(agentCall.to || '').replace(/[^\d]/g, '');
 
-        for (const mainCall of mainCalls) {
-          if (mainCall.direction === 'inbound') {
-            const mainTime = mainCall.startTime ? new Date(mainCall.startTime).getTime() : 0;
-            const diff = Math.abs(mainTime - sipTime);
-            // Must be within 90 seconds of each other
-            if (diff <= 90000 && diff < minDiff) {
-              minDiff = diff;
-              bestMatch = mainCall;
-            }
+        let matchedPstnLegIndex = otherCalls.findIndex(c => {
+          if (c.direction === 'outbound') {
+            const pstnTo = String(c.to || '').replace(/[^\d]/g, '');
+            const pstnTime = c.startTime ? new Date(c.startTime).getTime() : 0;
+            const diff = Math.abs(agentTime - pstnTime);
+            return diff <= 90000 && (pstnTo.endsWith(targetTo) || targetTo.endsWith(pstnTo) || pstnTo === targetTo);
           }
+          return false;
+        });
+
+        if (matchedPstnLegIndex !== -1) {
+          const pstnLeg = otherCalls[matchedPstnLegIndex];
+          otherCalls.splice(matchedPstnLegIndex, 1);
+          bridgeLegs.push({ ...pstnLeg, legType: 'outbound_pstn_bridge', parentUuid: agentCall.uuid });
         }
 
-        if (bestMatch) {
-          const list = matchedSipUuidsByMainUuid.get(bestMatch.uuid) || [];
-          list.push(sipCall.uuid);
-          matchedSipUuidsByMainUuid.set(bestMatch.uuid, list);
+        finalMainCalls.push(agentCall);
+      }
+
+      finalMainCalls.push(...otherCalls);
+
+      finalMainCalls.sort((a, b) => {
+        const timeA = a.startTime ? new Date(a.startTime).getTime() : 0;
+        const timeB = b.startTime ? new Date(b.startTime).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      // Map matching SIP / bridge legs to their parent main calls
+      const matchedSipUuidsByMainUuid = new Map<string, string[]>();
+
+      for (const bridgeCall of bridgeLegs) {
+        if (bridgeCall.parentUuid) {
+          const list = matchedSipUuidsByMainUuid.get(bridgeCall.parentUuid) || [];
+          list.push(bridgeCall.uuid);
+          matchedSipUuidsByMainUuid.set(bridgeCall.parentUuid, list);
+        } else {
+          const bridgeTime = bridgeCall.startTime ? new Date(bridgeCall.startTime).getTime() : 0;
+          let bestMatch: any = null;
+          let minDiff = Infinity;
+
+          for (const mainCall of finalMainCalls) {
+            if (mainCall.direction === 'inbound') {
+              const mainTime = mainCall.startTime ? new Date(mainCall.startTime).getTime() : 0;
+              const diff = Math.abs(mainTime - bridgeTime);
+              if (diff <= 90000 && diff < minDiff) {
+                minDiff = diff;
+                bestMatch = mainCall;
+              }
+            }
+          }
+
+          if (bestMatch) {
+            const list = matchedSipUuidsByMainUuid.get(bestMatch.uuid) || [];
+            list.push(bridgeCall.uuid);
+            matchedSipUuidsByMainUuid.set(bestMatch.uuid, list);
+          }
         }
       }
 
       await Promise.all(
-        mainCalls.map(async (item) => {
+        finalMainCalls.map(async (item) => {
           try {
             let details = await this.callDetailsRepository.getByCallUuid(item.uuid);
             const associatedSipUuids = matchedSipUuidsByMainUuid.get(item.uuid) || [];
@@ -563,11 +726,27 @@ export class PlivoController {
               }
             }
 
-            let agentUserIdStr = details?.agent?.userid ? details.agent.userid.toString() : this.plivoService.getCallAgent(item.uuid);
-
             if (details) {
+              // If this is an outbound call or was initiated via SIP softphone
+              if (item.isOutboundAgentLeg || item.originalFrom || isSipUri(details.from || '') || isSipUri(item.from || '')) {
+                item.direction = 'outbound';
+                item.from = appConfig.plivo.plivo_number || item.from;
+
+                // If this legacy DB record was stored with raw SIP from or direction='inbound', swap caller and agent so Farmer and Expert display accurately
+                if (isSipUri(details.from || '') || details.direction === 'inbound') {
+                  const tempCaller = details.caller;
+                  details.caller = details.agent;
+                  details.agent = tempCaller;
+                }
+                details.direction = 'outbound';
+                details.from = appConfig.plivo.plivo_number || details.from;
+              } else if (details.direction) {
+                item.direction = details.direction;
+              }
               item.callDetails = details;
             }
+
+            let agentUserIdStr = details?.agent?.userid ? details.agent.userid.toString() : this.plivoService.getCallAgent(item.uuid);
 
             if (agentUserIdStr) {
               try {
@@ -596,7 +775,7 @@ export class PlivoController {
         })
       );
 
-      return mainCalls;
+      return finalMainCalls;
     } catch (error: any) {
       console.error('❌ Error fetching call history:', error);
       throw new InternalServerError('Failed to fetch call history');

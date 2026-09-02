@@ -36,7 +36,7 @@ export class PlivoService {
   private activeStreams: Map<string, SarvamStreamSession> = new Map();
   private plivoClient: plivo.Client;
   private callAgentMapping: Map<string, string> = new Map();
-  private callMetadataMap: Map<string, { from?: string; to?: string; agentUserId?: string; startTime?: Date }> = new Map();
+  private callMetadataMap: Map<string, { from?: string; to?: string; agentUserId?: string; direction?: 'inbound' | 'outbound'; startTime?: Date }> = new Map();
 
   private lastActivityMap: Map<string, number> = new Map();
 
@@ -322,8 +322,11 @@ export class PlivoService {
           this.activeTranslations.set(key, (currentTrans + ' ' + finalTranslatedText).trim());
         }
 
+        const isOutbound = this.callMetadataMap.get(callId)?.direction === 'outbound';
+        const mappedTrack: 'inbound' | 'outbound' = isOutbound ? (track === 'inbound' ? 'outbound' : 'inbound') : track;
+
         session.onTranscript({
-          track,
+          track: mappedTrack,
           originalText,
           translatedText: finalTranslatedText,
           detectedLanguage: session.detectedLanguage,
@@ -447,7 +450,7 @@ export class PlivoService {
   }
 
 
-  registerCall(callUuid: string, info: { from?: string; to?: string; agentUserId?: string; startTime?: Date }): void {
+  registerCall(callUuid: string, info: { from?: string; to?: string; agentUserId?: string; direction?: 'inbound' | 'outbound'; startTime?: Date }): void {
     const existing = this.callMetadataMap.get(callUuid) || {};
     this.callMetadataMap.set(callUuid, {
       ...existing,
@@ -457,10 +460,10 @@ export class PlivoService {
     if (info.agentUserId) {
       this.callAgentMapping.set(callUuid, info.agentUserId);
     }
-    console.log(`📞 [PLIVO-SERVICE] Registered call metadata for ${callUuid}: from=${info.from}, to=${info.to}, agent=${info.agentUserId}`);
+    console.log(`📞 [PLIVO-SERVICE] Registered call metadata for ${callUuid}: from=${info.from}, to=${info.to}, direction=${info.direction || 'inbound'}, agent=${info.agentUserId}`);
   }
 
-  getCallMetadata(callUuid: string): { from?: string; to?: string; agentUserId?: string; startTime?: Date } | undefined {
+  getCallMetadata(callUuid: string): { from?: string; to?: string; agentUserId?: string; direction?: 'inbound' | 'outbound'; startTime?: Date } | undefined {
     return this.callMetadataMap.get(callUuid);
   }
 
@@ -475,6 +478,10 @@ export class PlivoService {
     return this.callAgentMapping.get(callUuid) || this.callMetadataMap.get(callUuid)?.agentUserId;
   }
 
+  getCallDirection(callUuid: string): 'inbound' | 'outbound' {
+    return this.callMetadataMap.get(callUuid)?.direction || 'inbound';
+  }
+
   async saveCallDetails(callUuid: string): Promise<void> {
     try {
       const inMemoryMeta = this.callMetadataMap.get(callUuid);
@@ -485,13 +492,20 @@ export class PlivoService {
         console.warn(`⚠️ [PLIVO-SERVICE] Could not fetch Plivo details for ${callUuid}:`, e);
       }
 
-      const callerTranscript = this.getTranscript(callUuid, 'inbound');
-      const callerTranslation = this.getTranslation(callUuid, 'inbound');
-      const callerLanguage = this.getDetectedLanguage(callUuid, 'inbound');
+      const isOutbound = (inMemoryMeta?.direction || plivoCall?.callDirection || plivoCall?.direction) === 'outbound';
 
-      const agentTranscript = this.getTranscript(callUuid, 'outbound');
-      const agentTranslation = this.getTranslation(callUuid, 'outbound');
-      const agentLanguage = this.getDetectedLanguage(callUuid, 'outbound');
+      // Inbound: caller = inbound (Farmer), agent = outbound (Agent)
+      // Outbound: caller = outbound (Farmer), agent = inbound (Agent)
+      const callerTrack = isOutbound ? 'outbound' : 'inbound';
+      const agentTrack = isOutbound ? 'inbound' : 'outbound';
+
+      const callerTranscript = this.getTranscript(callUuid, callerTrack);
+      const callerTranslation = this.getTranslation(callUuid, callerTrack);
+      const callerLanguage = this.getDetectedLanguage(callUuid, callerTrack);
+
+      const agentTranscript = this.getTranscript(callUuid, agentTrack);
+      const agentTranslation = this.getTranslation(callUuid, agentTrack);
+      const agentLanguage = this.getDetectedLanguage(callUuid, agentTrack);
       const rawAgentUserId = this.getCallAgent(callUuid) || inMemoryMeta?.agentUserId;
       let agentUserIdObj: ObjectId | undefined = undefined;
       if (rawAgentUserId) {
@@ -505,8 +519,14 @@ export class PlivoService {
         }
       }
 
-      const fromNumber = plivoCall?.from || plivoCall?.fromNumber || plivoCall?.from_number || inMemoryMeta?.from;
-      const toNumber = plivoCall?.to || plivoCall?.toNumber || plivoCall?.to_number || inMemoryMeta?.to;
+      const myPlivoNumber = appConfig.plivo.plivo_number;
+      const fromNumber = isOutbound
+        ? (myPlivoNumber || inMemoryMeta?.from)
+        : (plivoCall?.from || plivoCall?.fromNumber || plivoCall?.from_number || inMemoryMeta?.from);
+      const toNumber = isOutbound
+        ? (inMemoryMeta?.to || plivoCall?.to || plivoCall?.toNumber || plivoCall?.to_number)
+        : (plivoCall?.to || plivoCall?.toNumber || plivoCall?.to_number || inMemoryMeta?.to);
+
       let duration = plivoCall?.duration || plivoCall?.callDuration || plivoCall?.totalDuration;
       if (duration !== undefined && duration !== null) {
         duration = Math.max(0, Math.round(Number(duration)));
@@ -515,7 +535,7 @@ export class PlivoService {
       }
 
       const status = plivoCall?.callState || plivoCall?.status || 'completed';
-      const direction = plivoCall?.callDirection || plivoCall?.direction || 'inbound';
+      const direction = isOutbound ? 'outbound' : (plivoCall?.callDirection || plivoCall?.direction || 'inbound');
 
       const callDetails = {
         callUuid,

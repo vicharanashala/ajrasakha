@@ -37,14 +37,18 @@ export const initWebSocket = (server: Server) => {
     let recipientCount = 0;
 
     Array.from(wss.clients).forEach((client: any) => {
-      if (client.readyState === 1) {
+      if (client.readyState === 1 && !client.isMediaStream) {
         const isTargetAgent = assignedAgentId && client.userId === assignedAgentId;
         const isAdminOrMod = client.userRole === 'admin' || client.userRole === 'moderator';
 
-        // Deliver only to the assigned call agent or verified admins/moderators
-        if (isTargetAgent || isAdminOrMod) {
-          client.send(JSON.stringify(payload));
-          recipientCount++;
+        // Deliver to the assigned call agent, verified admins/moderators, or authenticated frontend softphone clients
+        if (isTargetAgent || isAdminOrMod || Boolean(client.userId)) {
+          try {
+            client.send(JSON.stringify(payload));
+            recipientCount++;
+          } catch (sendErr) {
+            console.warn('[WEBSOCKET] Error sending message to client:', sendErr);
+          }
         }
       }
     });
@@ -56,6 +60,7 @@ export const initWebSocket = (server: Server) => {
     console.log('🔌 Plivo stream connected');
 
     (ws as any).isAlive = true;
+    (ws as any).isMediaStream = false;
     ws.on('pong', () => {
       (ws as any).isAlive = true;
     });
@@ -110,30 +115,34 @@ export const initWebSocket = (server: Server) => {
       }
 
       try {
-        const finalInboundTranscript = plivoService.getTranscript(callId.toString(), 'inbound');
-        const finalInboundTranslation = plivoService.getTranslation(callId.toString(), 'inbound');
-        const finalOutboundTranscript = plivoService.getTranscript(callId.toString(), 'outbound');
-        const finalOutboundTranslation = plivoService.getTranslation(callId.toString(), 'outbound');
+        const isOutbound = plivoService.getCallDirection(callId.toString()) === 'outbound';
+        const callerTrack = isOutbound ? 'outbound' : 'inbound';
+        const agentTrack = isOutbound ? 'inbound' : 'outbound';
 
-        console.log(`[BACKEND LOG] Complete Call Summary:`);
-        console.log(`Farmer: ${finalInboundTranscript} [Translation: ${finalInboundTranslation}]`);
-        console.log(`Expert: ${finalOutboundTranscript} [Translation: ${finalOutboundTranslation}]`);
+        const finalCallerTranscript = plivoService.getTranscript(callId.toString(), callerTrack);
+        const finalCallerTranslation = plivoService.getTranslation(callId.toString(), callerTrack);
+        const finalAgentTranscript = plivoService.getTranscript(callId.toString(), agentTrack);
+        const finalAgentTranslation = plivoService.getTranslation(callId.toString(), agentTrack);
+
+        console.log(`[BACKEND LOG] Complete Call Summary (${isOutbound ? 'Outbound' : 'Inbound'}):`);
+        console.log(`Farmer (${callerTrack}): ${finalCallerTranscript} [Translation: ${finalCallerTranslation}]`);
+        console.log(`Expert (${agentTrack}): ${finalAgentTranscript} [Translation: ${finalAgentTranslation}]`);
 
         sendTargeted(callId.toString(), {
           type: 'call_end',
           callId,
-          finalTranscript: `Farmer: ${finalInboundTranscript}\nExpert: ${finalOutboundTranscript}`,
-          originalText: `Farmer: ${finalInboundTranscript}\nExpert: ${finalOutboundTranscript}`,
-          translatedText: `Farmer: ${finalInboundTranslation}\nExpert: ${finalOutboundTranslation}`,
+          finalTranscript: `Farmer: ${finalCallerTranscript}\nExpert: ${finalAgentTranscript}`,
+          originalText: `Farmer: ${finalCallerTranscript}\nExpert: ${finalAgentTranscript}`,
+          translatedText: `Farmer: ${finalCallerTranslation}\nExpert: ${finalAgentTranslation}`,
           caller: {
-            transcript: finalInboundTranscript,
-            translation: finalInboundTranslation,
-            detectedLanguage: plivoService.getDetectedLanguage(callId.toString(), 'inbound')
+            transcript: finalCallerTranscript,
+            translation: finalCallerTranslation,
+            detectedLanguage: plivoService.getDetectedLanguage(callId.toString(), callerTrack)
           },
           agent: {
-            transcript: finalOutboundTranscript,
-            translation: finalOutboundTranslation,
-            detectedLanguage: plivoService.getDetectedLanguage(callId.toString(), 'outbound')
+            transcript: finalAgentTranscript,
+            translation: finalAgentTranslation,
+            detectedLanguage: plivoService.getDetectedLanguage(callId.toString(), agentTrack)
           },
           timestamp: new Date().toISOString()
         });
@@ -173,6 +182,7 @@ export const initWebSocket = (server: Server) => {
 
         if (msg.event === 'start') {
           isMediaStream = true;
+          (ws as any).isMediaStream = true;
           callId = msg.start.callId;
           console.log('📞 Call started:', msg.start);
 
