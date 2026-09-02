@@ -320,6 +320,21 @@ const CropNamesCell = ({
   );
 };
 
+/** Format an ISO timestamp for the management tables; "-" when missing/invalid. */
+const fmtAuditDate = (v?: string): string => {
+  if (!v) return "-";
+  const d = new Date(v);
+  return Number.isNaN(d.getTime())
+    ? "-"
+    : d.toLocaleString(undefined, {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+};
+
 const StructuredAliasesTable = ({
   aliases,
   onRemove,
@@ -497,7 +512,7 @@ const AliasManagerModal = ({
   return (
     <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent
-        className="sm:max-w-[560px] max-w-[95vw] h-[82vh] p-0 flex flex-col overflow-hidden gap-0"
+        className="w-[80vw] sm:max-w-[80vw] max-w-[95vw] h-[82vh] p-0 flex flex-col overflow-hidden gap-0"
         showCloseButton={false}
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -931,11 +946,11 @@ export const CropManagementModal = ({
   const renderCropTable = (items: ICropResponse[]) => (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-[48px_1fr_96px_80px] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Sl No", "Crop Name", "Aliases Count", "Manage Aliases"].map((h, i) => (
+      <div className="grid grid-cols-[48px_1fr_88px_150px_130px_150px_130px_80px] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
+        {["Sl No", "Crop Name", "Aliases", "Created At", "Created By", "Updated At", "Updated By", "Manage"].map((h, i) => (
           <div
             key={i}
-            className={`px-3 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${i === 2 || i === 3 ? "text-center" : ""}`}
+            className={`px-3 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${i === 2 || i === 7 ? "text-center" : ""}`}
           >
             {h}
           </div>
@@ -948,7 +963,7 @@ export const CropManagementModal = ({
         return (
           <div
             key={id}
-            className={`grid grid-cols-[48px_1fr_96px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
+            className={`grid grid-cols-[48px_1fr_88px_150px_130px_150px_130px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
               index < items.length - 1 ? "border-b border-gray-100 dark:border-gray-800/60" : ""
             }`}
           >
@@ -958,7 +973,10 @@ export const CropManagementModal = ({
             </div>
             {/* Crop Name */}
             <div className="px-3 py-2.5 min-w-0">
-              <span className="text-sm font-semibold text-gray-900 dark:text-white truncate block">
+              <span
+                title={item.name}
+                className="text-sm font-semibold text-gray-900 dark:text-white truncate block"
+              >
                 {item.name}
               </span>
             </div>
@@ -966,6 +984,42 @@ export const CropManagementModal = ({
             <div className="px-3 py-2.5 text-center">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {aliasCount}
+              </span>
+            </div>
+            {/* Created At */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={fmtAuditDate(item.createdAt)}
+                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
+              >
+                {fmtAuditDate(item.createdAt)}
+              </span>
+            </div>
+            {/* Created By */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={item.createdByName?.trim() || "-"}
+                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
+              >
+                {item.createdByName?.trim() || "-"}
+              </span>
+            </div>
+            {/* Updated At */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={fmtAuditDate(item.updatedAt)}
+                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
+              >
+                {fmtAuditDate(item.updatedAt)}
+              </span>
+            </div>
+            {/* Updated By */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={item.updatedByName?.trim() || "-"}
+                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
+              >
+                {item.updatedByName?.trim() || "-"}
               </span>
             </div>
             {/* Manage Aliases */}
@@ -988,11 +1042,11 @@ export const CropManagementModal = ({
   const renderChemicalTable = (items: ICropResponse[]) => (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-[48px_1fr_96px_100px_80px] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Sl No", "Chemical Name", "Aliases Count", "Status", "Manage Aliases"].map((h, i) => (
+      <div className="grid grid-cols-[48px_1fr_88px_92px_150px_130px_150px_130px_80px] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
+        {["Sl No", "Chemical Name", "Aliases", "Status", "Created At", "Created By", "Updated At", "Updated By", "Manage"].map((h, i) => (
           <div
             key={i}
-            className={`px-3 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${i === 2 || i === 4 ? "text-center" : ""}`}
+            className={`px-3 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${i === 2 || i === 8 ? "text-center" : ""}`}
           >
             {h}
           </div>
@@ -1006,7 +1060,7 @@ export const CropManagementModal = ({
         return (
           <div
             key={id}
-            className={`grid grid-cols-[48px_1fr_96px_100px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
+            className={`grid grid-cols-[48px_1fr_88px_92px_150px_130px_150px_130px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
               index < items.length - 1 ? "border-b border-gray-100 dark:border-gray-800/60" : ""
             }`}
           >
@@ -1016,7 +1070,10 @@ export const CropManagementModal = ({
             </div>
             {/* Chemical Name */}
             <div className="px-3 py-2.5 min-w-0">
-              <span className="text-sm font-semibold text-gray-900 dark:text-white truncate block">
+              <span
+                title={item.name}
+                className="text-sm font-semibold text-gray-900 dark:text-white truncate block"
+              >
                 {item.name}
               </span>
             </div>
@@ -1042,6 +1099,42 @@ export const CropManagementModal = ({
                 <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
               )}
             </div>
+            {/* Created At */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={fmtAuditDate(item.createdAt)}
+                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
+              >
+                {fmtAuditDate(item.createdAt)}
+              </span>
+            </div>
+            {/* Created By */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={item.createdByName?.trim() || "-"}
+                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
+              >
+                {item.createdByName?.trim() || "-"}
+              </span>
+            </div>
+            {/* Updated At */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={fmtAuditDate(item.updatedAt)}
+                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
+              >
+                {fmtAuditDate(item.updatedAt)}
+              </span>
+            </div>
+            {/* Updated By */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={item.updatedByName?.trim() || "-"}
+                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
+              >
+                {item.updatedByName?.trim() || "-"}
+              </span>
+            </div>
             {/* Manage Aliases */}
             <div className="px-3 py-2.5 flex items-center justify-center">
               <button
@@ -1062,11 +1155,11 @@ export const CropManagementModal = ({
   const renderOtherTable = (items: ICropResponse[]) => (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-[48px_1fr_100px_96px_80px] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Sl No", "Name", "Sub-Type", "Aliases Count", "Manage Aliases"].map((h, i) => (
+      <div className="grid grid-cols-[48px_1fr_92px_88px_150px_130px_150px_130px_80px] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
+        {["Sl No", "Name", "Sub-Type", "Aliases", "Created At", "Created By", "Updated At", "Updated By", "Manage"].map((h, i) => (
           <div
             key={i}
-            className={`px-3 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${i === 3 || i === 4 ? "text-center" : ""}`}
+            className={`px-3 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${i === 3 || i === 8 ? "text-center" : ""}`}
           >
             {h}
           </div>
@@ -1080,7 +1173,7 @@ export const CropManagementModal = ({
         return (
           <div
             key={id}
-            className={`grid grid-cols-[48px_1fr_100px_96px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
+            className={`grid grid-cols-[48px_1fr_92px_88px_150px_130px_150px_130px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
               index < items.length - 1 ? "border-b border-gray-100 dark:border-gray-800/60" : ""
             }`}
           >
@@ -1090,7 +1183,10 @@ export const CropManagementModal = ({
             </div>
             {/* Name */}
             <div className="px-3 py-2.5 min-w-0">
-              <span className="text-sm font-semibold text-gray-900 dark:text-white truncate block">
+              <span
+                title={item.name}
+                className="text-sm font-semibold text-gray-900 dark:text-white truncate block"
+              >
                 {item.name}
               </span>
             </div>
@@ -1104,6 +1200,42 @@ export const CropManagementModal = ({
             <div className="px-3 py-2.5 text-center">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {aliasCount}
+              </span>
+            </div>
+            {/* Created At */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={fmtAuditDate(item.createdAt)}
+                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
+              >
+                {fmtAuditDate(item.createdAt)}
+              </span>
+            </div>
+            {/* Created By */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={item.createdByName?.trim() || "-"}
+                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
+              >
+                {item.createdByName?.trim() || "-"}
+              </span>
+            </div>
+            {/* Updated At */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={fmtAuditDate(item.updatedAt)}
+                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
+              >
+                {fmtAuditDate(item.updatedAt)}
+              </span>
+            </div>
+            {/* Updated By */}
+            <div className="px-3 py-2.5 min-w-0">
+              <span
+                title={item.updatedByName?.trim() || "-"}
+                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
+              >
+                {item.updatedByName?.trim() || "-"}
               </span>
             </div>
             {/* Manage Aliases */}
@@ -1136,7 +1268,7 @@ export const CropManagementModal = ({
         }}
       >
         <DialogContent
-          className="sm:max-w-[540px] max-w-[95vw] h-[80vh] p-0 flex flex-col overflow-hidden gap-0"
+          className="w-[80vw] sm:max-w-[80vw] max-w-[95vw] h-[80vh] p-0 flex flex-col overflow-hidden gap-0"
           showCloseButton={false}
         >
           {/* ── Header ─────────────────────────────────────────────────────── */}
