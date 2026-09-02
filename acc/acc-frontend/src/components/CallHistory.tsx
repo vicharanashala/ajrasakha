@@ -269,7 +269,6 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
 
   // Pagination
   const [page, setPage] = useState(0);
-  const [totalCalls, setTotalCalls] = useState(0);
   const limit = 20;
 
   // Farmer Details
@@ -475,10 +474,6 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
         direction: directionFilter || undefined,
       });
       setCalls(data);
-      // Note: Backend doesn't return total count, so we'll estimate based on returned data
-      setTotalCalls(
-        data.length === limit ? (page + 2) * limit : (page + 1) * limit,
-      );
     } catch (err: any) {
       setError(err.message || "Failed to fetch call history");
       console.error("Error fetching call history:", err);
@@ -619,27 +614,46 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
     if (!callItem) return;
     const { from, to, farmerProfile } = callItem;
 
-    // Designated numbers or SIP URIs to filter out
-    const isInternal = (val: string) => {
+    // Helper to detect our call center helpline number (+918031150392) or internal SIP endpoints
+    const isOurNumberOrSip = (val: string) => {
       if (!val) return false;
+      const clean = String(val).replace(/[^\d]/g, "");
       const lower = String(val).toLowerCase();
       return (
         lower.startsWith("sip:") ||
         lower.includes("phone.plivo.com") ||
-        lower.includes("8031150392") ||
-        lower.includes("endpoint")
+        lower.includes("endpoint") ||
+        clean.includes("8031150392") ||
+        clean.includes("15551234567")
       );
     };
 
     let targetPhone = "";
-    if (from && !isInternal(from)) {
+    // If 'from' contains our number (+918031150392), redial the 'to' number
+    if (isOurNumberOrSip(from) && to && !isOurNumberOrSip(to)) {
+      targetPhone = to;
+    }
+    // If 'to' contains our number (+918031150392), redial the 'from' number
+    else if (isOurNumberOrSip(to) && from && !isOurNumberOrSip(from)) {
       targetPhone = from;
-    } else if (to && !isInternal(to)) {
+    }
+    // If 'from' is our number and 'to' is also present
+    else if (isOurNumberOrSip(from)) {
+      targetPhone = to || farmerProfile?.phoneNo || "";
+    }
+    // If 'to' is our number and 'from' is also present
+    else if (isOurNumberOrSip(to)) {
+      targetPhone = from || farmerProfile?.phoneNo || "";
+    }
+    // Fallback checks
+    else if (from && !isOurNumberOrSip(from)) {
+      targetPhone = from;
+    } else if (to && !isOurNumberOrSip(to)) {
       targetPhone = to;
     } else if (farmerProfile?.phoneNo) {
       targetPhone = farmerProfile.phoneNo;
     } else {
-      targetPhone = from || to || "";
+      targetPhone = to || from || "";
     }
 
     if (!targetPhone) {
@@ -1367,9 +1381,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
             {calls.length > 0 && (
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  Showing {page * limit + 1} to{" "}
-                  {Math.min((page + 1) * limit, totalCalls)} of {totalCalls}{" "}
-                  calls
+                  Showing {page * limit + 1} to {page * limit + calls.length} calls
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -1381,12 +1393,14 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                     <ChevronLeft className="h-4 w-4" />
                     Previous
                   </Button>
-                  <div className="text-sm">Page {page + 1}</div>
+                  <div className="text-sm font-medium px-2.5 py-1 bg-muted/60 dark:bg-zinc-800 rounded-md border text-zinc-900 dark:text-zinc-100">
+                    Page {page + 1}
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setPage((p) => p + 1)}
-                    disabled={calls.length < limit || loading}
+                    disabled={calls.length === 0 || loading}
                   >
                     Next
                     <ChevronRight className="h-4 w-4" />

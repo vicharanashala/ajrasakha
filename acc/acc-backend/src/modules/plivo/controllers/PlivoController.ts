@@ -549,9 +549,10 @@ export class PlivoController {
     callDetails?: any;
   }>> {
     try {
+      const requestedLimit = Number(limit) || 20;
       const plivoQuery: any = {
-        limit: limit,
-        offset: offset
+        limit: Math.min(Math.max(requestedLimit * 3, 60), 100),
+        offset: Number(offset)
       };
 
       if (startDate) plivoQuery.start_time = startDate;
@@ -776,7 +777,7 @@ export class PlivoController {
         })
       );
 
-      return finalMainCalls;
+      return finalMainCalls.slice(0, requestedLimit);
     } catch (error: any) {
       console.error('❌ Error fetching call history:', error);
       throw new InternalServerError('Failed to fetch call history');

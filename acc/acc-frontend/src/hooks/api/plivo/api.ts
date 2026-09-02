@@ -314,7 +314,7 @@ export class PlivoService {
       throw new Error('Failed to fetch call history: No response received');
     }
 
-    return mergeAndCleanCallHistory(response);
+    return Array.isArray(response) ? response : [];
   }
 
   async getFarmerByPhoneNo(phoneNo: string): Promise<CallFarmer | null> {
