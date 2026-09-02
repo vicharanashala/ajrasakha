@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, Clock, History, Mail, Phone, RefreshCw } from "lucide-react";
+import {
+  Bell,
+  Calendar1,
+  Clock,
+  History,
+  Mail,
+  Phone,
+  RefreshCw,
+} from "lucide-react";
 
 import { Button } from "@/components/atoms/button";
 import {
@@ -25,6 +33,21 @@ import {
 } from "./components/QuestionActivityModal";
 import { useNotifyUser } from "./hooks/useNotifyUser";
 import { useUserQuestionsData } from "./hooks/useUserQuestionData";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/atoms/select";
+import { format } from "date-fns";
+import { Calendar } from "@/components/atoms/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/atoms/popover";
+import type { DateRange } from "react-day-picker";
 
 interface UserQuestionsModalProps {
   open: boolean;
@@ -53,17 +76,30 @@ const UserQuestionsModal = ({
   const [customMessage, setCustomMessage] = useState(
     DEFAULT_NOTIFICATION_MESSAGE,
   );
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [limit, setLimit] = useState(12);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
+  const startDate = dateRange?.from
+    ? format(dateRange?.from, "yyyy-MM-dd")
+    : undefined;
+
+  const endDate = dateRange?.to
+    ? format(dateRange?.to, "yyyy-MM-dd")
+    : undefined;
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [user?.email, viewType]);
+  }, [user?.email, viewType, startDate, endDate]);
 
   const { data: fullData, isLoading } = useUserQuestionsData(
     user?.email || "",
     source as any,
     userType as any,
     currentPage,
-    10,
+    limit,
+    startDate,
+    endDate,
   );
   const queryClient = useQueryClient();
   const { mutate: notifyUser, isPending } = useNotifyUser();
@@ -165,80 +201,161 @@ const UserQuestionsModal = ({
           setTimelineModalOpen(true);
         }}
         headerActions={
-          <TooltipProvider>
-            <div className="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-8 w-8 rounded-full"
-                    onClick={() =>
-                      (window.location.href = `tel:+91${user?.farmerProfile?.phoneNo}`)
-                    }
-                  >
-                    <Phone className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Call User</p>
-                </TooltipContent>
-              </Tooltip>
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <div className="flex items-center justify-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 rounded-full"
+                      onClick={() =>
+                        (window.location.href = `tel:+91${user?.farmerProfile?.phoneNo}`)
+                      }
+                    >
+                      <Phone className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Call User</p>
+                  </TooltipContent>
+                </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-8 w-8 rounded-full"
-                    onClick={() =>
-                      (window.location.href = `mailto:${user?.email}`)
-                    }
-                  >
-                    <Mail className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Send Email</p>
-                </TooltipContent>
-              </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 rounded-full"
+                      onClick={() =>
+                        (window.location.href = `mailto:${user?.email}`)
+                      }
+                    >
+                      <Mail className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Send Email</p>
+                  </TooltipContent>
+                </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-8 w-8 rounded-full"
-                    onClick={() => setNotifyModalOpen(true)}
-                  >
-                    <Bell className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Send Notification</p>
-                </TooltipContent>
-              </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 rounded-full"
+                      onClick={() => setNotifyModalOpen(true)}
+                    >
+                      <Bell className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Send Notification</p>
+                  </TooltipContent>
+                </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-8 w-8 rounded-full"
-                    onClick={handleRefresh}
-                    title="Refresh"
-                  >
-                    <RefreshCw
-                      className={`h-3.5 w-3.5${isLoading ? " animate-spin" : ""}`}
-                    />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Refresh</p>
-                </TooltipContent>
-              </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 rounded-full"
+                      onClick={handleRefresh}
+                      title="Refresh"
+                    >
+                      <RefreshCw
+                        className={`h-3.5 w-3.5${isLoading ? " animate-spin" : ""}`}
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Refresh</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative">
+                      <Select
+                        value={limit.toString()}
+                        onValueChange={(value) => setLimit(Number(value))}
+                      >
+                        <SelectTrigger className="w-[85px] relative" size="sm">
+                          <SelectValue placeholder="Limit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[12, 25, 50, 100].map((v) => (
+                            <SelectItem key={v} value={v.toString()}>
+                              {v}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Items per page</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
+
+            <div className="relative">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8"
+                onClick={() => setCalendarOpen((prev) => !prev)}
+              >
+                <Calendar1 className="mr-2 h-4 w-4" />
+
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "dd MMM yyyy")} -{" "}
+                      {format(dateRange.to, "dd MMM yyyy")}
+                    </>
+                  ) : (
+                    format(dateRange.from, "dd MMM yyyy")
+                  )
+                ) : (
+                  "Select date range"
+                )}
+              </Button>
+
+              {calendarOpen && (
+                <div className="absolute right-0 top-full z-[100] mt-2 rounded-md border bg-background p-0 shadow-lg">
+                  <Calendar
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={(range) => {
+                      console.log("Selected range:", range);
+                      setDateRange(range);
+                    }}
+                    numberOfMonths={1}
+                    disabled={{ after: new Date() }}
+                  />
+
+                  {dateRange?.from && (
+                    <div className="border-t p-2">
+                      <Button
+                        variant="ghost"
+                        className="w-full"
+                        onClick={() => {
+                          setDateRange(undefined);
+                          setCalendarOpen(false);
+                        }}
+                      >
+                        Clear date range
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </TooltipProvider>
+          </div>
         }
       />
     </>

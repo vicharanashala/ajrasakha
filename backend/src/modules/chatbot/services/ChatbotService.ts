@@ -1669,85 +1669,91 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getUserQuestionsData(
-    userEmail: string,
-    source = 'annam',
-    userType = 'all',
-    page = 1,
-    limit = 10,
-  ) {
-    const user = await this.chatbotRepository.getUserData(userEmail, source);
+async getUserQuestionsData(
+  userEmail: string,
+  source = 'annam',
+  userType = 'all',
+  page = 1,
+  limit = 12,
+  startDate?: string,
+  endDate?: string,
+) {
+  const user = await this.chatbotRepository.getUserData(
+    userEmail,
+    source,
+  );
 
-    // Always fetch messages
-    const messages = await this.chatbotRepository.getUsersMessages(
-      userEmail,
-      source,
-      undefined,
-      userType,
-      page,
-      limit,
-    );
+  // Always fetch messages
+  const messages = await this.chatbotRepository.getUsersMessages(
+    userEmail,
+    source,
+    undefined,
+    userType,
+    page,
+    limit,
+    startDate,
+    endDate,
+  );
 
-    // No user found
-    if (!user) {
-      return {
-        questions: {
-          total: 0,
-          totalPages: 0,
-          currentPage: page,
-          limit,
-          items: [],
-        },
+  // No user found
+  if (!user) {
+    return {
+      questions: {
+        total: 0,
+        totalPages: 0,
+        currentPage: page,
+        limit,
+        items: [],
+      },
+      messages,
+    };
+  }
 
-        messages,
-      };
-    }
+  const threadIds = [];
 
-    const threadIds = []
-  // await this.chatbotRepository.getUserConversationIds(
-  //   user.userId,
-  //   source,
-  // );
+  // Extract messageIds
+  const messageIds = await this.chatbotRepository.getAllUserMessageIds(
+    userEmail,
+    source,
+    undefined,
+    startDate,
+    endDate,
+  );
 
-    // Extract messageIds
-    const messageIds = await this.chatbotRepository.getAllUserMessageIds(
-      userEmail,
-      source,
-    );
+  // No linked messages
+  if (!messageIds.length) {
+    return {
+      questions: {
+        total: 0,
+        totalPages: 0,
+        currentPage: page,
+        limit,
+        items: [],
+      },
+      messages,
+    };
+  }
 
-    // No linked messages
-    if (!messageIds.length) {
-      return {
-        questions: {
-          total: 0,
-          totalPages: 0,
-          currentPage: page,
-          limit,
-          items: [],
-        },
-
-        messages,
-      };
-    }
-
-    // Fetch questions using messageIds
-    const questions = await this.chatbotRepository.getUserQuestionsData(
-        {
+  // Fetch questions using messageIds
+  const questions = await this.chatbotRepository.getUserQuestionsData(
+    {
       threadIds,
       messageIds,
       userId: user.userId,
     },
-      source,
-      userType,
-      page,
-      limit,
-    );
+    source,
+    userType,
+    page,
+    limit,
+    startDate,
+    endDate,
+  );
 
-    return {
-      questions,
-      messages,
-    };
-  }
+  return {
+    questions,
+    messages,
+  };
+}
 
   async getUserMessageMetricDetails(
     userId: string,
