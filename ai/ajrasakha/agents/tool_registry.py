@@ -12,7 +12,6 @@ from ajrasakha.agents.daily_price_agent import daily_price
 from ajrasakha.agents.gdb_agent import gdb
 from ajrasakha.agents.schemes_agent import schemes
 from ajrasakha.agents.soil_agent import soil
-# from ajrasakha.agents.weather_agent import weather
 from ajrasakha.agents.new_weather_agent import new_weather  as weather
 
 logger = logging.getLogger(__name__)

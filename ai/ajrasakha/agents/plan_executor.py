@@ -38,8 +38,27 @@ ENABLE_CHEMICAL_CHECKER = False
 _SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 _GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
 _WEATHER_TOOL_NAMES = frozenset({"weather", "new_weather", "weather_server", "weather_weather_server"})
+_DAILY_PRICE_TOOL_NAMES = frozenset({"daily_price"})
+_MANDI_UNAVAILABLE_MARKERS = (
+    "mandi price data is not available",
+    "price data is not available",
+    "no price records",
+    "no markets_commodities entries matched",
+    "no linked markets found",
+)
+_MANDI_MISSING_MARKERS = (
+    "apmc not available",
+    "mandi not available",
+    "market not available",
+    "market not found",
+)
+class MandiUnavailableContext(NamedTuple):
+    """Catalog fallback inputs derived from a failed daily-price result."""
 
-
+    reason: str
+    crop_name: str
+    mandi_name: str
+    
 def _compute_tools_used(plan: PlannerPlan) -> list[str]:
     """Compute the list of tools used based on plan flags.
     
