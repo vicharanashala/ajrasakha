@@ -507,6 +507,7 @@ class SimilarQuestionResponse(BaseModel):
     is_present: bool
     present_status: Optional[str] = None
     present_question_id: Optional[str] = None
+    present_question_text: Optional[str] = None
     present_answer_text: Optional[str] = None
     present_sources: list = Field(default_factory=list)
     present_author: Optional[str] = None
@@ -567,6 +568,7 @@ async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
             is_present=result["is_present"],
             present_status=result.get("present_status"),
             present_question_id=result.get("present_question_id"),
+            present_question_text=result.get("present_question_text"),
             present_answer_text=result.get("present_answer_text"),
             present_sources=result.get("present_sources", []),
             present_author=result.get("present_author"),
