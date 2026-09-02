@@ -431,6 +431,12 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
     // Approving/closing frees any gate keeper / auditor on the question — run the role
     // queue so that freed assignee immediately picks up their next queued question.
     this.triggerRoleQueueAllocation('approveAnswer');
+
+    // Approving/closing a question frees its moderator (removeAssignedQuestionFromAllModerators
+    // above, committed) — run the moderator queue so that moderator immediately picks up
+    // their next in-review/pae_submitted question. Fire-and-forget; can't affect approval.
+    this.questionService.triggerModeratorQueueAllocation('approveAnswer');
+
     return approveResult;
   }
 

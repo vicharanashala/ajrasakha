@@ -35,6 +35,7 @@ import {
 import {resolveExpertMeta} from './helpers/reportHelpers.js';
 import {submissionToQueueItem} from './helpers/queueItem.js';
 import {IRoleAssigneeService} from '../interfaces/IRoleAssigneeService.js';
+import {IModeratorQueueService} from '../interfaces/IModeratorQueueService.js';
 
 /** Guard so the feedback-allocation cron never runs two passes concurrently. */
 let isReallocatingFeedback = false;
@@ -71,6 +72,8 @@ export class FeedbackService extends BaseService {
 
     @inject(GLOBAL_TYPES.RoleAssigneeService)
     private readonly roleAssigneeService: IRoleAssigneeService,
+    @inject(GLOBAL_TYPES.ModeratorQueueService)
+    private readonly moderatorQueueService: IModeratorQueueService,
 
     @inject(GLOBAL_TYPES.Database)
     mongoDatabase: MongoDatabase,
@@ -90,6 +93,21 @@ export class FeedbackService extends BaseService {
       .catch(err =>
         console.error(
           `[${context}] event-driven gate-keeper/auditor allocation failed:`,
+           err?.message,
+        ),
+      );
+  }
+/*
+   * Event-driven moderator-queue allocation (replaces the periodic moderator cron).
+   * Call after a reviewer is freed from a feedback so they can immediately pick up a
+   * moderation question. Fire-and-forget and idempotent — never affects the caller.
+   */
+  private triggerModeratorQueueAllocation(context: string): void {
+    void this.moderatorQueueService
+      .runModeratorQueueCron()
+      .catch(err =>
+        console.error(
+          `[${context}] event-driven moderator-queue allocation failed:`,
           err?.message,
         ),
       );
@@ -409,6 +427,9 @@ export class FeedbackService extends BaseService {
         // gate-keeper / auditor queue so a freed auditor immediately picks up an
         // auditor_review question instead of waiting for the periodic cron.
         this.triggerRoleQueueAllocation('handleFeedbackAction');
+        // Reviewer is now free of this feedback — fill the moderator queue so they can
+        // immediately receive a moderation question (replaces the periodic cron).
+        this.triggerModeratorQueueAllocation('handleFeedbackAction');
       }
 
       return {
@@ -543,6 +564,9 @@ export class FeedbackService extends BaseService {
         // gate-keeper / auditor queue so a freed auditor immediately picks up an
         // auditor_review question instead of waiting for the periodic cron.
         this.triggerRoleQueueAllocation('handleFeedbackAction');
+        // Reviewer is now free of this feedback — fill the moderator queue so they can
+        // immediately receive a moderation question (replaces the periodic cron).
+        this.triggerModeratorQueueAllocation('handleFeedbackAction');
       }
 
       return {
