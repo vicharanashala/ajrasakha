@@ -81,6 +81,10 @@ class AccAgentState(TypedDict):
     extracted_block: Optional[str]
     extracted_primary_crop: Optional[str]
     extracted_secondary_crops: list[str]
+    extracted_language_preference: Optional[str]
+    extracted_years_of_experience: Optional[int]
+    extracted_highest_education: Optional[str]
+    extracted_smartphones_at_home: Optional[int]
 
     # Verification and location
     location: Optional[Location]
@@ -108,9 +112,10 @@ or both. It normalizes the requested extraction mode and sets
 
 Query extraction includes a concise question, state, district, crop, and one or
 more standardized domains. Farmer-profile extraction includes name, phone, age,
-gender, village, block, and primary/secondary crops when explicitly stated.
-Unknown profile values are `null`; `secondary_crops` is always an array and
-never repeats the primary crop.
+gender, village, block, primary/secondary crops, preferred language, farming
+experience, the farmer's highest education, and smartphone count at home when
+explicitly stated. Unknown profile values are `null`; `secondary_crops` is
+always an array and never repeats the primary crop.
 
 ### 2. Official location normalization
 
