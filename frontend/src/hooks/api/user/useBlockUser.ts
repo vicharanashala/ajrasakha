@@ -11,7 +11,12 @@ export const useBlockUser = () => {
     mutationFn: async ({userId,action}: {userId:string,action:string}) => {
      return await userService.isBlockUser(userId,action)
     },
-    onSuccess: async () => {
+    onMutate: () => {
+      return {
+        toastId: toast.loading("Updating user..."),
+      };
+    },
+    onSuccess: async (_, __, context) => {
       // Refresh admin users list
       await queryClient.invalidateQueries({
         queryKey: ["admin"],
@@ -48,10 +53,12 @@ export const useBlockUser = () => {
         exact: false,
       });
 
+      toast.dismiss(context?.toastId);
       toast.success("User updated successfully");
     },
-    onError: (error: any) => {
+    onError: (error: any, _, context) => {
       console.error("Error blocking/unblocking user:", error);
+      toast.dismiss(context?.toastId);
       toast.error(error?.message || `Failed to block or unblock user`);
     },
   });
