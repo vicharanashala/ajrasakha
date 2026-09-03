@@ -63,6 +63,24 @@ export interface IBulkUploadCropResponse {
   isBulkUpload: true;
 }
 
+export interface IBulkJobResult {
+  name: string;
+  status: string; // created | updated | skipped | failed
+  reason: string;
+}
+
+export interface IBulkJobStatus {
+  id: string;
+  totalRows: number;
+  totalCrops: number;
+  processed: number;
+  created: number;
+  updated: number;
+  status: "running" | "completed" | "failed";
+  errors: string[];
+  results: IBulkJobResult[];
+}
+
 export class CropService {
   private _baseUrl = `${API_BASE_URL}/crops`;
 
@@ -88,6 +106,10 @@ export class CropService {
       method: "POST",
       body: formData,
     });
+  }
+
+  async getBulkJobStatus(jobId: string): Promise<IBulkJobStatus | null> {
+    return apiFetch<IBulkJobStatus>(`${this._baseUrl}/bulk-status/${jobId}`);
   }
 
   async downloadList(type: 'crop' | 'chemical'): Promise<Blob> {

@@ -30,7 +30,11 @@ import { ConfirmationModal } from "@/components/confirmation-modal";
 import { SampleCsvButton } from "./SampleCsvButton";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useBulkUploadCrops } from "@/hooks/api/crop/useBulkUploadCrops";
-import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
+import { CropService } from "@/hooks/services/cropService";
+import type { ICropAlias, ICropResponse, IBulkJobResult } from "@/hooks/services/cropService";
+import { BulkResultsModal } from "./BulkResultsModal";
+
+const cropServiceForStatus = new CropService();
 import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
 
 type EntryType = "crop" | "chemical" | "other";
@@ -943,6 +947,38 @@ export const CropManagementModal = ({
 
   const handleBulkUploadClick = () => fileInputRef.current?.click();
 
+  // ── Bulk-upload results (shown once, downloadable, not stored) ──────────────
+  const [bulkResults, setBulkResults] = useState<IBulkJobResult[]>([]);
+  const [bulkResultsOpen, setBulkResultsOpen] = useState(false);
+  const [bulkResultsType, setBulkResultsType] = useState<"crop" | "chemical">("crop");
+  const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+
+  // Poll the job until it finishes, then surface the per-entry results modal.
+  const pollBulkJob = (jobId: string, type: "crop" | "chemical") => {
+    const startedAt = Date.now();
+    setIsProcessingBulk(true);
+    const tick = async () => {
+      try {
+        const status = await cropServiceForStatus.getBulkJobStatus(jobId);
+        if (status && status.status !== "running") {
+          setBulkResults(status.results ?? []);
+          setBulkResultsType(type);
+          setBulkResultsOpen(true);
+          setIsProcessingBulk(false);
+          return;
+        }
+      } catch {
+        /* transient — keep polling until timeout */
+      }
+      if (Date.now() - startedAt < 5 * 60 * 1000) {
+        setTimeout(tick, 1500);
+      } else {
+        setIsProcessingBulk(false);
+      }
+    };
+    tick();
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -956,10 +992,12 @@ export const CropManagementModal = ({
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
+    const type = entryType as "crop" | "chemical";
     try {
-      const res = await bulkUploadCrops({ file, type: entryType as "crop" | "chemical" });
+      const res = await bulkUploadCrops({ file, type });
       if (res?.success) {
-        toast.success(`${res.count} rows are being processed in the background. The list will refresh shortly.`);
+        toast.success(`${res.count} rows are being processed. Results will show shortly.`);
+        if (res.jobId) pollBulkJob(res.jobId, type);
       }
     } catch (err: any) {
       toast.error(err?.message || "Failed to upload CSV");
@@ -1524,7 +1562,7 @@ export const CropManagementModal = ({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={(entryType !== "crop" && entryType !== "chemical") || isBulkUploading}
+                      disabled={(entryType !== "crop" && entryType !== "chemical") || isBulkUploading || isProcessingBulk}
                       className={`h-8 text-xs gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
                         entryType === "chemical"
                           ? "border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10"
@@ -1532,12 +1570,18 @@ export const CropManagementModal = ({
                       }`}
                       onClick={handleBulkUploadClick}
                     >
-                      {isBulkUploading ? (
+                      {isBulkUploading || isProcessingBulk ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <Upload className="h-3.5 w-3.5" />
                       )}
-                      {isBulkUploading ? "Uploading..." : entryType === "chemical" ? "Bulk Upload Chemicals" : "Bulk Upload Crops"}
+                      {isBulkUploading
+                        ? "Uploading..."
+                        : isProcessingBulk
+                          ? "Processing..."
+                          : entryType === "chemical"
+                            ? "Bulk Upload Chemicals"
+                            : "Bulk Upload Crops"}
                     </Button>
                     <SampleCsvButton entryType={entryType} />
                   </div>
@@ -1915,6 +1959,13 @@ export const CropManagementModal = ({
           onClose={() => setAliasManagerCrop(null)}
         />
       )}
+
+      <BulkResultsModal
+        open={bulkResultsOpen}
+        onClose={() => setBulkResultsOpen(false)}
+        results={bulkResults}
+        type={bulkResultsType}
+      />
     </>
   );
 };
