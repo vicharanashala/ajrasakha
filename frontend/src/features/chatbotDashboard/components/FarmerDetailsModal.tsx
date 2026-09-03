@@ -175,7 +175,9 @@ export function FarmerDetailsModal({
   onVerificationChange,
 }: FarmerDetailsModalProps) {
   const fp = user?.farmerProfile;
-  const isUserVerified = user?.isVerified ?? true;
+  // Default to `false` (not verified) when the field is missing so a
+  // stale/undefined user object does not silently hide the verify action.
+  const isUserVerified = user?.isVerified ?? false;
   const activeSessionCount = user?.activeSessionCount ?? 0;
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
