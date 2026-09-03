@@ -27,6 +27,7 @@ import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 import { useUpdateCrop } from "@/hooks/api/crop/useUpdateCrop";
 import { CropAuditTrailModal } from "./CropAuditTrailModal";
 import { ConfirmationModal } from "@/components/confirmation-modal";
+import { SampleCsvButton } from "./SampleCsvButton";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useBulkUploadCrops } from "@/hooks/api/crop/useBulkUploadCrops";
 import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
@@ -1519,24 +1520,27 @@ export const CropManagementModal = ({
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-between pt-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={(entryType !== "crop" && entryType !== "chemical") || isBulkUploading}
-                    className={`h-8 text-xs gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
-                      entryType === "chemical"
-                        ? "border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10"
-                        : "border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
-                    }`}
-                    onClick={handleBulkUploadClick}
-                  >
-                    {isBulkUploading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Upload className="h-3.5 w-3.5" />
-                    )}
-                    {isBulkUploading ? "Uploading..." : entryType === "chemical" ? "Bulk Upload Chemicals" : "Bulk Upload Crops"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={(entryType !== "crop" && entryType !== "chemical") || isBulkUploading}
+                      className={`h-8 text-xs gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        entryType === "chemical"
+                          ? "border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10"
+                          : "border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                      }`}
+                      onClick={handleBulkUploadClick}
+                    >
+                      {isBulkUploading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5" />
+                      )}
+                      {isBulkUploading ? "Uploading..." : entryType === "chemical" ? "Bulk Upload Chemicals" : "Bulk Upload Crops"}
+                    </Button>
+                    <SampleCsvButton entryType={entryType} />
+                  </div>
                   <input
                     ref={fileInputRef}
                     type="file"
