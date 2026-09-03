@@ -54,6 +54,7 @@ export function AnswerModeSwitcher({
     handleAnswerModeChange,
     currentUserIsTrainingUser = false,
     currentUserIsAdmin = false,
+    canViewTraining = false,
     hasSearch = false,
     sourceCounts,
     totalSearchCount,
@@ -67,6 +68,7 @@ export function AnswerModeSwitcher({
     handleAnswerModeChange: (mode: Mode) => void;
     currentUserIsTrainingUser?: boolean;
     currentUserIsAdmin?: boolean;
+    canViewTraining?: boolean;
     hasSearch?: boolean;
     sourceCounts?: { source: string; count: number }[];
     totalSearchCount?: number;
@@ -85,7 +87,7 @@ export function AnswerModeSwitcher({
     const [glider, setGlider] = useState({ left: 0, width: 0 });
     const visibleModes = currentUserIsTrainingUser
         ? MODES.filter((mode) => mode.id === "training")
-        : currentUserIsAdmin
+        : (currentUserIsAdmin || canViewTraining)
             ? MODES
             : MODES.filter((mode) => mode.id !== "training");
 
