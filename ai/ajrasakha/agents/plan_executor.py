@@ -337,6 +337,10 @@ def _daily_price_unavailable_context(
     else:
         answer = text
 
+    if isinstance(tool_data, dict) and answer:
+        if (tool_data.get("nearby_markets") or {}).get("price_records"):
+            return None
+
     diagnostic = " ".join(
         part
         for part in (
