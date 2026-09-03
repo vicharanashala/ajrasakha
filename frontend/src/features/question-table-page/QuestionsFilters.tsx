@@ -764,6 +764,7 @@ export const QuestionsFilters = ({
         }}
         currentUserIsTrainingUser={isTrainingUser}
         currentUserIsAdmin={userRole === "admin"}
+        canViewTraining={userRole === "auditor" || userRole === "gate_keeper"}
         hasSearch={!!search}
         sourceCounts={statusSummary?.sourceCounts}
         totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
