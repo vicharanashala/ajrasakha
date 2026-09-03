@@ -233,6 +233,9 @@ async def translate_answer_node(
             two_hour_disclaimer = get_two_hour_disclaimer(script, vocal)
             content = f"{content.rstrip()}\n\n{two_hour_disclaimer}"
         
+        from ajrasakha.agents.tool_output_formatters import _ensure_weather_answer_spacing
+        content = _ensure_weather_answer_spacing(content)
+
         trace_event(
             "translate_answer_final",
             content_preview=content[:2000],

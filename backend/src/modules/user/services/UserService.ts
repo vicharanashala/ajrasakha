@@ -33,6 +33,7 @@ import { appConfig } from '#root/config/app.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
+import { IModeratorQueueService } from '#root/modules/question/interfaces/IModeratorQueueService.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -57,6 +58,9 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.RoleAssigneeService)
     private readonly roleAssigneeService: IRoleAssigneeService,
+
+    @inject(GLOBAL_TYPES.ModeratorQueueService)
+    private readonly moderatorQueueService: IModeratorQueueService,
   ) {
     super(mongoDatabase);
   }
@@ -411,6 +415,18 @@ export class UserService extends BaseService {
             ),
           );
       }
+      // Switching a user INTO the moderator role adds a new available moderator — fill the
+      // moderator queue now so they immediately receive an in-review question.
+      if (changeRoleTo === 'moderator') {
+        void this.moderatorQueueService
+          .runModeratorQueueCron()
+          .catch(err =>
+            console.error(
+              '[updateUserRole] event-driven moderator-queue allocation failed:',
+              err?.message,
+            ),
+          );
+      }
 
       return result;
     } catch (error) {
@@ -691,15 +707,26 @@ export class UserService extends BaseService {
     // Fire-and-forget and idempotent, so it can't affect the unblock result.
     if (action !== 'block') {
       const unblocked = await this.userRepo.findById(userId);
-      if (
-        unblocked?.role === 'gate_keeper' ||
-        unblocked?.role === 'auditor'
-      ) {
+      const role = unblocked?.role;
+      if (role === 'gate_keeper' || role === 'auditor') {
         void this.roleAssigneeService
           .runGateKeeperAuditorQueueCron()
           .catch(err =>
             console.error(
               '[blockUnblockExperts] event-driven gate-keeper/auditor allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+      // A moderator (or auditor) unblocked becomes available for the moderator queue
+      // (findAvailableStfModeratorsForSources excludes isBlocked) — fill it now so they
+      // immediately receive an in-review question instead of waiting for the cron.
+      if (role === 'moderator' || role === 'auditor') {
+        void this.moderatorQueueService
+          .runModeratorQueueCron()
+          .catch(err =>
+            console.error(
+              '[blockUnblockExperts] event-driven moderator-queue allocation failed:',
               err?.message,
             ),
           );
