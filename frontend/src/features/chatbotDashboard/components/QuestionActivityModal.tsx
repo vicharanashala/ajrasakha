@@ -101,6 +101,7 @@ interface QuestionActivityModalProps {
   duplicateGroups?: QuestionDuplicateGroup[];
   tableContent?: ReactNode;
   footerContent?: ReactNode;
+  paginationActions?: ReactNode;
   showCloseButton?: boolean;
   isLoading?: boolean;
   totalCount?: number | string;
@@ -449,6 +450,7 @@ export function QuestionActivityModal({
   duplicateGroups = [],
   tableContent,
   footerContent,
+  paginationActions,
   showCloseButton = false,
   isLoading = false,
   totalCount = 0,
@@ -657,16 +659,19 @@ export function QuestionActivityModal({
               Page {currentPage} of {totalPages}
             </span>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 rounded-lg"
-              disabled={currentPage === totalPages}
-              onClick={() => onPageChange(currentPage + 1)}
-            >
-              Next
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              {paginationActions}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 rounded-lg"
+                disabled={currentPage === totalPages}
+                onClick={() => onPageChange(currentPage + 1)}
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         )}
       </DialogContent>

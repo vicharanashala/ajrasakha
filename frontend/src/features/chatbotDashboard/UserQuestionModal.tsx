@@ -85,7 +85,7 @@ const UserQuestionsModal = ({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [user?.email, viewType, startDate, endDate]);
+  }, [user?.email, viewType, startDate, endDate, limit]);
 
   const { data: fullData, isLoading } = useUserQuestionsData(
     user?.email || "",
@@ -269,31 +269,6 @@ const UserQuestionsModal = ({
                     <p>Refresh</p>
                   </TooltipContent>
                 </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="relative">
-                      <Select
-                        value={limit.toString()}
-                        onValueChange={(value) => setLimit(Number(value))}
-                      >
-                        <SelectTrigger className="w-[85px] relative" size="sm">
-                          <SelectValue placeholder="Limit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[12, 25, 50, 100].map((v) => (
-                            <SelectItem key={v} value={v.toString()}>
-                              {v}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Items per page</p>
-                  </TooltipContent>
-                </Tooltip>
               </div>
             </TooltipProvider>
 
@@ -351,6 +326,26 @@ const UserQuestionsModal = ({
               )}
             </div>
           </div>
+        }
+        paginationActions={
+          <>
+            <span className="text-xs text-muted-foreground">Items per page</span>
+            <Select
+              value={limit.toString()}
+              onValueChange={(value) => setLimit(Number(value))}
+            >
+              <SelectTrigger className="w-[85px]" size="sm">
+                <SelectValue placeholder="Limit" />
+              </SelectTrigger>
+              <SelectContent>
+                {[12, 25, 50, 100].map((v) => (
+                  <SelectItem key={v} value={v.toString()}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
         }
       />
     </>
