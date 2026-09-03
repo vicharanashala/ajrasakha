@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GDB Coverage Gap Detector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1C1917;
+    --panel: #262220;
+    --panel-border: #38332F;
+    --text: #F5F1EA;
+    --text-muted: #A69C8F;
+    --gap-red: #C1440E;
+    --coverage-green: #6B8E4E;
+    --growth-gold: #D4A017;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  /* ---- Hero ---- */
+  .hero { margin-bottom: 56px; }
+  .hero-eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--growth-gold);
+    margin: 0 0 14px;
+  }
+  .hero-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(28px, 4.2vw, 44px);
+    line-height: 1.15;
+    margin: 0 0 18px;
+    max-width: 760px;
+  }
+  .hero-title .accent { color: var(--gap-red); font-style: italic; }
+  .hero-sub {
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 620px;
+    margin: 0;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+  .status-pill.live .status-dot { background: var(--coverage-green); }
+  .status-pill.synthetic .status-dot { background: var(--growth-gold); }
+
+  /* ---- Section headers ---- */
+  .section { margin-bottom: 56px; }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--panel-border);
+    padding-bottom: 14px;
+  }
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-size: 21px;
+    font-weight: 500;
+    margin: 0;
+  }
+  .section-note {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* ---- Gap report table ---- */
+  .gap-row {
+    display: grid;
+    grid-template-columns: 40px 1fr auto auto;
+    gap: 16px;
+    align-items: center;
+    padding: 16px 4px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .gap-rank {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .gap-main .gap-crop-line {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .gap-crop-line .domain-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 400;
+    font-size: 11px;
+    color: var(--text-muted);
+    border: 1px solid var(--panel-border);
+    padding: 2px 7px;
+    border-radius: 5px;
+    margin-left: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .gap-sample {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .gap-count {
+    text-align: right;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .gap-count .num { font-size: 20px; font-weight: 500; }
+  .gap-count .label { display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .growth-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 4px 9px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .growth-badge.up { background: rgba(212,160,23,0.15); color: var(--growth-gold); }
+  .growth-badge.flat { background: rgba(166,156,143,0.12); color: var(--text-muted); }
+
+  /* ---- Heatmap (signature element: field-grid styling) ---- */
+  .heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  .plot {
+    border-radius: 6px;
+    padding: 14px 14px 12px;
+    border: 1px solid var(--panel-border);
+    position: relative;
+    overflow: hidden;
+    min-height: 88px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .plot .plot-crop { font-size: 13px; font-weight: 600; z-index: 1; }
+  .plot .plot-state { font-size: 11px; color: var(--text-muted); z-index: 1; }
+  .plot .plot-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px;
+    z-index: 1;
+    align-self: flex-end;
+  }
+  .heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .legend-swatch { width: 60px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--coverage-green), var(--growth-gold), var(--gap-red)); }
+
+  /* ---- Footer note ---- */
+  .footnote {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    border-top: 1px solid var(--panel-border);
+    padding-top: 20px;
+    max-width: 700px;
+  }
+  .loading, .error { color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 20px 4px; }
+  .error { color: var(--gap-red); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <p class="hero-eyebrow">GDB Coverage Gap Detector</p>
+    <h1 class="hero-title" id="heroTitle">Loading today's gap signal&hellip;</h1>
+    <p class="hero-sub">Every disclaimer shown to a farmer is a gap the Golden Database hasn't filled yet. This groups those moments by crop, state, and question, so the review pipeline can grow the GDB where it matters most — not just where someone happened to notice.</p>
+    <div class="status-pill" id="statusPill"><span class="status-dot"></span><span id="statusText">Connecting&hellip;</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h2 class="section-title">Weekly Gap Report</h2>
+      <span class="section-note" id="gapMeta"></span>
+    </div>
+    <div id="gapReportBody"><div class="loading">Fetching ranked gaps&hellip;</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h2 class="section-title">Coverage Heatmap</h2>
+      <span class="section-note">crop × state, true coverage % (GDB entries vs. open gaps)</span>
+    </div>
+    <div id="heatmapBody"><div class="loading">Fetching heatmap&hellip;</div></div>
+    <div class="heatmap-legend">
+      <span>worst covered</span>
+      <span class="legend-swatch"></span>
+      <span>fully covered</span>
+    </div>
+  </div>
+
+  <p class="footnote">
+    Coverage % = existing GDB entries ÷ (GDB entries + open gap questions) for that crop/state pair —
+    a true ratio, not just raw gap volume. This distinguishes a large-but-partially-served gap
+    (e.g. 42 gap questions against 40 existing entries, ~49% covered) from a small-but-severe one
+    (e.g. 14 gap questions against just 2 entries, ~13% covered) — something gap volume alone can't tell apart.
+  </p>
+
+</div>
+
+<script>
+  const API_BASE = "http://127.0.0.1:8000";
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function intensityColor(intensity) {
+    // 0 = coverage-green, 0.5 = growth-gold, 1 = gap-red
+    const stops = [
+      { at: 0.0, c: [107, 142, 78] },
+      { at: 0.5, c: [212, 160, 23] },
+      { at: 1.0, c: [193, 68, 14] },
+    ];
+    let a, b;
+    if (intensity <= 0.5) { a = stops[0]; b = stops[1]; }
+    else { a = stops[1]; b = stops[2]; }
+    const span = b.at - a.at;
+    const t = span === 0 ? 0 : (intensity - a.at) / span;
+    const rgb = a.c.map((v, i) => Math.round(v + (b.c[i] - v) * t));
+    return `rgb(${rgb.join(",")})`;
+  }
+
+  async function loadStatus() {
+    try {
+      const res = await fetch(`${API_BASE}/api/health`);
+      const data = await res.json();
+      const pill = document.getElementById("statusPill");
+      const text = document.getElementById("statusText");
+      if (data.using_real_db) {
+        pill.classList.add("live");
+        text.textContent = "Connected — live production data";
+      } else {
+        pill.classList.add("synthetic");
+        text.textContent = "Demo mode — synthetic data (set MONGODB_URI for live data)";
+      }
+    } catch (e) {
+      document.getElementById("statusText").textContent = "Backend unreachable — is uvicorn running?";
+    }
+  }
+
+  async function loadGapReport() {
+    const body = document.getElementById("gapReportBody");
+    try {
+      const res = await fetch(`${API_BASE}/api/gap-report?top_n=20`);
+      const data = await res.json();
+      document.getElementById("gapMeta").textContent =
+        `${data.total_disclaimer_questions_analyzed} questions analyzed · ${data.gaps_found} gaps found`;
+
+      if (data.report.length === 0) {
+        body.innerHTML = `<div class="loading">No coverage gaps detected in the current window.</div>`;
+        document.getElementById("heroTitle").textContent = "No active coverage gaps right now.";
+        return;
+      }
+
+      const top = data.report[0];
+      document.getElementById("heroTitle").innerHTML =
+        `<span class="accent">${top.farmer_count} farmers</span> keep asking about ${escapeHtml(top.crop.toLowerCase())} ${escapeHtml(top.domain.toLowerCase())} in ${escapeHtml(top.state)} — and the GDB still can't answer.`;
+
+      body.innerHTML = data.report.map(row => {
+        const growing = row.growth_rate > 1.15;
+        return `
+          <div class="gap-row">
+            <div class="gap-rank">${String(row.rank).padStart(2, "0")}</div>
+            <div class="gap-main">
+              <div class="gap-crop-line">${escapeHtml(row.crop)} · ${escapeHtml(row.state)}<span class="domain-tag">${escapeHtml(row.domain)}</span></div>
+              <div class="gap-sample">"${escapeHtml(row.sample_questions[0] || "")}"</div>
+            </div>
+            <div class="growth-badge ${growing ? "up" : "flat"}">${growing ? "↑" : "→"} ${row.growth_rate}×</div>
+            <div class="gap-count">
+              <span class="num">${row.farmer_count}</span>
+              <span class="label">farmers</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    } catch (e) {
+      body.innerHTML = `<div class="error">Could not load the gap report. Is the backend running on ${API_BASE}?</div>`;
+    }
+  }
+
+  async function loadHeatmap() {
+    const body = document.getElementById("heatmapBody");
+    try {
+      const res = await fetch(`${API_BASE}/api/heatmap`);
+      const data = await res.json();
+      if (data.cells.length === 0) {
+        body.innerHTML = `<div class="loading">No heatmap data yet.</div>`;
+        return;
+      }
+      body.innerHTML = `<div class="heatmap-grid">` + data.cells.map(cell => {
+        const color = intensityColor(cell.gap_intensity);
+        return `
+          <div class="plot" style="background: linear-gradient(160deg, ${color}33, ${color}14); border-color: ${color}55;">
+            <div>
+              <div class="plot-crop">${escapeHtml(cell.domain)}</div>
+              <div class="plot-state">${escapeHtml(cell.state)}</div>
+              <div class="plot-state" style="margin-top:4px;">${cell.gap_count} gaps · ${cell.gdb_entry_count} in GDB</div>
+            </div>
+            <div class="plot-count" style="color: ${color};">${cell.coverage_pct}%</div>
+          </div>
+        `;
+      }).join("") + `</div>`;
+    } catch (e) {
+      body.innerHTML = `<div class="error">Could not load the heatmap.</div>`;
+    }
+  }
+
+  loadStatus();
+  loadGapReport();
+  loadHeatmap();
+</script>
+</body>
+</html>
