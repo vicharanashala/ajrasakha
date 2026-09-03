@@ -129,6 +129,7 @@ def run_mock_case(case: dict) -> dict:
         "response_text": response_text[:500],
         "full_response_text": response_text,
         "retrieved_context": [],
+        "reference_answer": case.get("expected_answer"),
         "error": "",
         "trace": trace,
     }
@@ -263,6 +264,7 @@ def run_live_case(case: dict) -> dict:
 
     final_answer = extract_final_ai_answer(extraction_source)
     contexts = extract_retrieved_contexts(extraction_source)
+    gdb_ref = extract_gdb_reference_answer(extraction_source)
 
     return {
         "name": case.get("name"),
@@ -275,6 +277,7 @@ def run_live_case(case: dict) -> dict:
         "response_text": final_answer[:500],
         "full_response_text": final_answer,
         "retrieved_context": contexts,
+        "reference_answer": gdb_ref,
         "error": error[:500],
         "trace": {
             "nodes": observed_nodes,
@@ -373,4 +376,37 @@ def extract_retrieved_contexts(extraction_source: str) -> list[str]:
                     contexts.append(text)
 
     return contexts
+
+
+def extract_gdb_reference_answer(extraction_source: str) -> str | None:
+    messages = _extract_messages_from_json(extraction_source)
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        role = (msg.get("role") or msg.get("type") or "").lower()
+        name = (msg.get("name") or "").lower()
+
+        if role == "tool" or msg.get("type") == "tool":
+            if name == "gdb" or "gdb" in name:
+                content = msg.get("content", "")
+                if not content:
+                    continue
+                try:
+                    gdb_data = json.loads(content)
+                    if isinstance(gdb_data, dict):
+                        exact = gdb_data.get("exact_match")
+                        if isinstance(exact, dict) and exact.get("answer"):
+                            return str(exact["answer"]).strip()
+
+                        selected = gdb_data.get("selected_match")
+                        if isinstance(selected, dict) and selected.get("answer"):
+                            return str(selected["answer"]).strip()
+
+                        similar = gdb_data.get("similar_pair1")
+                        if isinstance(similar, dict) and similar.get("answer"):
+                            return str(similar["answer"]).strip()
+                except Exception:
+                    pass
+    return None
+
 
