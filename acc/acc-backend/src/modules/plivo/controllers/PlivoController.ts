@@ -23,7 +23,6 @@ import { Request, Response, urlencoded } from 'express';
 import { appConfig } from '#root/config/app.js';
 import { inject, injectable } from 'inversify';
 import plivo from 'plivo';
-import axios from 'axios';
 import { PLIVO_TYPES } from '../types.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import type { ICallDetailsRepository, AgentAnalytics, ACCAnalytics, CallRecording } from '#shared/database/interfaces/ICallDetailsRepository.js';
@@ -33,6 +32,8 @@ import type { IUser } from '#shared/interfaces/models.js';
 import { PlivoService } from '../services/PlivoService.js';
 import { StorageService } from '#root/modules/storage/services/StorageService.js';
 import { STORAGE_TYPES } from '#root/modules/storage/types.js';
+import { BsnlSmsService } from '#root/modules/sms/services/BsnlSmsService.js';
+import { SMS_TYPES } from '#root/modules/sms/types.js';
 
 @OpenAPI({
   tags: ['plivo'],
@@ -50,7 +51,8 @@ export class PlivoController {
     @inject(PLIVO_TYPES.PlivoService) private plivoService: PlivoService,
     @inject(PLIVO_TYPES.CallFarmerRepository) private callFarmerRepository: ICallFarmerRepository,
     @inject(GLOBAL_TYPES.PlivoCredentialsRepository) private plivoCredentialsRepository: IPlivoCredentialsRepository,
-    @inject(STORAGE_TYPES.StorageService) private storageService: StorageService
+    @inject(STORAGE_TYPES.StorageService) private storageService: StorageService,
+    @inject(SMS_TYPES.BsnlSmsService) private bsnlSmsService: BsnlSmsService
   ) { }
 
   @Post('/answer')
@@ -787,8 +789,8 @@ export class PlivoController {
   @Post('/send-message')
   @Authorized()
   @OpenAPI({
-    summary: 'Send SMS using Fast2SMS',
-    description: 'Send SMS to one or multiple phone numbers using Fast2SMS Quick SMS API',
+    summary: 'Send SMS via BSNL BRPS',
+    description: 'Send advisory SMS to farmer mobile number using BSNL Retail Push SMS (BRPS) service',
   })
   @HttpCode(200)
   async sendMessage(
@@ -803,15 +805,6 @@ export class PlivoController {
         });
       }
 
-      // Sanitize phone number (remove non-digits, take last 10 digits for Indian numbers)
-      const sanitizedPhone = body.destination.replace(/\D/g, '').slice(-10);
-      if (!/^[6-9]\d{9}$/.test(sanitizedPhone)) {
-        return res.status(400).json({
-          success: false,
-          error: "Invalid 10-digit Indian mobile number provided"
-        });
-      }
-
       const cleanText = body.text.trim();
       if (!cleanText || cleanText.length > 500) {
         return res.status(400).json({
@@ -820,45 +813,18 @@ export class PlivoController {
         });
       }
 
-      const apiKey = appConfig.fast2sms.apiKey;
-      if (!apiKey) {
-        return res.status(500).json({
-          success: false,
-          error: "Fast2SMS API key not configured"
-        });
-      }
-
-      const requestBody = {
-        route: 'q',
-        message: cleanText,
-        language: 'english',
-        flash: 0,
-        numbers: sanitizedPhone,
-        sms_details: 1
-      };
-
-      const response = await axios.post(
-        'https://www.fast2sms.com/dev/bulkV2',
-        requestBody,
-        {
-          headers: {
-            'authorization': apiKey,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      console.log("✅ Fast2SMS response:", response.data);
+      const result = await this.bsnlSmsService.sendSms(body.destination, cleanText);
 
       return res.json({
         success: true,
-        data: response.data
+        data: result.data || { messageId: result.messageId },
+        messageId: result.messageId,
       });
     } catch (err: any) {
-      console.error('❌ Fast2SMS error:', err.response?.data || err.message);
+      console.error('[PlivoController] SMS sending error:', err.message);
       return res.status(500).json({
         success: false,
-        error: err.response?.data?.message || err.message || 'Failed to send SMS'
+        error: err.message || 'Failed to send SMS via BSNL BRPS'
       });
     }
   }

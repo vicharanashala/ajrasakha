@@ -37,5 +37,19 @@ export const appConfig = {
   fast2sms: {
     apiKey: env('FAST2SMS_API_KEY'),
   },
+  bsnl: {
+    baseUrl: env('BSNL_BASE_URL') || 'https://bulksms.bsnl.in:5010',
+    serviceId: env('BSNL_SERVICE_ID') || '',
+    username: env('BSNL_USERNAME') || '',
+    password: env('BSNL_PASSWORD') || '',
+    tokenId: env('BSNL_TOKEN_ID') || '1',
+    ipWhitelist: env('BSNL_IP_WHITELIST') || '',
+    header: env('BSNL_HEADER') || 'ANNAMR',
+    entityId: env('BSNL_ENTITY_ID') || '',
+    templateId: env('BSNL_TEMPLATE_ID') || '',
+    messageType: env('BSNL_MESSAGE_TYPE') || 'SI',
+    variableKey: env('BSNL_VARIABLE_KEY') || 'advisory',
+    isUnicode: env('BSNL_IS_UNICODE') || '1',
+  },
 };
 
