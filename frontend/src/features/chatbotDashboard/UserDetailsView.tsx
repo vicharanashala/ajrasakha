@@ -174,6 +174,11 @@ export function UserDetailsView({
     email: string;
     isVerified: boolean;
   } | null>(null);
+  const [pendingVerification, setPendingVerification] = useState<{
+    user: UserDetail;
+    nextStatus: boolean;
+  } | null>(null);
+
   const [userToEdit, setUserToEdit] = useState<UserDetail | null>(null);
   const [userToView, setUserToView] = useState<UserDetail | null>(null);
   const [confirmEmail, setConfirmEmail] = useState("");
@@ -480,6 +485,7 @@ export function UserDetailsView({
     isVerified: boolean,
   ) => {
     setVerifyingUserId(userId);
+
     try {
       const response = await verifyUserMutation.mutateAsync({
         userId,
@@ -493,9 +499,6 @@ export function UserDetailsView({
             ? "User verified successfully"
             : "User marked unverified successfully"),
       );
-      setUserToView((current) =>
-        current?.userId === userId ? { ...current, isVerified } : current,
-      );
     } catch (error: any) {
       toast.error(error?.message || "Failed to update verification status");
     } finally {
@@ -504,7 +507,12 @@ export function UserDetailsView({
   };
 
   const requestVerificationChange = (user: UserDetail, nextStatus: boolean) => {
-    console.log("Requesting verification change for user:", user, "Next status:", nextStatus);
+    console.log(
+      "Requesting verification change for user:",
+      user,
+      "Next status:",
+      nextStatus,
+    );
     setVerificationToConfirm({
       userId: user.userId,
       source,
@@ -514,14 +522,28 @@ export function UserDetailsView({
     });
   };
 
+  // const handleConfirmVerificationChange = async () => {
+  //   if (!verificationToConfirm) return;
+  //   await handleUpdateVerification(
+  //     verificationToConfirm.userId,
+  //     verificationToConfirm.source,
+  //     verificationToConfirm.isVerified,
+  //   );
+  //   setVerificationToConfirm(null);
+  // };
+
   const handleConfirmVerificationChange = async () => {
     if (!verificationToConfirm) return;
-    await handleUpdateVerification(
-      verificationToConfirm.userId,
-      verificationToConfirm.source,
-      verificationToConfirm.isVerified,
-    );
-    setVerificationToConfirm(null);
+
+    try {
+      await handleUpdateVerification(
+        verificationToConfirm.userId,
+        verificationToConfirm.source,
+        verificationToConfirm.isVerified,
+      );
+    } finally {
+      setVerificationToConfirm(null);
+    }
   };
 
   const handleDeleteUser = (user: UserDetail) => {
@@ -542,413 +564,24 @@ export function UserDetailsView({
     setRefreshing(false);
   };
 
+  useEffect(() => {
+    if (!userToView && pendingVerification) {
+      setVerificationToConfirm({
+        userId: pendingVerification.user.userId,
+        source,
+        name:
+          pendingVerification.user.name ||
+          pendingVerification.user.farmerProfile?.farmerName ||
+          EMPTY_VALUE,
+        email: pendingVerification.user.email,
+        isVerified: pendingVerification.nextStatus,
+      });
+
+      setPendingVerification(null);
+    }
+  }, [userToView, pendingVerification, source]);
+
   return (
-    //     <div className="flex-1 overflow-y-auto pb-5 min-w-0 bg-gradient-to-b from-background to-muted/30">
-    //       {/* Users table */}
-    //       <div ref={tableRef}>
-    //         <Card
-    //           className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300
-    //  dark:border-[#2a2a2a]"
-    //         >
-    //           <CardHeader className="pb-4 border-b border-border/60 ">
-    //             <motion.div
-    //               initial={{ opacity: 0, y: -8 }}
-    //               animate={{ opacity: 1, y: 0 }}
-    //               transition={{ duration: 0.35, ease: "easeOut" }}
-    //               className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
-    //             >
-    //               {/* Title */}
-    //               <div className="min-w-0 flex items-start gap-3">
-    //                 <motion.div
-    //                   whileHover={{ rotate: -6, scale: 1.05 }}
-    //                   transition={{ type: "spring", stiffness: 300, damping: 18 }}
-    //                   className="p-2 rounded-lg bg-primary/10 ring-1 ring-primary/15 shrink-0"
-    //                 >
-    //                   <Users className="h-4 w-4 text-primary" />
-    //                 </motion.div>
-    //                 <div className="min-w-0">
-    //                   <CardTitle className="text-base font-semibold tracking-tight truncate">
-    //                     All Farmers
-    //                   </CardTitle>
-    //                   <p className="text-sm text-muted-foreground mt-0.5">
-    //                     View and manage farmer details, activity, and preferences.
-    //                   </p>
-    //                 </div>
-    //               </div>
-
-    //               {/* Search */}
-    //               <div className="relative w-full lg:max-w-xs lg:flex-1">
-    //                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-    //                 <Input
-    //                   type="text"
-    //                   placeholder="Search by name or email..."
-    //                   value={filters.search}
-    //                   onChange={(e) =>
-    //                     setFilters((d) => ({ ...d, search: e.target.value }))
-    //                   }
-    //                   className="h-10 pl-9 pr-9 bg-background focus-visible:ring-primary/30 focus-visible:border-primary transition-all"
-    //                 />
-    //                 {filters.search && (
-    //                   <motion.button
-    //                     initial={{ opacity: 0, scale: 0.8 }}
-    //                     animate={{ opacity: 1, scale: 1 }}
-    //                     onClick={() => setFilters((d) => ({ ...d, search: "" }))}
-    //                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-    //                     aria-label="Clear search"
-    //                   >
-    //                     <X className="h-3.5 w-3.5" />
-    //                   </motion.button>
-    //                 )}
-    //               </div>
-
-    //               {/* Actions */}
-    //               <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
-    //                 {isFiltered && (
-    //                   <motion.div
-    //                     initial={{ opacity: 0, x: 8 }}
-    //                     animate={{ opacity: 1, x: 0 }}
-    //                     exit={{ opacity: 0, x: 8 }}
-    //                   >
-    //                     <Button
-    //                       variant="ghost"
-    //                       size="sm"
-    //                       className="h-9 px-3 text-muted-foreground hover:text-foreground"
-    //                       onClick={handleResetFilters}
-    //                     >
-    //                       <X className="h-4 w-4 mr-1.5" />
-    //                       Clear Filters
-    //                     </Button>
-    //                   </motion.div>
-    //                 )}
-
-    //                 <UserDetailsPreferenceFilter
-    //                   filters={filters}
-    //                   onApply={handleApplyFilters}
-    //                   hideFields={["userType"]}
-    //                 />
-
-    //                 {isAdmin &&
-    //                   (source === "annam" || source === "vicharanashala") && (
-    //                     <motion.div
-    //                       whileHover={{ y: -1 }}
-    //                       whileTap={{ scale: 0.97 }}
-    //                     >
-    //                       <Button
-    //                         size="sm"
-    //                         className="h-9 px-3.5 gap-1.5 shadow-sm shadow-primary/20"
-    //                         onClick={() => setIsAddModalOpen(true)}
-    //                       >
-    //                         <UserPlus className="h-4 w-4" />
-    //                         Add Farmer
-    //                       </Button>
-    //                     </motion.div>
-    //                   )}
-    //               </div>
-    //             </motion.div>
-    //           </CardHeader>
-    //           <CardContent className="p-0">
-    //             {isLoading && (
-    //               <div className="space-y-3 p-4">
-    //                 <Skeleton className="h-10 w-full rounded-md" />
-    //                 <Skeleton className="h-10 w-full rounded-md" />
-    //                 <Skeleton className="h-10 w-full rounded-md" />
-    //                 <Skeleton className="h-10 w-full rounded-md" />
-    //                 <Skeleton className="h-10 w-full rounded-md" />
-    //               </div>
-    //             )}
-
-    //             {error && (
-    //               <div className="px-4 py-8 text-center text-red-500 text-sm">
-    //                 Failed to load user details. Please try again.
-    //               </div>
-    //             )}
-
-    //             {!isLoading && !error && (
-    //               <div className="rounded-lg border bg-card overflow-x-auto">
-    //                 <Table className="min-w-[980px]">
-    //                   <TableHeader className="bg-card sticky top-0 z-10">
-    //                     <TableRow>
-    //                       <TableHead className="text-center w-12">S.No</TableHead>
-    //                       <TableHead
-    //                         className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
-    //                         onClick={() =>
-    //                           userType === "external" && handleSort("name")
-    //                         }
-    //                       >
-    //                         Name
-    //                       </TableHead>
-    //                       <TableHead className="text-center">Farmer Name</TableHead>
-    //                       <TableHead className="text-center">Email</TableHead>
-    //                       <TableHead className="text-center">User Role</TableHead>
-    //                       <TableHead
-    //                         className={`text-center ${userType === "external" ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : "cursor-not-allowed opacity-50"} transition-colors`}
-    //                         onClick={() =>
-    //                           userType === "external" &&
-    //                           handleSort("totalQuestions")
-    //                         }
-    //                       >
-    //                         <div className="flex items-center justify-center gap-1">
-    //                           Query Asked
-    //                           {sortBy === "totalQuestions" ? (
-    //                             <span className="text-blue-600 dark:text-blue-400">
-    //                               {sortOrder === "desc" ? "↓" : "↑"}
-    //                             </span>
-    //                           ) : (
-    //                             <span className="text-gray-400 dark:text-gray-500">
-    //                               ↕
-    //                             </span>
-    //                           )}
-    //                         </div>
-    //                       </TableHead>
-    //                       <TableHead className="text-center">View More</TableHead>
-    //                       {isAdmin && (
-    //                         <TableHead className="text-center">Actions</TableHead>
-    //                       )}
-    //                     </TableRow>
-    //                   </TableHeader>
-    //                   <TableBody>
-    //                     {users.length === 0 ? (
-    //                       <TableRow>
-    //                         <TableCell
-    //                           colSpan={isAdmin ? 8 : 7}
-    //                           className="text-center py-10 text-muted-foreground"
-    //                         >
-    //                           {isFiltered
-    //                             ? "No users match your filters."
-    //                             : "No users found."}
-    //                         </TableCell>
-    //                       </TableRow>
-    //                     ) : (
-    //                       users.map((user, idx) => {
-    //                         return (
-    //                           <ContextMenu key={user.userId} modal={false}>
-    //                             <ContextMenuTrigger asChild>
-    //                               <TableRow className="group text-center hover:bg-muted/40 transition-colors duration-100">
-    //                                 {/* S.No */}
-    //                                 <TableCell className="align-middle text-xs text-muted-foreground tabular-nums">
-    //                                   {(currentPage - 1) * pageSize + idx + 1}
-    //                                 </TableCell>
-
-    //                                 {/* Name */}
-    //                                 <TableCell className="align-middle font-medium whitespace-nowrap">
-    //                                   {user.name || <EmptyValue />}
-    //                                 </TableCell>
-
-    //                                 {/* Farmer Name */}
-    //                                 <TableCell className="align-middle whitespace-nowrap">
-    //                                   {user.farmerProfile?.farmerName || (
-    //                                     <EmptyValue />
-    //                                   )}
-    //                                 </TableCell>
-
-    //                                 {/* Email */}
-    //                                 <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
-    //                                   {user.email || <EmptyValue />}
-    //                                 </TableCell>
-
-    //                                 {/* User Role */}
-    //                                 <TableCell className="align-middle whitespace-nowrap">
-    //                                   {user.userRole || <EmptyValue />}
-    //                                 </TableCell>
-
-    //                                 {/* Queries asked */}
-    //                                 <TableCell className="align-middle">
-    //                                   <Button
-    //                                     variant="ghost"
-    //                                     size="sm"
-    //                                     onClick={() => {
-    //                                       setSelectedUser(user);
-    //                                       setQuestionModalOpen(true);
-    //                                     }}
-    //                                     className={`inline-flex items-center justify-center min-w-[32px] h-6 px-2 rounded-full text-xs font-semibold transition-colors ${
-    //                                       user.totalQuestions > 0
-    //                                         ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900"
-    //                                         : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-default"
-    //                                     }`}
-    //                                     title={"View queries"}
-    //                                   >
-    //                                     {user.totalQuestions.toLocaleString()}
-    //                                   </Button>
-    //                                 </TableCell>
-
-    //                                 {/* View more */}
-    //                                 <TableCell className="align-middle">
-    //                                   <Button
-    //                                     variant="outline"
-    //                                     size="sm"
-    //                                     onClick={() => setUserToView(user)}
-    //                                     className="h-8"
-    //                                   >
-    //                                     <Eye className="h-4 w-4" />
-    //                                     View More
-    //                                   </Button>
-    //                                 </TableCell>
-
-    //                                 {isAdmin && (
-    //                                   <TableCell className="align-middle">
-    //                                     <div className="flex items-center justify-center gap-2">
-    //                                       <Button
-    //                                         variant="ghost"
-    //                                         size="icon"
-    //                                         className="h-8 w-8"
-    //                                         onClick={() => handleEditUser(user)}
-    //                                         title="Edit farmer"
-    //                                       >
-    //                                         <Pencil className="h-4 w-4" />
-    //                                       </Button>
-    //                                       <Button
-    //                                         variant="ghost"
-    //                                         size="icon"
-    //                                         className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50"
-    //                                         onClick={() => handleDeleteUser(user)}
-    //                                         title="Delete farmer"
-    //                                       >
-    //                                         <Trash2 className="h-4 w-4" />
-    //                                       </Button>
-    //                                     </div>
-    //                                   </TableCell>
-    //                                 )}
-    //                               </TableRow>
-    //                             </ContextMenuTrigger>
-
-    //                             {isAdmin && (
-    //                               <ContextMenuContent>
-    //                                 <ContextMenuItem
-    //                                   className="cursor-pointer flex items-center gap-2"
-    //                                   onSelect={() => {
-    //                                     setUserToEdit(user);
-    //                                   }}
-    //                                 >
-    //                                   <Pencil className="h-4 w-4" />
-    //                                   Edit
-    //                                 </ContextMenuItem>
-    //                                 <ContextMenuItem
-    //                                   className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50 cursor-pointer flex items-center gap-2"
-    //                                   onSelect={() => {
-    //                                     setConfirmEmail("");
-    //                                     setUserToDelete({
-    //                                       userId: user.userId,
-    //                                       source,
-    //                                       email: user.email,
-    //                                     });
-    //                                   }}
-    //                                 >
-    //                                   <Trash2 className="h-4 w-4 text-red-600" />
-    //                                   Delete
-    //                                 </ContextMenuItem>
-    //                               </ContextMenuContent>
-    //                             )}
-    //                           </ContextMenu>
-    //                         );
-    //                       })
-    //                     )}
-    //                   </TableBody>
-    //                 </Table>
-    //                 {/* Pagination footer */}
-    //                 {totalPages > 0 && (
-    //                   <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
-    //                     <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-    //                       <span className="text-xs text-(--muted-foreground)">
-    //                         Showing{" "}
-    //                         {users.length > 0
-    //                           ? (currentPage - 1) * pageSize + 1
-    //                           : 0}
-    //                         –{(currentPage - 1) * pageSize + users.length} of{" "}
-    //                         {totalUsers} users
-    //                       </span>
-    //                       <Pagination
-    //                         currentPage={currentPage}
-    //                         totalPages={totalPages}
-    //                         onPageChange={(page) => setCurrentPage(page)}
-    //                         limit={pageSize}
-    //                         onLimitChange={setPageSize}
-    //                       />
-    //                     </div>
-    //                   </div>
-    //                 )}
-    //               </div>
-    //             )}
-    //             <UserQuestionsModal
-    //               open={questionModalOpen}
-    //               onOpenChange={setQuestionModalOpen}
-    //               user={selectedUser}
-    //               source={source}
-    //               userType={userType}
-    //             />
-    //             <FarmerDetailsModal
-    //               open={!!userToView}
-    //               onOpenChange={(open) => {
-    //                 if (!open) setUserToView(null);
-    //               }}
-    //               user={userToView}
-    //               isAdmin={isAdmin}
-    //               onEdit={handleEditUser}
-    //               onDelete={handleDeleteUser}
-    //             />
-    //           </CardContent>
-    //         </Card>
-    //       </div>
-
-    //       <AddFarmerModal
-    //         open={isAddModalOpen}
-    //         onOpenChange={setIsAddModalOpen}
-    //         isSaving={addUserMutation.isPending}
-    //         onSave={handleAddUser}
-    //       />
-
-    //       <EditFarmerModal
-    //         open={!!userToEdit}
-    //         onOpenChange={(open) => {
-    //           if (!open) setUserToEdit(null);
-    //         }}
-    //         user={userToEdit}
-    //         isSaving={updateUserMutation.isPending}
-    //         onSave={handleSaveEditedUser}
-    //       />
-
-    //       <AlertDialog
-    //         open={!!userToDelete}
-    //         onOpenChange={(open) => {
-    //           if (!open) {
-    //             setUserToDelete(null);
-    //             setConfirmEmail("");
-    //           }
-    //         }}
-    //       >
-    //         <AlertDialogContent>
-    //           <AlertDialogHeader>
-    //             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-    //             <AlertDialogDescription>
-    //               This action cannot be undone. This will permanently delete the
-    //               farmer and remove their data. To confirm this action, enter the
-    //               email address <strong>{userToDelete?.email}</strong> in the box
-    //               below.
-    //             </AlertDialogDescription>
-    //             <Input
-    //               value={confirmEmail}
-    //               onChange={(e) => setConfirmEmail(e.target.value)}
-    //               placeholder="Enter email to confirm"
-    //             />
-    //           </AlertDialogHeader>
-    //           <AlertDialogFooter>
-    //             <AlertDialogCancel>Cancel</AlertDialogCancel>
-    //             <AlertDialogAction
-    //               className="bg-red-600 hover:bg-red-700 text-white"
-    //               disabled={confirmEmail !== userToDelete?.email}
-    //               onClick={() => {
-    //                 if (userToDelete) {
-    //                   deleteUserMutation.mutate(userToDelete);
-    //                   setUserToDelete(null);
-    //                   setConfirmEmail("");
-    //                 }
-    //               }}
-    //             >
-    //               Continue
-    //             </AlertDialogAction>
-    //           </AlertDialogFooter>
-    //         </AlertDialogContent>
-    //       </AlertDialog>
-    //     </div>
     <div className="flex-1 overflow-y-auto  min-w-0 bg-gradient-to-b from-background to-muted/30">
       <div ref={tableRef}>
         <Card className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm border-border/60 shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -1262,7 +895,7 @@ export function UserDetailsView({
                                           <Button
                                             // disabled={isVerifyingThisUser}
                                             className="h-8 px-3 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
-                                            onClick={() => 
+                                            onClick={() =>
                                               requestVerificationChange(
                                                 user,
                                                 true,
@@ -1405,7 +1038,13 @@ export function UserDetailsView({
               isUpdatingVerification={!!verifyingUserId}
               onVerificationChange={(nextStatus) => {
                 if (userToView) {
-                  requestVerificationChange(userToView, nextStatus);
+                  setPendingVerification({
+                    user: userToView,
+                    nextStatus,
+                  });
+
+                  // Close FarmerDetailsModal first
+                  setUserToView(null);
                 }
               }}
             />
@@ -1477,64 +1116,78 @@ export function UserDetailsView({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
-        open={!!verificationToConfirm}
-        onOpenChange={(open) => {
-          if (!open && !verifyingUserId) {
-            setVerificationToConfirm(null);
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="mx-auto mb-2 p-3 rounded-full bg-primary/10 w-fit">
-              {verificationToConfirm?.isVerified ? (
-                <UserCheck2 className="h-5 w-5 text-primary" />
-              ) : (
-                <ShieldX className="h-5 w-5 text-destructive" />
-              )}
-            </div>
-            <AlertDialogTitle className="text-center">
-              {verificationToConfirm?.isVerified
-                ? "Set user as verified?"
-                : "Set user as unverified?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-center">
-              This will update verification status for{" "}
-              <strong className="text-foreground">
-                {verificationToConfirm?.name}
-              </strong>
-              {verificationToConfirm?.email ? (
-                <> ({verificationToConfirm.email})</>
-              ) : null}
-              .
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={!!verifyingUserId}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!!verifyingUserId}
-              onClick={(event) => {
-                event.preventDefault();
-                void handleConfirmVerificationChange();
-              }}
-            >
-              {verifyingUserId ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : verificationToConfirm?.isVerified ? (
-                "Set Verified"
-              ) : (
-                "Set Unverified"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {verificationToConfirm && (
+  <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+    {/* Backdrop */}
+    <div
+      className="absolute inset-0 bg-black/50"
+      onClick={() => {
+        if (!verifyingUserId) {
+          setVerificationToConfirm(null);
+        }
+      }}
+    />
+
+    {/* Confirmation */}
+    <div className="relative z-10 w-[90vw] max-w-md rounded-lg border bg-background p-6 shadow-xl">
+      <div className="flex flex-col items-center text-center">
+        <div className="mb-3 rounded-full bg-primary/10 p-3">
+          {verificationToConfirm.isVerified ? (
+            <UserCheck2 className="h-5 w-5 text-primary" />
+          ) : (
+            <ShieldX className="h-5 w-5 text-destructive" />
+          )}
+        </div>
+
+        <h2 className="text-lg font-semibold">
+          {verificationToConfirm.isVerified
+            ? "Set user as verified?"
+            : "Set user as unverified?"}
+        </h2>
+
+        <p className="mt-2 text-sm text-muted-foreground">
+          This will update verification status for{" "}
+          <strong className="text-foreground">
+            {verificationToConfirm.name}
+          </strong>
+          {verificationToConfirm.email ? (
+            <> ({verificationToConfirm.email})</>
+          ) : null}
+          .
+        </p>
+      </div>
+
+      <div className="mt-6 flex justify-end gap-2">
+        <Button
+          variant="outline"
+          disabled={!!verifyingUserId}
+          onClick={() => setVerificationToConfirm(null)}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          disabled={!!verifyingUserId}
+          onClick={() => {
+            void handleConfirmVerificationChange();
+          }}
+        >
+          {verifyingUserId ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Updating...
+            </>
+          ) : verificationToConfirm.isVerified ? (
+            "Set Verified"
+          ) : (
+            "Set Unverified"
+          )}
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
@@ -1578,33 +1231,42 @@ function SortableHead({
 function RoleBadge({ role }: { role?: string }) {
   if (!role) return <EmptyValue />;
 
-  const roleConfig: Record<string, { icon: React.ReactNode; className: string }> = {
+  const roleConfig: Record<
+    string,
+    { icon: React.ReactNode; className: string }
+  > = {
     farmer: {
       icon: <User className="h-3 w-3" />,
-      className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border border-green-200 dark:border-green-800",
+      className:
+        "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border border-green-200 dark:border-green-800",
     },
     district_coordinator: {
       icon: <UsersRound className="h-3 w-3" />,
-      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+      className:
+        "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
     },
     block_coordinator: {
       icon: <UsersRound className="h-3 w-3" />,
-      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+      className:
+        "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
     },
     village_volunteer: {
       icon: <UsersRound className="h-3 w-3" />,
-      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+      className:
+        "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
     },
     internal: {
       icon: <Briefcase className="h-3 w-3" />,
-      className: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800",
+      className:
+        "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800",
     },
   };
 
   const normalizedRole = role.toLowerCase();
   const config = roleConfig[normalizedRole] || {
     icon: <User className="h-3 w-3" />,
-    className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700",
+    className:
+      "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700",
   };
 
   return (
