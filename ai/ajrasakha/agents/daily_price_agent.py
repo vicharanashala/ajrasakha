@@ -158,7 +158,6 @@ _HISTORICAL_PRICE_KEYWORDS = (
     "past ",
     "from ",
     "between",
-    "min max",
 )
 
 _POINT_IN_TIME_PRICE_KEYWORDS = (
@@ -170,6 +169,11 @@ _POINT_IN_TIME_PRICE_KEYWORDS = (
     "max price",
     "maximum price",
     "max rate",
+    "minimum and maximum",
+    "min and max",
+    "min & max",
+    "minimum & maximum",
+    "min max",
 )
 
 _NAMED_MARKET_QUERY = re.compile(
@@ -204,11 +208,30 @@ def _should_use_today_price_for_query(query: str) -> bool:
     return _asks_for_point_in_time_price(query) and not _asks_for_historical_or_summary_price(query)
 
 
+_INVALID_MARKET_SUBSTRINGS = (
+    "district",
+    "state",
+    "price",
+    "rate",
+    "cost",
+    "modal",
+    "today",
+    "yesterday",
+)
+
+
 def _extract_market_name_from_query(query: str) -> str | None:
+    if not query:
+        return None
     for pattern in (_NAMED_MARKET_QUERY, _NAMED_MARKET_QUERY_SHORT):
-        match = pattern.search(query or "")
+        match = pattern.search(query)
         if match:
             name = match.group(1).strip()
+            name_lower = name.lower()
+            if any(w in name_lower for w in _INVALID_MARKET_SUBSTRINGS):
+                continue
+            if re.search(rf"\b{re.escape(name_lower)}\s+district\b", query.lower()):
+                continue
             if name:
                 return name
     return None
@@ -477,6 +500,13 @@ def _heuristic_intent(query: str) -> dict[str, Any]:
             return {**base, "action": "get_arrival_history", "lookback_days": lookback}
         return {**base, "action": "get_today_arrival"}
 
+    has_min = any(k in q for k in ("minimum", "min", "lowest", "least", "bottom"))
+    has_max = any(k in q for k in ("maximum", "max", "highest", "peak", "most", "top"))
+    is_historical = any(k in q for k in ("history", "week", "month", "days", "last ", "past ", "from ", "between", "average", "avg", "summary", "stats", "statistics", "trend")) or parsed_lookback is not None
+
+    if has_min and has_max and not is_historical:
+        return {**base, "action": "get_today_price"}
+
     if any(k in q for k in ("highest", "maximum", "max", "best price", "best rate", "peak price", "highest modal")):
         lookback = parsed_lookback if parsed_lookback is not None else (None if specific_date else 7)
         return {**base, "action": "get_highest_price", "lookback_days": lookback}
@@ -485,7 +515,7 @@ def _heuristic_intent(query: str) -> dict[str, Any]:
         lookback = parsed_lookback if parsed_lookback is not None else (None if specific_date else 7)
         return {**base, "action": "get_lowest_price", "lookback_days": lookback}
 
-    if any(k in q for k in ("average", "avg", "summary", "min max", "statistics", "stats")):
+    if any(k in q for k in ("average", "avg", "summary", "statistics", "stats")):
         lookback = parsed_lookback if parsed_lookback is not None else 7
         return {**base, "action": "get_price_summary", "lookback_days": lookback}
 
@@ -701,6 +731,20 @@ def _normalize_intent(
         if extracted_market:
             out["market_name"] = extracted_market
 
+    # Disallow district names or queries containing "<name> district" from being treated as market_name
+    if out.get("market_name"):
+        mn_lower = str(out["market_name"]).strip().lower()
+        if (
+            "district" in mn_lower
+            or re.search(rf"\b{re.escape(mn_lower)}\s+district\b", query.lower())
+            or any(mn_lower == st for st in _INDIAN_STATES)
+        ):
+            out["market_name"] = None
+            out["nearest_market"] = True
+            if out["action"] == "get_price_with_nearby":
+                out["action"] = "get_today_price"
+                out["actions"] = ["get_today_price"]
+
     # Auto-upgrade: when a specific mandi is named and action is today's price (or single date),
     # enrich the response with nearby markets' prices.
     if out.get("market_name") and (
@@ -888,11 +932,15 @@ def _build_tool_args(
         if intent.get("market_name"):
             args["market_name"] = intent["market_name"]
 
-    # LLM sometimes puts the crop name in market_name (e.g. rice) — never treat crop as mandi name.
+    # LLM sometimes puts the crop name in market_name (e.g. rice) or district name — never treat crop or district as mandi name.
     mn = (args.get("market_name") or "").strip().lower()
     cr = (crop or "").strip().lower()
-    if mn and cr and (mn == cr or mn in {"rice", "paddy"} and cr in {"rice", "paddy"}):
+    if mn and (
+        (cr and (mn == cr or mn in {"rice", "paddy"} and cr in {"rice", "paddy"}))
+        or "district" in mn
+    ):
         args.pop("market_name", None)
+        args["nearest_market"] = True
 
     if intent.get("lookback_days") is not None:
         args["lookback_days"] = intent["lookback_days"]
@@ -1132,7 +1180,7 @@ def _format_price_fallback(payload: Any, *, crop: str | None = None) -> str:
             nearby_records = _dedupe_and_sort_nearby_records(nearby.get("price_records") or [], top_n=3)
             if nearby_records:
                 date_val = nearby_records[0].get("date") or ""
-                lines = [f"Highest prices in nearby markets on {date_val}:"]
+                lines = [f"Prices in nearby markets on {date_val}:"]
                 for i, r in enumerate(nearby_records, 1):
                     mkt = (r.get("market_name") or f"Market {i}").title()
                     variety = r.get("variety") or ""
@@ -1502,13 +1550,19 @@ async def daily_price(
         if (lat is None or lon is None) and state:
             from ajrasakha.agents.location_context import forward_geocode
 
-            geocode_result = await forward_geocode(state=state, district=None)
+            district_val = None
+            m_dist = re.search(r"\b([A-Za-z]+(?:\s+[A-Za-z]+)?)\s+district\b", query, re.I)
+            if m_dist:
+                district_val = m_dist.group(1).strip()
+
+            geocode_result = await forward_geocode(state=state, district=district_val)
             if geocode_result and geocode_result.get("latitude") and geocode_result.get("longitude"):
                 lat = geocode_result.get("latitude")
                 lon = geocode_result.get("longitude")
                 logger.info(
-                    "daily_price_agent: forward geocoded state %r to %s, %s",
+                    "daily_price_agent: forward geocoded state %r district %r to %s, %s",
                     state,
+                    district_val,
                     lat,
                     lon,
                 )

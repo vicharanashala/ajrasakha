@@ -1069,31 +1069,49 @@ Server Actions and Parameters:
 
 Rules:
 - Default single price question without named mandi: action="get_today_price", nearest_market=true
-- Highest / maximum / best selling / max / highest modal price (with or without named mandi, state, today, yesterday, specific date, or date range) → ALWAYS use action="get_highest_price".
-- Lowest / minimum / cheapest / min / lowest modal price (with or without named mandi, state, today, yesterday, specific date, or date range) → ALWAYS use action="get_lowest_price".
-- If the farmer names a SPECIFIC mandi/APMC and asks for general today's/current/latest/specific date price (NOT asking for highest/lowest/min/max) → use action="get_price_with_nearby".
+- ONLY highest / single highest / maximum / best selling / max / peak / highest modal price alone (with or without named mandi, state, today, yesterday, specific date, or date range) → ALWAYS use action="get_highest_price".
+- ONLY lowest / single lowest / minimum / cheapest / min / least / lowest modal price alone (with or without named mandi, state, today, yesterday, specific date, or date range) → ALWAYS use action="get_lowest_price".
+- If the farmer asks for BOTH minimum and maximum price (or min and max price, min-max range) today, currently, or on a specific date / at a named market (e.g. "What is the minimum and maximum price of coconut at Chengannur Market today", "min and max price of tomato today") → ALWAYS use action="get_today_price" (or "get_price_with_nearby" if a specific mandi is named). Every price record already contains modal_price, min_price, and max_price. Do NOT use get_price_summary, get_highest_price, or get_lowest_price for single-day or today's min and max price questions.
+- If the farmer names a SPECIFIC mandi/APMC and asks for general today's/current/latest/specific date price (including modal, min, max, or minimum and maximum price) → use action="get_price_with_nearby".
 - If the farmer specifies a PARTICULAR DATE (e.g. "19th august", "13 august", "20 august", "13-Aug"):
   Set BOTH from_date and to_date to that date using the current year from Today's Date (e.g. "19-Aug-2026").
-  If asking for highest/lowest price on that date, use action="get_highest_price"/"get_lowest_price".
-  If asking for general price at a specific mandi on that date, use action="get_price_with_nearby".
+  If asking for ONLY highest price on that date, use action="get_highest_price".
+  If asking for ONLY lowest price on that date, use action="get_lowest_price".
+  If asking for general price or min and max price at a specific mandi on that date, use action="get_price_with_nearby".
 - Use action as an ARRAY only when the farmer clearly asks for two different things in one query
   (max 3 actions). Examples: today's price AND list nearby mandis; today vs last week prices.
 - Do NOT add search_markets together with get_today_price unless the farmer explicitly asks
   which mandis / list markets / find APMC.
-- "today" / "latest" / "current" / "now" (price) → get_today_price (or get_price_with_nearby if a mandi is named and not highest/lowest)
-- "Modal price" / "regular rate" with NO time period and no extreme keyword (e.g. "what is modal price of onion in Assam") → get_today_price
+- "today" / "latest" / "current" / "now" (price, including min and max price) → get_today_price (or get_price_with_nearby if a mandi is named)
+- "Modal price" / "regular rate" / "min and max price" / "minimum and maximum price" with NO historical time period → get_today_price (or get_price_with_nearby if a mandi is named)
 - History / last N days / week / month / date range (price) without highest/lowest → get_price_history with lookback_days or from_date/to_date
-- Average / summary / statistics / min-max stats across a period → get_price_summary
+- Average / summary / statistics across a multi-day period (e.g. "average price this week", "price summary for past 10 days") → get_price_summary. Do NOT use get_price_summary for single-day or today's price questions.
 - Today's arrival / stock arrived today → get_today_arrival
 - Arrival over days / arrival history → get_arrival_history
 - Highest or lowest arrival → get_extreme_arrival + sort_order
 - Which markets / mandi near me / nearby market / find APMC / list mandis → search_markets
-- market_name is ONLY for a named mandi/APMC (e.g. Azadpur, Sontoli, Perumbavoor). Never put state names (Bihar, Assam) or crop names in market_name.
+- market_name is ONLY for a named mandi/APMC (e.g. Azadpur, Sontoli, Perumbavoor, Aluva, Chengannur). Never put state names (Bihar, Assam, Kerala) or district names (e.g. Alappuzha, Ludhiana, Patna, Rohtak, Anantapur, Kottayam when referring to a district/region, e.g. "in Alappuzha district", "Rohtak district") or crop names in market_name.
+- If the user names or implies a district (e.g. "Alappuzha district", "in Rohtak district", "cabbage price in Alappuzha district, Kerala"), leave market_name=null, nearest_market=true, and use action="get_today_price" (or historical action if requested).
 - state is ONLY for Indian states (e.g. Bihar, Assam, Kerala, Maharashtra, Punjab).
 - Omit unused filters as null
 - Never invent actions outside the list above
 
 Examples:
+Query: What is today's market price of cabbage in Alappuzha district, Kerala?
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Kerala","sort_order":null}
+
+Query: Tomato price in Rohtak district
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+
+Query: What is the minimum and maximum price of coconut at Chengannur Market today
+{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Chengannur","state":null,"sort_order":null}
+
+Query: Minimum and maximum price of wheat in Ludhiana mandi today
+{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Ludhiana","state":null,"sort_order":null}
+
+Query: What is the min and max price of tomato today?
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+
 Query: highest modal price of onion in bihar on 19th august
 {"action":"get_highest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"19-Aug-2026","to_date":"19-Aug-2026","market_name":null,"state":"Bihar","sort_order":null}
 
@@ -1288,7 +1306,7 @@ ACTION-SPECIFIC OUTPUT FORMATS:
 8. Composite response (get_price_with_nearby):
 - FIRST, show the named mandi's price from "named_market".
 - THEN, if "nearby_markets" is not null and has price_records:
-  Show header: "Highest prices in nearby markets on [date]:"
+  Show header: "Prices in nearby markets on [date]:"
   Then list each nearby market as a numbered item (top 2-3 highest nearby markets).
 
 Closing line:

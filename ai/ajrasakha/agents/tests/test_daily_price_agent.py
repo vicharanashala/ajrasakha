@@ -21,6 +21,19 @@ def test_heuristic_intent_modal_price_defaults_to_today():
     assert intent["lookback_days"] is None
 
 
+def test_heuristic_intent_minimum_and_maximum_price_at_market_today():
+    intent = _normalize_intent(None, "What is the minimum and maximum price of coconut at Chengannur Market today")
+    assert intent["action"] == "get_price_with_nearby"
+    assert intent["market_name"] == "Chengannur Market"
+    assert intent["lookback_days"] is None
+
+
+def test_heuristic_intent_min_and_max_price_today():
+    intent = _normalize_intent(None, "What is the min and max price of tomato today?")
+    assert intent["action"] == "get_today_price"
+    assert intent["lookback_days"] is None
+
+
 def test_heuristic_intent_minimum_price_extracts_get_lowest_price():
     intent = _normalize_intent(None, "Minimum price of Potato in Perumbavoor market")
     assert intent["action"] == "get_lowest_price"
@@ -698,7 +711,7 @@ def test_fmt_price_and_dedupe_nearby():
     }
     ans = _format_price_fallback(payload, crop="onion")
     assert "Today's price is not available" in ans
-    assert "Highest prices in nearby markets" in ans
+    assert "Prices in nearby markets" in ans
     assert "Aroor Market" in ans
     assert "Rs 8600" in ans
     assert ans.count("This information is fetched from the following source") == 1
@@ -787,7 +800,7 @@ def test_get_price_with_nearby_with_latest_prices_and_notice():
     ans = _format_price_fallback(payload, crop="cotton")
     assert "Today's price is not available. Showing the latest available price (as of 2026-08-22)." in ans
     assert "Modal: Rs 7200/quintal" in ans
-    assert "Highest prices in nearby markets on 2026-08-22:" in ans
+    assert "Prices in nearby markets on 2026-08-22:" in ans
     assert "1) Yemmiganur" in ans
     assert "Rs 7400" in ans
     assert "2) Alur" in ans
@@ -795,4 +808,30 @@ def test_get_price_with_nearby_with_latest_prices_and_notice():
     assert ans.count("This information is fetched from the following source") == 1
 
 
+def test_normalize_intent_district_query_sets_market_name_none():
+    intent = _normalize_intent(
+        {"action": "get_today_price", "market_name": "Alappuzha", "state": "Kerala"},
+        "What is today's market price of cabbage in Alappuzha district, Kerala?",
+    )
+    assert intent["market_name"] is None
+    assert intent["nearest_market"] is True
+    assert intent["action"] == "get_today_price"
 
+
+def test_normalize_intent_district_in_market_name_cleared():
+    intent = _normalize_intent(
+        {"action": "get_price_with_nearby", "market_name": "Rohtak district"},
+        "Tomato price in Rohtak district",
+    )
+    assert intent["market_name"] is None
+    assert intent["nearest_market"] is True
+    assert intent["action"] == "get_today_price"
+
+
+def test_extract_market_name_ignores_district_clause():
+    from ajrasakha.agents.daily_price_agent import _extract_market_name_from_query
+
+    assert _extract_market_name_from_query("What is today's market price of cabbage in Alappuzha district, Kerala?") is None
+    assert _extract_market_name_from_query("In Alappuzha district, what is the market price of cabbage?") is None
+    assert _extract_market_name_from_query("cabbage price in Alappuzha district") is None
+    assert _extract_market_name_from_query("rice price in Aluva market") == "Aluva market"
