@@ -21,8 +21,11 @@ export const useUpdateActivity = () => {
       return result;
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
-      await queryClient.invalidateQueries({ queryKey: ["experts"] }); 
+      await queryClient.invalidateQueries({ queryKey: ["admin"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["users"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["experts"], exact: false }); 
+      await queryClient.invalidateQueries({ queryKey: ["user"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["user-profile"], exact: false });
       toast.success("Activity status updated successfully");
     },
     onError: (error) => {
