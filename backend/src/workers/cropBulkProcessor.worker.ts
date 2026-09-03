@@ -44,6 +44,47 @@ function getField(row: any, ...keys: string[]): string {
   return '';
 }
 
+/**
+ * Crop names must be plain words — only letters and spaces (e.g. "Wheat", "Wheat Crop").
+ * Any symbol or digit ( , / ( ) - 2 @ # … ) makes the name invalid, so it is skipped.
+ */
+function hasSpecialChar(name: string): boolean {
+  return /[^A-Za-z ]/.test(name);
+}
+
+// ── Alias merge helpers: one alias per (language, region); its english / native holds
+//    the name(s). Merging appends new names to the matching (language, region) alias
+//    instead of adding a duplicate row, and never repeats a name already present. ────
+const aliasKey = (a: ICropAlias): string =>
+  `${(a.language ?? '').trim().toLowerCase()}||${(a.region ?? '').trim().toLowerCase()}`;
+
+const nameList = (s?: string): string[] =>
+  (s ?? '').split(/[,/]/).map(x => x.trim()).filter(Boolean);
+
+const mergeNames = (a?: string, b?: string): string => {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const n of [...nameList(a), ...nameList(b)]) {
+    const k = n.toLowerCase();
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(n);
+    }
+  }
+  return out.join(', ');
+};
+
+const mergeAliasInto = (list: ICropAlias[], inc: ICropAlias): void => {
+  const found = list.find(a => aliasKey(a) === aliasKey(inc));
+  if (found) {
+    // Same (language, region) → update it: add any new english/native names, skip existing.
+    found.english_representation = mergeNames(found.english_representation, inc.english_representation);
+    found.native_representation = mergeNames(found.native_representation, inc.native_representation);
+  } else {
+    list.push({ ...inc });
+  }
+};
+
 // ── Group CSV rows by crop name (case-insensitive) ──────────────────────────
 
 const cropMap = new Map<string, { name: string; aliases: ICropAlias[] }>();
@@ -74,14 +115,8 @@ for (const row of rows) {
     native_representation: nativeRepr,
   };
 
-  // Deduplicate aliases within the group
-  const isDup = group.aliases.some(
-    a =>
-      a.language.toLowerCase() === alias.language.toLowerCase() &&
-      a.english_representation === alias.english_representation &&
-      a.native_representation === alias.native_representation,
-  );
-  if (!isDup) group.aliases.push(alias);
+  // Merge by (language, region): same slot → append new name(s); new slot → add alias.
+  mergeAliasInto(group.aliases, alias);
 }
 
 // ── Process each unique crop ─────────────────────────────────────────────────
@@ -89,41 +124,50 @@ for (const row of rows) {
 let created = 0;
 let updated = 0;
 const errors: string[] = [];
+// Per-entry outcome for the downloadable results report.
+const results: { name: string; status: string; reason: string }[] = [];
 
 for (const [, group] of cropMap) {
+  // Skip names with special characters — don't add them.
+  if (hasSpecialChar(group.name)) {
+    const reason = 'Name contains special characters';
+    errors.push(`${group.name}: skipped — ${reason.toLowerCase()}`);
+    results.push({ name: group.name, status: 'skipped', reason });
+    parentPort!.postMessage({ processed: 1 });
+    continue;
+  }
   try {
     const existing = await cropRepo.findByNameOrAlias(group.name);
 
     if (existing) {
-      // Merge new aliases into existing ones, deduplicating
-      const existingAliases = (existing.aliases ?? []).filter(
-        (a): a is ICropAlias => typeof a !== 'string',
-      );
-      const merged = [...existingAliases];
+      // Merge new aliases into existing by (language, region): update the matching alias
+      // (append new names, skip ones already present) rather than adding a duplicate row.
+      const merged = (existing.aliases ?? [])
+        .filter((a): a is ICropAlias => typeof a !== 'string')
+        .map(a => ({ ...a }));
 
       for (const newAlias of group.aliases) {
-        const isDup = merged.some(
-          a =>
-            a.language.toLowerCase() === newAlias.language.toLowerCase() &&
-            a.english_representation === newAlias.english_representation &&
-            a.native_representation === newAlias.native_representation,
-        );
-        if (!isDup) merged.push(newAlias);
+        mergeAliasInto(merged, newAlias);
       }
 
       await cropRepo.updateCrop(existing._id!.toString(), { aliases: merged, type: 'crop' }, userId);
       updated++;
+      results.push({ name: group.name, status: 'updated', reason: 'Merged aliases into existing crop' });
     } else {
       await cropRepo.createCrop(group.name, userId, group.aliases, 'crop');
       created++;
+      results.push({ name: group.name, status: 'created', reason: '' });
     }
 
     parentPort!.postMessage({ processed: 1 });
   } catch (err: any) {
     errors.push(`${group.name}: ${err.message}`);
+    results.push({ name: group.name, status: 'failed', reason: err.message });
     parentPort!.postMessage({ processed: 1, error: err.message });
   }
 }
 
-parentPort!.postMessage({ success: true, created, updated, errors });
-process.exit(0);
+parentPort!.postMessage({ success: true, created, updated, errors, results });
+// Let the final message flush to the parent before terminating (an immediate
+// process.exit races message delivery, dropping the created/updated/results payload).
+setTimeout(() => process.exit(0), 100);
