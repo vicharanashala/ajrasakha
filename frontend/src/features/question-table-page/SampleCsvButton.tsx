@@ -2,18 +2,21 @@ import { Button } from "@/components/atoms/button";
 import { Download } from "lucide-react";
 
 // Headers match the bulk-upload parsers (case-insensitive). Multiple rows sharing the
-// same Crop Name / input_chemical = multiple aliases for that entry.
+// same Crop Name / input_chemical = multiple aliases for that entry. English Name /
+// Native Name may hold MULTIPLE names separated by commas — wrap such a cell in quotes
+// so the comma isn't read as a column break (e.g. "vari,paddy").
 const CROP_SAMPLE = [
   "Crop Name,Language,Region,English Name,Native Name",
   "Rice,Hindi,North India,dhan,धान",
-  "Rice,Telugu,Andhra and Telangana,vari,వరి",
+  'Rice,Telugu,Andhra and Telangana,"vari,paddy","వరి,పడ్డి"',
   "Wheat,Hindi,North India,gehun,गेहूँ",
 ].join("\n");
 
+// The `alias` cell may hold multiple trade names separated by commas — wrap it in quotes
+// so the comma isn't read as a column break (e.g. "Roundup,Glifos").
 const CHEMICAL_SAMPLE = [
   "input_chemical,alias,status",
-  "Glyphosate,Roundup,Restricted",
-  "Glyphosate,Glifos,Restricted",
+  'Glyphosate,"Roundup,Glifos",Restricted',
   "Atrazine,Aatrex,Banned",
 ].join("\n");
 

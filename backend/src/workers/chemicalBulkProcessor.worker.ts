@@ -72,21 +72,26 @@ for (const row of rows) {
 
   const group = chemicalMap.get(key)!;
 
-  // Skip rows with no alias value, or if it duplicates the chemical name itself
-  if (!alias || alias.toLowerCase() === name.toLowerCase()) continue;
+  // An alias cell may hold multiple trade names separated by commas/slashes — split them
+  // into separate aliases. Skip empties and any that duplicate the chemical name itself.
+  const aliasNames = alias
+    .split(/[,/]/)
+    .map(x => x.trim())
+    .filter(x => x && x.toLowerCase() !== name.toLowerCase());
 
-  const aliasEntry: ICropAlias = {
-    language: '',
-    region: '',
-    english_representation: alias.toLowerCase(),
-    native_representation: '',
-  };
-
-  // Deduplicate aliases within the group
-  const isDup = group.aliases.some(
-    a => a.english_representation === aliasEntry.english_representation,
-  );
-  if (!isDup) group.aliases.push(aliasEntry);
+  for (const aliasName of aliasNames) {
+    const aliasEntry: ICropAlias = {
+      language: '',
+      region: '',
+      english_representation: aliasName.toLowerCase(),
+      native_representation: '',
+    };
+    // Deduplicate aliases within the group
+    const isDup = group.aliases.some(
+      a => a.english_representation === aliasEntry.english_representation,
+    );
+    if (!isDup) group.aliases.push(aliasEntry);
+  }
 }
 
 // ── Process each unique chemical ─────────────────────────────────────────────
