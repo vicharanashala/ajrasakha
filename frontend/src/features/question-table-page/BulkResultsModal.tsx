@@ -20,6 +20,30 @@ const STATUS_META: Record<
 
 const csvEscape = (v: string) => `"${(v ?? "").replace(/"/g, '""')}"`;
 
+/** Build the results CSV and trigger a download. Shared by the modal button and the
+ *  auto-download that fires the moment a bulk job completes. */
+export const downloadBulkResultsCsv = (
+  results: IBulkJobResult[],
+  type: "crop" | "chemical",
+) => {
+  if (!results.length) return;
+  const label = type === "chemical" ? "Chemical" : "Crop";
+  const rows = [
+    `${label} Name,Status,Reason`,
+    ...results.map(
+      (r) =>
+        `${csvEscape(r.name)},${csvEscape(STATUS_META[r.status]?.label ?? r.status)},${csvEscape(r.reason)}`,
+    ),
+  ].join("\n");
+  const blob = new Blob(["﻿" + rows], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${type}_bulk_upload_results.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 export const BulkResultsModal = ({
   open,
   onClose,
@@ -36,23 +60,7 @@ export const BulkResultsModal = ({
     return acc;
   }, {});
 
-  const downloadResults = () => {
-    const label = type === "chemical" ? "Chemical" : "Crop";
-    const rows = [
-      `${label} Name,Status,Reason`,
-      ...results.map(
-        (r) =>
-          `${csvEscape(r.name)},${csvEscape(STATUS_META[r.status]?.label ?? r.status)},${csvEscape(r.reason)}`,
-      ),
-    ].join("\n");
-    const blob = new Blob(["﻿" + rows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${type}_bulk_upload_results.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const downloadResults = () => downloadBulkResultsCsv(results, type);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>

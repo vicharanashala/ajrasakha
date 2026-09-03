@@ -32,7 +32,7 @@ import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useBulkUploadCrops } from "@/hooks/api/crop/useBulkUploadCrops";
 import { CropService } from "@/hooks/services/cropService";
 import type { ICropAlias, ICropResponse, IBulkJobResult } from "@/hooks/services/cropService";
-import { BulkResultsModal } from "./BulkResultsModal";
+import { BulkResultsModal, downloadBulkResultsCsv } from "./BulkResultsModal";
 
 const cropServiceForStatus = new CropService();
 import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
@@ -961,10 +961,15 @@ export const CropManagementModal = ({
       try {
         const status = await cropServiceForStatus.getBulkJobStatus(jobId);
         if (status && status.status !== "running") {
-          setBulkResults(status.results ?? []);
+          const rs = status.results ?? [];
+          setBulkResults(rs);
           setBulkResultsType(type);
-          setBulkResultsOpen(true);
           setIsProcessingBulk(false);
+          // Download the report directly on completion — the user may have navigated away
+          // by the time it finishes, so don't rely on them clicking a button.
+          downloadBulkResultsCsv(rs, type);
+          setBulkResultsOpen(true);
+          toast.success("Bulk upload complete — results downloaded.");
           return;
         }
       } catch {
