@@ -46,6 +46,12 @@ def _optional_int(value: object) -> Optional[int]:
         return None
 
 
+def _non_negative_int(value: object) -> Optional[int]:
+    """Return an explicitly supplied non-negative whole-number value."""
+    number = _optional_int(value)
+    return number if number is not None and number >= 0 else None
+
+
 def _secondary_crops(value: object, primary_crop: Optional[str]) -> list[str]:
     """Return unique, explicitly extracted crops other than the primary crop."""
     values = value if isinstance(value, (list, tuple, set)) else [value]
@@ -111,6 +117,18 @@ def build_extraction_update(
         "extracted_secondary_crops": _secondary_crops(
             data.get("secondary_crops"),
             primary_crop,
+        ),
+        "extracted_language_preference": _optional_str(
+            data.get("language_preference")
+        ),
+        "extracted_years_of_experience": _non_negative_int(
+            data.get("years_of_experience")
+        ),
+        "extracted_highest_education": _optional_str(
+            data.get("highest_education")
+        ),
+        "extracted_smartphones_at_home": _non_negative_int(
+            data.get("smartphones_at_home")
         ),
     }
 

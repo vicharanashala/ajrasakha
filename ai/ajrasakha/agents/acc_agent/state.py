@@ -24,6 +24,10 @@ class AccAgentState(TypedDict):
     extracted_block: Optional[str]
     extracted_primary_crop: Optional[str]
     extracted_secondary_crops: list[str]
+    extracted_language_preference: Optional[str]
+    extracted_years_of_experience: Optional[int]
+    extracted_highest_education: Optional[str]
+    extracted_smartphones_at_home: Optional[int]
     
     # Verified and merged location structure
     location: Optional[Location]
