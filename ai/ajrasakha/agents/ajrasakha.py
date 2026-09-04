@@ -5,8 +5,9 @@ from typing import Optional
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from openai import APITimeoutError, APIConnectionError, APIStatusError
+from anthropic import APITimeoutError, APIConnectionError, APIStatusError
 from dotenv import load_dotenv
+from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig, patch_config
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -18,7 +19,7 @@ from ajrasakha.agents.answer_quality import (
     is_sufficient_expert_answer,
     strip_two_hour_disclaimer,
 )
-from ajrasakha.agents.config import MCP_URLS, get_minimax_chat_model
+from ajrasakha.agents.config import CLAUDE_MODEL, MCP_URLS
 from ajrasakha.agents.location_context import (
     extract_location_updates_from_new_tool_messages,
     main_agent_location_context_message,
@@ -47,17 +48,15 @@ from ajrasakha.agents.prompts import (
 )
 from ajrasakha.agents.state import AjraSakhaState, Location
 from ajrasakha.agents.assemble_answer_body import assemble_answer_body_node
-from ajrasakha.agents.follow_up_node import follow_up_node
 from ajrasakha.agents.non_agriculture_reply import non_agriculture_reply_node
 from ajrasakha.agents.weather_unavailable_reply import weather_unavailable_reply_node
+from ajrasakha.agents.mandi_unavailable_reply import mandi_unavailable_reply_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
 
 load_dotenv()
 
-from ajrasakha.agents.crop_chemical_resolver import ensure_crop_master_loaded
 from ajrasakha.agents.thread_logging import setup_thread_file_logging, with_thread_logging
 
-ensure_crop_master_loaded()
 setup_thread_file_logging()
 
 MCP_SERVERS = {
@@ -87,13 +86,16 @@ async def _get_tools() -> list:
         all_tools = []
         seen: set[str] = set()
         for server_name, config in MCP_SERVERS.items():
-            client = MultiServerMCPClient({server_name: config})
-            tools = await client.get_tools()
-            for t in tools:
-                if t.name in seen:
-                    t.name = f"{t.name}_{server_name}"
-                seen.add(t.name)
-                all_tools.append(t)
+            try:
+                client = MultiServerMCPClient({server_name: config})
+                tools = await client.get_tools()
+                for t in tools:
+                    if t.name in seen:
+                        t.name = f"{t.name}_{server_name}"
+                    seen.add(t.name)
+                    all_tools.append(t)
+            except Exception as err:
+                logger.warning("MCP server %s offline or unreachable at %s: %s", server_name, config.get("url"), err)
         _tools_cache = all_tools
     return _tools_cache
 
@@ -116,7 +118,7 @@ async def ajrasakha_node(
     merged_configurable = dict((config.get("configurable") or {}))
     merged_configurable["location"] = state.get("location")
     enriched_config = patch_config(config, configurable=merged_configurable)
-    llm = get_minimax_chat_model().bind_tools(main_tools)
+    llm = ChatAnthropic(model=CLAUDE_MODEL).bind_tools(main_tools)
     long_term_summary = await load_long_term_summary(store, config)
     summary_context = (
         f"Long-term memory from previous daily threads:\n{long_term_summary}"
@@ -144,7 +146,7 @@ async def ajrasakha_node(
     except APIStatusError as exc:
         if exc.status_code >= 500:
             logger.warning(
-                "LLM server error (%s) — returning safe fallback",
+                "Anthropic server error (%s) — returning safe fallback",
                 exc.status_code,
             )
             return {"messages": [AIMessage(content=LLM_FALLBACK_MSG)], "location": state.get("location")}
@@ -412,9 +414,12 @@ def _build_graph():
             "weather_unavailable_reply",
             with_thread_logging(weather_unavailable_reply_node),
         )
+        builder.add_node(
+            "mandi_unavailable_reply",
+            with_thread_logging(mandi_unavailable_reply_node),
+        )
         builder.add_node("execute_plan", with_thread_logging(execute_plan_node))
         builder.add_node("assemble_answer_body", with_thread_logging(assemble_answer_body_node))
-        builder.add_node("follow_up", with_thread_logging(follow_up_node))
         from ajrasakha.agents.translate_answer import translate_answer_node
 
         builder.add_node("translate_answer", with_thread_logging(translate_answer_node))
@@ -423,14 +428,9 @@ def _build_graph():
         builder.add_conditional_edges(
             "planner",
             route_after_planner,
-            {
-                "clarify": "clarify",
-                "ensure_location": "ensure_location",
-                "follow_up": "follow_up",
-            },
+            {"clarify": "clarify", "ensure_location": "ensure_location"},
         )
         builder.add_edge("clarify", END)
-        builder.add_edge("follow_up", "translate_answer")
         builder.add_conditional_edges(
             "ensure_location",
             route_after_ensure_location,
@@ -449,9 +449,11 @@ def _build_graph():
                 "translate_answer": "translate_answer",
                 "empty_gdb_reply": "empty_gdb_reply",
                 "weather_unavailable_reply": "weather_unavailable_reply",
+                "mandi_unavailable_reply": "mandi_unavailable_reply",
             },
         )
         builder.add_edge("weather_unavailable_reply", END)
+        builder.add_edge("mandi_unavailable_reply", END)
         builder.add_edge("assemble_answer_body", "translate_answer")
         builder.add_edge("translate_answer", END)
         builder.add_edge("empty_gdb_reply", "translate_answer")

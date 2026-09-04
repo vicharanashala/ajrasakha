@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useGetAuditTrailsByQuestionId } from "@/hooks/api/auditTrails/useGetAuditTrailsByQuestionId";
+import { useGetAuditTrailsByCropId } from "@/hooks/api/auditTrails/useGetAuditTrailsByCropId";
 import type { ModeratorAuditTrail } from "@/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
 import { Badge } from "@/components/atoms/badge";
@@ -12,7 +13,12 @@ import { toast } from "sonner";
 interface AuditTrailModalProps {
   open: boolean;
   onClose: () => void;
-  questionId: string;
+  /** Provide exactly one of questionId / cropId — the modal fetches that entity's trail. */
+  questionId?: string;
+  cropId?: string;
+  /** Entity noun (e.g. "Crop" / "Chemical" / "Entry") — drives all labels: the id chip
+   *  ("Chemical ID"), the action titles ("Chemical Added") and the context keys. */
+  entityLabel?: string;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -79,6 +85,9 @@ const actionLabels: Record<string, string> = {
   DELETE_REQUEST: "Request Deleted",
   ADD_CROP: "Crop Added",
   UPDATE_CROP: "Crop Updated",
+  CREATE_ALIAS: "Alias Created",
+  UPDATE_ALIAS: "Alias Updated",
+  DELETE_ALIAS: "Alias Deleted",
   CROP_BULK_CREATE: "Bulk Crops Created",
   SEND_OUTREACH_REPORT: "Outreach Report Sent",
   DOWNLOAD: "Report Downloaded",
@@ -95,9 +104,31 @@ const actionOptions = Object.entries(actionLabels).map(([value, label]) => ({
   label,
 })).sort((a, b) => a.label.localeCompare(b.label));
 
-const getActionLabel = (action: string): string => {
+const getActionLabel = (action: string, entityLabel?: string): string => {
+  // When an entity label is provided (Crop / Chemical / Entry), make the crop-generic
+  // actions reflect it, so a chemical shows "Chemical Added" instead of "Crop Added".
+  if (entityLabel) {
+    if (action === "ADD_CROP") return `${entityLabel} Added`;
+    if (action === "UPDATE_CROP") return `${entityLabel} Updated`;
+    if (action === "CROP_BULK_CREATE") return `Bulk ${entityLabel}s Created`;
+  }
   return actionLabels[action] || action.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 };
+
+// Pretty labels for the (now type-specific) crop-family context keys. Other keys
+// (e.g. questionId) are left as-is so question audits are unaffected.
+const CONTEXT_KEY_LABELS: Record<string, string> = {
+  agriTechId: "AgriTech ID",
+  agriTechName: "AgriTech Name",
+  // legacy keys (older audit rows)
+  cropId: "Crop ID",
+  cropName: "Crop Name",
+  chemicalId: "Chemical ID",
+  chemicalName: "Chemical Name",
+  entityId: "Entry ID",
+  entityName: "Entry Name",
+};
+const getContextKeyLabel = (key: string): string => CONTEXT_KEY_LABELS[key] ?? key;
 
 const getCategoryLabel = (category: string): string => {
   return category?.replace(/_/g, " ") || "";
@@ -131,15 +162,16 @@ const getOutcomeBadgeClass = (status: string): string => {
 
 interface AuditItemProps {
   audit: ModeratorAuditTrail;
+  entityLabel?: string;
 }
 
-const AuditItem = ({ audit }: AuditItemProps) => {
+const AuditItem = ({ audit, entityLabel }: AuditItemProps) => {
   return (
     <div className="border rounded-lg p-4 bg-card hover:bg-accent/50 transition-colors">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1 min-w-0">
           <h4 className="font-medium text-sm text-foreground truncate">
-            {getActionLabel(audit.action)}
+            {getActionLabel(audit.action, entityLabel)}
           </h4>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <Badge variant="outline" className="text-xs">
@@ -217,7 +249,7 @@ const AuditItem = ({ audit }: AuditItemProps) => {
           <div className="space-y-1">
             {Object.entries(audit.context).map(([key, value]) => (
               <div key={key} className="text-xs flex gap-1">
-                <span className="text-muted-foreground">{key}:</span>
+                <span className="text-muted-foreground">{getContextKeyLabel(key)}:</span>
                 <span className="text-foreground truncate">
                   {Array.isArray(value) 
                     ? value.map(v => String(v)).join(", ")
@@ -242,21 +274,35 @@ const AuditItem = ({ audit }: AuditItemProps) => {
   );
 };
 
-export const AuditTrailModal = ({ open, onClose, questionId }: AuditTrailModalProps) => {
+export const AuditTrailModal = ({ open, onClose, questionId, cropId, entityLabel }: AuditTrailModalProps) => {
   const [page, setPage] = useState(1);
   const [action, setAction] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [order, setOrder] = useState<"asc" | "desc">("desc");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { data, isLoading, error, refetch } = useGetAuditTrailsByQuestionId(
+  const isCrop = !!cropId;
+  const activeId = questionId ?? cropId ?? "";
+  const idLabel = entityLabel ? `${entityLabel} ID` : isCrop ? "Crop ID" : "QID";
+
+  // Both hooks are called unconditionally; only the relevant one is enabled.
+  const questionQuery = useGetAuditTrailsByQuestionId(
     questionId,
-    open,
+    open && !isCrop,
     page,
     ITEMS_PER_PAGE,
     action || null,
     order
   );
+  const cropQuery = useGetAuditTrailsByCropId(
+    cropId,
+    open && isCrop,
+    page,
+    ITEMS_PER_PAGE,
+    action || null,
+    order
+  );
+  const { data, isLoading, error, refetch } = isCrop ? cropQuery : questionQuery;
 
   // Debug log
   // console.log("AuditTrailModal - action:", action, "page:", page, "totalDocs:", data?.totalDocuments);
@@ -277,9 +323,9 @@ export const AuditTrailModal = ({ open, onClose, questionId }: AuditTrailModalPr
 
   const handleCopyId = async () => {
     try {
-      await navigator.clipboard.writeText(questionId);
+      await navigator.clipboard.writeText(activeId);
       setCopied(true);
-      toast.success("Question ID copied to clipboard");
+      toast.success(`${idLabel} copied to clipboard`);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Failed to copy");
@@ -352,16 +398,16 @@ export const AuditTrailModal = ({ open, onClose, questionId }: AuditTrailModalPr
           </Button>
           <div className="flex items-center gap-3 ml-auto">
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">QID:</span>
+              <span className="text-muted-foreground">{idLabel}:</span>
               <code className="px-2 py-1 rounded bg-muted text-foreground font-mono text-xs max-w-[120px] truncate">
-                {questionId}
+                {activeId}
               </code>
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-6 w-6 p-0"
                 onClick={handleCopyId}
-                title="Copy Question ID"
+                title={`Copy ${idLabel}`}
               >
                 {copied ? (
                   <Check className="h-3 w-3 text-green-500" />
@@ -419,7 +465,7 @@ export const AuditTrailModal = ({ open, onClose, questionId }: AuditTrailModalPr
           {!isLoading && !error && data?.data && data.data.length > 0 && (
             <div className="space-y-3">
               {data.data.map((audit, index) => (
-                <AuditItem key={`${audit.actor?.id || 'unknown'}-${index}`} audit={audit} />
+                <AuditItem key={`${audit.actor?.id || 'unknown'}-${index}`} audit={audit} entityLabel={entityLabel} />
               ))}
             </div>
           )}

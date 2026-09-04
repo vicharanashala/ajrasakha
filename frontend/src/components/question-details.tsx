@@ -39,6 +39,7 @@ import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubmissionHistoryModal } from "./submission-history-model";
+import PaeValidationReviewTimeline from "./PaeValidationReviewTimeline";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -196,6 +197,8 @@ export const QuestionDetails = ({
     console.log("Open is set to", open);
   }, [open]);
 
+  const closedStatus = ['closed', 'dynamic_closed', 'duplicate_closed'].includes(question?.status)
+
   return (
     <div className="relative w-full">
       {/* Navigation Arrows */}
@@ -309,7 +312,7 @@ export const QuestionDetails = ({
                   }
                   navigateToQuestionPage={navigateToQuestionPage}
                 />
-                <UserFeedbackDetail questionId={question._id || null} />
+                <UserFeedbackDetail questionId={question._id || null} currentUser={currentUser} />
               </>
             )}
 
@@ -322,11 +325,22 @@ export const QuestionDetails = ({
           )}
 
           {/* Feedback-review timeline: rounds + reviewers, on/off toggle, manual assign. */}
+          
           {question?._id && currentUser && currentUser.role != "expert" && (
             <FeedbackReviewTimeline
               questionId={question._id}
               canManage={
                 currentUser.role === "admin" || currentUser.role === "moderator"||currentUser.role=="gate_keeper"||currentUser.role=="auditor"
+              }
+            />
+          )}
+
+           {/* pae-validation-review timeline: rounds + reviewers, on/off toggle, manual assign. */}
+          {question?._id && currentUser && currentUser.role != "expert" && closedStatus && (
+            <PaeValidationReviewTimeline
+              questionId={question._id}
+              canManage={
+                question?.paeValidation !== 'completed' && closedStatus &&(currentUser.role === "admin" || currentUser.role === "moderator")
               }
             />
           )}

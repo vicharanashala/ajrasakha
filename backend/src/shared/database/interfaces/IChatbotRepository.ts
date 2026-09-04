@@ -914,6 +914,8 @@ export interface IChatbotRepository {
     userType?: string,
     page?: number,
     limit?: number,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any>;
 
   getUserMessageMetricDetails(
@@ -931,6 +933,8 @@ export interface IChatbotRepository {
     userType?: string,
     page?: number,
     limit?: number,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any>;
 
   getUserData(
@@ -943,6 +947,8 @@ export interface IChatbotRepository {
     email: string,
     source?: string,
     session?: ClientSession,
+    startDate?: string,
+    endDate?: string,
   ): Promise<string[]>;
 
   /** Aggregate conversations from the messages collection for Excel export. */

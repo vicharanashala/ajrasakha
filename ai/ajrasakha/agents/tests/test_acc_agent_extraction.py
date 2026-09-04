@@ -33,6 +33,11 @@ SAMPLE_EXTRACTION = {
     "village": "Morinda",
     "block": "Chamkaur Sahib",
     "primary_crop": "Wheat",
+    "secondary_crops": ["Mustard", "Maize"],
+    "language_preference": "Hindi",
+    "years_of_experience": 18,
+    "highest_education": "Class 12",
+    "smartphones_at_home": 2,
 }
 
 
@@ -53,6 +58,14 @@ class AccAgentExtractionTests(unittest.TestCase):
         self.assertEqual(result["extracted_state"], "Punjab")
         self.assertEqual(result["extracted_district"], "Rupnagar")
         self.assertEqual(result["extracted_primary_crop"], "Wheat")
+        self.assertEqual(
+            result["extracted_secondary_crops"],
+            ["Mustard", "Maize"],
+        )
+        self.assertEqual(result["extracted_language_preference"], "Hindi")
+        self.assertEqual(result["extracted_years_of_experience"], 18)
+        self.assertEqual(result["extracted_highest_education"], "Class 12")
+        self.assertEqual(result["extracted_smartphones_at_home"], 2)
         self.assertNotIn("extracted_query", result)
         self.assertNotIn("extracted_crop", result)
         self.assertNotIn("standardized_domains", result)
@@ -74,6 +87,11 @@ class AccAgentExtractionTests(unittest.TestCase):
         self.assertNotIn("extracted_name", result)
         self.assertNotIn("extracted_phone", result)
         self.assertNotIn("extracted_primary_crop", result)
+        self.assertNotIn("extracted_secondary_crops", result)
+        self.assertNotIn("extracted_language_preference", result)
+        self.assertNotIn("extracted_years_of_experience", result)
+        self.assertNotIn("extracted_highest_education", result)
+        self.assertNotIn("extracted_smartphones_at_home", result)
 
     def test_all_contains_query_and_farmer_fields(self):
         result = build_extraction_update(SAMPLE_EXTRACTION, "all")
@@ -85,6 +103,55 @@ class AccAgentExtractionTests(unittest.TestCase):
         )
         self.assertEqual(result["extracted_name"], "Ramesh Kumar")
         self.assertEqual(result["extracted_primary_crop"], "Wheat")
+        self.assertEqual(
+            result["extracted_secondary_crops"],
+            ["Mustard", "Maize"],
+        )
+        self.assertEqual(result["extracted_language_preference"], "Hindi")
+        self.assertEqual(result["extracted_years_of_experience"], 18)
+        self.assertEqual(result["extracted_highest_education"], "Class 12")
+        self.assertEqual(result["extracted_smartphones_at_home"], 2)
+
+    def test_secondary_crops_are_cleaned_and_exclude_the_primary_crop(self):
+        result = build_extraction_update(
+            {
+                "primary_crop": "Cotton",
+                "secondary_crops": [
+                    " Wheat ",
+                    "cotton",
+                    "Dal",
+                    "wheat",
+                    None,
+                    "Unknown",
+                ],
+            },
+            "farmer_details",
+        )
+
+        self.assertEqual(result["extracted_primary_crop"], "Cotton")
+        self.assertEqual(result["extracted_secondary_crops"], ["Wheat", "Dal"])
+
+    def test_missing_secondary_crops_returns_an_empty_list(self):
+        result = build_extraction_update(
+            {"primary_crop": "Cotton"},
+            "farmer_details",
+        )
+
+        self.assertEqual(result["extracted_secondary_crops"], [])
+
+    def test_missing_or_invalid_new_farmer_fields_return_none(self):
+        result = build_extraction_update(
+            {
+                "years_of_experience": -1,
+                "smartphones_at_home": "not specified",
+            },
+            "farmer_details",
+        )
+
+        self.assertIsNone(result["extracted_language_preference"])
+        self.assertIsNone(result["extracted_years_of_experience"])
+        self.assertIsNone(result["extracted_highest_education"])
+        self.assertIsNone(result["extracted_smartphones_at_home"])
 
 
 if __name__ == "__main__":

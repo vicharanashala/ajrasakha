@@ -43,6 +43,15 @@ export const USER_MANAGEMENT_ROLES = [
 export const canManageUsers = (role?: string | UserRole | null): boolean =>
   USER_MANAGEMENT_ROLES.includes(role as (typeof USER_MANAGEMENT_ROLES)[number]);
 
+/** Roles that get the FULL admin "User Management" view (all users + admin actions),
+ *  rather than the limited "Expert Management" view. */
+export const FULL_USER_MANAGEMENT_ROLES = ["admin", "gate_keeper"] as const;
+
+export const hasFullUserManagement = (role?: string | UserRole | null): boolean =>
+  FULL_USER_MANAGEMENT_ROLES.includes(
+    role as (typeof FULL_USER_MANAGEMENT_ROLES)[number],
+  );
+
 /** Roles that may open the Queue Details / Gate Keeper–Auditor Queue management tools. */
 export const QUEUE_DETAILS_ROLES = [
   "admin",

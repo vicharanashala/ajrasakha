@@ -1,127 +1,184 @@
 # ACC Agent (Agricultural Call Center Agent)
 
-A LangGraph-based agent for handling agricultural queries from farmers via call centers.
+A LangGraph workflow for agricultural call-centre transcripts. It extracts
+farmer and query context, pauses for human verification, routes answer requests
+to the relevant agricultural agents, and returns structured output for the
+call-centre agent.
+
+The workflow is implemented in this package but is not currently registered in
+[`ai/langgraph.json`](../../../langgraph.json). Add it to the LangGraph graph
+configuration before exposing it through the LangGraph server.
 
 ## Overview
 
-The ACC Agent processes farmer transcripts, extracts key information, routes queries to appropriate sub-agents (GDB, Weather, Market, Schemes), and generates structured JSON responses for call center agents.
+The ACC Agent supports two connected use cases:
+
+1. Extract a farmer profile from a transcript without generating an answer.
+2. Extract a query, let a human verify it, then produce an answer using one or
+   more domain agents.
+
+Its extraction, planning, and assembly nodes use the shared self-hosted,
+OpenAI-compatible MiniMax chat model. They do not call Anthropic directly.
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    A[Transcript input] --> B[Extract node]
+    B --> C[HITL pause]
+    C --> D{Extraction type}
+    D -->|farmer_details| E[End]
+    D -->|query_details or all| F[Planner node]
+    F --> G[Parallel tool execution]
+    G --> H[Assembler node]
+    H --> E
+
+    G --- GDB[GDB agent]
+    G --- Weather[Weather agent]
+    G --- Market[Daily-price agent]
+    G --- Schemes[Schemes agent]
 ```
-┌─────────────┐     ┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
-│  Transcript │────▶│   Extract   │────▶│  HITL Verification│────▶│   Planner   │
-│   Input     │     │    Node     │     │     (Pause)       │     │    Node     │
-└─────────────┘     └─────────────┘     └──────────────────┘     └──────┬──────┘
-                                                                          │
-                    ┌──────────────────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        Tool Execution Node                               │
-│  ┌─────────┐    ┌─────────┐    ┌─────────┐                              │
-│  │   GDB   │    │ Weather │    │ Market  │   (Parallel Execution)        │
-│  │ Agent   │    │ Agent   │    │ Agent   │                              │
-│  └────┬────┘    └────┬────┘    └────┬────┘                              │
-└───────┼──────────────┼──────────────┼────────────────────────────────────┘
-        │              │              │
-        └──────────────┴──────────────┘
-                          │
-                          ▼
-                 ┌─────────────────┐
-                 │    Assembler    │
-                 │      Node       │
-                 └────────┬────────┘
-                          │
-                          ▼
-                 ┌─────────────────┐
-                 │  Final JSON     │
-                 │    Output       │
-                 └─────────────────┘
-```
+
+The graph is compiled with `interrupt_after=["extract"]`. A caller must use a
+stable LangGraph thread and the platform's state/update-and-resume flow to
+review or correct extracted values before continuing. `verified_by_human` is
+included in state for the calling application; the graph's branch is determined
+by `extraction_type`.
 
 ## Files
 
 | File | Description |
-|------|-------------|
-| `state.py` | TypedDict state schema with all fields for the agent |
-| `prompts.py` | LLM prompts for extraction, planning, and assembly |
-| `nodes.py` | LangGraph node implementations (extract, planner, tool_execution, assembler) |
-| `graph.py` | LangGraph workflow definition with edges and interrupts |
-| `__init__.py` | Module exports |
+|---|---|
+| `graph.py` | Graph definition, conditional route, and extraction interrupt |
+| `state.py` | `AccAgentState` schema |
+| `nodes.py` | Extraction, planning, tool execution, and assembly nodes |
+| `extraction.py` | Extraction-mode validation and response-to-state mapping |
+| `lgd_location.py` | LGD state/district normalization |
+| `prompts.py` | Extraction, planning, and assembly prompts |
+| `__init__.py` | Exposes `acc_graph` |
 
-## State Schema
+## State schema
 
 ```python
 class AccAgentState(TypedDict):
-    # Initial input
-    transcript: str                    # Farmer's call transcript
-    
-    # Extracted values (pending human verification)
-    extracted_query: Optional[str]     # Cleaned agricultural query
-    extracted_state: Optional[str]     # Indian state
-    extracted_district: Optional[str]  # District
-    extracted_crop: Optional[str]      # Crop name
-    standardized_domains: list[str]    # Domain classification(s)
-    
-    # Verified and merged location structure
+    # Input
+    transcript: str
+    extraction_type: Literal["farmer_details", "query_details", "all"]
+
+    # Query extraction
+    extracted_query: Optional[str]
+    extracted_state: Optional[str]
+    extracted_district: Optional[str]
+    extracted_crop: Optional[str]
+    standardized_domains: list[str]
+
+    # Farmer-profile extraction
+    extracted_name: Optional[str]
+    extracted_phone: Optional[str]
+    extracted_age: Optional[int]
+    extracted_gender: Optional[str]
+    extracted_village: Optional[str]
+    extracted_block: Optional[str]
+    extracted_primary_crop: Optional[str]
+    extracted_secondary_crops: list[str]
+    extracted_language_preference: Optional[str]
+    extracted_years_of_experience: Optional[int]
+    extracted_highest_education: Optional[str]
+    extracted_smartphones_at_home: Optional[int]
+
+    # Verification and location
     location: Optional[Location]
-    
-    # State tracking
-    verified_by_human: bool            # HITL approval flag
-    
-    # Tool execution - multi-tool routing
-    selected_tools: list[str]          # Tools to call (gdb, weather, market, schemes)
-    
-    # Individual tool responses
-    gdb_response: Optional[str]        # Raw GDB response
-    weather_response: Optional[str]    # Raw Weather response
-    market_response: Optional[str]     # Raw Market response
-    schemes_response: Optional[str]    # Raw Schemes response
-    
-    # Final output
-    final_answer: Optional[str]        # JSON output with all sections
+    verified_by_human: bool
+
+    # Answer routing and results
+    selected_tools: list[str]
+    gdb_response: Optional[str]
+    weather_response: Optional[str]
+    market_response: Optional[str]
+    schemes_response: Optional[str]
+    final_answer: Optional[str]
 ```
+
+Only `transcript` is needed to start an extraction. `extraction_type` is
+optional at the input boundary and defaults to `all`.
 
 ## Workflow
 
-### 1. Extract Node
-- Receives farmer transcript
-- Uses LLM to extract:
-  - `extracted_query`: Clean query text
-  - `extracted_state`: Indian state
-  - `extracted_district`: District
-  - `extracted_crop`: Crop name
-  - `standardized_domains`: Domain classification(s) from 22 standard domains
+### 1. Extract node
 
-### 2. HITL Verification (Interrupt)
-- Graph pauses after extraction
-- Call center agent reviews extracted values
-- Can approve or modify values
-- Resumes with verified data
+The agent reads the transcript and extracts either query details, farmer details,
+or both. It normalizes the requested extraction mode and sets
+`verified_by_human` to `False`.
 
-### 3. Planner Node
-- Receives verified extracted values
-- Determines which tools to call:
-  - `gdb`: Farming practices, diseases, pests, fertilizers
-  - `weather`: Weather forecasts, rainfall
-  - `market`: Market prices, MSP
-  - `schemes`: Government schemes, subsidies, yojanas, farmer benefits
-- Returns `selected_tools` array (can be multiple)
+Query extraction includes a concise question, state, district, crop, and one or
+more standardized domains. Farmer-profile extraction includes name, phone, age,
+gender, village, block, primary/secondary crops, preferred language, farming
+experience, the farmer's highest education, and smartphone count at home when
+explicitly stated. Unknown profile values are `null`; `secondary_crops` is
+always an array and never repeats the primary crop.
 
-### 4. Tool Execution Node
-- Executes selected tools in **parallel**
-- Collects responses from each tool
-- Returns individual response fields
+### 2. Official location normalization
 
-### 5. Assembler Node
-- Parses tool responses (JSON or string)
-- Generates human-readable `final_answer`
-- Returns structured JSON output
+After extraction, state and district values are normalized against the
+Government of India Local Government Directory (LGD) datasets. District matching
+is limited to the selected state, so a same-named district in another state is
+not chosen.
 
-## Standardized Domains
+Matching uses normalized exact names, supported historical aliases, and a
+conservative fuzzy match. When LGD responds successfully but cannot safely match
+a value, it becomes `All`. If the LGD service is unavailable or unconfigured,
+the extracted location is preserved.
 
-The agent classifies queries into these 22 domains:
+### 3. Human-in-the-loop verification
+
+The graph pauses immediately after extraction. The call-centre application
+reviews or updates the extracted values before resuming the same LangGraph thread.
+
+`farmer_details` ends after this extraction/verification step. `query_details`
+and `all` continue to planning after the thread resumes.
+
+### 4. Planner node
+
+For answer-generating modes, the planner selects one or more tools:
+
+| Planner value | Agent | Responsibility |
+|---|---|---|
+| `gdb` | GDB agent | Farming practices, pests, diseases, and fertilizer guidance |
+| `weather` | Weather agent | Forecasts and weather-related questions |
+| `market` | Daily-price agent | Mandi prices and market questions; uses available location for geocoding |
+| `schemes` | Schemes agent | Government schemes, subsidies, and farmer benefits |
+
+The fallback selection is `gdb` if the planner output cannot be parsed.
+
+### 5. Tool-execution node
+
+The selected tools run concurrently. Their outputs are kept separately in
+`gdb_response`, `weather_response`, `market_response`, and `schemes_response`.
+The weather path handles missing location by returning a clear location request
+along with current conditions for major Indian cities.
+
+### 6. Assembler node
+
+The assembler attempts to decode each selected response as JSON and retains it
+as text if decoding is not possible. It then creates a concise, factual,
+Markdown-formatted answer for the call-centre agent from the retrieved data.
+
+The state field `final_answer` is a JSON-encoded string. When decoded, it has
+this shape:
+
+```json
+{
+  "gdb": "object, string, or null",
+  "weather": "object, string, or null",
+  "market": "object, string, or null",
+  "schemes": "object, string, or null",
+  "final_answer": "Human-readable response for the call-centre agent"
+}
+```
+
+## Standardized domains
+
+The extractor classifies a query into one or more of these 22 domains:
 
 1. Soil Health and Nutrient Management
 2. Irrigation and Water Management
@@ -146,95 +203,43 @@ The agent classifies queries into these 22 domains:
 21. Others
 22. NA / Invalid Data
 
-## Output Format
-
-```json
-{
-  "gdb": {
-    "rephrased_query": "...",
-    "similar_pair1": {
-      "question": "...",
-      "answer": "...",
-      "details": [...]
-    }
-  },
-  "weather": {
-    "success": true,
-    "data_type": "forecast",
-    "result": {...}
-  },
-  "market": {
-    "query_context": {...},
-    "agmarknet": {...}
-  },
-  "final_answer": "Human-readable response for call center agent"
-}
-```
-
-## Usage
-
-```python
-from ajrasakha.agents.acc_agent import acc_graph
-
-# Initialize state
-initial_state = {
-    "transcript": "Farmer: Namaste ji, main Punjab se bol raha hoon..."
-}
-
-# Run graph with checkpointer
-config = {"configurable": {"thread_id": "unique-thread-id"}}
-
-# First run - until HITL interrupt
-async for event in acc_graph.astream(initial_state, config=config):
-    for node_name, state_update in event.items():
-        print(f"Finished: {node_name}")
-
-# After human verification, resume
-async for event in acc_graph.astream(None, config=config):
-    for node_name, state_update in event.items():
-        print(f"Finished: {node_name}")
-
-# Get final result
-final_state = acc_graph.get_state(config)
-print(final_state.values.get("final_answer"))
-```
-
 ## Selective transcript extraction
 
-The initial LangGraph run accepts an optional `extraction_type` input:
-
-| Value | Returned extraction fields | Continues to answer flow when resumed |
+| Value | Returned extraction fields | Answer flow after resume |
 |---|---|---|
-| `farmer_details` | Farmer profile fields plus state and district | No |
-| `query_details` | Query, crop, state, district, and standardized domains | Yes |
-| `all` | Both field groups | Yes |
+| `farmer_details` | Farmer profile, primary/secondary crops, state, and district | Does not continue |
+| `query_details` | Query, crop, state, district, and standardized domains | Continues |
+| `all` | Both field groups | Continues |
 
-`all` is the default when `extraction_type` is omitted, preserving the
-pre-existing API behavior.
+Example input state:
 
 ```json
 {
-  "assistant_id": "<assistant-id>",
-  "input": {
-    "transcript": "Expert: Hello... Farmer: My name is Ramesh...",
-    "extraction_type": "farmer_details"
-  }
+  "transcript": "Expert: Hello. Farmer: My name is Ramesh and I grow cotton and wheat in Punjab.",
+  "extraction_type": "farmer_details"
 }
 ```
 
-## Official location normalization
+Example extracted crop fields:
 
-After transcript extraction, `extracted_state` and `extracted_district` are
-normalized against the Government of India Local Government Directory (LGD)
-datasets. District matching is restricted to the matched state to avoid
-selecting a same-named district from another state.
+```json
+{
+  "extracted_primary_crop": "Cotton",
+  "extracted_secondary_crops": ["Wheat"]
+}
+```
 
-Matching uses normalized exact names, a small set of historical aliases, and a
-conservative fuzzy match. Unmatched values become `All` when LGD responds
-successfully. If LGD is unavailable or not configured, the original extracted
-values are preserved so transcript extraction continues to work.
+## Configuration
 
-Required configuration:
+Configure the shared MiniMax model in the AI service environment:
+
+```dotenv
+MINIMAX_BASE_URL=<OpenAI-compatible base URL>
+MINIMAX_API_KEY=<service key>
+MINIMAX_MODEL=MiniMaxAI/MiniMax-M2.7
+```
+
+Configure LGD normalization when official state/district matching is needed:
 
 ```dotenv
 LGD_API_KEY=<data.gov.in API key>
@@ -242,16 +247,23 @@ LGD_STATES_API_URL=https://api.data.gov.in/resource/a71e60f0-a21d-43de-a6c5-fa5d
 LGD_DISTRICTS_API_URL=https://api.data.gov.in/resource/37231365-78ba-44d5-ac22-3deec40b9197
 ```
 
-## Dependencies
+The GDB, weather, daily-price, and schemes agents have their own service
+configuration. See their respective modules for endpoint and credential details.
 
-- `langgraph` - Graph workflow framework
-- `langchain_anthropic` - Anthropic LLM integration
-- `ajrasakha.agents.gdb_agent` - GDB sub-agent
-- `ajrasakha.agents.weather_agent` - Weather sub-agent
-- `ajrasakha.agents.market_agent` - Market sub-agent
+## Running and testing
 
-## Configuration
+From [`ai/`](../../../), start the local LangGraph server:
 
-Environment variables required:
-- `ANTHROPIC_API_KEY` - For LLM calls
-- Sub-agent API endpoints (configured in respective agents)
+```bash
+uv run langgraph dev --no-browser --allow-blocking
+```
+
+Use graph ID `acc_agent` and a stable thread ID for any run that must resume
+after human verification.
+
+Run the focused tests with:
+
+```bash
+uv run pytest ajrasakha/agents/tests/test_acc_agent_extraction.py -v
+uv run pytest ajrasakha/agents/tests/test_acc_agent_lgd_location.py -v
+```

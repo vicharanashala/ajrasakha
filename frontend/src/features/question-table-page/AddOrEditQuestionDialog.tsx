@@ -49,7 +49,7 @@ import {
 } from "../../components/atoms/select";
 import { Separator } from "../../components/atoms/separator";
 import { Input } from "../../components/atoms/input";
-import { CROPS, DOMAINS, SEASONS} from "../../components/MetaData";
+import { CROPS, pae_domains, SEASONS} from "../../components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
@@ -61,7 +61,7 @@ import {
   useGetStates, 
   useGetDistricts
 } from "@/hooks/api/location/useLocations";
-
+const DOMAINS=pae_domains
 
 
 

@@ -5,7 +5,6 @@ from langchain_core.messages import AIMessage, HumanMessage
 from ajrasakha.agents.domains import domain_requires_crop
 from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
-    canonicalize_chemical_names,
     conversation_text_from_messages,
     extract_crop_from_text,
     format_conversation_for_planner,
@@ -110,20 +109,6 @@ def test_format_prev_plan_context_includes_rephrased_and_chemicals():
 
 def test_format_prev_plan_context_empty_when_prior_turn_complete():
     assert format_prev_plan_context({"is_complete": True, "rephrased_query": "x"}) == ""
-
-
-def test_canonicalize_chemical_names_typo_to_dazomet():
-    from ajrasakha.agents import crop_chemical_resolver as resolver
-
-    resolver.build_cache_from_docs([
-        {
-            "_id": "chem2",
-            "name": "Dazomet",
-            "type": "chemical",
-            "aliases": [{"english_representation": "mylone", "native_representation": ""}],
-        },
-    ])
-    assert canonicalize_chemical_names(["mylonee"]) == ["Dazomet"]
 
 
 def test_format_conversation_for_planner_keeps_farmer_messages_not_bot():

@@ -2,23 +2,40 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle,
+  Lightbulb,
   RotateCcw,
   Loader2,
   Send,
   FileText,
   Bot,
   ChevronsRight,
+  ClipboardCheck,
+  Search,
+  ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/atoms/card";
 import { Label } from "../../components/atoms/label";
 import { Textarea } from "../../components/atoms/textarea";
 import { Button } from "../../components/atoms/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import {
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
+import { useGetPaeValidationAssignedQuestions } from "@/hooks/api/question/useGetPaeValidationAssignedQuestions";
+import { useProcessPaeValidation } from "@/hooks/api/question/useProcessPaeValidation";
+import type {
+  PaeValidationQuestionItem,
+  PaeValidationSource,
+} from "@/hooks/services/questionService";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { SourceUrlManager } from "../../components/source-url-manager";
-import type { IReviewParmeters, SourceItem } from "@/types";
+import type { IQuestion, IReviewParmeters, SourceItem } from "@/types";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import {
   useReviewAnswer,
@@ -31,7 +48,47 @@ import { QuestionDetailsDialog } from "../qa-interface-page/QuestionDetailsDialo
 import { toast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
+type TabType = "review" | "validation";
+
+const normalizeValidationSources = (
+  sources: PaeValidationSource[] | undefined,
+): SourceItem[] =>
+  (sources || []).map((source) => {
+    const normalized: SourceItem = { source: source.source };
+    if (source.sourceType) {
+      normalized.sourceType = source.sourceType as SourceItem["sourceType"];
+    }
+    if (source.sourceName) {
+      normalized.sourceName = source.sourceName;
+    }
+    if (source.page) {
+      normalized.page = source.page;
+    }
+    return normalized;
+  });
+
+const formatValidationDomain = (domain: PaeValidationQuestionItem["domain"]) =>
+  Array.isArray(domain) ? domain.join(", ") : domain ?? "";
+
+const toValidationListQuestion = (question: PaeValidationQuestionItem) => ({
+  ...question,
+  id: question._id,
+  text: question.question,
+  createdAt: String(question.createdAt),
+  updatedAt: String(question.updatedAt ?? question.createdAt),
+  details: question.details ?? {
+    state: question.state ?? "",
+    district: question.district ?? "",
+    crop: question.crop ?? "",
+    normalised_crop: question.normalised_crop,
+    season: question.season ?? "",
+    domain: formatValidationDomain(question.domain),
+  },
+  isAutoAllocate: question.isAutoAllocate ?? false,
+});
+
 export const PAEExpertPage = () => {
+  const [activeTab, setActiveTab] = useState<TabType>("review");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
   const [newAnswer, setNewAnswer] = useState("");
@@ -41,6 +98,12 @@ export const PAEExpertPage = () => {
   const [filter] = useState<QuestionFilter>("newest");
   const [translatedText, setTranslatedText] = useState("");
   const [translatedDraftText, setTranslatedDraftText] = useState("");
+  const [translatedValidationText, setTranslatedValidationText] = useState("");
+  const [translatedValidationAnswer, setTranslatedValidationAnswer] = useState("");
+  const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
+  const [isNoSourceConfirmOpen, setIsNoSourceConfirmOpen] = useState(false);
+  const [suggestionText, setSuggestionText] = useState("");
+  const [suggestionSources, setSuggestionSources] = useState<SourceItem[]>([]);
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [drafts, setDrafts] = useState<
@@ -49,6 +112,13 @@ export const PAEExpertPage = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const questionItemRefs = useRef<Record<string, HTMLDivElement>>({});
+
+  // Validation tab state
+  const [isValidationLoaded, setIsValidationLoaded] = useState(false);
+  const [isValidationSidebarCollapsed, setIsValidationSidebarCollapsed] = useState(false);
+  const [selectedValidationQuestion, setSelectedValidationQuestion] = useState<string | null>(null);
+  const validationScrollRef = useRef<HTMLDivElement>(null);
+  const validationQuestionItemRefs = useRef<Record<string, HTMLDivElement>>({});
 
   const preferences = useMemo(
     () => ({
@@ -78,6 +148,36 @@ export const PAEExpertPage = () => {
     refetch,
   } = useGetAllocatedQuestions(LIMIT, filter, preferences, "allocated", null, "all");
 
+  // Validation questions hook
+  const {
+    data: validationQuestionPages,
+    isLoading: isValidationQuestionsLoading,
+    fetchNextPage: fetchValidationNextPage,
+    hasNextPage: hasValidationNextPage,
+    isFetchingNextPage: isFetchingValidationNextPage,
+    refetch: refetchValidation,
+  } = useGetPaeValidationAssignedQuestions(
+    LIMIT,
+    activeTab === "validation" || isValidationLoaded,
+  );
+
+  const validationQuestions = useMemo(() => {
+    if (!validationQuestionPages?.pages) return [];
+    return validationQuestionPages.pages.flatMap((page) =>
+      (page?.questions ?? []).map(toValidationListQuestion),
+    );
+  }, [validationQuestionPages]);
+
+  const selectedValidationQuestionData = useMemo(
+    () =>
+      validationQuestions.find(
+        (question) => question.id === selectedValidationQuestion,
+      ) ?? null,
+    [selectedValidationQuestion, validationQuestions],
+  );
+  const isSelectedValidationQuestionLoading =
+    isValidationQuestionsLoading && Boolean(selectedValidationQuestion);
+
   const questions = useMemo(() => {
     if (!questionPages?.pages) return [];
     return questionPages.pages.flat();
@@ -87,6 +187,7 @@ export const PAEExpertPage = () => {
     useGetQuestionById(selectedQuestion, "allocated");
 
   const { mutateAsync: respondQuestion, isPending: isResponding } = useReviewAnswer();
+  const { mutateAsync: processPaeValidation, isPending: isProcessingPaeValidation } = useProcessPaeValidation();
 
   const setQuestionRef = (questionId: string, element: HTMLDivElement | null) => {
     if (element) {
@@ -94,6 +195,94 @@ export const PAEExpertPage = () => {
     } else {
       delete questionItemRefs.current[questionId];
     }
+  };
+
+  const setValidationQuestionRef = (questionId: string, element: HTMLDivElement | null) => {
+    if (element) {
+      validationQuestionItemRefs.current[questionId] = element;
+    } else {
+      delete validationQuestionItemRefs.current[questionId];
+    }
+  };
+
+  const handleValidationQuestionClick = (id: string) => {
+    setSelectedValidationQuestion(id);
+  };
+
+  const resetSuggestionForm = () => {
+    setSuggestionText("");
+    setSuggestionSources([]);
+    setIsNoSourceConfirmOpen(false);
+  };
+
+  const handleApproveValidation = async () => {
+    if (!selectedValidationQuestion) return;
+    
+    try {
+      const response = await processPaeValidation({
+        questionId: selectedValidationQuestion,
+        status: 'approve',
+      });
+      
+      if (response?.success) {
+        toast.success("Validation approved successfully!");
+        // Refetch the validation questions to update the list
+        refetchValidation();
+        setSelectedValidationQuestion(null);
+      } else {
+        toast.error(response?.message || "Failed to approve validation");
+      }
+    } catch (error) {
+      console.error("Error approving validation:", error);
+      toast.error("Failed to approve validation. Please try again.");
+    }
+  };
+
+  const submitValidationSuggestion = async () => {
+    if (!selectedValidationQuestion) return;
+    if (!suggestionText.trim()) {
+      toast.error("Please add your suggestion before submitting.");
+      return;
+    }
+    
+    try {
+      // Extract link and source name from the first suggestion source
+      const firstSource = suggestionSources[0];
+      const suggestionLink = firstSource?.source || undefined;
+      const suggestionSourceName = firstSource?.sourceName || firstSource?.source || undefined;
+      
+      const response = await processPaeValidation({
+        questionId: selectedValidationQuestion,
+        status: 'feedback',
+        suggestionComment: suggestionText,
+        suggestionLink,
+        suggestionSourceName,
+      });
+      
+      if (response?.success) {
+        toast.success("Validation suggestion submitted successfully!");
+        setIsSuggestionOpen(false);
+        resetSuggestionForm();
+        refetchValidation();
+      } else {
+        toast.error(response?.message || "Failed to submit suggestion");
+      }
+    } catch (error) {
+      console.error("Error submitting validation suggestion:", error);
+      toast.error("Failed to submit suggestion. Please try again.");
+    }
+  };
+
+  const handleSuggestionSubmit = () => {
+    if (!suggestionText.trim()) {
+      toast.error("Please add your suggestion before submitting.");
+      return;
+    }
+    if (suggestionSources.length === 0) {
+      setIsNoSourceConfirmOpen(true);
+      return;
+    }
+    submitValidationSuggestion();
   };
 
   // Load drafts and selected question from localStorage on mount
@@ -112,6 +301,26 @@ export const PAEExpertPage = () => {
     const firstId = questions[0]?.id ?? null;
     setSelectedQuestion(firstId);
   }, [isLoaded, questions, questionPages]);
+
+  // Mark validation as loaded when tab is first viewed
+  useEffect(() => {
+    if (activeTab === "validation" && !isValidationLoaded) {
+      setIsValidationLoaded(true);
+    }
+  }, [activeTab, isValidationLoaded]);
+
+  // Auto-select first validation question
+  useEffect(() => {
+    if (!isValidationLoaded || !validationQuestionPages?.pages || validationQuestions.length === 0) return;
+    if (selectedValidationQuestion && validationQuestions.some((q) => q.id === selectedValidationQuestion)) return;
+    const firstId = validationQuestions[0]?.id ?? null;
+    setSelectedValidationQuestion(firstId);
+  }, [isValidationLoaded, validationQuestions, validationQuestionPages]);
+
+  useEffect(() => {
+    setTranslatedValidationText("");
+    setTranslatedValidationAnswer("");
+  }, [selectedValidationQuestion]);
 
   // Restore draft when question changes
   useEffect(() => {
@@ -206,6 +415,25 @@ export const PAEExpertPage = () => {
     return () => container.removeEventListener("scroll", handleScroll);
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
+  useEffect(() => {
+    const container = validationScrollRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      if (scrollTop + clientHeight >= scrollHeight - 10) {
+        if (hasValidationNextPage && !isFetchingValidationNextPage) {
+          fetchValidationNextPage();
+        }
+      }
+    };
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [
+    fetchValidationNextPage,
+    hasValidationNextPage,
+    isFetchingValidationNextPage,
+  ]);
+
   const handleReset = () => {
     setNewAnswer("");
     setTranslatedDraftText("");
@@ -295,17 +523,17 @@ export const PAEExpertPage = () => {
     if (!selectedQuestionData) return null;
 
     return (
-      <Card className="w-full border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
-        <CardHeader className="flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-700">
+      <Card className="w-full md:max-h-[120vh] max-h-[80vh] min-h-[90vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
+        <CardHeader className="border-b flex flex-row flex-wrap items-center justify-between gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-4">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-primary/10">
               <FileText className="w-5 h-5 text-primary" />
             </div>
-            <CardTitle className="text-lg font-semibold">Response</CardTitle>
+            <CardTitle className="text-sm md:text-base font-semibold">Response</CardTitle>
           </div>
           <QuestionDetailsDialog question={selectedQuestionData} />
         </CardHeader>
-        <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden">
+        <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-auto">
           {isSelectedQuestionLoading ? (
             <div className="flex flex-col items-center justify-center py-8">
               <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -434,7 +662,7 @@ export const PAEExpertPage = () => {
                         {isResponding ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Submitting…</span>
+                            <span>Submitting...</span>
                           </>
                         ) : (
                           <>
@@ -458,63 +686,385 @@ export const PAEExpertPage = () => {
     );
   };
 
-  return (
-    <div className="mx-auto px-4 md:px-6 bg-transparent py-4">
-      <div className="flex flex-col space-y-6">
-        <div
-          className={`grid grid-cols-1 ${
-            questions.length
-              ? isSidebarCollapsed
-                ? "lg:grid-cols-[minmax(0,_1fr)]"
-                : "lg:grid-cols-[minmax(400px,_1fr)_minmax(400px,_1fr)]"
-              : ""
-          } gap-6 transition-all duration-300 relative`}
-        >
-          {isSidebarCollapsed && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsSidebarCollapsed(false)}
-              className="absolute -left-12 h-full text-center ml-2 px-2 z-10 border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent"
-              title="Expand Questions"
-            >
-              <ChevronsRight className="w-4 h-4" />
-              <span className="sr-only">Expand Questions</span>
-            </Button>
-          )}
+  const renderValidationSources = (sourceItems: SourceItem[]) => (
+    <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
+      <Label className="text-sm font-medium text-foreground">
+        Source References
+      </Label>
+      {sourceItems.length > 0 ? (
+        <div className="mt-3 max-h-44 overflow-y-auto rounded-lg border p-2">
+          <div className="flex flex-col gap-2">
+            {sourceItems.map((item, idx) => (
+              <div
+                key={`${item.source}-${idx}`}
+                className="grid grid-cols-[140px_1fr_auto] items-center gap-6 px-3 py-2 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors"
+              >
+                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap overflow-x-auto">
+                  {item.sourceName || item.sourceType || "Source"}
+                </span>
+                <a
+                  href={item.source}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="truncate hover:underline"
+                  title={item.source}
+                >
+                  {item.source}
+                </a>
+                <div className="flex items-center gap-2">
+                  {item.page && (
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      pg {item.page}
+                    </span>
+                  )}
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No sources added for this answer.
+        </p>
+      )}
+    </div>
+  );
 
-          <div className={`transition-all duration-300 ${isSidebarCollapsed ? "hidden" : "w-full"}`}>
-            <QaHeader
-              questions={questions}
-              selectedQuestion={selectedQuestion}
-              onQuestionSelect={handleQuestionClick}
-              isLoading={isQuestionsLoading}
-              isLoadingTarget={false}
-              isFetchingNextPage={isFetchingNextPage}
-              onRefresh={refetch}
-              actionType="allocated"
-              onActionTypeChange={() => {}}
-              reviewLevel="all"
-              source="all"
-              states={[]}
-              crops={[]}
-              onFilterChange={() => {}}
-              scrollRef={scrollRef}
-              questionItemRefs={questionItemRefs}
-              setQuestionRef={setQuestionRef}
-              onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              onAiAnswerFetched={handleAiAnswerFetched}
-              hideControls={true}
+  // Validation right panel - read-only view for validation
+  const renderValidationRightPanel = () => {
+    if (!selectedValidationQuestionData) return null;
+    const finalAnswer = selectedValidationQuestionData.answer?.answer ?? "";
+    const finalSources = normalizeValidationSources(
+      selectedValidationQuestionData.answer?.sources,
+    );
+
+    return (
+      <Card className="w-full md:max-h-[120vh] max-h-[80vh] min-h-[90vh] border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
+        <CardHeader className="border-b flex flex-row flex-wrap items-center justify-between gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-4">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <ClipboardCheck className="w-5 h-5 text-primary" />
+            </div>
+            <CardTitle className="text-sm md:text-base font-semibold">Validation Response</CardTitle>
+          </div>
+          <QuestionDetailsDialog question={selectedValidationQuestionData as IQuestion} />
+        </CardHeader>
+        <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-auto">
+          {isSelectedValidationQuestionLoading ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="mt-2 text-sm text-muted-foreground">Loading...</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col w-full">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm font-medium text-muted-foreground">
+                    Current Query:
+                  </Label>
+                  {selectedValidationQuestionData.text?.trim() &&
+                    !isEnglishCharacters(selectedValidationQuestionData.text) && (
+                      <SarvamTranslateDropdown
+                        query={selectedValidationQuestionData.text}
+                        onTranslate={(result) => setTranslatedValidationText(result)}
+                      />
+                    )}
+                </div>
+                <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
+                  {translatedValidationText || selectedValidationQuestionData.text}
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="pae-validation-answer"
+                    className="text-sm font-medium flex items-center gap-1"
+                  >
+                    <ClipboardCheck className="h-4 w-4 text-primary" />
+                    Final Answer:
+                  </Label>
+                  {finalAnswer.trim() && !isEnglishCharacters(finalAnswer) && (
+                    <SarvamTranslateDropdown
+                      query={finalAnswer}
+                      onTranslate={(result) => setTranslatedValidationAnswer(result)}
+                    />
+                  )}
+                </div>
+                <div
+                  id="pae-validation-answer"
+                  className="mt-1 max-h-[240px] overflow-y-auto whitespace-pre-wrap rounded-md border border-gray-200 dark:border-gray-600 bg-transparent p-3 text-sm md:text-md break-words"
+                >
+                  {translatedValidationAnswer || finalAnswer || (
+                    <span className="text-muted-foreground">
+                      No final answer available.
+                    </span>
+                  )}
+                </div>
+
+                {renderValidationSources(finalSources)}
+
+                {selectedValidationQuestionData.answer?.isFinalAnswer && (
+                  <p className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                    <CheckCircle className="w-4 h-4" />
+                    This response is marked as the final answer.
+                  </p>
+                )}
+
+                {!selectedValidationQuestionData.answer && (
+                  <div className="mt-3 rounded-md border border-dashed border-gray-200 dark:border-gray-600 p-4 text-sm text-muted-foreground">
+                    No answer data was returned for this validation question.
+                  </div>
+                )}
+
+                <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+                  <ConfirmationModal
+                    title="Approve Validation"
+                    description="Please confirm that this final answer and its sources are correct."
+                    confirmText="Approve"
+                    cancelText="Cancel"
+                    onConfirm={handleApproveValidation}
+                    trigger={
+                      <Button className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>Approve</span>
+                      </Button>
+                    }
+                  />
+                  <Button
+                    variant="secondary"
+                    className="flex items-center gap-2"
+                    onClick={() => setIsSuggestionOpen(true)}
+                  >
+                    <Lightbulb className="h-4 w-4" />
+                    <span>Suggestion</span>
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderSuggestionDialog = () => (
+    <Dialog
+      open={isSuggestionOpen}
+      onOpenChange={(open) => {
+        setIsSuggestionOpen(open);
+        if (!open) resetSuggestionForm();
+      }}
+    >
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-primary" />
+            Add Suggestion
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <div>
+            <Label htmlFor="pae-validation-suggestion" className="text-sm font-medium">
+              Suggestion
+            </Label>
+            <Textarea
+              id="pae-validation-suggestion"
+              value={suggestionText}
+              onChange={(event) => setSuggestionText(event.target.value)}
+              placeholder="Enter your suggested correction or note..."
+              className="mt-1 min-h-[130px] max-h-[260px] resize-y border border-gray-200 dark:border-gray-600 bg-transparent p-3 text-sm"
             />
           </div>
 
-          {selectedQuestionData && (
-            <div className="transition-all duration-300 w-full">
-              {renderRightPanel()}
-            </div>
-          )}
+          <div className="rounded-xl border border-border bg-card p-4">
+            <SourceUrlManager
+              sources={suggestionSources}
+              onSourcesChange={setSuggestionSources}
+              allowAnyUrl
+              label="Reference Links"
+              required={false}
+            />
+          </div>
         </div>
+
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setIsSuggestionOpen(false);
+              resetSuggestionForm();
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleSuggestionSubmit}>
+            Submit
+          </Button>
+        </DialogFooter>
+
+        <ConfirmationModal
+          title="Submit Without Links?"
+          description="No reference link has been added. Do you want to submit this suggestion without a link?"
+          confirmText="Submit"
+          cancelText="Go Back"
+          open={isNoSourceConfirmOpen}
+          onOpenChange={setIsNoSourceConfirmOpen}
+          onConfirm={submitValidationSuggestion}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+
+  const renderValidationTab = () => (
+    <div className="flex flex-col space-y-6">
+      <div
+        className={`grid grid-cols-1 ${
+          validationQuestions.length
+            ? isValidationSidebarCollapsed
+              ? "lg:grid-cols-[minmax(0,_1fr)]"
+              : "lg:grid-cols-[minmax(400px,_1fr)_minmax(400px,_1fr)]"
+            : ""
+        } gap-6 transition-all duration-300 relative`}
+      >
+        {isValidationSidebarCollapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsValidationSidebarCollapsed(false)}
+            className="absolute -left-12 h-full text-center ml-2 px-2 z-10 border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent"
+            title="Expand Questions"
+          >
+            <ChevronsRight className="w-4 h-4" />
+            <span className="sr-only">Expand Questions</span>
+          </Button>
+        )}
+
+        <div className={`transition-all duration-300 ${isValidationSidebarCollapsed ? "hidden" : "w-full"}`}>
+          <QaHeader
+            questions={validationQuestions}
+            selectedQuestion={selectedValidationQuestion}
+            onQuestionSelect={handleValidationQuestionClick}
+            isLoading={isValidationQuestionsLoading}
+            isLoadingTarget={false}
+            isFetchingNextPage={isFetchingValidationNextPage}
+            onRefresh={refetchValidation}
+            actionType="allocated"
+            onActionTypeChange={() => {}}
+            reviewLevel="all"
+            source="all"
+            states={[]}
+            crops={[]}
+            onFilterChange={() => {}}
+            scrollRef={validationScrollRef}
+            questionItemRefs={validationQuestionItemRefs}
+            setQuestionRef={setValidationQuestionRef}
+            onToggleCollapse={() => setIsValidationSidebarCollapsed(!isValidationSidebarCollapsed)}
+            onAiAnswerFetched={() => {}}
+            hideControls={true}
+          />
+        </div>
+
+        {selectedValidationQuestionData && (
+          <div className="transition-all duration-300 w-full h-full">
+            {renderValidationRightPanel()}
+          </div>
+        )}
       </div>
+    </div>
+  );
+
+  return (
+    <div className="mx-auto px-4 md:px-6 bg-transparent py-4">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-6 bg-muted/50 p-1 rounded-lg w-fit">
+        <button
+          onClick={() => setActiveTab("review")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+            activeTab === "review"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <Search className="w-4 h-4" />
+          Review
+        </button>
+        <button
+          onClick={() => setActiveTab("validation")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+            activeTab === "validation"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <ClipboardCheck className="w-4 h-4" />
+          Validation
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === "review" ? (
+        <div className="flex flex-col space-y-6">
+          <div
+            className={`grid grid-cols-1 ${
+              questions.length
+                ? isSidebarCollapsed
+                  ? "lg:grid-cols-[minmax(0,_1fr)]"
+                  : "lg:grid-cols-[minmax(400px,_1fr)_minmax(400px,_1fr)]"
+                : ""
+            } gap-6 transition-all duration-300 relative`}
+          >
+            {isSidebarCollapsed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="absolute -left-12 h-full text-center ml-2 px-2 z-10 border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent"
+                title="Expand Questions"
+              >
+                <ChevronsRight className="w-4 h-4" />
+                <span className="sr-only">Expand Questions</span>
+              </Button>
+            )}
+
+            <div className={`transition-all duration-300 ${isSidebarCollapsed ? "hidden" : "w-full"}`}>
+              <QaHeader
+                questions={questions}
+                selectedQuestion={selectedQuestion}
+                onQuestionSelect={handleQuestionClick}
+                isLoading={isQuestionsLoading}
+                isLoadingTarget={false}
+                isFetchingNextPage={isFetchingNextPage}
+                onRefresh={refetch}
+                actionType="allocated"
+                onActionTypeChange={() => {}}
+                reviewLevel="all"
+                source="all"
+                states={[]}
+                crops={[]}
+                onFilterChange={() => {}}
+                scrollRef={scrollRef}
+                questionItemRefs={questionItemRefs}
+                setQuestionRef={setQuestionRef}
+                onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                onAiAnswerFetched={handleAiAnswerFetched}
+                hideControls={true}
+              />
+            </div>
+
+            {selectedQuestionData && (
+              <div className="transition-all duration-300 w-full">
+                {renderRightPanel()}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        renderValidationTab()
+      )}
+      {renderSuggestionDialog()}
     </div>
   );
 };
