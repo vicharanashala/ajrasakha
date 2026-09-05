@@ -70,6 +70,18 @@ export function PlaygroundHeader({
                 </HoverCard>
               </TabsTrigger>
             )}
+            {/* Moderators keep the admin overview ("Dashboard") and get their own
+                moderator-scoped dashboard alongside it. */}
+            {user && user.role === "moderator" && (
+              <TabsTrigger
+                value="moderatorDashboard"
+                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+              >
+                <HoverCard openDelay={150}>
+                  <span>My Dashboard</span>
+                </HoverCard>
+              </TabsTrigger>
+            )}
 
             {user && user.role == "expert" && (
               <TabsTrigger
