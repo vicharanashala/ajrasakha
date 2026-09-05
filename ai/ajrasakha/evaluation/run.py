@@ -38,6 +38,7 @@ def run_case(case: dict, mode: str) -> dict:
 
     quality_result = evaluate_response_quality(
         result,
+        case=case,
         enabled=(mode == "live"),
     )
 

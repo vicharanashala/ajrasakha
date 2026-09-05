@@ -1,5 +1,5 @@
 def evaluate_source_attribution(result: dict, case: dict) -> dict:
-    response = str(result.get("response_text", ""))
+    response = str(result.get("full_response_text") or result.get("response_text", ""))
     observed_tools = set(result.get("observed_tools", []) or [])
     expected_tools = set(case.get("expected_tools", []) or [])
 

@@ -40,7 +40,7 @@ def _has_script(text: str, language: str) -> bool:
 
 
 def evaluate_disclaimer_language(result: dict, case: dict) -> dict:
-    response = _norm(result.get("response_text"))
+    response = _norm(result.get("full_response_text") or result.get("response_text"))
 
     expected_testing = _norm(
         case.get("expected_testing_disclaimer")
