@@ -2,8 +2,9 @@ import json
 import re
 
 from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_anthropic import ChatAnthropic
 
-from ajrasakha.agents.config import get_minimax_chat_model
+from ajrasakha.agents.config import CLAUDE_MODEL, get_minimax_chat_model
 from ajrasakha.agents.acc_agent.state import AccAgentState
 from ajrasakha.agents.acc_agent.extraction import (
     build_extraction_update,
@@ -107,7 +108,10 @@ async def extract_node(state: AccAgentState):
         "query_details": ACC_QUERY_DETAILS_PROMPT,
     }
 
-    llm = get_minimax_chat_model()
+    # Transcript extraction is quality-sensitive: use Claude Sonnet rather than
+    # the shared MiniMax model so distinct farmer questions and profile fields
+    # are extracted more reliably.
+    llm = ChatAnthropic(model=CLAUDE_MODEL)
     messages = [
         SystemMessage(content=prompt_by_type[extraction_type]),
         HumanMessage(content=state["transcript"])
