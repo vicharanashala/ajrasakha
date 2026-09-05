@@ -397,26 +397,41 @@ export class ModeratorAllocationQueuePage {
     return email!;
   }
 
+  /**
+   * Same reasoning as waitForAutoAllocatedExpert() above: right after
+   * clickAllocate(), with no prior wait, this is a first-load delay
+   * (backend hasn't finished reflecting the new allocation yet), not the
+   * HTTP-caching staleness documented on reload() - so there's nothing to
+   * bypass here, and reload() itself isn't safe to use as a retry: this
+   * page reaches the Allocation Queue view via a click-based selection
+   * that (like the expert dashboard's question list) never round-trips
+   * through the URL, so a hard page.reload() drops back to the question
+   * list instead of refreshing this view. A single generous
+   * expect(...).toBeVisible({timeout}) is enough - Playwright's built-in
+   * polling already re-checks the DOM continuously within that window.
+   */
   async expectExpertStatus(
     email: string,
     expectedStatus: string,
+    timeout = 30_000,
   ): Promise<void> {
     const card = this.expertCard(email);
 
     await expect(card).toBeVisible();
 
-    console.log("=================================");
-    console.log("EXPERT:", email);
-    console.log("EXPECTED STATUS:", expectedStatus);
-    console.log("CARD TEXT:");
-    console.log(await card.innerText());
-    console.log("=================================");
-
     const status = card.getByText(expectedStatus, {
       exact: true,
     });
 
-    await expect(status).toBeVisible();
+    await expect(status).toBeVisible({ timeout }).catch(async (error) => {
+      console.log("=================================");
+      console.log("EXPERT:", email);
+      console.log("EXPECTED STATUS:", expectedStatus);
+      console.log("CARD TEXT:");
+      console.log(await card.innerText());
+      console.log("=================================");
+      throw error;
+    });
   }
   async openRemoveExpertDialog(email: string) {
     const card = this.expertCard(email);

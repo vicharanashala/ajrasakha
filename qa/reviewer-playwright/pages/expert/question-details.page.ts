@@ -27,9 +27,9 @@ export class ExpertQuestionDetailsPage {
 
   async expectCoreHeader(): Promise<void> {
     await expect(this.exitButton).toBeVisible();
-    await expect(
-      this.page.getByRole("button", { name: "View LifeCycle" }),
-    ).toBeVisible();
+    // "View LifeCycle" is role-gated to admin/moderator/gate_keeper/auditor
+    // (see QuestionHeader.tsx) - the expert role this page object is for
+    // never sees it, so it isn't asserted here.
     await expect(
       this.page.getByRole("button", { name: "View Audit" }),
     ).toBeVisible();

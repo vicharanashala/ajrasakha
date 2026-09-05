@@ -188,6 +188,21 @@ test.describe("Expert Manual Allocation Workflow", () => {
   }) => {
     await moderatorAllocationQueuePage.disableExpertAutoAllocate();
 
+    // A newly created question already has an auto-allocated expert in the
+    // queue (created before disableExpertAutoAllocate() takes effect).
+    // Manually allocating EXPERT_EMAIL on top of that puts them second in
+    // line - "Pending", not "Waiting" - so the auto-allocated expert has
+    // to be removed first for EXPERT_EMAIL to become the active reviewer.
+    // Same setup expert-response-workflow.spec.ts's beforeEach uses.
+    const autoAllocatedExpert =
+      await moderatorAllocationQueuePage.getFirstAllocatedExpertEmail();
+
+    await moderatorAllocationQueuePage.openRemoveExpertDialog(
+      autoAllocatedExpert,
+    );
+    await moderatorAllocationQueuePage.confirmRemoveExpert();
+    await moderatorAllocationQueuePage.expectEmptyExpertQueue();
+
     await expertAllocationSectionPage.openSelectExpertsDialog();
 
     await expertAllocationSectionPage.selectExpert(process.env.EXPERT_EMAIL!);
@@ -360,7 +375,10 @@ test.describe("Expert Manual Allocation Workflow", () => {
 
     await expertAllocationSectionPage.openSelectExpertsDialog();
 
-    await expertAllocationSectionPage.expectExpertNotSelected(
+    // Once allocated, the expert is filtered out of the selectable list
+    // entirely (see AllocationQueueHeader.tsx) rather than staying with an
+    // unchecked box, so "reset" means the row is gone, not deselected.
+    await expertAllocationSectionPage.expectExpertNotListed(
       process.env.EXPERT_EMAIL!,
     );
   });

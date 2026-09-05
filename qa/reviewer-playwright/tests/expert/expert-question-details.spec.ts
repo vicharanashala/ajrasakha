@@ -25,8 +25,8 @@ test.describe("Reviewer (Expert) dashboard to question-detail vertical slice", (
   test("PERM-001 expert login resolves the reviewer role and reaches /home", async ({
     page,
   }) => {
-    const email = process.env.REVIEWER_USER_EMAIL;
-    const password = process.env.REVIEWER_USER_PASSWORD;
+    const email = process.env.EXPERT_EMAIL;
+    const password = process.env.EXPERT_PASSWORD;
     test.skip(
       !email || !password,
       "Skipped: REVIEWER_USER_EMAIL and REVIEWER_USER_PASSWORD are not configured.",

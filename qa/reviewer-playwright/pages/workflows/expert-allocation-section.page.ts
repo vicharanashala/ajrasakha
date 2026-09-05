@@ -164,6 +164,17 @@ export class ExpertAllocationSectionPage {
     await expect(checkbox).not.toBeChecked();
   }
 
+  // Once an expert is allocated, AllocationQueueHeader.tsx filters them out
+  // of the selectable list entirely (`!expertsIdsInQueue.has(user._id)`) -
+  // reopening the dialog shows no row for them at all, not an unchecked one.
+  async expectExpertNotListed(email: string) {
+    const card = this.expertCards.filter({
+      has: this.page.getByText(email),
+    });
+
+    await expect(card).toHaveCount(0);
+  }
+
   async clickSubmit() {
     await expect(this.submitButton).toBeVisible();
     await this.submitButton.click();
