@@ -17,8 +17,10 @@ The ACC Agent supports two connected use cases:
 2. Extract a query, let a human verify it, then produce an answer using one or
    more domain agents.
 
-Its extraction, planning, and assembly nodes use the shared self-hosted,
-OpenAI-compatible MiniMax chat model. They do not call Anthropic directly.
+Its transcript-extraction node uses Claude Sonnet for reliable structured
+extraction of farmer details and multiple questions. The planning and assembly
+nodes continue to use the shared self-hosted, OpenAI-compatible MiniMax chat
+model.
 
 ## Architecture
 
@@ -249,7 +251,15 @@ Example multiple-query extraction:
 
 ## Configuration
 
-Configure the shared MiniMax model in the AI service environment:
+Configure Claude Sonnet for ACC transcript extraction in the AI service
+environment:
+
+```dotenv
+ANTHROPIC_API_KEY=<Anthropic API key>
+CLAUDE_MODEL=claude-sonnet-4-6
+```
+
+Configure the shared MiniMax model for ACC planning and answer assembly:
 
 ```dotenv
 MINIMAX_BASE_URL=<OpenAI-compatible base URL>
