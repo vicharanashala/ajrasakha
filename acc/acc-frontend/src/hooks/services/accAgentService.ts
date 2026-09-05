@@ -1,12 +1,20 @@
 import { env } from "@/config/env";
 import { apiFetch } from "../api/api-fetch";
 
+export interface ExtractedQueryItem {
+  query: string;
+  crop: string | null;
+  standardized_domains: string[];
+}
+
 export interface ExtractDataResponse {
+  extracted_queries?: ExtractedQueryItem[];
   extracted_query: string;
   extracted_crop: string;
   extracted_state: string;
   extracted_district: string;
   extracted_domain?: string | string[];
+  standardized_domains?: string[];
   extracted_name?: string;
   extracted_phone?: string;
   extracted_age?: number;

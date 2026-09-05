@@ -5,11 +5,17 @@ export interface IAccAgentService {
     transcript: string,
     extractionType?: 'farmer_details' | 'query_details'
   ): Promise<{
+    extracted_queries?: Array<{
+      query: string;
+      crop: string | null;
+      standardized_domains: string[];
+    }>;
     extracted_query: string;
     extracted_crop: string;
     extracted_state: string;
     extracted_district: string;
     extracted_domain?: string | string[];
+    standardized_domains?: string[];
     extracted_name?: string;
     extracted_phone?: string;
     extracted_age?: number;

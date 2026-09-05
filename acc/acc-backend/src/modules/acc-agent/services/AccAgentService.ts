@@ -57,11 +57,17 @@ export class AccAgentService {
     transcript: string,
     extractionType?: 'farmer_details' | 'query_details'
   ): Promise<{
+    extracted_queries?: Array<{
+      query: string;
+      crop: string | null;
+      standardized_domains: string[];
+    }>;
     extracted_query: string;
     extracted_crop: string;
     extracted_state: string;
     extracted_district: string;
     extracted_domain?: string | string[];
+    standardized_domains?: string[];
     extracted_name?: string;
     extracted_phone?: string;
     extracted_age?: number;
@@ -103,12 +109,43 @@ export class AccAgentService {
       // Check standardized_domains array from server, fall back to extracted_domain
       const domainVal = data.standardized_domains || data.extracted_domain || '';
 
+      // Normalize extracted_queries array from server
+      let extractedQueries: Array<{ query: string; crop: string | null; standardized_domains: string[] }> | undefined = undefined;
+      if (Array.isArray(data.extracted_queries)) {
+        extractedQueries = data.extracted_queries.map((q: any) => ({
+          query: q.query || q.extracted_query || '',
+          crop: q.crop || q.extracted_crop || null,
+          standardized_domains: Array.isArray(q.standardized_domains)
+            ? q.standardized_domains
+            : q.standardized_domains
+              ? [q.standardized_domains]
+              : Array.isArray(q.extracted_domain)
+                ? q.extracted_domain
+                : q.extracted_domain
+                  ? [q.extracted_domain]
+                  : [],
+        }));
+      } else if (data.extracted_query) {
+        const doms = Array.isArray(domainVal) ? domainVal : domainVal ? [domainVal] : [];
+        extractedQueries = [
+          {
+            query: data.extracted_query,
+            crop: data.extracted_crop || null,
+            standardized_domains: doms,
+          },
+        ];
+      }
+
+      const firstQuery = extractedQueries && extractedQueries.length > 0 ? extractedQueries[0] : null;
+
       const result = {
-        extracted_query: data.extracted_query || '',
-        extracted_crop: data.extracted_crop || '',
+        extracted_queries: extractedQueries,
+        extracted_query: data.extracted_query || firstQuery?.query || '',
+        extracted_crop: data.extracted_crop || firstQuery?.crop || '',
         extracted_state: data.extracted_state || '',
         extracted_district: data.extracted_district || '',
-        extracted_domain: domainVal,
+        extracted_domain: domainVal || firstQuery?.standardized_domains || '',
+        standardized_domains: Array.isArray(domainVal) ? domainVal : (domainVal ? [domainVal] : (firstQuery?.standardized_domains || [])),
         extracted_name: data.extracted_name || '',
         extracted_phone: data.extracted_phone || '',
         extracted_age: data.extracted_age !== undefined && data.extracted_age !== null ? Number(data.extracted_age) : undefined,
@@ -123,7 +160,7 @@ export class AccAgentService {
         extracted_smartphones_at_home: data.extracted_smartphones_at_home !== undefined && data.extracted_smartphones_at_home !== null ? Number(data.extracted_smartphones_at_home) : undefined,
       };
       console.log(`📋 [EXTRACTION_DATA] (AccAgentService) Raw extraction output for thread ${threadId}:`, data);
-      console.log(`✅ [AccAgentService] Data extracted for thread ${threadId} (${Date.now() - startTime}ms): query="${result.extracted_query}", crop="${result.extracted_crop}", domain="${JSON.stringify(result.extracted_domain)}"`);
+      console.log(`✅ [AccAgentService] Data extracted for thread ${threadId} (${Date.now() - startTime}ms): queries=${extractedQueries?.length || 0}, query="${result.extracted_query}", crop="${result.extracted_crop}", domain="${JSON.stringify(result.extracted_domain)}"`);
       return result;
     } catch (error) {
       console.error(`❌ [AccAgentService] extractData failed for thread ${threadId} after ${Date.now() - startTime}ms:`, error);

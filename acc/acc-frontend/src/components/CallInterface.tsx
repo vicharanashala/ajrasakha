@@ -17,6 +17,8 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Edit3,
   Copy,
   Check,
@@ -354,13 +356,118 @@ export const CallInterface = () => {
   const [editableDomain, setEditableDomain] = useState<string[]>([]);
   const [editableSeason, setEditableSeason] = useState("");
 
+  // Multiple extracted query cards state
+  const [queryCards, setQueryCards] = useState<Array<{
+    id: string;
+    query: string;
+    crop: string;
+    season: string;
+    state: string;
+    district: string;
+    block: string;
+    village: string;
+    domain: string[];
+    isGenerated?: boolean;
+  }>>([]);
+  const [activeQueryIndex, setActiveQueryIndex] = useState(0);
 
   const handleToggleDomain = (domain: string) => {
-    setEditableDomain((prev) =>
-      prev.includes(domain)
-        ? prev.filter((d) => d !== domain)
-        : [...prev, domain]
-    );
+    const newDomains = editableDomain.includes(domain)
+      ? editableDomain.filter((d) => d !== domain)
+      : [...editableDomain, domain];
+    setEditableDomain(newDomains);
+    setQueryCards((prev) => {
+      if (!prev[activeQueryIndex]) return prev;
+      const copy = [...prev];
+      copy[activeQueryIndex] = { ...copy[activeQueryIndex], domain: newDomains };
+      return copy;
+    });
+  };
+
+  const handleQueryTextChange = (val: string) => {
+    setEditableQuery(val);
+    setQueryCards((prev) => {
+      if (!prev[activeQueryIndex]) return prev;
+      const copy = [...prev];
+      copy[activeQueryIndex] = { ...copy[activeQueryIndex], query: val };
+      return copy;
+    });
+  };
+
+  const handleCropChange = (val: string) => {
+    setEditableCrop(val);
+    setQueryCards((prev) => {
+      if (!prev[activeQueryIndex]) return prev;
+      const copy = [...prev];
+      copy[activeQueryIndex] = { ...copy[activeQueryIndex], crop: val };
+      return copy;
+    });
+  };
+
+  const handleSeasonChange = (val: string) => {
+    setEditableSeason(val);
+    setQueryCards((prev) => {
+      if (!prev[activeQueryIndex]) return prev;
+      const copy = [...prev];
+      copy[activeQueryIndex] = { ...copy[activeQueryIndex], season: val };
+      return copy;
+    });
+  };
+
+  const handleStateChange = (val: string) => {
+    setEditableState(val);
+    setQueryCards((prev) => {
+      if (!prev[activeQueryIndex]) return prev;
+      const copy = [...prev];
+      copy[activeQueryIndex] = { ...copy[activeQueryIndex], state: val };
+      return copy;
+    });
+  };
+
+  const handleDistrictChange = (val: string) => {
+    setEditableDistrict(val);
+    setQueryCards((prev) => {
+      if (!prev[activeQueryIndex]) return prev;
+      const copy = [...prev];
+      copy[activeQueryIndex] = { ...copy[activeQueryIndex], district: val };
+      return copy;
+    });
+  };
+
+  const handleBlockChange = (val: string) => {
+    setEditableBlock(val);
+    setQueryCards((prev) => {
+      if (!prev[activeQueryIndex]) return prev;
+      const copy = [...prev];
+      copy[activeQueryIndex] = { ...copy[activeQueryIndex], block: val };
+      return copy;
+    });
+  };
+
+  const handleVillageChange = (val: string) => {
+    setEditableVillage(val);
+    setQueryCards((prev) => {
+      if (!prev[activeQueryIndex]) return prev;
+      const copy = [...prev];
+      copy[activeQueryIndex] = { ...copy[activeQueryIndex], village: val };
+      return copy;
+    });
+  };
+
+  const handleSelectQueryCard = (index: number) => {
+    if (index < 0 || index >= queryCards.length) return;
+    setActiveQueryIndex(index);
+    const card = queryCards[index];
+    if (card) {
+      setEditableQuery(card.query || "");
+      setEditableCrop(card.crop || "");
+      setEditableSeason(card.season || "");
+      setEditableState(card.state || "");
+      setEditableDistrict(card.district || "");
+      setEditableBlock(card.block || "");
+      setEditableVillage(card.village || "");
+      setEditableDomain(card.domain || []);
+    }
   };
 
   // Farmer Details HITL state
@@ -483,6 +590,8 @@ export const CallInterface = () => {
     setEditableVillage("");
     setEditableDomain([]);
     setEditableSeason("");
+    setQueryCards([]);
+    setActiveQueryIndex(0);
     setIsSimulatingMode(false);
     setSimText("");
     setSimOriginalText("");
@@ -565,7 +674,8 @@ export const CallInterface = () => {
     setEditableVillage("");
     setEditableDomain([]);
     setEditableSeason("");
-
+    setQueryCards([]);
+    setActiveQueryIndex(0);
 
     setIsSimulatingMode(true);
     toast.success(`Loaded test transcript with UUID: ${mockCallUuid}. Click 'Extract & Verify' to test AI response.`);
@@ -664,20 +774,81 @@ export const CallInterface = () => {
       setExtractedData(data);
 
       if (extractionType === 'query_details') {
-        setEditableQuery(data.extracted_query || "");
-        setEditableCrop(data.extracted_crop || "");
-        setEditableState(data.extracted_state || "");
-        setEditableDistrict(data.extracted_district || "");
-        setEditableBlock(data.extracted_block || "");
-        setEditableVillage(data.extracted_village || "");
+        const rootState = data.extracted_state || editableState || "";
+        const rootDistrict = data.extracted_district || editableDistrict || "";
+        const rootBlock = data.extracted_block || editableBlock || "";
+        const rootVillage = data.extracted_village || editableVillage || "";
+        const defaultSeason = (data as any).extracted_season || editableSeason || getAutoSelectedSeason();
 
-        const normalizedDomain = data.extracted_domain
-          ? Array.isArray(data.extracted_domain)
-            ? data.extracted_domain
-            : [data.extracted_domain]
-          : [];
-        setEditableDomain(normalizedDomain);
-        setEditableSeason((data as any).extracted_season || getAutoSelectedSeason());
+        const rawQueries = data.extracted_queries && data.extracted_queries.length > 0
+          ? data.extracted_queries
+          : data.extracted_query
+            ? [{
+                query: data.extracted_query,
+                crop: data.extracted_crop || "",
+                standardized_domains: Array.isArray(data.extracted_domain)
+                  ? data.extracted_domain
+                  : data.extracted_domain ? [data.extracted_domain] : (data.standardized_domains || [])
+              }]
+            : [];
+
+        const newCards = rawQueries.map((q, idx) => {
+          const doms = Array.isArray(q.standardized_domains)
+            ? q.standardized_domains
+            : typeof q.standardized_domains === 'string' && q.standardized_domains
+              ? [q.standardized_domains]
+              : [];
+          return {
+            id: `query_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`,
+            query: q.query || "",
+            crop: q.crop || "",
+            season: defaultSeason,
+            state: rootState,
+            district: rootDistrict,
+            block: rootBlock,
+            village: rootVillage,
+            domain: doms,
+            isGenerated: false,
+          };
+        });
+
+        if (newCards.length > 0) {
+          setQueryCards((prev) => {
+            const existingTexts = new Set(prev.map((c) => c.query.trim().toLowerCase()).filter(Boolean));
+            const toAdd = newCards.filter((c) => !existingTexts.has(c.query.trim().toLowerCase()));
+
+            const combined = toAdd.length > 0 ? [...prev, ...toAdd] : (prev.length > 0 ? prev : newCards);
+            const targetIndex = toAdd.length > 0 && prev.length > 0 ? prev.length : 0;
+
+            setActiveQueryIndex(targetIndex);
+            const activeCard = combined[targetIndex];
+            if (activeCard) {
+              setEditableQuery(activeCard.query);
+              setEditableCrop(activeCard.crop);
+              setEditableSeason(activeCard.season);
+              setEditableState(activeCard.state);
+              setEditableDistrict(activeCard.district);
+              setEditableBlock(activeCard.block);
+              setEditableVillage(activeCard.village);
+              setEditableDomain(activeCard.domain);
+            }
+            return combined;
+          });
+        } else {
+          setEditableQuery(data.extracted_query || "");
+          setEditableCrop(data.extracted_crop || "");
+          setEditableState(rootState);
+          setEditableDistrict(rootDistrict);
+          setEditableBlock(rootBlock);
+          setEditableVillage(rootVillage);
+          const normalizedDomain = data.extracted_domain
+            ? Array.isArray(data.extracted_domain)
+              ? data.extracted_domain
+              : [data.extracted_domain]
+            : [];
+          setEditableDomain(normalizedDomain);
+          setEditableSeason(defaultSeason);
+        }
       }
 
       if (extractionType === 'farmer_details') {
@@ -885,14 +1056,19 @@ export const CallInterface = () => {
       setQuestions((prev) => [...prev, generatedQuestion]);
       setHasGeneratedQuestions(true);
 
+      // Mark the active query card as generated
+      setQueryCards((prev) => {
+        if (!prev[activeQueryIndex]) return prev;
+        const copy = [...prev];
+        copy[activeQueryIndex] = { ...copy[activeQueryIndex], isGenerated: true };
+        return copy;
+      });
+
       // Keep the form card visible with all its populated fields on the UI
       setIsSummaryOpen(true);
       setIsSummaryExpanded(true);
 
       toast.success("Final answer generated successfully!");
-
-
-
     } catch (err) {
       console.error("Error in resume", err);
       toast.error("Failed to generate final answer.");
@@ -1460,12 +1636,58 @@ export const CallInterface = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Edit3 className="h-4 w-4 text-indigo-600" />
-                      <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                        Review & Edit Extracted Query Data
-                      </span>
+                    {/* Header bar for Query Data */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-zinc-200/50 dark:border-zinc-800/50">
+                      <div className="flex items-center gap-2">
+                        <Edit3 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                        <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                          Review & Edit Extracted Query Data
+                        </span>
+                      </div>
+
+                      {queryCards[activeQueryIndex]?.isGenerated && (
+                        <Badge className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-xs font-semibold flex items-center gap-1">
+                          <Check className="h-3 w-3" />
+                          <span>Answer Generated</span>
+                        </Badge>
+                      )}
                     </div>
+
+                    {/* Multi-Query Navigation Bar */}
+                    {queryCards.length > 1 && (
+                      <div className="flex items-center justify-between p-2.5 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200/60 dark:border-indigo-800/60 shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-white dark:bg-zinc-900 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 font-bold text-xs px-2.5 py-1">
+                            Query {activeQueryIndex + 1} of {queryCards.length}
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSelectQueryCard(activeQueryIndex - 1)}
+                            disabled={activeQueryIndex === 0}
+                            className="h-7 px-2.5 text-xs font-semibold border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 rounded-lg flex items-center gap-1 cursor-pointer"
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                            <span>Previous</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSelectQueryCard(activeQueryIndex + 1)}
+                            disabled={activeQueryIndex >= queryCards.length - 1}
+                            className="h-7 px-2.5 text-xs font-semibold border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 rounded-lg flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>Next</span>
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="space-y-3">
                       <div>
@@ -1473,12 +1695,12 @@ export const CallInterface = () => {
                           htmlFor="queryText"
                           className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
                         >
-                          Extracted Query
+                          Extracted Query {queryCards.length > 1 ? `(#${activeQueryIndex + 1})` : ''}
                         </Label>
                         <Textarea
                           id="queryText"
                           value={editableQuery}
-                          onChange={(e) => setEditableQuery(e.target.value)}
+                          onChange={(e) => handleQueryTextChange(e.target.value)}
                           className="min-h-[80px] text-sm"
                           placeholder="Edit extracted query..."
                         />
@@ -1495,7 +1717,7 @@ export const CallInterface = () => {
                           <Input
                             id="cropName"
                             value={editableCrop}
-                            onChange={(e) => setEditableCrop(e.target.value)}
+                            onChange={(e) => handleCropChange(e.target.value)}
                             className="text-sm"
                             placeholder="Crop..."
                           />
@@ -1510,7 +1732,7 @@ export const CallInterface = () => {
                           </Label>
                           <Select
                             value={editableSeason}
-                            onValueChange={setEditableSeason}
+                            onValueChange={handleSeasonChange}
                           >
                             <SelectTrigger id="season" className="text-sm">
                               <SelectValue placeholder="Select Season" />
@@ -1537,7 +1759,7 @@ export const CallInterface = () => {
                             id="stateName"
                             value={editableState}
                             onChange={(e) =>
-                              setEditableState(e.target.value)
+                              handleStateChange(e.target.value)
                             }
                             className="text-sm"
                             placeholder="State..."
@@ -1555,7 +1777,7 @@ export const CallInterface = () => {
                             id="districtName"
                             value={editableDistrict}
                             onChange={(e) =>
-                              setEditableDistrict(e.target.value)
+                              handleDistrictChange(e.target.value)
                             }
                             className="text-sm"
                             placeholder="District..."
@@ -1573,7 +1795,7 @@ export const CallInterface = () => {
                             id="blockName"
                             value={editableBlock}
                             onChange={(e) =>
-                              setEditableBlock(e.target.value)
+                              handleBlockChange(e.target.value)
                             }
                             className="text-sm"
                             placeholder="Block..."
@@ -1591,7 +1813,7 @@ export const CallInterface = () => {
                             id="villageName"
                             value={editableVillage}
                             onChange={(e) =>
-                              setEditableVillage(e.target.value)
+                              handleVillageChange(e.target.value)
                             }
                             className="text-sm"
                             placeholder="Village..."
@@ -1629,33 +1851,66 @@ export const CallInterface = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-end gap-3 mt-5 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
-                      <Button
-                        onClick={() => setIsHumanVerificationMode(false)}
-                        variant="outline"
-                        size="sm"
-                        className="h-10 px-4 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl transition-all"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={handleApproveAndResume}
-                        disabled={
-                          isResuming ||
-                          !editableQuery.trim() ||
-                          editableDomain.length === 0 ||
-                          !editableSeason
-                        }
-                        size="sm"
-                        className="h-10 px-5 text-xs md:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                      >
-                        <CheckCircle2 className="h-4 w-4 text-indigo-200" />
-                        <span>
-                          {isResuming
-                            ? "Generating Answer..."
-                            : "Approve & Generate Answer"}
-                        </span>
-                      </Button>
+                    <div className="flex flex-wrap items-center justify-between gap-3 mt-5 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                      <div className="flex items-center gap-2">
+                        {queryCards.length > 1 && (
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSelectQueryCard(activeQueryIndex - 1)}
+                              disabled={activeQueryIndex === 0}
+                              className="h-9 px-3 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg flex items-center gap-1"
+                            >
+                              <ChevronLeft className="h-3.5 w-3.5" />
+                              <span>Prev</span>
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSelectQueryCard(activeQueryIndex + 1)}
+                              disabled={activeQueryIndex >= queryCards.length - 1}
+                              className="h-9 px-3 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg flex items-center gap-1"
+                            >
+                              <span>Next</span>
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Button
+                          onClick={() => setIsHumanVerificationMode(false)}
+                          variant="outline"
+                          size="sm"
+                          className="h-10 px-4 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl transition-all"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleApproveAndResume}
+                          disabled={
+                            isResuming ||
+                            !editableQuery.trim() ||
+                            editableDomain.length === 0 ||
+                            !editableSeason
+                          }
+                          size="sm"
+                          className="h-10 px-5 text-xs md:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-400/30 rounded-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                          <CheckCircle2 className="h-4 w-4 text-indigo-200" />
+                          <span>
+                            {isResuming
+                              ? "Generating Answer..."
+                              : queryCards[activeQueryIndex]?.isGenerated
+                                ? "Regenerate Answer"
+                                : "Approve & Generate Answer"}
+                          </span>
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
