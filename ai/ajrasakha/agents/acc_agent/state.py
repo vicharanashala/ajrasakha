@@ -1,6 +1,6 @@
 from typing import TypedDict, Optional
 from ajrasakha.agents.state import Location
-from ajrasakha.agents.acc_agent.extraction import ExtractionType
+from ajrasakha.agents.acc_agent.extraction import ExtractedQuery, ExtractionType
 
 
 class AccAgentState(TypedDict):
@@ -9,11 +9,9 @@ class AccAgentState(TypedDict):
     extraction_type: ExtractionType
     
     # Extracted values (pending human verification)
-    extracted_query: Optional[str]
     extracted_state: Optional[str]
     extracted_district: Optional[str]
-    extracted_crop: Optional[str]
-    standardized_domains: list[str]  # NEW: Domain classification by LLM
+    extracted_queries: list[ExtractedQuery]
 
     # Farmer profile fields (from transcript when mentioned)
     extracted_name: Optional[str]
