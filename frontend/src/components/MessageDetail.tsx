@@ -98,9 +98,16 @@ const MessageDetail = ({
             {/* Soft glow layer */}
             <div className="absolute inset-0 rounded-xl bg-primary/20 blur-md h-19" />
 
-            {/* Actual button */}
-            <button
+            <div
+                role="button"
+                tabIndex={0}
                 onClick={() => setExpanded(!expanded)}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setExpanded(!expanded);
+                    }
+                }}
                 className="relative z-10 w-full flex items-center gap-3 px-5 py-4 rounded-xl bg-card border border-transparent hover:shadow-md transition-all duration-300 group"
             >
                 {expanded ? (
@@ -134,7 +141,7 @@ const MessageDetail = ({
                         {isLoading ? "Loading…" : expanded && msg ? `ID: ${msg.messageId}` : "View More"}
                     </Badge>
                 </div>
-            </button>
+            </div>
 
             {expanded && (
                 <div className="mt-2 rounded-xl border border-border bg-card overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
