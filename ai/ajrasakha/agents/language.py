@@ -222,7 +222,7 @@ def resolve_planner_language_pair(
     return vocal, script
 
 
-def _llm_detect_language(text: str, script_context: str = "Latin") -> str:
+def _llm_detect_language(text: str, script_context: str = "Latin", *, llm=None) -> str:
     """Analyze the text and return the underlying spoken language name (e.g. Hindi, English, Punjabi).
     
     Args:
@@ -259,8 +259,9 @@ def _llm_detect_language(text: str, script_context: str = "Latin") -> str:
         script_hint = ""
     
     try:
-        from ajrasakha.agents.config import get_minimax_chat_model
-        llm = get_minimax_chat_model()
+        if llm is None:
+            from ajrasakha.agents.config import get_minimax_chat_model
+            llm = get_minimax_chat_model()
 
         prompt = (
             "Analyze the following text from an Indian farmer and identify the underlying spoken language.\n\n"

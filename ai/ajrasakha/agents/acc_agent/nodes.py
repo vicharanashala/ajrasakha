@@ -24,6 +24,77 @@ from ajrasakha.agents.daily_price_agent import daily_price
 from ajrasakha.agents.schemes_agent import schemes
 from ajrasakha.agents.location_context import forward_geocode
 
+
+_TOOL_DOMAINS = {
+    "weather": {"Climate, Weather & Stress Management"},
+    "market": {"Market Prices, MSP & Marketing"},
+    "schemes": {
+        "Agricultural Schemes & Subsidies",
+        "Credit, Loan & Insurance",
+    },
+}
+
+
+def _state_queries(state: AccAgentState) -> list[dict]:
+    """Return every extracted farmer question from the canonical state field."""
+    queries = state.get("extracted_queries") or []
+    return [query for query in queries if isinstance(query, dict)]
+
+
+def _query_context(state: AccAgentState) -> str:
+    """Format every extracted question for routing and answer synthesis."""
+    queries = _state_queries(state)
+    if not queries:
+        return "No query was extracted."
+
+    lines = []
+    for index, query in enumerate(queries, start=1):
+        domains = query.get("standardized_domains") or []
+        lines.append(
+            f"Question {index}: {query.get('query', '')}\n"
+            f"Crop: {query.get('crop') or 'All'}\n"
+            f"Domains: {', '.join(domains) if domains else 'Others'}"
+        )
+    return "\n\n".join(lines)
+
+
+def _queries_for_tool(state: AccAgentState, tool: str) -> list[dict]:
+    """Give each tool the questions relevant to its domain when available."""
+    queries = _state_queries(state)
+    tool_domains = _TOOL_DOMAINS.get(tool)
+    if tool_domains is None:
+        special_domains = set().union(*_TOOL_DOMAINS.values())
+        matches = [
+            query
+            for query in queries
+            if not set(query.get("standardized_domains") or []).issubset(
+                special_domains
+            )
+        ]
+    else:
+        matches = [
+            query
+            for query in queries
+            if set(query.get("standardized_domains") or []) & tool_domains
+        ]
+    return matches or queries
+
+
+def _tool_query_text(state: AccAgentState, tool: str) -> str:
+    return "\n".join(
+        str(query.get("query", "")) for query in _queries_for_tool(state, tool)
+    )
+
+
+def _tool_crop(state: AccAgentState, tool: str) -> str:
+    crops = [
+        str(query["crop"])
+        for query in _queries_for_tool(state, tool)
+        if query.get("crop")
+    ]
+    return ", ".join(dict.fromkeys(crops)) or "all"
+
+
 async def extract_node(state: AccAgentState):
     """Extract all details, farmer details, or query details from a transcript."""
     if not state.get("transcript"):
@@ -68,7 +139,7 @@ async def extract_node(state: AccAgentState):
             }
         return {
             "extraction_type": extraction_type,
-            "extracted_query": f"Failed to parse: {str(e)}",
+            "extracted_queries": [],
             "verified_by_human": False,
         }
 
@@ -77,10 +148,9 @@ async def planner_node(state: AccAgentState):
     llm = get_minimax_chat_model()
     
     context = (
-        f"Query: {state.get('extracted_query')}\n"
+        f"Extracted questions:\n{_query_context(state)}\n"
         f"State: {state.get('extracted_state')}\n"
         f"District: {state.get('extracted_district')}\n"
-        f"Crop: {state.get('extracted_crop')}\n"
     )
     
     messages = [
@@ -119,17 +189,14 @@ async def tool_execution_node(state: AccAgentState):
     
     selected_tools = state.get("selected_tools", ["gdb"])
     
-    # Shared args from state
-    query = state.get("extracted_query", "")
-    crop = state.get("extracted_crop", "all")
     loc_state = state.get("extracted_state", "all")
     district = state.get("extracted_district", "all")
     
     async def call_gdb() -> str:
         try:
             return await gdb.ainvoke({
-                "rephrased_query": query, 
-                "crop": crop, 
+                "rephrased_query": _tool_query_text(state, "gdb"),
+                "crop": _tool_crop(state, "gdb"),
                 "state": loc_state,
                 "latitude": None, "longitude": None, "address": None
             })
@@ -156,12 +223,12 @@ async def tool_execution_node(state: AccAgentState):
             elif d_lower == "all":
                 address = loc_state
                 return await weather.ainvoke({
-                    "query": query, "latitude": None, "longitude": None, "address": address
+                    "query": _tool_query_text(state, "weather"), "latitude": None, "longitude": None, "address": address
                 })
             else:
                 address = f"{district}, {loc_state}"
                 return await weather.ainvoke({
-                    "query": query, "latitude": None, "longitude": None, "address": address
+                    "query": _tool_query_text(state, "weather"), "latitude": None, "longitude": None, "address": address
                 })
         except Exception as e:
             return f"Error: {str(e)}"
@@ -178,10 +245,10 @@ async def tool_execution_node(state: AccAgentState):
                     lat = geo.get("latitude")
                     lon = geo.get("longitude")
             return await daily_price.ainvoke({
-                "query": query,
+                "query": _tool_query_text(state, "market"),
                 "latitude": lat,
                 "longitude": lon,
-                "crop": crop,
+                "crop": _tool_crop(state, "market"),
                 "state": loc_state if str(loc_state).strip().lower() not in {"all", "not specified"} else None,
             })
         except Exception as e:
@@ -190,7 +257,7 @@ async def tool_execution_node(state: AccAgentState):
     async def call_schemes() -> str:
         try:
             return await schemes.ainvoke({
-                "query": query,
+                "query": _tool_query_text(state, "schemes"),
                 "state": loc_state,
                 "gender": None,
                 "age": None,
@@ -278,7 +345,7 @@ async def assembler_node(state: AccAgentState):
     # Generate final_answer using LLM
     llm = get_minimax_chat_model()
     context = (
-        f"Original Query: {state.get('extracted_query')}\n\n"
+        f"Extracted Questions:\n{_query_context(state)}\n\n"
         f"GDB Data:\n{json.dumps(gdb_data, indent=2, ensure_ascii=False) if gdb_data else 'Not requested'}\n\n"
         f"Weather Data:\n{json.dumps(weather_data, indent=2, ensure_ascii=False) if weather_data else 'Not requested'}\n\n"
         f"Market Data:\n{json.dumps(market_data, indent=2, ensure_ascii=False) if market_data else 'Not requested'}\n\n"

@@ -30,45 +30,48 @@ ACC_EXTRACT_PROMPT = """You are an agricultural call-center transcript analyst.
 You will receive a conversation transcript between a farmer and an agricultural expert at a call center (in English).
 
 Your job is to extract the following information:
-1. "query": A concise agricultural question that captures the farmer's core problem or query. Keep it short and searchable.
+1. "queries": An array of every distinct agricultural or weather-related question asked by the farmer. Each item must contain a concise "query", the related "crop" (or null if none), and "standardized_domains" as an array of matching domain names. Preserve the order in which the farmer asked the questions.
 2. "state": The Indian state where the farmer is located (e.g. "Punjab", "West Bengal"). Use "All" if unclear.
 3. "district": The district where the farmer is located. Use "All" if unclear.
-4. "crop": The crop the farmer is asking about in this query (e.g. "Wheat", "Rice"). Use "All" if unclear.
-5. "standardized_domains": An array of domain names that best classify this query. Can be one or more domains.
-6. "name": Farmer's name if stated in the transcript. Use null if not mentioned.
-7. "phone": Farmer's phone number if stated in the transcript. Use null if not mentioned.
-8. "age": Farmer's age as an integer if stated. Use null if not mentioned.
-9. "gender": Farmer's gender if stated (e.g. "Male", "Female", "Other"). Use null if not mentioned.
-10. "village": Village name if stated. Use null if not mentioned.
-11. "block": Block / tehsil name if stated. Use null if not mentioned.
-12. "primary_crop": Farmer's main/primary crop if stated as their usual crop (may differ from query crop). Use null if not mentioned; if only one crop is discussed, you may use that crop.
-13. "secondary_crops": An array of the farmer's other cultivated crops, excluding the primary crop. Use [] if none are stated. A farmer may have more than one secondary crop.
+4. "name": Farmer's name if stated in the transcript. Use null if not mentioned.
+5. "phone": Farmer's phone number if stated in the transcript. Use null if not mentioned.
+6. "age": Farmer's age as an integer if stated. Use null if not mentioned.
+7. "gender": Farmer's gender if stated (e.g. "Male", "Female", "Other"). Use null if not mentioned.
+8. "village": Village name if stated. Use null if not mentioned.
+9. "block": Block / tehsil name if stated. When the farmer directly answers a question about their block or tehsil, extract the answer exactly as spoken, even if the name is unusual or cannot be verified as an official block. Use null only if no block or tehsil answer is stated.
+10. "primary_crop": Farmer's main/primary crop if stated as their usual crop (may differ from a query crop). Use null if not mentioned; if only one crop is discussed, you may use that crop.
+11. "secondary_crops": An array of the farmer's other cultivated crops, excluding the primary crop. Use [] if none are stated. A farmer may have more than one secondary crop.
+12. "language_preference": Farmer's preferred language for communication, only if explicitly stated. Do not infer it from the language used in the transcript. Use null if not mentioned.
+13. "years_of_experience": Farmer's farming experience in completed years, as a non-negative integer, only if explicitly stated. Do not derive it from age. Use null if not mentioned.
+14. "highest_education": Farmer's own highest educational qualification, only if explicitly stated. Use null if not mentioned.
+15. "smartphones_at_home": Number of smartphones in the farmer's home, as a non-negative integer, only if explicitly stated. Use null if not mentioned.
 
 """ + DOMAIN_TAXONOMY + """
 
 CRITICAL INSTRUCTIONS:
-- You MUST output ONLY a valid JSON object with the keys "query", "state", "district", "crop", "standardized_domains", "name", "phone", "age", "gender", "village", "block", "primary_crop", and "secondary_crops".
-- The "standardized_domains" field MUST be an array of strings, even if only one domain applies.
+- You MUST output ONLY a valid JSON object with the keys "queries", "state", "district", "name", "phone", "age", "gender", "village", "block", "primary_crop", "secondary_crops", "language_preference", "years_of_experience", "highest_education", and "smartphones_at_home".
+- "queries" MUST be an array, including when there is only one question. Each item MUST have "query", "crop", and "standardized_domains". The "standardized_domains" field inside each item MUST be an array of strings.
 - The "secondary_crops" field MUST be an array of strings, even if it is empty.
-- For profile fields (name, phone, age, gender, village, block, primary_crop): use null when not clearly present — do NOT invent values.
+- For profile fields (name, phone, age, gender, village, block, primary_crop, language_preference, years_of_experience, highest_education, smartphones_at_home): use null when not clearly present — do NOT invent values.
 - DO NOT output any markdown formatting, preamble, conversational text, or reasoning.
 - START your response immediately with the `{` character.
 """
 
 ACC_QUERY_DETAILS_PROMPT = """You are an agricultural call-center transcript analyst.
 
-Extract only the details needed to understand and answer the farmer's current query:
-1. "query": A concise agricultural question that captures the farmer's core problem. Keep it short and searchable.
-2. "state": The Indian state relevant to the current query. Use "All" if unclear.
-3. "district": The district relevant to the current query. Use "All" if unclear.
-4. "crop": The crop involved in the current query. Use "All" if unclear.
-5. "standardized_domains": An array containing one or more matching domain names.
+Extract every distinct agricultural or weather-related question asked by the farmer:
+1. "queries": An array preserving the order in which questions were asked. Each item has:
+   - "query": A concise, searchable version of one distinct farmer question.
+   - "crop": The crop related to that question, or null if no crop applies.
+   - "standardized_domains": An array containing one or more matching domain names.
+2. "state": The Indian state relevant to the questions. Use "All" if unclear.
+3. "district": The district relevant to the questions. Use "All" if unclear.
 
 """ + DOMAIN_TAXONOMY + """
 
 CRITICAL INSTRUCTIONS:
-- Output ONLY a valid JSON object with the keys "query", "state", "district", "crop", and "standardized_domains".
-- "standardized_domains" MUST be an array of strings.
+- Output ONLY a valid JSON object with the keys "queries", "state", and "district".
+- "queries" MUST be an array, even when there is only one question. Every item MUST contain "query", "crop", and "standardized_domains"; "standardized_domains" MUST be an array of strings.
 - Do not include farmer profile fields such as name, phone, age, gender, village, block, primary crop, or secondary crops.
 - Do not output markdown, a preamble, reasoning, or conversational text.
 - Start the response immediately with the `{` character.
@@ -82,14 +85,18 @@ Extract only the farmer's profile details that are explicitly stated in the tran
 3. "age": Farmer's age as an integer. Use null if not mentioned.
 4. "gender": Farmer's gender, such as "Male", "Female", or "Other". Use null if not mentioned.
 5. "village": Farmer's village. Use null if not mentioned.
-6. "block": Farmer's block or tehsil. Use null if not mentioned.
+6. "block": Farmer's block or tehsil. When the farmer directly answers a question about their block or tehsil, extract the answer exactly as spoken, even if the name is unusual or cannot be verified as an official block. Use null only if no block or tehsil answer is stated.
 7. "state": Farmer's Indian state. Use "All" if unclear.
 8. "district": Farmer's district. Use "All" if unclear.
 9. "primary_crop": Farmer's main or primary crop. Use null if not mentioned; if only one crop is discussed, you may use that crop.
 10. "secondary_crops": An array of the farmer's other cultivated crops, excluding the primary crop. Use [] if none are stated. A farmer may have more than one secondary crop.
+11. "language_preference": Farmer's preferred language for communication, only if explicitly stated. Do not infer it from the language used in the transcript. Use null if not mentioned.
+12. "years_of_experience": Farmer's farming experience in completed years, as a non-negative integer, only if explicitly stated. Do not derive it from age. Use null if not mentioned.
+13. "highest_education": Farmer's own highest educational qualification, only if explicitly stated. Use null if not mentioned.
+14. "smartphones_at_home": Number of smartphones in the farmer's home, as a non-negative integer, only if explicitly stated. Use null if not mentioned.
 
 CRITICAL INSTRUCTIONS:
-- Output ONLY a valid JSON object with the keys "name", "phone", "age", "gender", "village", "block", "state", "district", "primary_crop", and "secondary_crops".
+- Output ONLY a valid JSON object with the keys "name", "phone", "age", "gender", "village", "block", "state", "district", "primary_crop", "secondary_crops", "language_preference", "years_of_experience", "highest_education", and "smartphones_at_home".
 - "secondary_crops" MUST be an array of strings, even if it is empty.
 - Use null for profile fields that are not clearly present. Do not invent values.
 - Do not include query, crop, or standardized_domains.

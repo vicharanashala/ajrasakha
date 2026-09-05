@@ -8354,7 +8354,9 @@ export class ChatbotRepository implements IChatbotRepository {
     source: string,
     userType = 'all',
     page = 1,
-    limit = 10,
+    limit = 12,
+    startDate?: string,
+    endDate?: string,
   ) {
     try {
       await this.initReviewSystem();
@@ -8407,6 +8409,22 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
       const matchQuery: any = buildBaseQuestionMatch(sourceType);
+
+      if (startDate || endDate) {
+  matchQuery.createdAt = {};
+
+  if (startDate) {
+    matchQuery.createdAt.$gte = new Date(
+      `${startDate}T00:00:00+05:30`,
+    );
+  }
+
+  if (endDate) {
+    matchQuery.createdAt.$lte = new Date(
+      `${endDate}T23:59:59.999+05:30`,
+    );
+  }
+}
 
       matchQuery.$or = orConditions;
 
@@ -8584,7 +8602,9 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
     userType = 'all',
     page = 1,
-    limit = 10,
+    limit = 12,
+    startDate?: string,
+    endDate?: string,
   ) {
     try {
       await this.init(source);
@@ -8599,10 +8619,23 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const skip = (page - 1) * limit;
 
+const dateFilter: any = {};
+
+if (startDate) {
+  dateFilter.$gte = new Date(`${startDate}T00:00:00+05:30`);
+}
+
+if (endDate) {
+  dateFilter.$lte = new Date(`${endDate}T23:59:59.999+05:30`);
+}
+
       const pipeline = [
         {
           $match: {
             user: String(user._id),
+                ...(startDate || endDate
+      ? { createdAt: dateFilter }
+      : {}),
 
             // sender: 'User',
             // isCreatedByUser: true,
@@ -8817,34 +8850,62 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getAllUserMessageIds(
-    email: string,
-    source = 'annam',
-    session?: ClientSession,
-  ) {
-    try {
-      await this.init(source);
+async getAllUserMessageIds(
+  email: string,
+  source = 'annam',
+  session?: ClientSession,
+  startDate?: string,
+  endDate?: string,
+) {
+  try {
+    await this.init(source);
 
-      const user = await this.users.findOne({email}, {session});
+    const user = await this.users.findOne(
+      { email },
+      { session },
+    );
 
-      if (!user) {
-        return [];
+    if (!user) {
+      return [];
+    }
+
+    const query: any = {
+      user: String(user._id),
+      messageId: {
+        $exists: true,
+        $ne: null,
+      },
+    };
+
+    // Apply date filter when provided
+    if (startDate || endDate) {
+      query.createdAt = {};
+
+      if (startDate) {
+        query.createdAt.$gte = new Date(
+          `${startDate}T00:00:00+05:30`,
+        );
       }
 
-      const messageIds = await this.messagesCollection.distinct('messageId', {
-        user: String(user._id),
-
-        messageId: {
-          $exists: true,
-          $ne: null,
-        },
-      });
-
-      return messageIds;
-    } catch (error) {
-      throw new InternalServerError(`Failed to fetch all messageIds: ${error}`);
+      if (endDate) {
+        query.createdAt.$lte = new Date(
+          `${endDate}T23:59:59.999+05:30`,
+        );
+      }
     }
+
+    const messageIds = await this.messagesCollection.distinct(
+      'messageId',
+      query,
+    );
+
+    return messageIds;
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to fetch all messageIds: ${error}`,
+    );
   }
+}
 
   // ── NEW: Inactivity-gap based avg session duration (KPI number) ──────────────
   // Uses the messages collection instead of conversations.
