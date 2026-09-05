@@ -1008,10 +1008,14 @@ async def planner_node(
 
         if plan.get("is_complete"):
             final_entities = plan.get("entities") or {}
+            loc_lat = location.get("latitude") if location else None
+            loc_lon = location.get("longitude") if location else None
             maybe_persist_resolved_location(
                 user_id,
                 final_entities.get("state"),
                 final_entities.get("district"),
+                latitude=loc_lat,
+                longitude=loc_lon,
                 thread_id=resolve_thread_id(config),
                 state_source=location_sources.get("state_source"),
                 district_source=location_sources.get("district_source"),
@@ -1086,7 +1090,10 @@ async def planner_node(
             plan.get("rephrased_query"),
             plan.get("missing_info"),
         )
-        return {"plan": plan}
+        res: dict[str, Any] = {"plan": plan}
+        if stored_location and (not location or (location.get("latitude") is None and stored_location.get("latitude") is not None)):
+            res["location"] = stored_location
+        return res
     except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
         logger.warning("Planner failed (%s: %s) — using default knowledge_base plan", type(exc).__name__, exc)
         return {"plan": _default_plan_for_agriculture(user_text)}
