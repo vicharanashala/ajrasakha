@@ -6,6 +6,10 @@ WORKDIR /app
 COPY pyproject.toml README.md .
 # Install dependencies (cached layer)
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install OLD mcp package (v1.x) that supports mcp.server.fastmcp imports
+RUN pip install --no-cache-dir "mcp<2.0.0"
+
 RUN pip install --no-cache-dir -e .
 
 COPY . .
