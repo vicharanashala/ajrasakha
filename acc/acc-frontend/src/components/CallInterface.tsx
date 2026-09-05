@@ -813,27 +813,21 @@ export const CallInterface = () => {
         });
 
         if (newCards.length > 0) {
-          setQueryCards((prev) => {
-            const existingTexts = new Set(prev.map((c) => c.query.trim().toLowerCase()).filter(Boolean));
-            const toAdd = newCards.filter((c) => !existingTexts.has(c.query.trim().toLowerCase()));
-
-            const combined = toAdd.length > 0 ? [...prev, ...toAdd] : (prev.length > 0 ? prev : newCards);
-            const targetIndex = toAdd.length > 0 && prev.length > 0 ? prev.length : 0;
-
-            setActiveQueryIndex(targetIndex);
-            const activeCard = combined[targetIndex];
-            if (activeCard) {
-              setEditableQuery(activeCard.query);
-              setEditableCrop(activeCard.crop);
-              setEditableSeason(activeCard.season);
-              setEditableState(activeCard.state);
-              setEditableDistrict(activeCard.district);
-              setEditableBlock(activeCard.block);
-              setEditableVillage(activeCard.village);
-              setEditableDomain(activeCard.domain);
-            }
-            return combined;
-          });
+          // Completely replace existing queryCards with newCards
+          setQueryCards(newCards);
+          const lastIndex = newCards.length - 1;
+          setActiveQueryIndex(lastIndex);
+          const activeCard = newCards[lastIndex];
+          if (activeCard) {
+            setEditableQuery(activeCard.query);
+            setEditableCrop(activeCard.crop);
+            setEditableSeason(activeCard.season);
+            setEditableState(activeCard.state);
+            setEditableDistrict(activeCard.district);
+            setEditableBlock(activeCard.block);
+            setEditableVillage(activeCard.village);
+            setEditableDomain(activeCard.domain);
+          }
         } else {
           setEditableQuery(data.extracted_query || "");
           setEditableCrop(data.extracted_crop || "");
@@ -1653,8 +1647,8 @@ export const CallInterface = () => {
                       )}
                     </div>
 
-                    {/* Multi-Query Navigation Bar */}
-                    {queryCards.length > 1 && (
+                    {/* Multi-Query Navigation Bar (Commented out for now) */}
+                    {/* {queryCards.length > 1 && (
                       <div className="flex items-center justify-between p-2.5 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200/60 dark:border-indigo-800/60 shadow-sm">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="bg-white dark:bg-zinc-900 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 font-bold text-xs px-2.5 py-1">
@@ -1687,7 +1681,7 @@ export const CallInterface = () => {
                           </Button>
                         </div>
                       </div>
-                    )}
+                    )} */}
 
                     <div className="space-y-3">
                       <div>
@@ -1695,7 +1689,7 @@ export const CallInterface = () => {
                           htmlFor="queryText"
                           className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
                         >
-                          Extracted Query {queryCards.length > 1 ? `(#${activeQueryIndex + 1})` : ''}
+                          Extracted Query
                         </Label>
                         <Textarea
                           id="queryText"
@@ -1853,7 +1847,7 @@ export const CallInterface = () => {
 
                     <div className="flex flex-wrap items-center justify-between gap-3 mt-5 pt-3 border-t border-zinc-200/60 dark:border-zinc-800/60">
                       <div className="flex items-center gap-2">
-                        {queryCards.length > 1 && (
+                        {/* {queryCards.length > 1 && (
                           <div className="flex items-center gap-1.5">
                             <Button
                               type="button"
@@ -1878,7 +1872,7 @@ export const CallInterface = () => {
                               <ChevronRight className="h-3.5 w-3.5" />
                             </Button>
                           </div>
-                        )}
+                        )} */}
                       </div>
 
                       <div className="flex items-center gap-3">
