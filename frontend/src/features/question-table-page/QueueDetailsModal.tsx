@@ -138,7 +138,7 @@ const TrainingUserTag = () => (
   </span>
 );
 
-const QuestionRow = ({
+export const QuestionRow = ({
   item,
   showExpert,
   showStuck,
@@ -247,7 +247,7 @@ const QuestionRow = ({
   );
 };
 
-const ExpertRow = ({ item }: { item: QueueExpertItem }) => (
+export const ExpertRow = ({ item }: { item: QueueExpertItem }) => (
   <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0 flex items-center justify-between gap-2">
     <div className="min-w-0">
       <div className="flex items-center gap-2">
@@ -308,7 +308,7 @@ type SectionProps<T> = {
   itemFilter?: (item: T) => boolean;
 };
 
-function Section<T>({
+export function Section<T>({
   icon,
   color,
   title,
@@ -518,7 +518,6 @@ function QueueColumn({
   const toggle = (key: string) =>
     setOpenSection((prev) => (prev === key ? null : key));
   const sk = (base: string) => `${base}${suffix}`;
-  const modSuffix = suffix === "Manual" ? "Manual" : "TimeBound";
 
   return (
     <div className="flex-1 min-w-0 space-y-3">
@@ -644,19 +643,7 @@ function QueueColumn({
       <Section<QueueQuestionItem> icon={<UserCheck size={20} />} color="green" title="Questions Allocated" description="Assigned to an expert" count={g.allocated.count} section={sk("allocated")} initialItems={g.allocated.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert onClick={() => onQuestionClick(q)} />} isOpen={openSection === sk("allocated")} onToggle={() => toggle(sk("allocated"))} emptyText="No allocated questions" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
 
       <Section<QueueExpertItem> icon={<Users size={20} />} color="violet" title="Experts Waiting in Queue" description="Experts free with no active allocation" count={g.freeExperts.count} section={sk("freeExperts")} initialItems={g.freeExperts.items} renderItem={(e) => <ExpertRow key={e._id} item={e} />} isOpen={openSection === sk("freeExperts")} onToggle={() => toggle(sk("freeExperts"))} emptyText="No free experts" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
-
-      {/* Moderator queue for this group */}
-      <div className="flex items-center gap-3 pt-2">
-        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Moderator Queue</span>
-        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-      </div>
-
-      <Section<QueueQuestionItem> icon={<Hourglass size={20} />} color="amber" title="Waiting for Moderator" description="No moderator assigned yet" count={g.moderatorWaiting.count} section={`moderatorWaiting${modSuffix}`} initialItems={g.moderatorWaiting.items} renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => onQuestionClick(q)} />} isOpen={openSection === `moderatorWaiting${modSuffix}`} onToggle={() => toggle(`moderatorWaiting${modSuffix}`)} emptyText="Nothing waiting for a moderator" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
-
-      <Section<QueueQuestionItem> icon={<ShieldCheck size={20} />} color="green" title="Allocated to Moderator" description="Assigned to a moderator (incl. re-routed)" count={g.moderatorAllocated.count} section={`moderatorAllocated${modSuffix}`} initialItems={g.moderatorAllocated.items} renderItem={(q) => <QuestionRow key={q._id} item={q} showModerator onClick={() => onQuestionClick(q)} />} isOpen={openSection === `moderatorAllocated${modSuffix}`} onToggle={() => toggle(`moderatorAllocated${modSuffix}`)} emptyText="No questions allocated to a moderator" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
-
-      <Section<QueueExpertItem> icon={<ShieldUser size={20} />} color="violet" title="Available Moderators" description="STF moderators free to take a question" count={g.availableModerators.count} section={`availableModerators${modSuffix}`} initialItems={g.availableModerators.items} renderItem={(e) => <ExpertRow key={e._id} item={e} />} isOpen={openSection === `availableModerators${modSuffix}`} onToggle={() => toggle(`availableModerators${modSuffix}`)} emptyText="No available moderators" startTime={dateFilter.startTime} endTime={dateFilter.endTime} />
+      {/* Moderator queue lives in its own file — see ModeratorQueueModal.tsx. */}
     </div>
   );
 }
