@@ -133,7 +133,7 @@ export class RoleAssigneeService extends BaseService {
    *  Supports optional date range filtering by assigned date, completed date, or both. */
   async getRoleAssigneeDashboard(
     userId: string,
-    role: 'gate_keeper' | 'auditor',
+    role: 'gate_keeper' | 'auditor' | 'moderator',
     page: number,
     limit: number,
     search?: string,
@@ -141,6 +141,19 @@ export class RoleAssigneeService extends BaseService {
     endDate?: Date,
     dateFilterType?: 'assigned' | 'completed' | 'both',
   ) {
+    // Moderators aren't a "role assignee" (no persisted finishedAt field) — their
+    // dashboard is keyed on moderatorId with completion = closed/passed.
+    if (role === 'moderator') {
+      return this.questionRepo.getModeratorDashboard(
+        userId,
+        page,
+        limit,
+        search,
+        startDate,
+        endDate,
+        dateFilterType,
+      );
+    }
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const finishedField =
       role === 'gate_keeper' ? 'gateKeeperFinishedAt' : 'auditorFinishedAt';
