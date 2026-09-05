@@ -16,11 +16,10 @@ MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
 MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMaxAI/MiniMax-M2.7")
 
 # Task-specific model assignments
-# Translation & follow-up stay on Claude Sonnet (quality matters for farmer-facing text;
-# avoids the MiniMax wheat→sugarcane frequency-bias bug). Planner routes to MiniMax
-# (cheap & fast for routing/classification/rephrasing).
+# Planner, translation, and follow-up use Claude Sonnet where faithful farmer-facing
+# interpretation matters. Other specialized agents route to MiniMax.
 SYNTHESIZE_MODEL = MINIMAX_MODEL      # Fast rephrasing/simple synthesis
-PLANNER_MODEL = MINIMAX_MODEL         # Planner uses MiniMax (routing/classification)
+PLANNER_MODEL = CLAUDE_MODEL          # Planner routing/classification/rephrasing
 SANITIZER_MODEL = MINIMAX_MODEL       # Relevance scoring
 TRANSLATE_MODEL = CLAUDE_MODEL        # Translation uses Claude Sonnet (avoid crop substitution)
 FOLLOW_UP_MODEL = CLAUDE_MODEL        # Translation/transformation - Sonnet for quality

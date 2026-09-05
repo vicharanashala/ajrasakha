@@ -81,6 +81,8 @@ async def is_crop_specific_question(
     domain_remarks: str = "",
     additional_remarks: str = "",
     default_crop_required: bool = False,
+    llm=None,
+    model_name: str | None = None,
 ) -> CropRequirementDecision:
     """
     Classify whether the farmer must provide a crop input.
@@ -107,11 +109,12 @@ async def is_crop_specific_question(
         ]
         trace_llm_request(
             "crop_classifier",
-            model=CROP_CLASSIFY_MODEL,
+            model=model_name or CROP_CLASSIFY_MODEL,
             messages=llm_messages,
             domain=domain,
         )
-        llm = get_minimax_chat_model(max_tokens=16, temperature=0)
+        if llm is None:
+            llm = get_minimax_chat_model(max_tokens=16, temperature=0)
         response = await llm.ainvoke(llm_messages, config=config)
         raw = response.content if isinstance(response.content, str) else str(response.content)
         decision = parse_crop_classification(raw, fallback=default_crop_required)
