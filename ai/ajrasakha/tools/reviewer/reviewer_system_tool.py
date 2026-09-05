@@ -5,8 +5,8 @@ import requests
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from typing import Dict, Any, Optional
-from fastmcp import FastMCP
-from fastmcp.transport_security import TransportSecuritySettings
+from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 IST = timezone(timedelta(hours=5, minutes=30))
 

@@ -1,8 +1,8 @@
 from typing import Dict, Any
 import aiohttp
 
-from fastmcp import FastMCP
-from fastmcp.transport_security import TransportSecuritySettings
+from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 mcp = FastMCP(
     "ajrasakha-location-mcp",

@@ -7,8 +7,8 @@ from typing import Any
 
 import httpx
 from dotenv import load_dotenv
-from fastmcp import FastMCP
-from fastmcp.transport_security import TransportSecuritySettings
+from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 load_dotenv()
 
