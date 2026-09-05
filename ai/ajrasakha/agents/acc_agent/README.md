@@ -96,6 +96,8 @@ class AccAgentState(TypedDict):
     weather_response: Optional[str]
     market_response: Optional[str]
     schemes_response: Optional[str]
+    query_tool_responses: list[dict]
+    final_answers: list[dict]
     final_answer: Optional[str]
 ```
 
@@ -164,8 +166,9 @@ The assembler attempts to decode each selected response as JSON and retains it
 as text if decoding is not possible. It then creates a concise, factual,
 Markdown-formatted answer for the call-centre agent from the retrieved data.
 
-The state field `final_answer` is a JSON-encoded string. When decoded, it has
-this shape:
+For a single question, the state field `final_answer` retains its existing
+JSON-encoded response shape. Its decoded value includes an additional `answers`
+array containing the same answer:
 
 ```json
 {
@@ -173,9 +176,23 @@ this shape:
   "weather": "object, string, or null",
   "market": "object, string, or null",
   "schemes": "object, string, or null",
-  "final_answer": "Human-readable response for the call-centre agent"
+  "final_answer": "Human-readable response for the call-centre agent",
+  "answers": [
+    {
+      "query": "Extracted farmer question",
+      "crop": "Crop or null",
+      "standardized_domains": ["Matching domain"],
+      "answer": "Human-readable answer for this question only"
+    }
+  ]
 }
 ```
+
+For two or more questions, use the top-level `final_answers` state field (or
+the `answers` array inside decoded `final_answer`). Each array item maps one
+extracted question to only its own answer. In this multi-question case, decoded
+`final_answer.final_answer` is `null`; callers must not display a combined
+answer.
 
 ## Standardized domains
 
