@@ -22,6 +22,9 @@ import {
   Check,
   Sparkles,
   FlaskConical,
+  Pencil,
+  Trash2,
+  X,
 } from "lucide-react";
 import WeatherWidget from "./WeatherWidget";
 import { useAccAgentThread } from "@/hooks/api/acc-agent/useAccAgentThread";
@@ -372,6 +375,69 @@ export const CallInterface = () => {
   const [simOriginalText, setSimOriginalText] = useState("");
   const [showOriginalInput, setShowOriginalInput] = useState(false);
 
+  // Test mode message inline editing state
+  const [editingMessageIndex, setEditingMessageIndex] = useState<number | null>(null);
+  const [editRole, setEditRole] = useState<"inbound" | "outbound">("inbound");
+  const [editText, setEditText] = useState("");
+  const [editOriginalText, setEditOriginalText] = useState("");
+  const [showEditOriginalInput, setShowEditOriginalInput] = useState(false);
+
+  const handleStartEditMessage = (index: number) => {
+    if (!isSimulatingMode) return;
+    const msg = transcriptsList[index];
+    if (!msg) return;
+    setEditingMessageIndex(index);
+    setEditRole(msg.track === "inbound" ? "inbound" : "outbound");
+    setEditText(msg.translatedText || msg.text || "");
+    setEditOriginalText(msg.originalText || "");
+    setShowEditOriginalInput(Boolean(msg.originalText && msg.originalText !== (msg.translatedText || msg.text)));
+  };
+
+  const handleSaveEditMessage = (index: number) => {
+    if (!isSimulatingMode || !editText.trim()) {
+      toast.error("Message text cannot be empty.");
+      return;
+    }
+
+    setTranscriptsList((prev) => {
+      const updated = [...prev];
+      const existing = updated[index];
+      if (!existing) return prev;
+      updated[index] = {
+        ...existing,
+        track: editRole,
+        text: editText.trim(),
+        translatedText: editText.trim(),
+        originalText: editOriginalText.trim() || "",
+      };
+      return updated;
+    });
+
+    setEditingMessageIndex(null);
+    setEditText("");
+    setEditOriginalText("");
+    setShowEditOriginalInput(false);
+    toast.success("Message updated.");
+  };
+
+  const handleCancelEditMessage = () => {
+    setEditingMessageIndex(null);
+    setEditText("");
+    setEditOriginalText("");
+    setShowEditOriginalInput(false);
+  };
+
+  const handleDeleteMessage = (index: number) => {
+    if (!isSimulatingMode) return;
+    setTranscriptsList((prev) => prev.filter((_, i) => i !== index));
+    if (editingMessageIndex === index) {
+      handleCancelEditMessage();
+    } else if (editingMessageIndex !== null && editingMessageIndex > index) {
+      setEditingMessageIndex(editingMessageIndex - 1);
+    }
+    toast.success("Message deleted from test transcript.");
+  };
+
   // Auto-scroll to bottom of chat bubbles
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -420,11 +486,13 @@ export const CallInterface = () => {
     setIsSimulatingMode(false);
     setSimText("");
     setSimOriginalText("");
+    handleCancelEditMessage();
     toast.success("Conversation cleared");
   };
 
 
   const handleLoadTestTranscript = () => {
+    handleCancelEditMessage();
     const now = new Date();
     const dateStr = now.getFullYear().toString() +
       String(now.getMonth() + 1).padStart(2, '0') +
@@ -613,19 +681,29 @@ export const CallInterface = () => {
       }
 
       if (extractionType === 'farmer_details') {
+        const primaryCrop = data.extracted_primary_crop || data.extracted_crop || "";
+        const secondaryCropsRaw = data.extracted_secondary_crops || (data as any).extracted_secondary_crop || (Array.isArray((data as any).cropsCultivated) ? (data as any).cropsCultivated.filter((c: string) => c !== primaryCrop).join(", ") : "");
+        const secondaryCrop = Array.isArray(secondaryCropsRaw)
+          ? secondaryCropsRaw.join(", ")
+          : typeof secondaryCropsRaw === "string"
+            ? secondaryCropsRaw
+            : "";
+
         const farmerProfileData = {
           farmerName: data.extracted_name || "",
           phoneNo: data.extracted_phone || callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || "",
-          age: data.extracted_age !== undefined && data.extracted_age !== null ? Number(data.extracted_age) : 45,
+          age: data.extracted_age !== undefined && data.extracted_age !== null ? Number(data.extracted_age) : undefined,
           gender: data.extracted_gender || "",
           villageName: data.extracted_village || "",
           blockName: data.extracted_block || "",
-          primaryCrop: data.extracted_primary_crop || data.extracted_crop || "",
-          secondaryCrop: (data as any).extracted_secondary_crop || "",
           state: data.extracted_state || "",
           district: data.extracted_district || "",
-          languagePreference: (data as any).extracted_language || "",
-          cropsCultivated: data.extracted_crop ? [data.extracted_crop] : [""],
+          primaryCrop: primaryCrop,
+          secondaryCrop: secondaryCrop,
+          languagePreference: data.extracted_language_preference || (data as any).extracted_language || "",
+          yearsOfExperience: data.extracted_years_of_experience !== undefined && data.extracted_years_of_experience !== null ? Number(data.extracted_years_of_experience) : undefined,
+          highestEducatedPerson: data.extracted_highest_education || (data as any).extracted_highest_educated || "",
+          numberOfSmartphones: data.extracted_smartphones_at_home !== undefined && data.extracted_smartphones_at_home !== null ? Number(data.extracted_smartphones_at_home) : undefined,
         };
         setExtractedFarmerProfile(farmerProfileData);
         activeProfileRef.current = farmerProfileData;
@@ -705,6 +783,7 @@ export const CallInterface = () => {
 
       if (wasEdited) {
         // Step 3: Update state with corrections
+        const currentFarmer = activeProfileRef.current || extractedFarmerProfile || {};
         await updateState({
           threadId,
           correctedData: {
@@ -716,6 +795,18 @@ export const CallInterface = () => {
             village: editableVillage,
             domain: finalDomain,
             season: editableSeason,
+            farmerName: currentFarmer.farmerName,
+            farmerPhone: currentFarmer.phoneNo,
+            farmerAge: currentFarmer.age,
+            farmerGender: currentFarmer.gender,
+            farmerVillage: currentFarmer.villageName,
+            farmerBlock: currentFarmer.blockName,
+            farmerPrimaryCrop: currentFarmer.primaryCrop,
+            farmerSecondaryCrops: currentFarmer.secondaryCrop,
+            farmerLanguagePreference: currentFarmer.languagePreference,
+            farmerYearsOfExperience: currentFarmer.yearsOfExperience,
+            farmerHighestEducation: currentFarmer.highestEducatedPerson,
+            farmerSmartphonesAtHome: currentFarmer.numberOfSmartphones,
           },
         });
         toast.info("Updated extracted data with your corrections.");
@@ -1021,12 +1112,14 @@ export const CallInterface = () => {
                     transcriptsList.map((msg, index) => {
                       const isCaller = msg.track === "inbound";
                       const speakerLabel = isCaller ? "Farmer" : "Expert";
+                      const isEditingThis = editingMessageIndex === index;
+
                       return (
                         <div
                           key={index}
-                          className={`flex flex-col ${isCaller ? "items-start" : "items-end"} space-y-1.5 animate-in fade-in-50 slide-in-from-bottom-3 duration-300`}
+                          className={`flex flex-col ${isCaller ? "items-start" : "items-end"} space-y-1.5 animate-in fade-in-50 slide-in-from-bottom-3 duration-300 w-full`}
                         >
-                          {/* Speaker & Timestamp */}
+                          {/* Speaker & Timestamp + Test Mode Edit/Delete Controls */}
                           <div
                             className={`flex items-center gap-2 px-2 text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold tracking-wider uppercase ${!isCaller ? "flex-row-reverse" : ""}`}
                           >
@@ -1045,40 +1138,157 @@ export const CallInterface = () => {
                                   second: "2-digit",
                                 })}
                             </span>
-                          </div>
 
-                          {/* Chat Bubble Card */}
-                          <div
-                            className={`max-w-[80%] px-4 py-3 rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-md ${isCaller
-                              ? "chat-bubble-farmer rounded-tl-none"
-                              : "chat-bubble-agent rounded-tr-none"
-                              }`}
-                          >
-                            {/* English Translation (Primary) */}
-                            <p className="text-[13px] leading-relaxed whitespace-pre-wrap font-medium">
-                              {msg.translatedText || msg.text}
-                            </p>
-
-                            {/* Original text & language metadata (Secondary) */}
-                            {msg.originalText && (
-                              <div
-                                className={`mt-2 pt-1.5 border-t text-[11px] flex flex-col gap-1 ${isCaller
-                                  ? "border-farmer-border/30 text-farmer-text/80"
-                                  : "border-agent-border/30 text-agent-text/80"
-                                  }`}
-                              >
-                                <div className="flex items-center gap-1 font-bold tracking-wider uppercase text-[9px]">
-                                  <Globe className="h-3 w-3 animate-spin-slow" />
-                                  <span>
-                                    Original ({msg.detectedLanguage || "unknown"})
-                                  </span>
-                                </div>
-                                <p className="italic leading-normal">
-                                  {msg.originalText}
-                                </p>
+                            {/* Only visible in Test/Simulation Mode */}
+                            {isSimulatingMode && (
+                              <div className={`flex items-center gap-0.5 ml-1 ${!isCaller ? "mr-1 ml-0" : ""}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditMessage(index)}
+                                  className="p-1 rounded text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-100/50 dark:hover:bg-amber-950/50 transition-all cursor-pointer"
+                                  title="Edit this message (Test Mode)"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteMessage(index)}
+                                  className="p-1 rounded text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-100/50 dark:hover:bg-red-950/50 transition-all cursor-pointer"
+                                  title="Delete this message (Test Mode)"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
                               </div>
                             )}
                           </div>
+
+                          {/* Chat Bubble or Inline Editor */}
+                          {isEditingThis ? (
+                            <div className="w-full max-w-[95%] sm:max-w-[85%] p-3 rounded-2xl border border-amber-400/70 dark:border-amber-600/70 bg-white/95 dark:bg-zinc-900/95 shadow-lg space-y-2.5 backdrop-blur-md">
+                              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-2">
+                                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                                  <Pencil className="h-3.5 w-3.5 text-amber-600" />
+                                  <span>Edit Message #{index + 1}</span>
+                                </span>
+
+                                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg text-xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditRole("inbound")}
+                                    className={`px-2.5 py-0.5 rounded-md font-semibold text-[10.5px] transition-all flex items-center gap-1 cursor-pointer ${
+                                      editRole === "inbound"
+                                        ? "bg-amber-500 text-white shadow-xs"
+                                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                                    }`}
+                                  >
+                                    <User className="h-3 w-3" />
+                                    <span>Farmer</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditRole("outbound")}
+                                    className={`px-2.5 py-0.5 rounded-md font-semibold text-[10.5px] transition-all flex items-center gap-1 cursor-pointer ${
+                                      editRole === "outbound"
+                                        ? "bg-indigo-600 text-white shadow-xs"
+                                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                                    }`}
+                                  >
+                                    <MessageSquare className="h-3 w-3" />
+                                    <span>Expert</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+                                  Message Text (English / Translated)
+                                </label>
+                                <Textarea
+                                  value={editText}
+                                  onChange={(e) => setEditText(e.target.value)}
+                                  placeholder="Enter message text..."
+                                  className="min-h-[70px] text-xs resize-none bg-zinc-50 dark:bg-zinc-950 font-medium"
+                                />
+                              </div>
+
+                              {showEditOriginalInput ? (
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+                                    Original Language Text (Optional)
+                                  </label>
+                                  <Input
+                                    value={editOriginalText}
+                                    onChange={(e) => setEditOriginalText(e.target.value)}
+                                    placeholder="Enter original local language text..."
+                                    className="h-7 text-xs bg-zinc-50 dark:bg-zinc-950"
+                                  />
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowEditOriginalInput(true)}
+                                  className="text-[10.5px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                                >
+                                  <Globe className="h-3 w-3" />
+                                  <span>+ Add original local language text</span>
+                                </button>
+                              )}
+
+                              <div className="flex items-center justify-end gap-2 pt-1 border-t border-zinc-200/50 dark:border-zinc-800/50">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleCancelEditMessage}
+                                  className="h-6.5 px-2.5 text-xs text-zinc-600 dark:text-zinc-300"
+                                >
+                                  <X className="h-3 w-3 mr-1" />
+                                  <span>Cancel</span>
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() => handleSaveEditMessage(index)}
+                                  className="h-6.5 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                                >
+                                  <Check className="h-3 w-3 mr-1" />
+                                  <span>Save Changes</span>
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              className={`max-w-[80%] px-4 py-3 rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-md ${isCaller
+                                ? "chat-bubble-farmer rounded-tl-none"
+                                : "chat-bubble-agent rounded-tr-none"
+                                }`}
+                            >
+                              {/* English Translation (Primary) */}
+                              <p className="text-[13px] leading-relaxed whitespace-pre-wrap font-medium">
+                                {msg.translatedText || msg.text}
+                              </p>
+
+                              {/* Original text & language metadata (Secondary) */}
+                              {msg.originalText && (
+                                <div
+                                  className={`mt-2 pt-1.5 border-t text-[11px] flex flex-col gap-1 ${isCaller
+                                    ? "border-farmer-border/30 text-farmer-text/80"
+                                    : "border-agent-border/30 text-agent-text/80"
+                                    }`}
+                                >
+                                  <div className="flex items-center gap-1 font-bold tracking-wider uppercase text-[9px]">
+                                    <Globe className="h-3 w-3 animate-spin-slow" />
+                                    <span>
+                                      Original ({msg.detectedLanguage || "unknown"})
+                                    </span>
+                                  </div>
+                                  <p className="italic leading-normal">
+                                    {msg.originalText}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })

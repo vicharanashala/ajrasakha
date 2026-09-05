@@ -71,6 +71,14 @@ export const FarmerDetails = ({
   const normalizeProfile = (raw: any, activePhone?: string): FarmerProfile => {
     if (!raw) return {};
     const phone = activePhone || raw.phoneNo || raw.extracted_phone || raw.phone || "";
+    const primaryCrop = raw.primaryCrop || raw.extracted_primary_crop || raw.extracted_crop || raw.crop || "";
+    const secondaryCropsRaw = raw.secondaryCrop || raw.extracted_secondary_crops || raw.extracted_secondary_crop || (Array.isArray(raw.cropsCultivated) ? raw.cropsCultivated.filter((c: string) => c !== primaryCrop).join(", ") : "");
+    const secondaryCrop = Array.isArray(secondaryCropsRaw)
+      ? secondaryCropsRaw.join(", ")
+      : typeof secondaryCropsRaw === "string"
+        ? secondaryCropsRaw
+        : "";
+
     return {
       farmerName: raw.farmerName || raw.extracted_name || raw.name || raw.farmer_name || "",
       phoneNo: phone,
@@ -80,19 +88,20 @@ export const FarmerDetails = ({
       blockName: raw.blockName || raw.extracted_block || raw.block || "",
       district: raw.district || raw.extracted_district || "",
       state: raw.state || raw.extracted_state || "",
-      primaryCrop: raw.primaryCrop || raw.extracted_primary_crop || raw.extracted_crop || raw.crop || "",
-      secondaryCrop: raw.secondaryCrop || raw.extracted_secondary_crop || "",
-      languagePreference: raw.languagePreference || raw.extracted_language || raw.language || "",
-      yearsOfExperience: raw.yearsOfExperience !== undefined && raw.yearsOfExperience !== null ? Number(raw.yearsOfExperience) : undefined,
-      cropsCultivated: Array.isArray(raw.cropsCultivated)
-        ? raw.cropsCultivated
-        : raw.extracted_crop
-          ? [raw.extracted_crop]
-          : typeof raw.cropsCultivated === "string"
-            ? raw.cropsCultivated.split(",").map((c: string) => c.trim()).filter(Boolean)
-            : undefined,
-      highestEducatedPerson: raw.highestEducatedPerson || raw.extracted_highest_educated || "",
-      numberOfSmartphones: raw.numberOfSmartphones !== undefined && raw.numberOfSmartphones !== null ? Number(raw.numberOfSmartphones) : undefined,
+      primaryCrop: primaryCrop,
+      secondaryCrop: secondaryCrop,
+      languagePreference: raw.languagePreference || raw.extracted_language_preference || raw.extracted_language || raw.language || "",
+      yearsOfExperience: raw.yearsOfExperience !== undefined && raw.yearsOfExperience !== null
+        ? Number(raw.yearsOfExperience)
+        : raw.extracted_years_of_experience !== undefined && raw.extracted_years_of_experience !== null
+          ? Number(raw.extracted_years_of_experience)
+          : undefined,
+      highestEducatedPerson: raw.highestEducatedPerson || raw.extracted_highest_education || raw.extracted_highest_educated || "",
+      numberOfSmartphones: raw.numberOfSmartphones !== undefined && raw.numberOfSmartphones !== null
+        ? Number(raw.numberOfSmartphones)
+        : raw.extracted_smartphones_at_home !== undefined && raw.extracted_smartphones_at_home !== null
+          ? Number(raw.extracted_smartphones_at_home)
+          : undefined,
     };
   };
 

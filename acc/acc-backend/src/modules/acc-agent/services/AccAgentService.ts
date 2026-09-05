@@ -69,6 +69,11 @@ export class AccAgentService {
     extracted_village?: string;
     extracted_block?: string;
     extracted_primary_crop?: string;
+    extracted_secondary_crops?: string[] | string;
+    extracted_language_preference?: string;
+    extracted_years_of_experience?: number;
+    extracted_highest_education?: string;
+    extracted_smartphones_at_home?: number;
   }> {
     const startTime = Date.now();
     const api = this.createAxiosInstance();
@@ -111,6 +116,11 @@ export class AccAgentService {
         extracted_village: data.extracted_village || '',
         extracted_block: data.extracted_block || '',
         extracted_primary_crop: data.extracted_primary_crop || '',
+        extracted_secondary_crops: data.extracted_secondary_crops || data.extracted_secondary_crop || [],
+        extracted_language_preference: data.extracted_language_preference || data.extracted_language || '',
+        extracted_years_of_experience: data.extracted_years_of_experience !== undefined && data.extracted_years_of_experience !== null ? Number(data.extracted_years_of_experience) : undefined,
+        extracted_highest_education: data.extracted_highest_education || data.extracted_highest_educated || '',
+        extracted_smartphones_at_home: data.extracted_smartphones_at_home !== undefined && data.extracted_smartphones_at_home !== null ? Number(data.extracted_smartphones_at_home) : undefined,
       };
       console.log(`📋 [EXTRACTION_DATA] (AccAgentService) Raw extraction output for thread ${threadId}:`, data);
       console.log(`✅ [AccAgentService] Data extracted for thread ${threadId} (${Date.now() - startTime}ms): query="${result.extracted_query}", crop="${result.extracted_crop}", domain="${JSON.stringify(result.extracted_domain)}"`);
@@ -142,6 +152,11 @@ export class AccAgentService {
       farmerVillage?: string;
       farmerBlock?: string;
       farmerPrimaryCrop?: string;
+      farmerSecondaryCrops?: string[] | string;
+      farmerLanguagePreference?: string;
+      farmerYearsOfExperience?: number;
+      farmerHighestEducation?: string;
+      farmerSmartphonesAtHome?: number;
     }
   ): Promise<void> {
 
@@ -173,6 +188,11 @@ export class AccAgentService {
             extracted_village: correctedData.farmerVillage,
             extracted_block: correctedData.farmerBlock,
             extracted_primary_crop: correctedData.farmerPrimaryCrop,
+            extracted_secondary_crops: correctedData.farmerSecondaryCrops,
+            extracted_language_preference: correctedData.farmerLanguagePreference,
+            extracted_years_of_experience: correctedData.farmerYearsOfExperience,
+            extracted_highest_education: correctedData.farmerHighestEducation,
+            extracted_smartphones_at_home: correctedData.farmerSmartphonesAtHome,
           },
         },
         {

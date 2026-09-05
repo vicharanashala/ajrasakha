@@ -11,7 +11,6 @@ export interface FarmerProfile {
   phoneNo?: string;
   languagePreference?: string;
   yearsOfExperience?: number;
-  cropsCultivated?: string[];
   primaryCrop?: string;
   secondaryCrop?: string;
   awarenessOfKCC?: boolean;

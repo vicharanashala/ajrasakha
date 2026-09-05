@@ -82,16 +82,11 @@ export class CallFarmerRepository implements ICallFarmerRepository {
           district: profile.district || '',
           state: profile.state || '',
           primaryCrop: profile.primaryCrop || profile.extracted_primary_crop || profile.crop || '',
-          secondaryCrop: profile.secondaryCrop || '',
-          languagePreference: profile.languagePreference || profile.language || '',
-          yearsOfExperience: profile.yearsOfExperience !== undefined && profile.yearsOfExperience !== null ? Number(profile.yearsOfExperience) : undefined,
-          cropsCultivated: Array.isArray(profile.cropsCultivated)
-            ? profile.cropsCultivated
-            : profile.primaryCrop
-              ? [profile.primaryCrop]
-              : undefined,
-          highestEducatedPerson: profile.highestEducatedPerson || '',
-          numberOfSmartphones: profile.numberOfSmartphones !== undefined && profile.numberOfSmartphones !== null ? Number(profile.numberOfSmartphones) : undefined,
+          secondaryCrop: profile.secondaryCrop || (Array.isArray(profile.extracted_secondary_crops) ? profile.extracted_secondary_crops.join(', ') : (profile.extracted_secondary_crops || profile.extracted_secondary_crop || (Array.isArray(profile.cropsCultivated) ? profile.cropsCultivated.filter((c: string) => c !== (profile.primaryCrop || profile.extracted_primary_crop || profile.crop)).join(', ') : ''))),
+          languagePreference: profile.languagePreference || profile.extracted_language_preference || profile.extracted_language || profile.language || '',
+          yearsOfExperience: profile.yearsOfExperience !== undefined && profile.yearsOfExperience !== null ? Number(profile.yearsOfExperience) : (profile.extracted_years_of_experience !== undefined && profile.extracted_years_of_experience !== null ? Number(profile.extracted_years_of_experience) : undefined),
+          highestEducatedPerson: profile.highestEducatedPerson || profile.extracted_highest_education || profile.extracted_highest_educated || '',
+          numberOfSmartphones: profile.numberOfSmartphones !== undefined && profile.numberOfSmartphones !== null ? Number(profile.numberOfSmartphones) : (profile.extracted_smartphones_at_home !== undefined && profile.extracted_smartphones_at_home !== null ? Number(profile.extracted_smartphones_at_home) : undefined),
           location: profile.location,
         },
         createdAt: rawDoc.createdAt || new Date(),
@@ -220,16 +215,11 @@ export class CallFarmerRepository implements ICallFarmerRepository {
             district: profile.district || '',
             state: profile.state || '',
             primaryCrop: profile.primaryCrop || profile.extracted_primary_crop || profile.crop || '',
-            secondaryCrop: profile.secondaryCrop || '',
-            languagePreference: profile.languagePreference || profile.language || '',
-            yearsOfExperience: profile.yearsOfExperience !== undefined && profile.yearsOfExperience !== null ? Number(profile.yearsOfExperience) : undefined,
-            cropsCultivated: Array.isArray(profile.cropsCultivated)
-              ? profile.cropsCultivated
-              : profile.primaryCrop
-                ? [profile.primaryCrop]
-                : undefined,
-            highestEducatedPerson: profile.highestEducatedPerson || '',
-            numberOfSmartphones: profile.numberOfSmartphones !== undefined && profile.numberOfSmartphones !== null ? Number(profile.numberOfSmartphones) : undefined,
+            secondaryCrop: profile.secondaryCrop || (Array.isArray(profile.extracted_secondary_crops) ? profile.extracted_secondary_crops.join(', ') : (profile.extracted_secondary_crops || profile.extracted_secondary_crop || (Array.isArray(profile.cropsCultivated) ? profile.cropsCultivated.filter((c: string) => c !== (profile.primaryCrop || profile.crop)).join(', ') : ''))),
+            languagePreference: profile.languagePreference || profile.extracted_language_preference || profile.extracted_language || profile.language || '',
+            yearsOfExperience: profile.yearsOfExperience !== undefined && profile.yearsOfExperience !== null ? Number(profile.yearsOfExperience) : (profile.extracted_years_of_experience !== undefined && profile.extracted_years_of_experience !== null ? Number(profile.extracted_years_of_experience) : undefined),
+            highestEducatedPerson: profile.highestEducatedPerson || profile.extracted_highest_education || profile.extracted_highest_educated || '',
+            numberOfSmartphones: profile.numberOfSmartphones !== undefined && profile.numberOfSmartphones !== null ? Number(profile.numberOfSmartphones) : (profile.extracted_smartphones_at_home !== undefined && profile.extracted_smartphones_at_home !== null ? Number(profile.extracted_smartphones_at_home) : undefined),
             location: profile.location,
           },
           createdAt: doc.createdAt,

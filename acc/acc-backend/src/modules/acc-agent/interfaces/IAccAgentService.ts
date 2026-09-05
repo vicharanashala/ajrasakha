@@ -2,7 +2,8 @@ export interface IAccAgentService {
   createThread(): Promise<{ thread_id: string }>;
   extractData(
     threadId: string,
-    transcript: string
+    transcript: string,
+    extractionType?: 'farmer_details' | 'query_details'
   ): Promise<{
     extracted_query: string;
     extracted_crop: string;
@@ -16,6 +17,11 @@ export interface IAccAgentService {
     extracted_village?: string;
     extracted_block?: string;
     extracted_primary_crop?: string;
+    extracted_secondary_crops?: string[] | string;
+    extracted_language_preference?: string;
+    extracted_years_of_experience?: number;
+    extracted_highest_education?: string;
+    extracted_smartphones_at_home?: number;
   }>;
   updateState(
     threadId: string,
@@ -24,6 +30,8 @@ export interface IAccAgentService {
       crop: string;
       state: string;
       district: string;
+      block?: string;
+      village?: string;
       domain: string | string[];
       season: string;
       farmerName?: string;
@@ -33,6 +41,11 @@ export interface IAccAgentService {
       farmerVillage?: string;
       farmerBlock?: string;
       farmerPrimaryCrop?: string;
+      farmerSecondaryCrops?: string[] | string;
+      farmerLanguagePreference?: string;
+      farmerYearsOfExperience?: number;
+      farmerHighestEducation?: string;
+      farmerSmartphonesAtHome?: number;
     }
   ): Promise<void>;
   resumeAndGetAnswer(threadId: string): Promise<{ final_answer: string }>;

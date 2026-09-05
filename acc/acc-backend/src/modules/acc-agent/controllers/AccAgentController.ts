@@ -65,6 +65,11 @@ export class AccAgentController {
     extracted_village?: string;
     extracted_block?: string;
     extracted_primary_crop?: string;
+    extracted_secondary_crops?: string[] | string;
+    extracted_language_preference?: string;
+    extracted_years_of_experience?: number;
+    extracted_highest_education?: string;
+    extracted_smartphones_at_home?: number;
   }> {
     try {
       const result = await this.accAgentService.extractData(body.threadId, body.transcript, body.extractionType);
@@ -99,6 +104,11 @@ export class AccAgentController {
         farmerVillage?: string;
         farmerBlock?: string;
         farmerPrimaryCrop?: string;
+        farmerSecondaryCrops?: string[] | string;
+        farmerLanguagePreference?: string;
+        farmerYearsOfExperience?: number;
+        farmerHighestEducation?: string;
+        farmerSmartphonesAtHome?: number;
       };
     }
   ): Promise<{ success: boolean }> {
