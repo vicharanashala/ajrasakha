@@ -199,6 +199,9 @@ export interface RoleDashboardQuestion {
   gateKeeperFinishedAt?: string | null;
   auditorAssignedAt?: string | null;
   auditorFinishedAt?: string | null;
+  moderatorAssignedAt?: string | null;
+  /** Computed completion time for a moderator = closedAt || passedAt. */
+  moderatorCompletedAt?: string | null;
   details?: { state?: string; crop?: string };
 }
 export interface RoleDashboardResponse {
@@ -1144,7 +1147,7 @@ export class QuestionService {
     limit: number,
     search: string,
     userId?: string,
-    role?: "gate_keeper" | "auditor",
+    role?: "gate_keeper" | "auditor" | "moderator",
     startDate?: string,
     endDate?: string,
     dateFilterType?: "assigned" | "completed" | "both",
