@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserService } from "../../services/userService";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
+
 
 const userService = new UserService();
 
@@ -11,7 +12,11 @@ export const useVerifyUser = () => {
     mutationFn: async ({ userId, isVerified }: { userId: string; isVerified: boolean }) => {
       return await userService.verifyUser(userId, isVerified);
     },
-    onSuccess: () => {
+    onMutate: ()=>{
+      const toastId = toast.loading('verifying user...')
+      return {toastId}
+    },
+    onSuccess: (_,__,context) => {
       // Refresh admin users list
       queryClient.invalidateQueries({
         queryKey: ["users"],
@@ -40,9 +45,11 @@ export const useVerifyUser = () => {
         exact: false,
         refetchType: "all",
       });
+      if(context?.toastId)toast.dismiss(context.toastId)
       toast.success("User verified successfully");
     },
-    onError: (error: any) => {
+    onError: (error: any,_,context) => {
+      if(context?.toastId)toast.dismiss(context.toastId)
       toast.error(error?.message || "Failed to verify user");
     },
   });
