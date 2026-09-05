@@ -43,5 +43,6 @@ ai/openapi.json
 ai/backend_routes.txt
 backend_routes.txt
 endpoints.txt
-.clinerules/
 
+playwright-report/
+test-results/
