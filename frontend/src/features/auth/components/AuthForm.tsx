@@ -11,7 +11,10 @@ import { AuthFields } from "./AuthFields";
 import { PasswordStrength } from "./PasswordStrength";
 import { AuthModeSwitch } from "./AuthModeSwitch";
 import { AuthSubmitButton } from "./AuthSubmitButton";
-import { Check, ArrowLeft } from "lucide-react";
+import { Check, ArrowLeft, Sparkles } from "lucide-react";
+import { useAuthStore } from "@/stores/auth-store";
+import { useNavigate } from "@tanstack/react-router";
+import { queryClient } from "@/routes/__root";
 
 interface AuthFormProps extends ComponentProps<"div"> {
   mode?: "login" | "signup" | "forgot";
@@ -35,6 +38,37 @@ export const AuthForm = ({ mode: initialMode = "login" }: AuthFormProps) => {
     hasSubmitted,
     isEmailSent,
   } = useAuthForm(initialMode);
+
+  const { setUser } = useAuthStore();
+  const navigate = useNavigate();
+
+  const handleDemoLogin = () => {
+    const mockUser = {
+      uid: "demo-admin-uid-12345",
+      email: "demo.reviewer@annam.ai",
+      name: "Demo Expert",
+      displayName: "Demo Agronomy Expert",
+      firstName: "Demo",
+      lastName: "Expert",
+      role: "admin",
+      emailVerified: true,
+    };
+    localStorage.setItem("firebase-auth-token", "mock-dev-token");
+    localStorage.setItem("user-id", mockUser.uid);
+    localStorage.setItem("user-email", mockUser.email);
+    localStorage.setItem("user-firstName", "Demo");
+    localStorage.setItem("user-lastName", "Expert");
+    setUser(mockUser as any);
+    queryClient.setQueryData(["user"], {
+      _id: mockUser.uid,
+      email: mockUser.email,
+      firstName: "Demo",
+      lastName: "Expert",
+      role: "admin",
+      status: "active",
+    });
+    navigate({ to: "/chatbot" });
+  };
 
   // Toggle visibility for password fields
   const getPasswordVisibility = (fieldName: keyof AuthFormData) => {
@@ -89,11 +123,15 @@ export const AuthForm = ({ mode: initialMode = "login" }: AuthFormProps) => {
           ) : mode === "forgot" ? (
             <div className="grid gap-6">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Enter your email address and we'll send you a link to reset your password.
+                Enter your email address and we'll send you a link to reset your
+                password.
               </p>
               <form onSubmit={handleSubmit} className="grid gap-4">
                 <div className="grid gap-1.5">
-                  <label htmlFor="forgot-email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label
+                    htmlFor="forgot-email"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
                     Email Address
                   </label>
                   <Input
@@ -155,10 +193,32 @@ export const AuthForm = ({ mode: initialMode = "login" }: AuthFormProps) => {
                 />
               )}
               <AuthSubmitButton mode={mode} isLoading={isLoading} />
+
+              <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-200 dark:border-gray-700" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or for local dev
+                  </span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDemoLogin}
+                className="w-full border-emerald-600/50 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                Continue as Demo Reviewer / Admin
+              </Button>
+
               <AuthModeSwitch
                 mode={mode}
-                onToggle={
-                  () => handleModeChange(mode === "login" ? "signup" : "login")
+                onToggle={() =>
+                  handleModeChange(mode === "login" ? "signup" : "login")
                 }
               />
             </form>
