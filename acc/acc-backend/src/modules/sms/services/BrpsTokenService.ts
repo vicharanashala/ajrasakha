@@ -9,6 +9,15 @@ export class BrpsTokenService {
   private tokenExpiry: Date | null = null;
 
   /**
+   * Clear the in-memory token cache (used when 401 Unauthorized is encountered)
+   */
+  clearToken(): void {
+    this.token = null;
+    this.tokenExpiry = null;
+    console.log('[BRPS-TOKEN] In-memory BSNL BRPS token cleared');
+  }
+
+  /**
    * Return a valid BRPS JWT token, refreshing if expired or missing.
    */
   async getValidToken(): Promise<string> {
@@ -44,7 +53,7 @@ export class BrpsTokenService {
     };
 
     try {
-      // console.log(`[BRPS-TOKEN] Requesting BSNL API token (Token_Id: ${body.Token_Id})`);
+      console.log(`[BRPS-TOKEN] Requesting BSNL API token from ${baseUrl}/api/Create_New_API_Token (Token_Id: ${body.Token_Id})`);
 
       const response = await axios.post(`${baseUrl}/api/Create_New_API_Token`, body, {
         headers: {
@@ -54,25 +63,34 @@ export class BrpsTokenService {
       });
 
       const rawData = response.data;
-      let tokenStr = '';
+      if (!rawData) {
+        throw new Error('Empty response from BSNL BRPS token endpoint');
+      }
 
+      if (typeof rawData === 'object' && rawData.Error) {
+        throw new Error(`BSNL BRPS token error: ${rawData.Error}`);
+      }
+
+      let tokenStr = '';
       if (typeof rawData === 'string') {
         // Strip any wrapping quotes if returned as a JSON-encoded string literal
         tokenStr = rawData.replace(/^"+|"+$/g, '').trim();
       } else if (rawData && typeof rawData === 'object') {
-        tokenStr = rawData.token || rawData.Token || JSON.stringify(rawData);
+        tokenStr = rawData.token || rawData.Token || '';
       }
 
       if (!tokenStr) {
-        throw new Error('Received empty token from BSNL BRPS server');
+        throw new Error(`Received invalid token payload from BSNL BRPS server: ${JSON.stringify(rawData)}`);
       }
 
       this.token = tokenStr;
       // Proactively refresh 2 days before the 1-year (365-day) expiry
       this.tokenExpiry = new Date(Date.now() + 363 * 24 * 60 * 60 * 1000);
 
-      // console.log(`[BRPS-TOKEN] Token acquired successfully. Valid until: ${this.tokenExpiry.toISOString()}`);
+      console.log(`[BRPS-TOKEN] Token acquired successfully. Valid until: ${this.tokenExpiry.toISOString()}`);
     } catch (err: any) {
+      this.token = null;
+      this.tokenExpiry = null;
       const errorData = err.response?.data;
       const errorMsg = errorData ? (typeof errorData === 'object' ? JSON.stringify(errorData) : String(errorData)) : err.message;
       console.error(`[BRPS-TOKEN] Token refresh failed: ${errorMsg}`);

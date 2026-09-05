@@ -83,7 +83,7 @@ export class BsnlSmsService {
         : '1';
 
     // Retrieve valid JWT token (cached or refreshed)
-    const token = await this.tokenService.getValidToken();
+    let token = await this.tokenService.getValidToken();
 
     const payload: IBsnlSendSmsPayload = {
       Header: header || 'ANNAMR',
@@ -102,20 +102,34 @@ export class BsnlSmsService {
       ],
     };
 
-    // console.log(`[BSNL-SMS] Sending SMS to ${cleanNumber} (Template: ${templateId}, Length: ${cleanText.length} chars)`);
-
-    try {
-      const response = await axios.post<IBsnlSendSmsResponse>(
+    const doSend = async (authToken: string) => {
+      return axios.post<IBsnlSendSmsResponse>(
         `${baseUrl}/api/Send_SMS`,
         payload,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${authToken}`,
             'Content-Type': 'application/json; charset=utf-8',
           },
           timeout: 20000,
         }
       );
+    };
+
+    try {
+      let response;
+      try {
+        response = await doSend(token);
+      } catch (firstErr: any) {
+        if (firstErr.response?.status === 401) {
+          console.warn(`[BSNL-SMS] Received 401 Unauthorized from BSNL. Refreshing token and retrying SMS to ${cleanNumber}...`);
+          this.tokenService.clearToken();
+          token = await this.tokenService.getValidToken();
+          response = await doSend(token);
+        } else {
+          throw firstErr;
+        }
+      }
 
       const data = response.data;
 
