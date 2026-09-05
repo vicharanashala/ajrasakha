@@ -5,9 +5,9 @@ farmer and query context, pauses for human verification, routes answer requests
 to the relevant agricultural agents, and returns structured output for the
 call-centre agent.
 
-The workflow is implemented in this package but is not currently registered in
-[`ai/langgraph.json`](../../../langgraph.json). Add it to the LangGraph graph
-configuration before exposing it through the LangGraph server.
+The workflow is registered as `acc_agent` in
+[`ai/langgraph.json`](../../../langgraph.json) and can be exposed through the
+LangGraph server.
 
 ## Overview
 
@@ -66,11 +66,9 @@ class AccAgentState(TypedDict):
     extraction_type: Literal["farmer_details", "query_details", "all"]
 
     # Query extraction
-    extracted_query: Optional[str]
     extracted_state: Optional[str]
     extracted_district: Optional[str]
-    extracted_crop: Optional[str]
-    standardized_domains: list[str]
+    extracted_queries: list[ExtractedQuery]
 
     # Farmer-profile extraction
     extracted_name: Optional[str]
@@ -110,8 +108,9 @@ The agent reads the transcript and extracts either query details, farmer details
 or both. It normalizes the requested extraction mode and sets
 `verified_by_human` to `False`.
 
-Query extraction includes a concise question, state, district, crop, and one or
-more standardized domains. Farmer-profile extraction includes name, phone, age,
+Query extraction includes every distinct farmer question, each with its own
+crop and standardized domains, plus shared state and district. Farmer-profile
+extraction includes name, phone, age,
 gender, village, block, primary/secondary crops, preferred language, farming
 experience, the farmer's highest education, and smartphone count at home when
 explicitly stated. Unknown profile values are `null`; `secondary_crops` is
@@ -208,7 +207,7 @@ The extractor classifies a query into one or more of these 22 domains:
 | Value | Returned extraction fields | Answer flow after resume |
 |---|---|---|
 | `farmer_details` | Farmer profile, primary/secondary crops, state, and district | Does not continue |
-| `query_details` | Query, crop, state, district, and standardized domains | Continues |
+| `query_details` | All distinct queries, each with crop and domains, plus state and district | Continues |
 | `all` | Both field groups | Continues |
 
 Example input state:
@@ -226,6 +225,25 @@ Example extracted crop fields:
 {
   "extracted_primary_crop": "Cotton",
   "extracted_secondary_crops": ["Wheat"]
+}
+```
+
+Example multiple-query extraction:
+
+```json
+{
+  "extracted_queries": [
+    {
+      "query": "How can I control yellow rust in wheat?",
+      "crop": "Wheat",
+      "standardized_domains": ["Disease Management"]
+    },
+    {
+      "query": "Will it rain today?",
+      "crop": null,
+      "standardized_domains": ["Climate, Weather & Stress Management"]
+    }
+  ]
 }
 ```
 
