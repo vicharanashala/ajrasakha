@@ -9,6 +9,7 @@ import type { ModeratorApprovalRate } from "@/components/dashboard/approval-rate
 import type { GoldenDataset } from "@/components/dashboard/golden-dataset";
 import type { StatusOverview } from "@/components/dashboard/question-status";
 import type { ExpertPerformance } from "@/components/dashboard/experts-performance";
+import type { ReviewQualityAnalytics } from "@/components/dashboard/review-quality-analytics";
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange, QuestionsAnalytics } from "@/components/dashboard/questions-analytics";
 import { env } from "@/config/env";
@@ -144,6 +145,24 @@ export class PerformaneService {
 
   async getExpertPerformance(): Promise<ExpertPerformance[] | null> {
     return apiFetch<ExpertPerformance[]>(`${this._baseUrl}/expert-performance`);
+  }
+
+  async getReviewQualityAnalytics({
+    startTime,
+    endTime,
+  }: { startTime?: Date; endTime?: Date } = {}): Promise<ReviewQualityAnalytics | null> {
+    const params = new URLSearchParams();
+
+    if (startTime) {
+      params.append("startTime", formatDateLocal(startTime));
+    }
+    if (endTime) {
+      params.append("endTime", formatDateLocal(endTime));
+    }
+
+    return apiFetch<ReviewQualityAnalytics>(
+      `${this._baseUrl}/review-quality-analytics?${params.toString()}`
+    );
   }
 
   async getQuestionsAnalytics(query: {

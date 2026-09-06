@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { subDays } from "date-fns";
 import { ApprovalRateCard } from "./dashboard/approval-rate";
 import { ExpertsPerformance } from "./dashboard/experts-performance";
+import { ReviewQualityAnalyticsCard } from "./dashboard/review-quality-analytics";
 import { GoldenDatasetOverview } from "./dashboard/golden-dataset";
 import { ModeratorsOverview } from "./dashboard/overview";
 import { StatusCharts } from "./dashboard/question-status";
@@ -24,6 +25,7 @@ import {
   useGetStatusOverview,
   useGetExpertPerformance,
   useGetQuestionsAnalytics,
+  useGetReviewQualityAnalytics,
 } from "@/hooks/api/performance/useGetDashboard";
 import { DashboardClock } from "./dashboard/dashboard-clock";
 import { Spinner } from "./atoms/spinner";
@@ -238,6 +240,7 @@ export const Dashboard = () => {
   const { data: contributionData, isLoading: isContributionLoading } = useGetContributionTrend(timeRange);
   const { data: statusData, isLoading: isStatusLoading } = useGetStatusOverview();
   const { data: expertData, isLoading: isExpertLoading } = useGetExpertPerformance();
+  const { data: reviewQualityData, isLoading: isReviewQualityLoading } = useGetReviewQualityAnalytics();
   const { data: analyticsData, isLoading: isAnalyticsLoading, isFetching: isAnalyticsFetching } = useGetQuestionsAnalytics({
     type: analyticsType,
     startTime: date.startTime,
@@ -533,6 +536,16 @@ export const Dashboard = () => {
             </Card>
             <HeatMap heatMapDate={heatMapDate} />
           </div>
+        </div>
+
+        {/* Review Quality Breakdown */}
+        <div className="mb-6">
+          <LoadingWrapper
+            loading={isReviewQualityLoading}
+            text="Fetching review quality analytics..."
+          >
+            <ReviewQualityAnalyticsCard data={reviewQualityData} />
+          </LoadingWrapper>
         </div>
 
         {/*Review Levell Data*/}

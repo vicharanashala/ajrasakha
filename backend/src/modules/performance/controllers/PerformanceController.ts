@@ -26,6 +26,7 @@ import {
   IAnswer,
   IUser,
   IReviewerHeatmapResponse,
+  IReviewQualityAnalyticsResponse,
 } from '#root/shared/interfaces/models.js';
 import { PerformanceService } from '../services/PerformanceService.js';
 import {
@@ -35,6 +36,7 @@ import {
   GetGoldenDatasetQuery,
   GetContributionTrendQuery,
   GetQuestionsAnalyticsQuery,
+  GetReviewQualityAnalyticsQuery,
   UserRoleOverview,
   ModeratorApprovalRate,
   GoldenDataset,
@@ -48,6 +50,7 @@ import {
   PerformanceErrorResponse,
   WorkloadResponse,
   ReviewerHeatmapResponse,
+  ReviewQualityAnalyticsResponse,
   CheckInResponse,
   CronSnapshotReportResponse,
   LevelReportErrorResponse,
@@ -162,6 +165,30 @@ export class PerformanceController {
     const isAdmin = user.role === 'admin'
     const isTrainingUser = user.isTrainingUser === true
     return this.performanceService.getExpertPerformance(isTrainingUser,isAdmin);
+  }
+
+  @OpenAPI({
+    summary: 'Get review quality checklist analytics',
+    description: 'Aggregates the answer-review quality checklist (context relevance, technical accuracy, practical utility, value/insight, credibility/trust, readability/communication) to show how often each dimension is marked as failing, optionally scoped to a date range.',
+  })
+  @ResponseSchema(ReviewQualityAnalyticsResponse, {
+    statusCode: 200,
+    description: 'Review quality analytics retrieved successfully',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Get('/review-quality-analytics')
+  @HttpCode(200)
+  @Authorized()
+  async getReviewQualityAnalytics(
+    @CurrentUser() user: IUser,
+    @QueryParams() query: GetReviewQualityAnalyticsQuery,
+  ): Promise<IReviewQualityAnalyticsResponse> {
+    const isAdmin = user.role === 'admin';
+    const isTrainingUser = user.isTrainingUser === true;
+    return this.performanceService.getReviewQualityAnalytics(query, isTrainingUser, isAdmin);
   }
 
   @OpenAPI({ summary: 'Get detailed questions/answers analytics' })
