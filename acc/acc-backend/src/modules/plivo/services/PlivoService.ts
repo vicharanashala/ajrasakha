@@ -31,7 +31,7 @@ interface SarvamStreamSession {
 @injectable()
 export class PlivoService {
   private sarvamApiKey: string;
-  private readonly translateApiUrl = /*aiConfig.accTranslateApiUrl*/"http://100.100.108.43:8110/v1/translate/to-english";
+  private readonly translateApiUrl = /*aiConfig.accTranslateApiUrl*/"http://100.100.108.44:8110/v1/translate/to-english";
   private activeTranscriptions: Map<string, string> = new Map();
   private activeTranslations: Map<string, string> = new Map();
   private detectedLanguages: Map<string, string> = new Map();
