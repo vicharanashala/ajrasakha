@@ -92,7 +92,7 @@ export class PlivoService {
           input: cleanText,
           source_language_code: sourceLangCode,
           target_language_code: 'en-IN',
-          model: 'sarvam-translate:v1',
+          model: 'saaras:v3',
           mode: 'formal',
         },
         {
