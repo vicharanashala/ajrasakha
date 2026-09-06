@@ -2,11 +2,13 @@ import { inject, injectable } from 'inversify';
 import { appConfig } from '../../../config/app.js';
 import { aiConfig } from '../../../config/ai.js';
 import { WebSocket } from 'ws';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 import plivo from 'plivo';
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { ObjectId } from 'mongodb';
 import { PLIVO_TYPES } from '../types.js';
 import type { ICallDetailsRepository } from '#shared/database/interfaces/ICallDetailsRepository.js';
+
 
 interface WsSession {
   ws: WebSocket;
@@ -30,7 +32,18 @@ interface SarvamStreamSession {
 
 @injectable()
 export class PlivoService {
+
+  // SOCKS5 proxy agent for Tailscale network (localhost:1055)
+  private readonly httpAgent = new SocksProxyAgent('socks5://localhost:1055');
+
+  private createAxiosInstance(): AxiosInstance {
+    return axios.create({
+      httpAgent: this.httpAgent,
+      httpsAgent: this.httpAgent,
+    });
+  }
   private sarvamApiKey: string;
+  private readonly TIMEOUT = aiConfig.accAgentTimeout;
   private readonly translateApiUrl = /*aiConfig.accTranslateApiUrl*/"http://100.100.108.44:8110/v1/translate/to-english";
   private activeTranscriptions: Map<string, string> = new Map();
   private activeTranslations: Map<string, string> = new Map();
@@ -105,11 +118,17 @@ export class PlivoService {
       //     timeout: 2500,
       //   }
       // );
-      const response = await axios.post(
+      const api = this.createAxiosInstance();
+
+      const response = await api.post(
         this.translateApiUrl,
         {
           text: cleanText,
           source_language: sourceLangCode,
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: this.TIMEOUT,
         }
 
       );
