@@ -3,7 +3,6 @@ import { appConfig } from '../../../config/app.js';
 import { aiConfig } from '../../../config/ai.js';
 import { WebSocket } from 'ws';
 import plivo from 'plivo';
-import axios from 'axios';
 import { ObjectId } from 'mongodb';
 import { PLIVO_TYPES } from '../types.js';
 import type { ICallDetailsRepository } from '#shared/database/interfaces/ICallDetailsRepository.js';
@@ -28,6 +27,26 @@ interface SarvamStreamSession {
   debounceTimer: NodeJS.Timeout | null;
 }
 
+interface PendingTranslation {
+  resolve: (translated: string) => void;
+  fallback: string;
+  timeout: NodeJS.Timeout;
+}
+
+interface TranslateWsPayload {
+  id: string;
+  text: string;
+  source_language: string;
+}
+
+interface TranslateWsSession {
+  ws: WebSocket | null;
+  isOpen: boolean;
+  connecting: boolean;
+  queue: TranslateWsPayload[];
+  pending: Map<string, PendingTranslation>;
+}
+
 @injectable()
 export class PlivoService {
   private sarvamApiKey: string;
@@ -42,6 +61,15 @@ export class PlivoService {
 
   private lastActivityMap: Map<string, number> = new Map();
 
+  // Persistent WebSocket session used for text translation (replaces per-call axios.post)
+  private translateWsSession: TranslateWsSession = {
+    ws: null,
+    isOpen: false,
+    connecting: false,
+    queue: [],
+    pending: new Map(),
+  };
+
   constructor(
     @inject(PLIVO_TYPES.CallDetailsRepository)
     private readonly callDetailsRepository: ICallDetailsRepository
@@ -53,6 +81,17 @@ export class PlivoService {
     setInterval(() => {
       this.cleanupStaleSessions();
     }, 15 * 60 * 1000);
+
+    // Establish the persistent translation WebSocket connection up front
+    this.connectTranslateWs();
+  }
+
+  private buildTranslateWsUrl(httpUrl: string): string {
+    try {
+      return httpUrl.replace(/^http/i, 'ws');
+    } catch {
+      return httpUrl;
+    }
   }
 
   cleanupStaleSessions(): void {
@@ -68,8 +107,92 @@ export class PlivoService {
   }
 
   /**
+   * Opens (or reopens) the persistent translation WebSocket connection.
+   * Any messages sent while disconnected are queued and flushed on 'open'.
+   * On unexpected close, reconnects automatically after a short delay.
+   */
+  private connectTranslateWs(): void {
+    if (this.translateWsSession.connecting) return;
+
+
+    this.translateWsSession.connecting = true;
+
+    const translateWsUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=translate&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
+
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(translateWsUrl);
+    } catch (err) {
+      console.warn(`⚠️ [PLIVO-SERVICE] Failed to init translation WS: ${(err as Error).message}`);
+      this.translateWsSession.connecting = false;
+      setTimeout(() => this.connectTranslateWs(), 2000);
+      return;
+    }
+
+    this.translateWsSession.ws = ws;
+
+    ws.on('open', () => {
+      this.translateWsSession.isOpen = true;
+      this.translateWsSession.connecting = false;
+      console.log('🔌 [PLIVO-SERVICE] Translation WebSocket connected');
+      this.flushTranslateQueue();
+    });
+
+    ws.on('message', (data) => {
+      this.handleTranslateWsMessage(data);
+    });
+
+    ws.on('error', (err) => {
+      console.warn(`⚠️ [PLIVO-SERVICE] Translation WS error: ${(err as Error).message}`);
+    });
+
+    ws.on('close', () => {
+      console.warn('🔌 [PLIVO-SERVICE] Translation WS closed. Reconnecting in 2s...');
+      this.translateWsSession.isOpen = false;
+      this.translateWsSession.connecting = false;
+      setTimeout(() => this.connectTranslateWs(), 2000);
+    });
+  }
+
+  private flushTranslateQueue(): void {
+    const ws = this.translateWsSession.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    while (this.translateWsSession.queue.length > 0) {
+      const payload = this.translateWsSession.queue.shift();
+      if (payload) {
+        try {
+          ws.send(JSON.stringify(payload));
+        } catch (err) {
+          console.warn(`⚠️ [PLIVO-SERVICE] Error flushing translate WS message: ${(err as Error).message}`);
+        }
+      }
+    }
+  }
+
+  private handleTranslateWsMessage(data: WebSocket.RawData): void {
+    try {
+      const response = JSON.parse(data.toString());
+      const id: string | undefined = response.id || response.request_id;
+      if (!id) return;
+
+      const pending = this.translateWsSession.pending.get(id);
+      if (!pending) return;
+
+      clearTimeout(pending.timeout);
+      this.translateWsSession.pending.delete(id);
+
+      const translated = (response.translated_text || response.text || '').toString().trim();
+      pending.resolve(translated || pending.fallback);
+    } catch (err) {
+      console.error('❌ [PLIVO-SERVICE] Error parsing translate WS message:', err);
+    }
+  }
+
+  /**
    * Fast text translation using Sarvam AI's sarvam-translate:v1 model.
    * Auto-detects English / ASCII and returns instantly (0ms).
+   * Now sent over a persistent WebSocket connection instead of per-call HTTP POST.
    * Gracefully falls back to original text on timeout / error so stream never hangs.
    */
   async translateText(text: string, sourceLang?: string): Promise<string> {
@@ -86,42 +209,43 @@ export class PlivoService {
       return cleanText;
     }
 
-    try {
-      const sourceLangCode = sourceLang && sourceLang !== 'unknown' ? sourceLang : 'auto';
-      // const response = await axios.post(
-      //   'https://api.sarvam.ai/translate',
-      //   {
-      //     input: cleanText,
-      //     source_language_code: sourceLangCode,
-      //     target_language_code: 'en-IN',
-      //     model: 'sarvam-translate:v1',
-      //     mode: 'formal',
-      //   },
-      //   {
-      //     headers: {
-      //       'api-subscription-key': this.sarvamApiKey,
-      //       'Content-Type': 'application/json',
-      //     },
-      //     timeout: 2500,
-      //   }
-      // );
-      const response = await axios.post(
-        this.translateApiUrl,
-        {
-          text: cleanText,
-          source_language: sourceLangCode,
+    const sourceLangCode = sourceLang && sourceLang !== 'unknown' ? sourceLang : 'auto';
+    const requestId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
+    return new Promise<string>((resolve) => {
+      const timeout = setTimeout(() => {
+        this.translateWsSession.pending.delete(requestId);
+        console.warn(`⚠️ [PLIVO-SERVICE] Translation WS timeout. Falling back to original text.`);
+        resolve(cleanText);
+      }, 2500);
 
+      this.translateWsSession.pending.set(requestId, {
+        resolve,
+        fallback: cleanText,
+        timeout,
+      });
+
+      const payload: TranslateWsPayload = {
+        id: requestId,
+        text: cleanText,
+        source_language: sourceLangCode,
+      };
+
+      const ws = this.translateWsSession.ws;
+      if (this.translateWsSession.isOpen && ws && ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify(payload));
+        } catch (err: any) {
+          console.warn(`⚠️ [PLIVO-SERVICE] Translation WS send warning (${err.message}). Queuing and falling back if needed.`);
+          this.translateWsSession.queue.push(payload);
         }
-
-      );
-
-      const translated = response.data?.translated_text?.trim();
-      return translated || cleanText;
-    } catch (err: any) {
-      console.warn(`⚠️ [PLIVO-SERVICE] Translation API warning (${err.message}). Falling back to original text.`);
-      return cleanText;
-    }
+      } else {
+        this.translateWsSession.queue.push(payload);
+        if (!this.translateWsSession.connecting) {
+          this.connectTranslateWs();
+        }
+      }
+    });
   }
 
   initializeStreams(
@@ -325,7 +449,7 @@ export class PlivoService {
         const currentOrig = this.activeTranscriptions.get(key) || '';
         this.activeTranscriptions.set(key, (currentOrig + ' ' + originalText).trim());
 
-        // Fast text translation using Sarvam sarvam-translate:v1
+        // Fast text translation using Sarvam sarvam-translate:v1 (now via WebSocket)
         const finalTranslatedText = await this.translateText(originalText, session.detectedLanguage);
 
         // Accumulate translated transcript
@@ -610,4 +734,3 @@ export class PlivoService {
     return this.endedCalls.has(callId) || !this.isCallActive(callId);
   }
 }
-
