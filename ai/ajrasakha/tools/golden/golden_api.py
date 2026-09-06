@@ -15,11 +15,13 @@ try:
     from .golden_pending_duplicate import check_pending_duplicate
     from .query_refinement import refine_query_to_core_farming_question
     from .golden_similar_question import find_similar_questions, SimilarQuestionRequest
+    from .translate import translate_to_english
 except ImportError:
     from golden_search import gdb_search, gdb_search_v2
     from golden_pending_duplicate import check_pending_duplicate
     from query_refinement import refine_query_to_core_farming_question
     from golden_similar_question import find_similar_questions, SimilarQuestionRequest
+    from translate import translate_to_english
 
 app = FastAPI(
     title="AjraSakha Golden API",
@@ -563,3 +565,92 @@ async def find_similar_questions_endpoint(body: SimilarQuestionRequest):
     except Exception as exc:
         log.error("find_similar_questions_endpoint failed: %s: %s", type(exc).__name__, exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# =============================================================================
+# TRANSLATION API
+# Uses Claude Sonnet model to translate input text to English
+# =============================================================================
+
+
+class TranslateToEnglishRequest(BaseModel):
+    """Request model for translation endpoint."""
+    text: str = Field(
+        ...,
+        description="The text to translate to English",
+        min_length=1,
+        max_length=10000,
+        examples=["गेहूं में पत्तियों के किनारे पीले क्यों हो रहे हैं?"],
+    )
+    source_language: Optional[str] = Field(
+        None,
+        description="Optional hint about the source language (e.g., 'Hindi', 'Bengali', 'Marathi'). If not provided, the model will auto-detect.",
+        examples=["Hindi", "Bengali", "Marathi", "Tamil"],
+    )
+
+
+class TranslateToEnglishResponse(BaseModel):
+    """Response model for translation endpoint."""
+    original_text: str = Field(..., description="The original input text")
+    translated_text: str = Field(..., description="The English translation of the input text")
+    source_language: Optional[str] = Field(None, description="The detected or provided source language")
+    original_length: int = Field(..., description="Character count of original text")
+    translated_length: int = Field(..., description="Character count of translated text")
+
+
+@app.post(
+    "/v1/translate/to-english",
+    response_model=TranslateToEnglishResponse,
+    summary="Translate text to English using Claude Sonnet",
+    description=(
+        "**Purpose:** Translate input text from any language to English.\n\n"
+        "**Model:** Uses Claude Sonnet (claude-sonnet-4-6 by default).\n\n"
+        "**Features:**\n"
+        "- Preserves agricultural terminology and crop names\n"
+        "- Maintains technical farming terms in original form if no English equivalent\n"
+        "- Auto-detects source language if not provided\n\n"
+        "**Use cases:**\n"
+        "- Preprocess non-English queries before Golden DB search\n"
+        "- Translate farmer questions to English for downstream processing"
+    ),
+)
+async def translate_to_english_endpoint(body: TranslateToEnglishRequest):
+    """Translate input text to English using Claude Sonnet model."""
+    from anthropic import APITimeoutError, APIConnectionError, APIStatusError
+    
+    try:
+        log.info("translate_to_english_endpoint: text_len=%d source_language=%s", len(body.text), body.source_language)
+        
+        translated = await translate_to_english(text=body.text, source_language=body.source_language)
+        
+        log.info("translate_to_english_endpoint: success original_len=%d translated_len=%d", len(body.text), len(translated))
+        
+        return TranslateToEnglishResponse(
+            original_text=body.text,
+            translated_text=translated,
+            source_language=body.source_language,
+            original_length=len(body.text),
+            translated_length=len(translated),
+        )
+        
+    except APITimeoutError as exc:
+        log.error("translate_to_english_endpoint: timeout - %s", exc)
+        raise HTTPException(status_code=504, detail=f"Translation request timed out: {exc}") from exc
+    except APIConnectionError as exc:
+        log.error("translate_to_english_endpoint: connection error - %s", exc)
+        raise HTTPException(status_code=503, detail=f"Failed to connect to translation service: {exc}") from exc
+    except APIStatusError as exc:
+        log.error("translate_to_english_endpoint: API status error - %s", exc)
+        raise HTTPException(status_code=502, detail=f"Translation API error: {exc}") from exc
+    except Exception as exc:
+        log.error("translate_to_english_endpoint: unexpected error - %s: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    
+    port = int(os.getenv("GOLDEN_API_PORT", "8110"))
+    log.info("Starting Golden API on port %d", port)
+    uvicorn.run(app, host="0.0.0.0", port=port)
