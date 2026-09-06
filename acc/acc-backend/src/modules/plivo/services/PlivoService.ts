@@ -1,5 +1,6 @@
 import { inject, injectable } from 'inversify';
 import { appConfig } from '../../../config/app.js';
+import { aiConfig } from '../../../config/ai.js';
 import { WebSocket } from 'ws';
 import plivo from 'plivo';
 import axios from 'axios';
@@ -30,6 +31,7 @@ interface SarvamStreamSession {
 @injectable()
 export class PlivoService {
   private sarvamApiKey: string;
+  private readonly translateApiUrl = aiConfig.accTranslateApiUrl;
   private activeTranscriptions: Map<string, string> = new Map();
   private activeTranslations: Map<string, string> = new Map();
   private detectedLanguages: Map<string, string> = new Map();
@@ -86,22 +88,32 @@ export class PlivoService {
 
     try {
       const sourceLangCode = sourceLang && sourceLang !== 'unknown' ? sourceLang : 'auto';
+      // const response = await axios.post(
+      //   'https://api.sarvam.ai/translate',
+      //   {
+      //     input: cleanText,
+      //     source_language_code: sourceLangCode,
+      //     target_language_code: 'en-IN',
+      //     model: 'sarvam-translate:v1',
+      //     mode: 'formal',
+      //   },
+      //   {
+      //     headers: {
+      //       'api-subscription-key': this.sarvamApiKey,
+      //       'Content-Type': 'application/json',
+      //     },
+      //     timeout: 2500,
+      //   }
+      // );
       const response = await axios.post(
-        'https://api.sarvam.ai/translate',
+        this.translateApiUrl,
         {
-          input: cleanText,
-          source_language_code: sourceLangCode,
-          target_language_code: 'en-IN',
-          model: 'sarvam-translate:v1',
-          mode: 'formal',
-        },
-        {
-          headers: {
-            'api-subscription-key': this.sarvamApiKey,
-            'Content-Type': 'application/json',
-          },
-          timeout: 2500,
+          text: cleanText,
+          source_language: sourceLangCode,
+
+
         }
+
       );
 
       const translated = response.data?.translated_text?.trim();

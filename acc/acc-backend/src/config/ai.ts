@@ -6,5 +6,6 @@ export const aiConfig = {
   // ACC Agent (Human-in-the-Loop) Configuration
   accAgentBaseUrl: env('ACC_AGENT_BASE_URL'),
   accAgentAssistantId: env('ACC_AGENT_ASSISTANT_ID'),
+  accTranslateApiUrl: env('ACC_TRANSLATE_API_URL'),
   accAgentTimeout: Number(env('ACC_AGENT_TIMEOUT')?.trim()) || 10000,
 };
