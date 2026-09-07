@@ -1,6 +1,6 @@
-# Annam Call Center (ACC) Application Documentation
+# Annam Call Centre (ACC) Application Documentation
 
-Annam Call Center (ACC) is a dedicated real-time agricultural call center microservice within the **Ajrasakha** ecosystem. It provides live voice-based agricultural advisory support to farmers across India by integrating Plivo telephony, dual-track Speech-to-Text (STT) and translation via Sarvam AI, human-in-the-loop (HITL) AI query synthesis via LangGraph, cloud audio storage pipelines, Fast2SMS advisory dispatches, and role-based agent dashboards.
+Annam Call Centre (ACC) is a dedicated real-time agricultural call center microservice within the **Ajrasakha** ecosystem. It provides live voice-based agricultural advisory support to farmers across India by integrating Plivo telephony, dual-track Speech-to-Text (STT) and translation via Sarvam AI, human-in-the-loop (HITL) AI query synthesis via LangGraph, cloud audio storage pipelines, Fast2SMS advisory dispatches, and role-based agent dashboards.
 
 ---
 
@@ -34,7 +34,7 @@ Annam Call Center (ACC) is a dedicated real-time agricultural call center micros
 ```mermaid
 graph TD
     Farmer["🌾 Farmer (Mobile Phone / PSTN)"] -->|Voice Call| Plivo["📞 Plivo Telephony Platform"]
-    
+
     subgraph ACC_Backend ["⚙️ ACC Backend (Node.js 20 + Express v5 + InversifyJS)"]
         PlivoWebhook["POST /api/plivo/answer"]
         PlivoRecordHook["POST /api/plivo/webhook/record"]
@@ -67,14 +67,14 @@ graph TD
     Plivo -->|SIP WebRTC Ringing| WebRTC
     PlivoRecordHook -->|Stream MP3| StorageService
     StorageService -->|Pipe Stream| CloudStorage
-    
+
     WSServer <-->|4× WebSocket Audio Streams| SarvamSTT
     WSServer -->|Targeted Chat Events| AgentUI
     AgentUI -->|Auth & Token| Firebase
     AgentUI -->|Review / Edit Extracted Fields| HITLForm
     HITLForm <-->|REST API| AccAgentService
     AccAgentService <-->|REST API| AjrasakhaAI
-    
+
     PlivoService -->|Save Records & Transcripts| MongoDB
     StorageService -->|Signed Playback URL (15 mins)| AudioPlayerComponent
     PlivoService -->|SMS Advisory| Fast2SMS
@@ -283,12 +283,14 @@ ajrasakha/acc/
 The ACC application includes a complete, self-contained call recording, storage, and playback subsystem:
 
 ### Zero-Memory Streaming Ingestion
+
 - **Webhook**: `POST /api/plivo/webhook/record` receives recording completion callbacks from Plivo.
 - **Pipeline (`StorageService.uploadStreamFromUrl`)**: Uses Node.js `stream/promises` pipeline to stream the MP3 directly from Plivo's media URL into the storage bucket without loading the entire audio file into server memory.
 - **Retries**: Retries 3 times with 10-second intervals to allow Plivo's transcoding service to finalize the file.
 - **Path Structure**: Files are stored under `${GCP_RECORDINGS_PATH_PREFIX}/${YYYY}/${MM}/${callUuid}_${recordingId}.mp3`.
 
 ### Role-Based Signed Playback URLs
+
 - **Endpoint**: `GET /api/plivo/recordings/:callUuid/url` (`PlivoController.getRecordingPlaybackUrl`).
 - **Access Control**: Validates caller's Firebase JWT token:
   - **Admins & Moderators**: Authorized for all recordings.
@@ -297,6 +299,7 @@ The ACC application includes a complete, self-contained call recording, storage,
 - **Emulator Support**: When running locally with `FIREBASE_STORAGE_EMULATOR_HOST`, returns direct emulator URLs.
 
 ### Interactive Waveform Audio Player
+
 - **Component**: [`AudioPlayer.tsx`](file:///c:/Users/FD/Desktop/ajrasakha/acc/acc-frontend/src/components/atoms/AudioPlayer.tsx).
 - **Features**:
   - Full timeline scrubbing with range request seeking.
@@ -306,6 +309,7 @@ The ACC application includes a complete, self-contained call recording, storage,
   - Direct MP3 download button.
 
 ### Automated 30-Day Plivo Cost Optimization Job
+
 - **Cron Job**: [`plivoRecordingCleanupJob.ts`](file:///c:/Users/FD/Desktop/ajrasakha/acc/acc-backend/src/bootstrap/jobs/plivoRecordingCleanupJob.ts).
 - **Schedule**: Runs daily at 2:00 AM (`0 2 * * *`).
 - **Operation**: Identifies call records with recordings older than 30 days, deletes the recording from Plivo via Plivo API to eliminate recurring storage fees, and updates MongoDB `plivoDeleted: true`. The audio remains permanently preserved in the cloud storage bucket.
@@ -316,91 +320,92 @@ The ACC application includes a complete, self-contained call recording, storage,
 
 ### Backend Environment Variables (`acc-backend/.env`)
 
-| Variable | Type | Required? | Example Value | Description |
-| :--- | :--- | :---: | :--- | :--- |
-| `NODE_ENV` | String | No | `development` / `production` | Runtime environment mode |
-| `APP_PORT` / `PORT` | Number | No | `4001` | Server listening port (default: 4001) |
-| `APP_URL` | String | Yes | `https://api.acc.annam.org` | Public backend base URL |
-| `APP_ORIGINS` | String | Yes | `http://localhost:5173,https://acc.annam.org` | Comma-separated CORS allowed origins |
-| `APP_ROUTE_PREFIX` | String | No | `/api` | API prefix (default: `/api`) |
-| `DB_URL` | String | **Yes** | `mongodb://localhost:27017` or Atlas URI | MongoDB connection string |
-| `DB_NAME` | String | **Yes** | `agriai` | MongoDB database name |
-| `FIREBASE_PROJECT_ID` | String | **Yes** | `annam-call-center` | Firebase/GCP Project ID |
-| `FIREBASE_CLIENT_EMAIL` | String | **Yes** | `firebase-adminsdk-xxx@proj.iam.gserviceaccount.com` | Service account email |
-| `FIREBASE_PRIVATE_KEY` | String | **Yes** | `"-----BEGIN PRIVATE KEY-----\nMIIE...-----END PRIVATE KEY-----"` | Service account private RSA key |
-| `FIREBASE_STORAGE_BUCKET` | String | **Yes** | `annam-call-recordings` | Target storage bucket name |
-| `GCP_RECORDINGS_PATH_PREFIX` | String | No | `call-recordings` | Directory path prefix in bucket |
-| `FIREBASE_STORAGE_EMULATOR_HOST` | String | Local Only | `127.0.0.1:9199` | Connects backend to local Firebase Storage emulator |
-| `PLIVO_AUTH_ID` | String | **Yes** | `MAMZXXXXXXXXXXXXXXXX` | Plivo Account Auth ID |
-| `PLIVO_AUTH_TOKEN` | String | **Yes** | `ZmNmXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX` | Plivo Auth Token |
-| `PLIVO_NUMBER` | String | **Yes** | `+918000123456` | Plivo Caller ID phone number |
-| `PLIVO_STREAM_URL` | String | **Yes** | `wss://api.acc.annam.org/plivo-stream` | Public WebSocket endpoint for Plivo audio stream |
-| `PLIVO_RECORD_CALLBACK_URL` | String | **Yes** | `https://api.acc.annam.org/api/plivo/webhook/record` | Recording completion webhook URL |
-| `SARVAM_API_KEY` | String | **Yes** | `sarvam_api_key_xxxxxxxx` | Sarvam AI API Key for STT & Translation |
-| `FAST2SMS_API_KEY` | String | **Yes** | `fast2sms_key_xxxxxxxx` | Fast2SMS Quick SMS API Key |
-| `ACC_AGENT_BASE_URL` | String | **Yes** | `http://localhost:9017` | LangGraph Python AI service base URL |
-| `ACC_AGENT_ASSISTANT_ID` | String | **Yes** | `acc_agent` | LangGraph assistant identifier |
-| `EMAIL_USER` | String | No | `support@annam.org` | Zoho Mail sender email address |
-| `EMAIL_PASS` | String | No | `zoho_app_password` | Zoho Mail app password |
-| `NOTIFICATION_EMAIL` | String | No | `admin@annam.org,alerts@annam.org` | Comma-separated notification recipients |
+| Variable                         | Type   | Required?  | Example Value                                                     | Description                                         |
+| :------------------------------- | :----- | :--------: | :---------------------------------------------------------------- | :-------------------------------------------------- |
+| `NODE_ENV`                       | String |     No     | `development` / `production`                                      | Runtime environment mode                            |
+| `APP_PORT` / `PORT`              | Number |     No     | `4001`                                                            | Server listening port (default: 4001)               |
+| `APP_URL`                        | String |    Yes     | `https://api.acc.annam.org`                                       | Public backend base URL                             |
+| `APP_ORIGINS`                    | String |    Yes     | `http://localhost:5173,https://acc.annam.org`                     | Comma-separated CORS allowed origins                |
+| `APP_ROUTE_PREFIX`               | String |     No     | `/api`                                                            | API prefix (default: `/api`)                        |
+| `DB_URL`                         | String |  **Yes**   | `mongodb://localhost:27017` or Atlas URI                          | MongoDB connection string                           |
+| `DB_NAME`                        | String |  **Yes**   | `agriai`                                                          | MongoDB database name                               |
+| `FIREBASE_PROJECT_ID`            | String |  **Yes**   | `annam-call-center`                                               | Firebase/GCP Project ID                             |
+| `FIREBASE_CLIENT_EMAIL`          | String |  **Yes**   | `firebase-adminsdk-xxx@proj.iam.gserviceaccount.com`              | Service account email                               |
+| `FIREBASE_PRIVATE_KEY`           | String |  **Yes**   | `"-----BEGIN PRIVATE KEY-----\nMIIE...-----END PRIVATE KEY-----"` | Service account private RSA key                     |
+| `FIREBASE_STORAGE_BUCKET`        | String |  **Yes**   | `annam-call-recordings`                                           | Target storage bucket name                          |
+| `GCP_RECORDINGS_PATH_PREFIX`     | String |     No     | `call-recordings`                                                 | Directory path prefix in bucket                     |
+| `FIREBASE_STORAGE_EMULATOR_HOST` | String | Local Only | `127.0.0.1:9199`                                                  | Connects backend to local Firebase Storage emulator |
+| `PLIVO_AUTH_ID`                  | String |  **Yes**   | `MAMZXXXXXXXXXXXXXXXX`                                            | Plivo Account Auth ID                               |
+| `PLIVO_AUTH_TOKEN`               | String |  **Yes**   | `ZmNmXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`                            | Plivo Auth Token                                    |
+| `PLIVO_NUMBER`                   | String |  **Yes**   | `+918000123456`                                                   | Plivo Caller ID phone number                        |
+| `PLIVO_STREAM_URL`               | String |  **Yes**   | `wss://api.acc.annam.org/plivo-stream`                            | Public WebSocket endpoint for Plivo audio stream    |
+| `PLIVO_RECORD_CALLBACK_URL`      | String |  **Yes**   | `https://api.acc.annam.org/api/plivo/webhook/record`              | Recording completion webhook URL                    |
+| `SARVAM_API_KEY`                 | String |  **Yes**   | `sarvam_api_key_xxxxxxxx`                                         | Sarvam AI API Key for STT & Translation             |
+| `FAST2SMS_API_KEY`               | String |  **Yes**   | `fast2sms_key_xxxxxxxx`                                           | Fast2SMS Quick SMS API Key                          |
+| `ACC_AGENT_BASE_URL`             | String |  **Yes**   | `http://localhost:9017`                                           | LangGraph Python AI service base URL                |
+| `ACC_AGENT_ASSISTANT_ID`         | String |  **Yes**   | `acc_agent`                                                       | LangGraph assistant identifier                      |
+| `EMAIL_USER`                     | String |     No     | `support@annam.org`                                               | Zoho Mail sender email address                      |
+| `EMAIL_PASS`                     | String |     No     | `zoho_app_password`                                               | Zoho Mail app password                              |
+| `NOTIFICATION_EMAIL`             | String |     No     | `admin@annam.org,alerts@annam.org`                                | Comma-separated notification recipients             |
 
 ---
 
 ### Frontend Environment Variables (`acc-frontend/.env`)
 
-| Variable | Type | Required? | Example Value | Description |
-| :--- | :--- | :---: | :--- | :--- |
-| `VITE_API_BASE_URL` | String | **Yes** | `http://localhost:4001/api` | Base URL for ACC backend API |
-| `VITE_FIREBASE_API_KEY` | String | **Yes** | `AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxx` | Firebase Web API key |
-| `VITE_FIREBASE_AUTH_DOMAIN` | String | **Yes** | `annam-call-center.firebaseapp.com` | Firebase Auth domain |
-| `VITE_FIREBASE_PROJECT_ID` | String | **Yes** | `annam-call-center` | Firebase project ID |
-| `VITE_FIREBASE_STORAGE_BUCKET` | String | **Yes** | `annam-call-recordings` | Firebase storage bucket name |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | String | **Yes** | `123456789012` | Firebase messaging sender ID |
-| `VITE_FIREBASE_APP_ID` | String | **Yes** | `1:123456789012:web:abcdef123456` | Firebase web app ID |
-| `VITE_PLIVO_STREAM_URL` | String | **Yes** | `wss://api.acc.annam.org/plivo-stream` | WebSocket URL for transcript streaming |
-| `VITE_SARVAM_API_KEY` | String | No | `sarvam_api_key_xxxxxxxx` | Sarvam API key for client-side tools |
-| `VITE_PLIVO_AGENT_1_USERNAME` | String | No | `sip:agent_1@phone.plivo.com` | Fallback SIP endpoint if not in DB |
-| `VITE_PLIVO_AGENT_1_PASSWORD` | String | No | `agent_secret_password` | Fallback SIP password |
+| Variable                            | Type   | Required? | Example Value                          | Description                            |
+| :---------------------------------- | :----- | :-------: | :------------------------------------- | :------------------------------------- |
+| `VITE_API_BASE_URL`                 | String |  **Yes**  | `http://localhost:4001/api`            | Base URL for ACC backend API           |
+| `VITE_FIREBASE_API_KEY`             | String |  **Yes**  | `AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxx`      | Firebase Web API key                   |
+| `VITE_FIREBASE_AUTH_DOMAIN`         | String |  **Yes**  | `annam-call-center.firebaseapp.com`    | Firebase Auth domain                   |
+| `VITE_FIREBASE_PROJECT_ID`          | String |  **Yes**  | `annam-call-center`                    | Firebase project ID                    |
+| `VITE_FIREBASE_STORAGE_BUCKET`      | String |  **Yes**  | `annam-call-recordings`                | Firebase storage bucket name           |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | String |  **Yes**  | `123456789012`                         | Firebase messaging sender ID           |
+| `VITE_FIREBASE_APP_ID`              | String |  **Yes**  | `1:123456789012:web:abcdef123456`      | Firebase web app ID                    |
+| `VITE_PLIVO_STREAM_URL`             | String |  **Yes**  | `wss://api.acc.annam.org/plivo-stream` | WebSocket URL for transcript streaming |
+| `VITE_SARVAM_API_KEY`               | String |    No     | `sarvam_api_key_xxxxxxxx`              | Sarvam API key for client-side tools   |
+| `VITE_PLIVO_AGENT_1_USERNAME`       | String |    No     | `sip:agent_1@phone.plivo.com`          | Fallback SIP endpoint if not in DB     |
+| `VITE_PLIVO_AGENT_1_PASSWORD`       | String |    No     | `agent_secret_password`                | Fallback SIP password                  |
 
 ---
 
 ## 6. Backend Module & Service Architecture
 
-| Module | Service / Class | Controller / Endpoint | Description |
-| :--- | :--- | :--- | :--- |
-| `storage` | `StorageService` | — | Zero-memory audio streaming upload, V4 signed URL generation, file existence and deletion checks. |
-| `plivo` | `PlivoService` | `PlivoController` | Telephony interface, Sarvam STT WebSocket multiplexer, Fast2SMS endpoint, signed playback URL endpoint, call history & CSV exports. |
-| `plivo` | `AgentAssignmentService` | — | Dynamic SIP endpoint assignment (`agent_1`, `agent_2`), availability state machine, SIP credential retrieval. |
-| `plivo` | `FarmerService` | `FarmerController` | CRUD operations for farmer profiles indexed by phone number in `call_farmers`. |
-| `acc-agent` | `AccAgentService` | `AccAgentController` | LangGraph Python API connector: thread management, entity extraction, state updates, checkpoint resumption, Q&A synthesis. |
-| `context` | `ContextService` | `ContextController` | Context persistence and Sarvam REST text translation (22+ Indian languages with chunking). |
-| `auth` | `FirebaseAuthService` | `AuthController` | Firebase Admin token verification and user profile sync. |
-| `user` | `UserService` | `UserController` | Agent online/offline toggling, heartbeat watchdog, availability status queries. |
-| `jobs` | `agentStatusCleanupJob` | `node-cron` (`*/1 * * * *`) | Marks agents offline if heartbeat is missing for >75s. |
-| `jobs` | `plivoRecordingCleanupJob` | `node-cron` (`0 2 * * *`) | Daily purge of Plivo cloud recordings >30 days. |
+| Module      | Service / Class            | Controller / Endpoint       | Description                                                                                                                         |
+| :---------- | :------------------------- | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+| `storage`   | `StorageService`           | —                           | Zero-memory audio streaming upload, V4 signed URL generation, file existence and deletion checks.                                   |
+| `plivo`     | `PlivoService`             | `PlivoController`           | Telephony interface, Sarvam STT WebSocket multiplexer, Fast2SMS endpoint, signed playback URL endpoint, call history & CSV exports. |
+| `plivo`     | `AgentAssignmentService`   | —                           | Dynamic SIP endpoint assignment (`agent_1`, `agent_2`), availability state machine, SIP credential retrieval.                       |
+| `plivo`     | `FarmerService`            | `FarmerController`          | CRUD operations for farmer profiles indexed by phone number in `call_farmers`.                                                      |
+| `acc-agent` | `AccAgentService`          | `AccAgentController`        | LangGraph Python API connector: thread management, entity extraction, state updates, checkpoint resumption, Q&A synthesis.          |
+| `context`   | `ContextService`           | `ContextController`         | Context persistence and Sarvam REST text translation (22+ Indian languages with chunking).                                          |
+| `auth`      | `FirebaseAuthService`      | `AuthController`            | Firebase Admin token verification and user profile sync.                                                                            |
+| `user`      | `UserService`              | `UserController`            | Agent online/offline toggling, heartbeat watchdog, availability status queries.                                                     |
+| `jobs`      | `agentStatusCleanupJob`    | `node-cron` (`*/1 * * * *`) | Marks agents offline if heartbeat is missing for >75s.                                                                              |
+| `jobs`      | `plivoRecordingCleanupJob` | `node-cron` (`0 2 * * *`)   | Daily purge of Plivo cloud recordings >30 days.                                                                                     |
 
 ---
 
 ## 7. Frontend Component & Service Architecture
 
-| Component | Path | Description |
-| :--- | :--- | :--- |
-| `CallInterface` | `src/components/CallInterface.tsx` | Primary 3-column in-call workspace: Farmer CRM (left), Live bilingual chat (center), LangGraph HITL review (right). |
-| `IncomingCallBox` | `src/components/IncomingCallBox.tsx` | WebRTC incoming call alert banner with farmer name pre-lookup and accept/reject controls. |
-| `AudioPlayer` | `src/components/atoms/AudioPlayer.tsx` | Custom audio player with signed URL playback, timeline scrubber, playback speeds (0.75x–2.0x), volume/mute, and MP3 download. |
-| `CallHistory` | `src/components/CallHistory.tsx` | Paginated call history browser with audio playback, domain filters, date pickers, and Excel/CSV download. |
-| `CallLog` | `src/components/CallLog.tsx` | Administrative call log view with agent performance metrics. |
-| `ACCAnalyticsDashboard` | `src/components/ACCAnalyticsDashboard.tsx` | Analytics dashboard displaying call volume trends, domain distributions, and agent statistics. |
-| `ManageCallAgents` | `src/components/ManageCallAgents.tsx` | Call Center Manager interface for monitoring agent availability and status. |
-| `PlivoEndpointsModal` | `src/components/PlivoEndpointsModal.tsx` | Modal for creating, viewing, editing, and deleting Plivo SIP endpoints. |
-| `FarmerDetails` | `src/components/FarmerDetails.tsx` | Interactive farmer profile editor (crop, village, district, state, land size, KCC). |
-| `WeatherWidget` | `src/components/WeatherWidget.tsx` | Real-time district-level IMD weather card displaying temperature, rainfall, humidity, and forecasts. |
+| Component               | Path                                       | Description                                                                                                                   |
+| :---------------------- | :----------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
+| `CallInterface`         | `src/components/CallInterface.tsx`         | Primary 3-column in-call workspace: Farmer CRM (left), Live bilingual chat (center), LangGraph HITL review (right).           |
+| `IncomingCallBox`       | `src/components/IncomingCallBox.tsx`       | WebRTC incoming call alert banner with farmer name pre-lookup and accept/reject controls.                                     |
+| `AudioPlayer`           | `src/components/atoms/AudioPlayer.tsx`     | Custom audio player with signed URL playback, timeline scrubber, playback speeds (0.75x–2.0x), volume/mute, and MP3 download. |
+| `CallHistory`           | `src/components/CallHistory.tsx`           | Paginated call history browser with audio playback, domain filters, date pickers, and Excel/CSV download.                     |
+| `CallLog`               | `src/components/CallLog.tsx`               | Administrative call log view with agent performance metrics.                                                                  |
+| `ACCAnalyticsDashboard` | `src/components/ACCAnalyticsDashboard.tsx` | Analytics dashboard displaying call volume trends, domain distributions, and agent statistics.                                |
+| `ManageCallAgents`      | `src/components/ManageCallAgents.tsx`      | Call Center Manager interface for monitoring agent availability and status.                                                   |
+| `PlivoEndpointsModal`   | `src/components/PlivoEndpointsModal.tsx`   | Modal for creating, viewing, editing, and deleting Plivo SIP endpoints.                                                       |
+| `FarmerDetails`         | `src/components/FarmerDetails.tsx`         | Interactive farmer profile editor (crop, village, district, state, land size, KCC).                                           |
+| `WeatherWidget`         | `src/components/WeatherWidget.tsx`         | Real-time district-level IMD weather card displaying temperature, rainfall, humidity, and forecasts.                          |
 
 ---
 
 ## 8. Local Development & Setup
 
 ### Prerequisites
+
 - **Node.js**: v20.x or higher
 - **pnpm**: v9.x or v10.x (`npm install -g pnpm`)
 - **MongoDB**: Local instance running on port `27017` or a MongoDB Atlas URI
@@ -423,6 +428,7 @@ cp .env.example .env
 # 3. Start Backend in Development Mode
 pnpm run dev
 ```
+
 > ACC Backend will run at: `http://localhost:4001`  
 > Interactive Scalar API Documentation: `http://localhost:4001/api/reference`
 
@@ -443,6 +449,7 @@ cp .env.example .env
 # 3. Start Frontend in Development Mode
 pnpm run dev
 ```
+
 > ACC Frontend will run at: `http://localhost:5173`
 
 ---
@@ -457,10 +464,11 @@ firebase emulators:start --only storage
 ```
 
 Set the emulator host in `acc/acc-backend/.env`:
+
 ```env
 FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199
 ```
 
 ---
 
-*Documentation maintained by the Annam Call Center (ACC) Core Engineering Team.*
+_Documentation maintained by the Annam Call Centre (ACC) Core Engineering Team._

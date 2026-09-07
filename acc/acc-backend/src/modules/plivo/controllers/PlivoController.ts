@@ -217,7 +217,7 @@ export class PlivoController {
                               <Dial timeout="40" callerId="${myPlivoNumber}">
                                         <User>${endpointUser}</User>
                               </Dial>
-                              <Speak voice="MAN" language="en-US">Thank you for calling Annam Call Center</Speak>
+                              <Speak voice="MAN" language="en-US">Thank you for calling Annam Call Centre</Speak>
                               <Wait length="5" />
                               <Hangup />
                     </Response>`;

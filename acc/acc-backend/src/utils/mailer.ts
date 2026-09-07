@@ -52,7 +52,7 @@ export async function sendEmailNotification(
     return false;
   }
 
-  const fromSender = `"Annam Call Center" <${user}>`;
+  const fromSender = `"Annam Call Centre" <${user}>`;
   const smtpServer = emailConfig.SMTP_SERVER || 'smtppro.zoho.in';
   const smtpPort = emailConfig.SMTP_PORT || 465;
 

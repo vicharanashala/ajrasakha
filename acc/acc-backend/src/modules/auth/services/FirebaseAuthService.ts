@@ -116,12 +116,12 @@ export class FirebaseAuthService extends BaseService {
       const html = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px;">
           <div style="text-align: center; margin-bottom: 24px;">
-            <h2 style="color: #059669; margin: 0; font-size: 22px;">Annam Call Center</h2>
+            <h2 style="color: #059669; margin: 0; font-size: 22px;">Annam Call Centre</h2>
             <p style="color: #71717a; font-size: 14px; margin-top: 4px;">Email Verification</p>
           </div>
           <p style="color: #27272a; font-size: 15px; line-height: 1.6;">Hello,</p>
           <p style="color: #27272a; font-size: 15px; line-height: 1.6;">
-            Thank you for registering with the Annam Call Center portal. Please click the button below to verify your email address:
+            Thank you for registering with the Annam Call Centre portal. Please click the button below to verify your email address:
           </p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${link}" style="display: inline-block; background-color: #059669; color: #ffffff; padding: 12px 28px; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 8px; box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);">
@@ -141,7 +141,7 @@ export class FirebaseAuthService extends BaseService {
 
       const sent = await sendEmailNotification(
         cleanEmail,
-        'Verify your email - Annam Call Center',
+        'Verify your email - Annam Call Centre',
         `Please verify your email by clicking on the link below:\n\n${link}\n\nIf you did not create an account, you can safely ignore this email.`,
         html
       );
@@ -172,12 +172,12 @@ export class FirebaseAuthService extends BaseService {
       const html = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px;">
           <div style="text-align: center; margin-bottom: 24px;">
-            <h2 style="color: #059669; margin: 0; font-size: 22px;">Annam Call Center</h2>
+            <h2 style="color: #059669; margin: 0; font-size: 22px;">Annam Call Centre</h2>
             <p style="color: #71717a; font-size: 14px; margin-top: 4px;">Password Reset Request</p>
           </div>
           <p style="color: #27272a; font-size: 15px; line-height: 1.6;">Hello,</p>
           <p style="color: #27272a; font-size: 15px; line-height: 1.6;">
-            We received a request to reset the password for your Annam Call Center account. Click the button below to set a new password:
+            We received a request to reset the password for your Annam Call Centre account. Click the button below to set a new password:
           </p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${link}" style="display: inline-block; background-color: #059669; color: #ffffff; padding: 12px 28px; font-size: 15px; font-weight: 600; text-decoration: none; border-radius: 8px; box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);">
@@ -197,7 +197,7 @@ export class FirebaseAuthService extends BaseService {
 
       await sendEmailNotification(
         cleanEmail,
-        'Reset your password - Annam Call Center',
+        'Reset your password - Annam Call Centre',
         `Reset your password by clicking on the link below:\n\n${link}\n\nThis link will expire shortly. If you did not request this, please ignore this email.`,
         html
       );

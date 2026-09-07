@@ -1,5 +1,5 @@
 /**
- * Annam Call Center (ACC) - Earth & Tech Design System
+ * Annam Call Centre (ACC) - Earth & Tech Design System
  * Unified design tokens, role track stream helpers, status badge utilities,
  * and interactive control helpers.
  *

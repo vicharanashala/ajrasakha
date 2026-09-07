@@ -33,10 +33,7 @@ export const calculatePasswordStrength = (password: string) => {
   return { value: strength, label: "Strong", color: "bg-green-500" };
 };
 
-export const AuthForm = ({
-  className,
-  ...props
-}: AuthFormProps) => {
+export const AuthForm = ({ className, ...props }: AuthFormProps) => {
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [isForgotPasswordMode, setIsForgotPasswordMode] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
@@ -97,8 +94,14 @@ export const AuthForm = ({
 
       if (isSignUpMode) {
         // Handle Sign Up
-        const result = await signUpWithEmail(firstName, lastName, email, password);
-        const displayName = `${firstName} ${lastName}`.trim() || email.split("@")[0];
+        const result = await signUpWithEmail(
+          firstName,
+          lastName,
+          email,
+          password,
+        );
+        const displayName =
+          `${firstName} ${lastName}`.trim() || email.split("@")[0];
 
         setUser({
           uid: result.user.uid,
@@ -106,7 +109,9 @@ export const AuthForm = ({
           name: displayName,
           avatar: result.user.photoURL || "",
         });
-        toast.success("Account created! A verification link has been sent to your email.");
+        toast.success(
+          "Account created! A verification link has been sent to your email.",
+        );
         navigate({ to: "/call-agent-dashboard" });
       } else {
         // Handle Sign In
@@ -157,10 +162,15 @@ export const AuthForm = ({
     setIsForgotLoading(true);
     try {
       await authService.forgotPassword(targetEmail);
-      toast.success(`Password reset link sent to ${targetEmail}. Please check your inbox and spam folder.`);
+      toast.success(
+        `Password reset link sent to ${targetEmail}. Please check your inbox and spam folder.`,
+      );
       setIsForgotPasswordMode(false);
     } catch (error: any) {
-      toast.error(error?.message || "Failed to send password reset email. Please try again.");
+      toast.error(
+        error?.message ||
+          "Failed to send password reset email. Please try again.",
+      );
     } finally {
       setIsForgotLoading(false);
     }
@@ -182,7 +192,7 @@ export const AuthForm = ({
     <div
       className={cn(
         "flex flex-col min-h-screen items-center justify-center p-4 relative overflow-hidden",
-        className
+        className,
       )}
       {...props}
     >
@@ -199,15 +209,15 @@ export const AuthForm = ({
             {isForgotPasswordMode
               ? "Reset Password"
               : isSignUpMode
-              ? "Create an Account"
-              : "Welcome to Annam Call Center"}
+                ? "Create an Account"
+                : "Welcome to Annam Call Centre"}
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
             {isForgotPasswordMode
               ? "Enter your email address to receive a secure password reset link."
               : isSignUpMode
-              ? "Sign up to join as a call agent or administrator"
-              : "Enter your credentials to access the call center portal"}
+                ? "Sign up to join as a call agent or administrator"
+                : "Enter your credentials to access the call center portal"}
           </p>
         </CardHeader>
 
@@ -216,7 +226,10 @@ export const AuthForm = ({
             <form onSubmit={handleForgotPasswordSubmit}>
               <div className="grid gap-4">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="forgotEmail" className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  <Label
+                    htmlFor="forgotEmail"
+                    className="text-xs font-semibold text-gray-700 dark:text-gray-300"
+                  >
                     Email Address *
                   </Label>
                   <Input
@@ -238,7 +251,9 @@ export const AuthForm = ({
                 >
                   <Mail className="w-4 h-4" />
                   <span className="text-sm font-semibold">
-                    {isForgotLoading ? "Sending Link..." : "Send Password Reset Link"}
+                    {isForgotLoading
+                      ? "Sending Link..."
+                      : "Send Password Reset Link"}
                   </span>
                 </Button>
 
@@ -276,7 +291,9 @@ export const AuthForm = ({
                         className="h-10 border-2 focus:border-green-400 transition-colors duration-300 text-sm"
                       />
                       {errors.firstName && (
-                        <p className="text-xs text-red-500">{errors.firstName}</p>
+                        <p className="text-xs text-red-500">
+                          {errors.firstName}
+                        </p>
                       )}
                     </div>
                     <div className="grid gap-1">
@@ -346,7 +363,11 @@ export const AuthForm = ({
                       id="password"
                       name="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder={isSignUpMode ? "Create a strong password" : "Enter your password"}
+                      placeholder={
+                        isSignUpMode
+                          ? "Create a strong password"
+                          : "Enter your password"
+                      }
                       value={formData.password}
                       onChange={handleInputChange}
                       className="h-10 border-2 focus:border-green-400 transition-colors duration-300 pr-10 text-sm"
@@ -374,16 +395,26 @@ export const AuthForm = ({
                   type="submit"
                   disabled={isLoading}
                 >
-                  {isSignUpMode ? <UserPlus className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
+                  {isSignUpMode ? (
+                    <UserPlus className="w-4 h-4" />
+                  ) : (
+                    <LogIn className="w-4 h-4" />
+                  )}
                   <span className="text-sm font-semibold">
-                    {isLoading ? "Please wait..." : isSignUpMode ? "Create Account" : "Sign In"}
+                    {isLoading
+                      ? "Please wait..."
+                      : isSignUpMode
+                        ? "Create Account"
+                        : "Sign In"}
                   </span>
                 </Button>
 
                 {/* Toggle Mode Switcher */}
                 <div className="text-center pt-3 border-t border-border">
                   <p className="text-xs text-muted-foreground">
-                    {isSignUpMode ? "Already have an account?" : "Don't have an account?"}{" "}
+                    {isSignUpMode
+                      ? "Already have an account?"
+                      : "Don't have an account?"}{" "}
                     <button
                       type="button"
                       onClick={toggleMode}

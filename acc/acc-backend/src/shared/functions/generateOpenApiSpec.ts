@@ -133,7 +133,7 @@ export function generateOpenAPISpec(
   if (storage.params) {
     storage.params = storage.params.map((param: any) => {
       if (param.type === undefined || param.target === undefined) {
-        return {...param, type: String, target: param.target || Object};
+        return { ...param, type: String, target: param.target || Object };
       }
       return param;
     });
@@ -152,9 +152,9 @@ export function generateOpenAPISpec(
   const spec = routingControllersToSpec(storage, routingControllersOptions, {
     openapi: '3.0.3',
     info: {
-      title: 'Annam Call Center (ACC) API Documentation',
+      title: 'Annam Call Centre (ACC) API Documentation',
       version: '1.0.0',
-      description: 'API documentation for the Annam Call Center standalone microservice',
+      description: 'API documentation for the Annam Call Centre standalone microservice',
       contact: {
         name: 'Annam support',
         email: 'support@annam.ai',

@@ -1,7 +1,7 @@
 {
   "name": "acc-backend",
   "version": "1.0.0",
-  "description": "Annam Call Center (ACC) Backend Service",
+  "description": "Annam Call Centre (ACC) Backend Service",
   "main": "build/index.js",
   "scripts": {
     "start": "node build/index.js",
