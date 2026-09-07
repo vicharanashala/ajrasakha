@@ -188,7 +188,7 @@ export interface IUserRepository {
    * Finds all moderators.
    * @returns A promise that resolves to an array of moderators.
    */
-  findModerators(): Promise<IUser[]>;
+  findModerators(session?: ClientSession): Promise<IUser[]>;
 
   /**
    * Finds all users.

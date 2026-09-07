@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pymongo
+requests
+python-dotenv
+earthengine-api
+PyPDF2
+google-genai
+langchain-text-splitters
+pydantic

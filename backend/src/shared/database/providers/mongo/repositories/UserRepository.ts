@@ -951,9 +951,9 @@ export class UserRepository implements IUserRepository {
     return users;
   }
 
-  async findModerators(): Promise<IUser[]> {
+  async findModerators(session?: ClientSession): Promise<IUser[]> {
     await this.init();
-    return await this.usersCollection.find({role: 'moderator'}).toArray();
+    return await this.usersCollection.find({role: 'moderator'}, {session}).toArray();
   }
 
   /** Statuses that keep a moderator "busy". A held question in any other status

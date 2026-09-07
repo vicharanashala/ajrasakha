@@ -95,7 +95,21 @@ export class AnswerService extends BaseService implements IAnswerService {
     status?: string,
     remarks?: string,
     type?: string,
+    textEmbedding: number[] = [],
   ): Promise<{ insertedId: string; isFinalAnswer: boolean }> {
+    // PRE-FETCH EMBEDDING IF NOT PROVIDED AND NO SESSION IS PASSED YET
+    let finalEmbedding = textEmbedding;
+    const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+
+    if (ENABLE_AI_SERVER && finalEmbedding.length === 0 && answer && !session) {
+      try {
+        const { embedding } = await this.aiService.getEmbedding(answer);
+        finalEmbedding = embedding;
+      } catch (error) {
+        console.error('Failed to get embedding:', error);
+      }
+    }
+
     const execute = async (activeSession: ClientSession) => {
       const question = await this.questionRepo.getById(
         questionId,
@@ -123,20 +137,14 @@ export class AnswerService extends BaseService implements IAnswerService {
 
       const updatedAnswerCount = question.totalAnswersCount + 1;
 
-      let textEmbedding = [];
-      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
-
-      if (ENABLE_AI_SERVER) {
-        const { embedding } = await this.aiService.getEmbedding(answer);
-        textEmbedding = embedding;
-      }
+      // Removed the fallback embedding fetch inside the transaction to prevent MongoNetworkTimeoutError when the AI server is unreachable
 
       const { insertedId } = await this.answerRepo.addAnswer(
         questionId,
         authorId,
         answer,
         sources,
-        textEmbedding,
+        finalEmbedding,
         isFinalAnswer,
         updatedAnswerCount,
         activeSession,
@@ -203,12 +211,9 @@ export class AnswerService extends BaseService implements IAnswerService {
     session?: ClientSession,
   ): Promise<void> {
     try {
-      const [moderators, admins] = await Promise.all([
-        this.userRepo.findModerators(),
-        this.userRepo.findAdmins(session),
-      ]);
+      const moderators = await this.userRepo.findModerators(session);
+      const admins = await this.userRepo.findAdmins(session);
       const recipients = [...(moderators || []), ...(admins || [])];
-      if (!recipients.length) return;
 
       const trimmed = (questionText || '').trim();
       const title = trimmed
@@ -240,6 +245,18 @@ export class AnswerService extends BaseService implements IAnswerService {
     body: ReviewAnswerBody,
   ): Promise<{ message: string }> {
     try {
+      // Pre-fetch embedding outside the transaction to prevent MongoNetworkTimeoutError
+      let preFetchedEmbedding: number[] = [];
+      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+      if (ENABLE_AI_SERVER && body.answer) {
+        try {
+          const { embedding } = await this.aiService.getEmbedding(body.answer);
+          preFetchedEmbedding = embedding;
+        } catch (e) {
+          console.error("Failed to pre-fetch embedding in reviewAnswer:", e);
+        }
+      }
+
       await this._withTransaction(async (session: ClientSession) => {
         // -----------------------------------------------------------
         // 1. Validate User
@@ -457,6 +474,8 @@ export class AnswerService extends BaseService implements IAnswerService {
             session,
             intialStatus,
             remarks,
+            undefined,
+            preFetchedEmbedding
           );
 
           const history = buildHistoryEntry({
@@ -476,7 +495,7 @@ export class AnswerService extends BaseService implements IAnswerService {
           if (question.source === 'AJRASAKHA' || question.source === 'WHATSAPP') {
             const sub = await this.questionSubmissionRepo.getByQuestionId(questionId, session);
             if (sub && !sub.currentExpertOpenedAt) {
-              await this.questionSubmissionRepo.markQuestionOpenedByExpert(questionId, userId);
+              await this.questionSubmissionRepo.markQuestionOpenedByExpert(questionId, userId, true, session);
             }
           }
 
@@ -621,6 +640,8 @@ export class AnswerService extends BaseService implements IAnswerService {
             session,
             newStatus,
             remarks,
+            undefined,
+            preFetchedEmbedding
           );
 
           // 4. Update reviewer history
@@ -859,6 +880,17 @@ export class AnswerService extends BaseService implements IAnswerService {
     body: ReviewAnswerBody,
   ): Promise<{ message: string }> {
     try {
+      let preFetchedEmbedding: number[] = [];
+      const ENABLE_AI_SERVER = appConfig.ENABLE_AI_SERVER;
+      if (ENABLE_AI_SERVER && body.answer) {
+        try {
+          const { embedding } = await this.aiService.getEmbedding(body.answer);
+          preFetchedEmbedding = embedding;
+        } catch (e) {
+          console.error("Failed to pre-fetch embedding in reRouteReviewAnswer:", e);
+        }
+      }
+
       await this._withTransaction(async (session: ClientSession) => {
         // -----------------------------------------------------------
         // 1. Validate User
@@ -1046,6 +1078,7 @@ export class AnswerService extends BaseService implements IAnswerService {
             newStatus,
             remarks,
             type,
+            preFetchedEmbedding
           );
           review_answerId = answerId;
           await this.reRouteRepository.updateStatus(

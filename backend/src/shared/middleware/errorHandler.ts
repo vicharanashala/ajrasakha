@@ -138,6 +138,7 @@ export class HttpErrorHandler implements ExpressErrorMiddlewareInterface {
     try {
       eventId = Sentry.captureException(error);
       console.log(`Error captured by Sentry in HttpErrorHandler with ID: ${eventId}`);
+      console.error('Actual Error:', error);
     } catch (sentryError) {
       console.error('Failed to capture error with Sentry in HttpErrorHandler:', sentryError);
     }
