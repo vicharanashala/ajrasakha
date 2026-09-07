@@ -6,7 +6,7 @@ import { Download, Loader2, CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/atoms/calendar";
 import { formatDateLocal } from "@/utils/formatDate";
 import { format } from "date-fns";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import {
   Dialog,
   DialogContent,
@@ -44,8 +44,10 @@ const DownloadLevelWiseReportButton = ({
       setIsDateDialogOpen(true);
       return;
     }
+    let toastId;
     try {
       setIsDownloading(true);
+      toastId = toast.loading("Preparing level-wise report...");
 
       const startDate = formatDateLocal(downloadDateRange.from);
       const endDate = formatDateLocal(downloadDateRange.to);
@@ -59,9 +61,11 @@ const DownloadLevelWiseReportButton = ({
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+      if (toastId) toast.dismiss(toastId);
       toast.success("Level Wise report downloaded successfully!");
       setIsDateDialogOpen(false);
     } catch (err: any) {
+      if (toastId) toast.dismiss(toastId);
       console.error("Download error:", err);
       const errorMessage =
         err instanceof Error

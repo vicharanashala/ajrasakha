@@ -12,7 +12,7 @@ import {
   Download,
   Loader2,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { AdminUserService } from "@/hooks/services/adminService";
 import { Input } from "./atoms/input";
 import { Badge } from "./atoms/badge";
@@ -57,9 +57,10 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const isAdmin = hasFullUserManagement(currentUser?.role);
 
   const handleExportUsers = async () => {
+    let toastId;
     try {
       setIsExporting(true);
-      toast.info("Preparing users export...");
+      toastId = toast.loading("Preparing users export...");
       const blob = await new AdminUserService().exportUsers({
         search,
         sort,
@@ -78,8 +79,10 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      if (toastId) toast.dismiss(toastId);
       toast.success("Users exported successfully");
     } catch (error) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(
         error instanceof Error ? error.message : "Failed to export users",
       );

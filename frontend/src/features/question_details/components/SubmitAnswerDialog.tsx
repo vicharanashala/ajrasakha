@@ -15,7 +15,7 @@ import {
 } from "@/components/atoms/dialog";
 import { Send } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 
 interface SubmitAnswerDialogProps {
   questionId: string;
@@ -47,12 +47,15 @@ export const SubmitAnswerDialog = ({
       toast.error("Atleast one source is required!");
       return;
     }
+    let toastId;
     try {
+      toastId = toast.loading("Submitting response...");
       const result = await submitAnswer({
         questionId: questionId,
         answer,
         sources,
       });
+      if (toastId) toast.dismiss(toastId);
       if (result) {
         toast.success(
           result.isFinalAnswer
@@ -64,7 +67,8 @@ export const SubmitAnswerDialog = ({
       setOpen(false);
       setAnswer("");
     } catch (e: any) {
-      toast.error("Failed to submit");
+      if (toastId) toast.dismiss(toastId);
+      toast.error(e?.message || "Failed to submit");
     }
   }
 

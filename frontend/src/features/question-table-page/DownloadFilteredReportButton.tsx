@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2, Filter, Sprout, X, ChevronDown } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
   Dialog,
@@ -94,9 +94,10 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       return;
     }
 
+    let toastId;
     try {
       setIsDownloading(true);
-      toast.info("Preparing download...");
+      toastId = toast.loading("Preparing download...");
 
       const blob = await questionService.downloadFilteredReport({
         state: filters.state,
@@ -136,9 +137,11 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
+      if (toastId) toast.dismiss(toastId);
       toast.success("Filtered report downloaded successfully!");
       setIsDialogOpen(false);
     } catch (error) {
+      if (toastId) toast.dismiss(toastId);
       console.error("Download error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to download filtered report";
       toast.error(errorMessage);

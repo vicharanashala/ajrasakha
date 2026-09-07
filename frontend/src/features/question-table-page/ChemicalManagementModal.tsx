@@ -10,7 +10,7 @@ import {
 import { Plus, FlaskConical, Pencil, X, Loader2, Check, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { useCreateChemical } from "@/hooks/api/chemical/useCreateChemical";
 import { useUpdateChemical } from "@/hooks/api/chemical/useUpdateChemical";
 import { useDeleteChemical } from "@/hooks/api/chemical/useDeleteChemical";

@@ -22,7 +22,7 @@ import { Textarea } from "@/components/atoms/textarea";
 import { SourceUrlManager } from "@/components/source-url-manager";
 import type { IQuestionFullData, SourceItem } from "@/types";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import {
   BookOpen,
   ExternalLink,
@@ -77,7 +77,9 @@ export const ClosedFinalAnswerModal = ({
 
   const handleConfirmedSave = async () => {
     setShowConfirm(false);
+    let toastId;
     try {
+      toastId = toast.loading("Updating final answer...");
       await updateAnswer({
         answerId: finalAnswer._id,
         questionId: question._id,
@@ -94,9 +96,11 @@ export const ClosedFinalAnswerModal = ({
         source: question.source,
         isModeratorApproval: false,
       });
+      if (toastId) toast.dismiss(toastId);
       toast.success("Final answer updated successfully.");
       setIsEditing(false);
     } catch (err: any) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(err?.message ?? "Failed to update the answer. Please try again.");
     }
   };

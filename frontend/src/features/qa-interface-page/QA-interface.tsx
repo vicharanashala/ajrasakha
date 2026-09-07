@@ -11,7 +11,6 @@ import {
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { QuestionService } from "@/hooks/services/questionService";
-import { toast } from "sonner";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import {
   type QuestionDateRangeFilter,
@@ -38,7 +37,7 @@ import { ReRouteResponseTimeline } from "./ReRouteResponseTimeline";
 import { AnswerCreateDialog } from "./AnswerCreateDialog";
 import { QaHeader } from "./QaHeader";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
-import { useToast } from "@/shared/components/toast";
+import { toast, useToast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
 export type QuestionFilter =
@@ -576,7 +575,9 @@ export const QAInterface = ({
     }
     payload.type = actionType
 
+    let toastId;
     try {
+      toastId = toast.loading("Submitting response...");
       await respondQuestion(payload);
 
       // Reset UI
@@ -590,8 +591,10 @@ export const QAInterface = ({
       setSelectedQuestion(null);
       handleReset();
 
+      if (toastId) toast.dismiss(toastId);
       toast.success("Your response has been submitted. Thank you!");
     } catch (error) {
+      if (toastId) toast.dismiss(toastId);
       console.error("Failed to submit:", error);
     }
   };

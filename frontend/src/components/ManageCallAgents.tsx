@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { IUser } from "@/types";
 import { Button } from "./atoms/button";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Check, X } from "lucide-react";
 import { Input } from "./atoms/input";
 import { UserService } from "@/hooks/services/userService";
@@ -49,11 +49,15 @@ export const ManageCallAgents = () => {
   };
 
   const handleToggleActive = async (userId: string) => {
+    let toastId;
     try {
+      toastId = toast.loading("Updating call agent status...");
       await userService.toggleCallAgentActive(userId);
+      if (toastId) toast.dismiss(toastId);
       toast.success("Call agent status toggled successfully");
       fetchCallAgents();
     } catch (error: any) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(error.message || "Failed to toggle call agent status");
     }
   };
@@ -63,11 +67,15 @@ export const ManageCallAgents = () => {
       return;
     }
 
+    let toastId;
     try {
+      toastId = toast.loading("Removing call agent...");
       await userService.setCallAgentStatus(userId, false, false);
+      if (toastId) toast.dismiss(toastId);
       toast.success("Call agent removed successfully");
       fetchCallAgents();
     } catch (error: any) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(error.message || "Failed to remove call agent");
     }
   };
@@ -82,15 +90,19 @@ export const ManageCallAgents = () => {
       return;
     }
 
+    let toastId;
     try {
       setAddingAgents(true);
+      toastId = toast.loading("Adding call agent...");
       await userService.setCallAgentStatus(selectedUserId, true, false);
+      if (toastId) toast.dismiss(toastId);
       toast.success("Call agent added successfully");
 
       setSelectedUserId(null);
       setShowAddModal(false);
       fetchCallAgents();
     } catch (error: any) {
+      if (toastId) toast.dismiss(toastId);
       toast.error(error.message || "Failed to add call agent");
     } finally {
       setAddingAgents(false);

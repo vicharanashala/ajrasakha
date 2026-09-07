@@ -24,7 +24,7 @@ import Plivo from "plivo-browser-sdk";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { FarmerDetails } from "./FarmerDetails";
 import { plivoApi } from "@/hooks/api/plivo/api";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { translateService } from "@/hooks/services/translateService";
 import { UserService } from "@/hooks/services/userService";
 
