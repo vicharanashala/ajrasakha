@@ -13,6 +13,7 @@ import {
 } from "@/components/atoms/dialog";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import Spinner from "@/components/atoms/spinner";
+import { QuestionIdLink } from "@/features/chatbotDashboard/components/QuestionIdLink";
 import { Pagination } from "./pagination";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
 import { useDebounce } from "@/hooks/ui/useDebounce";
@@ -54,17 +55,46 @@ const QuestionStatusBadge = ({ status }: { status?: string }) => {
   );
 };
 
-const IdChip = ({ label, value }: { label: string; value: string }) => (
+const ID_CHIP_CLASSES =
+  "truncate rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-[11px]";
+
+const IdChip = ({
+  label,
+  value,
+  clickable = false,
+}: {
+  label: string;
+  value: string;
+  clickable?: boolean;
+}) => (
   <div className="flex min-w-0 items-center gap-1.5">
     <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
       {label}
     </span>
-    <span
-      title={value}
-      className="truncate rounded-md border border-border/60 bg-muted/50 px-1.5 py-0.5 font-mono text-[11px] text-foreground/80"
-    >
-      {value}
-    </span>
+    {clickable ? (
+      <span title={value} className="min-w-0">
+        <QuestionIdLink
+          questionId={value}
+          className={`${ID_CHIP_CLASSES} text-primary hover:border-primary/50 hover:underline`}
+        >
+          {value}
+        </QuestionIdLink>
+      </span>
+    ) : (
+      <span title={value} className={`${ID_CHIP_CLASSES} text-foreground/80`}>
+        {value}
+      </span>
+    )}
+  </div>
+);
+
+const AnswerMetaPanel = ({ answer }: { answer: ClosedAnswer }) => (
+  <div className="flex shrink-0 flex-col gap-2 rounded-lg border border-border/60 bg-muted/40 p-2.5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-w-0 flex-col gap-1">
+      <IdChip label="Question ID" value={answer.questionId || "—"} clickable />
+      <IdChip label="Answer ID" value={answer._id} />
+    </div>
+    <QuestionStatusBadge status={answer.question?.status} />
   </div>
 );
 
@@ -106,14 +136,8 @@ const CARD_HEIGHT = "h-[380px]";
 
 const ClosedAnswerCard = ({ answer }: { answer: ClosedAnswer }) => {
   return (
-    <div className={`flex ${CARD_HEIGHT} flex-col gap-2 rounded-xl border border-border bg-card p-4 shadow-sm`}>
-      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 flex-col gap-1">
-          <IdChip label="Question ID" value={answer.questionId || "—"} />
-          <IdChip label="Answer ID" value={answer._id} />
-        </div>
-        <QuestionStatusBadge status={answer.question?.status} />
-      </div>
+    <div className={`flex ${CARD_HEIGHT} flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm`}>
+      <AnswerMetaPanel answer={answer} />
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <p className="line-clamp-6 text-sm text-foreground/90 whitespace-pre-wrap">
@@ -121,9 +145,16 @@ const ClosedAnswerCard = ({ answer }: { answer: ClosedAnswer }) => {
         </p>
       </div>
 
+      <div className="shrink-0 max-h-16 overflow-y-auto border-t border-border/60 pt-2">
+        <p className="mb-1.5 text-xs font-semibold text-foreground/80">
+          Sources {answer.sources?.length ? `(${answer.sources.length})` : ""}
+        </p>
+        <SourcesList sources={answer.sources} />
+      </div>
+
       <Dialog>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="shrink-0 self-start">
+          <Button variant="outline" size="sm" className="w-full shrink-0">
             <Eye className="h-3.5 w-3.5" />
             View More
           </Button>
@@ -134,13 +165,7 @@ const ClosedAnswerCard = ({ answer }: { answer: ClosedAnswer }) => {
           </DialogHeader>
           <ScrollArea className="flex-1">
             <div className="space-y-4 pr-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 flex-col gap-1">
-                  <IdChip label="Question ID" value={answer.questionId || "—"} />
-                  <IdChip label="Answer ID" value={answer._id} />
-                </div>
-                <QuestionStatusBadge status={answer.question?.status} />
-              </div>
+              <AnswerMetaPanel answer={answer} />
               <p className="text-sm text-foreground/90 whitespace-pre-wrap">
                 {answer.answer || "—"}
               </p>
@@ -154,13 +179,6 @@ const ClosedAnswerCard = ({ answer }: { answer: ClosedAnswer }) => {
           </ScrollArea>
         </DialogContent>
       </Dialog>
-
-      <div className="shrink-0 max-h-20 overflow-y-auto border-t border-border/60 pt-2">
-        <p className="mb-1.5 text-xs font-semibold text-foreground/80">
-          Sources {answer.sources?.length ? `(${answer.sources.length})` : ""}
-        </p>
-        <SourcesList sources={answer.sources} />
-      </div>
     </div>
   );
 };
