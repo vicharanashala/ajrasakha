@@ -34,6 +34,22 @@ const QUESTION_STATUS_STYLES: Record<string, { badge: string; dot: string }> = {
     badge: "bg-purple-500/10 text-purple-300 border-purple-500/25",
     dot: "bg-purple-400",
   },
+  approved: {
+    badge: "bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/25",
+    dot: "bg-green-500",
+  },
+  rejected: {
+    badge: "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/25",
+    dot: "bg-red-500",
+  },
+  modified: {
+    badge: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-500/25",
+    dot: "bg-yellow-500",
+  },
+  reviewed: {
+    badge: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/25",
+    dot: "bg-indigo-500",
+  },
 };
 
 const DEFAULT_STATUS_STYLE = {
@@ -88,13 +104,42 @@ const IdChip = ({
   </div>
 );
 
-const AnswerMetaPanel = ({ answer }: { answer: ClosedAnswer }) => (
-  <div className="flex shrink-0 flex-col gap-2 rounded-lg border border-border/60 bg-muted/40 p-2.5 sm:flex-row sm:items-center sm:justify-between">
+export const formatAiTags = (text: string) => {
+  if (!text) return "—";
+
+  // 1. Replace key-value tags: <tag>value</tag> -> "Tag: value"
+  let formatted = text.replace(/<([^>]+)>([^<]*)<\/\1>/g, (match, tag, value) => {
+    const label = tag.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+    return `${label}: ${value.trim()}`;
+  });
+
+  // 2. Replace standalone opening tags: <tag> -> "\nTag:\n"
+  formatted = formatted.replace(/<([^\/][^>]*)>/g, (match, tag) => {
+    const label = tag.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+    return `\n${label}:\n`;
+  });
+
+  // 3. Remove all remaining closing tags: </tag> -> ""
+  formatted = formatted.replace(/<\/[^>]+>/g, '');
+
+  // 4. Cleanup excessive newlines
+  formatted = formatted.replace(/\n{3,}/g, '\n\n').trim();
+
+  return formatted || "—";
+};
+
+const AnswerMetaPanel = ({ answer, showBothStatuses = false }: { answer: ClosedAnswer; showBothStatuses?: boolean }) => (
+  <div className="flex shrink-0 flex-col gap-2 rounded-lg border border-border/60 bg-muted/40 p-2.5 sm:flex-row sm:items-start sm:justify-between">
     <div className="flex min-w-0 flex-col gap-1">
       <IdChip label="Question ID" value={answer.questionId || "—"} clickable />
       <IdChip label="Answer ID" value={answer._id} />
+      {answer.author?.name && <IdChip label="Author" value={answer.author.name} />}
+      {answer.approvedBy?.name && <IdChip label="Approved By" value={answer.approvedBy.name} />}
     </div>
-    <QuestionStatusBadge status={answer.question?.status} />
+    <div className="flex flex-col items-end gap-1">
+      <QuestionStatusBadge status={answer.status || "approved"} />
+      {showBothStatuses && <QuestionStatusBadge status={answer.question?.status} />}
+    </div>
   </div>
 );
 
@@ -140,8 +185,8 @@ const ClosedAnswerCard = ({ answer }: { answer: ClosedAnswer }) => {
       <AnswerMetaPanel answer={answer} />
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        <p className="line-clamp-6 text-sm text-foreground/90 whitespace-pre-wrap">
-          {answer.answer || "—"}
+        <p className="line-clamp-6 text-sm text-foreground/90 whitespace-pre-wrap break-words">
+          {formatAiTags(answer.answer)}
         </p>
       </div>
 
@@ -165,9 +210,9 @@ const ClosedAnswerCard = ({ answer }: { answer: ClosedAnswer }) => {
           </DialogHeader>
           <ScrollArea className="flex-1">
             <div className="space-y-4 pr-4">
-              <AnswerMetaPanel answer={answer} />
-              <p className="text-sm text-foreground/90 whitespace-pre-wrap">
-                {answer.answer || "—"}
+              <AnswerMetaPanel answer={answer} showBothStatuses={true} />
+              <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words">
+                {formatAiTags(answer.answer)}
               </p>
               <div className="border-t border-border/60 pt-3">
                 <p className="mb-1.5 text-xs font-semibold text-foreground/80">

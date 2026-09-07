@@ -428,6 +428,7 @@ export interface ClosedAnswer {
   updatedAt: string;
   question: ClosedAnswerQuestion;
   author: ClosedAnswerAuthor | null;
+  approvedBy?: ClosedAnswerAuthor | null;
 }
 
 export interface ClosedAnswersResponse {

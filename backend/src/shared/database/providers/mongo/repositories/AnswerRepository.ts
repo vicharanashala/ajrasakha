@@ -1167,6 +1167,15 @@ export class AnswerRepository implements IAnswerRepository {
               },
             },
             {$unwind: {path: '$author', preserveNullAndEmptyArrays: true}},
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'approvedBy',
+                foreignField: '_id',
+                as: 'approvedByUser',
+              },
+            },
+            {$unwind: {path: '$approvedByUser', preserveNullAndEmptyArrays: true}},
           ],
           {session},
         ).toArray(),
@@ -1203,6 +1212,13 @@ export class AnswerRepository implements IAnswerRepository {
               id: ans.author._id?.toString(),
               name: `${ans.author.firstName || ''} ${ans.author.lastName || ''}`.trim(),
               email: ans.author.email,
+            }
+          : null,
+        approvedBy: ans.approvedByUser
+          ? {
+              id: ans.approvedByUser._id?.toString(),
+              name: `${ans.approvedByUser.firstName || ''} ${ans.approvedByUser.lastName || ''}`.trim(),
+              email: ans.approvedByUser.email,
             }
           : null,
       }));
