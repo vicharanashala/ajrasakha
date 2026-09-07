@@ -219,6 +219,37 @@ _INVALID_MARKET_SUBSTRINGS = (
     "yesterday",
 )
 
+# Words that, when present near a location name, confirm it is an actual market/mandi.
+_MARKET_CONTEXT_WORDS = ("mandi", "market", "apmc", "sabzi mandi", "grain market")
+
+
+def _is_location_not_market(market_name: str, query: str) -> bool:
+    """Return True if `market_name` appears in the query as a plain city/district
+    (i.e. NOT followed by mandi/market/apmc), meaning it should NOT be treated as
+    a mandi name.
+
+    Pattern examples that return True (location-only usage):
+      - "price of onion in Rupnagar, Punjab"   → True
+      - "onion price in Rupnagar"              → True
+    Pattern examples that return False (has mandi context):
+      - "in Rupnagar mandi"                   → False
+      - "at Rupnagar market"                  → False
+    """
+    if not market_name or not query:
+        return False
+    name_esc = re.escape(market_name.strip().lower())
+    q_lower = query.lower()
+    # If any market-context word appears within ~3 tokens after the name, it IS a mandi.
+    for ctx in _MARKET_CONTEXT_WORDS:
+        if re.search(
+            rf"\b{name_esc}\s*(?:\w+\s*){{0,2}}{re.escape(ctx)}\b",
+            q_lower,
+        ):
+            return False
+    # If the name appears at all in the query without a market-context word near it,
+    # treat it as a plain location.
+    return bool(re.search(rf"\b{name_esc}\b", q_lower))
+
 
 def _extract_market_name_from_query(query: str) -> str | None:
     if not query:
@@ -731,13 +762,15 @@ def _normalize_intent(
         if extracted_market:
             out["market_name"] = extracted_market
 
-    # Disallow district names or queries containing "<name> district" from being treated as market_name
+    # Disallow district names or queries containing "<name> district" from being treated as market_name.
+    # Also disallow plain city/location names that have no mandi/market/apmc context in the query.
     if out.get("market_name"):
         mn_lower = str(out["market_name"]).strip().lower()
         if (
             "district" in mn_lower
             or re.search(rf"\b{re.escape(mn_lower)}\s+district\b", query.lower())
             or any(mn_lower == st for st in _INDIAN_STATES)
+            or _is_location_not_market(mn_lower, query)
         ):
             out["market_name"] = None
             out["nearest_market"] = True

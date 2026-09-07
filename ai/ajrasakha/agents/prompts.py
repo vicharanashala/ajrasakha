@@ -1092,6 +1092,7 @@ Rules:
 - Which markets / mandi near me / nearby market / find APMC / list mandis → search_markets
 - market_name is ONLY for a named mandi/APMC (e.g. Azadpur, Sontoli, Perumbavoor, Aluva, Chengannur). Never put state names (Bihar, Assam, Kerala) or district names (e.g. Alappuzha, Ludhiana, Patna, Rohtak, Anantapur, Kottayam when referring to a district/region, e.g. "in Alappuzha district", "Rohtak district") or crop names in market_name.
 - If the user names or implies a district (e.g. "Alappuzha district", "in Rohtak district", "cabbage price in Alappuzha district, Kerala"), leave market_name=null, nearest_market=true, and use action="get_today_price" (or historical action if requested).
+- CRITICAL — city/town without mandi keyword: If the query says "in <City>, <State>" or "in <City>" and does NOT include the word "mandi", "market", or "apmc" right next to that city name, treat the city as a district/location — set market_name=null, nearest_market=true. The city is the area to search IN, not a named mandi. Examples that are location-only (market_name=null): "price of onion in Rupnagar, Punjab", "tomato rate in Ludhiana", "wheat price in Patiala". Examples that ARE a named mandi (market_name=<city>): "onion price in Rupnagar mandi", "tomato price at Ludhiana market", "wheat price in Patiala APMC".
 - state is ONLY for Indian states (e.g. Bihar, Assam, Kerala, Maharashtra, Punjab).
 - Omit unused filters as null
 - Never invent actions outside the list above
@@ -1102,6 +1103,15 @@ Query: What is today's market price of cabbage in Alappuzha district, Kerala?
 
 Query: Tomato price in Rohtak district
 {"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+
+Query: What is the price of onion in Rupnagar, Punjab?
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Punjab","sort_order":null}
+
+Query: tomato rate in Ludhiana
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+
+Query: onion price in Rupnagar mandi
+{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Rupnagar","state":null,"sort_order":null}
 
 Query: What is the minimum and maximum price of coconut at Chengannur Market today
 {"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Chengannur","state":null,"sort_order":null}
