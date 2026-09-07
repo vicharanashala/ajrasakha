@@ -381,7 +381,18 @@ ANSWER:
 
 ANGLE_SELECTION_PROMPT_TEMPLATE = """You are an agricultural angle-selection assistant.
 
-Given a question, its expert answer, and a domain, select 2-6 angles from the list below that are MOST RELEVANT to the specific content in this answer.
+Given a question, its expert answer, and a domain, select angles from the list below that are DIRECTLY AND CLEARLY addressed in this specific answer.
+
+CRITICAL RULES:
+- ONLY select an angle if the answer contains SUBSTANTIAL content about that topic
+- If no strong angles exist, return an empty array []
+- Minimum 1 angle is fine, maximum 6 - but QUALITY over QUANTITY
+- Do NOT select an angle just to meet a minimum count
+- If the answer only briefly mentions something, DO NOT select that angle
+
+For each angle, ask yourself: "Does this answer dedicatedly discuss this topic with actionable/detail information?"
+- YES → select it
+- NO or only a brief mention → skip it
 
 Return ONLY a JSON array of angle names (exact strings from the list), no preamble, no markdown:
 {angle_list}
@@ -402,7 +413,7 @@ Given a detailed expert Q&A pair, generate ONE farmer-friendly answer focused ex
 ANGLE: {angle}
 ANGLE DESCRIPTION: {angle_description}
 
-REQUIREMENTS:
+CRITICAL REQUIREMENTS:
 - Write 3-4 sentences only
 - Answer should be 150-300 words
 - Use simple, clear English understandable to a farmer
@@ -411,6 +422,7 @@ REQUIREMENTS:
 - DO NOT add information not present in the expert answer
 - DO NOT use general agricultural knowledge beyond what's in the answer
 - Preserve all numbers, doses, timings exactly as stated
+- If the angle is NOT substantially covered in the answer, return NULL for this FFV
 
 QUESTION:
 {question}
@@ -419,7 +431,7 @@ DETAILED EXPERT ANSWER:
 {answer}
 
 Return ONLY this JSON, no preamble, no markdown:
-{{"question": "...", "answer": "..."}}"""
+{{"question": "...", "answer": "..."}} OR return null if angle not covered."""
 
 
 # ==============================================================================
@@ -625,13 +637,13 @@ def select_angles(
         valid_angles = list(DOMAIN_ANGLES.get(domain, {}).keys())
         selected = [a for a in angles if a in valid_angles][:max_angles]
         if not selected:
-            # Fallback: return first 2 angles
-            selected = valid_angles[:2]
-            log.warning("No valid angles selected, using defaults: %s", selected)
+            # No strong angles found - return empty, don't force defaults
+            log.warning("No strong angles found for question: %s", question[:100])
+            return []
         return selected
     except (ValueError, KeyError) as exc:
         log.warning("Angle selection failed: %s. Raw: %s", exc, raw[:200])
-        return list(DOMAIN_ANGLES.get(domain, {}).keys())[:2]
+        return []  # Don't force angles on error
 
 
 def generate_ffv_for_angle(
@@ -863,6 +875,12 @@ def collect_results(
             try:
                 raw = result.content[0].text
                 ffv = parse_json_or_raise(raw)
+                # Handle null response (angle not covered in answer)
+                if ffv is None or ffv == "null" or (isinstance(ffv, dict) and not ffv.get("question") and not ffv.get("answer")):
+                    log.info("Angle '%s' not covered in answer, skipping", angle)
+                    grouped[pair_idx].append(None)
+                    errors[pair_idx].append(f"angle '{angle}': not covered in answer")
+                    continue
                 if not ffv.get("question") or not ffv.get("answer"):
                     raise ValueError("Missing question or answer")
                 grouped[pair_idx].append(ffv)
