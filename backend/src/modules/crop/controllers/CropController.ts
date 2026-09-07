@@ -21,7 +21,7 @@ import {
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
-import {IUser, ICrop} from '#root/shared/interfaces/models.js';
+import {IUser, ICrop, CROP_OTHER_TYPES} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {
   CropIdParam,
@@ -106,6 +106,16 @@ export class CropController {
   // ─── BULK JOB STATUS ──────────────────────────────────────────────────────
   // IMPORTANT: these static routes must come BEFORE /:cropId to avoid being
   // swallowed by the wildcard param route.
+
+  // Extensible crop-side categories (weed/pest/disease/…) the UI renders dynamically.
+  // Declared before '/:cropId' so it isn't swallowed by the wildcard param route.
+  @Get('/entry-types')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'List the extensible crop-side entry categories for the UI.' })
+  getEntryTypes(): { types: string[] } {
+    return { types: CROP_OTHER_TYPES };
+  }
 
   @Get('/bulk-status')
   @HttpCode(200)
@@ -306,13 +316,21 @@ export class CropController {
         throw new BadRequestError(err?.message || 'Failed to parse CSV file');
       }
 
-      const uploadType = body?.type === 'chemical' ? 'chemical' : 'crop';
+      const isChemical = body?.type === 'chemical';
+      // Crop-side uploads keep whatever type the tab sent (crop/weed/pest/disease or a
+      // custom "Other" type); default to 'crop' when none was provided.
+      const cropType =
+        body?.type && body.type.trim() ? body.type : 'crop';
 
-      const jobId = uploadType === 'chemical'
+      const jobId = isChemical
         ? startChemicalBulkProcessing(rows, userId, actor, this.auditTrailsService)
-        : startCropBulkProcessing(rows, userId, actor, this.auditTrailsService);
+        : startCropBulkProcessing(rows, userId, actor, this.auditTrailsService, cropType);
 
-      const label = uploadType === 'chemical' ? 'Chemicals' : 'Crops';
+      const label = isChemical
+        ? 'Chemicals'
+        : cropType === 'crop'
+          ? 'Crops'
+          : 'Entries';
 
       return {
         success: true,
@@ -327,6 +345,7 @@ export class CropController {
     if (!body?.name || typeof body.name !== 'string' || !body.name.trim()) {
       throw new BadRequestError('Crop name is required');
     }
+
 
     let crop;
     let auditPayload: ModeratorAuditTrail = {

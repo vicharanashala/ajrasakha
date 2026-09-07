@@ -17,6 +17,8 @@ export interface ICropResponse {
   name: string;
   status?: string;
   type?: string;
+  /** Optional scientific (binomial) name, e.g. "Oryza sativa". */
+  scientificName?: string | null;
   aliases: (ICropAlias | string)[];  // string = legacy format from older crops
   createdBy?: string;
   updatedBy?: string;
@@ -32,6 +34,7 @@ export interface ICreateCropPayload {
   name: string;
   status?: string;
   type?: string;
+  scientificName?: string;
   aliases?: ICropAlias[];
   crops?: string[];
 }
@@ -53,7 +56,12 @@ export interface IUpdateCropPayload {
   aliases?: (ICropAlias | string)[];
   crops?: string[];
   status?: string;
+  /** Send "" to clear the scientific name. */
+  scientificName?: string;
 }
+
+/** Entry types that bulk upload supports: the crop-side types plus chemical. */
+export type CropUploadType = "crop" | "weed" | "pest" | "disease" | "chemical";
 
 export interface IBulkUploadCropResponse {
   success: boolean;
@@ -98,7 +106,7 @@ export class CropService {
     });
   }
 
-  async bulkUploadCrops(file: File, type: "crop" | "chemical"): Promise<IBulkUploadCropResponse | null> {
+  async bulkUploadCrops(file: File, type: CropUploadType): Promise<IBulkUploadCropResponse | null> {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("type", type);
@@ -110,6 +118,11 @@ export class CropService {
 
   async getBulkJobStatus(jobId: string): Promise<IBulkJobStatus | null> {
     return apiFetch<IBulkJobStatus>(`${this._baseUrl}/bulk-status/${jobId}`);
+  }
+
+  /** Extensible crop-side categories (weed/pest/disease/…) the UI renders dynamically. */
+  async getEntryTypes(): Promise<{ types: string[] } | null> {
+    return apiFetch<{ types: string[] }>(`${this._baseUrl}/entry-types`);
   }
 
   async downloadList(type: 'crop' | 'chemical'): Promise<Blob> {

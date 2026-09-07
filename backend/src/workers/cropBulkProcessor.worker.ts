@@ -8,6 +8,7 @@ import { ICropAlias } from '#root/shared/interfaces/models.js';
 interface WorkerData {
   rows: any[];
   userId: string;
+  type?: string;
   mongoUri: string;
   dbName: string;
 }
@@ -16,7 +17,9 @@ if (!parentPort) {
   process.exit(1);
 }
 
-const { rows, userId, mongoUri, dbName } = workerData as WorkerData;
+const { rows, userId, type: rawType, mongoUri, dbName } = workerData as WorkerData;
+// Crop-side entry type for every row in this upload (crop/weed/pest/disease).
+const entryType = rawType || 'crop';
 
 const container = new Container({ defaultScope: 'Singleton' });
 container.bind<string>(GLOBAL_TYPES.uri).toConstantValue(mongoUri);
@@ -87,10 +90,13 @@ const mergeAliasInto = (list: ICropAlias[], inc: ICropAlias): void => {
 
 // ── Group CSV rows by crop name (case-insensitive) ──────────────────────────
 
-const cropMap = new Map<string, { name: string; aliases: ICropAlias[] }>();
+const cropMap = new Map<
+  string,
+  { name: string; aliases: ICropAlias[]; scientificName?: string }
+>();
 
 for (const row of rows) {
-  const name = getField(row, 'crop name', 'cropname', 'crop_name');
+  const name = getField(row, 'crop name', 'cropname', 'crop_name', 'name');
   if (!name) continue;
 
   const key = name.toLowerCase();
@@ -99,6 +105,13 @@ for (const row of rows) {
   }
 
   const group = cropMap.get(key)!;
+
+  // Scientific name is a per-entry attribute (same across an entry's rows) — capture
+  // the first non-empty value seen for this group.
+  if (!group.scientificName) {
+    const sci = getField(row, 'scientific name', 'scientific_name', 'scientificname');
+    if (sci) group.scientificName = sci;
+  }
 
   const language = getField(row, 'language');
   const region = getField(row, 'region');
@@ -150,11 +163,29 @@ for (const [, group] of cropMap) {
         mergeAliasInto(merged, newAlias);
       }
 
-      await cropRepo.updateCrop(existing._id!.toString(), { aliases: merged, type: 'crop' }, userId);
+      await cropRepo.updateCrop(
+        existing._id!.toString(),
+        {
+          aliases: merged,
+          type: entryType,
+          // Only overwrite the scientific name when the CSV provides one — a blank
+          // cell must not wipe an existing value.
+          ...(group.scientificName ? { scientificName: group.scientificName } : {}),
+        },
+        userId,
+      );
       updated++;
-      results.push({ name: group.name, status: 'updated', reason: 'Merged aliases into existing crop' });
+      results.push({ name: group.name, status: 'updated', reason: 'Merged aliases into existing entry' });
     } else {
-      await cropRepo.createCrop(group.name, userId, group.aliases, 'crop');
+      await cropRepo.createCrop(
+        group.name,
+        userId,
+        group.aliases,
+        entryType,
+        undefined,
+        undefined,
+        group.scientificName,
+      );
       created++;
       results.push({ name: group.name, status: 'created', reason: '' });
     }
