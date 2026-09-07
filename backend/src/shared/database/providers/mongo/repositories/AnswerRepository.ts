@@ -1117,6 +1117,102 @@ export class AnswerRepository implements IAnswerRepository {
     }
   }
 
+  async getClosedAnswers(
+    page: number,
+    limit: number,
+    search?: string,
+    session?: ClientSession,
+  ): Promise<{answers: any[]; totalAnswers: number}> {
+    try {
+      await this.init();
+      const skip = (page - 1) * limit;
+
+      const matchStage: any = {'question.status': 'closed'};
+      if (search) {
+        matchStage.$or = [
+          {answer: {$regex: search, $options: 'i'}},
+          {'question.question': {$regex: search, $options: 'i'}},
+        ];
+      }
+
+      const basePipeline: any[] = [
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+        {$unwind: '$question'},
+        {$match: matchStage},
+      ];
+
+      const [answers, totalCountResult] = await Promise.all([
+        this.AnswerCollection.aggregate(
+          [
+            ...basePipeline,
+            {$sort: {createdAt: -1}},
+            {$skip: skip},
+            {$limit: limit},
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'authorId',
+                foreignField: '_id',
+                as: 'author',
+              },
+            },
+            {$unwind: {path: '$author', preserveNullAndEmptyArrays: true}},
+          ],
+          {session},
+        ).toArray(),
+        this.AnswerCollection.aggregate(
+          [...basePipeline, {$count: 'total'}],
+          {session},
+        ).toArray(),
+      ]);
+
+      const totalAnswers = totalCountResult[0]?.total || 0;
+
+      const formattedAnswers = answers.map(ans => ({
+        _id: ans._id?.toString(),
+        questionId: ans.questionId?.toString(),
+        authorId: ans.authorId?.toString(),
+        answer: ans.answer,
+        status: ans.status,
+        isFinalAnswer: ans.isFinalAnswer,
+        approvalCount: ans.approvalCount,
+        remarks: ans.remarks,
+        sources: ans.sources || [],
+        createdAt: ans.createdAt?.toISOString(),
+        updatedAt: ans.updatedAt?.toISOString(),
+        question: {
+          id: ans.question?._id?.toString(),
+          text: ans.question?.question,
+          status: ans.question?.status,
+          closedAt: ans.question?.closedAt?.toISOString(),
+          priority: ans.question?.priority,
+          source: ans.question?.source,
+        },
+        author: ans.author
+          ? {
+              id: ans.author._id?.toString(),
+              name: `${ans.author.firstName || ''} ${ans.author.lastName || ''}`.trim(),
+              email: ans.author.email,
+            }
+          : null,
+      }));
+
+      return {answers: formattedAnswers, totalAnswers};
+    } catch (error) {
+      console.error(error);
+      throw new InternalServerError(
+        `Failed to fetch closed answers: ${error}`,
+      );
+    }
+  }
+
   async updateAnswerStatus(
     answerId: string,
     updates: Partial<IAnswer>,

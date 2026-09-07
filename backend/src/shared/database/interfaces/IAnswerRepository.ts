@@ -183,6 +183,22 @@ export interface IAnswerRepository {
     session?: ClientSession,
   ): Promise<{faqs: any[]; totalFaqs: number}>;
 
+  /**
+   * Retrieves every answer (including non-final submissions) belonging to
+   * a question whose status is 'closed'.
+   * @param page - Current page count.
+   * @param limit - Total limit count.
+   * @param search - Optional search across the answer text and question text.
+   * @param session - Optional MongoDB client session for transactions.
+   * @returns A promise that resolves to the closed answers and their total count.
+   */
+  getClosedAnswers(
+    page: number,
+    limit: number,
+    search?: string,
+    session?: ClientSession,
+  ): Promise<{answers: any[]; totalAnswers: number}>;
+
   updateAnswerStatus(
     answerId: string,
     updates: Partial<IAnswer>,

@@ -541,4 +541,16 @@ export class AnswerController {
     return await this.answerService.goldenFaq(userId,Number(page),Number(limit),search)
   }
 
+  @Get('/closed')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({summary: 'Get all answers belonging to closed questions'})
+  async getClosedAnswers(
+    @QueryParams() query: {page?: number; limit?: number; search?: string},
+  ): Promise<{answers: any[]; totalAnswers: number}> {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
+    return await this.answerService.getClosedAnswers(page, limit, query.search);
+  }
+
 }

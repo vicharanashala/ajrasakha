@@ -205,6 +205,14 @@ export class AnswerService extends BaseService implements IAnswerService {
     return await this.answerRepo.incrementApprovalCount(answerId, session);
   }
 
+  async getClosedAnswers(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<{answers: any[]; totalAnswers: number}> {
+    return await this.answerRepo.getClosedAnswers(page, limit, search);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // DELEGATED METHODS — REVIEW
   // ─────────────────────────────────────────────────────────────────────────────

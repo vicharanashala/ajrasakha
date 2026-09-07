@@ -40,4 +40,10 @@ export interface IAnswerService
   ): Promise<number>;
 
   getAnswerById(answerId: string): Promise<IAnswer>;
+
+  getClosedAnswers(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<{answers: any[]; totalAnswers: number}>;
 }
