@@ -386,6 +386,22 @@ def main_agent_location_context_message(location: Optional[dict[str, Any]]) -> O
     return SystemMessage(content=text)
 
 
+_LOCATION_ALIASES: dict[str, tuple[str, str | None]] = {
+    "moovatupuzha": ("Muvattupuzha", "Ernakulam"),
+    "moovattupuzha": ("Muvattupuzha", "Ernakulam"),
+    "muvattupuzha": ("Muvattupuzha", "Ernakulam"),
+    "calicut": ("Kozhikode", "Kozhikode"),
+    "trivandrum": ("Thiruvananthapuram", "Thiruvananthapuram"),
+    "cochin": ("Kochi", "Ernakulam"),
+    "kochi": ("Kochi", "Ernakulam"),
+    "alleppey": ("Alappuzha", "Alappuzha"),
+    "trichur": ("Thrissur", "Thrissur"),
+    "palghat": ("Palakkad", "Palakkad"),
+    "quilon": ("Kollam", "Kollam"),
+    "cannananore": ("Kannur", "Kannur"),
+}
+
+
 async def forward_geocode(state: Optional[str], district: Optional[str] = None) -> Optional[dict[str, Any]]:
     """Forward geocode state and district to latitude/longitude using OpenStreetMap Nominatim."""
     import logging
@@ -396,9 +412,17 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
     if not state and not district:
         return None
 
+    # Normalize district/location aliases (e.g. moovatupuzha -> Muvattupuzha, Ernakulam)
+    inferred_district_state = None
+    if district and district.lower().strip() in _LOCATION_ALIASES:
+        canonical_name, canonical_district = _LOCATION_ALIASES[district.lower().strip()]
+        district = canonical_name
+        if canonical_district and not state:
+            inferred_district_state = canonical_district
+
     trace_resolution(
         "forward_geocode_request",
-        state=state,
+        state=state or inferred_district_state,
         state_source="caller_input",
         district=district,
         district_source="caller_input",
@@ -412,8 +436,8 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
         "limit": 1,
         "addressdetails": 1
     }
-    if state:
-        params["state"] = state
+    if state or inferred_district_state:
+        params["state"] = state or inferred_district_state
     if district:
         params["county"] = district
         

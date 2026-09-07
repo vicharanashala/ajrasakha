@@ -126,6 +126,7 @@ def test_graph_includes_upload_reviewer_only_node():
     assert "upload_reviewer_only" in graph.nodes
     assert "non_agriculture_reply" in graph.nodes
     assert "weather_unavailable_reply" in graph.nodes
+    assert "mandi_unavailable_reply" in graph.nodes
 
 
 def test_non_agriculture_graph_path_is_terminal_and_isolated():
@@ -157,6 +158,17 @@ def test_weather_unavailable_graph_path_is_terminal():
     }
 
     assert ("execute_plan", "weather_unavailable_reply") in edges
+    assert outgoing == {"__end__"}
+
+
+def test_mandi_unavailable_graph_path_is_terminal():
+    edges = {(edge.source, edge.target) for edge in graph.get_graph().edges}
+    outgoing = {
+        edge.target for edge in graph.get_graph().edges
+        if edge.source == "mandi_unavailable_reply"
+    }
+
+    assert ("execute_plan", "mandi_unavailable_reply") in edges
     assert outgoing == {"__end__"}
 
 

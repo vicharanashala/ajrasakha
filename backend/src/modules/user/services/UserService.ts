@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
+  IUserAdminEdit,
   INotificationType,
   NotificationRetentionType,
   UserRole,
@@ -31,6 +32,8 @@ import {sendEmailNotification} from '#root/utils/mailer.js';
 import { appConfig } from '#root/config/app.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { TrendGranularity } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
+import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
+import { IModeratorQueueService } from '#root/modules/question/interfaces/IModeratorQueueService.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -52,6 +55,12 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.NotificationService)
     private readonly notificationService: NotificationService,
+
+    @inject(GLOBAL_TYPES.RoleAssigneeService)
+    private readonly roleAssigneeService: IRoleAssigneeService,
+
+    @inject(GLOBAL_TYPES.ModeratorQueueService)
+    private readonly moderatorQueueService: IModeratorQueueService,
   ) {
     super(mongoDatabase);
   }
@@ -226,6 +235,129 @@ export class UserService extends BaseService {
     }
   }
 
+  async adminEditUser(
+    currentUser: IUser,
+    userId: string,
+    data: IUserAdminEdit,
+  ): Promise<IUser> {
+    try {
+      if (!currentUser || currentUser.role !== 'admin') {
+        throw new ForbiddenError('Only admin can edit user details');
+      }
+
+      if (!userId) {
+        throw new BadRequestError('User ID is required');
+      }
+
+      const targetUser = await this.userRepo.findById(userId);
+      if (!targetUser) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      if (targetUser.role === 'admin') {
+        throw new ForbiddenError('Admin cannot edit details of another admin');
+      }
+
+      const editableFields = [
+        'firstName',
+        'lastName',
+        'avatar',
+        'preference',
+        'mobile',
+        'university',
+        'kvkCovered',
+      ] as const;
+
+      const sanitizedData: Partial<IUser> = {};
+
+      for (const field of editableFields) {
+        if (Object.prototype.hasOwnProperty.call(data, field)) {
+          (sanitizedData as any)[field] = (data as any)[field];
+        }
+      }
+
+      if (sanitizedData.firstName !== undefined && !sanitizedData.firstName.trim()) {
+        throw new BadRequestError('First name cannot be empty or blank space');
+      }
+
+      if (sanitizedData.mobile !== undefined && sanitizedData.mobile !== null) {
+        sanitizedData.mobile = sanitizedData.mobile.trim();
+      }
+
+      if (sanitizedData.university !== undefined && sanitizedData.university !== null) {
+        sanitizedData.university = sanitizedData.university.trim();
+      }
+
+      // Title-case a value so entries persist consistently ("kl university" → "Kl University").
+      const toTitleCase = (v: unknown) =>
+        typeof v === 'string'
+          ? v.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+          : '';
+      // Same, but keep the "all" sentinel lowercase so domain/district "all" checks keep working.
+      const titleCaseOrAll = (v: unknown) => {
+        const s = typeof v === 'string' ? v.trim() : '';
+        return s.toLowerCase() === 'all' ? 'all' : toTitleCase(s);
+      };
+
+      if (sanitizedData.kvkCovered !== undefined && sanitizedData.kvkCovered !== null) {
+        const raw = Array.isArray(sanitizedData.kvkCovered)
+          ? sanitizedData.kvkCovered
+          : [];
+        sanitizedData.kvkCovered = raw
+          .map((item: any) => {
+            if (item && typeof item === 'object') {
+              return {
+                state: toTitleCase(item.state),
+                district: toTitleCase(item.district),
+                name: toTitleCase(item.name),
+              };
+            }
+            return { state: '', district: '', name: toTitleCase(item) };
+          })
+          .filter((item: { name: string }) => item.name);
+      }
+
+      if (sanitizedData.preference) {
+        const pref: any = sanitizedData.preference;
+        if (typeof pref.district === 'string') {
+          pref.district = titleCaseOrAll(pref.district);
+        }
+        if (Array.isArray(pref.domain)) {
+          pref.domain = pref.domain.map((d: unknown) => titleCaseOrAll(d)).filter(Boolean);
+        } else if (typeof pref.domain === 'string') {
+          pref.domain = titleCaseOrAll(pref.domain);
+        }
+      }
+
+      const authService = getFromContainer(FirebaseAuthService);
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const updatedUser = await this.userRepo.edit(userId, sanitizedData, session);
+        if (!updatedUser) {
+          throw new NotFoundError(`User with ID ${userId} not found`);
+        }
+        if (sanitizedData.firstName || sanitizedData.lastName) {
+          await authService.updateFirebaseUser(updatedUser.firebaseUID, {
+            firstName: sanitizedData.firstName ?? updatedUser.firstName,
+            lastName: sanitizedData.lastName ?? updatedUser.lastName,
+          });
+        }
+        return updatedUser;
+      });
+    } catch (error) {
+      if (
+        error instanceof BadRequestError ||
+        error instanceof NotFoundError ||
+        error instanceof ForbiddenError
+      ) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to edit user with ID ${userId}: ${error}`,
+      );
+    }
+  }
+
   async updateUserRole(
     currentUser: IUser,
     userId: string,
@@ -243,30 +375,60 @@ export class UserService extends BaseService {
         throw new BadRequestError('User ID is required');
       }
 
-      return this._withTransaction(async (session: ClientSession) => {
-        const user = await this.userRepo.findById(userId, session);
+      const result = await this._withTransaction(
+        async (session: ClientSession) => {
+          const user = await this.userRepo.findById(userId, session);
 
-        if (!user) {
-          throw new NotFoundError(`User with ID ${userId} not found`);
-        }
+          if (!user) {
+            throw new NotFoundError(`User with ID ${userId} not found`);
+          }
 
-        // Prevent unnecessary update
-        if (user.role === changeRoleTo) {
-          throw new BadRequestError(`User already has role ${changeRoleTo}`);
-        }
+          // Prevent unnecessary update
+          if (user.role === changeRoleTo) {
+            throw new BadRequestError(`User already has role ${changeRoleTo}`);
+          }
 
-        const updatedUser = await this.userRepo.edit(
-          userId,
-          { role: changeRoleTo },
-          session,
-        );
+          const updatedUser = await this.userRepo.edit(
+            userId,
+            { role: changeRoleTo },
+            session,
+          );
 
-        if (!updatedUser) {
-          throw new InternalServerError('Failed to update user role');
-        }
+          if (!updatedUser) {
+            throw new InternalServerError('Failed to update user role');
+          }
 
-        return updatedUser;
-      });
+          return updatedUser;
+        },
+      );
+
+      // Switching a user INTO the gate keeper / auditor role adds a new available
+      // assignee — fill the role queues now so they can immediately receive a question.
+      // Fire-and-forget and idempotent, so it can't affect the role update.
+      if (changeRoleTo === 'gate_keeper' || changeRoleTo === 'auditor') {
+        void this.roleAssigneeService
+          .runGateKeeperAuditorQueueCron()
+          .catch(err =>
+            console.error(
+              '[updateUserRole] event-driven gate-keeper/auditor allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+      // Switching a user INTO the moderator role adds a new available moderator — fill the
+      // moderator queue now so they immediately receive an in-review question.
+      if (changeRoleTo === 'moderator') {
+        void this.moderatorQueueService
+          .runModeratorQueueCron()
+          .catch(err =>
+            console.error(
+              '[updateUserRole] event-driven moderator-queue allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+
+      return result;
     } catch (error) {
       // Preserve known errors
       if (
@@ -416,12 +578,12 @@ export class UserService extends BaseService {
     filter: string,
     includeSelf = false,
     isTrainingUser?: boolean,
-    isAdmin?: boolean
+    canViewAllUsers?: boolean
   ): Promise<UsersNameResponseDto> {
     try {
       return await this._withTransaction(async session => {
         const me = await this.userRepo.findById(userId, session);
-        const users = await this.userRepo.findAll(session,isTrainingUser,isAdmin);
+        const users = await this.userRepo.findAll(session,isTrainingUser,canViewAllUsers);
         // The caller is excluded by default: most manual-select flows are handing work
         // to someone else (re-routing an answer, reallocating a question). Gate keepers /
         // auditors assigning a question to themselves pass includeSelf.
@@ -519,7 +681,7 @@ export class UserService extends BaseService {
   }
 
   async blockUnblockExperts(userId: string, action: string) {
-    return await this._withTransaction(async (session: ClientSession) => {
+    const result = await this._withTransaction(async (session: ClientSession) => {
       if (action === 'block') {
         // The minimum-experts guard protects the EXPERT pool only. Blocking a
         // moderator (e.g. moderator check-out, which toggles isBlocked) must not
@@ -538,6 +700,40 @@ export class UserService extends BaseService {
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
     });
+
+    // Unblocking a gate keeper / auditor makes them available again
+    // (findAvailableUsersByRole excludes isBlocked users) — fill the role queues now so
+    // they can immediately receive a question. Only relevant for those two roles.
+    // Fire-and-forget and idempotent, so it can't affect the unblock result.
+    if (action !== 'block') {
+      const unblocked = await this.userRepo.findById(userId);
+      const role = unblocked?.role;
+      if (role === 'gate_keeper' || role === 'auditor') {
+        void this.roleAssigneeService
+          .runGateKeeperAuditorQueueCron()
+          .catch(err =>
+            console.error(
+              '[blockUnblockExperts] event-driven gate-keeper/auditor allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+      // A moderator (or auditor) unblocked becomes available for the moderator queue
+      // (findAvailableStfModeratorsForSources excludes isBlocked) — fill it now so they
+      // immediately receive an in-review question instead of waiting for the cron.
+      if (role === 'moderator' || role === 'auditor') {
+        void this.moderatorQueueService
+          .runModeratorQueueCron()
+          .catch(err =>
+            console.error(
+              '[blockUnblockExperts] event-driven moderator-queue allocation failed:',
+              err?.message,
+            ),
+          );
+      }
+    }
+
+    return result;
   }
 
   async updateSTFStatus(userId: string, action: string): Promise<void> {

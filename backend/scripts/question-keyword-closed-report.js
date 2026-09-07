@@ -8,7 +8,7 @@
  *   node scripts/question-keyword-closed-report.js "gulli danda"        (positional)
  *
  * MATCHING:
- *   • questions.question CONTAINS the keyword (case-insensitive, not anchored)
+ *   • questions.question OR questions.text CONTAINS the keyword (case-insensitive, not anchored)
  *   • question is closed  (status ∈ closed / dynamic_closed / duplicate_closed)
  *
  * For each matched question:
@@ -47,8 +47,8 @@ const OUT = argVal(
   `keyword-closed-report-${new Date().toISOString().slice(0, 10)}.xlsx`,
 );
 
-const DB_URL = process.env.DB_URL;
-const DB_NAME = argVal('db', process.env.DB_NAME || 'agriai');
+const DB_URL = process.env.DB_URL
+const DB_NAME = 'agriai';
 if (!DB_URL) {
   console.error('❌ DB_URL is not set (put it in .env or pass it inline).');
   process.exit(1);
@@ -96,10 +96,12 @@ try {
 
   // Pass 1: all closed questions whose text contains the keyword. Skip the heavy
   // embedding vector — the report never reads it.
+  const kwRegex = { $regex: escapeRegex(KEYWORD), $options: 'i' };
   const qDocs = await questions
     .find(
       {
-        question: { $regex: escapeRegex(KEYWORD), $options: 'i' },
+        // Match the keyword in the question OR its text field.
+        $or: [{ question: kwRegex }, { text: kwRegex }],
       //  status: { $in: CLOSED_STATUSES },
       },
       { projection: { embedding: 0 } },

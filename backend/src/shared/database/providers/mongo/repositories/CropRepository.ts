@@ -37,6 +37,20 @@ export class CropRepository implements ICropRepository {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  /**
+   * Title-case every word in a value for storage, regardless of separator, so a cell
+   * holding multiple names ("vari,paddy") capitalises each one: "Vari,Paddy". Separators
+   * (comma / slash / space / hyphen) and digits are preserved.
+   *   "wheat crop"  → "Wheat Crop"
+   *   "vari,paddy"  → "Vari,Paddy"
+   */
+  private static toTitleCase(value?: string): string {
+    return (value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[a-z]+/g, w => w.charAt(0).toUpperCase() + w.slice(1));
+  }
+
   /** Extract the searchable English string from either a legacy string alias or a new ICropAlias object */
   private static getEnRepr(alias: any): string {
     return typeof alias === 'string' ? alias : (alias?.english_representation ?? '');
@@ -89,14 +103,19 @@ export class CropRepository implements ICropRepository {
       }
 
       const resolvedType = type ?? 'crop';
+      // Title-case crops/other for consistency; chemicals keep their exact casing (e.g. "2,4-D").
+      const norm = (v?: string) =>
+        resolvedType === 'chemical'
+          ? (v ?? '').trim()
+          : CropRepository.toTitleCase(v);
       const now = new Date();
       const payload: ICrop = {
-       name:name.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' '),
+       name: norm(name),
         type: resolvedType,
         aliases: (aliases || []).map(a => ({
-          language: (a.language ?? '').trim(),
-          region: (a.region ?? '').trim(),
-          english_representation: (a.english_representation ?? '').trim().toLowerCase(),
+          language: norm(a.language),
+          region: norm(a.region),
+          english_representation: norm(a.english_representation),
           native_representation: (a.native_representation ?? '').trim(),
         })),
         createdBy: new ObjectId(createdBy),
@@ -261,12 +280,24 @@ export class CropRepository implements ICropRepository {
 
       // ── Alias conflict check ──────────────────────────────────────────────
       if (updates.aliases !== undefined) {
+        // Chemicals keep exact casing; crops/other are title-cased. The type may not be
+        // sent (manual alias edits) — fall back to the stored entry's type.
+        let isChemical = updates.type === 'chemical';
+        if (updates.type === undefined) {
+          const existingDoc = await this.CropCollection.findOne(
+            { _id: new ObjectId(id) },
+            { projection: { type: 1 } },
+          );
+          isChemical = (existingDoc?.type ?? 'crop') === 'chemical';
+        }
+        const norm = (v?: string) =>
+          isChemical ? (v ?? '').trim() : CropRepository.toTitleCase(v);
         const normalizedAliases = updates.aliases.map(a => {
-          if (typeof a === 'string') return a.trim().toLowerCase();
+          if (typeof a === 'string') return norm(a);
           return {
-            language: (a.language ?? '').trim(),
-            region: (a.region ?? '').trim(),
-            english_representation: (a.english_representation ?? '').trim().toLowerCase(),
+            language: norm(a.language),
+            region: norm(a.region),
+            english_representation: norm(a.english_representation),
             native_representation: (a.native_representation ?? '').trim(),
           };
         });

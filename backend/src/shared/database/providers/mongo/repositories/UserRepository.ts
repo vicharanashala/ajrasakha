@@ -298,12 +298,12 @@ export class UserRepository implements IUserRepository {
     }));
   }
 
-  async findAll(session?: ClientSession, isTrainingUser?: boolean, isAdmin?: boolean): Promise<IUser[]> {
+  async findAll(session?: ClientSession, isTrainingUser?: boolean, canViewAllUsers?: boolean): Promise<IUser[]> {
     await this.init();
     const allUsers = await this.usersCollection.find(
       {
         ...(
-          !isAdmin &&
+          !canViewAllUsers &&
           (isTrainingUser
             ? { isTrainingUser: true }
             : { isTrainingUser: { $ne: true } })

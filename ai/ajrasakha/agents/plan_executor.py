@@ -12,6 +12,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMe
 from langchain_core.runnables import RunnableConfig, patch_config
 
 from ajrasakha.agents.location_context import (
+    extract_state_from_text,
     forward_geocode,
     gps_state_from_location,
     merge_location_dict,
@@ -27,6 +28,7 @@ from ajrasakha.agents.resolution_trace import trace_resolution, trace_thread_loc
 from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
+from ajrasakha.agents.user_location import maybe_persist_resolved_location
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.tool_registry import get_location_tool, get_main_tool_node, get_reviewer_tool
 
@@ -37,9 +39,28 @@ ENABLE_CHEMICAL_CHECKER = False
 
 _SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 _GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
-_WEATHER_TOOL_NAMES = frozenset({"weather", "weather_server", "weather_weather_server"})
+_WEATHER_TOOL_NAMES = frozenset({"weather", "new_weather", "weather_server", "weather_weather_server"})
+_DAILY_PRICE_TOOL_NAMES = frozenset({"daily_price"})
+_MANDI_UNAVAILABLE_MARKERS = (
+    "mandi price data is not available",
+    "price data is not available",
+    "no price records",
+    "no markets_commodities entries matched",
+    "no linked markets found",
+)
+_MANDI_MISSING_MARKERS = (
+    "apmc not available",
+    "mandi not available",
+    "market not available",
+    "market not found",
+)
+class MandiUnavailableContext(NamedTuple):
+    """Catalog fallback inputs derived from a failed daily-price result."""
 
-
+    reason: str
+    crop_name: str
+    mandi_name: str
+    
 def _compute_tools_used(plan: PlannerPlan) -> list[str]:
     """Compute the list of tools used based on plan flags.
     
@@ -244,6 +265,122 @@ def turn_has_unavailable_weather(messages: list[BaseMessage]) -> bool:
     return False
 
 
+def _current_turn_tool_messages(messages: list[BaseMessage]) -> list[ToolMessage]:
+    """Return only tool results produced after the latest farmer message."""
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+    if last_human_idx < 0:
+        return []
+    return [
+        msg
+        for msg in messages[last_human_idx + 1:]
+        if isinstance(msg, ToolMessage)
+    ]
+
+
+def _first_mandi_name(value: Any) -> str | None:
+    """Extract a concrete market/APMC name from the daily-price payload."""
+    if not isinstance(value, dict):
+        return None
+
+    for key in ("market_name", "mandi_name"):
+        candidate = value.get(key)
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+
+    resolution = value.get("resolution")
+    if isinstance(resolution, dict):
+        markets = resolution.get("nearest_markets")
+        if isinstance(markets, list):
+            for market in markets:
+                if isinstance(market, dict):
+                    name = market.get("name")
+                    if isinstance(name, str) and name.strip():
+                        return name.strip()
+
+    for key in ("markets", "price_records"):
+        rows = value.get(key)
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            for name_key in ("market_name", "mandi_name", "name"):
+                name = row.get(name_key)
+                if isinstance(name, str) and name.strip():
+                    return name.strip()
+    return None
+
+
+def _daily_price_unavailable_context(
+    message: ToolMessage,
+    plan: PlannerPlan,
+) -> MandiUnavailableContext | None:
+    """Classify a failed daily-price response into one of the two catalog cases."""
+    text = _message_to_text(message)
+    payload: dict[str, Any] | None = None
+    if text:
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                payload = parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    answer = ""
+    tool_data: Any = None
+    if payload is not None:
+        answer_value = payload.get("answer")
+        answer = answer_value.strip() if isinstance(answer_value, str) else ""
+        tool_data = payload.get("tool_data")
+    else:
+        answer = text
+
+    if isinstance(tool_data, dict) and answer:
+        if (tool_data.get("nearby_markets") or {}).get("price_records"):
+            return None
+
+    diagnostic = " ".join(
+        part
+        for part in (
+            answer,
+            json.dumps(tool_data, ensure_ascii=False, default=str) if tool_data is not None else "",
+        )
+        if part
+    ).lower()
+    is_unavailable = not answer or any(marker in diagnostic for marker in _MANDI_UNAVAILABLE_MARKERS)
+    if not is_unavailable:
+        return None
+
+    entities = plan.get("entities") or {}
+    crop_name = str(entities.get("crop") or "Crop").strip() or "Crop"
+    district = str(entities.get("district") or "").strip()
+    state = str(entities.get("state") or "").strip()
+    mandi_name = _first_mandi_name(tool_data) or district or state or "Mandi"
+    reason = (
+        "mandi_unavailable"
+        if any(marker in diagnostic for marker in _MANDI_MISSING_MARKERS)
+        else "crop_price_unavailable"
+    )
+    return MandiUnavailableContext(reason, crop_name, mandi_name)
+
+
+def mandi_unavailable_context(state: AjraSakhaState) -> MandiUnavailableContext | None:
+    """Return a catalog fallback context for this turn's unavailable mandi result."""
+    plan = state.get("plan") or {}
+    if not plan.get("mandi"):
+        return None
+    for message in _current_turn_tool_messages(state.get("messages") or []):
+        if (getattr(message, "name", None) or "") in _DAILY_PRICE_TOOL_NAMES:
+            context = _daily_price_unavailable_context(message, plan)
+            if context is not None:
+                return context
+    return None
+
+
 def _last_human_text(messages: list[BaseMessage]) -> str:
     for msg in reversed(messages):
         if isinstance(msg, HumanMessage):
@@ -349,6 +486,8 @@ def _entity_with_source(
     key: str,
     loc: Optional[Location],
     default: str,
+    *,
+    user_query: str = "",
 ) -> tuple[str, str]:
     entities = plan.get("entities") or {}
     loc = loc or {}
@@ -356,18 +495,27 @@ def _entity_with_source(
     if key in {"state", "district"}:
         if key in entities:
             val = entities.get(key)
-            if val is not None and str(val).strip() != "":
+            if val is not None and str(val).strip() != "" and str(val).strip().lower() not in _PLACEHOLDER_STATES:
                 return str(val).strip(), f"plan.entities.{key}"
 
     val = entities.get(key) if isinstance(entities, dict) else None
-    if val and str(val).strip():
+    if val and str(val).strip() and str(val).strip().lower() not in _PLACEHOLDER_STATES:
         return str(val).strip(), f"plan.entities.{key}"
 
-    # Do not fall back to thread GPS / reverse-geocoded place names for state or
-    # district — only plan.entities (farmer text, LLM, clarify carry-over).
-    # if key in {"state", "district"}:
-    #     if loc.get(key) and str(loc[key]).strip():
-    #         return str(loc[key]).strip(), f"location.{key}"
+    if key == "state":
+        query_text = (user_query or "").strip() or (plan.get("rephrased_query") or "").strip() or (plan.get("original_query_en") or "").strip()
+        if query_text:
+            extracted = extract_state_from_text(query_text)
+            if extracted:
+                return extracted, "query_text_extracted"
+
+    # Fallback to stored profile/location ONLY when query text has no location:
+    if key in {"state", "district"}:
+        loc_key = "city" if key == "district" else key
+        if loc.get(loc_key) and str(loc[loc_key]).strip():
+            candidate = str(loc[loc_key]).strip()
+            if candidate.lower() not in _PLACEHOLDER_STATES:
+                return candidate, f"location.{loc_key}"
 
     return default, "default"
 
@@ -388,6 +536,7 @@ def _resolve_reviewer_location(
     loc: Optional[Location],
     *,
     stage: str,
+    user_query: str = "",
 ) -> ResolvedToolEntities:
     """Resolve state, district, crop, domain for reviewer/specialist tool calls."""
     trace_thread_location(
@@ -421,8 +570,8 @@ def _resolve_reviewer_location(
         )
 
     loc = loc or {}
-    state_name, state_source = _entity_with_source(plan, "state", loc, "Not specified")
-    district, district_source = _entity_with_source(plan, "district", loc, "all")
+    state_name, state_source = _entity_with_source(plan, "state", loc, "Not specified", user_query=user_query)
+    district, district_source = _entity_with_source(plan, "district", loc, "all", user_query=user_query)
 
     # Do not infer district from GPS reverse-geocoded city — plan.entities only.
     # if district in {"", "Not specified", "unknown"} and has_gps_coordinates(loc) and loc.get("city"):
@@ -528,7 +677,7 @@ def build_reviewer_upload_calls(
     calls: list[dict[str, Any]] = []
     loc = location or {}
     if resolved is None:
-        resolved = _resolve_reviewer_location(plan, loc, stage="reviewer_upload")
+        resolved = _resolve_reviewer_location(plan, loc, stage="reviewer_upload", user_query=user_query)
     state_name = resolved.state
     district = resolved.district
     crop = resolved.crop
@@ -615,26 +764,52 @@ async def build_specialist_tool_calls_from_plan(
         plan_entities=entities,
         note="building specialist tool calls only (no reviewer upload)",
     )
-    resolved = _resolve_reviewer_location(plan, loc, stage="specialist_tool_batch")
+    resolved = _resolve_reviewer_location(plan, loc, stage="specialist_tool_batch", user_query=user_query)
     state_name = resolved.state
     district = resolved.district
     crop = resolved.crop
 
-    # Lat/lon only from forward-geocoding plan.entities — never thread GPS.
     lat: Optional[float] = None
     lon: Optional[float] = None
     addr: Optional[str] = None
+    lat_source: str = "unset"
     needs_coords = bool(
         plan.get("weather")
         or plan.get("knowledge_base")
         or plan.get("soil")
         or plan.get("mandi")
     )
-    if needs_coords and state_name.strip().lower() not in _PLACEHOLDER_STATES:
-        lat, lon, addr = await _coords_from_plan_entities(state_name, district)
+
+    curr_state_ent = entities.get("state")
+    curr_dist_ent = entities.get("district")
+    has_explicit_query_location = bool(
+        (curr_state_ent and str(curr_state_ent).strip().lower() not in _PLACEHOLDER_STATES)
+        or (curr_dist_ent and str(curr_dist_ent).strip().lower() not in _PLACEHOLDER_STATES)
+    )
+
+    if needs_coords:
+        if has_explicit_query_location:
+            # Priority 1: User explicitly asked about a specific place (e.g. "Varanasi weather")
+            lat, lon, addr = await _coords_from_plan_entities(state_name, district)
+            if lat is not None:
+                lat_source = "nominatim_forward_geocode"
+        elif loc.get("latitude") is not None and loc.get("longitude") is not None:
+            # Priority 2: Query has NO place (e.g. "Aaj barish?") -> Use user's GPS!
+            lat = float(loc["latitude"])
+            lon = float(loc["longitude"])
+            addr = loc.get("address") or loc.get("city") or loc.get("state")
+            lat_source = "thread_gps"
+        elif state_name.strip().lower() not in _PLACEHOLDER_STATES:
+            # Priority 3: No GPS coords, but user profile/home state/district is known
+            lat, lon, addr = await _coords_from_plan_entities(state_name, district)
+            if lat is not None:
+                lat_source = "nominatim_forward_geocode"
+
         if out_transient_location is not None and lat is not None and lon is not None:
-            out_transient_location["state"] = state_name
-            out_transient_location["city"] = district if district != "all" else None
+            effective_state = state_name if state_name.strip().lower() not in _PLACEHOLDER_STATES else loc.get("state")
+            effective_city = district if district != "all" and district.strip().lower() not in _PLACEHOLDER_STATES else loc.get("city")
+            out_transient_location["state"] = effective_state
+            out_transient_location["city"] = effective_city
             out_transient_location["latitude"] = lat
             out_transient_location["longitude"] = lon
             out_transient_location["address"] = addr
@@ -644,15 +819,12 @@ async def build_specialist_tool_calls_from_plan(
     home_state = gps_state_from_location(loc) or loc.get("state")
     home_city = loc.get("city")
 
-    curr_state_ent = entities.get("state")
-    curr_dist_ent = entities.get("district")
-
     if (lat is not None and lon is not None) or (home_state or home_city):
         if curr_state_ent and home_state and curr_state_ent.strip().lower() != home_state.strip().lower():
             is_custom_location = True
         elif curr_dist_ent and home_city and curr_dist_ent.strip().lower() != home_city.strip().lower() and curr_dist_ent.strip().lower() != "all":
             is_custom_location = True
-
+    
     if is_custom_location:
         state_to_geocode = curr_state_ent if curr_state_ent and curr_state_ent.strip().lower() not in {"all", "not specified", "unknown"} else None
         dist_to_geocode = district if district and district.strip().lower() not in {"all", "not specified", "unknown"} else None
@@ -667,6 +839,7 @@ async def build_specialist_tool_calls_from_plan(
             lat = custom_res.get("latitude")
             lon = custom_res.get("longitude")
             addr = custom_res.get("address")
+            lat_source = "nominatim_forward_geocode"
 
             resolved_state = custom_res.get("state")
             if resolved_state:
@@ -681,6 +854,7 @@ async def build_specialist_tool_calls_from_plan(
             lat = None
             lon = None
             addr = dist_to_geocode if dist_to_geocode else state_to_geocode
+            lat_source = "unset"
 
     trace_resolution(
         "specialist_tools_location",
@@ -692,15 +866,22 @@ async def build_specialist_tool_calls_from_plan(
         crop_source="final_for_specialist_tools",
         latitude=lat,
         longitude=lon,
-        lat_long_source="nominatim_forward_geocode" if lat is not None else "unset",
+        lat_long_source=lat_source if lat is not None else "unset",
         address=addr,
     )
 
     if plan.get("weather"):
+        weather_query = (
+            (plan.get("rephrased_query") or "").strip()
+            or (plan.get("original_query_en") or "").strip()
+            or user_query
+        )
         calls.append({
-            "name": "weather",
+            "name": "new_weather",
             "args": {
-                "query": user_query,
+                "query": weather_query,
+                "district": district if district and district.lower() not in {"all", "not specified", "unknown"} else None,
+                "state": state_name if state_name and state_name.lower() not in {"not specified", "unknown"} else None,
                 "latitude": lat,
                 "longitude": lon,
                 "address": addr,
@@ -818,7 +999,7 @@ async def build_specialist_tool_calls_from_plan(
         district_source=resolved.district_source,
         latitude=lat,
         longitude=lon,
-        lat_long_source="nominatim_forward_geocode" if lat is not None else "unset",
+        lat_long_source=lat_source if lat is not None else "unset",
     )
 
     return calls, resolved
@@ -875,12 +1056,14 @@ async def build_reviewer_upload_with_tools_used(
     """Build reviewer upload call with computed tools_used."""
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
+    if not reviewer_tool:
+        return []
     if not question_source:
         question_source = resolve_question_source(None)
     
     loc = location or {}
     if resolved is None:
-        resolved = _resolve_reviewer_location(plan, loc, stage="reviewer_upload_with_tools_used")
+        resolved = _resolve_reviewer_location(plan, loc, stage="reviewer_upload_with_tools_used", user_query=user_query)
     
     state_name = resolved.state
     district = resolved.district
@@ -1000,6 +1183,15 @@ async def ensure_location_node(
     if district_resolved and district_resolved.strip().lower() in {"all", "not specified", "unknown", "general", "none"}:
         district_resolved = None
 
+    # If coordinates already exist (from device GPS or MongoDB), skip external geocoding!
+    if loc.get("latitude") is not None and loc.get("longitude") is not None:
+        logger.info(
+            "ensure_location_node: Coordinates already present (lat=%s, lon=%s), skipping forward_geocode",
+            loc.get("latitude"),
+            loc.get("longitude"),
+        )
+        return {}
+
     if state_resolved or district_resolved:
         logger.info(
             "ensure_location_node: Geocoding home location for state=%s district=%s",
@@ -1021,6 +1213,20 @@ async def ensure_location_node(
             # Merge geocode result; do not retain client GPS coords on thread location.
             base = {k: v for k, v in (loc or {}).items() if k not in ("latitude", "longitude")}
             merged_loc = merge_location_dict(base, geocode_res)
+
+            user_id = resolve_user_id(config)
+            if user_id and geocode_res.get("latitude") is not None and geocode_res.get("longitude") is not None:
+                maybe_persist_resolved_location(
+                    user_id,
+                    state_resolved,
+                    district_resolved,
+                    latitude=geocode_res.get("latitude"),
+                    longitude=geocode_res.get("longitude"),
+                    thread_id=resolve_thread_id(config),
+                    state_source="plan.entities.state",
+                    district_source="plan.entities.district",
+                )
+
             trace_resolution(
                 "ensure_location_forward_geocode_result",
                 state=merged_loc.get("state"),
@@ -1067,6 +1273,8 @@ async def upload_reviewer_only_node(
 
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
+    if not reviewer_tool or not location_tool:
+        return {}
     question_source = resolve_question_source(config)
     thread_id = resolve_thread_id(config)
     user_id = resolve_user_id(config)
@@ -1317,6 +1525,7 @@ def _gdb_has_usable_data(messages: list[BaseMessage]) -> bool:
 
 _SPECIALIST_TOOL_NAMES = frozenset({
     "weather",
+    "new_weather",
     "daily_price",
     "market",
     "soil",
@@ -1361,6 +1570,8 @@ def route_after_execute(state: AjraSakhaState) -> str:
     messages = state.get("messages") or []
     if plan.get("weather") and turn_has_unavailable_weather(messages):
         return "weather_unavailable_reply"
+    if mandi_unavailable_context(state) is not None:
+        return "mandi_unavailable_reply"
     if plan.get("skip_synthesize"):
         return "translate_answer"
     if plan.get("is_greeting") or plan.get("reasoning") == "greeting":

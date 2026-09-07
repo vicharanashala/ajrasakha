@@ -72,21 +72,26 @@ for (const row of rows) {
 
   const group = chemicalMap.get(key)!;
 
-  // Skip rows with no alias value, or if it duplicates the chemical name itself
-  if (!alias || alias.toLowerCase() === name.toLowerCase()) continue;
+  // An alias cell may hold multiple trade names separated by commas/slashes — split them
+  // into separate aliases. Skip empties and any that duplicate the chemical name itself.
+  const aliasNames = alias
+    .split(/[,/]/)
+    .map(x => x.trim())
+    .filter(x => x && x.toLowerCase() !== name.toLowerCase());
 
-  const aliasEntry: ICropAlias = {
-    language: '',
-    region: '',
-    english_representation: alias.toLowerCase(),
-    native_representation: '',
-  };
-
-  // Deduplicate aliases within the group
-  const isDup = group.aliases.some(
-    a => a.english_representation === aliasEntry.english_representation,
-  );
-  if (!isDup) group.aliases.push(aliasEntry);
+  for (const aliasName of aliasNames) {
+    const aliasEntry: ICropAlias = {
+      language: '',
+      region: '',
+      english_representation: aliasName.toLowerCase(),
+      native_representation: '',
+    };
+    // Deduplicate aliases within the group
+    const isDup = group.aliases.some(
+      a => a.english_representation === aliasEntry.english_representation,
+    );
+    if (!isDup) group.aliases.push(aliasEntry);
+  }
 }
 
 // ── Process each unique chemical ─────────────────────────────────────────────
@@ -94,8 +99,11 @@ for (const row of rows) {
 let created = 0;
 let updated = 0;
 const errors: string[] = [];
+// Per-entry outcome for the downloadable results report.
+const results: { name: string; status: string; reason: string }[] = [];
 
 for (const [, group] of chemicalMap) {
+  // Chemicals allow any name (e.g. "2,4-D") — no special-character restriction.
   try {
     const existing = await cropRepo.findChemicalByNameOrAlias(group.name);
 
@@ -119,17 +127,22 @@ for (const [, group] of chemicalMap) {
         userId,
       );
       updated++;
+      results.push({ name: group.name, status: 'updated', reason: 'Merged aliases into existing chemical' });
     } else {
       await cropRepo.createCrop(group.name, userId, group.aliases, 'chemical', group.status);
       created++;
+      results.push({ name: group.name, status: 'created', reason: '' });
     }
 
     parentPort!.postMessage({ processed: 1 });
   } catch (err: any) {
     errors.push(`${group.name}: ${err.message}`);
+    results.push({ name: group.name, status: 'failed', reason: err.message });
     parentPort!.postMessage({ processed: 1, error: err.message });
   }
 }
 
-parentPort!.postMessage({ success: true, created, updated, errors });
-process.exit(0);
+parentPort!.postMessage({ success: true, created, updated, errors, results });
+// Let the final message flush to the parent before terminating (an immediate
+// process.exit races message delivery, dropping the created/updated/results payload).
+setTimeout(() => process.exit(0), 100);

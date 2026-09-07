@@ -133,43 +133,40 @@ export class ChatbotMetricsController {
     );
   }
 
-  @Get('/user-questions-data')
-  @HttpCode(200)
-  @Authorized()
-  async getUserQuestionsData(
-    @QueryParam('userEmail') userEmail: string,
+@Get('/user-questions-data')
+@HttpCode(200)
+@Authorized()
+async getUserQuestionsData(
+  @QueryParam('userEmail') userEmail: string,
 
-    @QueryParam('source')
-    source: string = 'annam',
+  @QueryParam('source')
+  source: string = 'annam',
 
-    @QueryParam('userType')
-    userType: string = 'all',
+  @QueryParam('userType')
+  userType: string = 'all',
 
-    @QueryParam('page')
-    page: number = 1,
+  @QueryParam('page')
+  page: number = 1,
 
-    @QueryParam('limit')
-    limit: number = 10,
-  ): Promise<any> {
-    // const userData =
-    //   await this.userService.getUserByEmail(userEmail);
+  @QueryParam('limit')
+  limit: number = 12,
 
-    // if (!userData) {
-    //   throw new Error(
-    //     'User not found with the provided email.',
-    //   );
-    // }
+  @QueryParam('startDate')
+  startDate?: string,
 
-    // const userId = userData._id.toString();
-
-    return await this.chatbotService.getUserQuestionsData(
-      userEmail,
-      source,
-      userType,
-      Number(page),
-      Number(limit),
-    );
-  }
+  @QueryParam('endDate')
+  endDate?: string,
+): Promise<any> {
+  return await this.chatbotService.getUserQuestionsData(
+    userEmail,
+    source,
+    userType,
+    Number(page),
+    Number(limit),
+    startDate,
+    endDate,
+  );
+}
 
   @Get('/user-message-metric-details')
   @HttpCode(200)

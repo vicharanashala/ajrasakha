@@ -29,6 +29,17 @@ export const useVerifyUser = () => {
         queryKey: ["admin"],
         exact: false,
       });
+
+      // The legacy /users/:id/verify endpoint and the analytics
+      // /analytics/verify-user/:userId endpoint both update the same user
+      // record, so the analytics user-details table must be invalidated here
+      // as well — otherwise a verify/unverify from the admin user-table leaves
+      // the dashboard table stale until a manual page refresh.
+      queryClient.invalidateQueries({
+        queryKey: ["user-details"],
+        exact: false,
+        refetchType: "all",
+      });
       toast.success("User verified successfully");
     },
     onError: (error: any) => {

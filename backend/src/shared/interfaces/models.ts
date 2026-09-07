@@ -83,6 +83,16 @@ export interface IUser {
   feedbacksAssigned?: (string | ObjectId)[] | null;
 }
 
+export interface IUserAdminEdit {
+  firstName: string;
+  lastName?: string;
+  avatar?: string;
+  preference?: IPreference | null;
+  mobile?: string;
+  university?: string;
+  kvkCovered?: IKVKCoveredItem[] | null;
+}
+
 export interface IUserRoleHistory {
   _id?: string | ObjectId;
   userId: string | ObjectId;
@@ -644,6 +654,9 @@ export interface ICrop {
   updatedBy?: ObjectId | string;
   createdAt?: Date;
   updatedAt?: Date;
+  /** Resolved "firstName lastName" for createdBy / updatedBy (populated on read). */
+  createdByName?: string;
+  updatedByName?: string;
 }
 
 export type ChemicalStatus = 'Restricted' | 'Banned';

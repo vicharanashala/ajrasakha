@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/atoms/checkbox";
 import { Input } from "@/components/atoms/input";
 import { StateMultiSelect } from "./atoms/StateMultiSelect";
 import { CropMultiSelect } from "./atoms/CropMultiSelect";
+import { DomainMultiSelect } from "./atoms/DomainMultiSelect";
 import {
   Filter,
   FileText,
@@ -111,7 +112,7 @@ export type AdvanceFilterValues = {
   dateRange: QuestionDateRangeFilter;
   user: string;
   assignedUser?: string;
-  domain: string;
+  domain: string; // multi-select stored as a comma-joined string ("all" = none)
   crop: string;
   crops?: string[]; // multi-select for expert Preferences filter
   normalised_crop: string;
@@ -412,15 +413,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
     })),
   ];
 
-  const domainOptions: SearchableFilterSelectOption[] = [
-    { value: "all", searchText: "All Domains", children: "All Domains" },
-    ...DOMAINS.map((domain) => ({
-      value: domain,
-      searchText: domain,
-      children: domain,
-    })),
-  ];
-
   const userOptions: SearchableFilterSelectOption[] = [
     { value: "all", searchText: "All Users", children: "All Users" },
     ...users.map((user) => ({
@@ -671,10 +663,19 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   <Globe className="h-4 w-4 text-primary" />
                   Domain
                 </Label>
-                <SearchableFilterSelect
-                  value={advanceFilter.domain}
-                  onValueChange={(v) => handleDialogChange("domain", v)}
-                  options={domainOptions}
+                <DomainMultiSelect
+                  selected={
+                    advanceFilter.domain && advanceFilter.domain !== "all"
+                      ? advanceFilter.domain.split(",").filter(Boolean)
+                      : []
+                  }
+                  onChange={(next) =>
+                    handleDialogChange(
+                      "domain",
+                      next.length > 0 ? next.join(",") : "all",
+                    )
+                  }
+                  searchable
                 />
               </div>
 

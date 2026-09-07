@@ -1,4 +1,4 @@
-"""Similar question detection API - based on embeddings only (no Gemma)."""
+"""Similar question detection API - based on embeddings with Gemma classification."""
 
 from __future__ import annotations
 
@@ -31,6 +31,26 @@ except ImportError:
         questions_collection,
     )
 
+try:
+    from .gemma_question_similarity import (
+        GEMMA_MODEL,
+        filter_similar_questions_batch,
+        classify_question_similarity,
+        select_best_similar_question,
+    )
+except ImportError:
+    from gemma_question_similarity import (
+        GEMMA_MODEL,
+        filter_similar_questions_batch,
+        classify_question_similarity,
+        select_best_similar_question,
+    )
+
+try:
+    from .query_preprocessor import preprocess_query, QuerySafety, AgricultureRelevance
+except ImportError:
+    from query_preprocessor import preprocess_query, QuerySafety, AgricultureRelevance
+
 load_dotenv()
 
 log = logging.getLogger(__name__)
@@ -47,12 +67,6 @@ class SimilarQuestionRequest(BaseModel):
         description="The question to find similar matches for",
         examples=["How to treat brown spot disease in rice?"],
     )
-    top_k: int = Field(
-        3,
-        ge=1,
-        le=10,
-        description="Maximum similar questions to return (default: 3, max: 10)",
-    )
 
 
 class SimilarQuestionItem(BaseModel):
@@ -63,6 +77,23 @@ class SimilarQuestionItem(BaseModel):
     similarity_score: float = Field(..., description="Similarity score from vector search (0-1)")
     match_type: str = Field(..., description="Match type: exact or semantic")
     chosen_for_answer: bool = Field(False, description="Whether this question was selected")
+    # Gemma classification fields
+    gemma_relevance_decision: Optional[str] = Field(
+        None,
+        description="Gemma's relevance decision: SAME, KEEP, or REJECT",
+    )
+    gemma_relevance_reason: Optional[str] = Field(
+        None,
+        description="Gemma's reason for the relevance decision",
+    )
+    gemma_classification: Optional[str] = Field(
+        None,
+        description="Gemma's classification: SAME, RELATED, or DIFFERENT",
+    )
+    gemma_classification_reason: Optional[str] = Field(
+        None,
+        description="Gemma's reason for the classification",
+    )
 
 
 class SimilarQuestionResponse(BaseModel):
@@ -80,6 +111,10 @@ class SimilarQuestionResponse(BaseModel):
         None,
         description="Question ID of the matched question if is_present=True",
     )
+    present_question_text: Optional[str] = Field(
+        None,
+        description="Question text of the matched question if is_present=True",
+    )
     present_answer_text: Optional[str] = Field(
         None,
         description="The answer text for the matched question (only if status=closed)",
@@ -96,14 +131,15 @@ class SimilarQuestionResponse(BaseModel):
         False,
         description="True if exact text match was found",
     )
-    similar_questions: list[SimilarQuestionItem] = Field(
-        default_factory=list,
-        description="List of up to top_k similar questions found in database",
-    )
     total_candidates_found: int = Field(0, description="Total candidates found by vector search")
-    audit: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Pipeline audit: search steps and results",
+    # Pre-query rejection fields (set when query fails safety/relevance check)
+    rejected: bool = Field(
+        False,
+        description="True if query was rejected at preprocessing step",
+    )
+    rejection_reason: Optional[str] = Field(
+        None,
+        description="Reason for rejection if rejected=True",
     )
 
 
@@ -341,70 +377,161 @@ async def _vector_search_all_statuses(
 
 async def find_similar_questions(
     question_text: str,
-    top_k: int = 3,
 ) -> dict[str, Any]:
     """
-    Find similar questions using ONLY embedding-based similarity.
+    Find similar questions using embedding-based similarity with Gemma classification.
     
-    NO exact match - purely semantic search.
-    Searches across ALL question statuses (closed + pending).
+    Pipeline:
+    0. Preprocess query (MiniMax 2.7 safety + relevance check)
+    1. Exact match check
+    2. Vector search for candidates
+    3. Gemma batch filtering (REJECT irrelevant)
+    4. Gemma classification (SAME/RELATED/DIFFERENT)
+    5. Select best match with Gemma tie-breaker
     """
     query = question_text.strip()
 
-    log.info("find_similar_questions: query=%r top_k=%d",
-             _truncate_text(query, 80), top_k)
+    log.info("find_similar_questions: query=%r",
+             _truncate_text(query, 80))
 
-    audit: dict[str, Any] = {
-        "query": query,
-        "steps": [],
-    }
+    # Step 0: Preprocess query (MiniMax 2.7 content safety + agriculture relevance)
+    log.info("Step 0: Query preprocessing (MiniMax 2.7)")
+    try:
+        preprocess_result = await preprocess_query(query)
+        
+        # If query cannot proceed, return rejection response early
+        if not preprocess_result.can_proceed:
+            log.info("find_similar_questions: query rejected at preprocess step")
+            return {
+                "query": query,
+                "is_present": False,
+                "present_status": None,
+                "present_question_id": None,
+                "present_question_text": None,
+                "present_answer_text": None,
+                "present_sources": [],
+                "present_author": None,
+                "exact_match_found": False,
+                "total_candidates_found": 0,
+                "rejected": True,
+                "rejection_reason": preprocess_result.rejection_reason,
+            }
+    except Exception as exc:
+        # If preprocessing fails, log and continue (fail open)
+        log.warning("query preprocessing failed: %s - continuing without preprocessing", exc)
 
-    # Pure vector search - no exact match
-    log.info("Vector search (all statuses, no crop/state filter)")
+    # Step 1: Exact match check
+    log.info("Step 1: Exact match check")
+    exact_match_result = await _check_exact_match(query)
+    exact_match_found = exact_match_result is not None
+
+    # Step 2: Vector search for candidates
+    log.info("Step 2: Vector search (all statuses, no crop/state filter)")
     try:
         vector_matches = await _vector_search_all_statuses(
             query=query,
-            top_k=top_k,
+            top_k=5,  # Fixed: always fetch 5 candidates for Gemma evaluation
         )
     except Exception as exc:
         log.warning("vector search failed: %s - returning empty", exc)
         vector_matches = []
 
-    audit["steps"].append({
-        "step": "vector_search",
-        "results_count": len(vector_matches),
-        "vector_results": [
-            {
-                "question_id": m.question_id,
-                "question": _truncate_text(m.question_text, 60),
-                "similarity_score": m.similarity_score,
-            }
-            for m in vector_matches[:5]
-        ],
-    })
-
     if not vector_matches:
-        log.info("find_similar_questions: no matches found")
+        log.info("find_similar_questions: no vector matches found")
+        if exact_match_result:
+            return await _build_exact_match_response(query, exact_match_result)
         return {
             "query": query,
             "is_present": False,
             "present_status": None,
             "present_question_id": None,
+            "present_question_text": None,
             "present_answer_text": None,
-            "present_sources": None,
+            "present_sources": [],
             "present_author": None,
-            "exact_match_found": False,
-            "similar_questions": [],
+            "exact_match_found": exact_match_found,
             "total_candidates_found": 0,
-            "audit": {**audit, "final_status": "no_matches"},
         }
 
-    # Build response with top-K results
-    log.info("Building response with top %d results", top_k)
+    # Step 3: Gemma batch filtering
+    log.info("Step 3: Gemma batch filtering (%d candidates)", len(vector_matches))
+    try:
+        filter_results = await filter_similar_questions_batch(query, vector_matches)
+    except Exception as exc:
+        log.warning("Gemma filter failed: %s - keeping all results", exc)
+        filter_results = [
+            {"relevance_decision": "KEEP", "relevance_reason": "Filter failed", "llm_parse_ok": False}
+            for _ in range(len(vector_matches))
+        ]
+
+    # Filter out rejected results
+    filtered_questions = [
+        (match, filter_result)
+        for match, filter_result in zip(vector_matches, filter_results)
+        if filter_result.get("relevance_decision") != "REJECT"
+    ]
+
+    log.info("After Gemma filter: %d -> %d (removed %d)",
+             len(vector_matches), len(filtered_questions),
+             len(vector_matches) - len(filtered_questions))
+
+    if not filtered_questions:
+        log.info("find_similar_questions: all results rejected by Gemma")
+        if exact_match_result:
+            return await _build_exact_match_response(query, exact_match_result)
+        return {
+            "query": query,
+            "is_present": False,
+            "present_status": None,
+            "present_question_id": None,
+            "present_question_text": None,
+            "present_answer_text": None,
+            "present_sources": [],
+            "present_author": None,
+            "exact_match_found": exact_match_found,
+            "total_candidates_found": len(vector_matches),
+        }
+
+    # Step 4: Gemma classification
+    log.info("Step 4: Gemma classification (%d candidates)", len(filtered_questions))
+    classifications = []
+    try:
+        for match, filter_result in filtered_questions:
+            cls_result = await classify_question_similarity(query, match)
+            cls_result["gemma_filter_decision"] = filter_result.get("relevance_decision")
+            cls_result["gemma_filter_reason"] = filter_result.get("relevance_reason")
+            classifications.append(cls_result)
+    except Exception as exc:
+        log.warning("Gemma classification failed: %s - defaulting all to RELATED", exc)
+        classifications = [
+            {"classification": "RELATED", "reason": "Classification failed", "llm_parse_ok": False}
+            for _ in range(len(filtered_questions))
+        ]
+
+    # Step 5: Select best match using Gemma
+    log.info("Step 5: Select best match")
+    matches_only = [match for match, _ in filtered_questions]
+    try:
+        best_match_result = await select_best_similar_question(query, matches_only, classifications)
+    except Exception as exc:
+        log.warning("Best match selection failed: %s - using top by score", exc)
+        best_match_result = None
+
+    # Build response with all results and Gemma metadata
+    log.info("Building response with Gemma metadata")
 
     similar_questions = []
-    for i, match in enumerate(vector_matches[:top_k]):
+    best_question_id = None
+    if best_match_result and best_match_result.get("question"):
+        best_question_id = getattr(best_match_result["question"], "question_id", None)
+
+    for ((match, filter_result), cls_result) in zip(filtered_questions, classifications):
+        # Skip DIFFERENT classifications - they are not relevant
+        if cls_result.get("classification") == "DIFFERENT":
+            continue
+        
         status = await _get_question_status(match.question_id)
+        is_best = (getattr(match, "question_id", None) == best_question_id)
 
         similar_questions.append({
             "question_id": match.question_id,
@@ -412,13 +539,45 @@ async def find_similar_questions(
             "status": status,
             "similarity_score": match.similarity_score or 0.0,
             "match_type": "semantic",
-            "chosen_for_answer": (i == 0),
+            "chosen_for_answer": is_best,
+            "gemma_relevance_decision": filter_result.get("relevance_decision"),
+            "gemma_relevance_reason": filter_result.get("relevance_reason"),
+            "gemma_classification": cls_result.get("classification"),
+            "gemma_classification_reason": cls_result.get("reason"),
         })
 
-    # Get answer details for top result if status is closed
+    # Sort by Gemma relevance (SAME first, then RELATED)
+    def _gemma_sort_key(item):
+        cls = item.get("gemma_classification", "RELATED")
+        if cls == "SAME":
+            return 0
+        return 1  # RELATED
+
+    similar_questions.sort(key=_gemma_sort_key)
+
+    # If all results were DIFFERENT, return no match
+    if not similar_questions:
+        log.info("find_similar_questions: all results classified as DIFFERENT by Gemma")
+        if exact_match_result:
+            return await _build_exact_match_response(query, exact_match_result)
+        return {
+            "query": query,
+            "is_present": False,
+            "present_status": None,
+            "present_question_id": None,
+            "present_question_text": None,
+            "present_answer_text": None,
+            "present_sources": [],
+            "present_author": None,
+            "exact_match_found": exact_match_found,
+            "total_candidates_found": len(vector_matches),
+        }
+
+    # Get answer details for best result if status is closed
     top_result = similar_questions[0]
     present_status = top_result["status"]
     present_question_id = top_result["question_id"]
+    present_question_text = top_result["question_text"]
 
     present_answer_text = None
     present_sources = None
@@ -440,16 +599,13 @@ async def find_similar_questions(
         present_sources = sources or []
         present_author = author_name
 
-    audit["final_status"] = "completed"
-    audit["is_present"] = True
-    audit["total_candidates_found"] = len(vector_matches)
-
     log.info(
-        "find_similar_questions: done candidates_found=%d results=%d top_score=%.4f status=%s",
+        "find_similar_questions: done candidates_found=%d results=%d top_score=%.4f status=%s gemma_class=%s",
         len(vector_matches),
         len(similar_questions),
         top_result["similarity_score"],
         present_status,
+        top_result.get("gemma_classification"),
     )
 
     return {
@@ -457,12 +613,61 @@ async def find_similar_questions(
         "is_present": True,
         "present_status": present_status,
         "present_question_id": present_question_id,
+        "present_question_text": present_question_text,
         "present_answer_text": present_answer_text,
         "present_sources": present_sources or [],
         "present_author": present_author,
         "exact_match_found": False,
-        "similar_questions": similar_questions,
         "total_candidates_found": len(vector_matches),
-        "audit": audit,
+    }
+
+
+async def _check_exact_match(query: str) -> Optional[Any]:
+    """Check if an exact match exists in the database."""
+    normalized = re.sub(r'\s+', ' ', query.strip()).lower()
+    try:
+        doc = await questions_collection.find_one(
+            {
+                "question_text": {"$regex": f"^{re.escape(normalized)}$", "$options": "i"},
+                "status": {"$nin": list(PENDING_DUPLICATE_STATUSES)},
+            }
+        )
+        if doc:
+            return type('obj', (object,), {
+                'question_id': str(doc['_id']),
+                'question_text': doc.get('question_text', ''),
+                'status': doc.get('status', 'unknown'),
+            })()
+    except Exception as exc:
+        log.warning("Exact match check failed: %s", exc)
+    return None
+
+
+async def _build_exact_match_response(query: str, exact_match: Any) -> dict:
+    """Build response for exact match case."""
+    present_question_id = exact_match.question_id
+    present_question_text = exact_match.question_text
+    present_status = exact_match.status
+
+    present_answer_text = None
+    present_sources = None
+    present_author = None
+    if present_status == "closed":
+        answer_text, sources, author_name = await _get_answer_text_sources_and_author_name(present_question_id)
+        present_answer_text = answer_text
+        present_sources = sources or []
+        present_author = author_name
+
+    return {
+        "query": query,
+        "is_present": True,
+        "present_status": present_status,
+        "present_question_id": present_question_id,
+        "present_question_text": present_question_text,
+        "present_answer_text": present_answer_text,
+        "present_sources": present_sources or [],
+        "present_author": present_author,
+        "exact_match_found": True,
+        "total_candidates_found": 1,
     }
 

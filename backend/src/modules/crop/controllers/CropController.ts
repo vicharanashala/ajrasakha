@@ -61,6 +61,17 @@ export class CropController {
     private readonly auditTrailsService: IAuditTrailsService,
   ) {}
 
+  /**
+   * Audit context for any AgriTech entry (crop / chemical / other) — one common shape:
+   * `agriTechId` / `agriTechName`. The fetch (getAuditTrailsByCropId) matches this key.
+   */
+  private entryAuditContext(id?: string, name?: string): Record<string, any> {
+    const ctx: Record<string, any> = {};
+    if (id !== undefined) ctx.agriTechId = id;
+    if (name !== undefined) ctx.agriTechName = name;
+    return ctx;
+  }
+
   // ─── GET ALL CROPS ───────────────────────────────────────────────────────
 
   @OpenAPI({
@@ -328,9 +339,7 @@ export class CropController {
     } catch(err: any) {
       auditPayload = {
         ...auditPayload,
-        context: {
-          cropName: body.name,
-        },
+        context: this.entryAuditContext(undefined, body.name),
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: err?.errorCode || 'INTERNAL_ERROR',
@@ -347,10 +356,7 @@ export class CropController {
     }
     auditPayload = {
       ...auditPayload,
-      context: {
-        cropId: crop._id.toString(),
-        cropName: crop.name,
-      },
+      context: this.entryAuditContext(crop._id.toString(), crop.name),
       changes: {
         after: { name: crop.name },
       },
@@ -431,9 +437,8 @@ export class CropController {
       auditPayload = {
         ...auditPayload,
         context: {
-          ...auditPayload.context,
+          ...this.entryAuditContext(cropId, previousCrop?.name),
           aliases: body.aliases,
-          cropName: previousCrop?.name,
         },
         outcome: {
           status: OutComeStatus.FAILED,
@@ -455,10 +460,7 @@ export class CropController {
     if (!updated) {
       auditPayload = {
         ...auditPayload,
-        context: {
-          ...auditPayload.context,
-          cropName: previousCrop?.name,
-        },
+        context: this.entryAuditContext(cropId, previousCrop?.name),
         outcome: {
           status: OutComeStatus.FAILED,
           errorCode: 'NOT_FOUND',
@@ -471,24 +473,101 @@ export class CropController {
       throw new NotFoundError(`Crop with id "${cropId}" not found`);
     }
 
-    auditPayload = {
-      ...auditPayload,
-      context: {
-        ...auditPayload.context,
-        cropName: updated.name,
-      },
-      changes: {
-        before: {
-          aliases: previousCrop?.aliases,
-          name: previousCrop?.name,
-        },
-        after: {
-          ...body,
-          name: updated.name,
-        },
-      },
+    // The lumped UPDATE_CROP success entry is intentionally NOT recorded — alias changes
+    // are captured as separate CREATE_ALIAS / UPDATE_ALIAS / DELETE_ALIAS entries below.
+    // (Failure UPDATE_CROP entries above are kept so errors are still traceable.)
+
+    // ── Granular alias audit trails: one entry per created / updated / deleted alias.
+    // Aliases have no stable id AND some (e.g. chemical trade names) share the same
+    // language/region, so a full-snapshot MULTISET diff is used to find exact additions /
+    // removals. Removed and added are then paired by a MEANINGFUL identity (non-empty
+    // language|region) to classify a text edit as UPDATE; anything unpaired is CREATE/DELETE.
+    const aliasSnapshot = (a: any): string =>
+      typeof a === 'string'
+        ? `legacy::${a}`
+        : JSON.stringify({
+            language: a?.language ?? '',
+            region: a?.region ?? '',
+            english_representation: a?.english_representation ?? '',
+            native_representation: a?.native_representation ?? '',
+          });
+    const aliasIdentity = (a: any): string =>
+      typeof a === 'string' ? '' : `${a?.language ?? ''}||${a?.region ?? ''}`;
+
+    const prevList = (previousCrop?.aliases as any[]) ?? [];
+    const nextList = (updated?.aliases as any[]) ?? [];
+
+    // Group by exact snapshot so identical duplicates are counted, not collapsed.
+    const prevSnaps = new Map<string, any[]>();
+    for (const a of prevList) {
+      const k = aliasSnapshot(a);
+      (prevSnaps.get(k) ?? prevSnaps.set(k, []).get(k)!).push(a);
     }
-    this.auditTrailsService.createAuditTrail(auditPayload);
+    const nextSnaps = new Map<string, any[]>();
+    for (const a of nextList) {
+      const k = aliasSnapshot(a);
+      (nextSnaps.get(k) ?? nextSnaps.set(k, []).get(k)!).push(a);
+    }
+
+    // Exact removals / additions (multiset difference by snapshot).
+    const removed: any[] = [];
+    for (const [k, arr] of prevSnaps) {
+      const keep = nextSnaps.get(k)?.length ?? 0;
+      for (let i = keep; i < arr.length; i++) removed.push(arr[i]);
+    }
+    const added: any[] = [];
+    for (const [k, arr] of nextSnaps) {
+      const keep = prevSnaps.get(k)?.length ?? 0;
+      for (let i = keep; i < arr.length; i++) added.push(arr[i]);
+    }
+
+    // Pair a removed + added sharing a meaningful identity → an UPDATE (text edit).
+    const updates: { before: any; after: any }[] = [];
+    const usedAdded = new Set<number>();
+    const pairedRemoved = new Set<any>();
+    for (const r of removed) {
+      const rid = aliasIdentity(r);
+      if (!rid || rid === '||') continue;
+      const idx = added.findIndex(
+        (a, i) => !usedAdded.has(i) && aliasIdentity(a) === rid,
+      );
+      if (idx >= 0) {
+        usedAdded.add(idx);
+        pairedRemoved.add(r);
+        updates.push({ before: r, after: added[idx] });
+      }
+    }
+    const creates = added.filter((_, i) => !usedAdded.has(i));
+    const deletes = removed.filter(r => !pairedRemoved.has(r));
+
+    const aliasAuditBase = {
+      category: AuditCategory.CROP_MANAGEMENT,
+      actor: auditPayload.actor,
+      context: this.entryAuditContext(cropId, updated.name),
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+
+    for (const alias of creates) {
+      this.auditTrailsService.createAuditTrail({
+        ...aliasAuditBase,
+        action: AuditAction.CREATE_ALIAS,
+        changes: { after: { alias } },
+      } as ModeratorAuditTrail);
+    }
+    for (const u of updates) {
+      this.auditTrailsService.createAuditTrail({
+        ...aliasAuditBase,
+        action: AuditAction.UPDATE_ALIAS,
+        changes: { before: { alias: u.before }, after: { alias: u.after } },
+      } as ModeratorAuditTrail);
+    }
+    for (const alias of deletes) {
+      this.auditTrailsService.createAuditTrail({
+        ...aliasAuditBase,
+        action: AuditAction.DELETE_ALIAS,
+        changes: { before: { alias } },
+      } as ModeratorAuditTrail);
+    }
 
     return {
       success: true,
