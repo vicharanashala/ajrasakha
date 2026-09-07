@@ -443,6 +443,8 @@ export interface SourceItem {
   sourceName?: string;
   source: string;
   page?: string | number;
+  organization?: string;
+  sourceReference?: string;
 }
 export interface PreviousAnswersItem {
   modifiedBy: string

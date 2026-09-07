@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Search, Link as LinkIcon, Eye } from "lucide-react";
+import { toast } from "sonner";
+import { Search, Link as LinkIcon, Eye, Pencil } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
@@ -10,14 +11,46 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/atoms/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/atoms/select";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import Spinner from "@/components/atoms/spinner";
 import { QuestionIdLink } from "@/features/chatbotDashboard/components/QuestionIdLink";
 import { Pagination } from "./pagination";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
 import { useDebounce } from "@/hooks/ui/useDebounce";
-import type { ClosedAnswer, SourceItem } from "@/types";
+import type { ClosedAnswer, SourceItem, SourceType } from "@/types";
+
+const EDIT_SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
+  { value: "hyper_local", label: "Hyper Local" },
+  { value: "state", label: "State" },
+  { value: "central", label: "Central" },
+  { value: "other", label: "Other" },
+];
+
+const EMPTY_SOURCE_FORM: SourceItem = {
+  source: "",
+  sourceType: undefined,
+  sourceName: "",
+  page: "",
+  organization: "",
+  sourceReference: "",
+};
+
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  hyper_local: "Hyper Local",
+  state: "State",
+  central: "Central",
+  MODERATOR_REVIEW: "Moderator Review",
+  other: "Other",
+};
 
 const isUrl = (value: string) => /^https?:\/\//i.test(value);
 
@@ -179,6 +212,171 @@ const SourcesList = ({ sources }: { sources: SourceItem[] }) => {
 
 const CARD_HEIGHT = "h-[380px]";
 
+const CurrentSourceDetails = ({ source }: { source: SourceItem }) => (
+  <div className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source</p>
+      <p className="break-all text-foreground/90">{source.source || "—"}</p>
+    </div>
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Type</p>
+      <p className="text-foreground/90">
+        {source.sourceType ? SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType : "—"}
+      </p>
+    </div>
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Page</p>
+      <p className="text-foreground/90">{source.page ?? "—"}</p>
+    </div>
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Name</p>
+      <p className="text-foreground/90">{source.sourceName || "—"}</p>
+    </div>
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Organization</p>
+      <p className="text-foreground/90">{source.organization || "—"}</p>
+    </div>
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Reference</p>
+      <p className="text-foreground/90">{source.sourceReference || "—"}</p>
+    </div>
+  </div>
+);
+
+const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<SourceItem>(EMPTY_SOURCE_FORM);
+
+  const updateField = (field: keyof SourceItem, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setForm(EMPTY_SOURCE_FORM);
+    }
+    setOpen(nextOpen);
+  };
+
+  const handleSave = () => {
+    // NOTE: frontend-only for now — saving into the new_sources collection
+    // (without touching the answer's own sources) will be wired up once
+    // that backend endpoint exists.
+    toast.success("Source details captured (not yet saved — backend update pending).");
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="flex-1 shrink-0">
+          <Pencil className="h-3.5 w-3.5" />
+          Edit Source
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="flex h-[85vh] w-[90vw] max-w-lg flex-col overflow-hidden">
+        <DialogHeader className="shrink-0 border-b pb-3">
+          <DialogTitle>Edit Source</DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="grid gap-4 pr-4">
+            <div className="grid gap-2">
+              <p className="text-xs font-semibold text-foreground/80">
+                Current Source{(answer.sources?.length ?? 0) > 1 ? "s" : ""}
+              </p>
+              {answer.sources && answer.sources.length > 0 ? (
+                <div className="grid gap-2">
+                  {answer.sources.map((source, idx) => (
+                    <CurrentSourceDetails key={idx} source={source} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No source set yet.</p>
+              )}
+            </div>
+
+            <div className="grid gap-3 border-t border-border/60 pt-3">
+              <p className="text-xs font-semibold text-foreground/80">Add Source Details</p>
+
+              <div className="grid gap-1.5">
+                <label className="text-xs font-medium text-foreground/80">Source</label>
+                <Input
+                  value={form.source}
+                  onChange={(e) => updateField("source", e.target.value)}
+                  placeholder="Source URL or name"
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <label className="text-xs font-medium text-foreground/80">Source Type</label>
+                <Select
+                  value={form.sourceType ?? ""}
+                  onValueChange={(val) => updateField("sourceType", val)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select source type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EDIT_SOURCE_TYPE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-1.5">
+                <label className="text-xs font-medium text-foreground/80">Page</label>
+                <Input
+                  value={form.page ?? ""}
+                  onChange={(e) => updateField("page", e.target.value)}
+                  placeholder="e.g. 1 or 1,2,3"
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <label className="text-xs font-medium text-foreground/80">Source Name</label>
+                <Input
+                  value={form.sourceName ?? ""}
+                  onChange={(e) => updateField("sourceName", e.target.value)}
+                  placeholder="Display name for the source"
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <label className="text-xs font-medium text-foreground/80">Organization</label>
+                <Input
+                  value={form.organization ?? ""}
+                  onChange={(e) => updateField("organization", e.target.value)}
+                  placeholder="Owning organization"
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <label className="text-xs font-medium text-foreground/80">Source Reference</label>
+                <Input
+                  value={form.sourceReference ?? ""}
+                  onChange={(e) => updateField("sourceReference", e.target.value)}
+                  placeholder="Citation or reference note"
+                />
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+        <DialogFooter className="shrink-0 border-t pt-3">
+          <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={handleSave}>
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const ClosedAnswerCard = ({ answer }: { answer: ClosedAnswer }) => {
   return (
     <div className={`flex ${CARD_HEIGHT} flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm`}>
@@ -197,33 +395,37 @@ const ClosedAnswerCard = ({ answer }: { answer: ClosedAnswer }) => {
         <SourcesList sources={answer.sources} />
       </div>
 
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="w-full shrink-0">
-            <Eye className="h-3.5 w-3.5" />
-            View More
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="flex h-[80vh] w-[90vw] max-w-2xl flex-col">
-          <DialogHeader className="shrink-0 border-b pb-3">
-            <DialogTitle>Answer Details</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="flex-1">
-            <div className="space-y-4 pr-4">
-              <AnswerMetaPanel answer={answer} showBothStatuses={true} />
-              <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words">
-                {formatAiTags(answer.answer)}
-              </p>
-              <div className="border-t border-border/60 pt-3">
-                <p className="mb-1.5 text-xs font-semibold text-foreground/80">
-                  Sources {answer.sources?.length ? `(${answer.sources.length})` : ""}
+      <div className="flex shrink-0 gap-2">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="flex-1 shrink-0">
+              <Eye className="h-3.5 w-3.5" />
+              View More
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="flex h-[80vh] w-[90vw] max-w-2xl flex-col overflow-hidden">
+            <DialogHeader className="shrink-0 border-b pb-3">
+              <DialogTitle>Answer Details</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="space-y-4 pr-4">
+                <AnswerMetaPanel answer={answer} showBothStatuses={true} />
+                <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words">
+                  {formatAiTags(answer.answer)}
                 </p>
-                <SourcesList sources={answer.sources} />
+                <div className="border-t border-border/60 pt-3">
+                  <p className="mb-1.5 text-xs font-semibold text-foreground/80">
+                    Sources {answer.sources?.length ? `(${answer.sources.length})` : ""}
+                  </p>
+                  <SourcesList sources={answer.sources} />
+                </div>
               </div>
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
+        <EditSourceDialog answer={answer} />
+      </div>
     </div>
   );
 };
