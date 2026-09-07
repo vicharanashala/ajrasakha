@@ -1,0 +1,176 @@
+# ============================================================
+# Environment and Secrets - NEVER COMMIT
+# ============================================================
+.env
+.env.local
+.env.production
+.env.*.local
+
+# API keys and credentials
+*.pem
+*.key
+*.crt
+credentials.json
+secrets.json
+*.secret
+
+# ============================================================
+# Python - Byte-compiled & Generated
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# ============================================================
+# Testing & Coverage
+# ============================================================
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+
+# ============================================================
+# IDE & Editor
+# ============================================================
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# PyCharm
+.spyderproject
+.spyproject
+
+# ============================================================
+# Project-Specific Runtime Artifacts
+# ============================================================
+
+# Generated logs
+*.log
+logs/
+
+# Batch processing state
+.batch_state.json
+batch_state.json
+
+# Failed processing IDs
+failed_qa_ids.json
+failed_ids.json
+
+# Sample outputs and CSVs
+sample*.csv
+*_sample.csv
+minimax_sample.csv
+export*.csv
+
+# Benchmark outputs
+benchmark_results.json
+performance_metrics.json
+minimax_benchmark.log
+ffv_generation.log
+
+# Data files
+data/
+*.csv
+*.json
+*.jsonl
+*.parquet
+*.feather
+
+# Database dumps
+*.dump
+*.sql.bak
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+.tmp.*
+
+# Local config overrides
+local_settings.py
+
+# ============================================================
+# Documentation builds
+# ============================================================
+site/
+_build/
+
+# ============================================================
+# OS-specific
+# ============================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ============================================================
+# Git (don't commit these)
+# ============================================================
+# This file itself shouldn't be tracked if you want to override it
+# (but it's good practice to track a template)
+# .gitignore.global
+# .gitignore.local
