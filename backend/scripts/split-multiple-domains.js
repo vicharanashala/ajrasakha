@@ -17,7 +17,7 @@
  * SAFETY: dry-run by default — it only writes when you pass --apply.
  *
  * Usage:
- *   node scripts/split-multiple-domains.js            # dry run (shows a sample + counts)
+ *   node scripts/split-multiple-domains.js            # dry run (writes all changes to a JSON file)
  *   node scripts/split-multiple-domains.js --apply    # performs the update
  *   node scripts/split-multiple-domains.js --limit=20 # cap how many are processed
  *
@@ -25,6 +25,8 @@
  */
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
+import fs from 'fs';
+import path from 'path';
 
 const DB_URL = process.env.DB_URL;
 const DB_NAME = process.env.DB_NAME || 'agriai';
@@ -36,6 +38,41 @@ if (!DB_URL) {
 const APPLY = process.argv.includes('--apply');
 const limitArg = process.argv.find(a => a.startsWith('--limit='));
 const LIMIT = limitArg ? Math.max(0, parseInt(limitArg.slice('--limit='.length), 10) || 0) : 0;
+
+/** Standardized domain list (from prompts.py domain taxonomy) - used for case-insensitive comparison */
+const STANDARDIZED_DOMAINS = [
+  'Soil Health and Nutrient Management',
+  'Irrigation and Water Management',
+  'Insect - Pest Management',
+  'Disease Management',
+  'Seed and Variety Selection',
+  'Cultural and Crop Management Practices',
+  'Organic and Natural Farming',
+  'Weed Management',
+  'Climate, Weather & Stress Management',
+  'Farm Tools & Mechanisation',
+  'Post-Harvest Management & Storage',
+  'Market Prices, MSP & Marketing',
+  'Agricultural Schemes & Subsidies',
+  'Credit, Loan & Insurance',
+  'Capacity Building & Extension',
+  'Rural Infrastructure',
+  'Animal Husbandry & Livestock',
+  'Fisheries & Aquaculture',
+  'Horticulture & Landscaping',
+  'Allied Agricultural Activities',
+  'Others',
+  'NA / Invalid Data',
+];
+
+// Create lowercase version for comparison
+const STANDARDIZED_DOMAINS_LOWER = STANDARDIZED_DOMAINS.map(d => d.toLowerCase());
+
+/** Check if a domain matches any standardized domain (case-insensitive) */
+const isStandardizedDomain = domain => {
+  if (!domain || typeof domain !== 'string') return false;
+  return STANDARDIZED_DOMAINS_LOWER.includes(domain.toLowerCase().trim());
+};
 
 /** Normalize a raw details.domain (string OR array) into a clean, split array.
  *  Splits every value on "|", strips an optional leading "Multiple Domains:" label,
@@ -80,13 +117,13 @@ try {
   }
 
   let cursor = questions.find(filter, {
-    projection: { 'details.domain': 1 },
+    projection: { 'details.domain': 1, createdAt: 1 },
   });
   if (LIMIT) cursor = cursor.limit(LIMIT);
 
   const ops = [];
   let skippedNoChange = 0;
-  let previewShown = 0;
+  const allChanges = [];
 
   for await (const doc of cursor) {
     const before = doc.details?.domain;
@@ -97,12 +134,16 @@ try {
       continue;
     }
 
-    if (previewShown < 10) {
-      console.log(
-        `  ${doc._id}: ${JSON.stringify(before)}  →  ${JSON.stringify(after)}`,
-      );
-      previewShown++;
-    }
+    // Check for non-standardized domains (case-insensitive)
+    const nonStandardizedDomains = after.filter(d => !isStandardizedDomain(d));
+
+    allChanges.push({
+      _id: doc._id.toString(),
+      before,
+      after,
+      createdAt: doc.createdAt ? doc.createdAt.toISOString() : null,
+      nonStandardizedDomains,
+    });
 
     ops.push({
       updateOne: {
@@ -116,6 +157,29 @@ try {
   console.log(`Unchanged : ${skippedNoChange}`);
 
   if (!APPLY) {
+    // Write all changes to a JSON file
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `split-multiple-domains-${timestamp}.json`;
+    const filepath = path.join(process.cwd(), filename);
+
+    // Count questions with non-standardized domains
+    const questionsWithNonStandardized = allChanges.filter(c => c.nonStandardizedDomains.length > 0).length;
+
+    const output = {
+      generatedAt: new Date().toISOString(),
+      summary: {
+        totalToUpdate: ops.length,
+        totalUnchanged: skippedNoChange,
+        questionsWithNonStandardizedDomains: questionsWithNonStandardized,
+      },
+      changes: allChanges,
+    };
+
+    fs.writeFileSync(filepath, JSON.stringify(output, null, 2), 'utf8');
+    console.log(`\n📄 All ${allChanges.length} changes written to: ${filename}`);
+    if (questionsWithNonStandardized > 0) {
+      console.log(`⚠️  ${questionsWithNonStandardized} question(s) have non-standardized domains - check 'nonStandardizedDomains' field in the JSON`);
+    }
     console.log('\nDRY RUN — no writes performed. Re-run with --apply to update.');
     process.exit(0);
   }

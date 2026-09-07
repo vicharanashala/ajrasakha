@@ -1,0 +1,1691 @@
+{
+  "generatedAt": "2026-08-17T13:08:48.784Z",
+  "summary": {
+    "totalToUpdate": 139,
+    "totalUnchanged": 0,
+    "questionsWithNonStandardizedDomains": 1
+  },
+  "changes": [
+    {
+      "_id": "6a7ed159e8a4bd0227231968",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T08:27:05.818Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef82eec09de81f1d9cbfa",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T11:12:46.254Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef8a2ec09de81f1d9cc6a",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T11:14:42.262Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef8b3ec09de81f1d9cc8f",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T11:14:59.729Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7f21effcc9b76154014874",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T14:10:55.539Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7efa50ec09de81f1d9cd44",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Capacity Building, Extension and Communication"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Capacity Building, Extension and Communication"
+      ],
+      "createdAt": "2026-08-14T11:21:52.863Z",
+      "nonStandardizedDomains": [
+        "Capacity Building, Extension and Communication"
+      ]
+    },
+    {
+      "_id": "6a7e67dda1f609f68bec471e",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T00:57:01.033Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e65bda1f609f68bec46ce",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T00:47:57.882Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e7aa2a1f609f68bec4ca4",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T02:17:06.202Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e9a08a1f609f68bec55a0",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T04:31:04.522Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7eae52a1f609f68bec5c3e",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T05:57:38.860Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7eb4d1a1f609f68bec5d75",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T06:25:21.205Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ec6965fe1e22b9e7b698c",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T07:41:10.764Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ed831e8a4bd0227231b84",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T08:56:17.435Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ed85fe8a4bd0227231bab",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T08:57:03.465Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef435ec09de81f1d9ca9b",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T10:55:49.284Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef85bec09de81f1d9cc42",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T11:13:31.229Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82b21fb3f0ae473c489415",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T07:02:55.632Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82c5c7b3f0ae473c4896aa",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T08:26:47.812Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82c985b3f0ae473c489764",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T08:42:45.646Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82cc3bb3f0ae473c48983d",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T08:54:19.743Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82cd4db3f0ae473c489846",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T08:58:53.253Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82cdceb3f0ae473c489883",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T09:01:02.455Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82cfceb3f0ae473c4898f7",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T09:09:34.038Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82d0f7b3f0ae473c489926",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T09:14:31.005Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82d13ab3f0ae473c48994d",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T09:15:38.844Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82ea95b3f0ae473c48a191",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T11:03:49.938Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82ed15b3f0ae473c48a1e3",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T11:14:29.703Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e7ad6a1f609f68bec4cab",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T02:17:58.992Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e9995a1f609f68bec5572",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T04:29:09.568Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ecf30e8a4bd02272318ba",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T08:17:52.092Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ed6bfe8a4bd0227231a93",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T08:50:07.355Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ed9e5e8a4bd0227231c24",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T09:03:33.658Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef800ec09de81f1d9cbd4",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T11:12:00.854Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7edacee8a4bd0227231c9a",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Irrigation and Water Management",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T09:07:26.693Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef4aeec09de81f1d9caf0",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Irrigation and Water Management",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T10:57:50.503Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef507ec09de81f1d9cb1c",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Irrigation and Water Management",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-14T10:59:19.125Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82d29db3f0ae473c489990",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management | Farm Tools & Mechanisation"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Irrigation and Water Management",
+        "Farm Tools & Mechanisation"
+      ],
+      "createdAt": "2026-08-17T09:21:33.358Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef054ec09de81f1d9c80f",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management | Post-Harvest Management & Storage"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Irrigation and Water Management",
+        "Post-Harvest Management & Storage"
+      ],
+      "createdAt": "2026-08-14T10:39:16.369Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e6544a1f609f68bec4672",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Organic and Natural Farming"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Organic and Natural Farming"
+      ],
+      "createdAt": "2026-08-14T00:45:56.837Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7f5cf9fcc9b76154014f1c",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Organic and Natural Farming"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Organic and Natural Farming"
+      ],
+      "createdAt": "2026-08-14T18:22:49.242Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82b0f9b3f0ae473c489413",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Organic and Natural Farming"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Organic and Natural Farming"
+      ],
+      "createdAt": "2026-08-17T06:58:01.301Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e67cca1f609f68bec46fb",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Post-Harvest Management & Storage"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Post-Harvest Management & Storage"
+      ],
+      "createdAt": "2026-08-14T00:56:44.119Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7edc3ae8a4bd0227231ce7",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Post-Harvest Management & Storage"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Post-Harvest Management & Storage"
+      ],
+      "createdAt": "2026-08-14T09:13:30.102Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82e83db3f0ae473c48a114",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Post-Harvest Management & Storage"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Post-Harvest Management & Storage"
+      ],
+      "createdAt": "2026-08-17T10:53:49.018Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82ece9b3f0ae473c48a1dc",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Post-Harvest Management & Storage"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Post-Harvest Management & Storage"
+      ],
+      "createdAt": "2026-08-17T11:13:45.678Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82eda8b3f0ae473c48a1f5",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Post-Harvest Management & Storage"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Post-Harvest Management & Storage"
+      ],
+      "createdAt": "2026-08-17T11:16:56.522Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e7bdea1f609f68bec4cef",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Seed and Variety Selection"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Seed and Variety Selection"
+      ],
+      "createdAt": "2026-08-14T02:22:22.960Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e98c1a1f609f68bec5542",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Seed and Variety Selection"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Seed and Variety Selection"
+      ],
+      "createdAt": "2026-08-14T04:25:37.016Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef48fec09de81f1d9caca",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Seed and Variety Selection"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Seed and Variety Selection"
+      ],
+      "createdAt": "2026-08-14T10:57:19.585Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82d396b3f0ae473c4899ce",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Seed and Variety Selection"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Seed and Variety Selection"
+      ],
+      "createdAt": "2026-08-17T09:25:42.744Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82eb6bb3f0ae473c48a1bd",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Soil Health and Nutrient Management"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Soil Health and Nutrient Management"
+      ],
+      "createdAt": "2026-08-17T11:07:23.322Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82ec2db3f0ae473c48a1cc",
+      "before": [
+        "Multiple Domains: Agricultural Schemes & Subsidies | Soil Health and Nutrient Management"
+      ],
+      "after": [
+        "Agricultural Schemes & Subsidies",
+        "Soil Health and Nutrient Management"
+      ],
+      "createdAt": "2026-08-17T11:10:37.039Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82c9deb3f0ae473c4897a1",
+      "before": [
+        "Multiple Domains: Animal Husbandry & Livestock | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Animal Husbandry & Livestock",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T08:44:14.465Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e99f8a1f609f68bec559e",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Disease Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Disease Management"
+      ],
+      "createdAt": "2026-08-14T04:30:48.055Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e074ad9139d444193cd6a",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-13T18:04:58.477Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ec010a1f609f68bec5ebd",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-14T07:13:20.376Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7f54f8fcc9b76154014e0f",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-14T17:48:40.324Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82a1f4b3f0ae473c4891ae",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-17T05:53:56.692Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82a2c6b3f0ae473c4891e0",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-17T05:57:26.680Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82a331b3f0ae473c489206",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-17T05:59:13.939Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82cfd0b3f0ae473c4898f9",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-17T09:09:36.379Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e999ea1f609f68bec5574",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Irrigation and Water Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T04:29:18.588Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ebebea1f609f68bec5e94",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Irrigation and Water Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T07:07:42.382Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82a3f0b3f0ae473c48920d",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Irrigation and Water Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-17T06:02:24.549Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7f5ba3fcc9b76154014ed9",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Post-Harvest Management & Storage"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Post-Harvest Management & Storage"
+      ],
+      "createdAt": "2026-08-14T18:17:07.627Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82be05b3f0ae473c4895a8",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Post-Harvest Management & Storage"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Post-Harvest Management & Storage"
+      ],
+      "createdAt": "2026-08-17T07:53:41.686Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e977fa1f609f68bec54c0",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Soil Health and Nutrient Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Soil Health and Nutrient Management"
+      ],
+      "createdAt": "2026-08-14T04:20:15.687Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a8286e492593eafba001baa",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Soil Health and Nutrient Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Soil Health and Nutrient Management"
+      ],
+      "createdAt": "2026-08-17T03:58:28.764Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82a0b3b3f0ae473c4891a6",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Soil Health and Nutrient Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Soil Health and Nutrient Management"
+      ],
+      "createdAt": "2026-08-17T05:48:35.286Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82e1a7b3f0ae473c48a021",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Soil Health and Nutrient Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Soil Health and Nutrient Management"
+      ],
+      "createdAt": "2026-08-17T10:25:43.895Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e7ec1a1f609f68bec4d53",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Soil Health and Nutrient Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Soil Health and Nutrient Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T02:34:41.167Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e7ffba1f609f68bec4e8b",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Soil Health and Nutrient Management | Irrigation and Water Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Soil Health and Nutrient Management",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T02:39:55.697Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e8017a1f609f68bec4eae",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Soil Health and Nutrient Management | Irrigation and Water Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Soil Health and Nutrient Management",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T02:40:23.274Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e803ba1f609f68bec4ed3",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Soil Health and Nutrient Management | Irrigation and Water Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Soil Health and Nutrient Management",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T02:40:59.398Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e96f6a1f609f68bec547f",
+      "before": [
+        "Multiple Domains: Climate, Weather & Stress Management | Weed Management"
+      ],
+      "after": [
+        "Climate, Weather & Stress Management",
+        "Weed Management"
+      ],
+      "createdAt": "2026-08-14T04:17:58.542Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7f5dd2fcc9b76154014f25",
+      "before": [
+        "Multiple Domains: Credit, Loan & Insurance | Agricultural Schemes & Subsidies"
+      ],
+      "after": [
+        "Credit, Loan & Insurance",
+        "Agricultural Schemes & Subsidies"
+      ],
+      "createdAt": "2026-08-14T18:26:26.895Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82e9cfb3f0ae473c48a18a",
+      "before": [
+        "Multiple Domains: Credit, Loan & Insurance | Agricultural Schemes & Subsidies"
+      ],
+      "after": [
+        "Credit, Loan & Insurance",
+        "Agricultural Schemes & Subsidies"
+      ],
+      "createdAt": "2026-08-17T11:00:31.241Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82ec6bb3f0ae473c48a1d0",
+      "before": [
+        "Multiple Domains: Credit, Loan & Insurance | Agricultural Schemes & Subsidies"
+      ],
+      "after": [
+        "Credit, Loan & Insurance",
+        "Agricultural Schemes & Subsidies"
+      ],
+      "createdAt": "2026-08-17T11:11:39.659Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ed0cae8a4bd022723193f",
+      "before": [
+        "Multiple Domains: Cultural and Crop Management Practices | Organic and Natural Farming"
+      ],
+      "after": [
+        "Cultural and Crop Management Practices",
+        "Organic and Natural Farming"
+      ],
+      "createdAt": "2026-08-14T08:24:42.061Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a825cdec22b457713643cea",
+      "before": [
+        "Multiple Domains: Cultural and Crop Management Practices | Organic and Natural Farming"
+      ],
+      "after": [
+        "Cultural and Crop Management Practices",
+        "Organic and Natural Farming"
+      ],
+      "createdAt": "2026-08-17T00:59:10.669Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ed977e8a4bd0227231bec",
+      "before": [
+        "Multiple Domains: Disease Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Disease Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-14T09:01:43.420Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ee1bce8a4bd0227231fa0",
+      "before": [
+        "Multiple Domains: Disease Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Disease Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-14T09:37:00.571Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7efbeeec09de81f1d9cd86",
+      "before": [
+        "Multiple Domains: Disease Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Disease Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-14T11:28:46.227Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7f2d36fcc9b761540149f7",
+      "before": [
+        "Multiple Domains: Disease Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Disease Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-14T14:59:02.520Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7f3180fcc9b76154014ad1",
+      "before": [
+        "Multiple Domains: Disease Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Disease Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-14T15:17:20.262Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82712092593eafba001940",
+      "before": [
+        "Multiple Domains: Disease Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Disease Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-17T02:25:36.145Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82a40ab3f0ae473c489248",
+      "before": [
+        "Multiple Domains: Disease Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Disease Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-17T06:02:50.255Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ee17ae8a4bd0227231f7a",
+      "before": [
+        "Multiple Domains: Disease Management | Organic and Natural Farming"
+      ],
+      "after": [
+        "Disease Management",
+        "Organic and Natural Farming"
+      ],
+      "createdAt": "2026-08-14T09:35:54.564Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ed850e8a4bd0227231ba9",
+      "before": [
+        "Multiple Domains: Disease Management | Seed and Variety Selection"
+      ],
+      "after": [
+        "Disease Management",
+        "Seed and Variety Selection"
+      ],
+      "createdAt": "2026-08-14T08:56:48.276Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef1e4ec09de81f1d9c992",
+      "before": [
+        "Multiple Domains: Disease Management | Seed and Variety Selection"
+      ],
+      "after": [
+        "Disease Management",
+        "Seed and Variety Selection"
+      ],
+      "createdAt": "2026-08-14T10:45:56.777Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7f2cadfcc9b761540149cb",
+      "before": [
+        "Multiple Domains: Disease Management | Seed and Variety Selection"
+      ],
+      "after": [
+        "Disease Management",
+        "Seed and Variety Selection"
+      ],
+      "createdAt": "2026-08-14T14:56:45.230Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82c939b3f0ae473c48975f",
+      "before": [
+        "Multiple Domains: Disease Management | Soil Health and Nutrient Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Disease Management",
+        "Soil Health and Nutrient Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-17T08:41:29.112Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7eebebec09de81f1d9c6a7",
+      "before": [
+        "Multiple Domains: Farm Tools & Mechanisation | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Farm Tools & Mechanisation",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T10:20:27.327Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e03c2d9139d444193cc8a",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-13T17:49:54.421Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ea586a1f609f68bec5939",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T05:20:06.782Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ea610a1f609f68bec5970",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T05:22:24.261Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ed83be8a4bd0227231b86",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T08:56:27.302Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef36bec09de81f1d9ca37",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T10:52:27.734Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef3adec09de81f1d9ca72",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T10:53:33.776Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef41cec09de81f1d9ca74",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T10:55:24.253Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82c983b3f0ae473c489761",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-17T08:42:43.783Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82c9afb3f0ae473c489766",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-17T08:43:27.462Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82caeab3f0ae473c48980e",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-17T08:48:42.828Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e7f66a1f609f68bec4dc7",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T02:37:26.211Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7f1af1fcc9b761540147b6",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T13:41:05.113Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82674b92593eafba001716",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T01:43:39.597Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ef4cdec09de81f1d9caf4",
+      "before": [
+        "Multiple Domains: Insect - Pest Management | Irrigation and Water Management"
+      ],
+      "after": [
+        "Insect - Pest Management",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T10:58:21.823Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7f441efcc9b76154014be3",
+      "before": [
+        "Multiple Domains: Irrigation and Water Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Irrigation and Water Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T16:36:46.865Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82db15b3f0ae473c489c40",
+      "before": [
+        "Multiple Domains: Irrigation and Water Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Irrigation and Water Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T09:57:41.437Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82677c92593eafba00173a",
+      "before": [
+        "Multiple Domains: Organic and Natural Farming | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Organic and Natural Farming",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T01:44:28.570Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82c8e5b3f0ae473c489700",
+      "before": [
+        "Multiple Domains: Seed and Variety Selection | Animal Husbandry & Livestock | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Seed and Variety Selection",
+        "Animal Husbandry & Livestock",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T08:40:05.077Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e05d7d9139d444193cd2a",
+      "before": [
+        "Multiple Domains: Seed and Variety Selection | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Seed and Variety Selection",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-13T17:58:47.480Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e8d7ba1f609f68bec5247",
+      "before": [
+        "Multiple Domains: Seed and Variety Selection | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Seed and Variety Selection",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T03:37:31.933Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ea70da1f609f68bec59d1",
+      "before": [
+        "Multiple Domains: Seed and Variety Selection | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Seed and Variety Selection",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T05:26:37.769Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ea8c2a1f609f68bec5abf",
+      "before": [
+        "Multiple Domains: Seed and Variety Selection | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Seed and Variety Selection",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T05:33:54.307Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82719692593eafba001946",
+      "before": [
+        "Multiple Domains: Seed and Variety Selection | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Seed and Variety Selection",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T02:27:34.525Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82c87bb3f0ae473c4896f9",
+      "before": [
+        "Multiple Domains: Seed and Variety Selection | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Seed and Variety Selection",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T08:38:19.297Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82d5c3b3f0ae473c489a6b",
+      "before": [
+        "Multiple Domains: Seed and Variety Selection | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Seed and Variety Selection",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T09:34:59.458Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82dcd0b3f0ae473c489e8b",
+      "before": [
+        "Multiple Domains: Seed and Variety Selection | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Seed and Variety Selection",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T10:05:04.407Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ed8cfe8a4bd0227231be7",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T08:58:55.573Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a826027c22b457713643d97",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-17T01:13:11.689Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82f3c2b3f0ae473c48a3c1",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-17T11:42:58.162Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82f40eb3f0ae473c48a3c6",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-17T11:44:14.361Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e6118a1f609f68bec458f",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T00:28:08.935Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e6ce2a1f609f68bec48bc",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T01:18:26.095Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ea1b6a1f609f68bec5804",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T05:03:50.918Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ed755e8a4bd0227231af8",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T08:52:37.058Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ee12de8a4bd0227231f4f",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T09:34:37.075Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a829841b3f0ae473c488f2d",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T05:12:33.979Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82dfddb3f0ae473c489fa7",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T10:18:05.285Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82f60a947b3a1f5089b7fa",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-17T11:52:42.623Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e7f1fa1f609f68bec4d7d",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Irrigation and Water Management"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Irrigation and Water Management"
+      ],
+      "createdAt": "2026-08-14T02:36:15.943Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7eec40ec09de81f1d9c6cb",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Organic and Natural Farming"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Organic and Natural Farming"
+      ],
+      "createdAt": "2026-08-14T10:21:52.133Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a825cb7c22b457713643cc5",
+      "before": [
+        "Multiple Domains: Soil Health and Nutrient Management | Organic and Natural Farming"
+      ],
+      "after": [
+        "Soil Health and Nutrient Management",
+        "Organic and Natural Farming"
+      ],
+      "createdAt": "2026-08-17T00:58:31.650Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ed57ce8a4bd0227231a5d",
+      "before": [
+        "Multiple Domains: Weed Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Weed Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-14T08:44:44.378Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a82ca51b3f0ae473c4897e3",
+      "before": [
+        "Multiple Domains: Weed Management | Animal Husbandry & Livestock"
+      ],
+      "after": [
+        "Weed Management",
+        "Animal Husbandry & Livestock"
+      ],
+      "createdAt": "2026-08-17T08:46:09.242Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7ea18fa1f609f68bec57df",
+      "before": [
+        "Multiple Domains: Weed Management | Cultural and Crop Management Practices"
+      ],
+      "after": [
+        "Weed Management",
+        "Cultural and Crop Management Practices"
+      ],
+      "createdAt": "2026-08-14T05:03:11.088Z",
+      "nonStandardizedDomains": []
+    },
+    {
+      "_id": "6a7e8196a1f609f68bec4f3f",
+      "before": [
+        "Multiple Domains: Weed Management | Insect - Pest Management"
+      ],
+      "after": [
+        "Weed Management",
+        "Insect - Pest Management"
+      ],
+      "createdAt": "2026-08-14T02:46:46.846Z",
+      "nonStandardizedDomains": []
+    }
+  ]
+}

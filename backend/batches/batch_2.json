@@ -1,0 +1,534 @@
+[
+  {
+    "Question ID": "6a82c899b3f0ae473c4896fd",
+    "Standardized Domain": "Soil Health and Nutrient Management"
+  },
+  {
+    "Question ID": "6a82c8e5b3f0ae473c489700",
+    "Standardized Domain": "Multiple Domains: Seed and Variety Selection | Animal Husbandry & Livestock | Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82c91cb3f0ae473c489738",
+    "Standardized Domain": "Insect - Pest Management"
+  },
+  {
+    "Question ID": "6a82c939b3f0ae473c48975f",
+    "Standardized Domain": "Multiple Domains: Disease Management | Soil Health and Nutrient Management | Animal Husbandry & Livestock"
+  },
+  {
+    "Question ID": "6a82c983b3f0ae473c489761",
+    "Standardized Domain": "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+  },
+  {
+    "Question ID": "6a82c985b3f0ae473c489764",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+  },
+  {
+    "Question ID": "6a82c9afb3f0ae473c489766",
+    "Standardized Domain": "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+  },
+  {
+    "Question ID": "6a82c9deb3f0ae473c4897a1",
+    "Standardized Domain": "Multiple Domains: Animal Husbandry & Livestock | Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82ca07b3f0ae473c4897a7",
+    "Standardized Domain": "Insect - Pest Management"
+  },
+  {
+    "Question ID": "6a82ca1fb3f0ae473c4897df",
+    "Standardized Domain": "Insect - Pest Management"
+  },
+  {
+    "Question ID": "6a82ca51b3f0ae473c4897e3",
+    "Standardized Domain": "Multiple Domains: Weed Management | Animal Husbandry & Livestock"
+  },
+  {
+    "Question ID": "6a82ca80b3f0ae473c489806",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82ca95b3f0ae473c489808",
+    "Standardized Domain": "Animal Husbandry & Livestock"
+  },
+  {
+    "Question ID": "6a82ca9bb3f0ae473c48980a",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82caeab3f0ae473c48980e",
+    "Standardized Domain": "Multiple Domains: Insect - Pest Management | Animal Husbandry & Livestock"
+  },
+  {
+    "Question ID": "6a82cb17b3f0ae473c489812",
+    "Standardized Domain": "Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82cb3db3f0ae473c489836",
+    "Standardized Domain": "Agricultural Schemes & Subsidies"
+  },
+  {
+    "Question ID": "6a82cb60b3f0ae473c489838",
+    "Standardized Domain": "Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82cc3bb3f0ae473c48983d",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+  },
+  {
+    "Question ID": "6a82cd05b3f0ae473c489841",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82cd4db3f0ae473c489846",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+  },
+  {
+    "Question ID": "6a82cdaeb3f0ae473c48987e",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82cdceb3f0ae473c489883",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+  },
+  {
+    "Question ID": "6a82cdedb3f0ae473c4898a6",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82cf35b3f0ae473c4898b8",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82cf6fb3f0ae473c4898f3",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82cfceb3f0ae473c4898f7",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+  },
+  {
+    "Question ID": "6a82cfd0b3f0ae473c4898f9",
+    "Standardized Domain": "Multiple Domains: Climate, Weather & Stress Management | Insect - Pest Management"
+  },
+  {
+    "Question ID": "6a82d0f7b3f0ae473c489926",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+  },
+  {
+    "Question ID": "6a82d13ab3f0ae473c48994d",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+  },
+  {
+    "Question ID": "6a82d16ab3f0ae473c489974",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82d1d2b3f0ae473c489982",
+    "Standardized Domain": "Agricultural Schemes & Subsidies"
+  },
+  {
+    "Question ID": "6a82d29db3f0ae473c489990",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Irrigation and Water Management | Farm Tools & Mechanisation"
+  },
+  {
+    "Question ID": "6a82d365b3f0ae473c4899b3",
+    "Standardized Domain": "Seed and Variety Selection"
+  },
+  {
+    "Question ID": "6a82d396b3f0ae473c4899ce",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Seed and Variety Selection"
+  },
+  {
+    "Question ID": "6a82d49eb3f0ae473c489a28",
+    "Standardized Domain": "Market Prices, MSP & Marketing"
+  },
+  {
+    "Question ID": "6a82d4b4b3f0ae473c489a4d",
+    "Standardized Domain": "Market Prices, MSP & Marketing"
+  },
+  {
+    "Question ID": "6a82d5c3b3f0ae473c489a6b",
+    "Standardized Domain": "Multiple Domains: Seed and Variety Selection | Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82d5fdb3f0ae473c489a73",
+    "Standardized Domain": "Weed Management"
+  },
+  {
+    "Question ID": "6a82d850b3f0ae473c489abe",
+    "Standardized Domain": "Organic and Natural Farming"
+  },
+  {
+    "Question ID": "6a82d9e7b3f0ae473c489b89",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82da55b3f0ae473c489bb8",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82dac4b3f0ae473c489bdd",
+    "Standardized Domain": "Soil Health and Nutrient Management"
+  },
+  {
+    "Question ID": "6a82db15b3f0ae473c489c40",
+    "Standardized Domain": "Multiple Domains: Irrigation and Water Management | Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82db50b3f0ae473c489c95",
+    "Standardized Domain": "Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82db9bb3f0ae473c489cf1",
+    "Standardized Domain": "Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82dbb2b3f0ae473c489d14",
+    "Standardized Domain": "Insect - Pest Management"
+  },
+  {
+    "Question ID": "6a82dbb6b3f0ae473c489d16",
+    "Standardized Domain": "Weed Management"
+  },
+  {
+    "Question ID": "6a82dbccb3f0ae473c489d5a",
+    "Standardized Domain": "Weed Management"
+  },
+  {
+    "Question ID": "6a82dc01b3f0ae473c489d7f",
+    "Standardized Domain": "Soil Health and Nutrient Management"
+  },
+  {
+    "Question ID": "6a82dc28b3f0ae473c489da2",
+    "Standardized Domain": "Soil Health and Nutrient Management"
+  },
+  {
+    "Question ID": "6a82dc35b3f0ae473c489dc5",
+    "Standardized Domain": "Insect - Pest Management"
+  },
+  {
+    "Question ID": "6a82dc56b3f0ae473c489dea",
+    "Standardized Domain": "Insect - Pest Management"
+  },
+  {
+    "Question ID": "6a82dc78b3f0ae473c489e0d",
+    "Standardized Domain": "Seed and Variety Selection"
+  },
+  {
+    "Question ID": "6a82dcabb3f0ae473c489e66",
+    "Standardized Domain": "Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82dcd0b3f0ae473c489e8b",
+    "Standardized Domain": "Multiple Domains: Seed and Variety Selection | Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82dd03b3f0ae473c489eae",
+    "Standardized Domain": "Soil Health and Nutrient Management"
+  },
+  {
+    "Question ID": "6a82dd5cb3f0ae473c489ed2",
+    "Standardized Domain": "Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82dd6eb3f0ae473c489ef5",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82ddc1b3f0ae473c489f2d",
+    "Standardized Domain": "Soil Health and Nutrient Management"
+  },
+  {
+    "Question ID": "6a82de1eb3f0ae473c489f54",
+    "Standardized Domain": "Insect - Pest Management"
+  },
+  {
+    "Question ID": "6a82df3ab3f0ae473c489f82",
+    "Standardized Domain": "Insect - Pest Management"
+  },
+  {
+    "Question ID": "6a82dfddb3f0ae473c489fa7",
+    "Standardized Domain": "Multiple Domains: Soil Health and Nutrient Management | Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82e02cb3f0ae473c489fca",
+    "Standardized Domain": "Disease Management"
+  },
+  {
+    "Question ID": "6a82e0ebb3f0ae473c489fef",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e10bb3f0ae473c489ff6",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e127b3f0ae473c489ff8",
+    "Standardized Domain": "Insect - Pest Management"
+  },
+  {
+    "Question ID": "6a82e13ab3f0ae473c489ffa",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e17ab3f0ae473c48a01f",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e1a7b3f0ae473c48a021",
+    "Standardized Domain": "Multiple Domains: Climate, Weather & Stress Management | Soil Health and Nutrient Management"
+  },
+  {
+    "Question ID": "6a82e209b3f0ae473c48a04c",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e21eb3f0ae473c48a051",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e224b3f0ae473c48a053",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e287b3f0ae473c48a055",
+    "Standardized Domain": "Market Prices, MSP & Marketing"
+  },
+  {
+    "Question ID": "6a82e2afb3f0ae473c48a05a",
+    "Standardized Domain": "Market Prices, MSP & Marketing"
+  },
+  {
+    "Question ID": "6a82e3f1b3f0ae473c48a0a6",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e537b3f0ae473c48a0e8",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e539b3f0ae473c48a0ea",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e548b3f0ae473c48a0ec",
+    "Standardized Domain": "Market Prices, MSP & Marketing"
+  },
+  {
+    "Question ID": "6a82e550b3f0ae473c48a0ee",
+    "Standardized Domain": "Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82e5d0b3f0ae473c48a0f0",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e5f6b3f0ae473c48a0f3",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e636b3f0ae473c48a0f7",
+    "Standardized Domain": "Irrigation and Water Management"
+  },
+  {
+    "Question ID": "6a82e64fb3f0ae473c48a0f9",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e685b3f0ae473c48a0fb",
+    "Standardized Domain": "Agricultural Schemes & Subsidies"
+  },
+  {
+    "Question ID": "6a82e6a3b3f0ae473c48a100",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e6c9b3f0ae473c48a102",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e73fb3f0ae473c48a108",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e771b3f0ae473c48a10a",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e798b3f0ae473c48a10c",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e83db3f0ae473c48a114",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Post-Harvest Management & Storage"
+  },
+  {
+    "Question ID": "6a82e8c9b3f0ae473c48a116",
+    "Standardized Domain": "Credit, Loan & Insurance"
+  },
+  {
+    "Question ID": "6a82e98ab3f0ae473c48a152",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82e9cfb3f0ae473c48a18a",
+    "Standardized Domain": "Multiple Domains: Credit, Loan & Insurance | Agricultural Schemes & Subsidies"
+  },
+  {
+    "Question ID": "6a82ea95b3f0ae473c48a191",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+  },
+  {
+    "Question ID": "6a82eb35b3f0ae473c48a1aa",
+    "Standardized Domain": "Market Prices, MSP & Marketing"
+  },
+  {
+    "Question ID": "6a82eb6bb3f0ae473c48a1bd",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Soil Health and Nutrient Management"
+  },
+  {
+    "Question ID": "6a82ebdbb3f0ae473c48a1c6",
+    "Standardized Domain": "Agricultural Schemes & Subsidies"
+  },
+  {
+    "Question ID": "6a82ec2db3f0ae473c48a1cc",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Soil Health and Nutrient Management"
+  },
+  {
+    "Question ID": "6a82ec6bb3f0ae473c48a1d0",
+    "Standardized Domain": "Multiple Domains: Credit, Loan & Insurance | Agricultural Schemes & Subsidies"
+  },
+  {
+    "Question ID": "6a82ece9b3f0ae473c48a1dc",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Post-Harvest Management & Storage"
+  },
+  {
+    "Question ID": "6a82ed15b3f0ae473c48a1e3",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Farm Tools & Mechanisation"
+  },
+  {
+    "Question ID": "6a82eda8b3f0ae473c48a1f5",
+    "Standardized Domain": "Multiple Domains: Agricultural Schemes & Subsidies | Post-Harvest Management & Storage"
+  },
+  {
+    "Question ID": "6a82edb6b3f0ae473c48a218",
+    "Standardized Domain": "Market Prices, MSP & Marketing"
+  },
+  {
+    "Question ID": "6a82ee00b3f0ae473c48a21a",
+    "Standardized Domain": "Market Prices, MSP & Marketing"
+  },
+  {
+    "Question ID": "6a82efb8b3f0ae473c48a293",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f023b3f0ae473c48a2aa",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f02eb3f0ae473c48a2b2",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f087b3f0ae473c48a2b9",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f088b3f0ae473c48a2bb",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f0a6b3f0ae473c48a2bf",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f0bfb3f0ae473c48a2c4",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f0e8b3f0ae473c48a2c8",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f0fcb3f0ae473c48a2ca",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f170b3f0ae473c48a30c",
+    "Standardized Domain": "Market Prices, MSP & Marketing"
+  },
+  {
+    "Question ID": "6a82f267b3f0ae473c48a365",
+    "Standardized Domain": "Cultural and Crop Management Practices"
+  },
+  {
+    "Question ID": "6a82f2a3b3f0ae473c48a38a",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f2beb3f0ae473c48a38c",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f2f5b3f0ae473c48a38f",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f334b3f0ae473c48a3b3",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f346b3f0ae473c48a3b6",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f360b3f0ae473c48a3b8",
+    "Standardized Domain": "Market Prices, MSP & Marketing"
+  },
+  {
+    "Question ID": "6a82f374b3f0ae473c48a3bb",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f3a4b3f0ae473c48a3bf",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f3c2b3f0ae473c48a3c1",
+    "Standardized Domain": "Multiple Domains: Soil Health and Nutrient Management | Animal Husbandry & Livestock"
+  },
+  {
+    "Question ID": "6a82f409b3f0ae473c48a3c4",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f40eb3f0ae473c48a3c6",
+    "Standardized Domain": "Multiple Domains: Soil Health and Nutrient Management | Animal Husbandry & Livestock"
+  },
+  {
+    "Question ID": "6a82f444b3f0ae473c48a3cc",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f47db3f0ae473c48a3dc",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f4e5b3f0ae473c48a3e9",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f526947b3a1f5089b7e7",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f564947b3a1f5089b7f3",
+    "Standardized Domain": "Climate, Weather & Stress Management"
+  },
+  {
+    "Question ID": "6a82f60a947b3a1f5089b7fa",
+    "Standardized Domain": "Multiple Domains: Soil Health and Nutrient Management | Cultural and Crop Management Practices"
+  }
+]
