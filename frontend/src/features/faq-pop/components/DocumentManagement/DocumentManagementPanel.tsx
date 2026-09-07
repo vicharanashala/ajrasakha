@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import {
   getDashboardConfig,
-  getDashboardUniqueDocument,
+  getStats,
   getDashboardUploads,
   cancelDashboardUpload,
   addUploadToMatch,
@@ -12,6 +12,7 @@ import {
   cancelPendingDuplicateUpload,
   getDashboardTranslationJobs,
   cancelDashboardTranslationJob,
+  deleteDashboardTranslationJob,
 } from "../../api";
 import MainTable from "./MainTable";
 import UniqueDocumentsTable from "./UniqueDocumentsTable";
@@ -19,11 +20,12 @@ import AddDocumentForm from "./AddDocumentForm";
 import UploadQueuePanel from "./UploadQueuePanel";
 import TranslationQueuePanel from "./TranslationQueuePanel";
 import ResizableSplitPanel from "./ResizableSplitPanel";
+import DocumentDetailModal from "./DocumentDetailModal";
 
 const MODES = [
   { id: "add-document", label: "Add Document" },
   { id: "main-table", label: "Main Table" },
-  { id: "unique-documents", label: "Unique Documents" },
+  { id: "unique-documents", label: "Documents" },
 ];
 
 function TimeAgo({ ts }) {
@@ -36,18 +38,18 @@ function TimeAgo({ ts }) {
   return <span>{Math.max(0, Math.round((Date.now() - ts) / 1000))}s ago</span>;
 }
 
-// Document Management dashboard (docs/dashboard_frontend_plan.md) — third mode alongside
+// Document Management dashboard (docs/first_render_frontend.md) — third mode alongside
 // FAQ-Cluster/POP-Translation, wired in as a TABS entry in ../../DataProcessingDashboard.tsx.
 //
-// This component owns everything that must survive switching between its own 3 sub-modes
-// (spec §1): the Upload Queue + Translation Queue poll (spec §8/§9 — both load on initial page
-// load and share one interval, not gated behind opening "Add Document" mode) and the shared
-// unique-document expand-fetch cache. All 3 sub-components stay mounted permanently — visibility
-// toggles via a `hidden` className, not conditional unmount — so polling is never torn down by a
-// sub-mode switch.
+// This component owns everything that must survive switching between its own 3 sub-modes: the
+// Upload Queue + Translation Queue poll (both load on initial page load and share one interval,
+// not gated behind opening "Add Document" mode) and the single Document Detail modal, opened by
+// document id from any sub-mode or queue row rather than switching tabs to a dedicated "Unique
+// Documents" table row (the old cross-tab jump/pin/focus mechanism). All 3 sub-tables stay
+// mounted permanently — visibility toggles via a `hidden` className, not conditional unmount — so
+// polling is never torn down by a sub-mode switch.
 export default function DocumentManagementPanel() {
   const [activeMode, setActiveMode] = useState("main-table");
-  const [focusUniqueDocId, setFocusUniqueDocId] = useState(null);
 
   const [translationAvailable, setTranslationAvailable] = useState(false);
   useEffect(() => {
@@ -56,30 +58,38 @@ export default function DocumentManagementPanel() {
       .catch(() => setTranslationAvailable(false));
   }, []);
 
-  const uniqueDocCacheRef = useRef({});
-  function cacheUniqueDoc(id, data) {
-    uniqueDocCacheRef.current[id] = { ...uniqueDocCacheRef.current[id], ...data };
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    getStats()
+      .then(setStats)
+      .catch(() => {});
+  }, []);
+
+  // Document Detail modal — opened by unique-document id from a placement row, a document row, or
+  // a queue jump-link. Bumping refreshKey tells the currently-loaded tables to re-fetch their
+  // current page after something changes inside the modal (edit, merge, placement delete).
+  const [detailDocId, setDetailDocId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  function openDetail(id) {
+    if (id) setDetailDocId(id);
   }
-  async function fetchUniqueDocCached(id) {
-    if (uniqueDocCacheRef.current[id]) return uniqueDocCacheRef.current[id];
-    const data = await getDashboardUniqueDocument(id);
-    cacheUniqueDoc(id, data);
-    return data;
+  function bumpRefresh() {
+    setRefreshKey((n) => n + 1);
   }
 
-  // Upload Queue (spec §4.3/§4.4) + Translation Queue (spec §8) — separate queues, both present
-  // by default (empty state until something's happening), both refetched by the same shared
-  // 30s-toggle-or-manual-refresh interval (spec §9) rather than each running its own poll.
+  // Upload Queue + Translation Queue — separate queues, both present by default (empty state
+  // until something's happening), both refetched by the same shared 30s-toggle-or-manual-refresh
+  // interval rather than each running its own poll.
   const [queueItems, setQueueItems] = useState([]);
   const [translationJobs, setTranslationJobs] = useState([]);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [busyUploadId, setBusyUploadId] = useState(null);
   const [stoppingJobIds, setStoppingJobIds] = useState(() => new Set());
-  // "New" (spec §4.4, round 6) is async — a real Zoho upload happens server-side, and the item
-  // stays at status=awaiting_review the whole time (no interim status change). Track it locally
-  // so the row can show "Processing…" until a poll finds the item either gone (succeeded) or
-  // flipped to status=failed.
+  // "New" is async — a real Zoho upload happens server-side, and the item stays at
+  // status=awaiting_review the whole time (no interim status change). Track it locally so the row
+  // can show "Processing…" until a poll finds the item either gone (succeeded) or flipped to
+  // status=failed.
   const [processingUploadIds, setProcessingUploadIds] = useState(() => new Set());
 
   async function refetchUploads() {
@@ -119,24 +129,69 @@ export default function DocumentManagementPanel() {
     }
   }
 
+  // Finished jobs (done/failed/cancelled) — hidden by default (default GET only lists
+  // queued+running), fetched on demand once the panel's "show finished" toggle is on. The API
+  // takes one `status` at a time, so history is 3 calls merged rather than one.
+  const [finishedJobs, setFinishedJobs] = useState([]);
+  const [showFinishedJobs, setShowFinishedJobs] = useState(false);
+  const [removingJobIds, setRemovingJobIds] = useState(() => new Set());
+  async function refetchFinishedJobs() {
+    try {
+      const [done, failed, cancelled] = await Promise.all([
+        getDashboardTranslationJobs("done"),
+        getDashboardTranslationJobs("failed"),
+        getDashboardTranslationJobs("cancelled"),
+      ]);
+      setFinishedJobs([...(done || []), ...(failed || []), ...(cancelled || [])]);
+    } catch {
+      // ignore transient errors, next toggle/manual refresh will retry
+    }
+  }
+  useEffect(() => {
+    if (showFinishedJobs) refetchFinishedJobs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFinishedJobs]);
+
+  async function handleRemoveTranslationJob(job) {
+    setRemovingJobIds((prev) => new Set(prev).add(job.id));
+    try {
+      await deleteDashboardTranslationJob(job.id);
+      setFinishedJobs((prev) => prev.filter((j) => j.id !== job.id));
+    } catch (err) {
+      toast.error(err.message || "Failed to remove");
+    } finally {
+      setRemovingJobIds((prev) => {
+        const next = new Set(prev);
+        next.delete(job.id);
+        return next;
+      });
+    }
+  }
+
   async function refetchAll() {
-    await Promise.all([refetchUploads(), refetchTranslationJobs()]);
+    await Promise.all([
+      refetchUploads(),
+      refetchTranslationJobs(),
+      ...(showFinishedJobs ? [refetchFinishedJobs()] : []),
+    ]);
     setLastUpdated(Date.now());
   }
 
-  // Both queues load up front regardless of which sub-mode is active (spec §8).
+  // Both queues load up front regardless of which sub-mode is active.
   useEffect(() => {
     refetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Shared 30s interval while auto-refresh is on; off means manual-refresh-only (spec §9).
+  // Shared 30s interval while auto-refresh is on; off means manual-refresh-only. Recreated on
+  // showFinishedJobs too, so toggling it doesn't leave the interval's refetchAll closure stale
+  // (it decides whether to include the finished-jobs fetch).
   useEffect(() => {
     if (!autoRefresh) return;
     const id = setInterval(refetchAll, 30000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh]);
+  }, [autoRefresh, showFinishedJobs]);
 
   function handleUploadQueued() {
     refetchUploads();
@@ -154,12 +209,13 @@ export default function DocumentManagementPanel() {
     }
   }
 
-  async function handleAddUpload(item) {
+  async function handleAddUpload(item, documentId) {
     setBusyUploadId(item.id);
     try {
-      const res = await addUploadToMatch(item.id);
+      const res = await addUploadToMatch(item.id, documentId);
       toast.success(`Linked — ${res?.placements_created ?? 0} new placement(s) created`);
       setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
+      bumpRefresh();
     } catch (err) {
       toast.error(err.message || "Failed to add");
     } finally {
@@ -212,26 +268,30 @@ export default function DocumentManagementPanel() {
     }
   }
 
-  function handleJumpToUniqueDoc(id) {
-    setFocusUniqueDocId(id);
-    setActiveMode("unique-documents");
-  }
-
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-1 border-b border-border pb-2">
-        {MODES.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => setActiveMode(m.id)}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer
-              ${activeMode === m.id
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
-          >
-            {m.label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between border-b border-border pb-2">
+        <div className="flex gap-1">
+          {MODES.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setActiveMode(m.id)}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer
+                ${activeMode === m.id
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        {stats && (
+          <span className="text-[11px] text-muted-foreground">
+            {stats.documents?.toLocaleString?.() ?? stats.documents} placements ·{" "}
+            {stats.files?.toLocaleString?.() ?? stats.files} documents · {stats.states} states ·{" "}
+            {stats.crops} crops · {stats.translated} translated · {stats.reviewed} reviewed
+          </span>
+        )}
       </div>
 
       <div className={activeMode === "add-document" ? "" : "hidden"}>
@@ -268,7 +328,7 @@ export default function DocumentManagementPanel() {
                   onAdd={handleAddUpload}
                   onNew={handleNewUpload}
                   onCancelDuplicate={handleCancelDuplicateUpload}
-                  onJumpToUniqueDoc={handleJumpToUniqueDoc}
+                  onOpenDetail={openDetail}
                   busyId={busyUploadId}
                   processingIds={processingUploadIds}
                 />
@@ -277,8 +337,13 @@ export default function DocumentManagementPanel() {
                 <TranslationQueuePanel
                   jobs={translationJobs}
                   onCancel={handleCancelTranslationJob}
-                  onJumpToUniqueDoc={handleJumpToUniqueDoc}
+                  onOpenDetail={openDetail}
                   stoppingIds={stoppingJobIds}
+                  finishedJobs={finishedJobs}
+                  showFinished={showFinishedJobs}
+                  onToggleFinished={setShowFinishedJobs}
+                  onRemove={handleRemoveTranslationJob}
+                  removingIds={removingJobIds}
                 />
               }
             />
@@ -286,23 +351,30 @@ export default function DocumentManagementPanel() {
         </div>
       </div>
       <div className={activeMode === "main-table" ? "" : "hidden"}>
-        <MainTable
-          fetchUniqueDocCached={fetchUniqueDocCached}
-          onJumpToUniqueDoc={handleJumpToUniqueDoc}
-          translationAvailable={translationAvailable}
-          onTranslationStarted={refetchTranslationJobs}
-        />
+        <MainTable onOpenDetail={openDetail} refreshKey={refreshKey} />
       </div>
       <div className={activeMode === "unique-documents" ? "" : "hidden"}>
         <UniqueDocumentsTable
-          fetchUniqueDocCached={fetchUniqueDocCached}
-          cacheUniqueDoc={cacheUniqueDoc}
-          focusId={focusUniqueDocId}
-          clearFocus={() => setFocusUniqueDocId(null)}
+          onOpenDetail={openDetail}
           translationAvailable={translationAvailable}
-          onTranslationStarted={refetchTranslationJobs}
+          refreshKey={refreshKey}
+          onDataChanged={bumpRefresh}
         />
       </div>
+
+      <DocumentDetailModal
+        documentId={detailDocId}
+        open={Boolean(detailDocId)}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDetailDocId(null);
+            bumpRefresh();
+          }
+        }}
+        translationAvailable={translationAvailable}
+        onTranslationStarted={refetchTranslationJobs}
+        onPlacementsChanged={bumpRefresh}
+      />
     </div>
   );
 }

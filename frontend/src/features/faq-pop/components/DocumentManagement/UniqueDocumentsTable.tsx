@@ -1,73 +1,75 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, X, RefreshCw } from "lucide-react";
+import { Eye, RefreshCw, Trash2 } from "lucide-react";
 import {
-  getDashboardDocuments,
   getDashboardUniqueDocuments,
+  getDashboardUniqueDocument,
   deleteDashboardUniqueDocument,
-  deleteDashboardOriginal,
-  getDashboardStates,
-  getDashboardCrops,
+  getDashboardLanguages,
+  getUniqueDocumentPlacements,
+  getDashboardTranslationJobs,
+  cancelDashboardTranslationJob,
 } from "../../api";
-import { ConfirmationModal } from "@/components/confirmation-modal";
 import ColumnFilter from "../FunctionsPanel/ColumnFilter";
 import TextFilter from "./TextFilter";
+import RangeFilter from "./RangeFilter";
+import DateRangeColumnFilter from "./DateRangeColumnFilter";
 import ServerPagination from "./ServerPagination";
 import FileActionIcons from "./FileActionIcons";
 import TranslateReviewCell from "./TranslateReviewCell";
-import UniqueDocumentEditForm from "./UniqueDocumentEditForm";
 
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
+const LANGUAGE_SOURCE_OPTIONS = ["detected", "state", "ambiguous", "manual"];
 const PAGE_SIZE = 100;
 
-// Backend API changes (2026-08-24): GET /dashboard/unique-documents now returns the full row
-// (document_id, states, crops included) with nothing left to fetch lazily, so this table shows
-// every field as its own column instead of hiding most of it behind a row-expand (spec §3
-// "Updated (2026-08-24)"). `document_id` (ANNAM_##### ) is now the human-readable identifier
-// shown to users; `id` (UUID) is kept only for PATCH/DELETE calls.
+// One row per document (not per placement) — the "Documents tab" (docs/first_render_frontend.md).
+// Real server-side pagination via GET /unique-documents, same filter[] convention as the Main
+// Table. Unlike the old backend, a document row here carries no aggregate states/crops list —
+// that's what placement_count + the Placements section of Document Detail are for now.
+//
+// `filterType: "numberRange"/"dateRange"` render a min/max or from/to popover instead of a
+// single-value filter (RangeFilter.tsx sends `_min`/`_max`, DateRangeColumnFilter.tsx sends
+// `_from`/`_to` — both confirmed by backend as the real convention). date_of_release,
+// month_of_release, date_of_collection, month_of_collection, advisory_org_address,
+// edition_revision_volume and live_source_link were confirmed added to the filter whitelist —
+// all filterable now.
 const FIELD_COLUMNS = [
   { key: "document_id", label: "Document ID", filterable: true, mono: true },
   { key: "advisory_type", label: "Advisory Type", filterable: true },
   { key: "advisory_scope", label: "Advisory Scope", filterable: true },
-  { key: "crops", label: "Crop(s)", array: true, dropdownFilter: "crop" },
-  { key: "states", label: "State(s)", array: true, dropdownFilter: "state" },
   { key: "season", label: "Season", filterable: true },
   { key: "edition_revision_volume", label: "Edition/Rev/Vol", filterable: true },
-  { key: "date_of_release", label: "Date of Release", filterable: true },
-  { key: "month_of_release", label: "Month of Release", filterable: true },
-  { key: "year_of_release", label: "Year of Release", filterable: true },
-  { key: "date_of_collection", label: "Date of Collection", filterable: true },
-  { key: "month_of_collection", label: "Month of Collection", filterable: true },
-  { key: "year_of_collection", label: "Year of Collection", filterable: true },
+  { key: "date_of_release", label: "Date of Release", filterType: "dateRange" },
+  { key: "month_of_release", label: "Month of Release", filterType: "numberRange", min: 1, max: 12 },
+  { key: "year_of_release", label: "Year of Release", filterType: "numberRange" },
+  { key: "date_of_collection", label: "Date of Collection", filterType: "dateRange" },
+  { key: "month_of_collection", label: "Month of Collection", filterType: "numberRange", min: 1, max: 12 },
+  { key: "year_of_collection", label: "Year of Collection", filterType: "numberRange" },
   { key: "advisory_name", label: "Advisory Name", filterable: true },
   { key: "advisory_released_org", label: "Advisory Released Org", filterable: true },
   { key: "advisory_org_address", label: "Org Address", filterable: true },
-  { key: "live_source_link", label: "Live Source Link", filterable: true, link: true },
+  { key: "live_source_link", label: "Live Source Link", link: true, filterable: true },
   { key: "shareable_name", label: "Shareable Name", filterable: true },
-  { key: "language", label: "Language", filterable: true },
+  { key: "language", label: "Language", filterType: "language" },
+  { key: "language_source", label: "Language Source", filterable: true, options: LANGUAGE_SOURCE_OPTIONS },
   { key: "domain", label: "Domain", filterable: true },
   { key: "format_original", label: "Format (Original)", filterable: true },
-  { key: "num_pages", label: "Pages", filterable: true },
+  { key: "num_pages", label: "Pages", filterType: "numberRange", min: 0 },
   { key: "verification_status", label: "Verification", enum: true },
   { key: "verified_by", label: "Verified By", filterable: true },
   { key: "document_status", label: "Doc Status", enum: true },
+  { key: "placement_count", label: "Placements" },
 ];
-const COL_COUNT = FIELD_COLUMNS.length + 4; // + Original, Translation, Review, Actions
+const COL_COUNT = FIELD_COLUMNS.length + 4; // + Original, Translation, Review, view-action
 
-// Unique Documents mode (spec §3) — one row per distinct document, server-paginated/filtered.
-// Original/Translation/Review render as dedicated columns here (§3.1) — unlike MainTable, which
-// only surfaces them inside its row-expand panel — and this table is the only one that gets
-// the full metadata edit form (§3.2) and per-file delete (§3.1, §6), including the new
-// delete-original-file action.
-export default function UniqueDocumentsTable({
-  fetchUniqueDocCached,
-  cacheUniqueDoc,
-  focusId,
-  clearFocus,
-  translationAvailable,
-  onTranslationStarted,
-}) {
+const MULTI_PLACEMENT_OPTIONS = [
+  { key: "", label: "All" },
+  { key: "true", label: "Multi-placement" },
+  { key: "false", label: "Single-placement" },
+];
+
+export default function UniqueDocumentsTable({ onOpenDetail, translationAvailable, refreshKey, onDataChanged }) {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
   const [rows, setRows] = useState([]);
@@ -75,33 +77,12 @@ export default function UniqueDocumentsTable({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Dropdown+search options for the Crop(s)/State(s) filters below (ColumnFilter already has a
-  // built-in search box). NOTE: the backend doesn't accept filter[state]/filter[crop] on
-  // /unique-documents yet (only on /documents) — these controls are wired up ready to go, but
-  // won't actually narrow results until that's added server-side.
-  const [stateOptions, setStateOptions] = useState([]);
-  const [cropOptions, setCropOptions] = useState([]);
+  const [languageOptions, setLanguageOptions] = useState([]);
   useEffect(() => {
-    getDashboardStates()
-      .then((d) => setStateOptions((d || []).map((s) => s.name)))
-      .catch(() => {});
-    getDashboardCrops()
-      .then((d) => setCropOptions((d || []).map((c) => c.name)))
+    getDashboardLanguages()
+      .then((d) => setLanguageOptions((d || []).map((l) => ({ value: l.code, label: l.label }))))
       .catch(() => {});
   }, []);
-
-  // Crop(s)/State(s) cells are truncated by default (a document can carry many) — click to
-  // expand the full list inline instead of relying on a hover-only title tooltip.
-  const [expandedCells, setExpandedCells] = useState(() => new Set());
-  function toggleCell(rowId, colKey) {
-    const key = `${rowId}:${colKey}`;
-    setExpandedCells((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
 
   async function load() {
     setLoading(true);
@@ -111,7 +92,6 @@ export default function UniqueDocumentsTable({
       setRows(items);
       setTotal(data.total || 0);
       setError(null);
-      for (const doc of items) cacheUniqueDoc?.(doc.id, doc);
     } catch (err) {
       setError(err.message || "Failed to load");
     } finally {
@@ -121,113 +101,137 @@ export default function UniqueDocumentsTable({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     load();
-  }, [page, JSON.stringify(filters)]);
+  }, [page, JSON.stringify(filters), refreshKey]);
 
   function setFilter(key, values) {
     setFilters((f) => ({ ...f, [key]: values }));
     setPage(1);
   }
 
-  // Jump-to-unique-doc (spec §2.3): the list endpoint has no id filter, so a jumped-to document
-  // that isn't on the current page/filter is fetched directly and pinned above the normal rows
-  // instead of trying to force it onto the paginated result.
-  const [pinnedDoc, setPinnedDoc] = useState(null);
-  useEffect(() => {
-    if (!focusId) {
-      setPinnedDoc(null);
-      return;
-    }
-    if (rows.some((r) => r.id === focusId)) {
-      setPinnedDoc(null);
-      return;
-    }
-    fetchUniqueDocCached(focusId)
-      .then(setPinnedDoc)
-      .catch((err) => {
-        toast.error(err.message || "Failed to load the jumped-to document");
-        setPinnedDoc(null);
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusId, rows]);
+  // Backs both numberRange (suffixes "min"/"max") and dateRange ("from"/"to") columns — two
+  // filter keys per field, e.g. filters.num_pages_min / filters.num_pages_max.
+  function setRange(key, suffixA, suffixB, a, b) {
+    setFilters((f) => ({
+      ...f,
+      [`${key}_${suffixA}`]: a != null ? [String(a)] : [],
+      [`${key}_${suffixB}`]: b != null ? [String(b)] : [],
+    }));
+    setPage(1);
+  }
 
-  const displayRows = pinnedDoc ? [pinnedDoc, ...rows.filter((r) => r.id !== pinnedDoc.id)] : rows;
+  function setMultiPlacement(key) {
+    setFilters((f) => ({ ...f, multi_placement: key ? [key] : [] }));
+    setPage(1);
+  }
+  const multiPlacementValue = filters.multi_placement?.[0] || "";
 
-  // Derived from currently-loaded rows — no dedicated distinct-values endpoint exists for these.
+  // Derived from currently-loaded rows — no dedicated distinct-values endpoint for these two.
   const docStatusOptions = [...new Set(rows.map((r) => r.document_status).filter(Boolean))].sort();
   const verificationOptions = [...new Set(rows.map((r) => r.verification_status).filter(Boolean))].sort();
-  function enumOptions(key) {
-    return key === "document_status" ? docStatusOptions : verificationOptions;
-  }
 
   function patchRow(id, patch) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-    if (pinnedDoc?.id === id) setPinnedDoc((prev) => ({ ...prev, ...patch }));
-    cacheUniqueDoc?.(id, patch);
   }
 
-  const [editingDoc, setEditingDoc] = useState(null);
-
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [placementCount, setPlacementCount] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-
-  // The main-table's association list has a real `unique_document_id` filter (added in the
-  // 2026-08-24 backend update), so the cascade-delete dialog can now show an accurate "used in N
-  // placements" count instead of a generic warning.
-  async function openDeleteConfirm(row) {
-    setDeleteTarget(row);
-    setPlacementCount(null);
-    try {
-      const data = await getDashboardDocuments(1, { unique_document_id: [row.id] });
-      setPlacementCount(typeof data.total === "number" ? data.total : null);
-    } catch {
-      setPlacementCount(null);
-    }
+  // A document row here has no placement id on hand (unlike Main Table rows, which ARE
+  // placements) — review-upload and delete-translation both need one, so fetch this document's
+  // placements lazily, only when one of those actions is actually taken, rather than up front for
+  // every row of a 100-row page.
+  async function resolvePlacementId(documentId) {
+    const data = await getUniqueDocumentPlacements(documentId);
+    const list = Array.isArray(data) ? data : data?.items || [];
+    if (!list[0]?.id) throw new Error("This document has no placements to act through");
+    return list[0].id;
   }
 
-  async function handleCascadeDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
+  // Same reasoning as MainTable's notifyTranslationChanged — translation/review status here is
+  // shared with every placement row on the Main Table for this document, which this table's own
+  // patchRow doesn't touch. Skip the noisy in-progress polling ticks, nudge on real transitions.
+  function notifyTranslationChanged(fresh) {
+    if (fresh.translation_status !== "in_progress") onDataChanged?.();
+  }
+
+  // Real cascade delete (document + every placement + every WorkDrive file it owns) — NOT the
+  // placement-only delete Main Table has. Nothing in this dashboard can undo it (WorkDrive keeps
+  // it recoverable from its own trash, but nothing here does), so the confirm is built from a
+  // freshly-fetched document rather than the possibly-stale list row, spelling out exactly how
+  // many placements and files are about to go, per the backend's explicit ask.
+  const [deletingRowId, setDeletingRowId] = useState(null);
+  async function handleDeleteRow(row) {
+    setDeletingRowId(row.id);
     try {
-      await deleteDashboardUniqueDocument(deleteTarget.id);
+      const fresh = await getDashboardUniqueDocument(row.id);
+      const fileCount = fresh.duplicate_links?.length ?? 0;
+      const ok = window.confirm(
+        `Delete ${fresh.document_id}${fresh.shareable_name ? ` — ${fresh.shareable_name}` : ""}?\n\n` +
+          `This permanently removes the document, all ${fresh.placement_count} placement(s), and trashes ` +
+          `${fileCount} file(s) in WorkDrive — every duplicate copy, plus its translation and review if any.\n\n` +
+          `Nothing in this dashboard can undo this. WorkDrive keeps trashed files recoverable there, but not from here.`,
+      );
+      if (!ok) return;
+      await deleteDashboardUniqueDocument(row.id);
       toast.success("Document deleted");
-      setDeleteTarget(null);
-      load();
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      setTotal((t) => Math.max(0, t - 1));
+      onDataChanged?.();
     } catch (err) {
-      toast.error(err.message || "Delete failed");
+      const message = err.message || "Delete failed";
+      if (/already running|queued/i.test(message)) {
+        // 409 — a translation job for this document is queued/running. Look up that specific job
+        // (jobs carry unique_document_id) so the toast can offer a direct cancel, same pattern as
+        // TranslateReviewCell's manual-upload 409.
+        let job = null;
+        try {
+          const jobs = await getDashboardTranslationJobs();
+          job = (jobs || []).find((j) => j.unique_document_id === row.id);
+        } catch {
+          // ignore — fall back to a plain message with no action
+        }
+        toast.error(
+          message,
+          job
+            ? {
+                action: {
+                  label: "Cancel job",
+                  onClick: async () => {
+                    try {
+                      await cancelDashboardTranslationJob(job.id);
+                      toast.success("Cancelling — try deleting again once it stops");
+                    } catch (cancelErr) {
+                      toast.error(cancelErr.message || "Failed to cancel the job");
+                    }
+                  },
+                },
+              }
+            : undefined,
+        );
+      } else {
+        // 502 (WorkDrive refused a file) — the backend guarantees nothing was removed either
+        // side, so this is safely retryable; say so rather than just showing the raw error.
+        toast.error(`${message}${/workdrive/i.test(message) ? " — nothing was deleted, safe to retry." : ""}`);
+      }
     } finally {
-      setDeleting(false);
-    }
-  }
-
-  const [deletingOriginalId, setDeletingOriginalId] = useState(null);
-  async function handleDeleteOriginal(row) {
-    if (!window.confirm("Delete the original file? Metadata, translation, review, and placements are kept."))
-      return;
-    setDeletingOriginalId(row.id);
-    try {
-      await deleteDashboardOriginal(row.id);
-      patchRow(row.id, { shareable_link: null });
-    } catch (err) {
-      toast.error(err.message || "Delete failed");
-    } finally {
-      setDeletingOriginalId(null);
+      setDeletingRowId(null);
     }
   }
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">Unique Documents</h2>
+        <h2 className="text-sm font-semibold text-foreground">Documents</h2>
         <div className="flex items-center gap-3">
-          {pinnedDoc && (
-            <button
-              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              onClick={() => clearFocus?.()}
-            >
-              <X size={10} /> Clear jump
-            </button>
-          )}
+          <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+            {MULTI_PLACEMENT_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                className={`px-2 py-0.5 rounded text-[10px] transition-colors cursor-pointer
+                  ${multiPlacementValue === opt.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                onClick={() => setMultiPlacement(opt.key)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
           <button
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             onClick={load}
@@ -257,19 +261,42 @@ export default function UniqueDocumentsTable({
             <tr className="border-b border-border bg-muted/30">
               {FIELD_COLUMNS.map((col) => (
                 <th key={col.key} className="text-left px-3 py-2 whitespace-nowrap align-bottom">
-                  {col.enum ? (
+                  {col.filterType === "language" ? (
                     <ColumnFilter
                       label={col.label}
-                      options={enumOptions(col.key)}
+                      options={languageOptions}
+                      selected={filters.language || []}
+                      onChange={(v) => setFilter("language", v)}
+                    />
+                  ) : col.filterType === "numberRange" ? (
+                    <RangeFilter
+                      label={col.label}
+                      min={filters[`${col.key}_min`]?.[0]}
+                      max={filters[`${col.key}_max`]?.[0]}
+                      minBound={col.min}
+                      maxBound={col.max}
+                      onChange={(a, b) => setRange(col.key, "min", "max", a, b)}
+                    />
+                  ) : col.filterType === "dateRange" ? (
+                    <DateRangeColumnFilter
+                      label={col.label}
+                      from={filters[`${col.key}_from`]?.[0]}
+                      to={filters[`${col.key}_to`]?.[0]}
+                      onChange={(a, b) => setRange(col.key, "from", "to", a, b)}
+                    />
+                  ) : col.enum ? (
+                    <ColumnFilter
+                      label={col.label}
+                      options={col.key === "document_status" ? docStatusOptions : verificationOptions}
                       selected={filters[col.key] || []}
                       onChange={(v) => setFilter(col.key, v)}
                     />
-                  ) : col.dropdownFilter ? (
+                  ) : col.options ? (
                     <ColumnFilter
                       label={col.label}
-                      options={col.dropdownFilter === "state" ? stateOptions : cropOptions}
-                      selected={filters[col.dropdownFilter] || []}
-                      onChange={(v) => setFilter(col.dropdownFilter, v)}
+                      options={col.options}
+                      selected={filters[col.key] || []}
+                      onChange={(v) => setFilter(col.key, v)}
                     />
                   ) : col.filterable ? (
                     <TextFilter
@@ -303,53 +330,24 @@ export default function UniqueDocumentsTable({
                   onChange={(v) => setFilter("review_status", v)}
                 />
               </th>
-              <th className="px-3 py-2 w-16"></th>
+              <th className="px-3 py-2 w-10"></th>
             </tr>
           </thead>
           <tbody>
-            {displayRows.length === 0 && !loading ? (
+            {rows.length === 0 && !loading ? (
               <tr>
                 <td colSpan={COL_COUNT} className="px-4 py-8 text-center text-sm text-muted-foreground italic">
                   No rows match the current filters.
                 </td>
               </tr>
             ) : (
-              displayRows.map((row, idx) => (
+              rows.map((row, idx) => (
                 <tr
                   key={row.id}
-                  className={`border-b border-border/50 hover:bg-muted/20 transition-colors
-                    ${row.id === focusId ? "bg-primary/5 ring-1 ring-inset ring-primary/30" : idx % 2 === 0 ? "" : "bg-muted/10"}`}
+                  className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
                 >
                   {FIELD_COLUMNS.map((col) => {
                     const val = row[col.key];
-                    if (col.array) {
-                      const items = val || [];
-                      const text = items.join(", ");
-                      const expanded = expandedCells.has(`${row.id}:${col.key}`);
-                      return (
-                        <td key={col.key} className="px-3 py-2 align-middle max-w-[180px]">
-                          {items.length === 0 ? (
-                            <span className="text-foreground">—</span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => toggleCell(row.id, col.key)}
-                              className="text-left w-full cursor-pointer"
-                              title={expanded ? "Click to collapse" : text}
-                            >
-                              <span className={expanded ? "block text-foreground whitespace-normal" : "block truncate text-foreground"}>
-                                {text}
-                              </span>
-                              {items.length > 1 && (
-                                <span className="text-[10px] text-primary hover:underline">
-                                  {expanded ? "show less" : `${items.length} — show all`}
-                                </span>
-                              )}
-                            </button>
-                          )}
-                        </td>
-                      );
-                    }
                     if (col.link && val) {
                       return (
                         <td key={col.key} className="px-3 py-2 align-middle max-w-[180px]">
@@ -379,61 +377,52 @@ export default function UniqueDocumentsTable({
                   <td className="px-3 py-2 align-middle">
                     <FileActionIcons
                       shareableLink={row.shareable_link}
-                      onDelete={row.shareable_link ? () => handleDeleteOriginal(row) : undefined}
-                      deleting={deletingOriginalId === row.id}
+                      fileId={row.representative_file_id}
+                      filename={row.shareable_name}
                     />
                   </td>
                   <td className="px-3 py-2 align-middle">
                     <TranslateReviewCell
                       kind="translation"
                       doc={row}
+                      scope="document"
                       translationAvailable={translationAvailable}
-                      onChanged={(fresh) => patchRow(row.id, fresh)}
-                      onTranslationStarted={onTranslationStarted}
+                      resolvePlacementId={() => resolvePlacementId(row.id)}
+                      onChanged={(fresh) => {
+                        patchRow(row.id, fresh);
+                        notifyTranslationChanged(fresh);
+                      }}
                     />
                   </td>
                   <td className="px-3 py-2 align-middle">
                     <TranslateReviewCell
                       kind="review"
                       doc={row}
-                      translationAvailable={translationAvailable}
-                      onChanged={(fresh) => patchRow(row.id, fresh)}
+                      scope="document"
+                      resolvePlacementId={() => resolvePlacementId(row.id)}
+                      onChanged={(fresh) => {
+                        patchRow(row.id, fresh);
+                        onDataChanged?.();
+                      }}
                     />
                   </td>
-                  <td className="px-3 py-2 align-middle whitespace-nowrap">
+                  <td className="px-3 py-2 align-middle">
                     <div className="flex items-center gap-1">
                       <button
                         className="p-1 rounded border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer"
-                        onClick={() => setEditingDoc(row)}
-                        title="Edit"
+                        onClick={() => onOpenDetail(row.id)}
+                        title="View document"
                       >
-                        <Pencil size={11} />
+                        <Eye size={11} />
                       </button>
-                      <ConfirmationModal
-                        type="delete"
-                        title="Delete document"
-                        description={
-                          deleteTarget?.id === row.id
-                            ? `This will remove ${placementCount != null ? `all ${placementCount} state/crop placement${placementCount === 1 ? "" : "s"}` : "every state/crop placement"} of this document, and delete its original file${row.translation_status === "done" ? " + translation" : ""}${row.review_status === "done" ? " + review" : ""} from storage. This cannot be undone.`
-                            : ""
-                        }
-                        confirmText="Delete"
-                        onConfirm={handleCascadeDelete}
-                        isLoading={deleting && deleteTarget?.id === row.id}
-                        open={deleteTarget?.id === row.id}
-                        onOpenChange={(o) => {
-                          if (!o) setDeleteTarget(null);
-                        }}
-                        trigger={
-                          <button
-                            className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer"
-                            onClick={() => openDeleteConfirm(row)}
-                            title="Delete document"
-                          >
-                            <X size={11} />
-                          </button>
-                        }
-                      />
+                      <button
+                        className="p-1 rounded border border-destructive/40 text-destructive/70 hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors cursor-pointer disabled:opacity-40"
+                        onClick={() => handleDeleteRow(row)}
+                        disabled={deletingRowId === row.id}
+                        title="Delete this document — permanently removes it, all its placements, and every file it owns"
+                      >
+                        <Trash2 size={11} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -444,21 +433,6 @@ export default function UniqueDocumentsTable({
       </div>
 
       <ServerPagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
-
-      {editingDoc && (
-        <UniqueDocumentEditForm
-          key={editingDoc.id}
-          doc={editingDoc}
-          open={Boolean(editingDoc)}
-          onOpenChange={(o) => {
-            if (!o) setEditingDoc(null);
-          }}
-          onSaved={(updated) => {
-            patchRow(editingDoc.id, updated);
-            setEditingDoc(null);
-          }}
-        />
-      )}
     </div>
   );
 }

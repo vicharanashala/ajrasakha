@@ -3,12 +3,19 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, X } from 'lucide-react';
 
+// `options` is normally a plain string[] (value === display label). Pass {value, label}[]
+// instead (e.g. language codes with human-readable names) when the two need to differ — the
+// filter is applied by `value`, the checklist and search show `label`.
 export default function ColumnFilter({ label, options, selected, onChange }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef(null);
   const panelRef = useRef(null);
+
+  const normalized = (options || []).map((o) =>
+    typeof o === 'object' && o !== null ? o : { value: o, label: o },
+  );
 
   useEffect(() => {
     function onClickOutside(e) {
@@ -33,12 +40,12 @@ export default function ColumnFilter({ label, options, selected, onChange }) {
     setSearch('');
   }
 
-  const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
+  const filtered = normalized.filter(o => o.label.toLowerCase().includes(search.toLowerCase()));
   const hasSelection = selected.length > 0;
 
-  function toggle(opt) {
-    if (selected.includes(opt)) onChange(selected.filter(s => s !== opt));
-    else onChange([...selected, opt]);
+  function toggle(value) {
+    if (selected.includes(value)) onChange(selected.filter(s => s !== value));
+    else onChange([...selected, value]);
   }
 
   return (
@@ -93,16 +100,16 @@ export default function ColumnFilter({ label, options, selected, onChange }) {
             ) : (
               filtered.map(opt => (
                 <label
-                  key={opt}
+                  key={opt.value}
                   className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/30 cursor-pointer"
                 >
                   <input
                     type="checkbox"
-                    checked={selected.includes(opt)}
-                    onChange={() => toggle(opt)}
+                    checked={selected.includes(opt.value)}
+                    onChange={() => toggle(opt.value)}
                     className="accent-primary"
                   />
-                  <span className="text-[11px] text-foreground truncate" title={opt}>{opt}</span>
+                  <span className="text-[11px] text-foreground truncate" title={opt.label}>{opt.label}</span>
                 </label>
               ))
             )}
