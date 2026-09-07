@@ -1127,7 +1127,9 @@ export class AnswerRepository implements IAnswerRepository {
       await this.init();
       const skip = (page - 1) * limit;
 
-      const matchStage: any = {'question.status': 'closed'};
+      const matchStage: any = {
+        'question.status': {$in: ['closed', 'dynamic_closed', 'duplicate_closed']},
+      };
       if (search) {
         matchStage.$or = [
           {answer: {$regex: search, $options: 'i'}},

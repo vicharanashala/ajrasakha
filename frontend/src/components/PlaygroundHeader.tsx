@@ -88,6 +88,15 @@ export function PlaygroundHeader({
               </TabsTrigger>
             )}
 
+            {user && user.role !== "call_agent" && (
+              <TabsTrigger
+                value="closed_answers"
+                className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+              >
+                <span>Closed Answers</span>
+              </TabsTrigger>
+            )}
+
             {user && canManageUsers(user.role) && (
                 <TabsTrigger
                   value="user_management"

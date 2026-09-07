@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   BarChart3,
   Bot,
+  CheckCircle2,
   Clock,
   Database,
   History,
@@ -116,6 +117,10 @@ export const MobileSidebar = ({
 
     ...(user && user.role !== "call_agent"
       ? [{ id: "all_questions", label: "All Questions", icon: List }]
+      : []),
+
+    ...(user && user.role !== "call_agent"
+      ? [{ id: "closed_answers", label: "Closed Answers", icon: CheckCircle2 }]
       : []),
 
     ...(user && canManageUsers(user.role)

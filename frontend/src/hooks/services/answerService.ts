@@ -2,6 +2,7 @@ import type {
   ISubmissions,
   SubmitAnswerResponse,
   FinalizedAnswersResponse,
+  ClosedAnswersResponse,
   SourceItem,
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
@@ -168,6 +169,21 @@ export class AnswerService {
   ): Promise<FinalizedAnswersResponse | null> {
     return apiFetch<FinalizedAnswersResponse>(
       `${this._baseUrl}/finalizedAnswers?userId=${userId}&date=${date}&status=${status}`,
+    );
+  }
+
+  async getClosedAnswers(
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<ClosedAnswersResponse | null> {
+    const params = new URLSearchParams();
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+    if (search) params.append("search", search);
+
+    return apiFetch<ClosedAnswersResponse>(
+      `${this._baseUrl}/closed?${params.toString()}`,
     );
   }
 

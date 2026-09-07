@@ -399,6 +399,42 @@ export interface FinalizedAnswersResponse {
   heatMapResults: HeatMapResult[];
 }
 
+export interface ClosedAnswerQuestion {
+  id?: string;
+  text?: string;
+  status?: string;
+  closedAt?: string;
+  priority?: string;
+  source?: string;
+}
+
+export interface ClosedAnswerAuthor {
+  id?: string;
+  name?: string;
+  email?: string;
+}
+
+export interface ClosedAnswer {
+  _id: string;
+  questionId: string | null;
+  authorId: string | null;
+  answer: string;
+  status?: string;
+  isFinalAnswer: boolean;
+  approvalCount: number;
+  remarks?: string;
+  sources: SourceItem[];
+  createdAt: string;
+  updatedAt: string;
+  question: ClosedAnswerQuestion;
+  author: ClosedAnswerAuthor | null;
+}
+
+export interface ClosedAnswersResponse {
+  answers: ClosedAnswer[];
+  totalAnswers: number;
+}
+
 export type SourceType = "hyper_local" | "state" | "central" | "MODERATOR_REVIEW" | "other";
 
 export interface SourceItem {
