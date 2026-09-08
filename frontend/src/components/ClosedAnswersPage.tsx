@@ -16,6 +16,7 @@ import {
   FileSearch,
   Eye,
   EyeOff,
+  List,
 } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -48,6 +49,7 @@ import {
   EMPTY_CLOSED_ANSWER_FILTERS,
   countActiveFilters,
 } from "./ClosedAnswersFilters";
+import { ClosedAnswersListDialog } from "./ClosedAnswersListDialog";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
 import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
 import { useLookupPopSource } from "@/hooks/api/pop/useLookupPopSource";
@@ -94,18 +96,46 @@ const SECTION_LABEL_CLASSES =
 
 const isUrl = (value: string) => /^https?:\/\//i.test(value);
 
+/** True when focus sits in a field, so list navigation stays out of typing. */
+const isTypingTarget = (target: EventTarget | null) => {
+  const element = target as HTMLElement | null;
+  if (!element) return false;
+  const tag = element.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    element.isContentEditable
+  );
+};
+
+/** Binds a window keydown listener once, always calling the latest handler. */
+const useKeyDown = (handler: (event: KeyboardEvent) => void) => {
+  const handlerRef = useRef(handler);
+
+  useEffect(() => {
+    handlerRef.current = handler;
+  });
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => handlerRef.current(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+};
+
 // Converts the AI answer markup into readable text by flattening tags into labelled lines.
 export const formatAiTags = (text: string) => {
   if (!text) return "—";
 
   // 1. Replace key-value tags: <tag>value</tag> -> "Tag: value"
-  let formatted = text.replace(/<([^>]+)>([^<]*)<\/\1>/g, (match, tag, value) => {
+  let formatted = text.replace(/<([^>]+)>([^<]*)<\/\1>/g, (_match, tag, value) => {
     const label = tag.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
     return `${label}: ${value.trim()}`;
   });
 
   // 2. Replace standalone opening tags: <tag> -> "\nTag:\n"
-  formatted = formatted.replace(/<([^\/][^>]*)>/g, (match, tag) => {
+  formatted = formatted.replace(/<([^\/][^>]*)>/g, (_match, tag) => {
     const label = tag.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
     return `\n${label}:\n`;
   });
@@ -727,6 +757,7 @@ const AnswerListItem = ({
   return (
   <motion.button
     type="button"
+    data-answer-id={answer._id}
     onClick={onSelect}
     aria-current={isActive}
     initial={{ opacity: 0, y: 6 }}
@@ -801,6 +832,12 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => (
   </div>
 );
 
+const Kbd = ({ children }: { children: React.ReactNode }) => (
+  <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-border bg-muted px-1.5 font-sans text-[11px] font-medium text-foreground/80">
+    {children}
+  </kbd>
+);
+
 const ANSWERS_PAGE_SIZE = 20;
 
 // Offsets the sticky playground header and the tab container padding so the page fits
@@ -813,6 +850,7 @@ export const ClosedAnswersPage = () => {
     EMPTY_CLOSED_ANSWER_FILTERS,
   );
   const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
+  const [isListOpen, setIsListOpen] = useState(false);
   const debouncedSearch = useDebounce(search);
   const observer = useRef<IntersectionObserver | null>(null);
 
@@ -849,6 +887,39 @@ export const ClosedAnswersPage = () => {
     [isFetchingNextPage, hasNextPage, fetchNextPage],
   );
 
+  // Moves the selection one row and keeps the newly selected row in view.
+  const moveSelection = (offset: number) => {
+    if (answers.length === 0) return;
+    const currentIndex = answers.findIndex(
+      (answer) => answer._id === selectedAnswer?._id,
+    );
+    const nextIndex = Math.min(
+      Math.max(currentIndex + offset, 0),
+      answers.length - 1,
+    );
+    const nextAnswer = answers[nextIndex];
+    if (!nextAnswer) return;
+
+    setSelectedAnswerId(nextAnswer._id);
+    document
+      .querySelector(`[data-answer-id="${nextAnswer._id}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  };
+
+  // Arrow keys walk the answer list, as long as the reviewer is not typing.
+  useKeyDown((event) => {
+    if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) {
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      moveSelection(1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      moveSelection(-1);
+    }
+  });
+
   return (
     <MotionConfig reducedMotion="user">
       <div className={cn("flex w-full min-w-0 flex-col gap-4", PAGE_HEIGHT_CLASSES)}>
@@ -857,9 +928,17 @@ export const ClosedAnswersPage = () => {
             <h2 className="text-lg font-semibold leading-tight text-foreground">
               Answer Sources
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Add and update the sources backing each final answer
-              {totalAnswers > 0 && ` — ${totalAnswers.toLocaleString()} answers`}
+            <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted-foreground">
+              <span>
+                Add and update the sources backing each final answer
+                {totalAnswers > 0 && ` — ${totalAnswers.toLocaleString()} answers`}
+              </span>
+              <span className="hidden items-center gap-1.5 text-xs sm:flex">
+                <span className="text-muted-foreground/40">·</span>
+                <Kbd>↑</Kbd>
+                <Kbd>↓</Kbd>
+                <span>switch answers</span>
+              </span>
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -872,7 +951,19 @@ export const ClosedAnswersPage = () => {
                 className="pl-8"
               />
             </div>
-            <ClosedAnswersFilters filters={filters} onChange={setFilters} />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="cursor-pointer gap-2"
+                onClick={() => setIsListOpen(true)}
+                title="Open the full list"
+              >
+                <List className="h-3.5 w-3.5" />
+                Full list
+              </Button>
+              <ClosedAnswersFilters filters={filters} onChange={setFilters} />
+            </div>
           </div>
         </header>
 
@@ -958,6 +1049,22 @@ export const ClosedAnswersPage = () => {
           </div>
         )}
       </div>
+
+      <ClosedAnswersListDialog
+        open={isListOpen}
+        onOpenChange={setIsListOpen}
+        answers={answers}
+        totalAnswers={totalAnswers}
+        selectedAnswerId={selectedAnswer?._id}
+        onSelect={setSelectedAnswerId}
+        search={search}
+        onSearchChange={setSearch}
+        hasNextPage={Boolean(hasNextPage)}
+        isFetchingNextPage={isFetchingNextPage}
+        onLoadMore={() => fetchNextPage()}
+        formatClosedAt={formatClosedAt}
+      />
+
     </MotionConfig>
   );
 };
