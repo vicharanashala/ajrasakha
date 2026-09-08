@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, Link as LinkIcon, Eye, Pencil, Check, ChevronsUpDown } from "lucide-react";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { Search, Link as LinkIcon, Pencil, Plus, Check, ChevronsUpDown } from "lucide-react";
 import { Input } from "@/components/atoms/input";
+import { Label } from "@/components/atoms/label";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/atoms/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -35,11 +38,12 @@ import {
 } from "@/components/atoms/command";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import Spinner from "@/components/atoms/spinner";
+import { ExpandableText } from "@/components/expandable-text";
 import { QuestionIdLink } from "@/features/chatbotDashboard/components/QuestionIdLink";
-import { Pagination } from "./pagination";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
 import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
 import { useDebounce } from "@/hooks/ui/useDebounce";
+import { formatDate } from "@/utils/formatDate";
 import { cn } from "@/lib/utils";
 import type { ClosedAnswer, SourceItem, SourceType } from "@/types";
 
@@ -67,19 +71,22 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+const SECTION_LABEL_CLASSES =
+  "text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80";
+
 const isUrl = (value: string) => /^https?:\/\//i.test(value);
 
 const QUESTION_STATUS_STYLES: Record<string, { badge: string; dot: string }> = {
   closed: {
-    badge: "bg-slate-500/10 text-slate-300 border-slate-500/25",
+    badge: "bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/25",
     dot: "bg-slate-400",
   },
   dynamic_closed: {
-    badge: "bg-blue-500/10 text-blue-300 border-blue-500/25",
+    badge: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/25",
     dot: "bg-blue-400",
   },
   duplicate_closed: {
-    badge: "bg-purple-500/10 text-purple-300 border-purple-500/25",
+    badge: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/25",
     dot: "bg-purple-400",
   },
   approved: {
@@ -119,39 +126,7 @@ const QuestionStatusBadge = ({ status }: { status?: string }) => {
   );
 };
 
-const ID_CHIP_CLASSES =
-  "truncate rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-[11px]";
-
-const IdChip = ({
-  label,
-  value,
-  clickable = false,
-}: {
-  label: string;
-  value: string;
-  clickable?: boolean;
-}) => (
-  <div className="flex min-w-0 items-center gap-1.5">
-    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-      {label}
-    </span>
-    {clickable ? (
-      <span title={value} className="min-w-0">
-        <QuestionIdLink
-          questionId={value}
-          className={`${ID_CHIP_CLASSES} text-primary hover:border-primary/50 hover:underline`}
-        >
-          {value}
-        </QuestionIdLink>
-      </span>
-    ) : (
-      <span title={value} className={`${ID_CHIP_CLASSES} text-foreground/80`}>
-        {value}
-      </span>
-    )}
-  </div>
-);
-
+// Converts the AI answer markup into readable text by flattening tags into labelled lines.
 export const formatAiTags = (text: string) => {
   if (!text) return "—";
 
@@ -176,92 +151,22 @@ export const formatAiTags = (text: string) => {
   return formatted || "—";
 };
 
-const AnswerMetaPanel = ({ answer, showBothStatuses = false }: { answer: ClosedAnswer; showBothStatuses?: boolean }) => (
-  <div className="flex shrink-0 flex-col gap-2 rounded-lg border border-border/60 bg-muted/40 p-2.5 sm:flex-row sm:items-start sm:justify-between">
-    <div className="flex min-w-0 flex-col gap-1">
-      <IdChip label="Question ID" value={answer.questionId || "—"} clickable />
-      <IdChip label="Answer ID" value={answer._id} />
-      {answer.author?.name && <IdChip label="Author" value={answer.author.name} />}
-      {answer.approvedBy?.name && <IdChip label="Approved By" value={answer.approvedBy.name} />}
-    </div>
-    <div className="flex flex-col items-end gap-1">
-      <QuestionStatusBadge status={answer.status || "approved"} />
-      {showBothStatuses && <QuestionStatusBadge status={answer.question?.status} />}
-    </div>
-  </div>
-);
-
-const SourceRow = ({ source }: { source: SourceItem }) => {
-  const label = source.sourceName || source.source;
-  return (
-    <li className="flex items-start gap-1.5 text-xs">
-      <LinkIcon className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
-      {isUrl(source.source) ? (
-        <a
-          href={source.source}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="break-all text-primary hover:underline"
-        >
-          {label}
-        </a>
-      ) : (
-        <span className="break-all text-foreground/90">{label || "—"}</span>
-      )}
-    </li>
-  );
-};
-
-const SourcesList = ({ sources }: { sources: SourceItem[] }) => {
-  if (!sources || sources.length === 0) {
-    return <p className="text-xs text-muted-foreground">No sources provided.</p>;
-  }
-  return (
-    <ul className="space-y-1">
-      {sources.map((source, idx) => (
-        <SourceRow key={idx} source={source} />
-      ))}
-    </ul>
-  );
-};
-
-const CARD_HEIGHT = "h-[380px]";
-
-const CurrentSourceDetails = ({ source }: { source: SourceItem }) => (
-  <div className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source</p>
-      <p className="break-all text-foreground/90">{source.source || "—"}</p>
-    </div>
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Type</p>
-      <p className="text-foreground/90">
-        {source.sourceType ? SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType : "—"}
-      </p>
-    </div>
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Page</p>
-      <p className="text-foreground/90">{source.page ?? "—"}</p>
-    </div>
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Name</p>
-      <p className="text-foreground/90">{source.sourceName || "—"}</p>
-    </div>
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Organization</p>
-      <p className="text-foreground/90">{source.organization || "—"}</p>
-    </div>
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Reference</p>
-      <p className="text-foreground/90">{source.sourceReference || "—"}</p>
-    </div>
-  </div>
-);
+// Copies an existing source into the form shape, keeping optional fields as strings for controlled inputs.
+const toSourceForm = (source: SourceItem): SourceItem => ({
+  source: source.source ?? "",
+  sourceType: source.sourceType,
+  sourceName: source.sourceName ?? "",
+  page: source.page ?? "",
+  organization: source.organization ?? "",
+  sourceReference: source.sourceReference ?? "",
+});
 
 const OrganizationCombobox = ({
+  id,
   value,
   onChange,
 }: {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
 }) => {
@@ -276,6 +181,7 @@ const OrganizationCombobox = ({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           type="button"
           variant="outline"
           role="combobox"
@@ -337,272 +243,561 @@ const OrganizationCombobox = ({
   );
 };
 
+const SourcePickerItem = ({
+  source,
+  index,
+  isActive,
+  onSelect,
+}: {
+  source: SourceItem;
+  index: number;
+  isActive: boolean;
+  onSelect: () => void;
+}) => {
+  const typeLabel = source.sourceType
+    ? SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType
+    : "No type";
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-current={isActive}
+      className={cn(
+        "flex w-full flex-col gap-0.5 border-b border-l-2 border-b-border/60 px-3 py-2 text-left transition-colors last:border-b-0",
+        isActive ? "border-l-primary bg-primary/10" : "border-l-transparent hover:bg-muted/60",
+      )}
+    >
+      <span className="truncate text-xs font-medium text-foreground">
+        {source.sourceName || source.source || `Source ${index + 1}`}
+      </span>
+      <span className="truncate text-[11px] text-muted-foreground">
+        {typeLabel}
+        {source.page !== undefined && source.page !== "" ? ` · Page ${source.page}` : ""}
+      </span>
+    </button>
+  );
+};
+
 const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
+  const sources = answer.sources ?? [];
+  const fieldId = useId();
   const [open, setOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [form, setForm] = useState<SourceItem>(EMPTY_SOURCE_FORM);
+
+  const isEditing = editingIndex !== null;
+  const isValid = form.source.trim().length > 0 && Boolean(form.sourceType);
 
   const updateField = (field: keyof SourceItem, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const selectSource = (index: number) => {
+    setEditingIndex(index);
+    setForm(toSourceForm(sources[index]));
+  };
+
+  const startNewSource = () => {
+    setEditingIndex(null);
+    setForm(EMPTY_SOURCE_FORM);
+  };
+
+  // Opens on the first existing source so the dialog edits rather than always adding.
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
-      setForm(EMPTY_SOURCE_FORM);
+      if (sources.length > 0) {
+        setEditingIndex(0);
+        setForm(toSourceForm(sources[0]));
+      } else {
+        startNewSource();
+      }
     }
     setOpen(nextOpen);
   };
 
   const handleSave = () => {
-    // NOTE: frontend-only for now — saving into the new_sources collection
-    // (without touching the answer's own sources) will be wired up once
-    // that backend endpoint exists.
-    toast.success("Source details captured (not yet saved — backend update pending).");
+    if (!isValid) return;
+    // NOTE: frontend-only for now — persisting the source will be wired up once
+    // the backend update endpoint exists.
+    toast.success(
+      isEditing
+        ? "Source changes captured (not yet saved — backend update pending)."
+        : "New source captured (not yet saved — backend update pending).",
+    );
     setOpen(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="flex-1 shrink-0">
+        <Button variant="outline" size="sm" className="shrink-0">
           <Pencil className="h-3.5 w-3.5" />
           Edit Source
         </Button>
       </DialogTrigger>
-      <DialogContent className="flex h-[85vh] w-[90vw] max-w-lg flex-col overflow-hidden">
+      <DialogContent className="flex h-[85vh] w-[95vw] flex-col overflow-hidden sm:max-w-5xl">
         <DialogHeader className="shrink-0 border-b pb-3">
-          <DialogTitle>Edit Source</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit source" : "Add source"}</DialogTitle>
+          <DialogDescription>
+            {sources.length > 0
+              ? "Pick a source to edit, or add a new one to this answer."
+              : "This answer has no sources yet. Add the first one."}
+          </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="grid gap-4 pr-4">
-            <div className="grid gap-2">
-              <p className="text-xs font-semibold text-foreground/80">
-                Current Source{(answer.sources?.length ?? 0) > 1 ? "s" : ""}
-              </p>
-              {answer.sources && answer.sources.length > 0 ? (
-                <div className="grid gap-2">
-                  {answer.sources.map((source, idx) => (
-                    <CurrentSourceDetails key={idx} source={source} />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">No source set yet.</p>
-              )}
+
+        <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-4 sm:grid-cols-[260px_1fr] sm:grid-rows-1">
+          <div className="flex min-h-0 flex-col gap-2">
+            <p className={SECTION_LABEL_CLASSES}>Sources ({sources.length})</p>
+            <div className="h-[110px] overflow-hidden rounded-lg border border-border/60 sm:h-auto sm:min-h-0 sm:flex-1">
+              <ScrollArea className="h-full">
+                {sources.length === 0 ? (
+                  <p className="p-3 text-xs text-muted-foreground">No sources yet.</p>
+                ) : (
+                  sources.map((source, index) => (
+                    <SourcePickerItem
+                      key={index}
+                      source={source}
+                      index={index}
+                      isActive={editingIndex === index}
+                      onSelect={() => selectSource(index)}
+                    />
+                  ))
+                )}
+              </ScrollArea>
             </div>
+            <Button
+              type="button"
+              variant={isEditing ? "outline" : "secondary"}
+              size="sm"
+              className="shrink-0"
+              onClick={startNewSource}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add new source
+            </Button>
+          </div>
 
-            <div className="grid gap-3 border-t border-border/60 pt-3">
-              <p className="text-xs font-semibold text-foreground/80">Add Source Details</p>
-
+          <ScrollArea className="h-full">
+            <div className="grid gap-3 pr-3">
               <div className="grid gap-1.5">
-                <label className="text-xs font-medium text-foreground/80">Source</label>
+                <Label htmlFor={`${fieldId}-source`} className="text-xs">
+                  Source <span className="text-destructive">*</span>
+                </Label>
                 <Input
+                  id={`${fieldId}-source`}
+                  required
                   value={form.source}
                   onChange={(e) => updateField("source", e.target.value)}
-                  placeholder="Source URL or name"
+                  placeholder="https://... or the document name"
                 />
               </div>
 
-              <div className="grid gap-1.5">
-                <label className="text-xs font-medium text-foreground/80">Source Type</label>
-                <Select
-                  value={form.sourceType ?? ""}
-                  onValueChange={(val) => updateField("sourceType", val)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select source type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EDIT_SOURCE_TYPE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`${fieldId}-type`} className="text-xs">
+                    Source type <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={form.sourceType ?? ""}
+                    onValueChange={(val) => updateField("sourceType", val)}
+                  >
+                    <SelectTrigger id={`${fieldId}-type`} className="w-full">
+                      <SelectValue placeholder="Select source type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EDIT_SOURCE_TYPE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`${fieldId}-page`} className="text-xs">
+                    Page
+                  </Label>
+                  <Input
+                    id={`${fieldId}-page`}
+                    value={form.page ?? ""}
+                    onChange={(e) => updateField("page", e.target.value)}
+                    placeholder="e.g. 1 or 1,2,3"
+                  />
+                </div>
               </div>
 
               <div className="grid gap-1.5">
-                <label className="text-xs font-medium text-foreground/80">Page</label>
+                <Label htmlFor={`${fieldId}-name`} className="text-xs">
+                  Source name
+                </Label>
                 <Input
-                  value={form.page ?? ""}
-                  onChange={(e) => updateField("page", e.target.value)}
-                  placeholder="e.g. 1 or 1,2,3"
-                />
-              </div>
-
-              <div className="grid gap-1.5">
-                <label className="text-xs font-medium text-foreground/80">Source Name</label>
-                <Input
+                  id={`${fieldId}-name`}
                   value={form.sourceName ?? ""}
                   onChange={(e) => updateField("sourceName", e.target.value)}
-                  placeholder="Display name for the source"
+                  placeholder="Name shown to reviewers"
                 />
               </div>
 
               <div className="grid gap-1.5">
-                <label className="text-xs font-medium text-foreground/80">Organization</label>
+                <Label htmlFor={`${fieldId}-org`} className="text-xs">
+                  Organization
+                </Label>
                 <OrganizationCombobox
+                  id={`${fieldId}-org`}
                   value={form.organization ?? ""}
                   onChange={(val) => updateField("organization", val)}
                 />
               </div>
 
               <div className="grid gap-1.5">
-                <label className="text-xs font-medium text-foreground/80">Source Reference</label>
+                <Label htmlFor={`${fieldId}-reference`} className="text-xs">
+                  Source reference
+                </Label>
                 <Input
+                  id={`${fieldId}-reference`}
                   value={form.sourceReference ?? ""}
                   onChange={(e) => updateField("sourceReference", e.target.value)}
                   placeholder="Citation or reference note"
                 />
               </div>
             </div>
+          </ScrollArea>
+        </div>
+
+        <DialogFooter className="shrink-0 flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            Source and source type are required.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" disabled={!isValid} onClick={handleSave}>
+              {isEditing ? "Save changes" : "Add source"}
+            </Button>
           </div>
-        </ScrollArea>
-        <DialogFooter className="shrink-0 border-t pt-3">
-          <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button size="sm" onClick={handleSave}>
-            Save
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 };
 
-const ClosedAnswerCard = ({ answer }: { answer: ClosedAnswer }) => {
+const SourceCard = ({ source }: { source: SourceItem }) => {
+  const label = source.sourceName || source.source || "Untitled source";
+  const details = [
+    source.page !== undefined && source.page !== "" ? `Page ${source.page}` : null,
+    source.organization || null,
+    source.sourceReference || null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <div className={`flex ${CARD_HEIGHT} flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm`}>
-      <AnswerMetaPanel answer={answer} />
+    <li className="flex items-start gap-2.5 rounded-lg border border-border/60 p-2.5">
+      <LinkIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        {isUrl(source.source) ? (
+          <a
+            href={source.source}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="break-all text-sm font-medium text-primary hover:underline"
+          >
+            {label}
+          </a>
+        ) : (
+          <span className="break-words text-sm font-medium text-foreground/90">{label}</span>
+        )}
+        {details && <span className="break-words text-xs text-muted-foreground">{details}</span>}
+      </div>
+      {source.sourceType && (
+        <Badge variant="outline" className="shrink-0 rounded-full text-[10px] font-medium">
+          {SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType}
+        </Badge>
+      )}
+    </li>
+  );
+};
 
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <p className="line-clamp-6 text-sm text-foreground/90 whitespace-pre-wrap break-words">
-          {formatAiTags(answer.answer)}
-        </p>
+const SourcesList = ({ sources }: { sources: SourceItem[] }) => {
+  if (!sources || sources.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
+        No sources provided for this answer.
+      </p>
+    );
+  }
+  return (
+    <ul className="flex flex-col gap-2">
+      {sources.map((source, idx) => (
+        <SourceCard key={idx} source={source} />
+      ))}
+    </ul>
+  );
+};
+
+const DetailFact = ({ label, value }: { label: string; value: string }) => (
+  <div className="flex min-w-0 flex-col gap-0.5">
+    <span className={SECTION_LABEL_CLASSES}>{label}</span>
+    <span title={value} className="truncate text-sm text-foreground/90">
+      {value}
+    </span>
+  </div>
+);
+
+// Formats a closure timestamp, falling back to an em dash when the value is missing.
+const formatClosedAt = (value?: string, isTimeNeeded = true) =>
+  value ? formatDate(new Date(value), isTimeNeeded) : "—";
+
+const AnswerListItem = ({
+  answer,
+  isActive,
+  onSelect,
+}: {
+  answer: ClosedAnswer;
+  isActive: boolean;
+  onSelect: () => void;
+}) => (
+  <motion.button
+    type="button"
+    onClick={onSelect}
+    aria-current={isActive}
+    initial={{ opacity: 0, y: 6 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.18, ease: "easeOut" }}
+    className={cn(
+      "flex w-full flex-col gap-2 border-b border-l-2 border-b-border/60 px-3 py-2.5 text-left transition-colors last:border-b-0",
+      isActive
+        ? "border-l-primary bg-primary/10"
+        : "border-l-transparent hover:bg-muted/60",
+    )}
+  >
+    <p className="line-clamp-2 text-sm font-medium text-foreground">
+      {answer.question?.text || "Question text unavailable"}
+    </p>
+    <div className="flex flex-wrap items-center gap-2">
+      <QuestionStatusBadge status={answer.status || "approved"} />
+      <span className="text-xs text-muted-foreground">
+        {formatClosedAt(answer.question?.closedAt ?? answer.updatedAt, false)}
+      </span>
+    </div>
+  </motion.button>
+);
+
+// Characters of the answer shown before the reader has to expand it.
+const ANSWER_PREVIEW_LENGTH = 400;
+
+const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => {
+  const [isAnswerExpanded, setIsAnswerExpanded] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-4 p-4 sm:p-5">
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <QuestionStatusBadge status={answer.status || "approved"} />
+          <QuestionStatusBadge status={answer.question?.status} />
+          {answer.isFinalAnswer && (
+            <Badge variant="outline" className="rounded-full text-[11px] font-medium">
+              Final answer
+            </Badge>
+          )}
+          {answer.questionId && (
+            <QuestionIdLink
+              questionId={answer.questionId}
+              className="ml-auto rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-[11px]"
+            >
+              {answer.questionId}
+            </QuestionIdLink>
+          )}
+        </div>
+        <h3 className="text-base font-semibold leading-snug text-foreground">
+          {answer.question?.text || "Question text unavailable"}
+        </h3>
       </div>
 
-      <div className="shrink-0 max-h-16 overflow-y-auto border-t border-border/60 pt-2">
-        <p className="mb-1.5 text-xs font-semibold text-foreground/80">
-          Sources {answer.sources?.length ? `(${answer.sources.length})` : ""}
-        </p>
+      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/60 bg-muted/40 p-3 sm:grid-cols-4">
+        <DetailFact label="Answered by" value={answer.author?.name || "—"} />
+        <DetailFact label="Approved by" value={answer.approvedBy?.name || "—"} />
+        <DetailFact label="Approvals" value={String(answer.approvalCount ?? 0)} />
+        <DetailFact
+          label="Closed"
+          value={formatClosedAt(answer.question?.closedAt ?? answer.updatedAt)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <p className={SECTION_LABEL_CLASSES}>Answer</p>
+        <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
+          <ExpandableText
+            text={formatAiTags(answer.answer)}
+            maxLength={ANSWER_PREVIEW_LENGTH}
+            isExpanded={isAnswerExpanded}
+            onToggle={() => setIsAnswerExpanded((prev) => !prev)}
+          />
+        </div>
+      </div>
+
+      {answer.remarks && (
+        <div className="flex flex-col gap-1.5">
+          <p className={SECTION_LABEL_CLASSES}>Remarks</p>
+          <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
+            {answer.remarks}
+          </p>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className={SECTION_LABEL_CLASSES}>
+            Sources {answer.sources?.length ? `(${answer.sources.length})` : ""}
+          </p>
+          <EditSourceDialog answer={answer} />
+        </div>
         <SourcesList sources={answer.sources} />
-      </div>
-
-      <div className="flex shrink-0 gap-2">
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="flex-1 shrink-0">
-              <Eye className="h-3.5 w-3.5" />
-              View More
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="flex h-[80vh] w-[90vw] max-w-2xl flex-col overflow-hidden">
-            <DialogHeader className="shrink-0 border-b pb-3">
-              <DialogTitle>Answer Details</DialogTitle>
-            </DialogHeader>
-            <ScrollArea className="min-h-0 flex-1">
-              <div className="space-y-4 pr-4">
-                <AnswerMetaPanel answer={answer} showBothStatuses={true} />
-                <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words">
-                  {formatAiTags(answer.answer)}
-                </p>
-                <div className="border-t border-border/60 pt-3">
-                  <p className="mb-1.5 text-xs font-semibold text-foreground/80">
-                    Sources {answer.sources?.length ? `(${answer.sources.length})` : ""}
-                  </p>
-                  <SourcesList sources={answer.sources} />
-                </div>
-              </div>
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
-
-        <EditSourceDialog answer={answer} />
       </div>
     </div>
   );
 };
 
+const ANSWERS_PAGE_SIZE = 20;
+
+// Offsets the sticky playground header and the tab container padding so the page fits
+// the viewport and only the list and detail panes scroll.
+const PAGE_HEIGHT_CLASSES = "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-8.5rem)]";
+
 export const ClosedAnswersPage = () => {
   const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [limit, setLimit] = useState(12);
+  const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
   const debouncedSearch = useDebounce(search);
+  const observer = useRef<IntersectionObserver | null>(null);
 
-  const { data, isLoading, isFetching, error } = useGetClosedAnswers(
-    currentPage,
-    limit,
-    debouncedSearch,
+  const {
+    data,
+    error,
+    isLoading,
+    isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useGetClosedAnswers(ANSWERS_PAGE_SIZE, debouncedSearch);
+
+  const answers = data?.pages.flatMap((page) => page?.answers ?? []) ?? [];
+  const totalAnswers = data?.pages?.[0]?.totalAnswers ?? 0;
+  const selectedAnswer =
+    answers.find((answer) => answer._id === selectedAnswerId) ?? answers[0] ?? null;
+
+  // Fetches the next page once the sentinel at the end of the list scrolls into view.
+  const loadMoreRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isFetchingNextPage) return;
+      if (observer.current) observer.current.disconnect();
+
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasNextPage) {
+          fetchNextPage();
+        }
+      });
+
+      if (node) observer.current.observe(node);
+    },
+    [isFetchingNextPage, hasNextPage, fetchNextPage],
   );
 
-  const answers = data?.answers ?? [];
-  const totalAnswers = data?.totalAnswers ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalAnswers / limit));
-
   return (
-    <div className="w-full min-w-0 space-y-4">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Closed Answers</CardTitle>
-              <CardDescription>
-                Every answer submitted for a question that has been closed
-                {totalAnswers > 0 && ` — ${totalAnswers.toLocaleString()} total`}
-              </CardDescription>
-            </div>
-            <div className="relative w-full sm:w-72">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="Search question or answer..."
-                className="pl-8"
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {error ? (
-            <div className="flex items-center justify-center rounded-xl border border-dashed border-destructive/40 py-16 text-sm text-destructive">
-              Failed to load closed answers. Please try again.
-            </div>
-          ) : isLoading ? (
-            <div className="relative min-h-[300px] w-full">
-              <Spinner fullScreen={false} text="Loading closed answers" />
-            </div>
-          ) : answers.length === 0 ? (
-            <div className="flex items-center justify-center rounded-xl border border-dashed border-border py-16 text-sm text-muted-foreground">
-              No closed answers found.
-            </div>
-          ) : (
-            <>
-              <div
-                className={`grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 ${
-                  isFetching ? "opacity-60 transition-opacity" : ""
-                }`}
-              >
-                {answers.map((answer) => (
-                  <ClosedAnswerCard key={answer._id} answer={answer} />
-                ))}
+    <MotionConfig reducedMotion="user">
+      <div className={cn("flex w-full min-w-0 flex-col", PAGE_HEIGHT_CLASSES)}>
+        <Card className="flex min-h-0 flex-1 flex-col">
+          <CardHeader className="shrink-0">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>Closed Answers</CardTitle>
+                <CardDescription>
+                  Every answer submitted for a question that has been closed
+                  {totalAnswers > 0 && ` — ${totalAnswers.toLocaleString()} total`}
+                </CardDescription>
               </div>
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                limit={limit}
-                onLimitChange={(value) => {
-                  setLimit(value);
-                  setCurrentPage(1);
-                }}
-              />
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+              <div className="relative w-full sm:w-72">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search question or answer..."
+                  className="pl-8"
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex min-h-0 flex-1 flex-col">
+            {error ? (
+              <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-destructive/40 text-sm text-destructive">
+                Failed to load closed answers. Please try again.
+              </div>
+            ) : isLoading ? (
+              <div className="relative min-h-0 w-full flex-1">
+                <Spinner fullScreen={false} text="Loading closed answers" />
+              </div>
+            ) : answers.length === 0 ? (
+              <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
+                No closed answers found.
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  "grid min-h-0 flex-1 grid-rows-[minmax(140px,32%)_minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(240px,320px)_1fr] lg:grid-rows-1",
+                  isFetching && !isFetchingNextPage && "opacity-60 transition-opacity",
+                )}
+              >
+                <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
+                  <ScrollArea className="h-full">
+                    {answers.map((answer) => (
+                      <AnswerListItem
+                        key={answer._id}
+                        answer={answer}
+                        isActive={selectedAnswer?._id === answer._id}
+                        onSelect={() => setSelectedAnswerId(answer._id)}
+                      />
+                    ))}
+                    <div
+                      ref={loadMoreRef}
+                      className="flex items-center justify-center px-3 py-3 text-xs text-muted-foreground"
+                    >
+                      {isFetchingNextPage
+                        ? "Loading more answers..."
+                        : hasNextPage
+                          ? ""
+                          : `All ${totalAnswers.toLocaleString()} answers loaded`}
+                    </div>
+                  </ScrollArea>
+                </div>
+
+                <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
+                  <ScrollArea className="h-full">
+                    <AnimatePresence mode="wait" initial={false}>
+                      {selectedAnswer ? (
+                        <motion.div
+                          key={selectedAnswer._id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          transition={{ duration: 0.15, ease: "easeOut" }}
+                        >
+                          <AnswerDetail answer={selectedAnswer} />
+                        </motion.div>
+                      ) : (
+                        <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+                          Select an answer to review it.
+                        </div>
+                      )}
+                    </AnimatePresence>
+                  </ScrollArea>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </MotionConfig>
   );
 };

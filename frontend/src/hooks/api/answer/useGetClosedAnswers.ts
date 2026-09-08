@@ -1,16 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { AnswerService } from "../../services/answerService";
-import type { ClosedAnswersResponse } from "@/types";
 
 const answerService = new AnswerService();
 
-export const useGetClosedAnswers = (
-  page: number,
-  limit: number,
-  search: string,
-) => {
-  return useQuery<ClosedAnswersResponse | null, Error>({
-    queryKey: ["closed-answers", page, limit, search],
-    queryFn: () => answerService.getClosedAnswers(page, limit, search),
+// Loads closed answers page by page for the infinite scrolling review list.
+export const useGetClosedAnswers = (limit: number, search: string) => {
+  return useInfiniteQuery({
+    queryKey: ["closed-answers", limit, search],
+    queryFn: ({ pageParam }) =>
+      answerService.getClosedAnswers(pageParam, limit, search),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage || lastPage.answers.length < limit) return undefined;
+      return allPages.length + 1;
+    },
   });
 };
