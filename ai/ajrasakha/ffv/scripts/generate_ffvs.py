@@ -92,7 +92,7 @@ BATCH_MAX_WAIT_HOURS = float(os.getenv("BATCH_MAX_WAIT_HOURS", "24"))
 BATCH_MAX_REQUESTS = int(os.getenv("BATCH_MAX_REQUESTS", "100000"))
 BATCH_MAX_BYTES = int(os.getenv("BATCH_MAX_BYTES", str(256 * 1024 * 1024)))
 BATCH_MAX_TOKENS = int(os.getenv("BATCH_MAX_TOKENS_PER_REQUEST", "4000"))
-BATCH_TEMPERATURE = float(os.getenv("BATCH_TEMPERATURE", "1.0"))
+BATCH_TEMPERATURE = float(os.getenv("BATCH_TEMPERATURE", "0.7"))
 
 STATE_FILE = Path(".batch_state.json")
 LOG_FILE = "ffv_generation.log"
@@ -415,7 +415,7 @@ ANGLE DESCRIPTION: {angle_description}
 
 CRITICAL REQUIREMENTS:
 - Write 3-4 sentences only
-- Answer should be 150-300 words
+- Answer should be 80-150 words
 - Use simple, clear English understandable to a farmer
 - Second-person address ("you", "your")
 - Stay focused ONLY on the specified angle
@@ -424,11 +424,23 @@ CRITICAL REQUIREMENTS:
 - Preserve all numbers, doses, timings exactly as stated
 - If the angle is NOT substantially covered in the answer, return NULL for this FFV
 
+THE QUESTION YOU GENERATE MUST BE UNIQUE TO THIS ANGLE:
+- Each angle should have a DIFFERENT question that specifically targets that angle
+- The question should ask about the SPECIFIC ASPECT described in the angle
+- DO NOT reuse the same question across different angles
+- Frame the question to highlight what makes this angle different from others
+
 QUESTION:
 {question}
 
 DETAILED EXPERT ANSWER:
 {answer}
+
+EXAMPLE of what to generate for angle "Irrigation Frequency":
+{{"question": "How many times should I irrigate my crop and at what intervals?", "answer": "..."}}
+
+EXAMPLE of what to generate for angle "Critical Irrigation Stages":
+{{"question": "What are the most important growth stages when my crop needs water?", "answer": "..."}}
 
 Return ONLY this JSON, no preamble, no markdown:
 {{"question": "...", "answer": "..."}} OR return null if angle not covered."""
@@ -498,11 +510,23 @@ def fetch_random_approved(
 
     skipped_ids = set(ObjectId(oid) for oid in state.get("skipped_ids", [])) if state else set()
 
+    # Debug logging - check counts for each filter
+    total_answers = answers_col.count_documents({})
+    log.info("[DEBUG] Total answers in collection: %d", total_answers)
+    
+    with_final = answers_col.count_documents({"isFinalAnswer": True})
+    log.info("[DEBUG] Answers with isFinalAnswer=True: %d", with_final)
+    
+    with_final_answer = answers_col.count_documents({
+        "isFinalAnswer": True,
+        "answer": {"$exists": True, "$ne": ""}
+    })
+    log.info("[DEBUG] Answers matching pipeline filters (answer): %d", with_final_answer)
+
     pipeline = [
         {"$match": {
-            "approval_status": "approved",
-            "detailed_answer": {"$exists": True, "$ne": ""},
-            "is_active": True,
+            "isFinalAnswer": True,
+            "answer": {"$exists": True, "$ne": ""},
             "_id": {"$nin": list(skipped_ids)} if skipped_ids else {"$exists": True},
         }},
         {"$sample": {"size": limit}},
@@ -510,8 +534,9 @@ def fetch_random_approved(
 
     pairs = []
     for a_doc in answers_col.aggregate(pipeline):
-        q_doc = questions_col.find_one({"_id": a_doc.get("question_id")})
+        q_doc = questions_col.find_one({"_id": a_doc.get("questionId")})
         if not q_doc:
+            log.info("[DEBUG] No question found for answer_id: %s", a_doc.get("_id"))
             continue
         pairs.append((q_doc, a_doc))
 
@@ -539,7 +564,7 @@ def fetch_from_csv(csv_path: str, mongo_client: MongoClient) -> List[Tuple[dict,
             continue
         if not a_doc:
             continue
-        q_doc = questions_col.find_one({"_id": a_doc.get("question_id")})
+        q_doc = questions_col.find_one({"_id": a_doc.get("questionId")})
         if not q_doc:
             continue
         pairs.append((q_doc, a_doc))
@@ -698,8 +723,12 @@ def classify_and_select_angles_for_pairs(
     pair_angles: Dict[int, List[str]] = {}
 
     for idx, (q_doc, a_doc) in enumerate(pairs):
-        question = q_doc.get("question_text", "")
-        answer = a_doc.get("detailed_answer", "")
+        # Debug: show question fields on first iteration
+        if idx == 0:
+            log.info("[DEBUG] Question fields: %s", list(q_doc.keys()) if q_doc else "None")
+        
+        question = q_doc.get("question_text", "") or q_doc.get("question", "") or q_doc.get("text", "")
+        answer = a_doc.get("answer", "")
 
         if not question or not answer:
             log.warning("Skipping pair %d: missing question or answer", idx)
@@ -744,8 +773,8 @@ def build_batch_requests(
         if pair_idx not in pair_angles:
             continue
 
-        question = q_doc.get("question_text", "")
-        answer = a_doc.get("detailed_answer", "")
+        question = q_doc.get("question_text", "") or q_doc.get("question", "") or q_doc.get("text", "")
+        answer = a_doc.get("answer", "")
         domain = pair_domains.get(pair_idx, "Unknown")
         angles = pair_angles[pair_idx]
         total_angles = len(angles)
@@ -792,9 +821,7 @@ def submit_batch(
     log.info("Submitting batch with %d requests (tag=%s)", len(requests), tag)
 
     batch = client.messages.batches.create(
-        model=CLAUDE_MODEL,
         requests=requests,
-        metadata={"tag": tag},
     )
     batch_id = batch.id
     log.info("Batch submitted: id=%s", batch_id)
@@ -828,17 +855,14 @@ def poll_batch(
             raise TimeoutError(f"Batch {batch_id} exceeded max wait time of {max_wait_hours}h")
 
         batch = client.messages.batches.retrieve(batch_id)
-        status = batch.status
-        log.info("Batch %s status: %s (elapsed %.1fs)", batch_id, status, elapsed)
+        status = batch.processing_status
+        log.info("Batch %s processing_status: %s (elapsed %.1fs)", batch_id, status, elapsed)
 
         if status == "ended":
             log.info("Batch %s completed successfully!", batch_id)
             return
-        elif status == "failed":
-            err_msg = getattr(batch, "error", {}) or {}
-            raise RuntimeError(f"Batch {batch_id} failed: {err_msg}")
-        elif status == "expired":
-            raise RuntimeError(f"Batch {batch_id} expired before completion")
+        elif status == "canceling":
+            raise RuntimeError(f"Batch {batch_id} was canceled")
 
         time.sleep(poll_interval)
 
@@ -862,7 +886,7 @@ def collect_results(
     total_requests = len(request_map)
     results_retrieved = 0
 
-    for result in client.messages.batches.list_results(batch_id, limit=100):
+    for result in client.messages.batches.results(message_batch_id=batch_id):
         results_retrieved += 1
         custom_id = result.custom_id
         if custom_id not in request_map:
@@ -871,9 +895,13 @@ def collect_results(
 
         pair_idx, angle_idx, total_angles, angle = request_map[custom_id]
 
-        if result.type == "succeeded":
+        # Access the nested result object (new SDK structure)
+        batch_result = result.result
+        result_type = batch_result.type
+
+        if result_type == "succeeded":
             try:
-                raw = result.content[0].text
+                raw = batch_result.message.content[0].text
                 ffv = parse_json_or_raise(raw)
                 # Handle null response (angle not covered in answer)
                 if ffv is None or ffv == "null" or (isinstance(ffv, dict) and not ffv.get("question") and not ffv.get("answer")):
@@ -889,7 +917,11 @@ def collect_results(
                 grouped[pair_idx].append(None)
                 errors[pair_idx].append(f"angle '{angle}': parse error - {exc}")
         else:
-            err_msg = getattr(result, "error", {}) or "Unknown error"
+            err_msg = getattr(batch_result, "error", None)
+            if err_msg:
+                err_msg = err_msg.type if hasattr(err_msg, 'type') else str(err_msg)
+            else:
+                err_msg = result_type  # Use the result type as error message for canceled/expired
             log.error("Request %s failed: %s", custom_id, err_msg)
             grouped[pair_idx].append(None)
             errors[pair_idx].append(f"angle '{angle}': {err_msg}")
@@ -960,6 +992,7 @@ def export_samples(
         writer = csv.writer(f)
         writer.writerow([
             "answer_id", "domain", "angle",
+            "original_question", "original_answer",
             "ffv_question", "ffv_answer", "error"
         ])
 
@@ -968,6 +1001,10 @@ def export_samples(
             angles = pair_angles.get(idx, [])
             ffvs = grouped.get(idx, [])
             errs = errors.get(idx, [])
+
+            # Get original question and answer
+            original_question = q_doc.get("question", q_doc.get("originalQuestion", "")) or ""
+            original_answer = a_doc.get("text", a_doc.get("answer", "")) or ""
 
             for angle, ffv in zip(angles, ffvs):
                 error = ""
@@ -978,6 +1015,8 @@ def export_samples(
                     str(a_doc["_id"]),
                     domain,
                     angle,
+                    original_question,
+                    original_answer,
                     ffv.get("question", "") if ffv else "",
                     ffv.get("answer", "") if ffv else "",
                     error,
