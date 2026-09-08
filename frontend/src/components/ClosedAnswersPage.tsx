@@ -340,8 +340,14 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
   // Opens on the first existing source so the dialog edits rather than always adding.
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
-      setEditingIndex(null);
-      setForm(EMPTY_SOURCE_FORM);
+      // Opens on the answer's first source so the form starts from real data.
+      if (sources.length > 0) {
+        setEditingIndex(0);
+        setForm(toSourceForm(sources[0]));
+      } else {
+        setEditingIndex(null);
+        setForm(EMPTY_SOURCE_FORM);
+      }
       setNewSourceId(null);
       setFetchedPopId(null);
       setFetchedMatchStatus(null);
