@@ -180,7 +180,7 @@ export const ClosedAnswersFilters = ({
     <div className="flex items-center gap-2">
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="cursor-pointer gap-2">
             <Filter className="h-3.5 w-3.5" />
             Filters
             <CountBadge count={activeCount} />
@@ -392,7 +392,7 @@ export const ClosedAnswersFilters = ({
             <Button
               variant="ghost"
               size="sm"
-              className="gap-1.5"
+              className="cursor-pointer gap-1.5"
               disabled={draftCount === 0}
               onClick={() => setDraft(EMPTY_CLOSED_ANSWER_FILTERS)}
             >
@@ -400,10 +400,15 @@ export const ClosedAnswersFilters = ({
               Reset
             </Button>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="cursor-pointer"
+                onClick={() => setOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button size="sm" onClick={applyFilters}>
+              <Button size="sm" className="cursor-pointer" onClick={applyFilters}>
                 Apply{draftCount > 0 ? ` (${draftCount})` : ""}
               </Button>
             </div>
@@ -415,7 +420,7 @@ export const ClosedAnswersFilters = ({
         <Button
           variant="ghost"
           size="sm"
-          className="gap-1 text-muted-foreground"
+          className="cursor-pointer gap-1 text-muted-foreground"
           onClick={() => onChange(EMPTY_CLOSED_ANSWER_FILTERS)}
         >
           <X className="h-3.5 w-3.5" />

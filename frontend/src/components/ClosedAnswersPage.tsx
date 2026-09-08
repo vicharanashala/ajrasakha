@@ -1,20 +1,21 @@
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
-import { Search, Link as LinkIcon, Pencil, Plus, Check, ChevronsUpDown } from "lucide-react";
+import {
+  Search,
+  Link as LinkIcon,
+  ExternalLink,
+  Plus,
+  Check,
+  ChevronsUpDown,
+  RotateCcw,
+  CircleDot,
+  Circle,
+  FileSearch,
+} from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
-import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/atoms/dialog";
 import {
   Select,
   SelectContent,
@@ -153,7 +154,7 @@ const OrganizationCombobox = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between font-normal"
+          className="w-full cursor-pointer justify-between bg-background font-normal"
         >
           <span className={cn("truncate", !value && "text-muted-foreground")}>
             {value || "Search organization..."}
@@ -210,7 +211,7 @@ const OrganizationCombobox = ({
   );
 };
 
-const SourcePickerItem = ({
+const SourceRow = ({
   source,
   index,
   isActive,
@@ -226,23 +227,52 @@ const SourcePickerItem = ({
     : "No type";
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-current={isActive}
+    <div
       className={cn(
-        "flex w-full flex-col gap-0.5 border-b border-l-2 border-b-border/60 px-3 py-2 text-left transition-colors last:border-b-0",
-        isActive ? "border-l-primary bg-primary/10" : "border-l-transparent hover:bg-muted/60",
+        "group flex items-center gap-2 border-b border-l-2 border-b-border/50 pr-2 transition-colors last:border-b-0",
+        isActive
+          ? "border-l-primary bg-primary/10"
+          : "border-l-transparent hover:bg-accent/60",
       )}
     >
-      <span className="truncate text-xs font-medium text-foreground">
-        {source.sourceName || source.source || `Source ${index + 1}`}
-      </span>
-      <span className="truncate text-[11px] text-muted-foreground">
-        {typeLabel}
-        {source.page !== undefined && source.page !== "" ? ` · Page ${source.page}` : ""}
-      </span>
-    </button>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-current={isActive}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left"
+      >
+        {isActive ? (
+          <CircleDot className="h-3.5 w-3.5 shrink-0 text-primary" />
+        ) : (
+          <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground" />
+        )}
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-xs font-medium text-foreground">
+            {source.sourceName || source.source || `Source ${index + 1}`}
+          </span>
+          <span className="truncate text-[11px] text-muted-foreground">
+            {typeLabel}
+            {source.page !== undefined && source.page !== "" ? ` \u00b7 Page ${source.page}` : ""}
+          </span>
+        </span>
+        {isActive && (
+          <span className="ml-auto shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+            Editing
+          </span>
+        )}
+      </button>
+      {isUrl(source.source) && (
+        <a
+          href={source.source}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open source"
+          className="shrink-0 cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      )}
+    </div>
   );
 };
 
@@ -273,12 +303,14 @@ const SourceReferenceLookup = ({
     <div className="grid gap-1.5">
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
+        className="w-fit cursor-pointer"
         onClick={handleClick}
         disabled={isPending}
       >
-        {isPending ? "Checking..." : "Fetch Source Reference"}
+        <FileSearch className="h-3.5 w-3.5" />
+        {isPending ? "Checking..." : "Fetch source reference"}
       </Button>
       {data && !data.found && (
         <p className="text-xs text-destructive">Source not found.</p>
@@ -300,16 +332,22 @@ const SourceReferenceLookup = ({
   );
 };
 
-const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
+// The working area of the page: pick a source (or add one) and edit it in place.
+const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   const sources = answer.sources ?? [];
   const fieldId = useId();
-  const [open, setOpen] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [form, setForm] = useState<SourceItem>(EMPTY_SOURCE_FORM);
+  const [editingIndex, setEditingIndex] = useState<number | null>(
+    sources.length > 0 ? 0 : null,
+  );
+  const [form, setForm] = useState<SourceItem>(
+    sources.length > 0 ? toSourceForm(sources[0]) : EMPTY_SOURCE_FORM,
+  );
   const [newSourceId, setNewSourceId] = useState<string | null>(null);
   const [fetchedPopId, setFetchedPopId] = useState<string | null>(null);
   const [fetchedMatchStatus, setFetchedMatchStatus] = useState<PopMatchStatus | null>(null);
   const editStartedAtRef = useRef<number | null>(null);
+  const sessionStartedRef = useRef(false);
+  const newSourceIdRef = useRef<string | null>(null);
 
   const { mutate: startNewSource, isPending: isStarting } = useStartNewSource();
   const { mutate: completeNewSource, isPending: isSaving } = useCompleteNewSource();
@@ -318,58 +356,62 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
   const isEditing = editingIndex !== null;
   const isValid = form.source.trim().length > 0 && Boolean(form.sourceType);
 
+  useEffect(() => {
+    newSourceIdRef.current = newSourceId;
+  }, [newSourceId]);
+
+  // Stamps closedAt when the reviewer moves to another answer or leaves the page,
+  // so abandoned edits still get a closing time.
+  useEffect(
+    () => () => {
+      if (newSourceIdRef.current) closeNewSource(newSourceIdRef.current);
+    },
+    [closeNewSource],
+  );
+
+  // Creates the new_sources record as 'inProgress' on the first edit, giving
+  // timeTaken a real start point without logging a record for idle browsing.
+  const ensureSession = () => {
+    if (sessionStartedRef.current) return;
+    sessionStartedRef.current = true;
+    editStartedAtRef.current = Date.now();
+    startNewSource(
+      { answerId: answer._id, questionId: answer.questionId ?? "" },
+      {
+        onSuccess: (result) => {
+          if (result?._id) setNewSourceId(result._id);
+        },
+      },
+    );
+  };
+
   const updateField = (field: keyof SourceItem, value: string) => {
+    ensureSession();
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Prefills the form from an existing source; the lookup result no longer applies to it.
-  const selectSource = (index: number) => {
-    setEditingIndex(index);
-    setForm(toSourceForm(sources[index]));
+  const clearLookup = () => {
     setFetchedPopId(null);
     setFetchedMatchStatus(null);
+  };
+
+  const selectSource = (index: number) => {
+    ensureSession();
+    setEditingIndex(index);
+    setForm(toSourceForm(sources[index]));
+    clearLookup();
   };
 
   const startBlankSource = () => {
+    ensureSession();
     setEditingIndex(null);
     setForm(EMPTY_SOURCE_FORM);
-    setFetchedPopId(null);
-    setFetchedMatchStatus(null);
+    clearLookup();
   };
 
-  // Opens on the first existing source so the dialog edits rather than always adding.
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (nextOpen) {
-      // Opens on the answer's first source so the form starts from real data.
-      if (sources.length > 0) {
-        setEditingIndex(0);
-        setForm(toSourceForm(sources[0]));
-      } else {
-        setEditingIndex(null);
-        setForm(EMPTY_SOURCE_FORM);
-      }
-      setNewSourceId(null);
-      setFetchedPopId(null);
-      setFetchedMatchStatus(null);
-      editStartedAtRef.current = Date.now();
-
-      // Starts the editing timer: creates the new_sources record as 'inProgress'
-      // the instant the modal opens, so timeTaken has a real start point.
-      startNewSource(
-        { answerId: answer._id, questionId: answer.questionId ?? "" },
-        {
-          onSuccess: (result) => {
-            if (result?._id) setNewSourceId(result._id);
-          },
-        },
-      );
-    } else if (newSourceId) {
-      // Stamps closedAt on the record's reviewArray entry - fires for every way the
-      // modal can close (Cancel, Escape, outside click, or right after a save), not
-      // just completed edits, so abandoned edits get a closing time too.
-      closeNewSource(newSourceId);
-    }
-    setOpen(nextOpen);
+  const resetForm = () => {
+    setForm(isEditing ? toSourceForm(sources[editingIndex]) : EMPTY_SOURCE_FORM);
+    clearLookup();
   };
 
   const handleSave = () => {
@@ -378,6 +420,7 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
       return;
     }
     if (!newSourceId) {
+      ensureSession();
       toast.error("Still preparing this edit - try again in a moment.");
       return;
     }
@@ -390,7 +433,7 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
     // Edits are logged to the new_sources collection - the answer's own sources are
     // never modified here. sourceReference (the pop document's own _id) and
     // sourceReferenceStatus (topLevelMatch/duplicateMatch/notFound) both come from the
-    // Fetch Source Reference button in the form, so the result is captured client-side.
+    // Fetch Source Reference button, so the result is captured client-side.
     completeNewSource(
       {
         id: newSourceId,
@@ -401,7 +444,10 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
       {
         onSuccess: () => {
           toast.success("Source details saved.");
-          handleOpenChange(false);
+          closeNewSource(newSourceId);
+          setNewSourceId(null);
+          sessionStartedRef.current = false;
+          editStartedAtRef.current = null;
         },
         onError: () => {
           toast.error("Failed to save source details.");
@@ -411,211 +457,160 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="shrink-0">
-          <Pencil className="h-3.5 w-3.5" />
-          Edit Source
+    <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3.5">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <LinkIcon className="h-3.5 w-3.5" />
+          </span>
+          <p className="text-sm font-semibold text-foreground">
+            Sources ({sources.length})
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="cursor-pointer"
+          onClick={startBlankSource}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add source
         </Button>
-      </DialogTrigger>
-      <DialogContent className="flex h-[85vh] w-[95vw] flex-col overflow-hidden sm:max-w-5xl">
-        <DialogHeader className="shrink-0 border-b pb-3">
-          <DialogTitle>{isEditing ? "Edit source" : "Add source"}</DialogTitle>
-          <DialogDescription>
-            {sources.length > 0
-              ? "Pick a source to edit, or add a new one to this answer."
-              : "This answer has no sources yet. Add the first one."}
-          </DialogDescription>
-        </DialogHeader>
+      </header>
 
-        <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-4 sm:grid-cols-[260px_1fr] sm:grid-rows-1">
-          <div className="flex min-h-0 flex-col gap-2">
-            <p className={SECTION_LABEL_CLASSES}>Sources ({sources.length})</p>
-            <div className="h-[110px] overflow-hidden rounded-lg border border-border/60 sm:h-auto sm:min-h-0 sm:flex-1">
-              <ScrollArea className="h-full">
-                {sources.length === 0 ? (
-                  <p className="p-3 text-xs text-muted-foreground">No sources yet.</p>
-                ) : (
-                  sources.map((source, index) => (
-                    <SourcePickerItem
-                      key={index}
-                      source={source}
-                      index={index}
-                      isActive={editingIndex === index}
-                      onSelect={() => selectSource(index)}
-                    />
-                  ))
-                )}
-              </ScrollArea>
-            </div>
-            <Button
-              type="button"
-              variant={isEditing ? "outline" : "secondary"}
-              size="sm"
-              className="shrink-0"
-              onClick={startBlankSource}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add new source
-            </Button>
-          </div>
+      {sources.length > 0 ? (
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+          {sources.map((source, index) => (
+            <SourceRow
+              key={index}
+              source={source}
+              index={index}
+              isActive={editingIndex === index}
+              onSelect={() => selectSource(index)}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
+          No sources yet - fill the form below to add the first one.
+        </p>
+      )}
 
-          <ScrollArea className="h-full">
-            <div className="grid gap-3 pr-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor={`${fieldId}-source`} className="text-xs">
-                  Source <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id={`${fieldId}-source`}
-                  required
-                  value={form.source}
-                  onChange={(e) => updateField("source", e.target.value)}
-                  placeholder="https://... or the document name"
-                />
-                <SourceReferenceLookup
-                  source={form.source}
-                  onFound={(id, matchStatus) => {
-                    setFetchedPopId(id);
-                    setFetchedMatchStatus(matchStatus);
-                  }}
-                />
-              </div>
+      <div className="grid gap-3 rounded-lg border border-border bg-card p-3.5 shadow-sm">
+        <p className={SECTION_LABEL_CLASSES}>
+          {isEditing ? `Editing source ${editingIndex + 1}` : "New source"}
+        </p>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="grid gap-1.5">
-                  <Label htmlFor={`${fieldId}-type`} className="text-xs">
-                    Source type <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={form.sourceType ?? ""}
-                    onValueChange={(val) => updateField("sourceType", val)}
-                  >
-                    <SelectTrigger id={`${fieldId}-type`} className="w-full">
-                      <SelectValue placeholder="Select source type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EDIT_SOURCE_TYPE_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label htmlFor={`${fieldId}-page`} className="text-xs">
-                    Page
-                  </Label>
-                  <Input
-                    id={`${fieldId}-page`}
-                    value={form.page ?? ""}
-                    onChange={(e) => updateField("page", e.target.value)}
-                    placeholder="e.g. 1 or 1,2,3"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-1.5">
-                <Label htmlFor={`${fieldId}-name`} className="text-xs">
-                  Source name
-                </Label>
-                <Input
-                  id={`${fieldId}-name`}
-                  value={form.sourceName ?? ""}
-                  onChange={(e) => updateField("sourceName", e.target.value)}
-                  placeholder="Name shown to reviewers"
-                />
-              </div>
-
-              <div className="grid gap-1.5">
-                <Label htmlFor={`${fieldId}-org`} className="text-xs">
-                  Organization
-                </Label>
-                <OrganizationCombobox
-                  id={`${fieldId}-org`}
-                  value={form.organization ?? ""}
-                  onChange={(val) => updateField("organization", val)}
-                />
-              </div>
-            </div>
-          </ScrollArea>
+        <div className="grid gap-1.5">
+          <Label htmlFor={`${fieldId}-source`} className="text-xs">
+            Source <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id={`${fieldId}-source`}
+            required
+            className="bg-background"
+            value={form.source}
+            onChange={(e) => updateField("source", e.target.value)}
+            placeholder="https://... or the document name"
+          />
+          <SourceReferenceLookup
+            source={form.source}
+            onFound={(id, matchStatus) => {
+              setFetchedPopId(id);
+              setFetchedMatchStatus(matchStatus);
+            }}
+          />
         </div>
 
-        <DialogFooter className="shrink-0 flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${fieldId}-type`} className="text-xs">
+              Source type <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={form.sourceType ?? ""}
+              onValueChange={(val) => updateField("sourceType", val)}
+            >
+              <SelectTrigger id={`${fieldId}-type`} className="w-full cursor-pointer bg-background">
+                <SelectValue placeholder="Select source type" />
+              </SelectTrigger>
+              <SelectContent>
+                {EDIT_SOURCE_TYPE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${fieldId}-page`} className="text-xs">
+              Page
+            </Label>
+            <Input
+              id={`${fieldId}-page`}
+              className="bg-background"
+              value={form.page ?? ""}
+              onChange={(e) => updateField("page", e.target.value)}
+              placeholder="e.g. 1 or 1,2,3"
+            />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${fieldId}-name`} className="text-xs">
+              Source name
+            </Label>
+            <Input
+              id={`${fieldId}-name`}
+              className="bg-background"
+              value={form.sourceName ?? ""}
+              onChange={(e) => updateField("sourceName", e.target.value)}
+              placeholder="Name shown to reviewers"
+            />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${fieldId}-org`} className="text-xs">
+              Organization
+            </Label>
+            <OrganizationCombobox
+              id={`${fieldId}-org`}
+              value={form.organization ?? ""}
+              onChange={(val) => updateField("organization", val)}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
           <p className="text-xs text-muted-foreground">
             Source and source type are required.
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
-              Cancel
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={resetForm}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset
             </Button>
             <Button
+              type="button"
               size="sm"
+              className="cursor-pointer"
               disabled={!isValid || isSaving || isStarting}
               onClick={handleSave}
             >
               {isSaving ? "Saving..." : isEditing ? "Save changes" : "Add source"}
             </Button>
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-const SourceCard = ({ source }: { source: SourceItem }) => {
-  const label = source.sourceName || source.source || "Untitled source";
-  const details = [
-    source.page !== undefined && source.page !== "" ? `Page ${source.page}` : null,
-    source.organization || null,
-    source.sourceReference || null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  return (
-    <li className="flex items-start gap-2.5 border-b border-border/50 py-2.5 first:pt-0 last:border-b-0 last:pb-0">
-      <LinkIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        {isUrl(source.source) ? (
-          <a
-            href={source.source}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="break-all text-sm font-medium text-primary hover:underline"
-          >
-            {label}
-          </a>
-        ) : (
-          <span className="break-words text-sm font-medium text-foreground/90">{label}</span>
-        )}
-        {details && <span className="break-words text-xs text-muted-foreground">{details}</span>}
+        </div>
       </div>
-      {source.sourceType && (
-        <Badge variant="outline" className="shrink-0 rounded-full text-[10px] font-medium">
-          {SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType}
-        </Badge>
-      )}
-    </li>
-  );
-};
-
-const SourcesList = ({ sources }: { sources: SourceItem[] }) => {
-  if (!sources || sources.length === 0) {
-    return (
-      <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-        No sources yet — use Edit Source to add the first one.
-      </p>
-    );
-  }
-  return (
-    <ul className="flex flex-col">
-      {sources.map((source, idx) => (
-        <SourceCard key={idx} source={source} />
-      ))}
-    </ul>
+    </section>
   );
 };
 
@@ -652,10 +647,10 @@ const AnswerListItem = ({
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.18, ease: "easeOut" }}
     className={cn(
-      "flex w-full flex-col gap-2 border-b border-l-2 border-b-border/60 px-3 py-2.5 text-left transition-colors last:border-b-0",
+      "flex w-full cursor-pointer flex-col gap-2 border-b border-l-2 border-b-border/60 px-3 py-2.5 text-left transition-colors last:border-b-0",
       isActive
         ? "border-l-primary bg-primary/10"
-        : "border-l-transparent hover:bg-muted/60",
+        : "border-l-transparent hover:bg-accent/60",
     )}
   >
     <p className="line-clamp-2 text-sm font-medium text-foreground">
@@ -678,58 +673,50 @@ const AnswerListItem = ({
 
 const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => (
   <div className="flex flex-col gap-4 p-4 sm:p-5">
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <p className={SECTION_LABEL_CLASSES}>Question</p>
+        {answer.questionId && (
+          <QuestionIdLink
+            questionId={answer.questionId}
+            className="font-mono text-[11px] text-muted-foreground"
+          >
+            {answer.questionId}
+          </QuestionIdLink>
+        )}
+      </div>
+      <h3 className="text-base font-semibold leading-snug text-foreground">
+        {answer.question?.text || "Question text unavailable"}
+      </h3>
+    </div>
+
+    <AnswerSourcesEditor answer={answer} />
+
+    <div className="flex flex-col gap-1.5">
+      <p className={SECTION_LABEL_CLASSES}>Answer</p>
+      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
+        {formatAiTags(answer.answer)}
+      </p>
+    </div>
+
+    {answer.remarks && (
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between gap-3">
-          <p className={SECTION_LABEL_CLASSES}>Question</p>
-          {answer.questionId && (
-            <QuestionIdLink
-              questionId={answer.questionId}
-              className="font-mono text-[11px] text-muted-foreground"
-            >
-              {answer.questionId}
-            </QuestionIdLink>
-          )}
-        </div>
-        <h3 className="text-base font-semibold leading-snug text-foreground">
-          {answer.question?.text || "Question text unavailable"}
-        </h3>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 border-y border-border/60 py-3 sm:grid-cols-4">
-        <DetailFact label="Answered by" value={answer.author?.name || "—"} />
-        <DetailFact label="Approved by" value={answer.approvedBy?.name || "—"} />
-        <DetailFact label="Approvals" value={String(answer.approvalCount ?? 0)} />
-        <DetailFact
-          label="Closed"
-          value={formatClosedAt(answer.question?.closedAt ?? answer.updatedAt)}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <p className={SECTION_LABEL_CLASSES}>
-            Sources {answer.sources?.length ? `(${answer.sources.length})` : ""}
-          </p>
-          <EditSourceDialog answer={answer} />
-        </div>
-        <SourcesList sources={answer.sources} />
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <p className={SECTION_LABEL_CLASSES}>Answer</p>
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
-          {formatAiTags(answer.answer)}
+        <p className={SECTION_LABEL_CLASSES}>Remarks</p>
+        <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
+          {answer.remarks}
         </p>
       </div>
+    )}
 
-      {answer.remarks && (
-        <div className="flex flex-col gap-1.5">
-          <p className={SECTION_LABEL_CLASSES}>Remarks</p>
-          <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
-            {answer.remarks}
-          </p>
-        </div>
-      )}
+    <div className="grid grid-cols-2 gap-3 border-t border-border/60 pt-3 sm:grid-cols-4">
+      <DetailFact label="Answered by" value={answer.author?.name || "—"} />
+      <DetailFact label="Approved by" value={answer.approvedBy?.name || "—"} />
+      <DetailFact label="Approvals" value={String(answer.approvalCount ?? 0)} />
+      <DetailFact
+        label="Closed"
+        value={formatClosedAt(answer.question?.closedAt ?? answer.updatedAt)}
+      />
+    </div>
   </div>
 );
 
