@@ -35,6 +35,7 @@ import type { ICropAlias, ICropResponse, IBulkJobResult } from "@/hooks/services
 import { BulkResultsModal, downloadBulkResultsCsv } from "./BulkResultsModal";
 
 const cropServiceForStatus = new CropService();
+import { useGetStates, useGetDistricts } from "@/hooks/api/location/useLocations";
 import { useGetOrganizations } from "@/hooks/api/organization/useGetOrganizations";
 import { useCreateOrganization } from "@/hooks/api/organization/useCreateOrganization";
 import { useUpdateOrganization } from "@/hooks/api/organization/useUpdateOrganization";
@@ -859,6 +860,10 @@ export const CropManagementModal = ({
   const [orgDistrict, setOrgDistrict] = useState("");
   const [orgAddress, setOrgAddress] = useState("");
   const [orgName, setOrgName] = useState("");
+  const [orgType, setOrgType] = useState<"central" | "state" | "district" | "">("");
+  const { data: statesList } = useGetStates();
+  const selectedStateCode = statesList?.find(s => s.stateNameEnglish === orgState)?.stateCode;
+  const { data: districtsList } = useGetDistricts(selectedStateCode);
   const [orgToDelete, setOrgToDelete] = useState<any | null>(null);
   const [orgEditId, setOrgEditId] = useState<string | null>(null);
 
@@ -1388,6 +1393,7 @@ export const CropManagementModal = ({
 
             <div className="flex items-center gap-2">
               <Button
+                type="button"
                 size="sm"
                 className={`h-8 text-xs gap-1.5 shadow-sm text-white transition-colors ${
                   activeTab === "chemical"
@@ -1396,8 +1402,10 @@ export const CropManagementModal = ({
                     ? "bg-blue-600 hover:bg-blue-700"
                     : "bg-amber-600 hover:bg-amber-700"
                 }`}
-                onClick={() => {
-                  setEntryType(activeTab === "other" ? "other" : activeTab);
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setEntryType(activeTab === "other" ? "other" : activeTab as any);
                   setIsAddFormOpen(!isAddFormOpen);
                 }}
               >
@@ -1804,8 +1812,9 @@ export const CropManagementModal = ({
                       <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
                     )}
                   </div>
-                  <div className="grid grid-cols-[2fr_1.5fr_1.5fr_2fr_100px] gap-3 border-b border-gray-100 dark:border-gray-800 pb-2 mb-2 font-semibold text-xs text-gray-500">
+                  <div className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_2fr_100px] gap-3 border-b border-gray-100 dark:border-gray-800 pb-2 mb-2 font-semibold text-xs text-gray-500">
                     <div>Organization Name</div>
+                    <div>Type</div>
                     <div>State</div>
                     <div>District</div>
                     <div>Address</div>
@@ -1815,25 +1824,55 @@ export const CropManagementModal = ({
                   {isAddFormOpen && (
                     <div className="mt-4 mb-3 p-4 rounded-xl border-l-[3px] border-l-emerald-500 border border-emerald-200/60 dark:border-emerald-500/15 bg-emerald-50/30 dark:bg-emerald-500/[0.03]">
                       <div className="flex flex-col gap-3">
-                        <Input placeholder="Organization Name *" value={orgName} onChange={(e) => setOrgName(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
+                        <div className="grid grid-cols-[2fr_1fr] gap-3">
+                          <Input placeholder="Organization Name *" value={orgName} onChange={(e) => setOrgName(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
+                          <Select value={orgType || undefined} onValueChange={(v: any) => setOrgType(v)}>
+                            <SelectTrigger className="h-8 text-xs bg-white dark:bg-[#1a1a1a]">
+                              <SelectValue placeholder="Type *" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="central" className="text-xs">Central</SelectItem>
+                              <SelectItem value="state" className="text-xs">State</SelectItem>
+                              <SelectItem value="district" className="text-xs">District</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div className="grid grid-cols-2 gap-3">
-                          <Input placeholder="State *" value={orgState} onChange={(e) => setOrgState(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
-                          <Input placeholder="District" value={orgDistrict} onChange={(e) => setOrgDistrict(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
+                          <Select value={orgState || undefined} onValueChange={(v) => { setOrgState(v); setOrgDistrict(""); }}>
+                            <SelectTrigger className="h-8 text-xs bg-white dark:bg-[#1a1a1a]">
+                              <SelectValue placeholder="State" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-64">
+                              {statesList?.map((s) => (
+                                <SelectItem key={s.stateCode} value={s.stateNameEnglish} className="text-xs">{s.stateNameEnglish}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select value={orgDistrict || undefined} onValueChange={(v) => setOrgDistrict(v)} disabled={!selectedStateCode}>
+                            <SelectTrigger className="h-8 text-xs bg-white dark:bg-[#1a1a1a]">
+                              <SelectValue placeholder="District" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-64">
+                              {districtsList?.map((d) => (
+                                <SelectItem key={d.districtCode} value={d.districtNameEnglish} className="text-xs">{d.districtNameEnglish}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <Input placeholder="Address" value={orgAddress} onChange={(e) => setOrgAddress(e.target.value)} className="h-8 text-xs bg-white dark:bg-[#1a1a1a]" />
                         
                         <div className="flex justify-end gap-2 mt-2">
-                          <Button variant="outline" size="sm" onClick={() => { setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgState(""); setOrgDistrict(""); setOrgAddress(""); }} className="h-8 text-xs">Cancel</Button>
+                          <Button variant="outline" size="sm" onClick={() => { setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgType(""); setOrgState(""); setOrgDistrict(""); setOrgAddress(""); }} className="h-8 text-xs">Cancel</Button>
                           <Button size="sm" onClick={async () => {
-                            if (!orgName || !orgState) return toast.error("Name and State are required");
-                            const payload = { org_name: orgName, state: orgState, district: orgDistrict, address: orgAddress };
+                            if (!orgName || !orgState || !orgType) return toast.error("Name, Type and State are required");
+                            const payload = { org_name: orgName, type: orgType, state: orgState, district: orgDistrict, address: orgAddress };
                             try {
                                 if (orgEditId) {
                                   await updateOrg({ id: orgEditId, data: payload });
                                 } else {
                                   await createOrg(payload);
                                 }
-                                setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgState(""); setOrgDistrict(""); setOrgAddress("");
+                                setIsAddFormOpen(false); setOrgEditId(null); setOrgName(""); setOrgType(""); setOrgState(""); setOrgDistrict(""); setOrgAddress("");
                             } catch (error) {}
                           }} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">{orgEditId ? "Update" : "Add"}</Button>
                         </div>
@@ -1843,8 +1882,9 @@ export const CropManagementModal = ({
 
                   <div className="flex flex-col gap-0 border rounded-xl overflow-hidden mt-3 dark:border-gray-800">
                     {orgData?.organizations?.map((org: any, i: number) => (
-                      <div key={typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id)} className={`grid grid-cols-[2fr_1.5fr_1.5fr_2fr_100px] gap-3 items-center p-3 text-xs transition-colors hover:bg-gray-50/60 dark:hover:bg-white/[0.02] ${i > 0 ? "border-t border-gray-100 dark:border-gray-800" : ""}`}>
+                      <div key={typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id)} className={`grid grid-cols-[2fr_1fr_1.5fr_1.5fr_2fr_100px] gap-3 items-center p-3 text-xs transition-colors hover:bg-gray-50/60 dark:hover:bg-white/[0.02] ${i > 0 ? "border-t border-gray-100 dark:border-gray-800" : ""}`}>
                         <div className="font-medium text-gray-900 dark:text-gray-100">{org.org_name}</div>
+                        <div className="text-gray-600 dark:text-gray-400 capitalize">{org.type || "-"}</div>
                         <div className="text-gray-600 dark:text-gray-400">{org.state}</div>
                         <div className="text-gray-600 dark:text-gray-400">{org.district || "-"}</div>
                         <div className="text-gray-600 dark:text-gray-400 truncate" title={org.address}>{org.address || "-"}</div>
@@ -1852,6 +1892,7 @@ export const CropManagementModal = ({
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10" onClick={() => {
                             setOrgEditId(typeof org._id === 'object' ? org._id?.$oid : (org._id || org.id));
                             setOrgName(org.org_name);
+                            setOrgType(org.type || "");
                             setOrgState(org.state);
                             setOrgDistrict(org.district || "");
                             setOrgAddress(org.address || "");
