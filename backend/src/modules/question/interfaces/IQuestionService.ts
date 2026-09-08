@@ -471,6 +471,13 @@ export interface IQuestionService {
     batchSize?: number,
   ): Promise<{ data?: ObjectId[]; status: boolean }>;
 
+  /**
+   * Event-driven moderator-queue allocation (replaces the periodic moderator cron).
+   * Fire-and-forget; call after a question becomes a moderator candidate (→ in-review /
+   * pae_submitted) or a moderator is freed, once the caller's transaction has committed.
+   */
+  triggerModeratorQueueAllocation(context: string): void;
+
   /** Toggle auto allocation on/off */
   toggleAutoAllocate(
     questionId: string,
@@ -543,7 +550,7 @@ export interface IQuestionService {
   /** Manually (re)assign the gate keeper / auditor for a question. */
   getRoleAssigneeDashboard(
     userId: string,
-    role: 'gate_keeper' | 'auditor',
+    role: 'gate_keeper' | 'auditor' | 'moderator',
     page: number,
     limit: number,
     search?: string,

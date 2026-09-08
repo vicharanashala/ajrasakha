@@ -3,7 +3,7 @@ import {Collection, ObjectId} from 'mongodb';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {MongoDatabase} from '#root/shared/index.js';
-import {ICrop, ICropAlias, CropType} from '#root/shared/interfaces/models.js';
+import {ICrop, ICropAlias, CropType, ALLOWED_CROP_TYPES} from '#root/shared/interfaces/models.js';
 import {ICropRepository} from '#root/shared/database/interfaces/ICropRepository.js';
 
 @injectable()
@@ -37,6 +37,20 @@ export class CropRepository implements ICropRepository {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  /**
+   * Title-case every word in a value for storage, regardless of separator, so a cell
+   * holding multiple names ("vari,paddy") capitalises each one: "Vari,Paddy". Separators
+   * (comma / slash / space / hyphen) and digits are preserved.
+   *   "wheat crop"  → "Wheat Crop"
+   *   "vari,paddy"  → "Vari,Paddy"
+   */
+  private static toTitleCase(value?: string): string {
+    return (value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[a-z]+/g, w => w.charAt(0).toUpperCase() + w.slice(1));
+  }
+
   /** Extract the searchable English string from either a legacy string alias or a new ICropAlias object */
   private static getEnRepr(alias: any): string {
     return typeof alias === 'string' ? alias : (alias?.english_representation ?? '');
@@ -51,6 +65,7 @@ export class CropRepository implements ICropRepository {
     type?: CropType,
     status?: string,
     crops?: string[],
+    scientificName?: string | null,
   ): Promise<ICrop> {
     try {
       if (!this.CropCollection) await this.init();
@@ -89,20 +104,31 @@ export class CropRepository implements ICropRepository {
       }
 
       const resolvedType = type ?? 'crop';
+      // Title-case crops/other for consistency; chemicals keep their exact casing (e.g. "2,4-D").
+      const norm = (v?: string) =>
+        resolvedType === 'chemical'
+          ? (v ?? '').trim()
+          : CropRepository.toTitleCase(v);
       const now = new Date();
       const payload: ICrop = {
-       name:name.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' '),
+       name: norm(name),
         type: resolvedType,
         aliases: (aliases || []).map(a => ({
-          language: (a.language ?? '').trim(),
-          region: (a.region ?? '').trim(),
-          english_representation: (a.english_representation ?? '').trim().toLowerCase(),
+          language: norm(a.language),
+          region: norm(a.region),
+          english_representation: norm(a.english_representation),
           native_representation: (a.native_representation ?? '').trim(),
         })),
         createdBy: new ObjectId(createdBy),
         createdAt: now,
         updatedAt: now,
       };
+
+      // Scientific name is stored as entered (binomial nomenclature has its own
+      // casing rules, e.g. "Oryza sativa") — trim only, never title-case.
+      if (scientificName && scientificName.trim()) {
+        payload.scientificName = scientificName.trim();
+      }
 
       // Store status only for chemicals
       if (resolvedType === 'chemical') {
@@ -121,6 +147,23 @@ export class CropRepository implements ICropRepository {
       if (error instanceof BadRequestError) throw error;
       throw new InternalServerError(`Failed to create entry: ${error.message}`);
     }
+  }
+
+  /** Distinct crop-side types present in the collection — every value of `type`
+   *  except 'crop' and 'chemical' (which have their own dedicated tabs). Used to
+   *  surface each custom "Other" type as its own tab in the UI. */
+  async getCropSideTypes(): Promise<string[]> {
+    if (!this.CropCollection) await this.init();
+    const raw = await this.CropCollection.distinct('type', {
+      type: { $nin: ['crop', 'chemical'], $exists: true, $ne: null },
+    });
+    // 'crop'/'chemical'/'other' are reserved (their own / the catch-all tab), so a
+    // custom type using one of those names must not create a duplicate tab.
+    const reserved = new Set(['crop', 'chemical', 'other']);
+    return (raw as unknown[])
+      .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+      .map(t => t.trim())
+      .filter(t => !reserved.has(t.toLowerCase()));
   }
 
   // ─── READ (ALL) ────────────────────────────────────────────────────────────
@@ -156,8 +199,8 @@ export class CropRepository implements ICropRepository {
             {
               $and: [
                 { type: { $exists: true } },
-                { type: { $ne: 'crop' } },
-                { type: { $ne: 'chemical' } },
+                // Exclude every known/first-class type so "Other" holds only custom types.
+                { type: { $nin: [...ALLOWED_CROP_TYPES] } },
               ],
             },
           ];
@@ -235,6 +278,7 @@ export class CropRepository implements ICropRepository {
       status?: string;
       type?: CropType;
       crops?: string[];
+      scientificName?: string | null;
     },
     updatedBy: string,
   ): Promise<ICrop | null> {
@@ -251,6 +295,13 @@ export class CropRepository implements ICropRepository {
         $set.type = updates.type;
       }
 
+      // Scientific name: an empty/blank value clears it (stored as null); otherwise
+      // store the trimmed value as entered (never title-cased).
+      if (updates.scientificName !== undefined) {
+        const trimmed = (updates.scientificName ?? '').trim();
+        $set.scientificName = trimmed.length ? trimmed : null;
+      }
+
       if (updates.status !== undefined) {
         $set.status = updates.status;
       }
@@ -261,12 +312,24 @@ export class CropRepository implements ICropRepository {
 
       // ── Alias conflict check ──────────────────────────────────────────────
       if (updates.aliases !== undefined) {
+        // Chemicals keep exact casing; crops/other are title-cased. The type may not be
+        // sent (manual alias edits) — fall back to the stored entry's type.
+        let isChemical = updates.type === 'chemical';
+        if (updates.type === undefined) {
+          const existingDoc = await this.CropCollection.findOne(
+            { _id: new ObjectId(id) },
+            { projection: { type: 1 } },
+          );
+          isChemical = (existingDoc?.type ?? 'crop') === 'chemical';
+        }
+        const norm = (v?: string) =>
+          isChemical ? (v ?? '').trim() : CropRepository.toTitleCase(v);
         const normalizedAliases = updates.aliases.map(a => {
-          if (typeof a === 'string') return a.trim().toLowerCase();
+          if (typeof a === 'string') return norm(a);
           return {
-            language: (a.language ?? '').trim(),
-            region: (a.region ?? '').trim(),
-            english_representation: (a.english_representation ?? '').trim().toLowerCase(),
+            language: norm(a.language),
+            region: norm(a.region),
+            english_representation: norm(a.english_representation),
             native_representation: (a.native_representation ?? '').trim(),
           };
         });

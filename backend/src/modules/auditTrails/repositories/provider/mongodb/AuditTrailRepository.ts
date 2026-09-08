@@ -381,4 +381,48 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
       totalDocuments: await this.auditTrailsCollection.countDocuments(query, { session }),
     };
   }
+
+  async getAuditTrailsByCropId(
+    cropId: string,
+    page: number = 1,
+    limit: number = 10,
+    action?: string | null,
+    order: "asc" | "desc" = "desc",
+    session?: ClientSession,
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }> {
+    await this.init();
+
+    // Match documents whose context references this AgriTech entry. Current entries store
+    // `agriTechId`; older ones used cropId / chemicalId / entityId. Ids may be stored as a
+    // string or an ObjectId.
+    const oid = ObjectId.isValid(cropId) ? new ObjectId(cropId) : null;
+    const idKeys = [
+      'context.agriTechId',
+      'context.cropId',
+      'context.chemicalId',
+      'context.entityId',
+    ];
+    const query: any = {
+      $or: [
+        ...idKeys.map(k => ({ [k]: cropId })),
+        ...(oid ? idKeys.map(k => ({ [k]: oid })) : []),
+      ],
+    };
+
+    if (action && action.trim() !== '') {
+      query.action = action;
+    }
+
+    const skip = (page - 1) * limit;
+
+    return {
+      data: await this.auditTrailsCollection
+        .find(query, { session })
+        .sort({ createdAt: order === "asc" ? 1 : -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+      totalDocuments: await this.auditTrailsCollection.countDocuments(query, { session }),
+    };
+  }
 }

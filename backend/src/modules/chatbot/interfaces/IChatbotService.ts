@@ -353,6 +353,8 @@ export interface IChatbotService {
     userType?: string,
     page?: number,
     limit?: number,
+    startDate?: string,
+    endDate?: string,
   ): Promise<any>;
   getUserMessageMetricDetails(
     userId: string,

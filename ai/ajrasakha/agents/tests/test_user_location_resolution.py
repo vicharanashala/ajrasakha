@@ -127,7 +127,16 @@ def test_maybe_persist_only_on_explicit_source(mock_save):
         district_source="plan.entities.district (llm)",
         background=False,
     )
-    mock_save.assert_called_once_with("919876543210", "Sirsa", "Haryana")
+    mock_save.assert_called_once_with(
+        "919876543210",
+        "Sirsa",
+        "Haryana",
+        thread_id=None,
+        state_source="plan.entities.state (llm)",
+        district_source="plan.entities.district (llm)",
+        latitude=None,
+        longitude=None,
+    )
 
     mock_save.reset_mock()
     maybe_persist_resolved_location(
@@ -138,7 +147,16 @@ def test_maybe_persist_only_on_explicit_source(mock_save):
         district_source="default_all_when_state_only",
         background=False,
     )
-    mock_save.assert_called_once_with("919876543210", "all", "Uttar Pradesh")
+    mock_save.assert_called_once_with(
+        "919876543210",
+        "all",
+        "Uttar Pradesh",
+        thread_id=None,
+        state_source="rephrased_query_text",
+        district_source="default_all_when_state_only",
+        latitude=None,
+        longitude=None,
+    )
 
 
 @patch("ajrasakha.agents.user_location.get_user_location")

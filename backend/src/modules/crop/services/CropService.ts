@@ -2,9 +2,10 @@ import { injectable, inject } from 'inversify';
 import { BadRequestError } from 'routing-controllers';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
-import { ICrop } from '#root/shared/interfaces/models.js';
+import { ICrop, CROP_OTHER_TYPES } from '#root/shared/interfaces/models.js';
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
 import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import { ICropService } from '../interfaces/ICropService.js';
 import {
   CreateCropDto,
@@ -21,6 +22,9 @@ export class CropService extends BaseService implements ICropService {
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepository: IQuestionRepository,
 
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepository: IUserRepository,
+
     @inject(GLOBAL_TYPES.Database)
     mongoDatabase: MongoDatabase,
   ) {
@@ -30,11 +34,49 @@ export class CropService extends BaseService implements ICropService {
   async getAllCrops(
     query?: GetAllCropsQuery,
   ): Promise<{ crops: ICrop[]; totalCount: number; totalPages: number }> {
-    return this.cropRepository.getAllCrops(query);
+    const result = await this.cropRepository.getAllCrops(query);
+
+    // Resolve createdBy / updatedBy user ids → "firstName lastName" so the UI can show
+    // the audit info without a separate (and often incomplete) users fetch.
+    const ids = new Set<string>();
+    for (const c of result.crops) {
+      if (c.createdBy) ids.add(c.createdBy.toString());
+      if (c.updatedBy) ids.add(c.updatedBy.toString());
+    }
+    if (ids.size > 0) {
+      const users = await this.userRepository.getUsersByIds([...ids]);
+      const nameById = new Map(
+        users.map(u => [
+          u._id!.toString(),
+          `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || '',
+        ]),
+      );
+      result.crops = result.crops.map(c => ({
+        ...c,
+        createdByName: c.createdBy
+          ? nameById.get(c.createdBy.toString())
+          : undefined,
+        updatedByName: c.updatedBy
+          ? nameById.get(c.updatedBy.toString())
+          : undefined,
+      }));
+    }
+
+    return result;
   }
 
   async getCropById(cropId: string): Promise<ICrop | null> {
     return this.cropRepository.getCropById(cropId);
+  }
+
+  /** Categories that get their own first-class tab: the known crop-side types
+   *  (always present) plus any custom types users have created via "Other". */
+  async getEntryTypes(): Promise<string[]> {
+    const known = [...CROP_OTHER_TYPES];
+    const seen = new Set(known.map(t => t.toLowerCase()));
+    const dbTypes = await this.cropRepository.getCropSideTypes();
+    const extras = dbTypes.filter(t => !seen.has(t.toLowerCase()));
+    return [...known, ...extras];
   }
 
   async createCrop(dto: CreateCropDto, userId: string): Promise<ICrop> {
@@ -46,6 +88,7 @@ export class CropService extends BaseService implements ICropService {
         dto.type,
         dto.status,
         dto.crops,
+        dto.scientificName,
       );
 
       // Backfill questions normalised_crop — only for actual crop entries, not 'other'
@@ -78,7 +121,7 @@ export class CropService extends BaseService implements ICropService {
     try {
       const updatedCrop = await this.cropRepository.updateCrop(
         cropId,
-        { aliases: dto.aliases, status: dto.status, crops: dto.crops },
+        { aliases: dto.aliases, status: dto.status, crops: dto.crops, scientificName: dto.scientificName },
         userId,
       );
 

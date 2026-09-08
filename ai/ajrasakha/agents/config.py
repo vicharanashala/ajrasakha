@@ -16,15 +16,21 @@ MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
 MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMaxAI/MiniMax-M2.7")
 
 # Task-specific model assignments
-# Translation & follow-up stay on Claude Sonnet (quality matters for farmer-facing text;
-# avoids the MiniMax wheat→sugarcane frequency-bias bug). Planner routes to MiniMax
-# (cheap & fast for routing/classification/rephrasing).
+# Planner, translation, and follow-up use Claude Sonnet where faithful farmer-facing
+# interpretation matters. Other specialized agents route to MiniMax.
 SYNTHESIZE_MODEL = MINIMAX_MODEL      # Fast rephrasing/simple synthesis
-PLANNER_MODEL = MINIMAX_MODEL         # Planner uses MiniMax (routing/classification)
+PLANNER_MODEL = CLAUDE_MODEL          # Planner routing/classification/rephrasing
 SANITIZER_MODEL = MINIMAX_MODEL       # Relevance scoring
 TRANSLATE_MODEL = CLAUDE_MODEL        # Translation uses Claude Sonnet (avoid crop substitution)
 FOLLOW_UP_MODEL = CLAUDE_MODEL        # Translation/transformation - Sonnet for quality
 CROP_CLASSIFY_MODEL = MINIMAX_MODEL   # Binary classification
+DAILY_PRICE_MODEL = os.getenv("DAILY_PRICE_MODEL", MINIMAX_MODEL)  # Intent & synthesis use MiniMax
+
+
+
+MINIMAX_MAX_TOKENS = int(os.getenv("MINIMAX_MAX_TOKENS", "4096"))
+MINIMAX_TIMEOUT = float(os.getenv("MINIMAX_TIMEOUT", "60.0"))
+
 
 
 def get_minimax_chat_model(**overrides):
@@ -35,14 +41,20 @@ def get_minimax_chat_model(**overrides):
     """
     from langchain_openai import ChatOpenAI
 
+    defaults: dict[str, Any] = {
+        "max_tokens": MINIMAX_MAX_TOKENS,
+        "timeout": MINIMAX_TIMEOUT,
+    }
+    defaults.update(overrides)
+
     return ChatOpenAI(
         model=MINIMAX_MODEL,
         base_url=MINIMAX_BASE_URL,
         api_key=MINIMAX_API_KEY,
-        **overrides,
+        **defaults,
     )
 
-REMOTE_IP = os.getenv("REMOTE_IP", "100.100.108.44")
+REMOTE_IP =   os.getenv("REMOTE_IP", "100.100.108.44")
 
 # Reviewer upload channel when LangGraph configurable.question_source is unset
 QUESTION_SOURCE = os.getenv("QUESTION_SOURCE", "AJRASAKHA").strip()
@@ -127,7 +139,8 @@ GOLDEN_API_URL = f"http://{REMOTE_IP}:8110"
 
 MCP_URLS = {
     "gdb":        f"http://{REMOTE_IP}:8110/v1/gdb/search",
-    "weather":    f"http://100.100.108.41:9017/mcp",
+    # "weather":    f"http://100.100.108.41:9017/mcp",
+    "weather":    f"http://127.0.0.1:8007/mcp",
     "soil":       f"http://{REMOTE_IP}:9008/mcp",
     "enam":       f"http://{REMOTE_IP}:9002/mcp",
     "agmarknet":  f"http://{REMOTE_IP}:9006/mcp",
@@ -136,5 +149,6 @@ MCP_URLS = {
     "schemes":    f"http://{REMOTE_IP}:9009/mcp",
     "faq_video":  f"http://{REMOTE_IP}:9007/mcp",
     "chemical_checker": f"http://{REMOTE_IP}:9101/mcp",
-    "daily_price": "http://100.100.108.44:8111/mcp",
+    "daily_price": f"http://{REMOTE_IP}:8111/mcp",
+
 }

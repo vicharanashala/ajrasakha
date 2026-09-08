@@ -23,6 +23,7 @@ function buildService(): AnswerApprovalService {
     {} as any, // questionSubmissionRepo
     {} as any, // userRepo
     {} as any, // questionService
+    { runGateKeeperAuditorQueueCron: vi.fn().mockResolvedValue({}) } as any, // roleAssigneeService
     {} as any, // mongoDatabase
   );
 }

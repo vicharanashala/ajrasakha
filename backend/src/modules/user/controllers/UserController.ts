@@ -430,6 +430,9 @@ export class UserController {
     } = query;
     const userId = user._id.toString();
     const isAdmin = user.role === 'admin';
+    const isGatekeeperOrAuditor = user.role === 'gate_keeper' || user.role === 'auditor';
+    // Admin, gate_keeper, and auditor can see all users (including training users)
+    const canViewAllUsers = isAdmin || isGatekeeperOrAuditor;
     const isTrainingUser = user.isTrainingUser === true;
     return await this.userService.getAllUsersforManualSelect(
       userId,
@@ -440,7 +443,7 @@ export class UserController {
       filter,
       includeSelf === true || includeSelf === 'true',
       isTrainingUser,
-      isAdmin
+      canViewAllUsers
     );
   }
 
@@ -492,10 +495,10 @@ export class UserController {
     // If isTrainingUser field doesn't exist in the collection, treat it as false (not true)
     const isTrainingUser = currentUser.isTrainingUser === true;
     const isAdmin = currentUser.role === 'admin';
-    
-   
+    const isGatekeeperOrAuditor = currentUser.role === 'gate_keeper' || currentUser.role === 'auditor';
+
     return users.filter(u => {
-      if (isAdmin) {
+      if (isAdmin || isGatekeeperOrAuditor) {
         return true;
       }
       return (u.isTrainingUser === true) === isTrainingUser;

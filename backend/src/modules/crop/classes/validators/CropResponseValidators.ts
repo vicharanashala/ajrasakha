@@ -87,6 +87,24 @@ export class CropEntryResponse {
   @IsOptional()
   @IsString()
   updatedAt?: string;
+
+  @JSONSchema({
+    description: 'Resolved name (firstName lastName) of the crop creator',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsString()
+  createdByName?: string;
+
+  @JSONSchema({
+    description: 'Resolved name (firstName lastName) of the last updater',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsString()
+  updatedByName?: string;
 }
 
 // ─── Paginated Crops Response ─────────────────────────────────────────────────

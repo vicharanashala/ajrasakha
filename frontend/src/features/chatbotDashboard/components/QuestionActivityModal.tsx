@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Activity,
@@ -101,6 +101,7 @@ interface QuestionActivityModalProps {
   duplicateGroups?: QuestionDuplicateGroup[];
   tableContent?: ReactNode;
   footerContent?: ReactNode;
+  paginationActions?: ReactNode;
   showCloseButton?: boolean;
   isLoading?: boolean;
   totalCount?: number | string;
@@ -449,6 +450,7 @@ export function QuestionActivityModal({
   duplicateGroups = [],
   tableContent,
   footerContent,
+  paginationActions,
   showCloseButton = false,
   isLoading = false,
   totalCount = 0,
@@ -460,13 +462,14 @@ export function QuestionActivityModal({
   emptyMessage,
   duplicateEmptyMessage = "No duplicate question details for this selection.",
 }: QuestionActivityModalProps) {
+  const dialogContentRef = useRef<HTMLDivElement>(null);
   const showToggle = mode === "activity" && onViewTypeChange;
   const defaultEmptyMessage =
     mode === "activity" ? `No ${viewType} found.` : "No question details for this selection.";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-6xl flex h-[90vh] max-h-[90vh] w-[90vw] flex-col gap-0 overflow-hidden rounded-2xl p-0 [&>button]:hidden">
+      <DialogContent  ref={dialogContentRef} className="!max-w-6xl flex h-[90vh] max-h-[90vh] w-[90vw] flex-col gap-0 overflow-hidden rounded-2xl p-0 [&>button]:hidden">
         <div className="flex shrink-0 items-center justify-between border-b px-6 pb-4 pt-5">
           <div className="flex items-center justify-start gap-3">
             <DialogHeader className="p-0">
@@ -656,16 +659,19 @@ export function QuestionActivityModal({
               Page {currentPage} of {totalPages}
             </span>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 rounded-lg"
-              disabled={currentPage === totalPages}
-              onClick={() => onPageChange(currentPage + 1)}
-            >
-              Next
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              {paginationActions}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 rounded-lg"
+                disabled={currentPage === totalPages}
+                onClick={() => onPageChange(currentPage + 1)}
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         )}
       </DialogContent>

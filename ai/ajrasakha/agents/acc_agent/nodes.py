@@ -1,9 +1,11 @@
+import asyncio
 import json
 import re
 
 from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_anthropic import ChatAnthropic
 
-from ajrasakha.agents.config import get_minimax_chat_model
+from ajrasakha.agents.config import CLAUDE_MODEL, get_minimax_chat_model
 from ajrasakha.agents.acc_agent.state import AccAgentState
 from ajrasakha.agents.acc_agent.extraction import (
     build_extraction_update,
@@ -24,6 +26,95 @@ from ajrasakha.agents.daily_price_agent import daily_price
 from ajrasakha.agents.schemes_agent import schemes
 from ajrasakha.agents.location_context import forward_geocode
 
+
+_TOOL_DOMAINS = {
+    "weather": {"Climate, Weather & Stress Management"},
+    "market": {"Market Prices, MSP & Marketing"},
+    "schemes": {
+        "Agricultural Schemes & Subsidies",
+        "Credit, Loan & Insurance",
+    },
+}
+
+
+def _state_queries(state: AccAgentState) -> list[dict]:
+    """Return every extracted farmer question from the canonical state field."""
+    queries = state.get("extracted_queries") or []
+    return [query for query in queries if isinstance(query, dict)]
+
+
+def _query_context(state: AccAgentState) -> str:
+    """Format every extracted question for routing and answer synthesis."""
+    queries = _state_queries(state)
+    if not queries:
+        return "No query was extracted."
+
+    lines = []
+    for index, query in enumerate(queries, start=1):
+        domains = query.get("standardized_domains") or []
+        lines.append(
+            f"Question {index}: {query.get('query', '')}\n"
+            f"Crop: {query.get('crop') or 'All'}\n"
+            f"Domains: {', '.join(domains) if domains else 'Others'}"
+        )
+    return "\n\n".join(lines)
+
+
+def _queries_for_tool(state: AccAgentState, tool: str) -> list[dict]:
+    """Give each tool the questions relevant to its domain when available."""
+    queries = _state_queries(state)
+    tool_domains = _TOOL_DOMAINS.get(tool)
+    if tool_domains is None:
+        special_domains = set().union(*_TOOL_DOMAINS.values())
+        matches = [
+            query
+            for query in queries
+            if not set(query.get("standardized_domains") or []).issubset(
+                special_domains
+            )
+        ]
+    else:
+        matches = [
+            query
+            for query in queries
+            if set(query.get("standardized_domains") or []) & tool_domains
+        ]
+    return matches or queries
+
+
+def _tool_query_text(state: AccAgentState, tool: str) -> str:
+    return "\n".join(
+        str(query.get("query", "")) for query in _queries_for_tool(state, tool)
+    )
+
+
+def _tool_crop(state: AccAgentState, tool: str) -> str:
+    crops = [
+        str(query["crop"])
+        for query in _queries_for_tool(state, tool)
+        if query.get("crop")
+    ]
+    return ", ".join(dict.fromkeys(crops)) or "all"
+
+
+def _tools_for_query(query: dict, selected_tools: list[str]) -> list[str]:
+    """Return the relevant tool(s) for one question, independent of other questions."""
+    domains = set(query.get("standardized_domains") or [])
+    special_domains = set().union(*_TOOL_DOMAINS.values())
+    matching_tools = []
+
+    for tool in ("gdb", "weather", "market", "schemes"):
+        tool_domains = _TOOL_DOMAINS.get(tool)
+        if tool_domains is None:
+            # GDB handles agricultural questions outside the specialised tools.
+            if not domains.issubset(special_domains):
+                matching_tools.append(tool)
+        elif domains & tool_domains:
+            matching_tools.append(tool)
+
+    return matching_tools or selected_tools or ["gdb"]
+
+
 async def extract_node(state: AccAgentState):
     """Extract all details, farmer details, or query details from a transcript."""
     if not state.get("transcript"):
@@ -36,7 +127,10 @@ async def extract_node(state: AccAgentState):
         "query_details": ACC_QUERY_DETAILS_PROMPT,
     }
 
-    llm = get_minimax_chat_model()
+    # Transcript extraction is quality-sensitive: use Claude Sonnet rather than
+    # the shared MiniMax model so distinct farmer questions and profile fields
+    # are extracted more reliably.
+    llm = ChatAnthropic(model=CLAUDE_MODEL)
     messages = [
         SystemMessage(content=prompt_by_type[extraction_type]),
         HumanMessage(content=state["transcript"])
@@ -68,7 +162,7 @@ async def extract_node(state: AccAgentState):
             }
         return {
             "extraction_type": extraction_type,
-            "extracted_query": f"Failed to parse: {str(e)}",
+            "extracted_queries": [],
             "verified_by_human": False,
         }
 
@@ -77,10 +171,9 @@ async def planner_node(state: AccAgentState):
     llm = get_minimax_chat_model()
     
     context = (
-        f"Query: {state.get('extracted_query')}\n"
+        f"Extracted questions:\n{_query_context(state)}\n"
         f"State: {state.get('extracted_state')}\n"
         f"District: {state.get('extracted_district')}\n"
-        f"Crop: {state.get('extracted_crop')}\n"
     )
     
     messages = [
@@ -114,191 +207,206 @@ async def planner_node(state: AccAgentState):
     return {"selected_tools": selected_tools}
 
 async def tool_execution_node(state: AccAgentState):
-    """Execute the selected sub-agent(s) in parallel."""
-    import asyncio
-    
+    """Execute relevant sub-agents separately for every extracted question."""
     selected_tools = state.get("selected_tools", ["gdb"])
-    
-    # Shared args from state
-    query = state.get("extracted_query", "")
-    crop = state.get("extracted_crop", "all")
     loc_state = state.get("extracted_state", "all")
     district = state.get("extracted_district", "all")
-    
-    async def call_gdb() -> str:
+
+    async def call_tool(tool: str, query: dict) -> str:
+        query_text = str(query.get("query", ""))
+        crop = str(query.get("crop") or "all")
         try:
-            return await gdb.ainvoke({
-                "rephrased_query": query, 
-                "crop": crop, 
-                "state": loc_state,
-                "latitude": None, "longitude": None, "address": None
-            })
-        except Exception as e:
-            return f"Error: {str(e)}"
-    
-    async def call_weather() -> str:
-        try:
-            d_lower = district.lower()
-            s_lower = loc_state.lower()
-            if d_lower == "all" and s_lower == "all":
-                # Fetch weather for major Indian cities concurrently
-                cities = ["Mumbai", "Delhi", "Kolkata", "Chennai"]
-                
-                async def fetch_city_weather(city: str) -> str:
-                    resp = await weather.ainvoke({
-                        "query": "current weather", "latitude": None, "longitude": None, "address": city
-                    })
-                    return f"**{city}**: {str(resp)}"
-                
-                city_responses = await asyncio.gather(*(fetch_city_weather(city) for city in cities))
-                
-                return "⚠️ Weather coordinates are unavailable.\n\nHere are current weather condition of major Indian cities in India:\n\n" + "\n\n".join(city_responses)
-            elif d_lower == "all":
-                address = loc_state
-                return await weather.ainvoke({
-                    "query": query, "latitude": None, "longitude": None, "address": address
+            if tool == "gdb":
+                return await gdb.ainvoke({
+                    "rephrased_query": query_text,
+                    "crop": crop,
+                    "state": loc_state,
+                    "latitude": None,
+                    "longitude": None,
+                    "address": None,
                 })
-            else:
-                address = f"{district}, {loc_state}"
+            if tool == "weather":
+                d_lower = str(district).lower()
+                s_lower = str(loc_state).lower()
+                if d_lower == "all" and s_lower == "all":
+                    cities = ["Mumbai", "Delhi", "Kolkata", "Chennai"]
+
+                    async def fetch_city_weather(city: str) -> str:
+                        response = await weather.ainvoke({
+                            "query": "current weather",
+                            "latitude": None,
+                            "longitude": None,
+                            "address": city,
+                        })
+                        return f"**{city}**: {str(response)}"
+
+                    city_responses = await asyncio.gather(
+                        *(fetch_city_weather(city) for city in cities)
+                    )
+                    return (
+                        "⚠️ Weather coordinates are unavailable.\n\n"
+                        "Here are current weather condition of major Indian cities in India:\n\n"
+                        + "\n\n".join(city_responses)
+                    )
+                address = loc_state if d_lower == "all" else f"{district}, {loc_state}"
                 return await weather.ainvoke({
-                    "query": query, "latitude": None, "longitude": None, "address": address
+                    "query": query_text,
+                    "latitude": None,
+                    "longitude": None,
+                    "address": address,
                 })
-        except Exception as e:
-            return f"Error: {str(e)}"
-    
-    async def call_market() -> str:
-        try:
-            lat = None
-            lon = None
-            geocode_district = None if str(district).strip().lower() in {"all", "not specified", ""} else district
-            geocode_state = None if str(loc_state).strip().lower() in {"all", "not specified", ""} else loc_state
-            if geocode_state or geocode_district:
-                geo = await forward_geocode(state=geocode_state, district=geocode_district)
-                if geo:
-                    lat = geo.get("latitude")
-                    lon = geo.get("longitude")
-            return await daily_price.ainvoke({
-                "query": query,
-                "latitude": lat,
-                "longitude": lon,
-                "crop": crop,
-                "state": loc_state if str(loc_state).strip().lower() not in {"all", "not specified"} else None,
-            })
+            if tool == "market":
+                geocode_district = (
+                    None
+                    if str(district).strip().lower() in {"all", "not specified", ""}
+                    else district
+                )
+                geocode_state = (
+                    None
+                    if str(loc_state).strip().lower() in {"all", "not specified", ""}
+                    else loc_state
+                )
+                geo = (
+                    await forward_geocode(state=geocode_state, district=geocode_district)
+                    if geocode_state or geocode_district
+                    else None
+                )
+                return await daily_price.ainvoke({
+                    "query": query_text,
+                    "latitude": geo.get("latitude") if geo else None,
+                    "longitude": geo.get("longitude") if geo else None,
+                    "crop": crop,
+                    "state": geocode_state,
+                })
+            if tool == "schemes":
+                return await schemes.ainvoke({
+                    "query": query_text,
+                    "state": loc_state,
+                    "gender": None,
+                    "age": None,
+                    "caste": None,
+                    "residence": None,
+                    "occupation": "Farmer",
+                    "benefit_type": None,
+                    "is_bpl": False,
+                    "is_minority": False,
+                    "is_differently_abled": False,
+                })
+            return f"Error: Unsupported tool {tool}"
         except Exception as e:
             return f"Error: {str(e)}"
 
-    async def call_schemes() -> str:
-        try:
-            return await schemes.ainvoke({
-                "query": query,
-                "state": loc_state,
-                "gender": None,
-                "age": None,
-                "caste": None,
-                "residence": None,
-                "occupation": "Farmer",
-                "benefit_type": None,
-                "is_bpl": False,
-                "is_minority": False,
-                "is_differently_abled": False,
-            })
-        except Exception as e:
-            return f"Error: {str(e)}"
-    
-    # Build task mapping
-    tasks = {}
-    if "gdb" in selected_tools:
-        tasks["gdb"] = call_gdb()
-    if "weather" in selected_tools:
-        tasks["weather"] = call_weather()
-    if "market" in selected_tools:
-        tasks["market"] = call_market()
-    if "schemes" in selected_tools:
-        tasks["schemes"] = call_schemes()
-    
-    # Execute all selected tools in parallel
-    if tasks:
-        results = await asyncio.gather(*tasks.values())
-        
-        # Map results back to tool names
-        responses = {}
-        for i, tool_name in enumerate(tasks.keys()):
-            responses[f"{tool_name}_response"] = str(results[i])
-        
-        return responses
-    
-    return {
-        "gdb_response": "No tools selected",
-        "weather_response": None,
-        "market_response": None,
-        "schemes_response": None,
+    async def execute_query(index: int, query: dict) -> dict:
+        tools = _tools_for_query(query, selected_tools)
+        results = await asyncio.gather(*(call_tool(tool, query) for tool in tools))
+        return {
+            "query_index": index,
+            "query": query,
+            "tool_responses": {
+                tool: str(result) for tool, result in zip(tools, results, strict=True)
+            },
+        }
+
+    queries = _state_queries(state)
+    query_tool_responses = await asyncio.gather(
+        *(execute_query(index, query) for index, query in enumerate(queries))
+    )
+
+    # Keep raw tool fields for existing single-question consumers. For multiple
+    # questions, the authoritative, correctly separated values are in
+    # query_tool_responses.
+    legacy_responses: dict[str, list[str]] = {
+        tool: [] for tool in ("gdb", "weather", "market", "schemes")
     }
+    for query_response in query_tool_responses:
+        for tool, response in query_response["tool_responses"].items():
+            legacy_responses[tool].append(response)
+
+    response_updates = {"query_tool_responses": list(query_tool_responses)}
+    for tool, responses in legacy_responses.items():
+        if len(responses) == 1:
+            response_updates[f"{tool}_response"] = responses[0]
+        elif responses:
+            response_updates[f"{tool}_response"] = json.dumps(responses)
+        else:
+            response_updates[f"{tool}_response"] = None
+    return response_updates
 
 async def assembler_node(state: AccAgentState):
-    """Build JSON output with tool data and the synthesized final answer."""
-    # Parse each response into JSON (or keep as string if parsing fails)
-    gdb_data = None
-    weather_data = None
-    market_data = None
-    schemes_data = None
-    
-    gdb_response = state.get("gdb_response")
-    weather_response = state.get("weather_response")
-    market_response = state.get("market_response")
-    schemes_response = state.get("schemes_response")
-    
-    # Try to parse GDB response
-    if gdb_response:
+    """Synthesize a separate answer for each extracted farmer question."""
+    def parse_tool_response(response: object) -> object:
+        if response is None:
+            return None
         try:
-            gdb_data = json.loads(gdb_response)
+            return json.loads(str(response))
         except (json.JSONDecodeError, TypeError):
-            gdb_data = gdb_response
-    
-    # Try to parse Weather response
-    if weather_response:
-        try:
-            weather_data = json.loads(weather_response)
-        except (json.JSONDecodeError, TypeError):
-            weather_data = weather_response
-    
-    # Try to parse Market response
-    if market_response:
-        try:
-            market_data = json.loads(market_response)
-        except (json.JSONDecodeError, TypeError):
-            market_data = market_response
+            return response
 
-    # Try to parse Schemes response
-    if schemes_response:
-        try:
-            schemes_data = json.loads(schemes_response)
-        except (json.JSONDecodeError, TypeError):
-            schemes_data = schemes_response
-    
-    # Generate final_answer using LLM
+    query_tool_responses = state.get("query_tool_responses") or []
+    if not query_tool_responses:
+        # Preserve resumability for any thread created before this state field
+        # existed by reconstructing one response per extracted question.
+        query_tool_responses = [
+            {
+                "query_index": index,
+                "query": query,
+                "tool_responses": {
+                    tool: state.get(f"{tool}_response")
+                    for tool in ("gdb", "weather", "market", "schemes")
+                    if state.get(f"{tool}_response") is not None
+                },
+            }
+            for index, query in enumerate(_state_queries(state))
+        ]
+
     llm = get_minimax_chat_model()
-    context = (
-        f"Original Query: {state.get('extracted_query')}\n\n"
-        f"GDB Data:\n{json.dumps(gdb_data, indent=2, ensure_ascii=False) if gdb_data else 'Not requested'}\n\n"
-        f"Weather Data:\n{json.dumps(weather_data, indent=2, ensure_ascii=False) if weather_data else 'Not requested'}\n\n"
-        f"Market Data:\n{json.dumps(market_data, indent=2, ensure_ascii=False) if market_data else 'Not requested'}\n\n"
-        f"Schemes Data:\n{json.dumps(schemes_data, indent=2, ensure_ascii=False) if schemes_data else 'Not requested'}"
-    )
-    
-    messages = [
-        SystemMessage(content=ACC_ASSEMBLER_PROMPT),
-        HumanMessage(content=context)
-    ]
-    response = await llm.ainvoke(messages)
-    final_answer_text = str(response.content)
-    
-    # Build final JSON output
-    final_output = {
-        "gdb": gdb_data,
-        "weather": weather_data,
-        "market": market_data,
-        "schemes": schemes_data,
-        "final_answer": final_answer_text
+
+    async def assemble_one(query_response: dict) -> dict:
+        query = query_response.get("query") or {}
+        tool_data = {
+            tool: parse_tool_response(response)
+            for tool, response in (query_response.get("tool_responses") or {}).items()
+        }
+        context = (
+            f"Farmer question:\n{query.get('query', '')}\n"
+            f"Crop: {query.get('crop') or 'All'}\n"
+            f"Domains: {', '.join(query.get('standardized_domains') or ['Others'])}\n\n"
+            f"Relevant tool data only for this question:\n"
+            f"{json.dumps(tool_data, indent=2, ensure_ascii=False)}"
+        )
+        response = await llm.ainvoke([
+            SystemMessage(content=ACC_ASSEMBLER_PROMPT),
+            HumanMessage(content=context),
+        ])
+        return {
+            "query": query.get("query", ""),
+            "crop": query.get("crop"),
+            "standardized_domains": query.get("standardized_domains") or ["Others"],
+            "answer": str(response.content),
+        }
+
+    final_answers = list(await asyncio.gather(
+        *(assemble_one(query_response) for query_response in query_tool_responses)
+    ))
+
+    if len(final_answers) == 1:
+        only_response = query_tool_responses[0]
+        only_data = {
+            tool: parse_tool_response(response)
+            for tool, response in only_response.get("tool_responses", {}).items()
+        }
+        final_output = {
+            "gdb": only_data.get("gdb"),
+            "weather": only_data.get("weather"),
+            "market": only_data.get("market"),
+            "schemes": only_data.get("schemes"),
+            "final_answer": final_answers[0]["answer"],
+            "answers": final_answers,
+        }
+    else:
+        final_output = {"answers": final_answers, "final_answer": None}
+
+    return {
+        "final_answers": final_answers,
+        "final_answer": json.dumps(final_output, indent=2, ensure_ascii=False),
     }
-    
-    return {"final_answer": json.dumps(final_output, indent=2, ensure_ascii=False)}
