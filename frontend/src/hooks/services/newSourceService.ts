@@ -26,6 +26,14 @@ export interface CompleteNewSourcePayload {
   sourceReferenceStatus: PopMatchStatus | null;
 }
 
+export interface NewSourceReviewEntry {
+  userId: string;
+  name: string;
+  startedAt: string;
+  closedAt: string | null;
+  isSaved: boolean;
+}
+
 export interface NewSourceRecord {
   _id: string;
   answerId: string;
@@ -34,6 +42,7 @@ export interface NewSourceRecord {
   status: NewSourceStatus;
   timeTaken: number | null;
   sourceReferenceStatus: PopMatchStatus | null;
+  reviewArray: NewSourceReviewEntry[];
 }
 
 export class NewSourceService {
@@ -55,6 +64,14 @@ export class NewSourceService {
     return apiFetch<NewSourceRecord>(`${this._baseUrl}/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
+    });
+  }
+
+  /** Called whenever the Edit Source modal closes, completed or not — stamps closedAt
+   *  on the record's reviewArray entry. */
+  async close(id: string): Promise<NewSourceRecord | null> {
+    return apiFetch<NewSourceRecord>(`${this._baseUrl}/${id}/close`, {
+      method: "PATCH",
     });
   }
 }

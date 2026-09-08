@@ -9,4 +9,8 @@ export interface INewSourceRepository {
     id: string,
     updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken' | 'sourceReferenceStatus'>>,
   ): Promise<INewSource | null>;
+
+  /** Stamps closedAt on the record's reviewArray entry when the Edit Source modal closes —
+   *  independent of updateById, since the modal can close without the edit being completed. */
+  recordClose(id: string): Promise<INewSource | null>;
 }

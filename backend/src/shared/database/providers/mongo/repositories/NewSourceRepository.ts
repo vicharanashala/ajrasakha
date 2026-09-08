@@ -43,9 +43,33 @@ export class NewSourceRepository implements INewSourceRepository {
       throw new BadRequestError('Invalid or missing new_sources id');
     }
 
+    // updateById is only ever called to complete an edit (see its interface doc comment),
+    // so this is also where the user's reviewArray entry gets marked as saved. Same
+    // index-0 assumption as recordClose — see the comment there.
     const result = await this.NewSourceCollection.findOneAndUpdate(
       {_id: new ObjectId(id)},
-      {$set: {...updates, updatedAt: new Date()}},
+      {$set: {...updates, 'reviewArray.0.isSaved': true, updatedAt: new Date()}},
+      {returnDocument: 'after'},
+    );
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
+  }
+
+  async recordClose(id: string): Promise<INewSource | null> {
+    await this.init();
+
+    if (!id || !isValidObjectId(id)) {
+      throw new BadRequestError('Invalid or missing new_sources id');
+    }
+
+    // reviewArray always has exactly one entry today — startNewSource always creates a
+    // fresh document per edit session rather than reusing/appending to an existing one —
+    // so index 0 is always the entry to stamp. Revisit if that ever changes.
+    const result = await this.NewSourceCollection.findOneAndUpdate(
+      {_id: new ObjectId(id)},
+      {$set: {'reviewArray.0.closedAt': new Date(), updatedAt: new Date()}},
       {returnDocument: 'after'},
     );
 

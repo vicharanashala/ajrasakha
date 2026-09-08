@@ -1,9 +1,9 @@
 import 'reflect-metadata';
-import {JsonController, Post, Patch, Param, Body, Authorized} from 'routing-controllers';
+import {JsonController, Post, Patch, Param, Body, Authorized, CurrentUser} from 'routing-controllers';
 import {OpenAPI} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {CORE_TYPES} from '#root/modules/core/types.js';
-import {INewSource, INewSourceItem, PopMatchStatus} from '#root/shared/interfaces/models.js';
+import {INewSource, INewSourceItem, IUser, PopMatchStatus} from '#root/shared/interfaces/models.js';
 import {INewSourceService} from '../interfaces/INewSourceService.js';
 
 // Records source edits made on the Closed Answers page's Edit Source modal into the
@@ -27,8 +27,14 @@ export class NewSourceController {
   @Authorized()
   async start(
     @Body() body: {answerId: string; questionId: string},
+    @CurrentUser() user: IUser,
   ): Promise<INewSource> {
-    return await this.newSourceService.startNewSource(body);
+    const userName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
+    return await this.newSourceService.startNewSource({
+      ...body,
+      userId: user._id?.toString() ?? '',
+      userName,
+    });
   }
 
   @OpenAPI({summary: 'Complete a new_sources record when the edit is saved'})
@@ -39,5 +45,12 @@ export class NewSourceController {
     @Body() body: {sources: INewSourceItem[]; timeTaken: number; sourceReferenceStatus: PopMatchStatus | null},
   ): Promise<INewSource> {
     return await this.newSourceService.completeNewSource({id, ...body});
+  }
+
+  @OpenAPI({summary: 'Record when the Edit Source modal closed, completed or not'})
+  @Patch('/:id/close')
+  @Authorized()
+  async close(@Param('id') id: string): Promise<INewSource> {
+    return await this.newSourceService.closeNewSource(id);
   }
 }

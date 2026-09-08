@@ -24,6 +24,15 @@ export class NewSourceService implements INewSourceService {
       status: 'inProgress',
       timeTaken: null,
       sourceReferenceStatus: null,
+      reviewArray: [
+        {
+          userId: input.userId,
+          name: input.userName,
+          startedAt: new Date(),
+          closedAt: null,
+          isSaved: false,
+        },
+      ],
     });
   }
 
@@ -37,6 +46,16 @@ export class NewSourceService implements INewSourceService {
 
     if (!updated) {
       throw new NotFoundError(`new_sources record not found with id ${input.id}`);
+    }
+
+    return updated;
+  }
+
+  async closeNewSource(id: string): Promise<INewSource> {
+    const updated = await this.newSourceRepo.recordClose(id);
+
+    if (!updated) {
+      throw new NotFoundError(`new_sources record not found with id ${id}`);
     }
 
     return updated;

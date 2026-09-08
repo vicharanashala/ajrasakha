@@ -42,6 +42,7 @@ import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrgani
 import { useLookupPopSource } from "@/hooks/api/pop/useLookupPopSource";
 import { useStartNewSource } from "@/hooks/api/newSource/useStartNewSource";
 import { useCompleteNewSource } from "@/hooks/api/newSource/useCompleteNewSource";
+import { useCloseNewSource } from "@/hooks/api/newSource/useCloseNewSource";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { cn } from "@/lib/utils";
 import type { ClosedAnswer, SourceItem, SourceType } from "@/types";
@@ -422,6 +423,7 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
 
   const { mutate: startNewSource, isPending: isStarting } = useStartNewSource();
   const { mutate: completeNewSource, isPending: isSaving } = useCompleteNewSource();
+  const { mutate: closeNewSource } = useCloseNewSource();
 
   const updateField = (field: keyof SourceItem, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -445,6 +447,11 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
           },
         },
       );
+    } else if (newSourceId) {
+      // Stamps closedAt on the record's reviewArray entry — fires for every way the
+      // modal can close (Cancel, Escape, outside click, or right after a save), not
+      // just completed edits, so abandoned edits get a closing time too.
+      closeNewSource(newSourceId);
     }
     setOpen(nextOpen);
   };
@@ -480,7 +487,7 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
       {
         onSuccess: () => {
           toast.success("Source details saved.");
-          setOpen(false);
+          handleOpenChange(false);
         },
         onError: () => {
           toast.error("Failed to save source details.");
@@ -585,7 +592,7 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
           </div>
         </ScrollArea>
         <DialogFooter className="shrink-0 border-t pt-3">
-          <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+          <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
           <Button size="sm" onClick={handleSave} disabled={isSaving || isStarting}>

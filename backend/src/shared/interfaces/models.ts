@@ -326,6 +326,22 @@ export type NewSourceStatus = 'pending' | 'inProgress' | 'completed';
  *  against the pop collection when the edit is saved. */
 export type PopMatchStatus = 'duplicateMatch' | 'topLevelMatch' | 'notFound';
 
+/** One user opening the Edit Source modal for a `new_sources` record. Logged the instant
+ *  the record is created ('inProgress') — a permanent audit entry, not removed if the
+ *  user goes on to complete the edit. Cross-check against the record's own `status` to
+ *  see whether this user's edit is still incomplete. closedAt is set separately, whenever
+ *  the modal closes (Cancel, Escape, outside click, or after a successful save) — null
+ *  means the modal is still open (or was never explicitly closed, e.g. a page refresh).
+ *  isSaved flips to true only once the user's edit is actually completed (saved) — false
+ *  plus a set closedAt means they closed the modal without saving. */
+export interface INewSourceReviewEntry {
+  userId: string;
+  name: string;
+  startedAt: Date;
+  closedAt: Date | null;
+  isSaved: boolean;
+}
+
 /** A document written to the `new_sources` collection whenever a user edits a Closed
  *  Answer's sources via the Edit Source modal. Deliberately does NOT update the
  *  `answers` collection — edits are logged here instead. Created (status:
@@ -339,6 +355,7 @@ export interface INewSource {
   status: NewSourceStatus;
   timeTaken: number | null;
   sourceReferenceStatus: PopMatchStatus | null;
+  reviewArray: INewSourceReviewEntry[];
   createdAt?: Date;
   updatedAt?: Date;
 }
