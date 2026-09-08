@@ -8,8 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/atoms/dialog";
+import { ClosedAnswersFilters } from "./ClosedAnswersFilters";
 import { cn } from "@/lib/utils";
-import type { ClosedAnswer } from "@/types";
+import type { ClosedAnswer, ClosedAnswerFilters } from "@/types";
 
 /** Full-screen browse view of the loaded answers, for picking one quickly. */
 export const ClosedAnswersListDialog = ({
@@ -21,6 +22,8 @@ export const ClosedAnswersListDialog = ({
   onSelect,
   search,
   onSearchChange,
+  filters,
+  onFiltersChange,
   hasNextPage,
   isFetchingNextPage,
   onLoadMore,
@@ -34,6 +37,8 @@ export const ClosedAnswersListDialog = ({
   onSelect: (answerId: string) => void;
   search: string;
   onSearchChange: (value: string) => void;
+  filters: ClosedAnswerFilters;
+  onFiltersChange: (next: ClosedAnswerFilters) => void;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   onLoadMore: () => void;
@@ -72,15 +77,18 @@ export const ClosedAnswersListDialog = ({
           {answers.length.toLocaleString()} of {totalAnswers.toLocaleString()} loaded
           — pick one to work on its sources.
         </DialogDescription>
-        <div className="relative pt-2">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 mt-1 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            autoFocus
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search question or answer..."
-            className="pl-8"
-          />
+        <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              autoFocus
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search question, answer or paste an ID..."
+              className="pl-8"
+            />
+          </div>
+          <ClosedAnswersFilters filters={filters} onChange={onFiltersChange} />
         </div>
       </DialogHeader>
 

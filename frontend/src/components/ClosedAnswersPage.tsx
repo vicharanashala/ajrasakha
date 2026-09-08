@@ -976,7 +976,7 @@ export const ClosedAnswersPage = () => {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search question or answer..."
+                placeholder="Search question, answer or paste an ID..."
                 className="pl-8"
               />
             </div>
@@ -1128,6 +1128,8 @@ export const ClosedAnswersPage = () => {
         onSelect={setSelectedAnswerId}
         search={search}
         onSearchChange={setSearch}
+        filters={filters}
+        onFiltersChange={setFilters}
         hasNextPage={Boolean(hasNextPage)}
         isFetchingNextPage={isFetchingNextPage}
         onLoadMore={() => fetchNextPage()}

@@ -1136,10 +1136,19 @@ export class AnswerRepository implements IAnswerRepository {
         'question.status': 'closed',
       };
       if (search) {
-        matchStage.$or = [
+        const searchConditions: any[] = [
           {answer: {$regex: search, $options: 'i'}},
           {'question.question': {$regex: search, $options: 'i'}},
         ];
+
+        // A pasted id should find that exact answer or question, not run as a regex.
+        const trimmedSearch = search.trim();
+        if (isValidObjectId(trimmedSearch)) {
+          const searchId = new ObjectId(trimmedSearch);
+          searchConditions.push({_id: searchId}, {questionId: searchId});
+        }
+
+        matchStage.$or = searchConditions;
       }
 
       if (filters?.closedAtStart || filters?.closedAtEnd) {
