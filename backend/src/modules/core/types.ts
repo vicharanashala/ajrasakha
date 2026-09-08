@@ -22,6 +22,7 @@ export const CORE_TYPES = {
   NotificationService:Symbol.for('NotificationService'),
   PerformanceService:Symbol.for('PerformanceService'),
   OrganizationService: Symbol.for('OrganizationService'),
+  PopService: Symbol.for('PopService'),
 
   // Repositories
   UserRepository: Symbol.for('UserRepository'),
@@ -36,6 +37,7 @@ export const CORE_TYPES = {
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
   FeedbackRepository: Symbol.for('FeedbackRepository'),
   OrganizationRepository: Symbol.for('OrganizationRepository'),
+  PopRepository: Symbol.for('PopRepository'),
   CheckOverlapsService: Symbol.for('CheckOverlapsService'),
 
 };

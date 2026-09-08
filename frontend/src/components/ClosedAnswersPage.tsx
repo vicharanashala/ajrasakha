@@ -39,6 +39,7 @@ import { QuestionIdLink } from "@/features/chatbotDashboard/components/QuestionI
 import { Pagination } from "./pagination";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
 import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
+import { useLookupPopSource } from "@/hooks/api/pop/useLookupPopSource";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { cn } from "@/lib/utils";
 import type { ClosedAnswer, SourceItem, SourceType } from "@/types";
@@ -228,33 +229,40 @@ const SourcesList = ({ sources }: { sources: SourceItem[] }) => {
 const CARD_HEIGHT = "h-[380px]";
 
 const CurrentSourceDetails = ({ source }: { source: SourceItem }) => (
-  <div className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source</p>
-      <p className="break-all text-foreground/90">{source.source || "—"}</p>
+  <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source</p>
+        <p className="break-all text-foreground/90">{source.source || "—"}</p>
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Type</p>
+        <p className="text-foreground/90">
+          {source.sourceType ? SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType : "—"}
+        </p>
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Page</p>
+        <p className="text-foreground/90">{source.page ?? "—"}</p>
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Name</p>
+        <p className="text-foreground/90">{source.sourceName || "—"}</p>
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Organization</p>
+        <p className="text-foreground/90">{source.organization || "—"}</p>
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Reference</p>
+        <p className="text-foreground/90">{source.sourceReference || "—"}</p>
+      </div>
     </div>
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Type</p>
-      <p className="text-foreground/90">
-        {source.sourceType ? SOURCE_TYPE_LABELS[source.sourceType] ?? source.sourceType : "—"}
-      </p>
-    </div>
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Page</p>
-      <p className="text-foreground/90">{source.page ?? "—"}</p>
-    </div>
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Name</p>
-      <p className="text-foreground/90">{source.sourceName || "—"}</p>
-    </div>
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Organization</p>
-      <p className="text-foreground/90">{source.organization || "—"}</p>
-    </div>
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Source Reference</p>
-      <p className="text-foreground/90">{source.sourceReference || "—"}</p>
-    </div>
+    {source.source && (
+      <div className="border-t border-border/60 pt-2">
+        <SourceReferenceLookup source={source.source} />
+      </div>
+    )}
   </div>
 );
 
@@ -334,6 +342,60 @@ const OrganizationCombobox = ({
         </Command>
       </PopoverContent>
     </Popover>
+  );
+};
+
+const SourceReferenceLookup = ({
+  source,
+  onFound,
+}: {
+  source: string;
+  onFound?: (link: string) => void;
+}) => {
+  const { mutate, data, isPending } = useLookupPopSource();
+
+  const handleClick = () => {
+    if (!source.trim()) {
+      toast.error("Enter a Source first.");
+      return;
+    }
+    mutate(source, {
+      onSuccess: (result) => {
+        if (result?.found && result.shareable_link) {
+          onFound?.(result.shareable_link);
+        }
+      },
+    });
+  };
+
+  return (
+    <div className="grid gap-1.5">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleClick}
+        disabled={isPending}
+      >
+        {isPending ? "Checking..." : "Fetch Source Reference"}
+      </Button>
+      {data && !data.found && (
+        <p className="text-xs text-destructive">Source not found.</p>
+      )}
+      {data?.found && (
+        <div className="grid gap-0.5 rounded-md border border-border/60 bg-muted/30 p-2 text-xs">
+          <p className="font-medium text-foreground/90">{data.shareable_name}</p>
+          <a
+            href={data.shareable_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="break-all text-primary hover:underline"
+          >
+            {data.shareable_link}
+          </a>
+        </div>
+      )}
+    </div>
   );
 };
 

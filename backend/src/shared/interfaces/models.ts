@@ -282,6 +282,27 @@ export interface IOrganization {
   org_name: string;
   state?: string;
 }
+
+/** An entry in the `pop` collection, looked up by `shareable_link` to resolve the
+ *  Source Reference button on the Edit Source modal (Closed Answers page). */
+/** A duplicate file recorded against a `pop` document. When a source matches one of
+ *  these instead of the document's own `shareable_link`, the ORIGINAL document's own
+ *  shareable_link/shareable_name should be surfaced, not this duplicate's. */
+export interface IPopDuplicateLink {
+  zoho_file_id?: string;
+  shareable_link: string;
+  shareable_name?: string;
+  state?: string;
+  crop?: string;
+  row_id?: number;
+}
+
+export interface IPop {
+  _id?: string | ObjectId;
+  shareable_name: string;
+  shareable_link: string;
+  duplicate_links?: IPopDuplicateLink[];
+}
 export interface PreviousAnswersItem {
   modifiedBy: string | ObjectId;
   oldAnswer: string;
