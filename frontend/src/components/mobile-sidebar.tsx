@@ -120,7 +120,7 @@ export const MobileSidebar = ({
       : []),
 
     ...(user && user.role !== "call_agent"
-      ? [{ id: "closed_answers", label: "Closed Answers", icon: CheckCircle2 }]
+      ? [{ id: "closed_answers", label: "Answer Sources", icon: CheckCircle2 }]
       : []),
 
     ...(user && canManageUsers(user.role)

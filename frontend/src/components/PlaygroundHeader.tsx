@@ -93,7 +93,7 @@ export function PlaygroundHeader({
                 value="closed_answers"
                 className="px-2 py-1.5 rounded-lg font-medium text-xs md:text-sm transition-all duration-150"
               >
-                <span>Closed Answers</span>
+                <span>Answer Sources</span>
               </TabsTrigger>
             )}
 

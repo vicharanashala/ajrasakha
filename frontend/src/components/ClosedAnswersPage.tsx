@@ -6,7 +6,6 @@ import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/atoms/card";
 import {
   Dialog,
   DialogContent,
@@ -90,56 +89,6 @@ const SECTION_LABEL_CLASSES =
   "text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80";
 
 const isUrl = (value: string) => /^https?:\/\//i.test(value);
-
-const QUESTION_STATUS_STYLES: Record<string, { badge: string; dot: string }> = {
-  closed: {
-    badge: "bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/25",
-    dot: "bg-slate-400",
-  },
-  dynamic_closed: {
-    badge: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/25",
-    dot: "bg-blue-400",
-  },
-  duplicate_closed: {
-    badge: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/25",
-    dot: "bg-purple-400",
-  },
-  approved: {
-    badge: "bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/25",
-    dot: "bg-green-500",
-  },
-  rejected: {
-    badge: "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/25",
-    dot: "bg-red-500",
-  },
-  modified: {
-    badge: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-500/25",
-    dot: "bg-yellow-500",
-  },
-  reviewed: {
-    badge: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/25",
-    dot: "bg-indigo-500",
-  },
-};
-
-const DEFAULT_STATUS_STYLE = {
-  badge: "bg-muted text-foreground border-border",
-  dot: "bg-muted-foreground",
-};
-
-const QuestionStatusBadge = ({ status }: { status?: string }) => {
-  if (!status) return null;
-  const style = QUESTION_STATUS_STYLES[status] ?? DEFAULT_STATUS_STYLE;
-  return (
-    <Badge
-      variant="outline"
-      className={`shrink-0 gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium capitalize shadow-sm ${style.badge}`}
-    >
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${style.dot}`} />
-      {status.replace(/_/g, " ")}
-    </Badge>
-  );
-};
 
 // Converts the AI answer markup into readable text by flattening tags into labelled lines.
 export const formatAiTags = (text: string) => {
@@ -622,7 +571,7 @@ const SourceCard = ({ source }: { source: SourceItem }) => {
     .join(" · ");
 
   return (
-    <li className="flex items-start gap-2.5 rounded-lg border border-border/60 p-2.5">
+    <li className="flex items-start gap-2.5 border-b border-border/50 py-2.5 first:pt-0 last:border-b-0 last:pb-0">
       <LinkIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {isUrl(source.source) ? (
@@ -652,12 +601,12 @@ const SourcesList = ({ sources }: { sources: SourceItem[] }) => {
   if (!sources || sources.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-        No sources provided for this answer.
+        No sources yet — use Edit Source to add the first one.
       </p>
     );
   }
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="flex flex-col">
       {sources.map((source, idx) => (
         <SourceCard key={idx} source={source} />
       ))}
@@ -686,7 +635,10 @@ const AnswerListItem = ({
   answer: ClosedAnswer;
   isActive: boolean;
   onSelect: () => void;
-}) => (
+}) => {
+  const sourceCount = answer.sources?.length ?? 0;
+
+  return (
   <motion.button
     type="button"
     onClick={onSelect}
@@ -704,14 +656,20 @@ const AnswerListItem = ({
     <p className="line-clamp-2 text-sm font-medium text-foreground">
       {answer.question?.text || "Question text unavailable"}
     </p>
-    <div className="flex flex-wrap items-center gap-2">
-      <QuestionStatusBadge status={answer.status || "approved"} />
-      <span className="text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+      <span className={sourceCount > 0 ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400"}>
+        {sourceCount > 0
+          ? `${sourceCount} source${sourceCount > 1 ? "s" : ""}`
+          : "No sources"}
+      </span>
+      <span className="text-muted-foreground/50">·</span>
+      <span className="text-muted-foreground">
         {formatClosedAt(answer.question?.closedAt ?? answer.updatedAt, false)}
       </span>
     </div>
   </motion.button>
-);
+  );
+};
 
 // Characters of the answer shown before the reader has to expand it.
 const ANSWER_PREVIEW_LENGTH = 400;
@@ -721,19 +679,13 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => {
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-5">
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <QuestionStatusBadge status={answer.status || "approved"} />
-          <QuestionStatusBadge status={answer.question?.status} />
-          {answer.isFinalAnswer && (
-            <Badge variant="outline" className="rounded-full text-[11px] font-medium">
-              Final answer
-            </Badge>
-          )}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between gap-3">
+          <p className={SECTION_LABEL_CLASSES}>Question</p>
           {answer.questionId && (
             <QuestionIdLink
               questionId={answer.questionId}
-              className="ml-auto rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-[11px]"
+              className="font-mono text-[11px] text-muted-foreground"
             >
               {answer.questionId}
             </QuestionIdLink>
@@ -744,7 +696,7 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => {
         </h3>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/60 bg-muted/40 p-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 border-y border-border/60 py-3 sm:grid-cols-4">
         <DetailFact label="Answered by" value={answer.author?.name || "—"} />
         <DetailFact label="Approved by" value={answer.approvedBy?.name || "—"} />
         <DetailFact label="Approvals" value={String(answer.approvalCount ?? 0)} />
@@ -752,6 +704,16 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => {
           label="Closed"
           value={formatClosedAt(answer.question?.closedAt ?? answer.updatedAt)}
         />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className={SECTION_LABEL_CLASSES}>
+            Sources {answer.sources?.length ? `(${answer.sources.length})` : ""}
+          </p>
+          <EditSourceDialog answer={answer} />
+        </div>
+        <SourcesList sources={answer.sources} />
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -774,16 +736,6 @@ const AnswerDetail = ({ answer }: { answer: ClosedAnswer }) => {
           </p>
         </div>
       )}
-
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <p className={SECTION_LABEL_CLASSES}>
-            Sources {answer.sources?.length ? `(${answer.sources.length})` : ""}
-          </p>
-          <EditSourceDialog answer={answer} />
-        </div>
-        <SourcesList sources={answer.sources} />
-      </div>
     </div>
   );
 };
@@ -838,110 +790,107 @@ export const ClosedAnswersPage = () => {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className={cn("flex w-full min-w-0 flex-col", PAGE_HEIGHT_CLASSES)}>
-        <Card className="flex min-h-0 flex-1 flex-col">
-          <CardHeader className="shrink-0">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle>Closed Answers</CardTitle>
-                <CardDescription>
-                  Every answer submitted for a question that has been closed
-                  {totalAnswers > 0 && ` — ${totalAnswers.toLocaleString()} total`}
-                </CardDescription>
-              </div>
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                <div className="relative w-full sm:w-72">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search question or answer..."
-                    className="pl-8"
-                  />
-                </div>
-                <ClosedAnswersFilters filters={filters} onChange={setFilters} />
-              </div>
+      <div className={cn("flex w-full min-w-0 flex-col gap-4", PAGE_HEIGHT_CLASSES)}>
+        <header className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-0.5">
+            <h2 className="text-lg font-semibold leading-tight text-foreground">
+              Answer Sources
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Add and update the sources backing each final answer
+              {totalAnswers > 0 && ` — ${totalAnswers.toLocaleString()} answers`}
+            </p>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <div className="relative w-full sm:w-72">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search question or answer..."
+                className="pl-8"
+              />
             </div>
-          </CardHeader>
-          <CardContent className="flex min-h-0 flex-1 flex-col">
-            {error ? (
-              <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-destructive/40 text-sm text-destructive">
-                Failed to load closed answers. Please try again.
-              </div>
-            ) : isLoading ? (
-              <div className="relative min-h-0 w-full flex-1">
-                <Spinner fullScreen={false} text="Loading closed answers" />
-              </div>
-            ) : answers.length === 0 ? (
-              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm text-muted-foreground">
-                {hasActiveFilters
-                  ? "No closed answers match these filters."
-                  : "No closed answers found."}
-                {hasActiveFilters && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilters(EMPTY_CLOSED_ANSWER_FILTERS)}
-                  >
-                    Clear filters
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div
-                className={cn(
-                  "grid min-h-0 flex-1 grid-rows-[minmax(140px,32%)_minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(240px,320px)_1fr] lg:grid-rows-1",
-                  isFetching && !isFetchingNextPage && "opacity-60 transition-opacity",
-                )}
-              >
-                <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
-                  <ScrollArea className="h-full">
-                    {answers.map((answer) => (
-                      <AnswerListItem
-                        key={answer._id}
-                        answer={answer}
-                        isActive={selectedAnswer?._id === answer._id}
-                        onSelect={() => setSelectedAnswerId(answer._id)}
-                      />
-                    ))}
-                    <div
-                      ref={loadMoreRef}
-                      className="flex items-center justify-center px-3 py-3 text-xs text-muted-foreground"
-                    >
-                      {isFetchingNextPage
-                        ? "Loading more answers..."
-                        : hasNextPage
-                          ? ""
-                          : `All ${totalAnswers.toLocaleString()} answers loaded`}
-                    </div>
-                  </ScrollArea>
-                </div>
+            <ClosedAnswersFilters filters={filters} onChange={setFilters} />
+          </div>
+        </header>
 
-                <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
-                  <ScrollArea className="h-full">
-                    <AnimatePresence mode="wait" initial={false}>
-                      {selectedAnswer ? (
-                        <motion.div
-                          key={selectedAnswer._id}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -8 }}
-                          transition={{ duration: 0.15, ease: "easeOut" }}
-                        >
-                          <AnswerDetail answer={selectedAnswer} />
-                        </motion.div>
-                      ) : (
-                        <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
-                          Select an answer to review it.
-                        </div>
-                      )}
-                    </AnimatePresence>
-                  </ScrollArea>
-                </div>
-              </div>
+        {error ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-destructive/40 text-sm text-destructive">
+            Failed to load answers. Please try again.
+          </div>
+        ) : isLoading ? (
+          <div className="relative min-h-0 w-full flex-1">
+            <Spinner fullScreen={false} text="Loading answers" />
+          </div>
+        ) : answers.length === 0 ? (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm text-muted-foreground">
+            {hasActiveFilters
+              ? "No answers match these filters."
+              : "No answers found."}
+            {hasActiveFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFilters(EMPTY_CLOSED_ANSWER_FILTERS)}
+              >
+                Clear filters
+              </Button>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "grid min-h-0 flex-1 grid-rows-[minmax(140px,32%)_minmax(0,1fr)] overflow-hidden rounded-xl border border-border bg-card lg:grid-cols-[minmax(240px,320px)_1fr] lg:grid-rows-1",
+              isFetching && !isFetchingNextPage && "opacity-60 transition-opacity",
+            )}
+          >
+            <div className="min-h-0 border-b border-border lg:border-b-0 lg:border-r">
+              <ScrollArea className="h-full">
+                {answers.map((answer) => (
+                  <AnswerListItem
+                    key={answer._id}
+                    answer={answer}
+                    isActive={selectedAnswer?._id === answer._id}
+                    onSelect={() => setSelectedAnswerId(answer._id)}
+                  />
+                ))}
+                <div
+                  ref={loadMoreRef}
+                  className="flex items-center justify-center px-3 py-3 text-xs text-muted-foreground"
+                >
+                  {isFetchingNextPage
+                    ? "Loading more answers..."
+                    : hasNextPage
+                      ? ""
+                      : `All ${totalAnswers.toLocaleString()} answers loaded`}
+                </div>
+              </ScrollArea>
+            </div>
+
+            <div className="min-h-0">
+              <ScrollArea className="h-full">
+                <AnimatePresence mode="wait" initial={false}>
+                  {selectedAnswer ? (
+                    <motion.div
+                      key={selectedAnswer._id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                    >
+                      <AnswerDetail answer={selectedAnswer} />
+                    </motion.div>
+                  ) : (
+                    <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+                      Select an answer to add its sources.
+                    </div>
+                  )}
+                </AnimatePresence>
+              </ScrollArea>
+            </div>
+          </div>
+        )}
       </div>
     </MotionConfig>
   );
