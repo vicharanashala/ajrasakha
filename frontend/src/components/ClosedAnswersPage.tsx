@@ -40,6 +40,11 @@ import { ScrollArea } from "@/components/atoms/scroll-area";
 import Spinner from "@/components/atoms/spinner";
 import { ExpandableText } from "@/components/expandable-text";
 import { QuestionIdLink } from "@/features/chatbotDashboard/components/QuestionIdLink";
+import {
+  ClosedAnswersFilters,
+  EMPTY_CLOSED_ANSWER_FILTERS,
+  countActiveFilters,
+} from "./ClosedAnswersFilters";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
 import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
 import { useLookupPopSource } from "@/hooks/api/pop/useLookupPopSource";
@@ -49,7 +54,12 @@ import { useCloseNewSource } from "@/hooks/api/newSource/useCloseNewSource";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { formatDate } from "@/utils/formatDate";
 import { cn } from "@/lib/utils";
-import type { ClosedAnswer, SourceItem, SourceType } from "@/types";
+import type {
+  ClosedAnswer,
+  ClosedAnswerFilters as ClosedAnswerFiltersState,
+  SourceItem,
+  SourceType,
+} from "@/types";
 import type { PopMatchStatus } from "@/hooks/services/newSourceService";
 
 const EDIT_SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
@@ -786,6 +796,9 @@ const PAGE_HEIGHT_CLASSES = "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-8.5rem)]"
 
 export const ClosedAnswersPage = () => {
   const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<ClosedAnswerFiltersState>(
+    EMPTY_CLOSED_ANSWER_FILTERS,
+  );
   const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
   const debouncedSearch = useDebounce(search);
   const observer = useRef<IntersectionObserver | null>(null);
@@ -798,12 +811,13 @@ export const ClosedAnswersPage = () => {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useGetClosedAnswers(ANSWERS_PAGE_SIZE, debouncedSearch);
+  } = useGetClosedAnswers(ANSWERS_PAGE_SIZE, debouncedSearch, filters);
 
   const answers = data?.pages.flatMap((page) => page?.answers ?? []) ?? [];
   const totalAnswers = data?.pages?.[0]?.totalAnswers ?? 0;
   const selectedAnswer =
     answers.find((answer) => answer._id === selectedAnswerId) ?? answers[0] ?? null;
+  const hasActiveFilters = countActiveFilters(filters) > 0;
 
   // Fetches the next page once the sentinel at the end of the list scrolls into view.
   const loadMoreRef = useCallback(
@@ -835,14 +849,17 @@ export const ClosedAnswersPage = () => {
                   {totalAnswers > 0 && ` — ${totalAnswers.toLocaleString()} total`}
                 </CardDescription>
               </div>
-              <div className="relative w-full sm:w-72">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search question or answer..."
-                  className="pl-8"
-                />
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <div className="relative w-full sm:w-72">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search question or answer..."
+                    className="pl-8"
+                  />
+                </div>
+                <ClosedAnswersFilters filters={filters} onChange={setFilters} />
               </div>
             </div>
           </CardHeader>
@@ -856,8 +873,19 @@ export const ClosedAnswersPage = () => {
                 <Spinner fullScreen={false} text="Loading closed answers" />
               </div>
             ) : answers.length === 0 ? (
-              <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
-                No closed answers found.
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm text-muted-foreground">
+                {hasActiveFilters
+                  ? "No closed answers match these filters."
+                  : "No closed answers found."}
+                {hasActiveFilters && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFilters(EMPTY_CLOSED_ANSWER_FILTERS)}
+                  >
+                    Clear filters
+                  </Button>
+                )}
               </div>
             ) : (
               <div

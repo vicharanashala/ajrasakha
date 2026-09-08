@@ -13,7 +13,10 @@ import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {BadRequestError, InternalServerError} from 'routing-controllers';
-import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import {
+  IAnswerRepository,
+  ClosedAnswerFilters,
+} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {
   Analytics,
   AnalyticsItem,
@@ -1121,6 +1124,7 @@ export class AnswerRepository implements IAnswerRepository {
     page: number,
     limit: number,
     search?: string,
+    filters?: ClosedAnswerFilters,
     session?: ClientSession,
   ): Promise<{answers: any[]; totalAnswers: number}> {
     try {
@@ -1136,6 +1140,53 @@ export class AnswerRepository implements IAnswerRepository {
           {answer: {$regex: search, $options: 'i'}},
           {'question.question': {$regex: search, $options: 'i'}},
         ];
+      }
+
+      if (filters?.closedAtStart || filters?.closedAtEnd) {
+        const closedAtRange: {$gte?: Date; $lte?: Date} = {};
+        if (filters.closedAtStart) {
+          closedAtRange.$gte = new Date(filters.closedAtStart);
+        }
+        if (filters.closedAtEnd) {
+          // The end date is inclusive, so stretch it to the end of that day.
+          const end = new Date(filters.closedAtEnd);
+          end.setHours(23, 59, 59, 999);
+          closedAtRange.$lte = end;
+        }
+        matchStage['question.closedAt'] = closedAtRange;
+      }
+
+      const authorIds = (filters?.authorIds || []).filter(id =>
+        isValidObjectId(id),
+      );
+      if (authorIds.length > 0) {
+        matchStage.authorId = {$in: authorIds.map(id => new ObjectId(id))};
+      }
+
+      if (filters?.sourcePresence === 'with') {
+        matchStage['sources.0'] = {$exists: true};
+      } else if (filters?.sourcePresence === 'without') {
+        matchStage['sources.0'] = {$exists: false};
+      }
+
+      if (filters?.sourceTypes?.length) {
+        matchStage['sources.sourceType'] = {$in: filters.sourceTypes};
+      }
+
+      if (filters?.states?.length) {
+        matchStage['question.details.state'] = {$in: filters.states};
+      }
+
+      if (filters?.crops?.length) {
+        matchStage['question.details.crop'] = {$in: filters.crops};
+      }
+
+      if (filters?.domains?.length) {
+        matchStage['question.details.domain'] = {$in: filters.domains};
+      }
+
+      if (filters?.priorities?.length) {
+        matchStage['question.priority'] = {$in: filters.priorities};
       }
 
       const basePipeline: any[] = [
@@ -1206,6 +1257,7 @@ export class AnswerRepository implements IAnswerRepository {
           closedAt: ans.question?.closedAt?.toISOString(),
           priority: ans.question?.priority,
           source: ans.question?.source,
+          details: ans.question?.details ?? null,
         },
         author: ans.author
           ? {

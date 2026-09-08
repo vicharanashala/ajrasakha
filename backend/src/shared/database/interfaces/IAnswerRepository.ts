@@ -11,6 +11,25 @@ import { SubmissionResponse } from '#root/modules/answer/classes/validators/Answ
 /**
  * Interface representing a repository for answer-related operations.
  */
+/** Optional server-side filters for the closed answers list. */
+export interface ClosedAnswerFilters {
+  /** Inclusive start of the question's closedAt range (ISO date). */
+  closedAtStart?: string;
+  /** Inclusive end of the question's closedAt range (ISO date). */
+  closedAtEnd?: string;
+  /** Answer authors to include. */
+  authorIds?: string[];
+  /** Whether the answer must have sources ('with') or must have none ('without'). */
+  sourcePresence?: 'with' | 'without';
+  /** Source types the answer must carry at least one of. */
+  sourceTypes?: string[];
+  /** Question detail filters. */
+  states?: string[];
+  crops?: string[];
+  domains?: string[];
+  priorities?: string[];
+}
+
 export interface IAnswerRepository {
   /**
    * Adds a new answer for a specific question.
@@ -196,6 +215,7 @@ export interface IAnswerRepository {
     page: number,
     limit: number,
     search?: string,
+    filters?: ClosedAnswerFilters,
     session?: ClientSession,
   ): Promise<{answers: any[]; totalAnswers: number}>;
 

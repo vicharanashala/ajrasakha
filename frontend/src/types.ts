@@ -406,6 +406,26 @@ export interface ClosedAnswerQuestion {
   closedAt?: string;
   priority?: string;
   source?: string;
+  details?: {
+    state?: string;
+    district?: string;
+    crop?: string;
+    season?: string;
+    domain?: string[];
+  } | null;
+}
+
+/** Server-side filters accepted by GET /answers/closed. */
+export interface ClosedAnswerFilters {
+  closedAtStart?: string;
+  closedAtEnd?: string;
+  authorIds: string[];
+  sourcePresence?: "with" | "without";
+  sourceTypes: SourceType[];
+  states: string[];
+  crops: string[];
+  domains: string[];
+  priorities: string[];
 }
 
 export interface ClosedAnswerAuthor {

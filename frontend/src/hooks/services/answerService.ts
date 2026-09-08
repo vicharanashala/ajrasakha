@@ -3,6 +3,7 @@ import type {
   SubmitAnswerResponse,
   FinalizedAnswersResponse,
   ClosedAnswersResponse,
+  ClosedAnswerFilters,
   SourceItem,
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
@@ -176,11 +177,29 @@ export class AnswerService {
     page: number,
     limit: number,
     search?: string,
+    filters?: ClosedAnswerFilters,
   ): Promise<ClosedAnswersResponse | null> {
     const params = new URLSearchParams();
     params.append("page", String(page));
     params.append("limit", String(limit));
     if (search) params.append("search", search);
+
+    if (filters) {
+      const listParams: [string, string[]][] = [
+        ["authorIds", filters.authorIds],
+        ["sourceTypes", filters.sourceTypes],
+        ["states", filters.states],
+        ["crops", filters.crops],
+        ["domains", filters.domains],
+        ["priorities", filters.priorities],
+      ];
+      listParams.forEach(([key, values]) => {
+        if (values?.length) params.append(key, values.join(","));
+      });
+      if (filters.closedAtStart) params.append("closedAtStart", filters.closedAtStart);
+      if (filters.closedAtEnd) params.append("closedAtEnd", filters.closedAtEnd);
+      if (filters.sourcePresence) params.append("sourcePresence", filters.sourcePresence);
+    }
 
     return apiFetch<ClosedAnswersResponse>(
       `${this._baseUrl}/closed?${params.toString()}`,

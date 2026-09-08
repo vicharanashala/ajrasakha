@@ -26,10 +26,21 @@ import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { AnswerService } from '../services/AnswerService.js';
 import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
+import { ClosedAnswerFilters } from '#root/shared/database/interfaces/IAnswerRepository.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { IQuestionService } from '#root/modules/question/interfaces/index.js';
+
+// Splits a comma-separated query param into a trimmed list, or undefined when empty.
+const toList = (value?: string): string[] | undefined => {
+  if (!value) return undefined;
+  const items = value
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+  return items.length > 0 ? items : undefined;
+};
 
 @OpenAPI({
   tags: ['Answers'],
@@ -546,11 +557,44 @@ export class AnswerController {
   @Authorized()
   @OpenAPI({summary: 'Get all answers belonging to closed questions'})
   async getClosedAnswers(
-    @QueryParams() query: {page?: number; limit?: number; search?: string},
+    @QueryParams()
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      closedAtStart?: string;
+      closedAtEnd?: string;
+      authorIds?: string;
+      sourcePresence?: string;
+      sourceTypes?: string;
+      states?: string;
+      crops?: string;
+      domains?: string;
+      priorities?: string;
+    },
   ): Promise<{answers: any[]; totalAnswers: number}> {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 10;
-    return await this.answerService.getClosedAnswers(page, limit, query.search);
+    const filters: ClosedAnswerFilters = {
+      closedAtStart: query.closedAtStart,
+      closedAtEnd: query.closedAtEnd,
+      authorIds: toList(query.authorIds),
+      sourcePresence:
+        query.sourcePresence === 'with' || query.sourcePresence === 'without'
+          ? query.sourcePresence
+          : undefined,
+      sourceTypes: toList(query.sourceTypes),
+      states: toList(query.states),
+      crops: toList(query.crops),
+      domains: toList(query.domains),
+      priorities: toList(query.priorities),
+    };
+    return await this.answerService.getClosedAnswers(
+      page,
+      limit,
+      query.search,
+      filters,
+    );
   }
 
 }
