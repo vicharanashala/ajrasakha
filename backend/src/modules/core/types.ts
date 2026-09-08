@@ -21,6 +21,7 @@ export const CORE_TYPES = {
   SarvamService: Symbol.for('SarvamService'),
   NotificationService:Symbol.for('NotificationService'),
   PerformanceService:Symbol.for('PerformanceService'),
+  OrganizationService: Symbol.for('OrganizationService'),
 
   // Repositories
   UserRepository: Symbol.for('UserRepository'),
@@ -34,6 +35,7 @@ export const CORE_TYPES = {
   ReviewRepository:Symbol.for('ReviewRepository'),
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
   FeedbackRepository: Symbol.for('FeedbackRepository'),
+  OrganizationRepository: Symbol.for('OrganizationRepository'),
   CheckOverlapsService: Symbol.for('CheckOverlapsService'),
 
 };

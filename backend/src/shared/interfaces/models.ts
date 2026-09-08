@@ -274,6 +274,14 @@ export interface SourceItem {
   source: string;
   page?: string | number;
 }
+
+/** An entry in the `organization` collection, used to populate the searchable
+ *  Organization dropdown on the Edit Source modal (Closed Answers page). */
+export interface IOrganization {
+  _id?: string | ObjectId;
+  org_name: string;
+  state?: string;
+}
 export interface PreviousAnswersItem {
   modifiedBy: string | ObjectId;
   oldAnswer: string;

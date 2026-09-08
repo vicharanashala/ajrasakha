@@ -446,6 +446,16 @@ export interface SourceItem {
   organization?: string;
   sourceReference?: string;
 }
+
+export interface Organization {
+  _id?: string;
+  org_name: string;
+  state?: string;
+}
+
+export interface OrganizationsResponse {
+  organizations: Organization[];
+}
 export interface PreviousAnswersItem {
   modifiedBy: string
   oldAnswer: string;

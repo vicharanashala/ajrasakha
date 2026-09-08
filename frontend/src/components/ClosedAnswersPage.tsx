@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Search, Link as LinkIcon, Eye, Pencil } from "lucide-react";
+import { Search, Link as LinkIcon, Eye, Pencil, Check, ChevronsUpDown } from "lucide-react";
 import { Input } from "@/components/atoms/input";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
@@ -20,12 +20,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/atoms/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/atoms/command";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import Spinner from "@/components/atoms/spinner";
 import { QuestionIdLink } from "@/features/chatbotDashboard/components/QuestionIdLink";
 import { Pagination } from "./pagination";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
+import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
 import { useDebounce } from "@/hooks/ui/useDebounce";
+import { cn } from "@/lib/utils";
 import type { ClosedAnswer, SourceItem, SourceType } from "@/types";
 
 const EDIT_SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
@@ -243,6 +258,85 @@ const CurrentSourceDetails = ({ source }: { source: SourceItem }) => (
   </div>
 );
 
+const OrganizationCombobox = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounce(query);
+
+  const { data, isFetching } = useSearchOrganizations(debouncedQuery, open);
+  const organizations = data?.organizations ?? [];
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          <span className={cn("truncate", !value && "text-muted-foreground")}>
+            {value || "Search organization..."}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-(--radix-popper-anchor-width) p-0" align="start">
+        <Command shouldFilter={false} className="h-[280px]">
+          <CommandInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Search by organization name..."
+          />
+          <CommandList className="max-h-none min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {isFetching ? (
+              <div className="py-6 text-center text-xs text-muted-foreground">
+                Searching...
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>No organizations found.</CommandEmpty>
+                <CommandGroup>
+                  {organizations.map((org) => (
+                    <CommandItem
+                      key={org._id ?? org.org_name}
+                      value={org.org_name}
+                      onSelect={() => {
+                        onChange(org.org_name);
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          value === org.org_name ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      <span className="flex-1 truncate">{org.org_name}</span>
+                      {org.state && (
+                        <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                          {org.state}
+                        </span>
+                      )}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<SourceItem>(EMPTY_SOURCE_FORM);
@@ -346,10 +440,9 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
 
               <div className="grid gap-1.5">
                 <label className="text-xs font-medium text-foreground/80">Organization</label>
-                <Input
+                <OrganizationCombobox
                   value={form.organization ?? ""}
-                  onChange={(e) => updateField("organization", e.target.value)}
-                  placeholder="Owning organization"
+                  onChange={(val) => updateField("organization", val)}
                 />
               </div>
 
