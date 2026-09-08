@@ -1,6 +1,12 @@
 import 'reflect-metadata';
 const NODE_ENV = process.env.NODE_ENV || 'development';
+import dns from "dns";
 
+// Force stable DNS servers
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
+// Force IPv4 priority
+dns.setDefaultResultOrder("ipv4first");
 console.log(`Loading Sentry for ${NODE_ENV} environment`);
 await import('./instrument.js');
 
