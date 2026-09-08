@@ -1136,10 +1136,19 @@ export class AnswerRepository implements IAnswerRepository {
         'question.status': 'closed',
       };
       if (search) {
-        matchStage.$or = [
+        const searchConditions: any[] = [
           {answer: {$regex: search, $options: 'i'}},
           {'question.question': {$regex: search, $options: 'i'}},
         ];
+
+        // A pasted id should find that exact answer or question, not run as a regex.
+        const trimmedSearch = search.trim();
+        if (isValidObjectId(trimmedSearch)) {
+          const searchId = new ObjectId(trimmedSearch);
+          searchConditions.push({_id: searchId}, {questionId: searchId});
+        }
+
+        matchStage.$or = searchConditions;
       }
 
       if (filters?.closedAtStart || filters?.closedAtEnd) {
@@ -1205,6 +1214,29 @@ export class AnswerRepository implements IAnswerRepository {
         matchStage['question.priority'] = {$in: filters.priorities};
       }
 
+      // A seeded key derived from the document's creation time gives a shuffled but
+      // page-stable order; without a seed the newest answers come first as before.
+      const orderingStages: any[] = filters?.shuffleSeed
+        ? [
+            {
+              $addFields: {
+                shuffleKey: {
+                  $mod: [
+                    {
+                      $multiply: [
+                        {$toLong: {$toDate: '$_id'}},
+                        filters.shuffleSeed,
+                      ],
+                    },
+                    2147483647,
+                  ],
+                },
+              },
+            },
+            {$sort: {shuffleKey: 1, _id: 1}},
+          ]
+        : [{$sort: {createdAt: -1}}];
+
       const basePipeline: any[] = [
         {
           $lookup: {
@@ -1222,7 +1254,7 @@ export class AnswerRepository implements IAnswerRepository {
         this.AnswerCollection.aggregate(
           [
             ...basePipeline,
-            {$sort: {createdAt: -1}},
+            ...orderingStages,
             {$skip: skip},
             {$limit: limit},
             {

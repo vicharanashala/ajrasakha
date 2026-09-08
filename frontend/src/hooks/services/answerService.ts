@@ -203,6 +203,8 @@ export class AnswerService {
         params.append("minSources", String(filters.minSources));
       if (filters.maxSources !== undefined)
         params.append("maxSources", String(filters.maxSources));
+      if (filters.shuffleSeed !== undefined)
+        params.append("shuffleSeed", String(filters.shuffleSeed));
     }
 
     return apiFetch<ClosedAnswersResponse>(
