@@ -149,6 +149,23 @@ export class CropRepository implements ICropRepository {
     }
   }
 
+  /** Distinct crop-side types present in the collection — every value of `type`
+   *  except 'crop' and 'chemical' (which have their own dedicated tabs). Used to
+   *  surface each custom "Other" type as its own tab in the UI. */
+  async getCropSideTypes(): Promise<string[]> {
+    if (!this.CropCollection) await this.init();
+    const raw = await this.CropCollection.distinct('type', {
+      type: { $nin: ['crop', 'chemical'], $exists: true, $ne: null },
+    });
+    // 'crop'/'chemical'/'other' are reserved (their own / the catch-all tab), so a
+    // custom type using one of those names must not create a duplicate tab.
+    const reserved = new Set(['crop', 'chemical', 'other']);
+    return (raw as unknown[])
+      .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+      .map(t => t.trim())
+      .filter(t => !reserved.has(t.toLowerCase()));
+  }
+
   // ─── READ (ALL) ────────────────────────────────────────────────────────────
 
   async getAllCrops(query?: {

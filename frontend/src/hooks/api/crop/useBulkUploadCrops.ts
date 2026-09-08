@@ -14,6 +14,8 @@ export const useBulkUploadCrops = () => {
     onSuccess: () => {
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["crops"] });
+        // A bulk upload can introduce a new custom type — refresh the tab list.
+        queryClient.invalidateQueries({ queryKey: ["crop-entry-types"] });
       }, 3000);
     },
   });

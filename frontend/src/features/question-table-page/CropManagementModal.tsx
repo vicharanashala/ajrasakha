@@ -46,6 +46,10 @@ const OTHER_TYPE_OPTIONS = ["weed", "pest", "disease"] as const;
 /** Display label for a category — Title-cased, works for any future type. */
 const labelOf = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : "");
 
+/** Reserved type names — each has its own dedicated/catch-all tab, so a custom
+ *  "Other" type may not reuse one (it would collide with those tabs). */
+const RESERVED_TYPES = ["crop", "chemical", "other"];
+
 type ICropAliasObject = ICropAlias;
 
 const INDIAN_LANGUAGES = [
@@ -868,7 +872,16 @@ export const CropManagementModal = ({
 
   // Backend categories drive the first-class tabs (falls back to the static list).
   const { data: fetchedCategories } = useGetCropEntryTypes();
-  const categories = fetchedCategories && fetchedCategories.length ? fetchedCategories : [...OTHER_TYPE_OPTIONS];
+  const rawCategories = fetchedCategories && fetchedCategories.length ? fetchedCategories : [...OTHER_TYPE_OPTIONS];
+  // Drop reserved names (crop/chemical/other have their own tabs) and dedupe
+  // case-insensitively, so "Other" never appears twice.
+  const categories = Array.from(
+    new Map(
+      rawCategories
+        .filter((c) => !RESERVED_TYPES.includes(c.trim().toLowerCase()))
+        .map((c) => [c.trim().toLowerCase(), c.trim()]),
+    ).values(),
+  );
   // Tab order: Crop, Chemical, every category, then the custom "Other" bucket.
   const tabs: string[] = ["crop", "chemical", ...categories, "other"];
 
@@ -922,9 +935,15 @@ export const CropManagementModal = ({
   const handleSave = async () => {
     const name = newCropName.trim();
     if (!name) return;
-    if (isOther && !customType.trim()) {
-      toast.error("Please enter a type name");
-      return;
+    if (isOther) {
+      if (!customType.trim()) {
+        toast.error("Please enter a type name");
+        return;
+      }
+      if (RESERVED_TYPES.includes(customType.trim().toLowerCase())) {
+        toast.error(`"${customType.trim()}" is a reserved type name`);
+        return;
+      }
     }
     try {
       const res = await createCrop({
@@ -993,11 +1012,18 @@ export const CropManagementModal = ({
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    // The upload carries the active tab's type; the "Other" tab needs a custom type first.
-    if (isOther && !customType.trim()) {
-      toast.error("Enter a type name before uploading");
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
+    // The upload carries the active tab's type; the "Other" tab needs a valid custom type first.
+    if (isOther) {
+      if (!customType.trim()) {
+        toast.error("Enter a type name before uploading");
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+      if (RESERVED_TYPES.includes(customType.trim().toLowerCase())) {
+        toast.error(`"${customType.trim()}" is a reserved type name`);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
     }
     const type = activeType as CropUploadType;
     try {
@@ -1220,118 +1246,6 @@ export const CropManagementModal = ({
               <CropAuditTrailModal crop={item} />
               <button
                 className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all"
-                onClick={() => setAliasManagerCrop(item)}
-                title="Manage Aliases"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  // ── Table renderer for other entries ───────────────────────────────────────
-  const renderOtherTable = (items: ICropResponse[]) => (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700/60 overflow-hidden">
-      {/* Header */}
-      <div className="grid grid-cols-[48px_1fr_92px_88px_150px_130px_150px_130px_80px] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-gray-700/60">
-        {["Sl No", "Name", "Sub-Type", "Aliases", "Created At", "Created By", "Updated At", "Updated By", "Manage"].map((h, i) => (
-          <div
-            key={i}
-            className={`px-3 py-2.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${i === 3 || i === 8 ? "text-center" : ""}`}
-          >
-            {h}
-          </div>
-        ))}
-      </div>
-      {/* Rows */}
-      {items.map((item, index) => {
-        const id = item._id || item.name;
-        const aliasCount = (item.aliases || []).length;
-        const subType = item.type && item.type !== "other" ? item.type : "Other";
-        return (
-          <div
-            key={id}
-            className={`grid grid-cols-[48px_1fr_92px_88px_150px_130px_150px_130px_80px] items-center group transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.03] ${
-              index < items.length - 1 ? "border-b border-gray-100 dark:border-gray-800/60" : ""
-            }`}
-          >
-            {/* Sl No */}
-            <div className="px-3 py-2.5 text-xs text-gray-400 dark:text-gray-500 font-medium">
-              {index + 1}
-            </div>
-            {/* Name */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.name}
-                className="text-sm font-semibold text-gray-900 dark:text-white truncate block"
-              >
-                {item.name}
-              </span>
-              {item.scientificName ? (
-                <span
-                  title={item.scientificName}
-                  className="text-[11px] italic text-gray-400 dark:text-gray-500 truncate block"
-                >
-                  {item.scientificName}
-                </span>
-              ) : null}
-            </div>
-            {/* Sub-Type */}
-            <div className="px-3 py-2.5">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border leading-tight bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20 capitalize">
-                {subType}
-              </span>
-            </div>
-            {/* Aliases Count */}
-            <div className="px-3 py-2.5 text-center">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {aliasCount}
-              </span>
-            </div>
-            {/* Created At */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={fmtAuditDate(item.createdAt)}
-                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
-              >
-                {fmtAuditDate(item.createdAt)}
-              </span>
-            </div>
-            {/* Created By */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.createdByName?.trim() || "-"}
-                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
-              >
-                {item.createdByName?.trim() || "-"}
-              </span>
-            </div>
-            {/* Updated At */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={fmtAuditDate(item.updatedAt)}
-                className="text-xs text-gray-700 dark:text-gray-300 truncate block"
-              >
-                {fmtAuditDate(item.updatedAt)}
-              </span>
-            </div>
-            {/* Updated By */}
-            <div className="px-3 py-2.5 min-w-0">
-              <span
-                title={item.updatedByName?.trim() || "-"}
-                className="text-xs text-gray-600 dark:text-gray-300 truncate block"
-              >
-                {item.updatedByName?.trim() || "-"}
-              </span>
-            </div>
-            {/* Manage Aliases */}
-            <div className="px-3 py-2.5 flex items-center justify-center gap-0.5">
-              <CropAuditTrailModal crop={item} />
-              <button
-                className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all"
                 onClick={() => setAliasManagerCrop(item)}
                 title="Manage Aliases"
               >
@@ -1637,57 +1551,69 @@ export const CropManagementModal = ({
               </div>
             )}
 
-            {/* ── Active-tab list (crop / chemical / a category / other) ────────── */}
-            <>
-              <div className="px-5 pt-3 pb-1">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                  <Input
-                    id="agritech-search"
-                    placeholder={isChemical ? "Search chemicals..." : activeTab === "crop" ? "Search crops..." : isOther ? "Search other entries..." : `Search ${labelOf(activeTab).toLowerCase()}...`}
-                    value={searchInput}
-                    onChange={handleSearchChange}
-                    className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
-                  />
-                  {isTabFetching && !isTabLoading && (
-                    <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+            {/* ── Active-tab content ─────────────────────────────────────────── */}
+            {isOther ? (
+              /* "Other" is where a NEW custom type is created; each type then gets its own tab. */
+              <div className="px-5 py-12 text-center">
+                <LayoutGrid className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Add a new type here
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-sm mx-auto">
+                  Use “AgriTech Item” to name a new type and add or bulk-upload its data.
+                  Each type you add appears as its own tab beside Crops.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="px-5 pt-3 pb-1">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                    <Input
+                      id="agritech-search"
+                      placeholder={isChemical ? "Search chemicals..." : activeTab === "crop" ? "Search crops..." : `Search ${labelOf(activeTab).toLowerCase()}...`}
+                      value={searchInput}
+                      onChange={handleSearchChange}
+                      className="h-8 pl-8 text-xs bg-gray-50 dark:bg-[#141414] border-gray-200 dark:border-gray-700 rounded-lg"
+                    />
+                    {isTabFetching && !isTabLoading && (
+                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="px-5 py-3">
+                  {isTabLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className={`h-5 w-5 animate-spin ${isChemical ? "text-purple-400" : activeTab === "crop" ? "text-amber-400" : "text-blue-400"}`} />
+                    </div>
+                  ) : items.length === 0 ? (
+                    <div className="text-center py-12">
+                      {isChemical ? (
+                        <FlaskConical className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                      ) : activeTab === "crop" ? (
+                        <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                      ) : (
+                        <LayoutGrid className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                      )}
+                      <p className="text-sm text-gray-400 dark:text-gray-500">
+                        {searchQuery
+                          ? `No entries matching "${searchQuery}"`
+                          : `No ${isChemical ? "chemicals" : activeTab === "crop" ? "crops" : labelOf(activeTab).toLowerCase()} added yet`}
+                      </p>
+                    </div>
+                  ) : isChemical ? (
+                    renderChemicalTable(items)
+                  ) : (
+                    renderCropTable(items, activeTab === "crop" ? "Crop Name" : `${labelOf(activeTab)} Name`)
                   )}
                 </div>
-              </div>
-
-              <div className="px-5 py-3">
-                {isTabLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className={`h-5 w-5 animate-spin ${isChemical ? "text-purple-400" : activeTab === "crop" ? "text-amber-400" : "text-blue-400"}`} />
-                  </div>
-                ) : items.length === 0 ? (
-                  <div className="text-center py-12">
-                    {isChemical ? (
-                      <FlaskConical className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                    ) : activeTab === "crop" ? (
-                      <Wheat className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                    ) : (
-                      <LayoutGrid className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                    )}
-                    <p className="text-sm text-gray-400 dark:text-gray-500">
-                      {searchQuery
-                        ? `No entries matching "${searchQuery}"`
-                        : `No ${isChemical ? "chemicals" : activeTab === "crop" ? "crops" : isOther ? "other entries" : labelOf(activeTab).toLowerCase()} added yet`}
-                    </p>
-                  </div>
-                ) : isChemical ? (
-                  renderChemicalTable(items)
-                ) : isOther ? (
-                  renderOtherTable(items)
-                ) : (
-                  renderCropTable(items, activeTab === "crop" ? "Crop Name" : `${labelOf(activeTab)} Name`)
-                )}
-              </div>
-            </>
+              </>
+            )}
           </div>
 
           {/* ── Pagination Footer (fixed inside modal) ──────────────────────── */}
-          {totalPages > 1 && (
+          {!isOther && totalPages > 1 && (
             <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#0f0f0f] px-4 py-2 flex items-center justify-end gap-2 flex-wrap">
               {/* Items per page */}
               <div className="relative">

@@ -21,7 +21,7 @@ import {
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
-import {IUser, ICrop, CROP_OTHER_TYPES} from '#root/shared/interfaces/models.js';
+import {IUser, ICrop} from '#root/shared/interfaces/models.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {
   CropIdParam,
@@ -112,9 +112,9 @@ export class CropController {
   @Get('/entry-types')
   @HttpCode(200)
   @Authorized()
-  @OpenAPI({ summary: 'List the extensible crop-side entry categories for the UI.' })
-  getEntryTypes(): { types: string[] } {
-    return { types: CROP_OTHER_TYPES };
+  @OpenAPI({ summary: 'List the crop-side entry categories (known + custom) for the UI.' })
+  async getEntryTypes(): Promise<{ types: string[] }> {
+    return { types: await this.cropService.getEntryTypes() };
   }
 
   @Get('/bulk-status')
