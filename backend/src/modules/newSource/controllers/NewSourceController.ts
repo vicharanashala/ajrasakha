@@ -1,13 +1,15 @@
 import 'reflect-metadata';
-import {JsonController, Post, Body, Authorized} from 'routing-controllers';
+import {JsonController, Post, Patch, Param, Body, Authorized} from 'routing-controllers';
 import {OpenAPI} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {CORE_TYPES} from '#root/modules/core/types.js';
-import {INewSource, INewSourceItem} from '#root/shared/interfaces/models.js';
+import {INewSource, INewSourceItem, PopMatchStatus} from '#root/shared/interfaces/models.js';
 import {INewSourceService} from '../interfaces/INewSourceService.js';
 
 // Records source edits made on the Closed Answers page's Edit Source modal into the
 // new_sources collection. This deliberately never touches the answers collection.
+// Two-phase: 'start' creates the record ('inProgress') the instant the modal opens so
+// the editing timer is backed by a real document; 'complete' updates it on save.
 @OpenAPI({
   tags: ['NewSource'],
   description: 'Records an edited set of sources for an answer into the new_sources collection',
@@ -20,12 +22,22 @@ export class NewSourceController {
     private readonly newSourceService: INewSourceService,
   ) {}
 
-  @OpenAPI({summary: 'Create a new_sources record for an answer'})
+  @OpenAPI({summary: 'Start a new_sources record when the Edit Source modal opens'})
   @Post('/')
   @Authorized()
-  async create(
-    @Body() body: {answerId: string; questionId: string; sources: INewSourceItem[]},
+  async start(
+    @Body() body: {answerId: string; questionId: string},
   ): Promise<INewSource> {
-    return await this.newSourceService.createNewSource(body);
+    return await this.newSourceService.startNewSource(body);
+  }
+
+  @OpenAPI({summary: 'Complete a new_sources record when the edit is saved'})
+  @Patch('/:id')
+  @Authorized()
+  async complete(
+    @Param('id') id: string,
+    @Body() body: {sources: INewSourceItem[]; timeTaken: number; sourceReferenceStatus: PopMatchStatus | null},
+  ): Promise<INewSource> {
+    return await this.newSourceService.completeNewSource({id, ...body});
   }
 }

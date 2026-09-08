@@ -2,8 +2,10 @@ import {INewSourceRepository} from '#root/shared/database/interfaces/INewSourceR
 import {INewSource} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
-import {Collection} from 'mongodb';
+import {Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
+import {isValidObjectId} from '#root/utils/isValidObjectId.js';
+import {BadRequestError} from 'routing-controllers';
 
 @injectable()
 export class NewSourceRepository implements INewSourceRepository {
@@ -18,7 +20,7 @@ export class NewSourceRepository implements INewSourceRepository {
     this.NewSourceCollection = await this.db.getCollection<INewSource>('new_sources');
   }
 
-  async create(data: Omit<INewSource, '_id' | 'createdAt'>): Promise<INewSource> {
+  async create(data: Omit<INewSource, '_id' | 'createdAt' | 'updatedAt'>): Promise<INewSource> {
     await this.init();
 
     const doc: INewSource = {
@@ -28,6 +30,27 @@ export class NewSourceRepository implements INewSourceRepository {
 
     const result = await this.NewSourceCollection.insertOne(doc as any);
 
-    return {...doc, _id: result.insertedId};
+    return {...doc, _id: result.insertedId.toString()};
+  }
+
+  async updateById(
+    id: string,
+    updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken' | 'sourceReferenceStatus'>>,
+  ): Promise<INewSource | null> {
+    await this.init();
+
+    if (!id || !isValidObjectId(id)) {
+      throw new BadRequestError('Invalid or missing new_sources id');
+    }
+
+    const result = await this.NewSourceCollection.findOneAndUpdate(
+      {_id: new ObjectId(id)},
+      {$set: {...updates, updatedAt: new Date()}},
+      {returnDocument: 'after'},
+    );
+
+    if (!result) return null;
+
+    return {...result, _id: result._id?.toString()} as INewSource;
   }
 }

@@ -316,20 +316,31 @@ export interface INewSourceItem {
   sourceReference?: string;
 }
 
+/** Lifecycle of a `new_sources` record: 'inProgress' from the moment the Edit Source
+ *  modal is opened (timer running), 'completed' once the user saves (timer stopped,
+ *  timeTaken recorded). 'pending' is not produced by the Edit Source flow itself — it's
+ *  reserved for a future review workflow. */
+export type NewSourceStatus = 'pending' | 'inProgress' | 'completed';
+
+/** Where a saved source's link was found in the `pop` collection, checked automatically
+ *  against the pop collection when the edit is saved. */
+export type PopMatchStatus = 'duplicateMatch' | 'topLevelMatch' | 'notFound';
+
 /** A document written to the `new_sources` collection whenever a user edits a Closed
  *  Answer's sources via the Edit Source modal. Deliberately does NOT update the
- *  `answers` collection — edits are logged here instead. sourceStatus, timeTaken and
- *  organizationStatus are placeholders (always null for now); their real meaning and
- *  shape will be defined in a follow-up. */
+ *  `answers` collection — edits are logged here instead. Created (status:
+ *  'inProgress') when the modal opens, then updated (status: 'completed',
+ *  timeTaken, sourceReferenceStatus) when the user saves. */
 export interface INewSource {
   _id?: string | ObjectId;
   answerId: string | ObjectId;
   questionId: string | ObjectId;
   sources: INewSourceItem[];
-  sourceStatus: null;
-  timeTaken: null;
-  organizationStatus: null;
+  status: NewSourceStatus;
+  timeTaken: number | null;
+  sourceReferenceStatus: PopMatchStatus | null;
   createdAt?: Date;
+  updatedAt?: Date;
 }
 export interface PreviousAnswersItem {
   modifiedBy: string | ObjectId;

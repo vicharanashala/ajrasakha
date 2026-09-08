@@ -1,12 +1,15 @@
 import { apiFetch } from "../api/api-fetch";
 import { env } from "@/config/env";
+import type { PopMatchStatus } from "./newSourceService";
 
 const API_BASE_URL = env.apiBaseUrl();
 
 export interface PopLookupResult {
   found: boolean;
+  _id?: string;
   shareable_name?: string;
   shareable_link?: string;
+  matchStatus?: PopMatchStatus;
 }
 
 export class PopService {

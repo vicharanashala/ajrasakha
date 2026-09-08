@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Search, Link as LinkIcon, Eye, Pencil, Check, ChevronsUpDown } from "lucide-react";
 import { Input } from "@/components/atoms/input";
@@ -40,10 +40,12 @@ import { Pagination } from "./pagination";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
 import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
 import { useLookupPopSource } from "@/hooks/api/pop/useLookupPopSource";
-import { useCreateNewSource } from "@/hooks/api/newSource/useCreateNewSource";
+import { useStartNewSource } from "@/hooks/api/newSource/useStartNewSource";
+import { useCompleteNewSource } from "@/hooks/api/newSource/useCompleteNewSource";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { cn } from "@/lib/utils";
 import type { ClosedAnswer, SourceItem, SourceType } from "@/types";
+import type { PopMatchStatus } from "@/hooks/services/newSourceService";
 
 const EDIT_SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
   { value: "hyper_local", label: "Hyper Local" },
@@ -229,7 +231,13 @@ const SourcesList = ({ sources }: { sources: SourceItem[] }) => {
 
 const CARD_HEIGHT = "h-[380px]";
 
-const CurrentSourceDetails = ({ source }: { source: SourceItem }) => (
+const CurrentSourceDetails = ({
+  source,
+  onFetchedReference,
+}: {
+  source: SourceItem;
+  onFetchedReference?: (id: string, matchStatus: PopMatchStatus) => void;
+}) => (
   <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
     <div className="grid grid-cols-2 gap-x-3 gap-y-2">
       <div>
@@ -261,7 +269,7 @@ const CurrentSourceDetails = ({ source }: { source: SourceItem }) => (
     </div>
     {source.source && (
       <div className="border-t border-border/60 pt-2">
-        <SourceReferenceLookup source={source.source} />
+        <SourceReferenceLookup source={source.source} onFound={onFetchedReference} />
       </div>
     )}
   </div>
@@ -351,7 +359,7 @@ const SourceReferenceLookup = ({
   onFound,
 }: {
   source: string;
-  onFound?: (link: string) => void;
+  onFound?: (id: string, matchStatus: PopMatchStatus) => void;
 }) => {
   const { mutate, data, isPending } = useLookupPopSource();
 
@@ -362,8 +370,8 @@ const SourceReferenceLookup = ({
     }
     mutate(source, {
       onSuccess: (result) => {
-        if (result?.found && result.shareable_link) {
-          onFound?.(result.shareable_link);
+        if (result?.found && result._id) {
+          onFound?.(result._id, result.matchStatus ?? "topLevelMatch");
         }
       },
     });
@@ -403,7 +411,13 @@ const SourceReferenceLookup = ({
 const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<SourceItem>(EMPTY_SOURCE_FORM);
-  const { mutate: createNewSource, isPending: isSaving } = useCreateNewSource();
+  const [newSourceId, setNewSourceId] = useState<string | null>(null);
+  const [fetchedPopId, setFetchedPopId] = useState<string | null>(null);
+  const [fetchedMatchStatus, setFetchedMatchStatus] = useState<PopMatchStatus | null>(null);
+  const editStartedAtRef = useRef<number | null>(null);
+
+  const { mutate: startNewSource, isPending: isStarting } = useStartNewSource();
+  const { mutate: completeNewSource, isPending: isSaving } = useCompleteNewSource();
 
   const updateField = (field: keyof SourceItem, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -412,6 +426,21 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       setForm(EMPTY_SOURCE_FORM);
+      setNewSourceId(null);
+      setFetchedPopId(null);
+      setFetchedMatchStatus(null);
+      editStartedAtRef.current = Date.now();
+
+      // Starts the editing timer: creates the new_sources record as 'inProgress'
+      // the instant the modal opens, so timeTaken has a real start point.
+      startNewSource(
+        { answerId: answer._id, questionId: answer.questionId ?? "" },
+        {
+          onSuccess: (result) => {
+            if (result?._id) setNewSourceId(result._id);
+          },
+        },
+      );
     }
     setOpen(nextOpen);
   };
@@ -421,14 +450,27 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
       toast.error("Enter a Source first.");
       return;
     }
+    if (!newSourceId) {
+      toast.error("Still preparing this edit — try again in a moment.");
+      return;
+    }
+
+    const timeTaken = editStartedAtRef.current
+      ? Date.now() - editStartedAtRef.current
+      : 0;
 
     // Edits are logged to the new_sources collection — the answer's own
-    // sources are never modified here.
-    createNewSource(
+    // sources are never modified here. sourceReference (the pop document's own _id)
+    // and sourceReferenceStatus (topLevelMatch/duplicateMatch/notFound) both come
+    // from the Fetch Source Reference button above — that lookup ran against the
+    // current source's text, which this submitted form doesn't carry, so the result
+    // is captured client-side rather than re-derived on the server.
+    completeNewSource(
       {
-        answerId: answer._id,
-        questionId: answer.questionId ?? "",
-        sources: [form],
+        id: newSourceId,
+        sources: [{ ...form, sourceReference: fetchedPopId ?? undefined }],
+        timeTaken,
+        sourceReferenceStatus: fetchedMatchStatus,
       },
       {
         onSuccess: () => {
@@ -463,7 +505,14 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
               {answer.sources && answer.sources.length > 0 ? (
                 <div className="grid gap-2">
                   {answer.sources.map((source, idx) => (
-                    <CurrentSourceDetails key={idx} source={source} />
+                    <CurrentSourceDetails
+                      key={idx}
+                      source={source}
+                      onFetchedReference={(id, matchStatus) => {
+                        setFetchedPopId(id);
+                        setFetchedMatchStatus(matchStatus);
+                      }}
+                    />
                   ))}
                 </div>
               ) : (
@@ -527,15 +576,6 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
                   onChange={(val) => updateField("organization", val)}
                 />
               </div>
-
-              <div className="grid gap-1.5">
-                <label className="text-xs font-medium text-foreground/80">Source Reference</label>
-                <Input
-                  value={form.sourceReference ?? ""}
-                  onChange={(e) => updateField("sourceReference", e.target.value)}
-                  placeholder="Citation or reference note"
-                />
-              </div>
             </div>
           </div>
         </ScrollArea>
@@ -543,7 +583,7 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
           <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={isSaving}>
+          <Button size="sm" onClick={handleSave} disabled={isSaving || isStarting}>
             {isSaving ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
