@@ -149,6 +149,15 @@ def _safe_float(x: Any) -> float | None:
         return None
 
 
+def _fmt_rain_val(x: Any) -> str:
+    if x is None:
+        return "0.0"
+    s = str(x).strip()
+    if not s or s.upper() in {"NIL", "NA", "N/A", "NONE", "NULL", "TRACE", "TR"}:
+        return "0.0"
+    return s
+
+
 class _TTLCache:
     def __init__(self, ttl_seconds: float):
         self.ttl = ttl_seconds
@@ -175,12 +184,12 @@ class LatLonWeatherService:
         self,
         city_base: str | None = None,
         mausam_base: str | None = None,
-        timeout: float = 25.0,
+        timeout: float | None = None,
         district_index_ttl: float = 3600.0,
     ):
         self.city_base = (city_base or DEFAULT_CITY_BASE).rstrip("/")
         self.mausam_base = (mausam_base or DEFAULT_MAUSAM_BASE).rstrip("/")
-        self.timeout = timeout
+        self.timeout = timeout if timeout is not None else float(os.getenv("IMD_TIMEOUT", "6.0"))
         self._district_rows = _TTLCache(district_index_ttl)
 
     def _get_json(self, base: str, path: str, params: dict | None = None) -> Any:
@@ -360,10 +369,13 @@ class LatLonWeatherService:
         return STATE_NAME_TO_SID.get(spaced)
 
     def _load_district_rows(self) -> list[dict[str, Any]]:
-        data = self._get_json(self.mausam_base, "districtwise_rainfall_api.php")
-        if not isinstance(data, list):
-            return []
-        return data
+        try:
+            data = self._get_json(self.mausam_base, "districtwise_rainfall_api.php")
+            if isinstance(data, list) and data:
+                return data
+        except Exception as exc:
+            logger.warning("_load_district_rows failed: %s", exc)
+        return []
 
     def get_district_rows_cached(self) -> list[dict[str, Any]]:
         return self._district_rows.get(self._load_district_rows)
@@ -481,7 +493,7 @@ class LatLonWeatherService:
             "station_code": station.get("Station_Code"),
             "observed_min_temp": station.get("Today_Min_temp"),
             "observed_max_temp": station.get("Today_Max_temp"),
-            "past_24hrs_rainfall": station.get("Past_24_hrs_Rainfall"),
+            "past_24hrs_rainfall": _fmt_rain_val(station.get("Past_24_hrs_Rainfall")),
             "humidity_0830": station.get("Relative_Humidity_at_0830"),
             "humidity_1730": station.get("Relative_Humidity_at_1730"),
             "sunrise": station.get("Sunrise_time"),
