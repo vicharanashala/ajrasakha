@@ -450,7 +450,10 @@ export interface SourceItem {
 export interface Organization {
   _id?: string;
   org_name: string;
+  type?: 'central' | 'state' | 'district';
   state?: string;
+  district?: string;
+  address?: string;
 }
 
 export interface OrganizationsResponse {

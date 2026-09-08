@@ -35,6 +35,9 @@ export class OrganizationController {
   async create(
     @Body() data: Omit<IOrganization, '_id' | 'createdAt' | 'updatedAt'>
   ): Promise<{organization: IOrganization}> {
+    if (!['central', 'state', 'district'].includes(data.type)) {
+      throw new BadRequestError('Invalid organization type');
+    }
     const organization = await this.organizationService.create(data);
     return {organization};
   }
@@ -48,6 +51,9 @@ export class OrganizationController {
   ): Promise<{success: boolean}> {
     if (!id || id === 'undefined' || id.length !== 24) {
       throw new BadRequestError(`Invalid organization ID format: ${id}`);
+    }
+    if (data.type && !['central', 'state', 'district'].includes(data.type)) {
+      throw new BadRequestError('Invalid organization type');
     }
     const success = await this.organizationService.update(id, data);
     if (!success) {
