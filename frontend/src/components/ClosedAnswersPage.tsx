@@ -459,8 +459,9 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
       return;
     }
 
+    // timeTaken is stored in seconds, not raw milliseconds.
     const timeTaken = editStartedAtRef.current
-      ? Date.now() - editStartedAtRef.current
+      ? Math.round((Date.now() - editStartedAtRef.current) / 1000)
       : 0;
 
     // Edits are logged to the new_sources collection — the answer's own
