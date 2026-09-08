@@ -290,7 +290,11 @@ const OrganizationCombobox = ({
   const organizations = data?.organizations ?? [];
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    // modal — without it, this Popover (nested inside the Edit Source Dialog) inherits
+    // the Dialog's `pointer-events: none` on <body>: it renders but nothing inside is
+    // clickable or scrollable. modal makes the Popover re-enable pointer-events on
+    // itself, the same way the Source Type Select already does.
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <Button
           type="button"
