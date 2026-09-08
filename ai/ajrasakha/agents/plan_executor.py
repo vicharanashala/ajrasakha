@@ -956,6 +956,11 @@ async def build_specialist_tool_calls_from_plan(
         )
         resolved_crop = "all" if crop.lower() in {"general", "not specified", "none", "null", "all"} else crop
         resolved_state = "all" if state_name.lower() in {"general", "not specified", "none", "null", "all"} else state_name
+        # Tell Golden which live-data tools run alongside it this turn, so Gemma can decide
+        # whether the farmer needs the standing expert answer or today's numbers.
+        dynamic_tools = [
+            flag for flag in ("weather", "mandi", "soil", "schemes") if plan.get(flag)
+        ]
         calls.append({
             "name": "gdb",
             "args": {
@@ -965,6 +970,7 @@ async def build_specialist_tool_calls_from_plan(
                 "latitude": lat,
                 "longitude": lon,
                 "address": addr,
+                "dynamic_tools": dynamic_tools,
             },
             "id": _new_tool_call_id(),
             "type": "tool_call",
@@ -1534,6 +1540,21 @@ _SPECIALIST_TOOL_NAMES = frozenset({
 })
 
 
+def gdb_answer_source(messages: list[BaseMessage]) -> str:
+    """Gemma's static-vs-dynamic verdict for this turn.
+
+    "GDB" serve the matched expert answer, "DYNAMIC" serve the live tool answer,
+    "BOTH" neither alone is complete. Defaults to "BOTH" (expert-queue disclaimer)
+    when Golden returned no verdict, so behaviour is unchanged without it.
+    """
+    data = _latest_turn_gdb_payload(messages) or {}
+    routing = data.get("routing")
+    if not isinstance(routing, dict):
+        return "BOTH"
+    source = str(routing.get("answer_source") or "").strip().upper()
+    return source if source in {"GDB", "DYNAMIC", "BOTH"} else "BOTH"
+
+
 def _turn_has_specialist_tool_message(messages: list[BaseMessage]) -> bool:
     """True when a specialist ToolMessage exists in the current turn."""
     last_human_idx = -1
@@ -1577,7 +1598,11 @@ def route_after_execute(state: AjraSakhaState) -> str:
     if plan.get("is_greeting") or plan.get("reasoning") == "greeting":
         return "assemble_answer_body"
     if _gdb_has_usable_data(messages) and _turn_has_specialist_tool_message(messages):
-        return "empty_gdb_reply"
+        # Static + dynamic: let Gemma's verdict decide instead of always deferring to the
+        # 2-hour disclaimer. Only a genuine two-part question ("BOTH") goes to the queue.
+        if gdb_answer_source(messages) == "BOTH":
+            return "empty_gdb_reply"
+        return "assemble_answer_body"
     if should_expert_queue_reply(state):
         return "empty_gdb_reply"
     if _gdb_has_usable_data(messages) or _turn_has_specialist_tool_message(messages):

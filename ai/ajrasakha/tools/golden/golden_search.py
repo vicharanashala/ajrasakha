@@ -21,6 +21,7 @@ try:
         GEMMA_MODEL,
         _decision_to_score,
         classify_pair,
+        decide_answer_source,
         filter_relevance_batch,
         select_best_match,
     )
@@ -42,6 +43,7 @@ except ImportError:
         GEMMA_MODEL,
         _decision_to_score,
         classify_pair,
+        decide_answer_source,
         filter_relevance_batch,
         select_best_match,
     )
@@ -80,6 +82,42 @@ def _apply_crop_fallback_metadata(
     response["classification_audit"] = audit
 
 
+async def _attach_routing_decision(
+    response: dict[str, Any],
+    *,
+    scoring_query: str,
+    dynamic_tools: list[str] | None,
+) -> dict[str, Any]:
+    """Ask Gemma whether the matched GDB answer or the live tool data should answer.
+
+    No-op unless live tools ran for this turn AND we actually found a GDB answer, so a
+    plain Golden DB lookup costs no extra LLM call.
+    """
+    tools = [t for t in (dynamic_tools or []) if (t or "").strip()]
+    if not tools:
+        return response
+
+    match = response.get("exact_match") or response.get("selected_match") or {}
+    if not isinstance(match, dict) or not (match.get("answer") or match.get("question")):
+        return response
+
+    decision = await decide_answer_source(
+        scoring_query,
+        match.get("question") or "",
+        match.get("answer") or "",
+        dynamic_tools=", ".join(tools),
+    )
+    decision["dynamic_tools"] = tools
+    response["routing"] = decision
+    log.info(
+        "gdb_search routing answer_source=%s tools=%s reason=%r",
+        decision.get("answer_source"),
+        tools,
+        (decision.get("reason") or "")[:80],
+    )
+    return response
+
+
 def _exact_match_response(
     query: str,
     state: str,
@@ -101,6 +139,7 @@ def _exact_match_response(
             answer_from_class="strict_exact",
         ),
         "selected_match": None,
+        "routing": None,
         "classification_audit": {
             "status": "exact_bypass",
             "model": GEMMA_MODEL,
@@ -336,6 +375,7 @@ async def gdb_search(
     use_dual_search: bool = False,
     embedding_field: str = "embedding",
     original_query: Optional[str] = None,  # User's original query for LLM scoring
+    dynamic_tools: Optional[list[str]] = None,  # Live tools running this turn (weather, mandi, ...)
 ) -> dict[str, Any]:
     crop, state = _normalize_crop_state(crop, state)
     original_crop = crop
@@ -363,6 +403,7 @@ async def gdb_search(
         "crop": crop,
         "exact_match": {},
         "selected_match": None,
+        "routing": None,
         "classification_audit": {
             "status": "empty",
             "model": GEMMA_MODEL,
@@ -381,13 +422,17 @@ async def gdb_search(
             "gdb_search done path=strict_exact question_id=%s",
             strict_results[0].question_id,
         )
-        return _exact_match_response(
-            query,
-            state,
-            crop,
-            strict_results[0],
-            original_crop=original_crop,
-            crop_fallback=False,
+        return await _attach_routing_decision(
+            _exact_match_response(
+                query,
+                state,
+                crop,
+                strict_results[0],
+                original_crop=original_crop,
+                crop_fallback=False,
+            ),
+            scoring_query=scoring_query,
+            dynamic_tools=dynamic_tools,
         )
 
     rag_pairs = await vector_rag_search(
@@ -416,13 +461,17 @@ async def gdb_search(
                 "gdb_search done path=strict_exact_crop_fallback question_id=%s",
                 strict_results[0].question_id,
             )
-            return _exact_match_response(
-                query,
-                state,
-                "all",
-                strict_results[0],
-                original_crop=original_crop,
-                crop_fallback=True,
+            return await _attach_routing_decision(
+                _exact_match_response(
+                    query,
+                    state,
+                    "all",
+                    strict_results[0],
+                    original_crop=original_crop,
+                    crop_fallback=True,
+                ),
+                scoring_query=scoring_query,
+                dynamic_tools=dynamic_tools,
             )
 
         rag_pairs = await vector_rag_search(
@@ -446,15 +495,19 @@ async def gdb_search(
         log.warning("gdb_search done path=empty (no vector hits)")
         return response
 
-    return await _run_gemma_pipeline(
-        query,
-        crop,
-        state,
-        rag_pairs,
-        response,
-        original_crop=original_crop,
-        crop_fallback=crop_fallback,
+    return await _attach_routing_decision(
+        await _run_gemma_pipeline(
+            query,
+            crop,
+            state,
+            rag_pairs,
+            response,
+            original_crop=original_crop,
+            crop_fallback=crop_fallback,
+            scoring_query=scoring_query,
+        ),
         scoring_query=scoring_query,
+        dynamic_tools=dynamic_tools,
     )
 
 

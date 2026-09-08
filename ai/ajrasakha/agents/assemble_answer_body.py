@@ -22,6 +22,7 @@ from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.plan_executor import (
     _gdb_has_usable_data,
     _turn_has_specialist_tool_message,
+    gdb_answer_source,
 )
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.state import AjraSakhaState
@@ -123,10 +124,20 @@ async def assemble_answer_body_node(
     has_specialist = _turn_has_specialist_tool_message(messages)
 
     if has_gdb and has_specialist:
+        # Both a matched expert answer and live tool data are in hand. Gemma decided which
+        # one the farmer actually asked for; only a genuine two-part question ("BOTH")
+        # still goes to the expert queue.
+        answer_source = gdb_answer_source(messages)
         logger.info(
-            "assemble_answer_body: GDB + specialist tools — expert-queue (no body)"
+            "assemble_answer_body: GDB + specialist tools — answer_source=%s", answer_source
         )
-        return defer_empty_gdb_to_translate(state, plan={**plan, "gdb_has_data": False})
+        if answer_source == "BOTH":
+            return defer_empty_gdb_to_translate(state, plan={**plan, "gdb_has_data": False})
+        # Serve exactly one side; fall through to the single-source branches below.
+        if answer_source == "GDB":
+            has_specialist = False
+        else:
+            has_gdb = False
 
     if has_gdb:
         gdb_data = extract_gdb_from_messages(messages)

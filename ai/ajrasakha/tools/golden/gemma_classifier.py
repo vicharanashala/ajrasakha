@@ -53,6 +53,8 @@ Below are {num_candidates} candidate Q&A pairs retrieved by vector search (numbe
 
 For EACH candidate, decide SAME, KEEP, or REJECT:
 - SAME: The retrieved question is the same as the farmer question — exact match OR clear paraphrase (same intent, same problem; wording may differ). Use crop/state only as context; they need not appear in the retrieved text.
+  - A place name is NOT part of the intent. Ignore any state/district/village qualifier on either side when comparing: if the two questions match once the place words are removed, that is SAME. "How can I control X in wheat in Rupnagar?" and "How can I control X in wheat?" are SAME; so are "... in Punjab?" and the same question with no place.
+  - Local, slang, and regional names for a pest, weed, disease, or crop must still match as strings. Do not treat two different local names as the same thing just because they look or sound similar — "jangali mooli", "jungli javi", "jangli senji" and "jungli palak" are four different weeds.
 - REJECT ONLY if that Q&A is COMPLETELY irrelevant to the farmer, or asked information is itself ambiguous.
 - KEEP if there is ANY common thread: same/related topic, similar symptom or issue, same farming topic (pest, disease, nutrient, irrigation), or partial overlap that could help — but the question is NOT a same/paraphrase match.
 - When unsure between KEEP and REJECT, KEEP it. Be NOT aggressive.
@@ -76,6 +78,12 @@ Below are {num_candidates} existing pending question(s) (numbered 1 to {num_cand
 For EACH candidate, decide SAME or NOT_SAME:
 - SAME: The candidate question is the same as the new question — exact match OR clear paraphrase (same intent, same problem; wording may differ).
 - NOT_SAME: Different question or only loosely related topic.
+
+Rules:
+- A place name is NOT part of the intent. Ignore any state/district/village qualifier on either side when comparing: if the two questions match once the place words are removed, that is SAME. "How can I control X in wheat in Rupnagar?" and "How can I control X in wheat?" are SAME.
+- Local, slang, and regional names for a pest, weed, disease, or crop MUST match as strings. Do not treat two different local names as the same thing, even if your own knowledge suggests they are — say NOT_SAME unless the two questions use the same name. "jangali mooli", "chudel booti", "jungli javi", "jangli senji" and "jungli palak" are different weeds and are never SAME as each other.
+- A parenthetical translation or botanical name attached to the SAME local name does not make it a different question: "jangali mooli" and "jangali mooli (wild radish)" are SAME.
+- When unsure, answer NOT_SAME.
 
 Reply with JSON only, no markdown — one entry per candidate index:
 {{"results": [{{"index": 1, "decision": "SAME" or "NOT_SAME", "reason": "<short>"}}, ...]}}
@@ -131,6 +139,40 @@ Decision process:
 
 Reply with JSON only, no markdown:
 {{ "reason": "<one short sentence>","classification": "<CLASS>"}}
+"""
+
+ANSWER_SOURCE_PROMPT = """You decide what a farmer's question actually needs: a standing expert answer, or live data.
+
+Farmer question:
+{original_query}
+
+An expert-verified Q&A from the golden database already matches this question:
+Matched question: {retrieved_question}
+Matched expert answer: {retrieved_answer}
+
+Live data tools also ran for this question (they return today's numbers): {dynamic_tools}
+
+Choose exactly ONE:
+- GDB: the farmer is asking for agronomic guidance, a practice, a recommendation, a
+  threshold, or a rule that does not change with today's numbers. The expert answer stands
+  on its own even though a live tool happened to run. Mentioning weather, wind, rain, or
+  price as the REASON for a practice does NOT make it live-data — e.g. "should I avoid
+  spraying because of high wind speed", "when should I irrigate in summer", "which variety
+  suits heavy rainfall areas" are all GDB.
+- DYNAMIC: the answer is a current value the farmer wants read off live data — today's or a
+  named period's mandi price, today's or a forecast weather reading, current arrivals.
+  The expert answer cannot supply this number. e.g. "what is the price of paddy today",
+  "will it rain tomorrow", "what is the temperature in Ludhiana".
+- BOTH: the farmer genuinely asked two things at once — a standing practice question AND a
+  current-value question — so neither answer alone is complete.
+
+Rules:
+- Prefer GDB when the matched expert answer already answers what the farmer asked.
+- Choose DYNAMIC only when the farmer wants a number or condition that changes day to day.
+- Choose BOTH only for a clear two-part question. When unsure between GDB and BOTH, choose GDB.
+
+Reply with JSON only, no markdown:
+{{"reason": "<one short sentence>", "answer_source": "<GDB or DYNAMIC or BOTH>"}}
 """
 
 TIE_BREAKER_PROMPT = """You pick the single best expert Q&A to answer a farmer's question.
@@ -631,6 +673,74 @@ async def classify_pair(
         return {
             "classification": "NOT_COVERED",
             "reason": f"Classifier error: {type(exc).__name__}",
+            "llm_parse_ok": False,
+        }
+
+
+VALID_ANSWER_SOURCES: frozenset[str] = frozenset({"GDB", "DYNAMIC", "BOTH"})
+
+
+def _parse_answer_source_response(content: str) -> tuple[str, str]:
+    """Return (answer_source, reason). Defaults to BOTH (current disclaimer behaviour)."""
+    text = _strip_json_fence(content)
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            source = str(data.get("answer_source", "")).strip().upper()
+            reason = str(data.get("reason", "")).strip()
+            if source in VALID_ANSWER_SOURCES:
+                return source, reason
+    except json.JSONDecodeError:
+        pass
+
+    upper = text.upper()
+    for source in ("DYNAMIC", "BOTH", "GDB"):
+        if source in upper:
+            return source, text[:200]
+
+    log.warning("gemma answer_source: unparseable response %r — default BOTH", content[:200])
+    return "BOTH", "Could not parse answer-source response"
+
+
+async def decide_answer_source(
+    original_query: str,
+    retrieved_question: str,
+    retrieved_answer: str,
+    *,
+    dynamic_tools: str = "weather, mandi price",
+) -> dict:
+    """Decide whether a matched GDB answer or live tool data should answer the farmer.
+
+    Only meaningful when a GDB match exists AND a live-data tool ran for the same turn.
+    Falls back to BOTH (the historical expert-queue disclaimer) on any failure.
+    """
+    prompt = ANSWER_SOURCE_PROMPT.format(
+        original_query=(original_query or "").strip(),
+        retrieved_question=(retrieved_question or "")[:2000],
+        retrieved_answer=(retrieved_answer or "")[:4000],
+        dynamic_tools=(dynamic_tools or "").strip() or "none",
+    )
+    try:
+        content = await _gemma_chat(prompt, max_tokens=120)
+        answer_source, reason = _parse_answer_source_response(content)
+        log.info(
+            "gemma answer_source: source=%s query=%r reason=%r",
+            answer_source,
+            (original_query or "")[:60],
+            reason[:80],
+        )
+        return {
+            "answer_source": answer_source,
+            "reason": reason,
+            "model": GEMMA_MODEL,
+            "llm_parse_ok": True,
+        }
+    except Exception as exc:
+        log.warning("gemma answer_source failed: %s: %s", type(exc).__name__, exc)
+        return {
+            "answer_source": "BOTH",
+            "reason": f"Answer-source error: {type(exc).__name__}",
+            "model": GEMMA_MODEL,
             "llm_parse_ok": False,
         }
 

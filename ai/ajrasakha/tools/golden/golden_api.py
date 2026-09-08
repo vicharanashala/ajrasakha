@@ -57,6 +57,16 @@ class GDBSearchRequest(BaseModel):
     )
     season: Optional[str] = Field(None, description="Optional MongoDB details.season filter for RAG.")
     domain: Optional[str] = Field(None, description="Optional MongoDB details.domain filter for RAG.")
+    dynamic_tools: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Live-data tools running for this same turn (e.g. weather, mandi). When this is "
+            "non-empty AND a GDB match is found, Gemma decides in `routing` whether the "
+            "farmer needs the standing expert answer (GDB), the live numbers (DYNAMIC), or "
+            "both. Leave empty for a pure Golden DB lookup."
+        ),
+        examples=[["weather"], ["mandi"]],
+    )
 
 
 class GDBSearchResponse(BaseModel):
@@ -77,6 +87,15 @@ class GDBSearchResponse(BaseModel):
     classification_audit: dict = Field(
         default_factory=dict,
         description="Full Gemma pipeline audit: relevance, classification, chosen_for_answer per candidate.",
+    )
+    routing: Optional[dict] = Field(
+        None,
+        description=(
+            "Static-vs-dynamic decision. Present only when `dynamic_tools` was non-empty and "
+            "a GDB match was found. `answer_source` is GDB (serve the expert answer), "
+            "DYNAMIC (serve the live tool answer), or BOTH (neither alone is complete — "
+            "send to the expert queue)."
+        ),
     )
 
 
@@ -164,7 +183,9 @@ async def health():
         "1. **Strict exact** on `rephrased_query` (+ crop/state filters) → if hit, return `exact_match` only.\n"
         "2. Else **vector RAG** on `rephrased_query`.\n"
         "3. If both return no hits and crop is not `all`, retry steps 1–2 with `crop=all`.\n"
-        "4. **Gemma** relevance + classify + select one answer using the same `rephrased_query`."
+        "4. **Gemma** relevance + classify + select one answer using the same `rephrased_query`.\n"
+        "5. If `dynamic_tools` is non-empty and a match was found, **Gemma** decides in "
+        "`routing` whether the farmer needs the expert answer or the live data."
     ),
 )
 async def search_gdb(body: GDBSearchRequest):
@@ -175,6 +196,7 @@ async def search_gdb(body: GDBSearchRequest):
         season=body.season,
         domain=body.domain,
         embedding_field="embedding",  # V1 uses "embedding" field
+        dynamic_tools=body.dynamic_tools,
     )
     return result
 

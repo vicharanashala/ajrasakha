@@ -60,6 +60,13 @@ class GDBInput(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     address: Optional[str] = None
+    dynamic_tools: Optional[list[str]] = Field(
+        default=None,
+        description=(
+            "Live-data tools running for this same turn (e.g. ['weather'], ['mandi']). Lets "
+            "Golden decide whether the farmer needs the standing expert answer or live data."
+        ),
+    )
 
 
 def _normalize_details_list(raw_details) -> list[dict]:
@@ -109,6 +116,7 @@ def _normalize_gdb_response(raw_json: dict, rephrased: str, crop: str, state: st
         "is_exact": False,
         "is_similar": False,
         "exact_match": {},
+        "routing": raw_json.get("routing") or None,
         "classification_audit": raw_json.get("classification_audit") or {},
     }
 
@@ -154,12 +162,14 @@ async def _call_golden_api(
     rephrased_query: str,
     crop: str,
     state: str,
+    dynamic_tools: Optional[list[str]] = None,
 ) -> dict | None:
     url = _golden_search_url()
     payload = {
         "rephrased_query": rephrased_query,
         "crop": crop,
         "state": state,
+        "dynamic_tools": [t for t in (dynamic_tools or []) if t],
     }
     timeout = httpx.Timeout(GOLDEN_API_TIMEOUT_S)
     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -180,6 +190,7 @@ async def gdb(
     longitude: Optional[float],
     address: Optional[str],
     config: RunnableConfig,
+    dynamic_tools: Optional[list[str]] = None,
 ) -> str:
     """
     Query the golden database directly for crop/disease/pest/farming knowledge.
@@ -226,6 +237,7 @@ async def gdb(
             "is_exact": False,
             "is_similar": False,
             "exact_match": {},
+            "routing": None,
             "classification_audit": audit,
         })
 
@@ -239,7 +251,7 @@ async def gdb(
 
     try:
         raw_data = await _call_golden_api(
-            resolved_rephrased, resolved_crop, resolved_state
+            resolved_rephrased, resolved_crop, resolved_state, dynamic_tools
         )
         if not raw_data:
             return _fallback("empty response from Golden API")
@@ -259,13 +271,15 @@ async def gdb(
             similarity_score=chosen.get("similarity_score"),
             gemma_class=chosen.get("gemma_class"),
             answer_from_class=chosen.get("answer_from_class"),
+            routing=normalized.get("routing"),
             classification_audit=audit,
         )
         logger.info(
-            "GDB response: is_exact=%s is_similar=%s audit_status=%s",
+            "GDB response: is_exact=%s is_similar=%s audit_status=%s answer_source=%s",
             normalized.get("is_exact"),
             normalized.get("is_similar"),
             (normalized.get("classification_audit") or {}).get("status"),
+            (normalized.get("routing") or {}).get("answer_source"),
         )
         return json.dumps(normalized)
 

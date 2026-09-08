@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from ajrasakha.agents.plan_executor import route_after_execute
+from ajrasakha.agents.plan_executor import gdb_answer_source, route_after_execute
 from ajrasakha.agents.prompts import RETRIEVAL_SANITIZER_SYSTEM_PROMPT
 from ajrasakha.agents.retrieval_sanitizer import (
     RELEVANCE_THRESHOLD,
@@ -96,15 +96,50 @@ def test_route_no_gdb_with_weather_goes_to_assemble_answer_body():
     assert route_after_execute(state) == "assemble_answer_body"
 
 
-def test_route_gdb_and_weather_to_empty_gdb():
+def _state_with_gdb_and_weather(routing=None) -> AjraSakhaState:
     data = _gdb_payload(is_exact=True, is_similar=False)
     data["exact_match"] = {"question": "Q", "answer": "Expert wheat guide."}
+    if routing is not None:
+        data["routing"] = routing
     state = _state_with_gdb(data)
     state["messages"].extend([
         AIMessage(content="", tool_calls=[{"id": "call_w", "name": "weather", "args": {}}]),
         ToolMessage(content="Forecast: rain", tool_call_id="call_w", name="weather"),
     ])
+    return state
+
+
+def test_route_gdb_and_weather_to_empty_gdb():
+    """No routing verdict from Golden — keep the historical expert-queue behaviour."""
+    assert route_after_execute(_state_with_gdb_and_weather()) == "empty_gdb_reply"
+
+
+def test_route_gdb_and_weather_both_goes_to_empty_gdb():
+    state = _state_with_gdb_and_weather({"answer_source": "BOTH", "reason": "two-part"})
     assert route_after_execute(state) == "empty_gdb_reply"
+
+
+def test_route_gdb_and_weather_gdb_verdict_answers_farmer():
+    """Static question that merely mentions weather — serve the expert answer."""
+    state = _state_with_gdb_and_weather({"answer_source": "GDB", "reason": "standing practice"})
+    assert route_after_execute(state) == "assemble_answer_body"
+
+
+def test_route_gdb_and_weather_dynamic_verdict_answers_farmer():
+    state = _state_with_gdb_and_weather({"answer_source": "DYNAMIC", "reason": "today's value"})
+    assert route_after_execute(state) == "assemble_answer_body"
+
+
+def test_gdb_answer_source_reads_verdict():
+    state = _state_with_gdb_and_weather({"answer_source": "GDB", "reason": "r"})
+    assert gdb_answer_source(state["messages"]) == "GDB"
+
+
+@pytest.mark.parametrize("routing", [None, {}, {"answer_source": "NONSENSE"}, "not-a-dict"])
+def test_gdb_answer_source_defaults_to_both(routing):
+    """Anything unparseable must fall back to the safe expert-queue path."""
+    state = _state_with_gdb_and_weather(routing)
+    assert gdb_answer_source(state["messages"]) == "BOTH"
 
 
 def test_route_skip_synthesize_goes_to_translate_answer():
