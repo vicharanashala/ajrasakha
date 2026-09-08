@@ -5,6 +5,7 @@ import {
   Filter,
   Flag,
   Globe,
+  Hash,
   Layers,
   Link as LinkIcon,
   MapPin,
@@ -26,7 +27,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/atoms/dialog";
-import { ScrollArea } from "@/components/atoms/scroll-area";
 import {
   Select,
   SelectContent,
@@ -50,6 +50,8 @@ export const EMPTY_CLOSED_ANSWER_FILTERS: ClosedAnswerFilters = {
   authorIds: [],
   sourcePresence: undefined,
   sourceTypes: [],
+  minSources: undefined,
+  maxSources: undefined,
   states: [],
   crops: [],
   domains: [],
@@ -73,6 +75,7 @@ export const countActiveFilters = (filters: ClosedAnswerFilters) =>
   (filters.authorIds.length > 0 ? 1 : 0) +
   (filters.sourcePresence ? 1 : 0) +
   (filters.sourceTypes.length > 0 ? 1 : 0) +
+  (filters.minSources !== undefined || filters.maxSources !== undefined ? 1 : 0) +
   (filters.states.length > 0 ? 1 : 0) +
   (filters.crops.length > 0 ? 1 : 0) +
   (filters.domains.length > 0 ? 1 : 0) +
@@ -201,9 +204,9 @@ export const ClosedAnswersFilters = ({
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
             <MotionConfig reducedMotion="user">
-              <div className="grid gap-3 pr-3">
+              <div className="grid gap-3 py-1 pr-2">
                 <FilterSection
                   icon={CalendarDays}
                   title="Closed between"
@@ -277,7 +280,10 @@ export const ClosedAnswersFilters = ({
                   index={2}
                   count={
                     (draft.sourcePresence ? 1 : 0) +
-                    (draft.sourceTypes.length > 0 ? 1 : 0)
+                    (draft.sourceTypes.length > 0 ? 1 : 0) +
+                    (draft.minSources !== undefined || draft.maxSources !== undefined
+                      ? 1
+                      : 0)
                   }
                 >
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -306,6 +312,46 @@ export const ClosedAnswersFilters = ({
                           <SelectItem value="without">Missing sources</SelectItem>
                         </SelectContent>
                       </Select>
+                    </FilterField>
+
+                    <FilterField
+                      icon={Hash}
+                      label="Source count"
+                      htmlFor="min-sources"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="min-sources"
+                          type="number"
+                          min={0}
+                          placeholder="Min"
+                          value={draft.minSources ?? ""}
+                          onChange={(e) =>
+                            setField(
+                              "minSources",
+                              e.target.value === ""
+                                ? undefined
+                                : Math.max(0, Number(e.target.value)),
+                            )
+                          }
+                        />
+                        <span className="shrink-0 text-xs text-muted-foreground">to</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          aria-label="Maximum sources"
+                          placeholder="Max"
+                          value={draft.maxSources ?? ""}
+                          onChange={(e) =>
+                            setField(
+                              "maxSources",
+                              e.target.value === ""
+                                ? undefined
+                                : Math.max(0, Number(e.target.value)),
+                            )
+                          }
+                        />
+                      </div>
                     </FilterField>
 
                     <FilterField icon={Layers} label="Source type">
@@ -386,7 +432,7 @@ export const ClosedAnswersFilters = ({
                 </FilterSection>
               </div>
             </MotionConfig>
-          </ScrollArea>
+          </div>
 
           <DialogFooter className="shrink-0 flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
             <Button

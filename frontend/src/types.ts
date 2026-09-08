@@ -422,6 +422,8 @@ export interface ClosedAnswerFilters {
   authorIds: string[];
   sourcePresence?: "with" | "without";
   sourceTypes: SourceType[];
+  minSources?: number;
+  maxSources?: number;
   states: string[];
   crops: string[];
   domains: string[];

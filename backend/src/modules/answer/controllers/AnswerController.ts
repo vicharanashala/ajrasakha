@@ -32,6 +32,13 @@ import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAudit
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { IQuestionService } from '#root/modules/question/interfaces/index.js';
 
+// Parses a non-negative whole number query param, or undefined when unusable.
+const toCount = (value?: string): number | undefined => {
+  if (value === undefined || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : undefined;
+};
+
 // Splits a comma-separated query param into a trimmed list, or undefined when empty.
 const toList = (value?: string): string[] | undefined => {
   if (!value) return undefined;
@@ -567,6 +574,8 @@ export class AnswerController {
       authorIds?: string;
       sourcePresence?: string;
       sourceTypes?: string;
+      minSources?: string;
+      maxSources?: string;
       states?: string;
       crops?: string;
       domains?: string;
@@ -584,6 +593,8 @@ export class AnswerController {
           ? query.sourcePresence
           : undefined,
       sourceTypes: toList(query.sourceTypes),
+      minSources: toCount(query.minSources),
+      maxSources: toCount(query.maxSources),
       states: toList(query.states),
       crops: toList(query.crops),
       domains: toList(query.domains),

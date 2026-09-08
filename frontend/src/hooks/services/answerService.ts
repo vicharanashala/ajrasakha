@@ -199,6 +199,10 @@ export class AnswerService {
       if (filters.closedAtStart) params.append("closedAtStart", filters.closedAtStart);
       if (filters.closedAtEnd) params.append("closedAtEnd", filters.closedAtEnd);
       if (filters.sourcePresence) params.append("sourcePresence", filters.sourcePresence);
+      if (filters.minSources !== undefined)
+        params.append("minSources", String(filters.minSources));
+      if (filters.maxSources !== undefined)
+        params.append("maxSources", String(filters.maxSources));
     }
 
     return apiFetch<ClosedAnswersResponse>(

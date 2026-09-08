@@ -1173,6 +1173,22 @@ export class AnswerRepository implements IAnswerRepository {
         matchStage['sources.sourceType'] = {$in: filters.sourceTypes};
       }
 
+      // Source count needs $expr, since $size cannot be used inside a range operator.
+      const sourceCountConditions: any[] = [];
+      if (typeof filters?.minSources === 'number') {
+        sourceCountConditions.push({
+          $expr: {$gte: [{$size: {$ifNull: ['$sources', []]}}, filters.minSources]},
+        });
+      }
+      if (typeof filters?.maxSources === 'number') {
+        sourceCountConditions.push({
+          $expr: {$lte: [{$size: {$ifNull: ['$sources', []]}}, filters.maxSources]},
+        });
+      }
+      if (sourceCountConditions.length > 0) {
+        matchStage.$and = [...(matchStage.$and ?? []), ...sourceCountConditions];
+      }
+
       if (filters?.states?.length) {
         matchStage['question.details.state'] = {$in: filters.states};
       }
