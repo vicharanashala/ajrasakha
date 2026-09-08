@@ -286,6 +286,83 @@ export interface IOrganization {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+/** An entry in the `pop` collection, looked up by `shareable_link` to resolve the
+ *  Source Reference button on the Edit Source modal (Closed Answers page). */
+/** A duplicate file recorded against a `pop` document. When a source matches one of
+ *  these instead of the document's own `shareable_link`, the ORIGINAL document's own
+ *  shareable_link/shareable_name should be surfaced, not this duplicate's. */
+export interface IPopDuplicateLink {
+  zoho_file_id?: string;
+  shareable_link: string;
+  shareable_name?: string;
+  state?: string;
+  crop?: string;
+  row_id?: number;
+}
+
+export interface IPop {
+  _id?: string | ObjectId;
+  shareable_name: string;
+  shareable_link: string;
+  duplicate_links?: IPopDuplicateLink[];
+}
+
+/** A source entry as captured by the Edit Source modal (Closed Answers page) — the
+ *  same fields as SourceItem, plus organization and sourceReference which are not
+ *  (yet) part of the answers-collection SourceItem shape. */
+export interface INewSourceItem {
+  source: string;
+  sourceType?: SourceType;
+  sourceName?: string;
+  page?: string | number;
+  organization?: string;
+  sourceReference?: string;
+}
+
+/** Lifecycle of a `new_sources` record: 'inProgress' from the moment the Edit Source
+ *  modal is opened (timer running), 'completed' once the user saves (timer stopped,
+ *  timeTaken recorded). 'pending' is not produced by the Edit Source flow itself — it's
+ *  reserved for a future review workflow. */
+export type NewSourceStatus = 'pending' | 'inProgress' | 'completed';
+
+/** Where a saved source's link was found in the `pop` collection, checked automatically
+ *  against the pop collection when the edit is saved. */
+export type PopMatchStatus = 'duplicateMatch' | 'topLevelMatch' | 'notFound';
+
+/** One user opening the Edit Source modal for a `new_sources` record. Logged the instant
+ *  the record is created ('inProgress') — a permanent audit entry, not removed if the
+ *  user goes on to complete the edit. Cross-check against the record's own `status` to
+ *  see whether this user's edit is still incomplete. closedAt is set separately, whenever
+ *  the modal closes (Cancel, Escape, outside click, or after a successful save) — null
+ *  means the modal is still open (or was never explicitly closed, e.g. a page refresh).
+ *  isSaved flips to true only once the user's edit is actually completed (saved) — false
+ *  plus a set closedAt means they closed the modal without saving. */
+export interface INewSourceReviewEntry {
+  userId: string;
+  name: string;
+  startedAt: Date;
+  closedAt: Date | null;
+  isSaved: boolean;
+}
+
+/** A document written to the `new_sources` collection whenever a user edits a Closed
+ *  Answer's sources via the Edit Source modal. Deliberately does NOT update the
+ *  `answers` collection — edits are logged here instead. Created (status:
+ *  'inProgress') when the modal opens, then updated (status: 'completed',
+ *  timeTaken, sourceReferenceStatus) when the user saves. */
+export interface INewSource {
+  _id?: string | ObjectId;
+  answerId: string | ObjectId;
+  questionId: string | ObjectId;
+  sources: INewSourceItem[];
+  status: NewSourceStatus;
+  timeTaken: number | null;
+  sourceReferenceStatus: PopMatchStatus | null;
+  reviewArray: INewSourceReviewEntry[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 export interface PreviousAnswersItem {
   modifiedBy: string | ObjectId;
   oldAnswer: string;

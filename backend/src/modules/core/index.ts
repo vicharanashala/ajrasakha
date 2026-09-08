@@ -28,6 +28,8 @@ import { PerformanceController } from '../../modules/performance/controllers/Per
 import { RequestController } from '../request/controllers/RequestController.js';
 import { REQUEST_VALIDATORS } from '../request/classes/validators/RequestValidators.js';
 import { OrganizationController } from '../organization/controllers/OrganizationController.js';
+import { PopController } from '../pop/controllers/PopController.js';
+import { NewSourceController } from '../newSource/controllers/NewSourceController.js';
 
 // Export names that loadAppModules expects
 export const coreModuleControllers: Function[] = [
@@ -44,7 +46,9 @@ export const coreModuleControllers: Function[] = [
   CommentController,
   RequestController,
   PerformanceController,
-  OrganizationController
+  OrganizationController,
+  PopController,
+  NewSourceController
 ];
 
 // Export container modules for loadAppModules

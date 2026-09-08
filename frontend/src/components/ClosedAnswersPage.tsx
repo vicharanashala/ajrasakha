@@ -42,10 +42,15 @@ import { ExpandableText } from "@/components/expandable-text";
 import { QuestionIdLink } from "@/features/chatbotDashboard/components/QuestionIdLink";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
 import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
+import { useLookupPopSource } from "@/hooks/api/pop/useLookupPopSource";
+import { useStartNewSource } from "@/hooks/api/newSource/useStartNewSource";
+import { useCompleteNewSource } from "@/hooks/api/newSource/useCompleteNewSource";
+import { useCloseNewSource } from "@/hooks/api/newSource/useCloseNewSource";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { formatDate } from "@/utils/formatDate";
 import { cn } from "@/lib/utils";
 import type { ClosedAnswer, SourceItem, SourceType } from "@/types";
+import type { PopMatchStatus } from "@/hooks/services/newSourceService";
 
 const EDIT_SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
   { value: "hyper_local", label: "Hyper Local" },
@@ -178,7 +183,11 @@ const OrganizationCombobox = ({
   const organizations = data?.organizations ?? [];
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    // modal — without it, this Popover (nested inside the Edit Source Dialog) inherits
+    // the Dialog's `pointer-events: none` on <body>: it renders but nothing inside is
+    // clickable or scrollable. modal makes the Popover re-enable pointer-events on
+    // itself, the same way the Source Type Select already does.
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -279,12 +288,74 @@ const SourcePickerItem = ({
   );
 };
 
+const SourceReferenceLookup = ({
+  source,
+  onFound,
+}: {
+  source: string;
+  onFound?: (id: string, matchStatus: PopMatchStatus) => void;
+}) => {
+  const { mutate, data, isPending } = useLookupPopSource();
+
+  const handleClick = () => {
+    if (!source.trim()) {
+      toast.error("Enter a Source first.");
+      return;
+    }
+    mutate(source, {
+      onSuccess: (result) => {
+        if (result?.found && result._id) {
+          onFound?.(result._id, result.matchStatus ?? "topLevelMatch");
+        }
+      },
+    });
+  };
+
+  return (
+    <div className="grid gap-1.5">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleClick}
+        disabled={isPending}
+      >
+        {isPending ? "Checking..." : "Fetch Source Reference"}
+      </Button>
+      {data && !data.found && (
+        <p className="text-xs text-destructive">Source not found.</p>
+      )}
+      {data?.found && (
+        <div className="grid gap-0.5 rounded-md border border-border/60 bg-muted/30 p-2 text-xs">
+          <p className="font-medium text-foreground/90">{data.shareable_name}</p>
+          <a
+            href={data.shareable_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="break-all text-primary hover:underline"
+          >
+            {data.shareable_link}
+          </a>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
   const sources = answer.sources ?? [];
   const fieldId = useId();
   const [open, setOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [form, setForm] = useState<SourceItem>(EMPTY_SOURCE_FORM);
+  const [newSourceId, setNewSourceId] = useState<string | null>(null);
+  const [fetchedPopId, setFetchedPopId] = useState<string | null>(null);
+  const [fetchedMatchStatus, setFetchedMatchStatus] = useState<PopMatchStatus | null>(null);
+  const editStartedAtRef = useRef<number | null>(null);
+
+  const { mutate: startNewSource, isPending: isStarting } = useStartNewSource();
+  const { mutate: completeNewSource, isPending: isSaving } = useCompleteNewSource();
+  const { mutate: closeNewSource } = useCloseNewSource();
 
   const isEditing = editingIndex !== null;
   const isValid = form.source.trim().length > 0 && Boolean(form.sourceType);
@@ -293,39 +364,86 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Prefills the form from an existing source; the lookup result no longer applies to it.
   const selectSource = (index: number) => {
     setEditingIndex(index);
     setForm(toSourceForm(sources[index]));
+    setFetchedPopId(null);
+    setFetchedMatchStatus(null);
   };
 
-  const startNewSource = () => {
+  const startBlankSource = () => {
     setEditingIndex(null);
     setForm(EMPTY_SOURCE_FORM);
+    setFetchedPopId(null);
+    setFetchedMatchStatus(null);
   };
 
   // Opens on the first existing source so the dialog edits rather than always adding.
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
-      if (sources.length > 0) {
-        setEditingIndex(0);
-        setForm(toSourceForm(sources[0]));
-      } else {
-        startNewSource();
-      }
+      setEditingIndex(null);
+      setForm(EMPTY_SOURCE_FORM);
+      setNewSourceId(null);
+      setFetchedPopId(null);
+      setFetchedMatchStatus(null);
+      editStartedAtRef.current = Date.now();
+
+      // Starts the editing timer: creates the new_sources record as 'inProgress'
+      // the instant the modal opens, so timeTaken has a real start point.
+      startNewSource(
+        { answerId: answer._id, questionId: answer.questionId ?? "" },
+        {
+          onSuccess: (result) => {
+            if (result?._id) setNewSourceId(result._id);
+          },
+        },
+      );
+    } else if (newSourceId) {
+      // Stamps closedAt on the record's reviewArray entry - fires for every way the
+      // modal can close (Cancel, Escape, outside click, or right after a save), not
+      // just completed edits, so abandoned edits get a closing time too.
+      closeNewSource(newSourceId);
     }
     setOpen(nextOpen);
   };
 
   const handleSave = () => {
-    if (!isValid) return;
-    // NOTE: frontend-only for now — persisting the source will be wired up once
-    // the backend update endpoint exists.
-    toast.success(
-      isEditing
-        ? "Source changes captured (not yet saved — backend update pending)."
-        : "New source captured (not yet saved — backend update pending).",
+    if (!isValid) {
+      toast.error("Enter a source and select a source type first.");
+      return;
+    }
+    if (!newSourceId) {
+      toast.error("Still preparing this edit - try again in a moment.");
+      return;
+    }
+
+    // timeTaken is stored in seconds, not raw milliseconds.
+    const timeTaken = editStartedAtRef.current
+      ? Math.round((Date.now() - editStartedAtRef.current) / 1000)
+      : 0;
+
+    // Edits are logged to the new_sources collection - the answer's own sources are
+    // never modified here. sourceReference (the pop document's own _id) and
+    // sourceReferenceStatus (topLevelMatch/duplicateMatch/notFound) both come from the
+    // Fetch Source Reference button in the form, so the result is captured client-side.
+    completeNewSource(
+      {
+        id: newSourceId,
+        sources: [{ ...form, sourceReference: fetchedPopId ?? undefined }],
+        timeTaken,
+        sourceReferenceStatus: fetchedMatchStatus,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Source details saved.");
+          handleOpenChange(false);
+        },
+        onError: () => {
+          toast.error("Failed to save source details.");
+        },
+      },
     );
-    setOpen(false);
   };
 
   return (
@@ -371,7 +489,7 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
               variant={isEditing ? "outline" : "secondary"}
               size="sm"
               className="shrink-0"
-              onClick={startNewSource}
+              onClick={startBlankSource}
             >
               <Plus className="h-3.5 w-3.5" />
               Add new source
@@ -390,6 +508,13 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
                   value={form.source}
                   onChange={(e) => updateField("source", e.target.value)}
                   placeholder="https://... or the document name"
+                />
+                <SourceReferenceLookup
+                  source={form.source}
+                  onFound={(id, matchStatus) => {
+                    setFetchedPopId(id);
+                    setFetchedMatchStatus(matchStatus);
+                  }}
                 />
               </div>
 
@@ -450,18 +575,6 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
                   onChange={(val) => updateField("organization", val)}
                 />
               </div>
-
-              <div className="grid gap-1.5">
-                <Label htmlFor={`${fieldId}-reference`} className="text-xs">
-                  Source reference
-                </Label>
-                <Input
-                  id={`${fieldId}-reference`}
-                  value={form.sourceReference ?? ""}
-                  onChange={(e) => updateField("sourceReference", e.target.value)}
-                  placeholder="Citation or reference note"
-                />
-              </div>
             </div>
           </ScrollArea>
         </div>
@@ -471,11 +584,15 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
             Source and source type are required.
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+            <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
               Cancel
             </Button>
-            <Button size="sm" disabled={!isValid} onClick={handleSave}>
-              {isEditing ? "Save changes" : "Add source"}
+            <Button
+              size="sm"
+              disabled={!isValid || isSaving || isStarting}
+              onClick={handleSave}
+            >
+              {isSaving ? "Saving..." : isEditing ? "Save changes" : "Add source"}
             </Button>
           </div>
         </DialogFooter>
