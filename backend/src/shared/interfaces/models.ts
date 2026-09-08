@@ -303,6 +303,34 @@ export interface IPop {
   shareable_link: string;
   duplicate_links?: IPopDuplicateLink[];
 }
+
+/** A source entry as captured by the Edit Source modal (Closed Answers page) — the
+ *  same fields as SourceItem, plus organization and sourceReference which are not
+ *  (yet) part of the answers-collection SourceItem shape. */
+export interface INewSourceItem {
+  source: string;
+  sourceType?: SourceType;
+  sourceName?: string;
+  page?: string | number;
+  organization?: string;
+  sourceReference?: string;
+}
+
+/** A document written to the `new_sources` collection whenever a user edits a Closed
+ *  Answer's sources via the Edit Source modal. Deliberately does NOT update the
+ *  `answers` collection — edits are logged here instead. sourceStatus, timeTaken and
+ *  organizationStatus are placeholders (always null for now); their real meaning and
+ *  shape will be defined in a follow-up. */
+export interface INewSource {
+  _id?: string | ObjectId;
+  answerId: string | ObjectId;
+  questionId: string | ObjectId;
+  sources: INewSourceItem[];
+  sourceStatus: null;
+  timeTaken: null;
+  organizationStatus: null;
+  createdAt?: Date;
+}
 export interface PreviousAnswersItem {
   modifiedBy: string | ObjectId;
   oldAnswer: string;

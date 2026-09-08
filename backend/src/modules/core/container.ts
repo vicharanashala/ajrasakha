@@ -57,6 +57,9 @@ import { OrganizationController } from '../organization/controllers/Organization
 import { PopRepository } from '#root/shared/database/providers/mongo/repositories/PopRepository.js';
 import { PopService } from '../pop/services/PopService.js';
 import { PopController } from '../pop/controllers/PopController.js';
+import { NewSourceRepository } from '#root/shared/database/providers/mongo/repositories/NewSourceRepository.js';
+import { NewSourceService } from '../newSource/services/NewSourceService.js';
+import { NewSourceController } from '../newSource/controllers/NewSourceController.js';
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
   options.bind(QuestionReportController).toSelf().inSingletonScope();
@@ -74,6 +77,7 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(PerformanceController).toSelf().inSingletonScope();
   options.bind(OrganizationController).toSelf().inSingletonScope();
   options.bind(PopController).toSelf().inSingletonScope();
+  options.bind(NewSourceController).toSelf().inSingletonScope();
   // Services
 
   options
@@ -148,6 +152,7 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.PerformanceService).to(PerformanceService).inSingletonScope();
   options.bind(CORE_TYPES.OrganizationService).to(OrganizationService).inSingletonScope();
   options.bind(CORE_TYPES.PopService).to(PopService).inSingletonScope();
+  options.bind(CORE_TYPES.NewSourceService).to(NewSourceService).inSingletonScope();
   options.bind(GLOBAL_TYPES.AccAgentService).to(AccAgentService).inSingletonScope();
   options.bind(CORE_TYPES.CheckOverlapsService).to(CheckOverlapsService).inSingletonScope();
   // Repositories
@@ -183,4 +188,5 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.FeedbackRepository).to(FeedbackRepository).inSingletonScope()
   options.bind(CORE_TYPES.OrganizationRepository).to(OrganizationRepository).inSingletonScope()
   options.bind(CORE_TYPES.PopRepository).to(PopRepository).inSingletonScope()
+  options.bind(CORE_TYPES.NewSourceRepository).to(NewSourceRepository).inSingletonScope()
 });

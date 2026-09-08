@@ -40,6 +40,7 @@ import { Pagination } from "./pagination";
 import { useGetClosedAnswers } from "@/hooks/api/answer/useGetClosedAnswers";
 import { useSearchOrganizations } from "@/hooks/api/organization/useSearchOrganizations";
 import { useLookupPopSource } from "@/hooks/api/pop/useLookupPopSource";
+import { useCreateNewSource } from "@/hooks/api/newSource/useCreateNewSource";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { cn } from "@/lib/utils";
 import type { ClosedAnswer, SourceItem, SourceType } from "@/types";
@@ -402,6 +403,7 @@ const SourceReferenceLookup = ({
 const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<SourceItem>(EMPTY_SOURCE_FORM);
+  const { mutate: createNewSource, isPending: isSaving } = useCreateNewSource();
 
   const updateField = (field: keyof SourceItem, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -415,11 +417,29 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
   };
 
   const handleSave = () => {
-    // NOTE: frontend-only for now — saving into the new_sources collection
-    // (without touching the answer's own sources) will be wired up once
-    // that backend endpoint exists.
-    toast.success("Source details captured (not yet saved — backend update pending).");
-    setOpen(false);
+    if (!form.source.trim()) {
+      toast.error("Enter a Source first.");
+      return;
+    }
+
+    // Edits are logged to the new_sources collection — the answer's own
+    // sources are never modified here.
+    createNewSource(
+      {
+        answerId: answer._id,
+        questionId: answer.questionId ?? "",
+        sources: [form],
+      },
+      {
+        onSuccess: () => {
+          toast.success("Source details saved.");
+          setOpen(false);
+        },
+        onError: () => {
+          toast.error("Failed to save source details.");
+        },
+      },
+    );
   };
 
   return (
@@ -523,8 +543,8 @@ const EditSourceDialog = ({ answer }: { answer: ClosedAnswer }) => {
           <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSave}>
-            Save
+          <Button size="sm" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
