@@ -23,7 +23,6 @@ export class NewSourceService implements INewSourceService {
       sources: [],
       status: 'inProgress',
       timeTaken: null,
-      sourceReferenceStatus: null,
       reviewArray: [
         {
           userId: input.userId,
@@ -41,7 +40,6 @@ export class NewSourceService implements INewSourceService {
       sources: input.sources,
       status: 'completed',
       timeTaken: input.timeTaken,
-      sourceReferenceStatus: input.sourceReferenceStatus,
     });
 
     if (!updated) {

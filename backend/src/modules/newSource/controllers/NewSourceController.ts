@@ -3,7 +3,7 @@ import {JsonController, Post, Patch, Param, Body, Authorized, CurrentUser} from 
 import {OpenAPI} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {CORE_TYPES} from '#root/modules/core/types.js';
-import {INewSource, INewSourceItem, IUser, PopMatchStatus} from '#root/shared/interfaces/models.js';
+import {INewSource, INewSourceItem, IUser} from '#root/shared/interfaces/models.js';
 import {INewSourceService} from '../interfaces/INewSourceService.js';
 
 // Records source edits made on the Closed Answers page's Edit Source modal into the
@@ -42,7 +42,7 @@ export class NewSourceController {
   @Authorized()
   async complete(
     @Param('id') id: string,
-    @Body() body: {sources: INewSourceItem[]; timeTaken: number; sourceReferenceStatus: PopMatchStatus | null},
+    @Body() body: {sources: INewSourceItem[]; timeTaken: number},
   ): Promise<INewSource> {
     return await this.newSourceService.completeNewSource({id, ...body});
   }

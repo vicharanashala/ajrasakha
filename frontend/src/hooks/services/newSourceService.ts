@@ -3,6 +3,12 @@ import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();
 
+export type PopMatchStatus = "duplicateMatch" | "topLevelMatch" | "notFound";
+
+// organization and sourceReferenceStatus are per source - each source on an answer can
+// belong to a different organization and is checked against the pop collection on its
+// own. sourceIndex is that source's position in the *answer's own* `sources` array (in
+// the answers collection), so a reviewer can map this entry back to it.
 export interface NewSourceItem {
   source: string;
   sourceType?: string;
@@ -10,10 +16,11 @@ export interface NewSourceItem {
   page?: string | number;
   organization?: string;
   sourceReference?: string;
+  sourceReferenceStatus: PopMatchStatus | null;
+  sourceIndex: number;
 }
 
 export type NewSourceStatus = "pending" | "inProgress" | "completed";
-export type PopMatchStatus = "duplicateMatch" | "topLevelMatch" | "notFound";
 
 export interface StartNewSourcePayload {
   answerId: string;
@@ -23,7 +30,6 @@ export interface StartNewSourcePayload {
 export interface CompleteNewSourcePayload {
   sources: NewSourceItem[];
   timeTaken: number;
-  sourceReferenceStatus: PopMatchStatus | null;
 }
 
 export interface NewSourceReviewEntry {
@@ -41,7 +47,6 @@ export interface NewSourceRecord {
   sources: NewSourceItem[];
   status: NewSourceStatus;
   timeTaken: number | null;
-  sourceReferenceStatus: PopMatchStatus | null;
   reviewArray: NewSourceReviewEntry[];
 }
 

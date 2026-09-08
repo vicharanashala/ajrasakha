@@ -63,7 +63,7 @@ import type {
   SourceItem,
   SourceType,
 } from "@/types";
-import type { PopMatchStatus } from "@/hooks/services/newSourceService";
+import type { NewSourceItem, PopMatchStatus } from "@/hooks/services/newSourceService";
 
 const EDIT_SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
   { value: "hyper_local", label: "Hyper Local" },
@@ -285,7 +285,9 @@ const SourceReferenceLookup = ({
   onFound,
 }: {
   source: string;
-  onFound?: (id: string, matchStatus: PopMatchStatus) => void;
+  // id is undefined when the lookup came back not found - matchStatus is still
+  // reported as "notFound" so the caller can record that outcome per source.
+  onFound?: (id: string | undefined, matchStatus: PopMatchStatus) => void;
 }) => {
   const { mutate, data, isPending } = useLookupPopSource();
 
@@ -298,6 +300,8 @@ const SourceReferenceLookup = ({
       onSuccess: (result) => {
         if (result?.found && result._id) {
           onFound?.(result._id, result.matchStatus ?? "topLevelMatch");
+        } else {
+          onFound?.(undefined, "notFound");
         }
       },
     });
@@ -336,19 +340,29 @@ const SourceReferenceLookup = ({
   );
 };
 
+// A source entry as edited in this session - adds the ephemeral sourceReferenceStatus
+// (from that source's own Fetch Source Reference lookup) that SourceItem doesn't carry.
+type SourceDraft = SourceItem & { sourceReferenceStatus: PopMatchStatus | null };
+
+const toSourceDraft = (source: SourceItem): SourceDraft => ({
+  ...toSourceForm(source),
+  sourceReferenceStatus: null,
+});
+
+const EMPTY_SOURCE_DRAFT: SourceDraft = { ...EMPTY_SOURCE_FORM, sourceReferenceStatus: null };
+
 // The working area of the page: pick a source (or add one) and edit it in place.
 const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   const sources = answer.sources ?? [];
   const fieldId = useId();
+  // Every existing source's in-progress edits, so picking a different source to edit
+  // (e.g. to set its own organization) never drops another source's changes.
+  const [drafts, setDrafts] = useState<SourceDraft[]>(() => sources.map(toSourceDraft));
   const [editingIndex, setEditingIndex] = useState<number | null>(
     sources.length > 0 ? 0 : null,
   );
-  const [form, setForm] = useState<SourceItem>(
-    sources.length > 0 ? toSourceForm(sources[0]) : EMPTY_SOURCE_FORM,
-  );
+  const [newEntry, setNewEntry] = useState<SourceDraft>(EMPTY_SOURCE_DRAFT);
   const [newSourceId, setNewSourceId] = useState<string | null>(null);
-  const [fetchedPopId, setFetchedPopId] = useState<string | null>(null);
-  const [fetchedMatchStatus, setFetchedMatchStatus] = useState<PopMatchStatus | null>(null);
   const editStartedAtRef = useRef<number | null>(null);
   const sessionStartedRef = useRef(false);
   const newSourceIdRef = useRef<string | null>(null);
@@ -358,6 +372,7 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
   const { mutate: closeNewSource } = useCloseNewSource();
 
   const isEditing = editingIndex !== null;
+  const form = isEditing ? drafts[editingIndex] ?? EMPTY_SOURCE_DRAFT : newEntry;
   const isValid = form.source.trim().length > 0 && Boolean(form.sourceType);
 
   useEffect(() => {
@@ -389,33 +404,42 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
     );
   };
 
-  const updateField = (field: keyof SourceItem, value: string) => {
+  // Merges into whichever source is currently active - an existing one being edited,
+  // or the not-yet-added new entry - so every other source's draft is left untouched.
+  const updateActive = (patch: Partial<SourceDraft>) => {
     ensureSession();
-    setForm((prev) => ({ ...prev, [field]: value }));
+    if (isEditing) {
+      setDrafts((prev) =>
+        prev.map((draft, i) => (i === editingIndex ? { ...draft, ...patch } : draft)),
+      );
+    } else {
+      setNewEntry((prev) => ({ ...prev, ...patch }));
+    }
   };
 
-  const clearLookup = () => {
-    setFetchedPopId(null);
-    setFetchedMatchStatus(null);
+  const updateField = (field: keyof SourceItem, value: string) => {
+    updateActive({ [field]: value } as Partial<SourceDraft>);
   };
 
   const selectSource = (index: number) => {
     ensureSession();
     setEditingIndex(index);
-    setForm(toSourceForm(sources[index]));
-    clearLookup();
   };
 
   const startBlankSource = () => {
     ensureSession();
     setEditingIndex(null);
-    setForm(EMPTY_SOURCE_FORM);
-    clearLookup();
+    setNewEntry(EMPTY_SOURCE_DRAFT);
   };
 
   const resetForm = () => {
-    setForm(isEditing ? toSourceForm(sources[editingIndex]) : EMPTY_SOURCE_FORM);
-    clearLookup();
+    if (isEditing) {
+      setDrafts((prev) =>
+        prev.map((draft, i) => (i === editingIndex ? toSourceDraft(sources[editingIndex]) : draft)),
+      );
+    } else {
+      setNewEntry(EMPTY_SOURCE_DRAFT);
+    }
   };
 
   const handleSave = () => {
@@ -434,16 +458,20 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
       ? Math.round((Date.now() - editStartedAtRef.current) / 1000)
       : 0;
 
-    // Edits are logged to the new_sources collection - the answer's own sources are
-    // never modified here. sourceReference (the pop document's own _id) and
-    // sourceReferenceStatus (topLevelMatch/duplicateMatch/notFound) both come from the
-    // Fetch Source Reference button, so the result is captured client-side.
+    // Every source on the answer is saved together - not just the one being edited -
+    // each carrying its own organization, sourceReference and sourceReferenceStatus
+    // (from that source's own Fetch Source Reference lookup), plus sourceIndex: its
+    // position in the answer's own sources array. Edits are logged to the new_sources
+    // collection - the answer's own sources are never modified here.
+    const finalSources: NewSourceItem[] = (isEditing ? drafts : [...drafts, newEntry]).map(
+      (draft, index) => ({ ...draft, sourceIndex: index }),
+    );
+
     completeNewSource(
       {
         id: newSourceId,
-        sources: [{ ...form, sourceReference: fetchedPopId ?? undefined }],
+        sources: finalSources,
         timeTaken,
-        sourceReferenceStatus: fetchedMatchStatus,
       },
       {
         onSuccess: () => {
@@ -483,9 +511,9 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
         </Button>
       </header>
 
-      {sources.length > 0 ? (
+      {drafts.length > 0 ? (
         <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-          {sources.map((source, index) => (
+          {drafts.map((source, index) => (
             <SourceRow
               key={index}
               source={source}
@@ -519,10 +547,10 @@ const AnswerSourcesEditor = ({ answer }: { answer: ClosedAnswer }) => {
             placeholder="https://... or the document name"
           />
           <SourceReferenceLookup
+            key={editingIndex ?? "new"}
             source={form.source}
             onFound={(id, matchStatus) => {
-              setFetchedPopId(id);
-              setFetchedMatchStatus(matchStatus);
+              updateActive({ sourceReference: id, sourceReferenceStatus: matchStatus });
             }}
           />
         </div>

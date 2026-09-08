@@ -1,4 +1,4 @@
-import {INewSource, INewSourceItem, PopMatchStatus} from '#root/shared/interfaces/models.js';
+import {INewSource, INewSourceItem} from '#root/shared/interfaces/models.js';
 
 export interface StartNewSourceInput {
   answerId: string;
@@ -11,12 +11,12 @@ export interface StartNewSourceInput {
 
 export interface CompleteNewSourceInput {
   id: string;
+  // Every source on the answer, not just the one being edited — each entry carries its
+  // own organization, sourceReference, sourceReferenceStatus (from that source's own
+  // Fetch Source Reference lookup) and sourceIndex (its position in the answer's own
+  // sources array).
   sources: INewSourceItem[];
   timeTaken: number;
-  /** Where the saved source matched in the pop collection — captured client-side by the
-   *  Fetch Source Reference lookup, not re-derived here (that lookup ran against the
-   *  current source's text, which the submitted `sources` entry doesn't carry). */
-  sourceReferenceStatus: PopMatchStatus | null;
 }
 
 export interface INewSourceService {
@@ -24,8 +24,9 @@ export interface INewSourceService {
    *  'inProgress' so the editing timer is backed by a real document from the start. */
   startNewSource(input: StartNewSourceInput): Promise<INewSource>;
 
-  /** Called when the user saves — records the final sources and sourceReferenceStatus,
-   *  stops the timer into timeTaken, and marks the record 'completed'. */
+  /** Called when the user saves — records the final sources (each with its own
+   *  organization/sourceReferenceStatus/sourceIndex), stops the timer into timeTaken,
+   *  and marks the record 'completed'. */
   completeNewSource(input: CompleteNewSourceInput): Promise<INewSource>;
 
   /** Called whenever the Edit Source modal closes — Cancel, Escape, outside click, or

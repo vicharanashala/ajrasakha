@@ -311,7 +311,13 @@ export interface IPop {
 
 /** A source entry as captured by the Edit Source modal (Closed Answers page) — the
  *  same fields as SourceItem, plus organization and sourceReference which are not
- *  (yet) part of the answers-collection SourceItem shape. */
+ *  (yet) part of the answers-collection SourceItem shape. organization and
+ *  sourceReferenceStatus are per source (each source on an answer can belong to a
+ *  different organization and be checked against the pop collection independently).
+ *  sourceIndex is that source's position in the *answer's own* `sources` array (in the
+ *  `answers` collection), so a reviewer can map this entry back to it - it is not an
+ *  index into this document's own `sources` array, which may not be saved in the same
+ *  order or with the same length. */
 export interface INewSourceItem {
   source: string;
   sourceType?: SourceType;
@@ -319,6 +325,8 @@ export interface INewSourceItem {
   page?: string | number;
   organization?: string;
   sourceReference?: string;
+  sourceReferenceStatus: PopMatchStatus | null;
+  sourceIndex: number;
 }
 
 /** Lifecycle of a `new_sources` record: 'inProgress' from the moment the Edit Source
@@ -350,8 +358,10 @@ export interface INewSourceReviewEntry {
 /** A document written to the `new_sources` collection whenever a user edits a Closed
  *  Answer's sources via the Edit Source modal. Deliberately does NOT update the
  *  `answers` collection — edits are logged here instead. Created (status:
- *  'inProgress') when the modal opens, then updated (status: 'completed',
- *  timeTaken, sourceReferenceStatus) when the user saves. */
+ *  'inProgress') when the modal opens, then updated (status: 'completed', timeTaken)
+ *  when the user saves. sourceReferenceStatus lives on each entry in `sources`, not
+ *  here, since every source on the answer is saved together and each is checked
+ *  against the pop collection independently. */
 export interface INewSource {
   _id?: string | ObjectId;
   answerId: string | ObjectId;
@@ -359,7 +369,6 @@ export interface INewSource {
   sources: INewSourceItem[];
   status: NewSourceStatus;
   timeTaken: number | null;
-  sourceReferenceStatus: PopMatchStatus | null;
   reviewArray: INewSourceReviewEntry[];
   createdAt?: Date;
   updatedAt?: Date;

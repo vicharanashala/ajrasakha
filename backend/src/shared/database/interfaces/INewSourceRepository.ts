@@ -7,7 +7,7 @@ export interface INewSourceRepository {
   /** Updates an existing `new_sources` document by id (e.g. on save, once editing completes). */
   updateById(
     id: string,
-    updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken' | 'sourceReferenceStatus'>>,
+    updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken'>>,
   ): Promise<INewSource | null>;
 
   /** Stamps closedAt on the record's reviewArray entry when the Edit Source modal closes —

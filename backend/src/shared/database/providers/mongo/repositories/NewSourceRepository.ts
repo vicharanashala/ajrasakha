@@ -35,7 +35,7 @@ export class NewSourceRepository implements INewSourceRepository {
 
   async updateById(
     id: string,
-    updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken' | 'sourceReferenceStatus'>>,
+    updates: Partial<Pick<INewSource, 'sources' | 'status' | 'timeTaken'>>,
   ): Promise<INewSource | null> {
     await this.init();
 
