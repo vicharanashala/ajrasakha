@@ -845,8 +845,11 @@ export const ClosedAnswersPage = () => {
               isFetching && !isFetchingNextPage && "opacity-60 transition-opacity",
             )}
           >
-            <div className="min-h-0 border-b border-border lg:border-b-0 lg:border-r">
-              <ScrollArea className="h-full">
+            <div className="relative min-h-0 border-b border-border lg:border-b-0 lg:border-r">
+              <ScrollArea
+                type="always"
+                className="h-full [&_[data-orientation=vertical]]:w-1.5 [&_[data-orientation=vertical]>div]:bg-muted-foreground/30"
+              >
                 {answers.map((answer) => (
                   <AnswerListItem
                     key={answer._id}
@@ -866,6 +869,8 @@ export const ClosedAnswersPage = () => {
                       : `All ${totalAnswers.toLocaleString()} answers loaded`}
                 </div>
               </ScrollArea>
+              {/* Hints that the list continues past the fold. */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-card to-transparent" />
             </div>
 
             <div className="min-h-0">
